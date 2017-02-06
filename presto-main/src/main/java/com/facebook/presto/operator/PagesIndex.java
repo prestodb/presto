@@ -32,6 +32,8 @@ import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
+import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -60,11 +62,8 @@ public class PagesIndex
 {
     private static final Logger log = Logger.get(PagesIndex.class);
 
-    // todo this should be a services assigned in the constructor
-    private static final OrderingCompiler orderingCompiler = new OrderingCompiler();
-
-    // todo this should be a services assigned in the constructor
-    private static final JoinCompiler joinCompiler = new JoinCompiler();
+    private final OrderingCompiler orderingCompiler;
+    private final JoinCompiler joinCompiler;
 
     private final List<Type> types;
     private final LongArrayList valueAddresses;
@@ -75,8 +74,10 @@ public class PagesIndex
     private long pagesMemorySize;
     private long estimatedSize;
 
-    public PagesIndex(List<Type> types, int expectedPositions)
+    private PagesIndex(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, List<Type> types, int expectedPositions)
     {
+        this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
+        this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
 
@@ -84,6 +85,44 @@ public class PagesIndex
         channels = (ObjectArrayList<Block>[]) new ObjectArrayList[types.size()];
         for (int i = 0; i < channels.length; i++) {
             channels[i] = ObjectArrayList.wrap(new Block[1024], 0);
+        }
+    }
+
+    public interface Factory
+    {
+        PagesIndex newPagesIndex(List<Type> types, int expectedPositions);
+    }
+
+    public static class TestingFactory
+            implements Factory
+    {
+        private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
+        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+
+        @Override
+        public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
+        {
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, types, expectedPositions);
+        }
+    }
+
+    public static class DefaultFactory
+            implements Factory
+    {
+        private final OrderingCompiler orderingCompiler;
+        private final JoinCompiler joinCompiler;
+
+        @Inject
+        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler)
+        {
+            this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
+            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+        }
+
+        @Override
+        public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
+        {
+            return new PagesIndex(orderingCompiler, joinCompiler, types, expectedPositions);
         }
     }
 

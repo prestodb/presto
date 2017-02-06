@@ -18,6 +18,7 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,14 +32,15 @@ public class GroupByHashPageIndexer
 {
     private final GroupByHash hash;
 
-    public GroupByHashPageIndexer(List<? extends Type> hashTypes)
+    public GroupByHashPageIndexer(List<? extends Type> hashTypes, JoinCompiler joinCompiler)
     {
         this(GroupByHash.createGroupByHash(
                 hashTypes,
                 IntStream.range(0, hashTypes.size()).toArray(),
                 Optional.empty(),
                 20,
-                false));
+                false,
+                joinCompiler));
     }
 
     public GroupByHashPageIndexer(GroupByHash hash)

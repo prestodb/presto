@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.PagesIndexPageSorter;
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.TableColumn;
@@ -82,7 +83,7 @@ public class TestRaptorConnector
                 new RaptorMetadataFactory(connectorId, dbi, shardManager),
                 new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false),
                 new RaptorPageSourceProvider(storageManager),
-                new RaptorPageSinkProvider(storageManager, new PagesIndexPageSorter(), config),
+                new RaptorPageSinkProvider(storageManager, new PagesIndexPageSorter(new PagesIndex.TestingFactory()), config),
                 new RaptorNodePartitioningProvider(nodeSupplier),
                 new RaptorSessionProperties(config),
                 new RaptorTableProperties(typeRegistry),

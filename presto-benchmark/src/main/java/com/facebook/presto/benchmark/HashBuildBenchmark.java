@@ -18,6 +18,7 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -58,7 +59,8 @@ public class HashBuildBenchmark
                 false,
                 Optional.empty(),
                 1_500_000,
-                1);
+                1,
+                new PagesIndex.TestingFactory());
         DriverFactory hashBuildDriverFactory = new DriverFactory(true, true, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty());
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(true, true).addDriverContext());
         hashBuildDriverFactory.close();

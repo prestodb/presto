@@ -849,7 +849,8 @@ public class TestHashJoinOperator
                 false,
                 filterFunctionFactory,
                 100,
-                partitionCount);
+                partitionCount,
+                new PagesIndex.TestingFactory());
         PipelineContext buildPipeline = taskContext.addPipelineContext(true, true);
 
         Driver[] buildDrivers = new Driver[partitionCount];

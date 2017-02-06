@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerFactoryWithStats;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -92,6 +93,7 @@ public class TestHashAggregationOperator
     private ExecutorService executor;
     private DriverContext driverContext;
     private SpillerFactory spillerFactory = new DummySpillerFactory();
+    private JoinCompiler joinCompiler = new JoinCompiler();
 
     @BeforeMethod
     public void setUp()
@@ -164,7 +166,8 @@ public class TestHashAggregationOperator
                 memoryLimitBeforeSpill > 0,
                 succinctBytes(memoryLimitBeforeSpill),
                 succinctBytes(memoryLimitForMergeWithMemory),
-                spillerFactory);
+                spillerFactory,
+                joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
@@ -216,7 +219,8 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 groupIdChannel,
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row(null, 42L, 0L, null, null, null, 0L, 0L)
@@ -259,7 +263,8 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -298,7 +303,8 @@ public class TestHashAggregationOperator
                 memoryLimitBeforeSpill > 0,
                 succinctBytes(memoryLimitBeforeSpill),
                 succinctBytes(memoryLimitForMergeWithMemory),
-                spillerFactory);
+                spillerFactory,
+                joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -333,7 +339,8 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -364,7 +371,8 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                joinCompiler);
 
         assertEquals(toPages(operatorFactory, driverContext, input).size(), 2);
     }
@@ -397,7 +405,8 @@ public class TestHashAggregationOperator
                 memoryLimitBeforeSpill > 0,
                 succinctBytes(memoryLimitBeforeSpill),
                 succinctBytes(memoryLimitForMergeWithMemory),
-                spillerFactory);
+                spillerFactory,
+                joinCompiler);
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(4, Unit.KILOBYTE))
                 .addPipelineContext(true, true)
@@ -480,7 +489,8 @@ public class TestHashAggregationOperator
                 true,
                 new DataSize(smallPagesSpillThresholdSize, Unit.BYTE),
                 succinctBytes(Integer.MAX_VALUE),
-                spillerFactory);
+                spillerFactory,
+                joinCompiler);
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, Unit.KILOBYTE))
                 .addPipelineContext(true, true)
@@ -531,7 +541,8 @@ public class TestHashAggregationOperator
                 true,
                 succinctBytes(8),
                 succinctBytes(Integer.MAX_VALUE),
-                new FailingSpillerFactory());
+                new FailingSpillerFactory(),
+                joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
     }

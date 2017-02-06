@@ -18,6 +18,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -43,6 +44,7 @@ public class MergingHashAggregationBuilder
     private final LocalMemoryContext systemMemoryContext;
     private final long memorySizeBeforeSpill;
     private final int overwriteIntermediateChannelOffset;
+    private final JoinCompiler joinCompiler;
 
     public MergingHashAggregationBuilder(
             List<AccumulatorFactory> accumulatorFactories,
@@ -54,7 +56,8 @@ public class MergingHashAggregationBuilder
             Iterator<Page> sortedPages,
             LocalMemoryContext systemMemoryContext,
             long memorySizeBeforeSpill,
-            int overwriteIntermediateChannelOffset)
+            int overwriteIntermediateChannelOffset,
+            JoinCompiler joinCompiler)
     {
         ImmutableList.Builder<Integer> groupByPartialChannels = ImmutableList.builder();
         for (int i = 0; i < groupByTypes.size(); i++) {
@@ -72,6 +75,7 @@ public class MergingHashAggregationBuilder
         this.systemMemoryContext = systemMemoryContext;
         this.memorySizeBeforeSpill = memorySizeBeforeSpill;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
+        this.joinCompiler = joinCompiler;
 
         rebuildHashAggregationBuilder();
     }
@@ -131,6 +135,7 @@ public class MergingHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 DataSize.succinctBytes(0),
-                Optional.of(overwriteIntermediateChannelOffset));
+                Optional.of(overwriteIntermediateChannelOffset),
+                joinCompiler);
     }
 }

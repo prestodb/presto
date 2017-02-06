@@ -635,6 +635,7 @@ public class TestWindowOperator
                 sortChannels,
                 sortOrder,
                 preSortedChannelPrefix,
-                10);
+                10,
+                new PagesIndex.TestingFactory());
     }
 }

@@ -41,6 +41,7 @@ public class OrderByOperator
         private final List<SortOrder> sortOrder;
         private final List<Type> types;
         private boolean closed;
+        private final PagesIndex.Factory pagesIndexFactory;
 
         public OrderByOperatorFactory(
                 int operatorId,
@@ -49,7 +50,8 @@ public class OrderByOperator
                 List<Integer> outputChannels,
                 int expectedPositions,
                 List<Integer> sortChannels,
-                List<SortOrder> sortOrder)
+                List<SortOrder> sortOrder,
+                PagesIndex.Factory pagesIndexFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -60,6 +62,7 @@ public class OrderByOperator
             this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
 
             this.types = toTypes(sourceTypes, outputChannels);
+            this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         }
 
         @Override
@@ -80,7 +83,8 @@ public class OrderByOperator
                     outputChannels,
                     expectedPositions,
                     sortChannels,
-                    sortOrder);
+                    sortOrder,
+                    pagesIndexFactory);
         }
 
         @Override
@@ -92,7 +96,7 @@ public class OrderByOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new OrderByOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, expectedPositions, sortChannels, sortOrder);
+            return new OrderByOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, expectedPositions, sortChannels, sortOrder, pagesIndexFactory);
         }
     }
 
@@ -122,15 +126,18 @@ public class OrderByOperator
             List<Integer> outputChannels,
             int expectedPositions,
             List<Integer> sortChannels,
-            List<SortOrder> sortOrder)
+            List<SortOrder> sortOrder,
+            PagesIndex.Factory pagesIndexFactory)
     {
+        requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
+
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
         this.types = toTypes(sourceTypes, outputChannels);
         this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
 
-        this.pageIndex = new PagesIndex(sourceTypes, expectedPositions);
+        this.pageIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
 
         this.pageBuilder = new PageBuilder(this.types);
     }

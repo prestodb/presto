@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -57,6 +58,7 @@ public class SpillableHashAggregationBuilder
     private CompletableFuture<?> spillInProgress = CompletableFuture.completedFuture(null);
     private final LocalMemoryContext aggregationMemoryContext;
     private final LocalMemoryContext spillMemoryContext;
+    private final JoinCompiler joinCompiler;
 
     private long hashCollisions;
     private double expectedHashCollisions;
@@ -71,7 +73,8 @@ public class SpillableHashAggregationBuilder
             OperatorContext operatorContext,
             DataSize memoryLimitBeforeSpill,
             DataSize memoryLimitForMergeWithMemory,
-            SpillerFactory spillerFactory)
+            SpillerFactory spillerFactory,
+            JoinCompiler joinCompiler)
     {
         this.accumulatorFactories = accumulatorFactories;
         this.step = step;
@@ -83,6 +86,7 @@ public class SpillableHashAggregationBuilder
         this.memorySizeBeforeSpill = memoryLimitBeforeSpill.toBytes();
         this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;
+        this.joinCompiler = joinCompiler;
 
         AbstractAggregatedMemoryContext systemMemoryContext = operatorContext.getSystemMemoryContext();
         this.aggregationMemoryContext = systemMemoryContext.newLocalMemoryContext();
@@ -265,7 +269,8 @@ public class SpillableHashAggregationBuilder
                 sortedPages,
                 operatorContext.getSystemMemoryContext().newLocalMemoryContext(),
                 memorySizeBeforeSpill,
-                hashAggregationBuilder.getKeyChannels()));
+                hashAggregationBuilder.getKeyChannels(),
+                joinCompiler));
 
         return merger.get().buildResult();
     }
@@ -285,6 +290,7 @@ public class SpillableHashAggregationBuilder
                 groupByChannels,
                 hashChannel,
                 operatorContext,
-                DataSize.succinctBytes(0));
+                DataSize.succinctBytes(0),
+                joinCompiler);
     }
 }
