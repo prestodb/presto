@@ -69,7 +69,7 @@ public class PlanFragmenter
 
     public static SubPlan createSubPlans(Session session, Metadata metadata, Plan plan)
     {
-        Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getSymbolAllocator().getTypes());
+        Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes());
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()))
                 .setSingleNodeDistribution();

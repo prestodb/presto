@@ -43,9 +43,4 @@ public class Plan
     {
         return symbolAllocator.getTypes();
     }
-
-    public SymbolAllocator getSymbolAllocator()
-    {
-        return symbolAllocator;
-    }
 }
