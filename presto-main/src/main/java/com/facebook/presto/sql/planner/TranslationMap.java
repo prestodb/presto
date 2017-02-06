@@ -161,7 +161,7 @@ class TranslationMap
         // also update the field mappings if this expression is a field reference
         rewriteBase.getScope().tryResolveField(expression)
                 .filter(ResolvedField::isLocal)
-                .ifPresent(field -> fieldSymbols[rewriteBase.getDescriptor().indexOf(field.getField())] = symbol);
+                .ifPresent(field -> fieldSymbols[field.getHierarchyFieldIndex()] = symbol);
     }
 
     public boolean containsSymbol(Expression expression)
