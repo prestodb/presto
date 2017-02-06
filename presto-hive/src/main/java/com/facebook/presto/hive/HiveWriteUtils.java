@@ -451,7 +451,6 @@ public final class HiveWriteUtils
             return hdfsEnvironment.getFileSystem(user, path) instanceof ViewFileSystem;
         }
         catch (IOException e) {
-            e.printStackTrace();
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
