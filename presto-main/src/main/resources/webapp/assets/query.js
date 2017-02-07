@@ -743,9 +743,6 @@ var QueryDetail = React.createClass({
         });
         event.preventDefault();
     },
-    killQuery: function() {
-        $.ajax({url: 'v1/query/' + this.state.query.queryId, type: 'DELETE'});
-    },
     getTasksFromStage: function (stage) {
         if (stage === undefined || !stage.hasOwnProperty('subStages') || !stage.hasOwnProperty('tasks')) {
             return []
@@ -814,6 +811,7 @@ var QueryDetail = React.createClass({
                         </table>
                     </div>
                 </div>
+                <hr className="h3-hr" />
                 <div className="row">
                     <div className="col-xs-12">
                         <TaskList key={ this.state.query.queryId } tasks={ tasks } />
@@ -841,9 +839,9 @@ var QueryDetail = React.createClass({
                                 </td>
                             </tr>
                         </table>
-
                     </div>
                 </div>
+                <hr className="h3-hr" />
                 <div className="row">
                     <div className="col-xs-12">
                         <StageList key={ this.state.query.queryId } outputStage={ this.state.lastSnapshotStage } />
@@ -897,6 +895,7 @@ var QueryDetail = React.createClass({
                 <div className="row">
                     <div className="col-xs-12">
                         <h3>Error Information</h3>
+                        <hr className="h3-hr" />
                         <table className="table">
                             <tbody>
                                 <tr>
@@ -956,38 +955,55 @@ var QueryDetail = React.createClass({
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-7">
-                        <h2>
+                    <div className="col-xs-6">
+                        <h3 className="query-id">
                             <span id="query-id">{ query.queryId }</span>
                             <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
                                 <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
                             </a>
-                        </h2>
+                        </h3>
                     </div>
-                    <div className="col-xs-5">
+                    <div className="col-xs-6">
                         <table className="query-links">
-                            <tr>
-                                <td>
-                                    <a onClick={ this.killQuery } className={ "btn btn-warning " + (["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1 ? "disabled" : "") } target="_blank">Kill Query</a>
-                                    &nbsp;&nbsp;&nbsp;
-                                    <a href={ "plan.html?" + query.queryId } className="btn btn-info" target="_blank">Live Plan</a>
-                                    &nbsp;
-                                    <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info" target="_blank">Raw JSON</a>
-                                    &nbsp;
-                                    <a href={ "/timeline.html?" + query.queryId } className="btn btn-info" target="_blank">Split Timeline</a>
-                                </td>
-                            </tr>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <a href={ "query.html?" + query.queryId } className="btn btn-info navbar-btn nav-disabled">Overview</a>
+                                        &nbsp;
+                                        <a href={ "plan.html?" + query.queryId } className="btn btn-info navbar-btn">Live Plan</a>
+                                        &nbsp;
+                                        <a href={ "/timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
+                                        &nbsp;
+                                        <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info navbar-btn" target="_blank">JSON</a>
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
+                <hr className="h2-hr"/>
                 <div className="row">
                     <div className="col-xs-12">
-                        { this.renderProgressBar() }
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td width="100%">
+                                        { this.renderProgressBar() }
+                                    </td>
+                                    <td>
+                                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className={ "btn btn-warning " + (["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1 ? "disabled" : "") } target="_blank">
+                                            Kill
+                                        </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
                 <div className="row">
                     <div className="col-xs-6">
                         <h3>Session</h3>
+                         <hr className="h3-hr"/>
                         <table className="table">
                             <tbody>
                                 <tr>
@@ -1055,6 +1071,7 @@ var QueryDetail = React.createClass({
                     </div>
                     <div className="col-xs-6">
                         <h3>Data Source</h3>
+                        <hr className="h3-hr" />
                         <table className="table">
                             <tbody>
                                 <tr>
@@ -1078,6 +1095,7 @@ var QueryDetail = React.createClass({
                     </div>
                     <div className="col-xs-6">
                         <h3>Execution</h3>
+                        <hr className="h3-hr" />
                         <table className="table">
                             <tbody>
                                 <tr>
@@ -1113,6 +1131,7 @@ var QueryDetail = React.createClass({
                         <div className="row">
                             <div className="col-xs-6">
                                 <h3>Resource Utilization Summary</h3>
+                                <hr className="h3-hr" />
                                 <table className="table">
                                     <tbody>
                                         <tr>
@@ -1184,6 +1203,7 @@ var QueryDetail = React.createClass({
                             </div>
                             <div className="col-xs-6">
                                 <h3>Timeline</h3>
+                                <hr className="h3-hr" />
                                 <table className="table">
                                     <tbody>
                                         <tr>
@@ -1196,7 +1216,7 @@ var QueryDetail = React.createClass({
                                                 </div>
                                             </td>
                                         </tr>
-                                        <tr>
+                                        <tr className="tr-noborder">
                                             <td className="info-sparkline-text">
                                                 { formatCount(this.state.cpuTimeRate[this.state.cpuTimeRate.length - 1]) }
                                             </td>
@@ -1211,7 +1231,7 @@ var QueryDetail = React.createClass({
                                                 </div>
                                             </td>
                                         </tr>
-                                        <tr>
+                                        <tr className="tr-noborder">
                                             <td className="info-sparkline-text">
                                                 { formatCount(this.state.rowInputRate[this.state.rowInputRate.length - 1]) }
                                             </td>
@@ -1226,7 +1246,7 @@ var QueryDetail = React.createClass({
                                                 </div>
                                             </td>
                                         </tr>
-                                        <tr>
+                                        <tr className="tr-noborder">
                                             <td className="info-sparkline-text">
                                                 { formatDataSize(this.state.byteInputRate[this.state.byteInputRate.length - 1]) }
                                             </td>
@@ -1241,7 +1261,7 @@ var QueryDetail = React.createClass({
                                                 </div>
                                             </td>
                                         </tr>
-                                        <tr>
+                                        <tr className="tr-noborder">
                                             <td className="info-sparkline-text">
                                                 { formatDataSize(this.state.reservedMemory[this.state.reservedMemory.length - 1]) }
                                             </td>
@@ -1261,6 +1281,7 @@ var QueryDetail = React.createClass({
                                 <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
                             </a>
                         </h3>
+                        <hr className="h3-hr" />
                         <pre id="query">
                             <code className="lang-sql" id="query-text">
                                 { query.query }

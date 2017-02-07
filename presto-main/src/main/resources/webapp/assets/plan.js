@@ -140,9 +140,6 @@ let LivePlan = React.createClass({
                 this.resetTimer();
             }.bind(this));
     },
-    killQuery: function() {
-        $.ajax({url: 'v1/query/' + this.state.query.queryId, type: 'DELETE'});
-    },
     componentDidMount: function() {
         this.refreshLoop();
     },
@@ -241,33 +238,49 @@ let LivePlan = React.createClass({
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-7">
-                        <h2>
+                    <div className="col-xs-6">
+                        <h3 className="query-id">
                             <span id="query-id">{ query.queryId }</span>
                             <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
                                 <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
                             </a>
-                        </h2>
+                        </h3>
                     </div>
-                    <div className="col-xs-5">
+                    <div className="col-xs-6">
                         <table className="query-links">
-                            <tr>
-                                <td>
-                                    <a onClick={ this.killQuery } className={ "btn btn-warning " + (["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1 ? "disabled" : "") } target="_blank">Kill Query</a>
-                                    &nbsp;&nbsp;&nbsp;
-                                    <a href={ "query.html?" + query.queryId } className="btn btn-info" target="_blank">Query Details</a>
-                                    &nbsp;
-                                    <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info" target="_blank">Raw JSON</a>
-                                    &nbsp;
-                                    <a href={ "/timeline.html?" + query.queryId } className="btn btn-info" target="_blank">Split Timeline</a>
-                                </td>
-                            </tr>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <a href={ "query.html?" + query.queryId } className="btn btn-info navbar-btn">Overview</a>
+                                        &nbsp;
+                                        <a href={ "plan.html?" + query.queryId } className="btn btn-info navbar-btn nav-disabled">Live Plan</a>
+                                        &nbsp;
+                                        <a href={ "/timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
+                                        &nbsp;
+                                        <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info navbar-btn" target="_blank">JSON</a>
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
+                <hr className="h2-hr"/>
                 <div className="row">
                     <div className="col-xs-12">
-                        { this.renderProgressBar() }
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td width="100%">
+                                        { this.renderProgressBar() }
+                                    </td>
+                                    <td>
+                                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className={ "btn btn-warning " + (["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1 ? "disabled" : "") } target="_blank">
+                                            Kill
+                                        </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
