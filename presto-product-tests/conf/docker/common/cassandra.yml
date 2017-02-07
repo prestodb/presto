@@ -6,5 +6,3 @@ services:
     image: 'cassandra:2.1.15'
     ports:
       - '9042:9042'
-      - '9160:9160'
-
