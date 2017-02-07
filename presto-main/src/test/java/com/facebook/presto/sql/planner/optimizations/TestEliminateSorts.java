@@ -92,6 +92,7 @@ public class TestEliminateSorts
                 new UnaliasSymbolReferences(),
                 new AddExchanges(queryRunner.getMetadata(), new SqlParser()),
                 new PruneUnreferencedOutputs(),
+                new MergeProjections(),
                 new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections()))
         );
 
