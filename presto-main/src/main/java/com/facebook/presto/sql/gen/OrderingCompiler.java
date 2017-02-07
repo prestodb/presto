@@ -40,6 +40,8 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.util.List;
 import java.util.Objects;
@@ -62,8 +64,10 @@ public class OrderingCompiler
 {
     private static final Logger log = Logger.get(OrderingCompiler.class);
 
-    private final LoadingCache<PagesIndexComparatorCacheKey, PagesIndexOrdering> pagesIndexOrderings = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<PagesIndexComparatorCacheKey, PagesIndexOrdering>()
+    private final LoadingCache<PagesIndexComparatorCacheKey, PagesIndexOrdering> pagesIndexOrderings = CacheBuilder.newBuilder()
+            .recordStats()
+            .maximumSize(1000)
+            .build(new CacheLoader<PagesIndexComparatorCacheKey, PagesIndexOrdering>()
             {
                 @Override
                 public PagesIndexOrdering load(PagesIndexComparatorCacheKey key)
@@ -72,6 +76,13 @@ public class OrderingCompiler
                     return internalCompilePagesIndexOrdering(key.getSortTypes(), key.getSortChannels(), key.getSortOrders());
                 }
             });
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getPagesIndexOrderingsStats()
+    {
+        return new CacheStatsMBean(pagesIndexOrderings);
+    }
 
     public PagesIndexOrdering compilePagesIndexOrdering(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {

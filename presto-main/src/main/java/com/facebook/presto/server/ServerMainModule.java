@@ -274,6 +274,7 @@ public class ServerMainModule
         binder.bind(JoinCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(JoinCompiler.class).withGeneratedName();
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
