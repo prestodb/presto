@@ -234,6 +234,15 @@ be any one of the available profiles:
     presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
     ```
 
+### Run product tests concurrently 
+
+To make product test execution last shorter you may want to consider to run product tests concurrently.
+In order to achieve this you need to use `--thread-count` switch from tempto.
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh <profile> --thread-count 4 -x quarantine,big_query,profile_specific_tests
+    ```
+
 ### Running from IntelliJ
 
 For running Java based tests from IntelliJ see the section on
