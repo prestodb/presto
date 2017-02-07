@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -33,6 +34,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -45,6 +47,8 @@ public abstract class AbstractTestBlock
     {
         assertBlockPositions(block, expectedValues);
         assertBlockPositions(copyBlock(block), expectedValues);
+
+        assertBlockSize(block);
 
         try {
             block.isNull(-1);
@@ -84,6 +88,31 @@ public abstract class AbstractTestBlock
         for (int position = 0; position < block.getPositionCount(); position++) {
             assertBlockPosition(block, position, expectedValues[position]);
         }
+    }
+
+    protected List<Block> splitBlock(Block block, int count)
+    {
+        double sizePerSplit = block.getPositionCount() * 1.0 / count;
+        ImmutableList.Builder<Block> result = ImmutableList.builder();
+        for (int i = 0; i < count; i++) {
+            int startPosition = toIntExact(Math.round(sizePerSplit * i));
+            int endPosition = toIntExact(Math.round(sizePerSplit * (i + 1)));
+            result.add(block.getRegion(startPosition, endPosition - startPosition));
+        }
+        return result.build();
+    }
+
+    private void assertBlockSize(Block block)
+    {
+        // Asserting on `block` is not very effective because most blocks passed to this method is compact.
+        // Therefore, we split the `block` into two and assert again.
+        assertEquals(block.getSizeInBytes(), copyBlock(block).getSizeInBytes());
+
+        List<Block> splitBlock = splitBlock(block, 2);
+        Block firstHalf = splitBlock.get(0);
+        Block secondHalf = splitBlock.get(1);
+        assertEquals(firstHalf.getSizeInBytes(), copyBlock(firstHalf).getSizeInBytes());
+        assertEquals(secondHalf.getSizeInBytes(), copyBlock(secondHalf).getSizeInBytes());
     }
 
     protected <T> void assertBlockPosition(Block block, int position, T expectedValue)

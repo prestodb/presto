@@ -34,6 +34,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -78,18 +79,12 @@ public class TestInterleavedBlock
         }
         InterleavedBlock block = blockBuilder.build();
 
-        Block half1 = block.getRegion(0, numEntries / 2);
-        Block half2 = block.getRegion(numEntries / 2, numEntries / 2);
-        Block quarter1 = half1.getRegion(0, numEntries / 4);
-        Block quarter2 = half1.getRegion(numEntries / 4, numEntries / 4);
-        Block quarter3 = half2.getRegion(0, numEntries / 4);
-        Block quarter4 = half2.getRegion(numEntries / 4, numEntries / 4);
-
+        List<Block> splitQuarter = splitBlock(block, 4);
         int sizeInBytes = block.getSizeInBytes();
-        int quarter1size = quarter1.getSizeInBytes();
-        int quarter2size = quarter2.getSizeInBytes();
-        int quarter3size = quarter3.getSizeInBytes();
-        int quarter4size = quarter4.getSizeInBytes();
+        int quarter1size = splitQuarter.get(0).getSizeInBytes();
+        int quarter2size = splitQuarter.get(1).getSizeInBytes();
+        int quarter3size = splitQuarter.get(2).getSizeInBytes();
+        int quarter4size = splitQuarter.get(3).getSizeInBytes();
         double expectedQuarterSizeMin = sizeInBytes * 0.2;
         double expectedQuarterSizeMax = sizeInBytes * 0.3;
         assertTrue(quarter1size > expectedQuarterSizeMin && quarter1size < expectedQuarterSizeMax, format("quarter1size is %s, should be between %s and %s", quarter1size, expectedQuarterSizeMin, expectedQuarterSizeMax));
@@ -205,6 +200,19 @@ public class TestInterleavedBlock
         else {
             throw new IllegalArgumentException("Unsupported type " + type);
         }
+    }
+
+    @Override
+    protected List<Block> splitBlock(Block block, int count)
+    {
+        double entriesPerSplit = block.getPositionCount() * 1.0 / count / COLUMN_COUNT;
+        ImmutableList.Builder<Block> result = ImmutableList.builder();
+        for (int i = 0; i < count; i++) {
+            int startPosition = toIntExact(Math.round(entriesPerSplit * i) * COLUMN_COUNT);
+            int endPosition = toIntExact(Math.round(entriesPerSplit * (i + 1)) * COLUMN_COUNT);
+            result.add(block.getRegion(startPosition, endPosition - startPosition));
+        }
+        return result.build();
     }
 
     @Override

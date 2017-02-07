@@ -22,6 +22,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -73,18 +74,12 @@ public class TestVariableWidthBlock
         }
         Block block = blockBuilder.build();
 
-        Block half1 = block.getRegion(0, numEntries / 2);
-        Block half2 = block.getRegion(numEntries / 2, numEntries / 2);
-        Block quarter1 = half1.getRegion(0, numEntries / 4);
-        Block quarter2 = half1.getRegion(numEntries / 4, numEntries / 4);
-        Block quarter3 = half2.getRegion(0, numEntries / 4);
-        Block quarter4 = half2.getRegion(numEntries / 4, numEntries / 4);
-
+        List<Block> splitQuarter = splitBlock(block, 4);
         int sizeInBytes = block.getSizeInBytes();
-        int quarter1size = quarter1.getSizeInBytes();
-        int quarter2size = quarter2.getSizeInBytes();
-        int quarter3size = quarter3.getSizeInBytes();
-        int quarter4size = quarter4.getSizeInBytes();
+        int quarter1size = splitQuarter.get(0).getSizeInBytes();
+        int quarter2size = splitQuarter.get(1).getSizeInBytes();
+        int quarter3size = splitQuarter.get(2).getSizeInBytes();
+        int quarter4size = splitQuarter.get(3).getSizeInBytes();
         double expectedQuarterSizeMin = sizeInBytes * 0.2;
         double expectedQuarterSizeMax = sizeInBytes * 0.3;
         assertTrue(quarter1size > expectedQuarterSizeMin && quarter1size < expectedQuarterSizeMax, format("quarter1size is %s, should be between %s and %s", quarter1size, expectedQuarterSizeMin, expectedQuarterSizeMax));
