@@ -99,8 +99,6 @@
         <dependency>
             <groupId>com.datastax.cassandra</groupId>
             <artifactId>cassandra-driver-core</artifactId>
-            <scope>compile</scope>
-            <version>3.0.0</version>
         </dependency>
     </dependencies>
 
