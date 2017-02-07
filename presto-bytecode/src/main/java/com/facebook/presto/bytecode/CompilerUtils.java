@@ -69,6 +69,7 @@ public final class CompilerUtils
 
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
     {
+        log.debug("Defining class: %s", classDefinition.getName());
         Class<?> clazz = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next();
         return clazz.asSubclass(superType);
     }
