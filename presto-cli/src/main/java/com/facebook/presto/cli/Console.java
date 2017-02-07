@@ -218,6 +218,7 @@ public class Console
                 // execute any complete statements
                 String sql = buffer.toString();
                 StatementSplitter splitter = new StatementSplitter(sql, ImmutableSet.of(";", "\\G"));
+                StringBuilder statements = new StringBuilder();
                 for (Statement split : splitter.getCompleteStatements()) {
                     Optional<Object> statement = getParsedStatement(split.statement());
                     if (statement.isPresent() && isSessionParameterChange(statement.get())) {
@@ -235,7 +236,15 @@ public class Console
 
                         process(queryRunner, split.statement(), outputFormat, true);
                     }
-                    reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
+                    if (statements.length() == 0) {
+                        statements.append(squeezeStatement(split.statement())).append(split.terminator());
+                    }
+                    else {
+                        statements.append(" ").append(squeezeStatement(split.statement())).append(split.terminator());
+                    }
+                }
+                if (statements.length() != 0) {
+                    reader.getHistory().add(statements);
                 }
 
                 // replace buffer with trailing partial statement
