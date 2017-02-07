@@ -85,6 +85,11 @@ public abstract class AbstractTestingPrestoClient<T>
 
     public T execute(Session session, @Language("SQL") String sql)
     {
+        return executeWithId(session, sql).getResult();
+    }
+
+    public ResultWithQueryId<T> executeWithId(Session session, @Language("SQL") String sql)
+    {
         ResultsSession<T> resultsSession = getResultSession(session);
 
         ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), true, new Duration(2, TimeUnit.MINUTES));
@@ -106,7 +111,8 @@ public abstract class AbstractTestingPrestoClient<T>
                     resultsSession.setUpdateCount(results.getUpdateCount());
                 }
 
-                return resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
+                T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
+                return new ResultWithQueryId<>(results.getId(), result);
             }
 
             QueryError error = client.finalResults().getError();

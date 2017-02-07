@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryPlan;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.Metadata;
@@ -25,6 +26,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
@@ -342,6 +344,26 @@ public class DistributedQueryRunner
         }
     }
 
+    public ResultWithQueryId<MaterializedResult> executeWithQueryId(Session session, @Language("SQL") String sql)
+    {
+        lock.readLock().lock();
+        try {
+            return prestoClient.executeWithId(session, sql);
+        }
+        finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    public QueryInfo getQueryInfo(QueryId queryId)
+    {
+        return coordinator.getQueryManager().getQueryInfo(queryId);
+    }
+
+    public QueryPlan getQueryPlan(QueryId queryId)
+    {
+        return coordinator.getQueryManager().getQueryPlan(queryId);
+    }
     @Override
     public Lock getExclusiveLock()
     {

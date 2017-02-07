@@ -37,6 +37,8 @@ public interface QueryExecution
 
     void setResourceGroup(ResourceGroupId resourceGroupId);
 
+    QueryPlan getQueryPlan();
+
     Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException;
 

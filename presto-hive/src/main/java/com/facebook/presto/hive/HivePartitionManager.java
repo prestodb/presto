@@ -160,20 +160,20 @@ public class HivePartitionManager
 
     private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
     {
-        checkArgument(effectivePredicate.getDomains().isPresent());
-
         ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
-            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
+        effectivePredicate.getDomains().ifPresent(domains -> {
+            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
 
-            ValueSet values = entry.getValue().getValues();
-            ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
-                    ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
-                    discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
-                    allOrNone -> Optional.empty())
-                    .orElse(values);
-            builder.put(hiveColumnHandle, Domain.create(compactValueSet, entry.getValue().isNullAllowed()));
-        }
+                ValueSet values = entry.getValue().getValues();
+                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
+                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
+                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
+                        allOrNone -> Optional.empty())
+                        .orElse(values);
+                builder.put(hiveColumnHandle, Domain.create(compactValueSet, entry.getValue().isNullAllowed()));
+            }
+        });
         return TupleDomain.withColumnDomains(builder.build());
     }
 

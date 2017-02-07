@@ -32,6 +32,8 @@ public interface QueryManager
 
     Optional<ResourceGroupId> getQueryResourceGroup(QueryId queryId);
 
+    QueryPlan getQueryPlan(QueryId queryId);
+
     Optional<QueryState> getQueryState(QueryId queryId);
 
     void recordHeartbeat(QueryId queryId);
