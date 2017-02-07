@@ -30,7 +30,7 @@ public class ArrayBlock
     private final Block values;
     private final int[] offsets;
 
-    private final int sizeInBytes;
+    private int sizeInBytes;
     private final int retainedSizeInBytes;
 
     public ArrayBlock(int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
@@ -64,7 +64,7 @@ public class ArrayBlock
 
         this.values = requireNonNull(values);
 
-        sizeInBytes = values.getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * this.positionCount);
+        sizeInBytes = -1;
         retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + values.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(valueIsNull));
     }
 
@@ -77,7 +77,18 @@ public class ArrayBlock
     @Override
     public int getSizeInBytes()
     {
+        // this is racy but is safe because sizeInBytes is an int and the calculation is stable
+        if (sizeInBytes < 0) {
+            calculateSize();
+        }
         return sizeInBytes;
+    }
+
+    private void calculateSize()
+    {
+        int valueStart = offsets[arrayOffset];
+        int valueEnd = offsets[arrayOffset + positionCount];
+        sizeInBytes = values.getRegion(valueStart, valueEnd - valueStart).getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * this.positionCount);
     }
 
     @Override
