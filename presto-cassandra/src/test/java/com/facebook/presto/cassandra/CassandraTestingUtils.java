@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.UUID;
 
+import static com.facebook.presto.cassandra.TestCassandraIntegrationSmokeTest.createTableWithEmptyBlobCell;
 import static org.testng.Assert.assertEquals;
 
 public class CassandraTestingUtils
@@ -39,6 +40,7 @@ public class CassandraTestingUtils
     public static final int PORT = 9142;
     public static final String TABLE_ALL_TYPES = "table_all_types";
     public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
+    public static final String TABLE_WITH_EMPTY_BLOB_CELL = "table_with_empty_blob_cell";
     private static final String CLUSTER_NAME = "TestCluster";
 
     private CassandraTestingUtils() {}
@@ -60,6 +62,7 @@ public class CassandraTestingUtils
             try (Session session = cluster.connect(keyspace)) {
                 createTableAllTypes(session, keyspace, TABLE_ALL_TYPES, date);
                 createTableAllTypesPartitionKey(session, keyspace, TABLE_ALL_TYPES_PARTITION_KEY, date);
+                createTableWithEmptyBlobCell(session, keyspace, TABLE_WITH_EMPTY_BLOB_CELL, date);
             }
         }
     }

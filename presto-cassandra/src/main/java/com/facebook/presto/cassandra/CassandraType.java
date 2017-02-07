@@ -46,6 +46,7 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.net.InetAddresses.toAddrString;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
@@ -202,7 +203,11 @@ public enum CassandraType
                     return NullableValue.of(nativeType, utf8Slice(row.getVarint(i).toString()));
                 case BLOB:
                 case CUSTOM:
-                    return NullableValue.of(nativeType, wrappedBuffer(row.getBytesUnsafe(i)));
+                    ByteBuffer value = row.getBytesUnsafe(i);
+                    if (value.capacity() == 0) {
+                        return NullableValue.of(nativeType, EMPTY_SLICE);
+                    }
+                    return NullableValue.of(nativeType, wrappedBuffer(value));
                 case SET:
                     checkTypeArguments(cassandraType, 1, typeArguments);
                     return NullableValue.of(nativeType, utf8Slice(buildSetValue(row, i, typeArguments.get(0))));
