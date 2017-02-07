@@ -140,6 +140,9 @@ let LivePlan = React.createClass({
                 this.resetTimer();
             }.bind(this));
     },
+    handleStageClick: function(stageCssId) {
+        window.open("/stage.html?" + stageCssId,'_blank');
+    },
     componentDidMount: function() {
         this.refreshLoop();
     },
@@ -190,6 +193,7 @@ let LivePlan = React.createClass({
         this.state.render(d3.select("#plan-canvas g"), graph);
 
         const svg = this.state.svg;
+        svg.selectAll("g.cluster").on("click", this.handleStageClick);
         svg.attr("height", graph.graph().height);
         svg.attr("width", graph.graph().width);
     },
@@ -254,6 +258,8 @@ let LivePlan = React.createClass({
                                         <a href={ "query.html?" + query.queryId } className="btn btn-info navbar-btn">Overview</a>
                                         &nbsp;
                                         <a href={ "plan.html?" + query.queryId } className="btn btn-info navbar-btn nav-disabled">Live Plan</a>
+                                        &nbsp;
+                                        <a href={ "stage.html?" + query.queryId } className="btn btn-info navbar-btn">Stage Performance</a>
                                         &nbsp;
                                         <a href={ "/timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
                                         &nbsp;

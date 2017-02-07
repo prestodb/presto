@@ -972,6 +972,8 @@ var QueryDetail = React.createClass({
                                         &nbsp;
                                         <a href={ "plan.html?" + query.queryId } className="btn btn-info navbar-btn">Live Plan</a>
                                         &nbsp;
+                                        <a href={ "stage.html?" + query.queryId } className="btn btn-info navbar-btn">Stage Performance</a>
+                                        &nbsp;
                                         <a href={ "/timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
                                         &nbsp;
                                         <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info navbar-btn" target="_blank">JSON</a>
@@ -1003,7 +1005,7 @@ var QueryDetail = React.createClass({
                 <div className="row">
                     <div className="col-xs-6">
                         <h3>Session</h3>
-                         <hr className="h3-hr"/>
+                        <hr className="h3-hr"/>
                         <table className="table">
                             <tbody>
                                 <tr>
