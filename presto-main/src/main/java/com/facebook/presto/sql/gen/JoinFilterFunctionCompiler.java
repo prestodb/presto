@@ -44,6 +44,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -79,7 +81,7 @@ public class JoinFilterFunctionCompiler
         this.metadata = metadata;
     }
 
-    private final LoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
+    private final LoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
             new CacheLoader<JoinFilterCacheKey, JoinFilterFunctionFactory>()
             {
                 @Override
@@ -270,6 +272,13 @@ public class JoinFilterFunctionCompiler
         }
 
         return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getJoinFilterFunctionCacheStats()
+    {
+        return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
