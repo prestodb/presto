@@ -22,6 +22,7 @@ import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class IntArrayBlockBuilder
@@ -30,20 +31,21 @@ public class IntArrayBlockBuilder
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
 
     private BlockBuilderStatus blockBuilderStatus;
+    private boolean initialized;
+    private int initialEntryCount;
 
     private int positionCount;
 
     // it is assumed that these arrays are the same length
-    private boolean[] valueIsNull;
-    private int[] values;
+    private boolean[] valueIsNull = new boolean[0];
+    private int[] values = new int[0];
 
     private int retainedSizeInBytes;
 
     public IntArrayBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-        this.values = new int[expectedEntries];
-        this.valueIsNull = new boolean[expectedEntries];
+        this.initialEntryCount = max(expectedEntries, 1);
 
         updateDataSize();
     }
@@ -93,9 +95,11 @@ public class IntArrayBlockBuilder
     {
         this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
 
-        int newSize = calculateBlockResetSize(positionCount);
-        valueIsNull = new boolean[newSize];
-        values = new int[newSize];
+        initialized = false;
+        initialEntryCount = calculateBlockResetSize(positionCount);
+
+        valueIsNull = new boolean[0];
+        values = new int[0];
 
         positionCount = 0;
 
@@ -110,7 +114,15 @@ public class IntArrayBlockBuilder
 
     private void growCapacity()
     {
-        int newSize = BlockUtil.calculateNewArraySize(values.length);
+        int newSize;
+        if (initialized) {
+            newSize = BlockUtil.calculateNewArraySize(values.length);
+        }
+        else {
+            newSize = initialEntryCount;
+            initialized = true;
+        }
+
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         values = Arrays.copyOf(values, newSize);
         updateDataSize();

@@ -21,6 +21,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
@@ -37,8 +38,12 @@ public class FixedWidthBlockBuilder
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedWidthBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
 
     private BlockBuilderStatus blockBuilderStatus;
-    private SliceOutput sliceOutput;
-    private SliceOutput valueIsNull;
+
+    private boolean initialized;
+    private int initialEntryCount;
+
+    private SliceOutput sliceOutput = new DynamicSliceOutput(0);
+    private SliceOutput valueIsNull = new DynamicSliceOutput(0);
     private int positionCount;
 
     private int currentEntrySize;
@@ -48,14 +53,15 @@ public class FixedWidthBlockBuilder
         super(fixedSize);
 
         this.blockBuilderStatus = blockBuilderStatus;
-        this.sliceOutput = new DynamicSliceOutput(fixedSize * expectedEntries);
-        this.valueIsNull = new DynamicSliceOutput(expectedEntries);
+
+        initialEntryCount = expectedEntries;
     }
 
     public FixedWidthBlockBuilder(int fixedSize, int positionCount)
     {
         super(fixedSize);
 
+        initialized = true;
         Slice slice = Slices.allocate(fixedSize * positionCount);
 
         this.blockBuilderStatus = new BlockBuilderStatus();
@@ -106,6 +112,7 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder writeByte(int value)
     {
+        checkCapacity();
         sliceOutput.writeByte(value);
         currentEntrySize += SIZE_OF_BYTE;
         return this;
@@ -114,6 +121,7 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder writeShort(int value)
     {
+        checkCapacity();
         sliceOutput.writeShort(value);
         currentEntrySize += SIZE_OF_SHORT;
         return this;
@@ -122,6 +130,7 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder writeInt(int value)
     {
+        checkCapacity();
         sliceOutput.writeInt(value);
         currentEntrySize += SIZE_OF_INT;
         return this;
@@ -130,6 +139,7 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder writeLong(long value)
     {
+        checkCapacity();
         sliceOutput.writeLong(value);
         currentEntrySize += SIZE_OF_LONG;
         return this;
@@ -138,6 +148,7 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
+        checkCapacity();
         sliceOutput.writeBytes(source, sourceIndex, length);
         currentEntrySize += length;
         return this;
@@ -162,6 +173,8 @@ public class FixedWidthBlockBuilder
             throw new IllegalStateException("Current entry must be closed before a null can be written");
         }
 
+        checkCapacity();
+
         // fixed width is always written regardless of null flag
         sliceOutput.writeZero(fixedSize);
 
@@ -172,10 +185,33 @@ public class FixedWidthBlockBuilder
 
     private void entryAdded(boolean isNull)
     {
+        checkCapacity();
         valueIsNull.appendByte(isNull ? 1 : 0);
 
         positionCount++;
         blockBuilderStatus.addBytes(Byte.BYTES + fixedSize);
+    }
+
+    private void checkCapacity()
+    {
+        // this code is structured this way so the expensive checks happen
+        // on the uncommon path for JVM inlining decision
+        if (!initialized) {
+            initializeCapacity();
+        }
+    }
+
+    private void initializeCapacity()
+    {
+        if (positionCount != 0 || currentEntrySize != 0) {
+            throw new IllegalStateException(getClass().getSimpleName() + " was used before initialization");
+        }
+
+        int initialSliceOutputSize = (int) Math.min((long) fixedSize * initialEntryCount, MAX_ARRAY_SIZE);
+        sliceOutput = new DynamicSliceOutput(initialSliceOutputSize);
+        valueIsNull = new DynamicSliceOutput(initialEntryCount);
+
+        initialized = true;
     }
 
     @Override
@@ -224,9 +260,11 @@ public class FixedWidthBlockBuilder
     {
         this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
 
-        int newSize = calculateBlockResetSize(positionCount);
-        valueIsNull = new DynamicSliceOutput(newSize);
-        sliceOutput = new DynamicSliceOutput(newSize * getFixedSize());
+        initialized = false;
+        initialEntryCount = calculateBlockResetSize(positionCount);
+
+        valueIsNull = new DynamicSliceOutput(0);
+        sliceOutput = new DynamicSliceOutput(0);
 
         positionCount = 0;
         currentEntrySize = 0;

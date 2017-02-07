@@ -21,6 +21,7 @@ import java.util.Arrays;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlockBuilder
@@ -32,9 +33,11 @@ public class ArrayBlockBuilder
     private int positionCount;
 
     private BlockBuilderStatus blockBuilderStatus;
+    private boolean initialized;
+    private int initialEntryCount;
 
-    private int[] offsets;
-    private boolean[] valueIsNull;
+    private int[] offsets = new int[1];
+    private boolean[] valueIsNull = new boolean[0];
 
     private final BlockBuilder values;
     private int currentEntrySize;
@@ -49,8 +52,7 @@ public class ArrayBlockBuilder
         this(
                 blockBuilderStatus,
                 valuesBlock,
-                new int[expectedEntries + 1],
-                new boolean[expectedEntries]);
+                expectedEntries);
     }
 
     public ArrayBlockBuilder(Type elementType, BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
@@ -58,8 +60,7 @@ public class ArrayBlockBuilder
         this(
                 blockBuilderStatus,
                 elementType.createBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytesPerEntry),
-                new int[expectedEntries + 1],
-                new boolean[expectedEntries]);
+                expectedEntries);
     }
 
     public ArrayBlockBuilder(Type elementType, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
@@ -67,22 +68,17 @@ public class ArrayBlockBuilder
         this(
                 blockBuilderStatus,
                 elementType.createBlockBuilder(blockBuilderStatus, expectedEntries),
-                new int[expectedEntries + 1],
-                new boolean[expectedEntries]);
+                expectedEntries);
     }
 
     /**
      * Caller of this private constructor is responsible for making sure `values` is constructed with the same `blockBuilderStatus` as the one in the argument
      */
-    private ArrayBlockBuilder(BlockBuilderStatus blockBuilderStatus, BlockBuilder values, int[] offsets, boolean[] valueIsNull)
+    private ArrayBlockBuilder(BlockBuilderStatus blockBuilderStatus, BlockBuilder values, int expectedEntries)
     {
         this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
         this.values = requireNonNull(values, "values is null");
-        this.offsets = requireNonNull(offsets, "offset is null");
-        this.valueIsNull = requireNonNull(valueIsNull, "valueIsNull is null");
-        if (offsets.length != valueIsNull.length + 1) {
-            throw new IllegalArgumentException("expected offsets and valueIsNull to have same length");
-        }
+        this.initialEntryCount = max(expectedEntries, 1);
 
         updateDataSize();
     }
@@ -198,7 +194,15 @@ public class ArrayBlockBuilder
 
     private void growCapacity()
     {
-        int newSize = BlockUtil.calculateNewArraySize(valueIsNull.length);
+        int newSize;
+        if (initialized) {
+            newSize = BlockUtil.calculateNewArraySize(valueIsNull.length);
+        }
+        else {
+            newSize = initialEntryCount;
+            initialized = true;
+        }
+
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         offsets = Arrays.copyOf(offsets, newSize + 1);
         updateDataSize();
@@ -223,9 +227,12 @@ public class ArrayBlockBuilder
     {
         this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
 
-        int newSize = calculateBlockResetSize(getPositionCount());
-        valueIsNull = new boolean[newSize];
-        offsets = new int[newSize + 1];
+        initialized = false;
+        initialEntryCount = calculateBlockResetSize(getPositionCount());
+
+        valueIsNull = new boolean[0];
+        offsets = new int[1];
+
         values.reset(blockBuilderStatus);
 
         currentEntrySize = 0;
@@ -238,7 +245,7 @@ public class ArrayBlockBuilder
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         int newSize = calculateBlockResetSize(getPositionCount());
-        return new ArrayBlockBuilder(blockBuilderStatus, values.newBlockBuilderLike(blockBuilderStatus), new int[newSize + 1], new boolean[newSize]);
+        return new ArrayBlockBuilder(blockBuilderStatus, values.newBlockBuilderLike(blockBuilderStatus), newSize);
     }
 
     @Override

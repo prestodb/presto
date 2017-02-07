@@ -64,6 +64,26 @@ public class TestVariableWidthBlock
     }
 
     @Test
+    public void testLazyBlockBuilderInitialization()
+            throws Exception
+    {
+        Slice[] expectedValues = createExpectedValues(100);
+        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0, 0);
+
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expectedValues.length, 32);
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+
+        writeValues(expectedValues, blockBuilder);
+        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
+        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+
+        blockBuilder.reset(new BlockBuilderStatus());
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+    }
+
+    @Test
     private void testGetSizeInBytes()
     {
         int numEntries = 1000;
@@ -98,7 +118,12 @@ public class TestVariableWidthBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expectedValues.length, 32);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expectedValues.length, 32);
+        return writeValues(expectedValues, blockBuilder);
+    }
+
+    private static BlockBuilder writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
