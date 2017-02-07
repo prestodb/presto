@@ -271,6 +271,7 @@ public class ServerMainModule
         binder.bind(AsyncHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AsyncHttpExecutionMBean.class).withGeneratedName();
         binder.bind(JoinFilterFunctionCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(JoinFilterFunctionCompiler.class).withGeneratedName();
         binder.bind(JoinCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(JoinCompiler.class).withGeneratedName();
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
