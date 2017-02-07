@@ -47,6 +47,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -76,8 +78,10 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
-    private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, LookupSourceSupplierFactory>()
+    private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
+            .recordStats()
+            .maximumSize(1000)
+            .build(new CacheLoader<CacheKey, LookupSourceSupplierFactory>()
             {
                 @Override
                 public LookupSourceSupplierFactory load(CacheKey key)
@@ -87,8 +91,10 @@ public class JoinCompiler
                 }
             });
 
-    private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, Class<? extends PagesHashStrategy>>()
+    private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder()
+            .recordStats()
+            .maximumSize(1000)
+            .build(new CacheLoader<CacheKey, Class<? extends PagesHashStrategy>>()
             {
                 @Override
                 public Class<? extends PagesHashStrategy> load(CacheKey key)
@@ -101,6 +107,20 @@ public class JoinCompiler
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels)
     {
         return compileLookupSourceFactory(types, joinChannels, Optional.empty());
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getLookupSourceStats()
+    {
+        return new CacheStatsMBean(lookupSourceFactories);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getHashStrategiesStats()
+    {
+        return new CacheStatsMBean(hashStrategies);
     }
 
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<List<Integer>> outputChannels)
