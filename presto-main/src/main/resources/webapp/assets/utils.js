@@ -174,6 +174,79 @@ function addExponentiallyWeightedToHistory (value, valuesArray) {
     return valuesArray.concat([movingAverage]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
 }
 
+// DagreD3 Graph-related functions
+// ===============================
+
+function initializeGraph()
+{
+    return new dagreD3.graphlib.Graph({compound: true})
+        .setGraph({rankdir: 'BT'})
+        .setDefaultEdgeLabel(function () { return {}; });
+}
+
+function initializeSvg(selector)
+{
+    const svg = d3.select(selector);
+    svg.append("g");
+
+    return svg;
+}
+
+function computeSources(nodeInfo)
+{
+    let sources = [];
+    let remoteSources = []; // TODO: put remoteSources in node-specific section
+    switch (nodeInfo['@type']) {
+        case 'output':
+        case 'explainAnalyze':
+        case 'project':
+        case 'filter':
+        case 'aggregation':
+        case 'sort':
+        case 'markDistinct':
+        case 'window':
+        case 'rowNumber':
+        case 'topnRowNumber':
+        case 'limit':
+        case 'distinctlimit':
+        case 'topn':
+        case 'sample':
+        case 'tablewriter':
+        case 'delete':
+        case 'metadatadelete':
+        case 'tablecommit':
+        case 'groupid':
+        case 'unnest':
+        case 'scalar':
+            sources = [nodeInfo.source];
+            break;
+        case 'join':
+            sources = [nodeInfo.left, nodeInfo.right];
+            break;
+        case 'semijoin':
+            sources = [nodeInfo.source, nodeInfo.filteringSource];
+            break;
+        case 'indexjoin':
+            sources = [nodeInfo.probeSource, nodeInfo.filterSource];
+            break;
+        case 'union':
+        case 'exchange':
+            sources = nodeInfo.sources;
+            break;
+        case 'remoteSource':
+            remoteSources = nodeInfo.sourceFragmentIds;
+            break;
+        case 'tablescan':
+        case 'values':
+        case 'indexsource':
+            break;
+        default:
+            console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);
+    }
+
+    return [sources, remoteSources];
+}
+
 // Utility functions
 // =================
 

@@ -15,7 +15,7 @@
 function flatten(queryInfo)
 {
     const stages = new Map();
-    flattenStage(queryInfo.outputStage, stages)
+    flattenStage(queryInfo.outputStage, stages);
 
     return {
         id: queryInfo.queryId,
@@ -35,6 +35,7 @@ function flattenStage(stageInfo, result)
     flattenNode(result, stageInfo.plan.root, nodes);
 
     result.set(stageInfo.plan.id, {
+        stageId: stageInfo.stageId,
         id: stageInfo.plan.id,
         root: stageInfo.plan.root.id,
         distribution: stageInfo.plan.distribution,
@@ -46,55 +47,9 @@ function flattenStage(stageInfo, result)
 
 function flattenNode(stages, nodeInfo, result)
 {
-    let sources = [];
-    let remoteSources = []; // TODO: put remoteSources in node-specific section
-    switch (nodeInfo['@type']) {
-        case 'output':
-        case 'explainAnalyze':
-        case 'project':
-        case 'filter':
-        case 'aggregation':
-        case 'sort':
-        case 'markDistinct':
-        case 'window':
-        case 'rowNumber':
-        case 'topnRowNumber':
-        case 'limit':
-        case 'distinctlimit':
-        case 'topn':
-        case 'sample':
-        case 'tablewriter':
-        case 'delete':
-        case 'metadatadelete':
-        case 'tablecommit':
-        case 'groupid':
-        case 'unnest':
-        case 'scalar':
-            sources = [nodeInfo.source];
-            break;
-        case 'join':
-            sources = [nodeInfo.left, nodeInfo.right];
-            break;
-        case 'semijoin':
-            sources = [nodeInfo.source, nodeInfo.filteringSource];
-            break;
-        case 'indexjoin':
-            sources = [nodeInfo.probeSource, nodeInfo.filterSource];
-            break;
-        case 'union':
-        case 'exchange':
-            sources = nodeInfo.sources;
-            break;
-        case 'remoteSource':
-            remoteSources = nodeInfo.sourceFragmentIds;
-            break;
-        case 'tablescan':
-        case 'values':
-        case 'indexsource':
-            break;
-        default:
-            console.log("unhandled: " + nodeInfo['@type']);
-    }
+    const allSources = computeSources(nodeInfo);
+    const sources = allSources[0];
+    const remoteSources = allSources[1];
 
     result.set(nodeInfo.id, {
         id: nodeInfo.id,
@@ -109,57 +64,32 @@ function flattenNode(stages, nodeInfo, result)
     });
 }
 
-function update(graph, query)
-{
-    query.stages.forEach(function(stage) {
-        const clusterId = "stage-" + stage.id;
-        const stageRootNodeId = "stage-" + stage.id + "-root";
-        const color = getStageStateColor(stage.state);
-
-        graph.setNode(clusterId, {label: "Stage " + stage.id + " ", clusterLabelPos: 'top-right', style: 'fill: ' + color, labelStyle: 'fill: #fff'});
-
-        const stats = stage.stats;
-        const html = "" +
-            "<div>Output: " + stats.outputDataSize + " / " + formatCount(stats.outputPositions) + " rows</div>" +
-            "<hr>" +
-            "<div>" + stage.state + "</div>" +
-            "<hr>" +
-            "<div>CPU: " + stats.totalCpuTime + "</div>" +
-            (
-                stats.fullyBlocked ?
-                    "<div style='color: #ff0000'>Blocked: " + stats.totalBlockedTime + "</div>" :
-                    "<div>Blocked: " + stats.totalBlockedTime + "</div>"
-            ) +
-            "<div>Memory: " + stats.totalMemoryReservation + "</div>" +
-            "<div>Splits: Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers + "</div>" +
-
-            "<hr>" +
-            "<div>Input: " + stats.processedInputDataSize + " / " + formatCount(stats.processedInputPositions) + " rows</div>";
-
-        graph.setNode(stageRootNodeId, {class: "stage-stats", label: html, labelType: "html"});
-        graph.setParent(stageRootNodeId, clusterId);
-        graph.setEdge("node-" + stage.root, stageRootNodeId, {style: "visibility: hidden"});
-
-        stage.nodes.forEach(function(node) {
-            const nodeId = "node-" + node.id;
-
-            graph.setNode(nodeId, {label: node.type, style: 'fill: #fff'});
-            graph.setParent(nodeId, clusterId);
-
-            node.sources.forEach(function(source) {
-                graph.setEdge("node-" + source, nodeId, {lineInterpolate: "basis", arrowheadStyle: "fill: #fff; stroke-width: 0;"});
-            });
-
-            if (node.type == 'remoteSource') {
-                graph.setNode(nodeId, {label: '', shape: "circle"});
-
-                node.remoteSources.forEach(function (sourceId) {
-                    graph.setEdge("stage-" + sourceId + "-root", nodeId, {style: "stroke-width: 5px;", arrowheadStyle: "fill: #fff; stroke-width: 0;", lineInterpolate: "basis"});
-                });
-            }
-        })
-    });
-}
+let StageStatistics = React.createClass({
+    render: function() {
+        const stage = this.props.stage;
+        const stats = this.props.stage.stats;
+        return (
+            <div>
+                <div>
+                    Output: { stats.outputDataSize  + " / " +  formatCount(stats.outputPositions) + " rows" }
+                    <hr />
+                    { stage.state }
+                    <hr />
+                    CPU: { stats.totalCpuTime }
+                    { stats.fullyBlocked ?
+                        <div style= {{ color: '#ff0000' }}>Blocked: { stats.totalBlockedTime } </div> :
+                        <div>Blocked: { stats.totalBlockedTime } </div>
+                    }
+                    Memory: { stats.totalMemoryReservation }
+                    <br />
+                    Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers }
+                    <hr />
+                    Input:  {stats.processedInputDataSize + " / " + formatCount(stats.processedInputPositions) } rows
+                </div>
+            </div>
+        );
+    }
+});
 
 let LivePlan = React.createClass({
     getInitialState: function() {
@@ -167,25 +97,10 @@ let LivePlan = React.createClass({
             initialized: false,
             ended: false,
 
-            graph: this.initializeGraph(),
-            svg: this.initializeSvg(),
+            graph: initializeGraph(),
+            svg: initializeSvg("#plan-canvas"),
             render: new dagreD3.render(),
-
-            lastRefresh: null,
-            lastRender: null
         };
-    },
-    initializeGraph: function() {
-        return new dagreD3.graphlib.Graph({compound: true})
-            .setGraph({rankdir: 'BT'})
-            .setDefaultEdgeLabel(function () { return {}; });
-    },
-    initializeSvg: function()
-    {
-        const svg = d3.select("#svg-canvas");
-        svg.append("g");
-
-        return svg;
     },
     resetTimer: function() {
         clearTimeout(this.timeoutId);
@@ -208,15 +123,13 @@ let LivePlan = React.createClass({
     },
     refreshLoop: function() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        var queryId = window.location.search.substring(1);
+        const queryId = window.location.search.substring(1);
         $.get('/v1/query/' + queryId, function (query) {
             this.setState({
                 query: query,
 
                 initialized: true,
                 ended: query.finalQueryInfo,
-
-                lastRefresh: Date.now(),
             });
             this.resetTimer();
         }.bind(this))
@@ -233,25 +146,76 @@ let LivePlan = React.createClass({
     componentDidMount: function() {
         this.refreshLoop();
     },
-    componentDidUpdate: function() {
-        // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender == null || (Date.now() - this.state.lastRender) >= 1000) {
-            const renderTimestamp = Date.now();
-            const graph = this.state.graph;
+    updateD3Stage: function(stage, graph) {
+        const clusterId = stage.stageId;
+        const stageRootNodeId = "stage-" + stage.id + "-root";
+        const color = getStageStateColor(stage.state);
 
-            update(graph, flatten(this.state.query));
+        graph.setNode(clusterId, {label: "Stage " + stage.id + " ", clusterLabelPos: 'top-right', style: 'fill: ' + color, labelStyle: 'fill: #fff'});
 
-            this.state.render(d3.select("#svg-canvas g"), graph);
+        // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
+        const html = ReactDOMServer.renderToString(<StageStatistics key = { stage.id } stage = { stage } />);
 
-            this.state.svg.attr("height", graph.graph().height + 40);
-            this.state.svg.attr("width", graph.graph().width + 40);
+        graph.setNode(stageRootNodeId, {class: "stage-stats", label: html, labelType: "html"});
+        graph.setParent(stageRootNodeId, clusterId);
+        graph.setEdge("node-" + stage.root, stageRootNodeId, {style: "visibility: hidden"});
 
-            this.setState({
-                lastRender: renderTimestamp,
+        stage.nodes.forEach(node => {
+            const nodeId = "node-" + node.id;
+
+            graph.setNode(nodeId, {label: node.type, style: 'fill: #fff'});
+            graph.setParent(nodeId, clusterId);
+
+            node.sources.forEach(source => {
+                graph.setEdge("node-" + source, nodeId, {arrowheadStyle: "fill: #fff; stroke-width: 0;"});
             });
+
+            if (node.type == 'remoteSource') {
+                graph.setNode(nodeId, {label: '', shape: "circle"});
+
+                node.remoteSources.forEach(sourceId => {
+                    graph.setEdge("stage-" + sourceId + "-root", nodeId, {style: "stroke-width: 5px;", arrowheadStyle: "fill: #fff; stroke-width: 0;"});
+                });
+            }
+        });
+    },
+    updateD3Graph: function() {
+        if (!this.state.query) {
+            return;
         }
+
+        const graph = this.state.graph;
+        const stages = flatten(this.state.query).stages;
+        stages.forEach(stage => {
+            this.updateD3Stage(stage, graph);
+        });
+
+        this.state.render(d3.select("#plan-canvas g"), graph);
+
+        const svg = this.state.svg;
+        svg.attr("height", graph.graph().height);
+        svg.attr("width", graph.graph().width);
+    },
+    findStage: function (stageId, currentStage) {
+        if (stageId == -1) {
+            return null;
+        }
+
+        if (parseInt(currentStage.plan.id) === stageId) {
+            return currentStage;
+        }
+
+        for (let i = 0; i < currentStage.subStages.length; i++) {
+            const stage = this.findStage(stageId, currentStage.subStages[i]);
+            if (stage != null) {
+                return stage;
+            }
+        }
+
+        return null;
     },
     render: function() {
+        this.updateD3Graph();
         const query = this.state.query;
 
         if (query == null || this.state.initialized == false) {
@@ -263,6 +227,14 @@ let LivePlan = React.createClass({
                 <div className="row error-message">
                     <div className="col-xs-12"><h4>{ label }</h4></div>
                 </div>
+            );
+        }
+
+        const selectedStage = this.findStage(this.state.selectedStageId, this.state.query.outputStage);
+        if (selectedStage) {
+            ReactDOM.render(
+                <StagePerformance key= { 0 } stage={ selectedStage }/>,
+                document.getElementById('stage-performance')
             );
         }
 

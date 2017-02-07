@@ -516,23 +516,42 @@ pre {
 /** Live Plan Page **/
 /** ============== **/
 
-#live-plan {
-    margin-top: 15px;
+.graph-container {
     padding: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background-color: #1b1b1b;
 }
 
-#live-plan .label {
+.graph-container svg {
+    display: block;
+    margin: 0 auto;
+}
+
+.graph-container .label {
     font-size: 15px;
     color: #fff;
     font-weight: normal;
     line-height: 18px;
 }
 
-#live-plan hr {
+.graph-container table {
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.graph-container .highlight-row {
+    text-align: center;
+    padding: 5px;
+    margin: 5px 0 5px 0;
+    color: #2f2f2f;
+    background-color: #fff;
+}
+
+.graph-container .header-row {
+    font-weight: bold;
+    padding-bottom: 5px;
+}
+
+.graph-container hr {
     margin-top:10px;
     margin-bottom: 10px;
 }
@@ -547,7 +566,7 @@ pre {
 }
 
 .node rect {
-    fill: #353535;
+    fill: #404040;
 }
 
 text {
@@ -560,6 +579,7 @@ text {
     fill: transparent;
 }
 
-.plan-aligner {
-    max-width: 50%;
+.edge-class {
+    stroke-width: 5px;
+    fill: #fff;
 }

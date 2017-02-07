@@ -21,11 +21,13 @@
     <!-- React (comment out for development)-->
     <script src="vendor/react/react-15.0.1.min.js"></script>
     <script src="vendor/react/react-dom-15.0.1.min.js"></script>
+    <script src="vendor/react/react-dom-server-15.0.1.min.js"></script>
 
     <!-- React (uncomment for development)-->
     <!--
     <script src="vendor/react/react-15.0.1.js"></script>
     <script src="vendor/react/react-dom-15.0.1.js"></script>
+    <script src="vendor/react/react-dom-server-15.0.1.js"></script>
     -->
 
     <!-- jQuery -->
@@ -94,13 +96,12 @@
         </div>
     </nav>
 
-    <div id="live-plan-header"><div class="loader">Loading...</div></div>
-    <div id="live-plan">
-        <div class="plan-aligner">
-            <svg id="svg-canvas"></svg>
-        </div>
+    <div id="live-plan-header">
+        <div class="loader">Loading...</div>
     </div>
-
+    <div id="live-plan" class="graph-container">
+        <svg id="plan-canvas"></svg>
+    </div>
 </div> <!-- /container -->
 
 
