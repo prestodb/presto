@@ -19,6 +19,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -116,6 +117,12 @@ public class MockQueryExecution
     public QueryState getState()
     {
         return state;
+    }
+
+    @Override
+    public Plan getQueryPlan()
+    {
+        throw new UnsupportedOperationException();
     }
 
     public Throwable getFailureCause()

@@ -83,7 +83,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(sql);
+            return prestoClient.execute(sql).getResult();
         }
         finally {
             lock.readLock().unlock();
@@ -95,7 +95,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(session, sql);
+            return prestoClient.execute(session, sql).getResult();
         }
         finally {
             lock.readLock().unlock();

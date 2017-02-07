@@ -138,7 +138,7 @@ public class QueryExplainer
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser, costCalculator);
         return logicalPlanner.plan(analysis);
     }
 
