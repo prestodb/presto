@@ -30,9 +30,9 @@ import javax.net.SocketFactory;
 
 import java.io.File;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
+import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -48,7 +48,7 @@ public class HdfsConfigurationUpdater
     private final Duration dfsConnectTimeout;
     private final int dfsConnectMaxRetries;
     private final String domainSocketPath;
-    private final List<String> resourcePaths;
+    private final Configuration resourcesConfiguration;
     private final HiveCompressionCodec compressionCodec;
     private final int fileSystemMaxCacheSize;
 
@@ -86,7 +86,7 @@ public class HdfsConfigurationUpdater
         this.dfsConnectTimeout = hiveClientConfig.getDfsConnectTimeout();
         this.dfsConnectMaxRetries = hiveClientConfig.getDfsConnectMaxRetries();
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
-        this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
+        this.resourcesConfiguration = readConfiguration(hiveClientConfig.getResourceConfigFiles());
         this.compressionCodec = hiveClientConfig.getHiveCompressionCodec();
         this.fileSystemMaxCacheSize = hiveClientConfig.getFileSystemMaxCacheSize();
 
@@ -113,13 +113,25 @@ public class HdfsConfigurationUpdater
         this.s3UserAgentPrefix = s3Config.getS3UserAgentPrefix();
     }
 
+    private static Configuration readConfiguration(List<String> resourcePaths)
+    {
+        Configuration result = new Configuration(false);
+        if (resourcePaths == null) {
+            return result;
+        }
+
+        for (String resourcePath : resourcePaths) {
+            Configuration resourceProperties = new Configuration(false);
+            resourceProperties.addResource(new Path(resourcePath));
+            copy(resourceProperties, result);
+        }
+
+        return result;
+    }
+
     public void updateConfiguration(Configuration config)
     {
-        if (resourcePaths != null) {
-            for (String resourcePath : resourcePaths) {
-                addResource(config, new Path(resourcePath));
-            }
-        }
+        copy(resourcesConfiguration, config);
 
         // this is to prevent dfs client from doing reverse DNS lookups to determine whether nodes are rack local
         config.setClass("topology.node.switch.mapping.impl", NoOpDNSToSwitchMapping.class, DNSToSwitchMapping.class);
@@ -234,15 +246,6 @@ public class HdfsConfigurationUpdater
         public void reloadCachedMappings()
         {
             // no-op
-        }
-    }
-
-    private static void addResource(Configuration config, Path resource)
-    {
-        Configuration resourceProperties = new Configuration(false);
-        resourceProperties.addResource(resource);
-        for (Map.Entry<String, String> entry : resourceProperties) {
-            config.set(entry.getKey(), entry.getValue());
         }
     }
 }
