@@ -33,6 +33,7 @@ public class TestOperatorStats
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
+            1,
             41,
             new PlanNodeId("test"),
             "test",
@@ -67,6 +68,7 @@ public class TestOperatorStats
             NON_MERGEABLE_INFO);
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
+            1,
             41,
             new PlanNodeId("test"),
             "test",

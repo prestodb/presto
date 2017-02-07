@@ -70,7 +70,7 @@ public class TestAggregationOperator
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 

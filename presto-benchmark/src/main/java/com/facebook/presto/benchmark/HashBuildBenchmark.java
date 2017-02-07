@@ -63,8 +63,8 @@ public class HashBuildBenchmark
                 1_500_000,
                 1,
                 new PagesIndex.TestingFactory());
-        DriverFactory hashBuildDriverFactory = new DriverFactory(true, true, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty());
-        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(true, true).addDriverContext());
+        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, true, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty());
+        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, true).addDriverContext());
         hashBuildDriverFactory.close();
 
         // empty join so build finishes
@@ -78,8 +78,8 @@ public class HashBuildBenchmark
                 Optional.empty());
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
-        DriverFactory joinDriverFactory = new DriverFactory(true, true, joinDriversBuilder.build(), OptionalInt.empty());
-        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(true, true).addDriverContext());
+        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty());
+        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true).addDriverContext());
         joinDriverFactory.close();
 
         return ImmutableList.of(hashBuildDriver, joinDriver);

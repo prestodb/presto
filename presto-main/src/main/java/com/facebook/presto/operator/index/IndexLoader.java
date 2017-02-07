@@ -260,7 +260,7 @@ public class IndexLoader
         if (pipelineContext == null) {
             TaskContext taskContext = taskContextReference.get();
             checkState(taskContext != null, "Task context must be set before index can be built");
-            pipelineContext = taskContext.addPipelineContext(false, false);
+            pipelineContext = taskContext.addPipelineContext(indexBuildDriverFactoryProvider.getPipelineId(), false, false);
         }
         if (indexSnapshotLoader == null) {
             indexSnapshotLoader = new IndexSnapshotLoader(
@@ -319,7 +319,7 @@ public class IndexLoader
                     maxIndexMemorySize,
                     expectedPositions,
                     pagesIndexFactory);
-            this.driverFactory = indexBuildDriverFactoryProvider.createSnapshot(this.indexSnapshotBuilder);
+            this.driverFactory = indexBuildDriverFactoryProvider.createSnapshot(pipelineContext.getPipelineId(), this.indexSnapshotBuilder);
 
             ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
             for (int i = 0; i < indexTypes.size(); i++) {

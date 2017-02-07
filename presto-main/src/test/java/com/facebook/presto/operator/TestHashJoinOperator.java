@@ -133,7 +133,7 @@ public class TestHashJoinOperator
                 .row("29", 1029L, 2029L, "29", 39L, 49L)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -177,7 +177,7 @@ public class TestHashJoinOperator
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -221,7 +221,7 @@ public class TestHashJoinOperator
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -266,7 +266,7 @@ public class TestHashJoinOperator
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -292,7 +292,7 @@ public class TestHashJoinOperator
                 probePages.getHashChannel(),
                 Optional.empty()
         );
-        Operator operator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+        Operator operator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(0, true, true).addDriverContext());
         assertFalse(operator.needsInput());
         assertTrue(operator.isFinished());
     }
@@ -320,7 +320,7 @@ public class TestHashJoinOperator
                 probePages.getHashChannel(),
                 Optional.empty()
         );
-        Operator operator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+        Operator operator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(0, true, true).addDriverContext());
         assertFalse(operator.needsInput());
         assertTrue(operator.isFinished());
     }
@@ -362,7 +362,7 @@ public class TestHashJoinOperator
                 .row(null, null)
                 .row("c", null)
                 .build();
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -402,7 +402,7 @@ public class TestHashJoinOperator
                 .row(null, null)
                 .row("c", null)
                 .build();
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -452,7 +452,7 @@ public class TestHashJoinOperator
                 .row("34", 1034L, 2034L, null, null, null)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -504,7 +504,7 @@ public class TestHashJoinOperator
                 .row("34", 1034L, 2034L, null, null, null)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -549,7 +549,7 @@ public class TestHashJoinOperator
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -597,7 +597,7 @@ public class TestHashJoinOperator
                 .row("b", null)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -641,7 +641,7 @@ public class TestHashJoinOperator
                 .row("c", null)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -689,7 +689,7 @@ public class TestHashJoinOperator
                 .row("c", null)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -734,7 +734,7 @@ public class TestHashJoinOperator
                 .row("c", null)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -783,7 +783,7 @@ public class TestHashJoinOperator
                 .row("c", null)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*", dataProvider = "hashEnabledValues")
@@ -825,7 +825,7 @@ public class TestHashJoinOperator
         sinkFactory.noMoreSinkFactories();
 
         // collect input data into the partitioned exchange
-        DriverContext collectDriverContext = taskContext.addPipelineContext(true, true).addDriverContext();
+        DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
         ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("values"), buildPages.getTypes(), buildPages.build());
         LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperatorFactory(1, new PlanNodeId("sink"), sinkFactory, Function.identity());
         Driver driver = new Driver(collectDriverContext,
@@ -853,7 +853,7 @@ public class TestHashJoinOperator
                 100,
                 partitionCount,
                 new PagesIndex.TestingFactory());
-        PipelineContext buildPipeline = taskContext.addPipelineContext(true, true);
+        PipelineContext buildPipeline = taskContext.addPipelineContext(1, true, true);
 
         Driver[] buildDrivers = new Driver[partitionCount];
         for (int i = 0; i < partitionCount; i++) {

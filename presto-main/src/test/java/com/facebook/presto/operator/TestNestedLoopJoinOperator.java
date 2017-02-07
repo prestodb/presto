@@ -87,7 +87,7 @@ public class TestNestedLoopJoinOperator
                 .row("1", 1001L, 2001L, "22", 32L, 42L)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
 
         // Test probe pages has more rows
         buildPages = rowPagesBuilder(ImmutableList.of(VARCHAR, BIGINT, BIGINT))
@@ -111,7 +111,7 @@ public class TestNestedLoopJoinOperator
                 .row("2", 1002L, 2002L, "21", 31L, 41L)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
     }
 
     @Test
@@ -154,7 +154,7 @@ public class TestNestedLoopJoinOperator
                 .row("B", "b")
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
     }
 
     @Test
@@ -196,7 +196,7 @@ public class TestNestedLoopJoinOperator
                 .row("B", "b")
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
     }
 
     @Test
@@ -250,7 +250,7 @@ public class TestNestedLoopJoinOperator
                 .row("C", null)
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
     }
 
     @Test
@@ -294,7 +294,7 @@ public class TestNestedLoopJoinOperator
                 .row("B", "d")
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
     }
 
     @Test
@@ -338,7 +338,7 @@ public class TestNestedLoopJoinOperator
                 .row("d", "B")
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
     }
 
     @Test
@@ -389,7 +389,7 @@ public class TestNestedLoopJoinOperator
                 .row("d", "C")
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
     }
 
     @Test
@@ -419,7 +419,7 @@ public class TestNestedLoopJoinOperator
         MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
     }
 
     @Test
@@ -448,7 +448,7 @@ public class TestNestedLoopJoinOperator
         MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
                 .build();
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), probeInput, expected);
+        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected);
     }
 
     @Test
@@ -486,7 +486,7 @@ public class TestNestedLoopJoinOperator
 
     private static NestedLoopJoinPagesSupplier buildPageSource(TaskContext taskContext, RowPagesBuilder buildPages)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
         ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.getTypes(), buildPages.build());
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"), buildPages.getTypes());

@@ -73,7 +73,7 @@ public class TestHashSemiJoinOperator
     public void testSemiJoin(boolean hashEnabled)
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
@@ -129,7 +129,7 @@ public class TestHashSemiJoinOperator
     public void testBuildSideNulls(boolean hashEnabled)
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
@@ -180,7 +180,7 @@ public class TestHashSemiJoinOperator
     public void testProbeSideNulls(boolean hashEnabled)
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
@@ -231,7 +231,7 @@ public class TestHashSemiJoinOperator
     public void testProbeAndBuildNulls(boolean hashEnabled)
             throws Exception
     {
-        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
@@ -283,7 +283,7 @@ public class TestHashSemiJoinOperator
             throws Exception
     {
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());

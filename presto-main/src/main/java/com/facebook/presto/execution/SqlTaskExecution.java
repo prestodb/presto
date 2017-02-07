@@ -498,7 +498,7 @@ public class SqlTaskExecution
         private DriverSplitRunnerFactory(DriverFactory driverFactory)
         {
             this.driverFactory = driverFactory;
-            this.pipelineContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver());
+            this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver());
         }
 
         private DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit, boolean partitioned)

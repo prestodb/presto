@@ -79,7 +79,7 @@ public class TestJoinProbeCompiler
     public void testSingleChannel(boolean hashEnabled)
             throws Exception
     {
-        taskContext.addPipelineContext(true, true).addDriverContext();
+        taskContext.addPipelineContext(0, true, true).addDriverContext();
 
         ImmutableList<Type> types = ImmutableList.of(VARCHAR, DOUBLE);
         ImmutableList<Type> outputTypes = ImmutableList.of(VARCHAR);

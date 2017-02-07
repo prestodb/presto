@@ -612,7 +612,7 @@ public class LocalQueryRunner
                     checkState(driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory) == null);
                 }
                 else {
-                    DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                    DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
                     Driver driver = driverFactory.createDriver(driverContext);
                     drivers.add(driver);
                 }
@@ -624,7 +624,7 @@ public class LocalQueryRunner
             DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
             checkState(driverFactory != null);
             for (ScheduledSplit split : source.getSplits()) {
-                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
                 Driver driver = driverFactory.createDriver(driverContext);
                 driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
                 drivers.add(driver);

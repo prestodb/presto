@@ -101,7 +101,7 @@ public class TestHashAggregationOperator
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -246,7 +246,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -285,7 +285,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, MEGABYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -325,7 +325,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(3, MEGABYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -409,7 +409,7 @@ public class TestHashAggregationOperator
                 joinCompiler);
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(4, Unit.KILOBYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
@@ -493,7 +493,7 @@ public class TestHashAggregationOperator
                 joinCompiler);
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, Unit.KILOBYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT);
@@ -520,7 +520,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(

@@ -18,6 +18,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.util.Failures;
@@ -236,7 +237,7 @@ public class StageStateMachine
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
-        Map<Integer, OperatorStats> operatorToStats = new HashMap<>();
+        Map<String, OperatorStats> operatorToStats = new HashMap<>();
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
@@ -274,8 +275,12 @@ public class StageStateMachine
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
-            taskStats.getPipelines().forEach(pipeline -> pipeline.getOperatorSummaries()
-                            .forEach(operatorStats -> operatorToStats.compute(operatorStats.getOperatorId(), (k, v) -> v == null ? operatorStats : v.add(operatorStats))));
+            for (PipelineStats pipeline : taskStats.getPipelines()) {
+                for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
+                    String id = pipeline.getPipelineId() + "." + operatorStats.getOperatorId();
+                    operatorToStats.compute(id, (k, v) -> v == null ? operatorStats : v.add(operatorStats));
+                }
+            }
         }
 
         StageStats stageStats = new StageStats(

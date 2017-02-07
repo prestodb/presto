@@ -53,7 +53,7 @@ public class TestTopNOperator
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -209,7 +209,7 @@ public class TestTopNOperator
                 .build();
 
         DriverContext smallDiverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, BYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(

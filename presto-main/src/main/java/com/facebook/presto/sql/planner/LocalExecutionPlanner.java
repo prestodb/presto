@@ -176,6 +176,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -376,8 +377,7 @@ public class LocalExecutionPlanner
                 .map(types::get)
                 .collect(toImmutableList());
 
-        DriverFactory driverFactory = new DriverFactory(
-                context.isInputDriver(),
+        context.addDriverFactory(context.isInputDriver(),
                 true,
                 ImmutableList.<OperatorFactory>builder()
                         .addAll(physicalOperation.getOperatorFactories())
@@ -389,7 +389,6 @@ public class LocalExecutionPlanner
                                 new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))))
                         .build(),
                 context.getDriverInstanceCount());
-        context.addDriverFactory(driverFactory);
 
         addLookupOuterDrivers(context);
 
@@ -428,7 +427,7 @@ public class LocalExecutionPlanner
                             .map(OperatorFactory::duplicate)
                             .forEach(newOperators::add);
 
-                    context.addDriverFactory(new DriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1)));
+                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1));
                 }
             }
         }
@@ -441,30 +440,35 @@ public class LocalExecutionPlanner
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
+        // this is shared with all subContexts
+        private AtomicInteger nextPipelineId;
+
         private int nextOperatorId;
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
         public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types)
         {
-            this(session, types, new ArrayList<>(), Optional.empty());
+            this(session, types, new ArrayList<>(), Optional.empty(), new AtomicInteger(0));
         }
 
         private LocalExecutionPlanContext(
                 Session session,
                 Map<Symbol, Type> types,
                 List<DriverFactory> driverFactories,
-                Optional<IndexSourceContext> indexSourceContext)
+                Optional<IndexSourceContext> indexSourceContext,
+                AtomicInteger nextPipelineId)
         {
             this.session = session;
             this.types = types;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
+            this.nextPipelineId = nextPipelineId;
         }
 
-        public void addDriverFactory(DriverFactory driverFactory)
+        public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
         {
-            driverFactories.add(requireNonNull(driverFactory, "driverFactory is null"));
+            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
         }
 
         private List<DriverFactory> getDriverFactories()
@@ -487,6 +491,11 @@ public class LocalExecutionPlanner
             return indexSourceContext;
         }
 
+        private int getNextPipelineId()
+        {
+            return nextPipelineId.getAndIncrement();
+        }
+
         private int getNextOperatorId()
         {
             return nextOperatorId++;
@@ -505,12 +514,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
-            return new LocalExecutionPlanContext(session, types, driverFactories, indexSourceContext);
+            return new LocalExecutionPlanContext(session, types, driverFactories, indexSourceContext, nextPipelineId);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(session, types, driverFactories, Optional.of(indexSourceContext));
+            return new LocalExecutionPlanContext(session, types, driverFactories, Optional.of(indexSourceContext), nextPipelineId);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -1400,6 +1409,7 @@ public class LocalExecutionPlanner
             }
 
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider = new IndexBuildDriverFactoryProvider(
+                    indexContext.getNextPipelineId(),
                     indexContext.getNextOperatorId(),
                     node.getId(),
                     indexContext.isInputDriver(),
@@ -1478,14 +1488,14 @@ public class LocalExecutionPlanner
                     buildSource.getTypes());
 
             checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
-            context.addDriverFactory(new DriverFactory(
+            context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
                     ImmutableList.<OperatorFactory>builder()
                             .addAll(buildSource.getOperatorFactories())
                             .add(nestedLoopBuildOperatorFactory)
                             .build(),
-                    buildContext.getDriverInstanceCount()));
+                    buildContext.getDriverInstanceCount());
 
             NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -1564,14 +1574,14 @@ public class LocalExecutionPlanner
                     buildContext.getDriverInstanceCount().orElse(1),
                     pagesIndexFactory);
 
-            context.addDriverFactory(new DriverFactory(
+            context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
                     ImmutableList.<OperatorFactory>builder()
                             .addAll(buildSource.getOperatorFactories())
                             .add(hashBuilderOperatorFactory)
                             .build(),
-                    buildContext.getDriverInstanceCount()));
+                    buildContext.getDriverInstanceCount());
 
             return hashBuilderOperatorFactory.getLookupSourceFactory();
         }
@@ -1667,15 +1677,13 @@ public class LocalExecutionPlanner
                     10_000,
                     joinCompiler);
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
-            DriverFactory buildDriverFactory = new DriverFactory(
-                    buildContext.isInputDriver(),
+            context.addDriverFactory(buildContext.isInputDriver(),
                     false,
                     ImmutableList.<OperatorFactory>builder()
                             .addAll(buildSource.getOperatorFactories())
                             .add(setBuilderOperatorFactory)
                             .build(),
                     buildContext.getDriverInstanceCount());
-            context.addDriverFactory(buildDriverFactory);
 
             // Source channels are always laid out first, followed by the boolean output symbol
             Map<Symbol, Integer> outputMappings = ImmutableMap.<Symbol, Integer>builder()
@@ -1823,8 +1831,7 @@ public class LocalExecutionPlanner
                 Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
                 operatorFactories.add(new LocalExchangeSinkOperatorFactory(subContext.getNextOperatorId(), node.getId(), localExchange.createSinkFactory(), pagePreprocessor));
 
-                DriverFactory driverFactory = new DriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount());
-                context.addDriverFactory(driverFactory);
+                context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount());
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan

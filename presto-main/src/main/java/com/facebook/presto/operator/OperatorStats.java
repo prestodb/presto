@@ -33,6 +33,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @Immutable
 public class OperatorStats
 {
+    private final int pipelineId;
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final String operatorType;
@@ -69,6 +70,7 @@ public class OperatorStats
 
     @JsonCreator
     public OperatorStats(
+            @JsonProperty("pipelineId") int pipelineId,
             @JsonProperty("operatorId") int operatorId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("operatorType") String operatorType,
@@ -103,6 +105,8 @@ public class OperatorStats
 
             @JsonProperty("info") OperatorInfo info)
     {
+        this.pipelineId = pipelineId;
+
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -139,6 +143,12 @@ public class OperatorStats
         this.blockedReason = blockedReason;
 
         this.info = info;
+    }
+
+    @JsonProperty
+    public int getPipelineId()
+    {
+        return pipelineId;
     }
 
     @JsonProperty
@@ -374,6 +384,7 @@ public class OperatorStats
         }
 
         return new OperatorStats(
+                pipelineId,
                 operatorId,
                 planNodeId,
                 operatorType,
@@ -428,6 +439,7 @@ public class OperatorStats
     public OperatorStats summarize()
     {
         return new OperatorStats(
+                pipelineId,
                 operatorId,
                 planNodeId,
                 operatorType,

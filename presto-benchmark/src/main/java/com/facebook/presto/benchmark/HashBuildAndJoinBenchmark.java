@@ -79,8 +79,8 @@ public class HashBuildAndJoinBenchmark
         // hash build
         HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(2, new PlanNodeId("test"), source.getTypes(), ImmutableList.of(0, 1), ImmutableMap.of(), Ints.asList(0), hashChannel, false, Optional.empty(), 1_500_000, 1, new PagesIndex.TestingFactory());
         driversBuilder.add(hashBuilder);
-        DriverFactory hashBuildDriverFactory = new DriverFactory(true, false, driversBuilder.build(), OptionalInt.empty());
-        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(true, false).addDriverContext());
+        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty());
+        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, false).addDriverContext());
         hashBuildDriverFactory.close();
 
         // join
@@ -97,8 +97,8 @@ public class HashBuildAndJoinBenchmark
         OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(2, new PlanNodeId("test"), hashBuilder.getLookupSourceFactory(), source.getTypes(), Ints.asList(0), hashChannel, Optional.empty());
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
-        DriverFactory joinDriverFactory = new DriverFactory(true, true, joinDriversBuilder.build(), OptionalInt.empty());
-        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(true, true).addDriverContext());
+        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty());
+        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true).addDriverContext());
         joinDriverFactory.close();
 
         return ImmutableList.of(hashBuildDriver, joinDriver);

@@ -71,8 +71,8 @@ public class HashJoinBenchmark
                     1,
                     new PagesIndex.TestingFactory());
 
-            DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
-            Driver driver = new DriverFactory(false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty()).createDriver(driverContext);
+            DriverContext driverContext = taskContext.addPipelineContext(0, false, false).addDriverContext();
+            Driver driver = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty()).createDriver(driverContext);
             while (!hashBuilder.getLookupSourceFactory().createLookupSource().isDone()) {
                 driver.process();
             }
@@ -85,8 +85,8 @@ public class HashJoinBenchmark
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"), joinOperator.getTypes());
 
-        DriverFactory driverFactory = new DriverFactory(true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty());
-        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
+        DriverFactory driverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty());
+        DriverContext driverContext = taskContext.addPipelineContext(1, true, true).addDriverContext();
         Driver driver = driverFactory.createDriver(driverContext);
         return ImmutableList.of(driver);
     }

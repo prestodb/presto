@@ -265,7 +265,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
     private LookupSourceFactory benchmarkBuildHash(BuildContext buildContext, List<Integer> outputChannels)
     {
-        DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(true, true).addDriverContext();
+        DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(0, true, true).addDriverContext();
 
         HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                 HASH_BUILD_OPERATOR_ID,
@@ -308,7 +308,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 joinContext.getHashChannel(),
                 Optional.of(joinContext.getOutputChannels()));
 
-        DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(true, true).addDriverContext();
+        DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(0, true, true).addDriverContext();
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         Iterator<Page> input = joinContext.getProbePages().iterator();

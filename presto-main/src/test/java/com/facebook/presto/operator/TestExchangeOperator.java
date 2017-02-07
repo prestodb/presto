@@ -269,7 +269,7 @@ public class TestExchangeOperator
         ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, SERDE_FACTORY, TYPES);
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         SourceOperator operator = operatorFactory.createOperator(driverContext);

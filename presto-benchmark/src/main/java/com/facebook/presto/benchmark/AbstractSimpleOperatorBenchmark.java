@@ -51,14 +51,14 @@ public abstract class AbstractSimpleOperatorBenchmark
 
         operatorFactories.add(new NullOutputOperatorFactory(999, new PlanNodeId("test"), Iterables.getLast(operatorFactories).getTypes()));
 
-        return new DriverFactory(true, true, operatorFactories, OptionalInt.empty());
+        return new DriverFactory(0, true, true, operatorFactories, OptionalInt.empty());
     }
 
     @Override
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
         DriverFactory driverFactory = createDriverFactory();
-        DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
         Driver driver = driverFactory.createDriver(driverContext);
         return ImmutableList.of(driver);
     }

@@ -51,6 +51,7 @@ public class PipelineContext
 {
     private final TaskContext taskContext;
     private final Executor executor;
+    private final int pipelineId;
 
     private final boolean inputPipeline;
     private final boolean outputPipeline;
@@ -85,8 +86,9 @@ public class PipelineContext
 
     private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
 
-    public PipelineContext(TaskContext taskContext, Executor executor, boolean inputPipeline, boolean outputPipeline)
+    public PipelineContext(int pipelineId, TaskContext taskContext, Executor executor, boolean inputPipeline, boolean outputPipeline)
     {
+        this.pipelineId = pipelineId;
         this.inputPipeline = inputPipeline;
         this.outputPipeline = outputPipeline;
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
@@ -101,6 +103,11 @@ public class PipelineContext
     public TaskId getTaskId()
     {
         return taskContext.getTaskId();
+    }
+
+    public int getPipelineId()
+    {
+        return pipelineId;
     }
 
     public boolean isInputPipeline()
@@ -403,6 +410,8 @@ public class PipelineContext
                 .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
                 .allMatch(DriverStats::isFullyBlocked);
         return new PipelineStats(
+                pipelineId,
+
                 executionStartTime.get(),
                 lastExecutionStartTime.get(),
                 lastExecutionEndTime.get(),

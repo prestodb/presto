@@ -53,7 +53,7 @@ public class TestOrderByOperator
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -172,7 +172,7 @@ public class TestOrderByOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(

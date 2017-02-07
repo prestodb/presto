@@ -110,9 +110,9 @@ public class TaskContext
         return taskStateMachine.getTaskId();
     }
 
-    public PipelineContext addPipelineContext(boolean inputPipeline, boolean outputPipeline)
+    public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline)
     {
-        PipelineContext pipelineContext = new PipelineContext(this, executor, inputPipeline, outputPipeline);
+        PipelineContext pipelineContext = new PipelineContext(pipelineId, this, executor, inputPipeline, outputPipeline);
         pipelineContexts.add(pipelineContext);
         return pipelineContext;
     }

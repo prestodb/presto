@@ -446,7 +446,7 @@ public class TestOrcPageSourceMemoryTracking
         private DriverContext newDriverContext()
         {
             return createTaskContext(executor, testSessionBuilder().build())
-                    .addPipelineContext(true, true)
+                    .addPipelineContext(0, true, true)
                     .addDriverContext();
         }
     }
