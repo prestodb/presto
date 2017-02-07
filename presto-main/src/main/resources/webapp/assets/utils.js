@@ -378,23 +378,23 @@ function formatDataSizeMinUnit(size, minUnit) {
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "K";
+        unit = "K" + minUnit;
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "M";
+        unit = "M" + minUnit;
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "G";
+        unit = "G" + minUnit;
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "T";
+        unit = "T" + minUnit;
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "P";
+        unit = "P" + minUnit;
     }
     return precisionRound(size) + unit;
 }
