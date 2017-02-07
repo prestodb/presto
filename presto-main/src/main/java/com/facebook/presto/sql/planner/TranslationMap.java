@@ -252,7 +252,7 @@ class TranslationMap
             {
                 return getSymbol(rewriteBase, node)
                         .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                        .orElse(node);
+                        .orElse(coerceIfNecessary(node, node));
             }
 
             @Override
