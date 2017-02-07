@@ -18,8 +18,8 @@ import org.apache.hadoop.conf.Configuration;
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.Map;
 
+import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static java.util.Objects.requireNonNull;
 
 public class HiveHdfsConfiguration
@@ -35,9 +35,7 @@ public class HiveHdfsConfiguration
         // all the required default resources must be declared above
         INITIAL_CONFIGURATION = new Configuration(false);
         Configuration defaultConfiguration = new Configuration();
-        for (Map.Entry<String, String> entry : defaultConfiguration) {
-            INITIAL_CONFIGURATION.set(entry.getKey(), entry.getValue());
-        }
+        copy(defaultConfiguration, INITIAL_CONFIGURATION);
     }
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
@@ -47,9 +45,7 @@ public class HiveHdfsConfiguration
         protected Configuration initialValue()
         {
             Configuration config = new Configuration(false);
-            for (Map.Entry<String, String> entry : INITIAL_CONFIGURATION) {
-                config.set(entry.getKey(), entry.getValue());
-            }
+            copy(INITIAL_CONFIGURATION, config);
             updater.updateConfiguration(config);
             return config;
         }
