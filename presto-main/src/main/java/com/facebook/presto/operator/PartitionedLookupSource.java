@@ -22,7 +22,6 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -33,6 +32,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Integer.numberOfTrailingZeros;
 import static java.lang.Math.toIntExact;
+import static java.util.Arrays.stream;
 
 @NotThreadSafe
 public class PartitionedLookupSource
@@ -80,6 +80,12 @@ public class PartitionedLookupSource
     }
 
     @Override
+    public boolean isEmpty()
+    {
+        return stream(lookupSources).allMatch(lookupSource -> lookupSource.isEmpty());
+    }
+
+    @Override
     public int getChannelCount()
     {
         return lookupSources[0].getChannelCount();
@@ -94,7 +100,7 @@ public class PartitionedLookupSource
     @Override
     public long getInMemorySizeInBytes()
     {
-        return Arrays.stream(lookupSources).mapToLong(LookupSource::getInMemorySizeInBytes).sum();
+        return stream(lookupSources).mapToLong(LookupSource::getInMemorySizeInBytes).sum();
     }
 
     @Override
