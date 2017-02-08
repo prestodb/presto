@@ -64,7 +64,12 @@ public class TestCassandraClientConfig
                 .setWhiteListAddresses("")
                 .setNoHostAvailableRetryCount(1)
                 .setSpeculativeExecutionLimit(1)
-                .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS)));
+                .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
+                .setSslKeyStore(null)
+                .setSslKeyStorePassword(null)
+                .setSslTrustStore(null)
+                .setSslTrustStorePassword(null)
+                .setUseTls(false));
     }
 
     @Test
@@ -104,6 +109,11 @@ public class TestCassandraClientConfig
                 .put("cassandra.no-host-available-retry-count", "10")
                 .put("cassandra.speculative-execution.limit", "10")
                 .put("cassandra.speculative-execution.delay", "101s")
+                .put("cassandra.ssl.enabled", "true")
+                .put("cassandra.ssl.trust-store", "truststore")
+                .put("cassandra.ssl.trust-store-password", "truststorepassword")
+                .put("cassandra.ssl.key-store-password", "keystorepassword")
+                .put("cassandra.ssl.key-store", "keystore")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -139,7 +149,12 @@ public class TestCassandraClientConfig
                 .setWhiteListAddresses("host1")
                 .setNoHostAvailableRetryCount(10)
                 .setSpeculativeExecutionLimit(10)
-                .setSpeculativeExecutionDelay(new Duration(101, SECONDS));
+                .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
+                .setUseTls(true)
+                .setSslKeyStore("keystore")
+                .setSslKeyStorePassword("keystorepassword")
+                .setSslTrustStore("truststore")
+                .setSslTrustStorePassword("truststorepassword");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

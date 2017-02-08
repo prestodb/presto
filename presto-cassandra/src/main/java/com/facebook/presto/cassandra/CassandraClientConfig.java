@@ -73,6 +73,71 @@ public class CassandraClientConfig
     private int noHostAvailableRetryCount = 1;
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
+    private boolean isUseTls;
+    private String sslTrustStore;
+    private String sslTrustStorePassword;
+    private String sslKeyStore;
+    private String sslKeyStorePassword;
+
+    public boolean getUseTls()
+    {
+        return isUseTls;
+    }
+
+    @Config("cassandra.ssl.enabled")
+    public CassandraClientConfig setUseTls(boolean useTls)
+    {
+        this.isUseTls = useTls;
+        return this;
+    }
+
+    public String getSslTrustStore()
+    {
+        return sslTrustStore;
+    }
+
+    @Config("cassandra.ssl.trust-store")
+    public CassandraClientConfig setSslTrustStore(String sslTrustStore)
+    {
+        this.sslTrustStore = sslTrustStore;
+        return this;
+    }
+
+    public String getSslTrustStorePassword()
+    {
+        return sslTrustStorePassword;
+    }
+
+    @Config("cassandra.ssl.trust-store-password")
+    public CassandraClientConfig setSslTrustStorePassword(String sslTrustStorePassword)
+    {
+        this.sslTrustStorePassword = sslTrustStorePassword;
+        return this;
+    }
+
+    public String getSslKeyStore()
+    {
+        return sslKeyStore;
+    }
+
+    @Config("cassandra.ssl.key-store")
+    public CassandraClientConfig setSslKeyStore(String sslKeyStore)
+    {
+        this.sslKeyStore = sslKeyStore;
+        return this;
+    }
+
+    public String getSslKeyStorePassword()
+    {
+        return sslKeyStorePassword;
+    }
+
+    @Config("cassandra.ssl.key-store-password")
+    public CassandraClientConfig setSslKeyStorePassword(String sslKeyStorePassword)
+    {
+        this.sslKeyStorePassword = sslKeyStorePassword;
+        return this;
+    }
 
     @Min(0)
     public int getLimitForPartitionKeySelect()

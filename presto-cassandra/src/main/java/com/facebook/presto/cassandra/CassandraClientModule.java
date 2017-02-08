@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.JdkSSLOptions;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
@@ -23,6 +24,7 @@ import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.datastax.driver.core.policies.RoundRobinPolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.datastax.driver.core.policies.WhiteListPolicy;
+import com.facebook.presto.cassandra.util.SslContextProvider;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -30,6 +32,7 @@ import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Singleton;
+import javax.net.ssl.SSLContext;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -95,7 +98,7 @@ public class CassandraClientModule
     public static CassandraSession createCassandraSession(
             CassandraConnectorId connectorId,
             CassandraClientConfig config,
-            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
+            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec) throws Exception
     {
         requireNonNull(config, "config is null");
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
@@ -110,6 +113,13 @@ public class CassandraClientModule
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
 
         LoadBalancingPolicy loadPolicy = new RoundRobinPolicy();
+
+        if (config.getUseTls()) {
+            SslContextProvider provider = new SslContextProvider();
+            SSLContext context = provider.getSSLContext(config.getSslTrustStore(), config.getSslTrustStorePassword(), config.getSslKeyStore(), config.getSslKeyStorePassword());
+
+            clusterBuilder.withSSL(JdkSSLOptions.builder().withSSLContext(context).build());
+        }
 
         if (config.isUseDCAware()) {
             requireNonNull(config.getDcAwareLocalDC(), "DCAwarePolicy localDC is null");
