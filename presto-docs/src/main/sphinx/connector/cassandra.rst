@@ -158,6 +158,17 @@ Property Name                                                 Description
 ``cassandra.speculative-execution.limit``                     The number of speculative executions (defaults to ``1``).
 
 ``cassandra.speculative-execution.delay``                     The delay between each speculative execution (defaults to ``500ms``).
+
+``cassandra.ssl.enabled``                                     Set to ``true`` to use enable ssl (defaults to ``false``).
+
+``cassandra.ssl.trust-store``                                 The name of the trust store location to use.
+
+``cassandra.ssl.trust-store-password``                        The trust store password.
+
+``cassandra.ssl.key-store``                                   The name of the key store location.
+
+``cassandra.ssl.key-store-password``                          Key store location password.
+
 ============================================================= ======================================================================
 
 Querying Cassandra Tables
@@ -196,3 +207,8 @@ This table can be described in Presto::
 This table can then be queried in Presto::
 
     SELECT * FROM cassandra.mykeyspace.users;
+
+When using SSL, use both the cassandra.ssl properties outlined above, as well as the followinf thrift port config:
+
+cassandra.thrift-connection-factory-class=org.apache.cassandra.thrift.SSLTransportFactory
+cassandra.transport-factory-options=enc.keystore=/etc/cassandra/conf/keystore,enc.truststore=/etc/cassandra/conf/truststore,enc.truststore.password=somepassword,enc.keystore.password=somepassword
