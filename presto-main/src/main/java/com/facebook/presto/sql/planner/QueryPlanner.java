@@ -49,6 +49,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
@@ -244,7 +245,7 @@ class QueryPlanner
                     .process(node.getFrom().get(), null);
         }
         else {
-            relationPlan = planImplicitTable(node);
+            relationPlan = planImplicitTable();
         }
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
@@ -256,10 +257,10 @@ class QueryPlanner
         return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
     }
 
-    private RelationPlan planImplicitTable(QuerySpecification node)
+    private RelationPlan planImplicitTable()
     {
         List<Expression> emptyRow = ImmutableList.of();
-        Scope scope = Scope.builder().withParent(analysis.getScope(node)).build();
+        Scope scope = Scope.builder().build();
         return new RelationPlan(
                 new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow)),
                 scope,
@@ -413,7 +414,7 @@ class QueryPlanner
                 argumentTranslations.put(parametersReplaced, output);
             }
         }
-        Map<Symbol, Symbol> argumentMappings  = argumentMappingBuilder.build();
+        Map<Symbol, Symbol> argumentMappings = argumentMappingBuilder.build();
 
         // 2.b. Rewrite grouping columns
         TranslationMap groupingTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
@@ -721,13 +722,13 @@ class QueryPlanner
         return sort(subPlan, node.getOrderBy(), node.getLimit(), analysis.getOrderByExpressions(node));
     }
 
-    private PlanBuilder sort(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit, List<Expression> orderByExpressions)
+    private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<String> limit, List<Expression> orderByExpressions)
     {
-        if (orderBy.isEmpty()) {
+        if (!orderBy.isPresent()) {
             return subPlan;
         }
 
-        Iterator<SortItem> sortItems = orderBy.iterator();
+        Iterator<SortItem> sortItems = orderBy.get().getSortItems().iterator();
 
         ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
         Map<Symbol, SortOrder> orderings = new HashMap<>();
@@ -762,9 +763,9 @@ class QueryPlanner
         return limit(subPlan, node.getOrderBy(), node.getLimit());
     }
 
-    private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit)
+    private PlanBuilder limit(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<String> limit)
     {
-        if (orderBy.isEmpty() && limit.isPresent()) {
+        if (!orderBy.isPresent() && limit.isPresent()) {
             if (!limit.get().equalsIgnoreCase("all")) {
                 long limitValue = Long.parseLong(limit.get());
                 subPlan = subPlan.withNewRoot(new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue, false));

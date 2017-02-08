@@ -74,6 +74,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -410,7 +411,7 @@ public class TestSqlParser
                                 new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true),
                                 createSelect123()
                         ), false),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -424,7 +425,7 @@ public class TestSqlParser
                                 new Union(ImmutableList.of(createSelect123(), createSelect123()), true),
                                 createSelect123()
                         ), false),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -436,7 +437,7 @@ public class TestSqlParser
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty()
         );
     }
@@ -462,7 +463,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.of("ALL")));
     }
 
@@ -854,9 +855,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement(format("SELECT substring('%s' FROM 2 FOR 3)", givenString),
@@ -868,9 +869,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -887,9 +888,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement(format("SELECT substring('%s', 2, 3)", givenString),
@@ -901,9 +902,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -924,9 +925,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT col1.f1[0], col2, col3[2].f2.f3, col4[4] FROM table1",
@@ -943,9 +944,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT CAST(ROW(11, 12) AS ROW(COL0 INTEGER, COL1 INTEGER)).col0",
@@ -959,9 +960,31 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testSelectWithOrderBy()
+            throws Exception
+    {
+        assertStatement("SELECT * FROM table1 ORDER BY a",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(
+                                        new Identifier("a"),
+                                        SortItem.Ordering.ASCENDING,
+                                        SortItem.NullOrdering.UNDEFINED)))),
+                                Optional.empty()),
+                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -978,9 +1001,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(new Identifier("a")))))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY a, b",
@@ -994,9 +1017,9 @@ public class TestSqlParser
                                         new SimpleGroupBy(ImmutableList.of(new Identifier("a"))),
                                         new SimpleGroupBy(ImmutableList.of(new Identifier("b")))))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY ()",
@@ -1008,9 +1031,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of())))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY GROUPING SETS (a)",
@@ -1022,9 +1045,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(QualifiedName.of("a"))))))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY ALL GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
@@ -1042,9 +1065,9 @@ public class TestSqlParser
                                         new Cube(ImmutableList.of(QualifiedName.of("c"))),
                                         new Rollup(ImmutableList.of(QualifiedName.of("d")))))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY DISTINCT GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
@@ -1062,9 +1085,9 @@ public class TestSqlParser
                                         new Cube(ImmutableList.of(QualifiedName.of("c"))),
                                         new Rollup(ImmutableList.of(QualifiedName.of("d")))))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -1334,14 +1357,14 @@ public class TestSqlParser
                         new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.of(ImmutableList.of("t", "u"))),
                         new WithQuery("b", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("y"))), Optional.empty())))),
                         new Table(QualifiedName.of("z")),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("WITH RECURSIVE a AS (SELECT * FROM x) TABLE y",
                 new Query(Optional.of(new With(true, ImmutableList.of(
                         new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.empty())))),
                         new Table(QualifiedName.of("y")),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -1515,9 +1538,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -1691,9 +1714,9 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty()),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty()));
     }
 

@@ -122,7 +122,7 @@ final class DescribeInputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    ordering(ascending("Position")),
+                    Optional.of(ordering(ascending("Position"))),
                     limit
             );
         }

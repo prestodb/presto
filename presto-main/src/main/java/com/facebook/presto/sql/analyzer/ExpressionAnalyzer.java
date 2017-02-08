@@ -1015,8 +1015,7 @@ public class ExpressionAnalyzer
             Scope subqueryScope = Scope.builder()
                     .withParent(scope)
                     .build();
-            analyzer.getAnalysis().setScope(node, subqueryScope);
-            Scope queryScope = analyzer.process(node.getQuery(), subqueryScope);
+            Scope queryScope = analyzer.analyze(node.getQuery(), subqueryScope);
 
             // Subquery should only produce one column
             if (queryScope.getRelationType().getVisibleFieldCount() != 1) {
@@ -1047,8 +1046,7 @@ public class ExpressionAnalyzer
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             Scope subqueryScope = Scope.builder().withParent(scope).build();
-            analyzer.getAnalysis().setScope(node, subqueryScope);
-            analyzer.process(node.getSubquery(), subqueryScope);
+            analyzer.analyze(node.getSubquery(), subqueryScope);
 
             existsSubqueries.add(node);
 

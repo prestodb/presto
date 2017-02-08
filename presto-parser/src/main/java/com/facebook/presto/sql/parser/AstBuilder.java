@@ -92,6 +92,7 @@ import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -437,6 +438,11 @@ class AstBuilder
     {
         QueryBody term = (QueryBody) visit(context.queryTerm());
 
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        }
+
         if (term instanceof QuerySpecification) {
             // When we have a simple query specification
             // followed by order by limit, fold the order by and limit
@@ -455,9 +461,9 @@ class AstBuilder
                             query.getWhere(),
                             query.getGroupBy(),
                             query.getHaving(),
-                            visit(context.sortItem(), SortItem.class),
+                            orderBy,
                             getTextIfPresent(context.limit)),
-                    ImmutableList.of(),
+                    Optional.empty(),
                     Optional.empty());
         }
 
@@ -465,7 +471,7 @@ class AstBuilder
                 getLocation(context),
                 Optional.empty(),
                 term,
-                visit(context.sortItem(), SortItem.class),
+                orderBy,
                 getTextIfPresent(context.limit));
     }
 
@@ -495,7 +501,7 @@ class AstBuilder
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty());
     }
 

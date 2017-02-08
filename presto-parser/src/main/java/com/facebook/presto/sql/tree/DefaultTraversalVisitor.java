@@ -104,8 +104,8 @@ public abstract class DefaultTraversalVisitor<R, C>
             process(node.getWith().get(), context);
         }
         process(node.getQueryBody(), context);
-        for (SortItem sortItem : node.getOrderBy()) {
-            process(sortItem, context);
+        if (node.getOrderBy().isPresent()) {
+            process(node.getOrderBy().get(), context);
         }
 
         return null;
@@ -339,6 +339,15 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitOrderBy(OrderBy node, C context)
+    {
+        for (SortItem sortItem : node.getSortItems()) {
+            process(sortItem, context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitSortItem(SortItem node, C context)
     {
         return process(node.getSortKey(), context);
@@ -360,8 +369,8 @@ public abstract class DefaultTraversalVisitor<R, C>
         if (node.getHaving().isPresent()) {
             process(node.getHaving().get(), context);
         }
-        for (SortItem sortItem : node.getOrderBy()) {
-            process(sortItem, context);
+        if (node.getOrderBy().isPresent()) {
+            process(node.getOrderBy().get(), context);
         }
         return null;
     }
