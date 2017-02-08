@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DoubleOperators;
@@ -26,6 +28,11 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -54,6 +61,10 @@ import static java.lang.String.format;
 public final class JsonOperators
 {
     public static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
+    public static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() ->
+            new ObjectMapperProvider().get().registerModule(new SimpleModule()
+                    .addSerializer(Slice.class, new SliceSerializer())
+                    .addSerializer(SqlDecimal.class, new SqlDecimalSerializer())));
 
     private JsonOperators()
     {

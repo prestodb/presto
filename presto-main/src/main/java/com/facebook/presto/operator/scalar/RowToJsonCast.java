@@ -17,22 +17,15 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -42,6 +35,7 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.operator.scalar.JsonFunctions.getJsonObjectValue;
+import static com.facebook.presto.operator.scalar.JsonOperators.OBJECT_MAPPER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,10 +44,6 @@ public class RowToJsonCast
         extends SqlOperator
 {
     public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
-    private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() ->
-            new ObjectMapperProvider().get().registerModule(new SimpleModule()
-                    .addSerializer(Slice.class, new SliceSerializer())
-                    .addSerializer(SqlDecimal.class, new SqlDecimalSerializer())));
     private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Block.class);
 
     private RowToJsonCast()
