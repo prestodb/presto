@@ -208,7 +208,7 @@ This table can then be queried in Presto::
 
     SELECT * FROM cassandra.mykeyspace.users;
 
-When using SSL, use both the cassandra.ssl properties outlined above, as well as the followinf thrift port config:
+When using SSL, use both the cassandra.ssl properties outlined above, as well as the following thrift port config:
 
 cassandra.thrift-connection-factory-class=org.apache.cassandra.thrift.SSLTransportFactory
 cassandra.transport-factory-options=enc.keystore=/etc/cassandra/conf/keystore,enc.truststore=/etc/cassandra/conf/truststore,enc.truststore.password=somepassword,enc.keystore.password=somepassword
