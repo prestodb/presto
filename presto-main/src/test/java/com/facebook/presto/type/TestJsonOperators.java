@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -122,6 +123,12 @@ public class TestJsonOperators
         assertFunction("cast(JSON '123.456' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("123.45600"));
         assertFunction("cast(JSON 'true' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("1.00000"));
         assertFunction("cast(JSON 'false' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("0.00000"));
+        assertFunction("cast(cast(ARRAY[DECIMAL '1234567890.12345678901234567890'] AS JSON) AS ARRAY(DECIMAL(30,20)))",
+                new ArrayType(createDecimalType(30, 20)),
+                ImmutableList.of(decimal("1234567890.12345678901234567890")));
+        assertFunction("cast(cast(ARRAY[ARRAY[DECIMAL '1234567890.12345678901234567890']] AS JSON) AS ARRAY(ARRAY(DECIMAL(30,20))))",
+                new ArrayType(new ArrayType(createDecimalType(30, 20))),
+                ImmutableList.of(ImmutableList.of(decimal("1234567890.12345678901234567890"))));
         assertInvalidCast("cast(JSON '1234567890123456' as DECIMAL(10,3))", "Cannot cast input json to DECIMAL(10,3)");
         assertInvalidCast("cast(JSON '{ \"x\" : 123}' as DECIMAL(10,3))", "Cannot cast '{\"x\":123}' to DECIMAL(10,3)");
         assertInvalidCast("cast(JSON '\"abc\"' as DECIMAL(10,3))", "Cannot cast '\"abc\"' to DECIMAL(10,3)");
@@ -196,5 +203,18 @@ public class TestJsonOperators
         assertFunction("cast(cast (null as varchar) as JSON)", JSON, null);
         assertFunction("cast('abc' as JSON)", JSON, "\"abc\"");
         assertFunction("cast('\"a\":2' as JSON)", JSON, "\"\\\"a\\\":2\"");
+    }
+
+    @Test
+    public void testCastFromNestedDecimalTypes()
+    {
+        assertFunction("cast(ARRAY[DECIMAL '1234567890.1234567890'] as JSON)", JSON, "[1234567890.1234567890]");
+        assertFunction("cast(ARRAY[ARRAY[DECIMAL '1234567890.1234567890']] as JSON)", JSON, "[[1234567890.1234567890]]");
+        assertFunction("cast(MAP(ARRAY['abc'], ARRAY[DECIMAL '1234567890.1234567890']) as JSON)", JSON,
+                "{\"abc\":1234567890.1234567890}");
+        assertFunction("cast(MAP(ARRAY['abc'], ARRAY[MAP(ARRAY['def'], ARRAY[DECIMAL '1234567890.1234567890'])]) as JSON)", JSON,
+                "{\"abc\":{\"def\":1234567890.1234567890}}");
+        assertFunction("cast(ROW(DECIMAL '1234567890.1234567890') AS JSON)", JSON, "[1234567890.1234567890]");
+        assertFunction("cast(ROW(ROW(DECIMAL '1234567890.1234567890')) AS JSON)", JSON, "[[1234567890.1234567890]]");
     }
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -49,7 +50,10 @@ public class RowToJsonCast
         extends SqlOperator
 {
     public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
-    private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() -> new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer())));
+    private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() ->
+            new ObjectMapperProvider().get().registerModule(new SimpleModule()
+                    .addSerializer(Slice.class, new SliceSerializer())
+                    .addSerializer(SqlDecimal.class, new SqlDecimalSerializer())));
     private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Block.class);
 
     private RowToJsonCast()

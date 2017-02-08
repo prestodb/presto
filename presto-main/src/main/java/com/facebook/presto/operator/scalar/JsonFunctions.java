@@ -441,9 +441,6 @@ public final class JsonFunctions
     public static Object getJsonObjectValue(Type valueType, ConnectorSession session, Block block, int position)
     {
         Object objectValue = valueType.getObjectValue(session, block, position);
-        if (objectValue instanceof SqlDecimal) {
-            objectValue = ((SqlDecimal) objectValue).toBigDecimal();
-        }
         return objectValue;
     }
 }
