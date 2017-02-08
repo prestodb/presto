@@ -27,11 +27,11 @@ public class ArrayUnnester
         implements Unnester
 {
     private final Type elementType;
-    private final Block arrayBlock;
+    private Block arrayBlock;
     private final int channelCount;
 
     private int position;
-    private final int positionCount;
+    private int positionCount;
 
     public ArrayUnnester(ArrayType arrayType, @Nullable Block arrayBlock)
     {
@@ -65,5 +65,13 @@ public class ArrayUnnester
     public final void appendNext(PageBuilder pageBuilder, int outputChannelOffset)
     {
         appendTo(pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public void setBlock(@Nullable Block arrayBlock)
+    {
+        this.arrayBlock = arrayBlock;
+        this.position = 0;
+        this.positionCount = arrayBlock == null ? 0 : arrayBlock.getPositionCount();
     }
 }

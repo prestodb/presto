@@ -125,7 +125,18 @@ public class UnnestOperator
         }
         this.outputTypes = outputTypesBuilder.build();
         this.pageBuilder = new PageBuilder(outputTypes);
-        this.unnesters = new ArrayList<>();
+        this.unnesters = new ArrayList<>(unnestTypes.size());
+        for (Type type : unnestTypes) {
+            if (type instanceof ArrayType) {
+                unnesters.add(new ArrayUnnester((ArrayType) type, null));
+            }
+            else if (type instanceof MapType) {
+                unnesters.add(new MapUnnester((MapType) type, null));
+            }
+            else {
+                throw new IllegalArgumentException("Cannot unnest type: " + type);
+            }
+        }
     }
 
     private static List<Type> getUnnestedTypes(List<Type> types)
@@ -178,12 +189,11 @@ public class UnnestOperator
 
         currentPage = page;
         currentPosition = 0;
-        initializeUnnesters();
+        fillUnnesters();
     }
 
-    private void initializeUnnesters()
+    private void fillUnnesters()
     {
-        unnesters.clear();
         for (int i = 0; i < unnestTypes.size(); i++) {
             Type type = unnestTypes.get(i);
             int channel = unnestChannels.get(i);
@@ -191,15 +201,7 @@ public class UnnestOperator
             if (!currentPage.getBlock(channel).isNull(currentPosition)) {
                 block = (Block) type.getObject(currentPage.getBlock(channel), currentPosition);
             }
-            if (type instanceof ArrayType) {
-                unnesters.add(new ArrayUnnester((ArrayType) type, block));
-            }
-            else if (type instanceof MapType) {
-                unnesters.add(new MapUnnester((MapType) type, block));
-            }
-            else {
-                throw new IllegalArgumentException("Cannot unnest type: " + type);
-            }
+            unnesters.get(i).setBlock(block);
         }
         ordinalityCount = 0;
     }
@@ -226,7 +228,7 @@ public class UnnestOperator
                     currentPosition = 0;
                     break;
                 }
-                initializeUnnesters();
+                fillUnnesters();
             }
             while (!pageBuilder.isFull() && anyUnnesterHasData()) {
                 // Copy all the channels marked for replication

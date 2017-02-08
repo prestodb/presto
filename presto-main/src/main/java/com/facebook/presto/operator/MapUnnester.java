@@ -28,11 +28,11 @@ public class MapUnnester
 {
     private final Type keyType;
     private final Type valueType;
-    private final Block block;
+    private Block block;
     private final int channelCount;
 
     private int position;
-    private final int positionCount;
+    private int positionCount;
 
     public MapUnnester(MapType mapType, @Nullable Block mapBlock)
     {
@@ -69,5 +69,13 @@ public class MapUnnester
     public final void appendNext(PageBuilder pageBuilder, int outputChannelOffset)
     {
         appendTo(pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public void setBlock(@Nullable Block mapBlock)
+    {
+        this.block = mapBlock;
+        this.position = 0;
+        this.positionCount = mapBlock == null ? 0 : mapBlock.getPositionCount();
     }
 }
