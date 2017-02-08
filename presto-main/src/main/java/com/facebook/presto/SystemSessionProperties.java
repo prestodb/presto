@@ -71,6 +71,7 @@ public final class SystemSessionProperties
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
+    public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -306,6 +307,11 @@ public final class SystemSessionProperties
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
                         featuresConfig.isEnableIntermediateAggregations(),
+                        false),
+                booleanSessionProperty(
+                        PUSH_AGGREGATION_THROUGH_JOIN,
+                        "Allow pushing aggregations below joins",
+                        featuresConfig.isPushAggregationThroughJoin(),
                         false));
     }
 
@@ -476,5 +482,10 @@ public final class SystemSessionProperties
     public static boolean isEnableIntermediateAggregations(Session session)
     {
         return session.getSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, Boolean.class);
+    }
+
+    public static boolean shouldPushAggregationThroughJoin(Session session)
+    {
+        return session.getSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, Boolean.class);
     }
 }
