@@ -232,7 +232,7 @@ public abstract class AbstractTestQueryFramework
     private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
     {
         if (!exception.getMessage().matches(regex)) {
-            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql));
+            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
         }
     }
 
