@@ -68,6 +68,7 @@ public class FeaturesConfig
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
+    private boolean pushAggregationThroughJoin = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -410,6 +411,18 @@ public class FeaturesConfig
     public FeaturesConfig setEnableIntermediateAggregations(boolean enableIntermediateAggregations)
     {
         this.enableIntermediateAggregations = enableIntermediateAggregations;
+        return this;
+    }
+
+    public boolean isPushAggregationThroughJoin()
+    {
+        return pushAggregationThroughJoin;
+    }
+
+    @Config("optimizer.push-aggregation-through-join")
+    public FeaturesConfig setPushAggregationThroughJoin(boolean value)
+    {
+        this.pushAggregationThroughJoin = value;
         return this;
     }
 }
