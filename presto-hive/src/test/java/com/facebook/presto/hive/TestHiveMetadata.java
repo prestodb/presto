@@ -49,7 +49,7 @@ public class TestHiveMetadata
             ColumnDomain<HiveColumnHandle> columnDomain = new ColumnDomain<>(TEST_COLUMN_HANDLE, Domain.singleValue(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))));
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
-                    SchemaTableName.valueOf("test.test"),
+                    new SchemaTableName("test", "test"),
                     tupleDomain,
                     Integer.toString(i),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))), ImmutableList.of()));
@@ -67,7 +67,7 @@ public class TestHiveMetadata
             ColumnDomain<HiveColumnHandle> columnDomain = new ColumnDomain<>(TEST_COLUMN_HANDLE, Domain.onlyNull(VarcharType.VARCHAR));
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
-                    SchemaTableName.valueOf("test.test"),
+                    new SchemaTableName("test", "test"),
                     tupleDomain,
                     Integer.toString(i),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)), ImmutableList.of()));
@@ -85,7 +85,7 @@ public class TestHiveMetadata
             ColumnDomain<HiveColumnHandle> columnDomain = new ColumnDomain<>(TEST_COLUMN_HANDLE, Domain.singleValue(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))));
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
-                    SchemaTableName.valueOf("test.test"),
+                    new SchemaTableName("test", "test"),
                     tupleDomain,
                     Integer.toString(i),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))), ImmutableList.of()));
@@ -94,7 +94,7 @@ public class TestHiveMetadata
         ColumnDomain<HiveColumnHandle> columnDomain = new ColumnDomain<>(TEST_COLUMN_HANDLE, Domain.onlyNull(VarcharType.VARCHAR));
         TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
         partitions.add(new HivePartition(
-                SchemaTableName.valueOf("test.test"),
+                new SchemaTableName("test", "test"),
                 tupleDomain,
                 "null",
                 ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)), ImmutableList.of()));

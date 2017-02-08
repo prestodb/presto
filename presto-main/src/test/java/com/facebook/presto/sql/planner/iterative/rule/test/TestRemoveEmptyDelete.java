@@ -31,7 +31,7 @@ public class TestRemoveEmptyDelete
     {
         tester.assertThat(new RemoveEmptyDelete())
                 .on(p -> p.tableDelete(
-                        SchemaTableName.valueOf("sch.tab"),
+                        new SchemaTableName("sch", "tab"),
                         p.tableScan(ImmutableList.of(), ImmutableMap.of()),
                         p.symbol("a", BigintType.BIGINT))
                 )
@@ -43,7 +43,7 @@ public class TestRemoveEmptyDelete
     {
         tester.assertThat(new RemoveEmptyDelete())
                 .on(p -> p.tableDelete(
-                        SchemaTableName.valueOf("sch.tab"),
+                        new SchemaTableName("sch", "tab"),
                         p.values(),
                         p.symbol("a", BigintType.BIGINT)
                         )
