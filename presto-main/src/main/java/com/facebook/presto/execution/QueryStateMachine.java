@@ -653,7 +653,19 @@ public class QueryStateMachine
         queryState.addStateChangeListener(stateChangeListener);
     }
 
-    public void addQueryInfoStateChangeListener(StateChangeListener<QueryInfo> stateChangeListener)
+    public void addDefinitionQueryInfoStateChangeListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        AtomicBoolean done = new AtomicBoolean();
+        StateChangeListener<QueryState> fireOnceStateChangeListener = queryState -> {
+            if (queryState.isDone() && done.compareAndSet(false, true)) {
+                stateChangeListener.stateChanged(getQueryInfo(Optional.empty()));
+            }
+        };
+        queryState.addStateChangeListener(fireOnceStateChangeListener);
+        fireOnceStateChangeListener.stateChanged(queryState.get());
+    }
+
+    public void addSqlQueryInfoStateChangeListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         AtomicBoolean done = new AtomicBoolean();
         StateChangeListener<Optional<QueryInfo>> fireOnceStateChangeListener = finalQueryInfo -> {

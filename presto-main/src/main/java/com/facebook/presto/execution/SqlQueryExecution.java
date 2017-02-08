@@ -267,7 +267,7 @@ public final class SqlQueryExecution
     @Override
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
-        stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
+        stateMachine.addSqlQueryInfoStateChangeListener(stateChangeListener);
     }
 
     private PlanRoot analyzeQuery()
