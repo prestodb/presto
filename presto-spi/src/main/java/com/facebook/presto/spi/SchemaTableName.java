@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.spi;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
@@ -26,28 +25,19 @@ public class SchemaTableName
     private final String schemaName;
     private final String tableName;
 
-    @JsonCreator
-    public static SchemaTableName valueOf(String schemaTableName)
-    {
-        checkNotEmpty(schemaTableName, "schemaTableName");
-        String[] parts = schemaTableName.split("\\.");
-        if (parts.length != 2) {
-            throw new IllegalArgumentException("Invalid schemaTableName " + schemaTableName);
-        }
-        return new SchemaTableName(parts[0], parts[1]);
-    }
-
-    public SchemaTableName(String schemaName, String tableName)
+    public SchemaTableName(@JsonProperty("schema") String schemaName, @JsonProperty("table") String tableName)
     {
         this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
         this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
     }
 
+    @JsonProperty("schema")
     public String getSchemaName()
     {
         return schemaName;
     }
 
+    @JsonProperty("table")
     public String getTableName()
     {
         return tableName;
@@ -73,7 +63,6 @@ public class SchemaTableName
                 Objects.equals(this.tableName, other.tableName);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {
