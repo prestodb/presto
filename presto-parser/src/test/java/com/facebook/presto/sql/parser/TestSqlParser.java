@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -42,6 +43,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -54,6 +56,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
@@ -78,6 +81,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
+import com.facebook.presto.sql.tree.PrincipalSpecification;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
@@ -1963,6 +1967,92 @@ public class TestSqlParser
                         identifier("col1"),
                         new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))
                 ));
+    }
+
+    @Test
+    public void testCreateRole()
+            throws Exception
+    {
+        assertStatement("CREATE ROLE role", new CreateRole("role", Optional.empty(), Optional.empty()));
+        assertStatement("CREATE ROLE role1 WITH ADMIN admin",
+                new CreateRole(
+                        "role1",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "admin")))),
+                        Optional.empty()));
+        assertStatement("CREATE ROLE role2 WITH ADMIN admin1 IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "admin1")))),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE role3 IN catalog1",
+                new CreateRole(
+                        "role3",
+                        Optional.empty(),
+                        Optional.of("catalog1")));
+        assertStatement("CREATE ROLE \"role\" WITH ADMIN \"admin\" IN \"catalog\"",
+                new CreateRole(
+                        "role",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "admin")))),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE \"ro le\" WITH ADMIN \"ad min\" IN \"ca talog\"",
+                new CreateRole(
+                        "ro le",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "ad min")))),
+                        Optional.of("ca talog")));
+        assertStatement("CREATE ROLE \"!@#$%^&*'\" WITH ADMIN \"ад\"\"мін\" IN \"カタログ\"",
+                new CreateRole(
+                        "!@#$%^&*'",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "ад\"\"мін")))),
+                        Optional.of("カタログ")));
+        assertStatement("CREATE ROLE role2 WITH ADMIN USER admin1 IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, "admin1")))),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE role2 WITH ADMIN ROLE role1 IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role1")))),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE role2 WITH ADMIN CURRENT_USER IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.CURRENT_USER,
+                                Optional.empty())),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE role2 WITH ADMIN CURRENT_ROLE IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.CURRENT_ROLE,
+                                Optional.empty())),
+                        Optional.of("catalog")));
+    }
+
+    @Test
+    public void testDropRole()
+            throws Exception
+    {
+        assertStatement("DROP ROLE role", new DropRole("role", Optional.empty()));
+        assertStatement("DROP ROLE role1 IN catalog", new DropRole("role1", Optional.of("catalog")));
+        assertStatement("DROP ROLE \"role\" IN \"catalog\"", new DropRole("role", Optional.of("catalog")));
+        assertStatement("DROP ROLE \"ro le\" IN \"ca talog\"", new DropRole("ro le", Optional.of("ca talog")));
+        assertStatement("DROP ROLE \"!@#$%^&*'ад\"\"мін\" IN \"カタログ\"", new DropRole("!@#$%^&*'ад\"\"мін", Optional.of("カタログ")));
     }
 
     private static void assertCast(String type)
