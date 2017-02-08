@@ -16,7 +16,6 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.PartitionAlreadyExistsException;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.spi.ConnectorSession;
@@ -63,6 +62,7 @@ import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -536,7 +536,7 @@ public class SemiTransactionalHiveMetastore
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
-                throw new PartitionAlreadyExistsException(new SchemaTableName(databaseName, tableName), Optional.of(partition.getValues()));
+                throw new PrestoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
             default:
                 throw new IllegalStateException("Unknown action type");
         }
