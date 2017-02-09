@@ -996,7 +996,7 @@ let QueryDetail = React.createClass({
                                     <td className="info-title">
                                         User
                                     </td>
-                                    <td className="info-text">
+                                    <td className="info-text wrap-text">
                                         <span id="query-user">{ query.session.user }</span>
                                         &nbsp;&nbsp;
                                         <a href="#" className="copy-button" data-clipboard-target="#query-user" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
@@ -1008,7 +1008,7 @@ let QueryDetail = React.createClass({
                                     <td className="info-title">
                                         Principal
                                     </td>
-                                    <td className="info-text">
+                                    <td className="info-text wrap-text">
                                         { query.session.principal }
                                     </td>
                                 </tr>
@@ -1016,7 +1016,7 @@ let QueryDetail = React.createClass({
                                     <td className="info-title">
                                         Source
                                     </td>
-                                    <td className="info-text">
+                                    <td className="info-text wrap-text">
                                         { query.session.source }
                                     </td>
                                 </tr>
@@ -1048,7 +1048,7 @@ let QueryDetail = React.createClass({
                                     <td className="info-title">
                                         Session Properties
                                     </td>
-                                    <td className="info-text">
+                                    <td className="info-text wrap-text">
                                         { this.renderSessionProperties() }
                                     </td>
                                 </tr>

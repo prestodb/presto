@@ -134,6 +134,10 @@ pre {
     border-top-color: #dedede;
 }
 
+.wrap-text {
+    word-break: break-all;
+}
+
 /** Navbar **/
 /** ====== **/
 
