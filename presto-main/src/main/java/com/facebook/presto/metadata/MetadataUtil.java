@@ -19,9 +19,12 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.PrincipalSpecification;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +34,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.spi.security.PrincipalType.ROLE;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
@@ -93,6 +98,21 @@ public final class MetadataUtil
         return null;
     }
 
+    public static String createCatalogName(Session session, Node node, Optional<String> catalog)
+    {
+        if (catalog.isPresent()) {
+            return catalog.get();
+        }
+
+        Optional<String> sessionCatalog = session.getCatalog();
+
+        if (!sessionCatalog.isPresent()) {
+            throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+        }
+
+        return sessionCatalog.get();
+    }
+
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
     {
         String catalogName = session.getCatalog().orElse(null);
@@ -140,6 +160,36 @@ public final class MetadataUtil
     public static QualifiedName createQualifiedName(QualifiedObjectName name)
     {
         return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+    }
+
+    public static PrestoPrincipal createPrincipal(Session session, GrantorSpecification specification)
+    {
+        GrantorSpecification.Type type = specification.getType();
+        switch (type) {
+            case PRINCIPAL:
+                return createPrincipal(specification.getPrincipal().get());
+            case CURRENT_USER:
+                return new PrestoPrincipal(USER, session.getIdentity().getUser());
+            case CURRENT_ROLE:
+                // TODO: will be implemented once the "SET ROLE" statement is introduced
+                throw new UnsupportedOperationException("CURRENT_ROLE is not yet supported");
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+
+    public static PrestoPrincipal createPrincipal(PrincipalSpecification specification)
+    {
+        PrincipalSpecification.Type type = specification.getType();
+        switch (type) {
+            case UNSPECIFIED:
+            case USER:
+                return new PrestoPrincipal(USER, specification.getName());
+            case ROLE:
+                return new PrestoPrincipal(ROLE, specification.getName());
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
+        }
     }
 
     public static boolean tableExists(Metadata metadata, Session session, String table)

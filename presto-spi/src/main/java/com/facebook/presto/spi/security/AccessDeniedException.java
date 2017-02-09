@@ -263,6 +263,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set catalog session property %s", propertyName));
     }
 
+    public static void denyCreateRole(String roleName)
+    {
+        throw new AccessDeniedException(format("Cannot create role %s", roleName));
+    }
+
+    public static void denyDropRole(String roleName)
+    {
+        throw new AccessDeniedException(format("Cannot drop role %s", roleName));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {
