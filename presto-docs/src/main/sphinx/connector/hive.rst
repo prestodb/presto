@@ -34,6 +34,7 @@ The following file types are supported for the Hive connector:
 * Avro
 * RCFile
 * SequenceFile
+* JSON
 * Text
 
 Configuration
