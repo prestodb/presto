@@ -44,6 +44,21 @@ public final class TpchQueryRunner
     public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
             throws Exception
     {
+        DistributedQueryRunner queryRunner = createQueryRunnerWithoutCatalogs(extraProperties, coordinatorProperties);
+        try {
+            queryRunner.createCatalog("tpch", "tpch");
+
+            return queryRunner;
+        }
+        catch (Exception e) {
+            queryRunner.close();
+            throw e;
+        }
+    }
+
+    public static DistributedQueryRunner createQueryRunnerWithoutCatalogs(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
+            throws Exception
+    {
         Session session = testSessionBuilder()
                 .setSource("test")
                 .setCatalog("tpch")
@@ -54,7 +69,6 @@ public final class TpchQueryRunner
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
 
             return queryRunner;
         }

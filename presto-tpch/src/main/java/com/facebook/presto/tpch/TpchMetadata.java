@@ -68,8 +68,14 @@ public class TpchMetadata
 
     private final String connectorId;
     private final Set<String> tableNames;
+    private final ColumnNaming columnNaming;
 
     public TpchMetadata(String connectorId)
+    {
+        this(connectorId, ColumnNaming.SIMPLIFIED);
+    }
+
+    public TpchMetadata(String connectorId, ColumnNaming columnNaming)
     {
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
@@ -77,6 +83,7 @@ public class TpchMetadata
         }
         this.tableNames = tableNames.build();
         this.connectorId = connectorId;
+        this.columnNaming = columnNaming;
     }
 
     @Override
