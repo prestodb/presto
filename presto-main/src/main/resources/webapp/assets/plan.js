@@ -20,7 +20,7 @@ function flatten(queryInfo)
     return {
         id: queryInfo.queryId,
         root: queryInfo.outputStage.plan.id,
-        stats: {},
+        stageStats: {},
         stages: stages
     }
 }
@@ -39,7 +39,7 @@ function flattenStage(stageInfo, result)
         id: stageInfo.plan.id,
         root: stageInfo.plan.root.id,
         distribution: stageInfo.plan.distribution,
-        stats: stageInfo.stageStats,
+        stageStats: stageInfo.stageStats,
         state: stageInfo.state,
         nodes: nodes
     });
@@ -67,7 +67,7 @@ function flattenNode(stages, nodeInfo, result)
 let StageStatistics = React.createClass({
     render: function() {
         const stage = this.props.stage;
-        const stats = this.props.stage.stats;
+        const stats = this.props.stage.stageStats;
         return (
             <div>
                 <div>
@@ -149,7 +149,7 @@ let LivePlan = React.createClass({
     updateD3Stage: function(stage, graph) {
         const clusterId = stage.stageId;
         const stageRootNodeId = "stage-" + stage.id + "-root";
-        const color = getStageStateColor(stage.state);
+        const color = getStageStateColor(stage);
 
         graph.setNode(clusterId, {label: "Stage " + stage.id + " ", clusterLabelPos: 'top-right', style: 'fill: ' + color, labelStyle: 'fill: #fff'});
 

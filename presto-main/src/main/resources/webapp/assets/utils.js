@@ -21,13 +21,13 @@ var GLYPHICON_HIGHLIGHT = {color: '#999999'};
 var STATE_COLOR_MAP = {
     QUEUED: '#1b8f72',
     RUNNING: '#19874e',
-    PLANNING: '#824b98',
+    PLANNING: '#674f98',
     FINISHED: '#1a4629',
-    BLOCKED: '#685b72',
-    USER_ERROR: '#a67559',
+    BLOCKED: '#61003b',
+    USER_ERROR: '#9a7d66',
     USER_CANCELED: '#858959',
     INSUFFICIENT_RESOURCES: '#7f5b72',
-    EXTERNAL_ERROR: '#caa55c',
+    EXTERNAL_ERROR: '#ca7640',
     UNKNOWN_ERROR: '#943524'
 };
 
@@ -39,8 +39,11 @@ function getQueryStateColor(query)
         case "PLANNING":
             return STATE_COLOR_MAP.PLANNING;
         case "STARTING":
-        case "RUNNING":
         case "FINISHING":
+        case "RUNNING":
+            if (query.queryStats && query.queryStats.fullyBlocked) {
+                return STATE_COLOR_MAP.BLOCKED;
+            }
             return STATE_COLOR_MAP.RUNNING;
         case "FAILED":
             switch (query.errorType) {
@@ -63,9 +66,9 @@ function getQueryStateColor(query)
     }
 }
 
-function getStageStateColor(state)
+function getStageStateColor(stage)
 {
-    switch (state) {
+    switch (stage.state) {
         case "PLANNED":
             return STATE_COLOR_MAP.QUEUED;
         case "SCHEDULING":
@@ -73,6 +76,9 @@ function getStageStateColor(state)
         case "SCHEDULED":
             return STATE_COLOR_MAP.PLANNING;
         case "RUNNING":
+            if (stage.stageStats && stage.stageStats.fullyBlocked) {
+                return STATE_COLOR_MAP.BLOCKED;
+            }
             return STATE_COLOR_MAP.RUNNING;
         case "FINISHED":
             return STATE_COLOR_MAP.FINISHED;
@@ -90,16 +96,22 @@ function getStageStateColor(state)
 function getHumanReadableState(query)
 {
     if (query.state == "RUNNING") {
+        let title = "RUNNING";
+
         if (query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0) {
-            return "RUNNING";
-        }
+            if (query.queryStats.fullyBlocked) {
+                title = "BLOCKED";
 
-        if (query.queryStats.fullyBlocked) {
-            return "BLOCKED (" + query.queryStats.blockedReasons.join(", ") + ")";
-        }
+                if (query.queryStats.blockedReasons && query.queryStats.blockedReasons.length > 0) {
+                    title += " (" + query.queryStats.blockedReasons.join(", ") + ")";
+                }
+            }
 
-        if (query.memoryPool === "reserved") {
-            return "RUNNING (RESERVED)";
+            if (query.memoryPool === "reserved") {
+                title += " (RESERVED)"
+            }
+
+            return title;
         }
     }
 

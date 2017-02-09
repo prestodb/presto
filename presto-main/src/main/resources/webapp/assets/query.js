@@ -288,7 +288,7 @@ let StageDetail = React.createClass({
         return (
             <tr>
                 <td className="stage-id">
-                    <div className="stage-state-color"  style={ { borderLeftColor: getStageStateColor(stage.state) } }>{ stageId }</div>
+                    <div className="stage-state-color"  style={ { borderLeftColor: getStageStateColor(stage) } }>{ stageId }</div>
                 </td>
                 <td>
                     <table className="table single-stage-table">
