@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -38,6 +39,8 @@ import static java.util.Objects.requireNonNull;
 public class FileStorageService
         implements StorageService
 {
+    private static final Logger log = Logger.get(FileStorageService.class);
+
     private static final Pattern HEX_DIRECTORY = Pattern.compile("[0-9a-f]{2}");
     private static final String FILE_EXTENSION = ".orc";
 
@@ -62,7 +65,7 @@ public class FileStorageService
     public void start()
             throws IOException
     {
-        deleteDirectory(baseStagingDir);
+        deleteStagingFilesAsync();
         createParents(new File(baseStagingDir, "."));
         createParents(new File(baseStorageDir, "."));
     }
@@ -138,6 +141,23 @@ public class FileStorageService
                 .resolve(uuid.substring(2, 4))
                 .resolve(uuid + FILE_EXTENSION)
                 .toFile();
+    }
+
+    private void deleteStagingFilesAsync()
+    {
+        List<File> files = listFiles(baseStagingDir, null);
+        if (!files.isEmpty()) {
+            new Thread(() -> {
+                for (File file : files) {
+                    try {
+                        Files.deleteIfExists(file.toPath());
+                    }
+                    catch (IOException e) {
+                        log.warn(e, "Failed to delete file: %s", file.getAbsolutePath());
+                    }
+                }
+            }, "background-staging-delete").start();
+        }
     }
 
     private static void deleteDirectory(File dir)
