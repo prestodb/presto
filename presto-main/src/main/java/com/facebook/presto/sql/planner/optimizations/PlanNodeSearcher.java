@@ -25,6 +25,7 @@ import static com.facebook.presto.sql.planner.optimizations.Predicates.alwaysTru
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeSearcher
@@ -81,6 +82,11 @@ public class PlanNodeSearcher
         ImmutableList.Builder<T> nodes = ImmutableList.builder();
         findAllRecursive(node, nodes);
         return nodes.build();
+    }
+
+    public <T extends PlanNode> T findOnlyElement()
+    {
+        return getOnlyElement(findAll());
     }
 
     private <T extends PlanNode> void findAllRecursive(PlanNode node, ImmutableList.Builder<T> nodes)
