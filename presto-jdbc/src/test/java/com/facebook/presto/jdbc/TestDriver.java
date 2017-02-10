@@ -49,6 +49,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -1071,6 +1072,45 @@ public class TestDriver
     }
 
     @Test
+    public void testPrepareStatement()
+            throws Exception
+    {
+        Connection connection = createConnection(TEST_CATALOG, "information_schema");
+        PreparedStatement statement = connection.prepareStatement("" +
+                "SELECT table_catalog, table_schema " +
+                "FROM information_schema.tables " +
+                "WHERE table_schema = ? " +
+                "  AND table_name = ?");
+        statement.setString(1, "information_schema");
+        statement.setString(2, "tables");
+        ResultSet rs = statement.executeQuery();
+        ResultSetMetaData metadata = rs.getMetaData();
+        assertEquals(metadata.getColumnCount(), 2);
+        assertEquals(metadata.getColumnLabel(1), "table_catalog");
+        assertEquals(metadata.getColumnLabel(2), "table_schema");
+        assertTrue(rs.next());
+        assertEquals(rs.getString("table_catalog"), TEST_CATALOG);
+    }
+
+    @Test
+    public void testPrepareStatementWithInsert()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (PreparedStatement statement = connection.prepareStatement("INSERT INTO test_table VALUES (?)")) {
+                try {
+                    statement.setInt(1, 1);
+                    statement.executeUpdate();
+                    fail("expected exception");
+                }
+                catch (SQLException e) {
+                    assertEquals(e.getMessage(), "SQL statement is not a query: INSERT INTO test_table VALUES (?)");
+                }
+            }
+        }
+    }
+
+    @Test
     public void testExecuteUpdateWithQuery()
             throws Exception
     {
@@ -1102,6 +1142,34 @@ public class TestDriver
                 catch (SQLException e) {
                     assertEquals(e.getMessage(), "SQL statement is not a query: " + sql);
                 }
+            }
+        }
+    }
+
+    @Test
+    public void testPrepareStatementReuse()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (PreparedStatement statement = connection.prepareStatement("INSERT INTO test_table VALUES (?), (?)")) {
+                statement.setInt(1, 1);
+                statement.setInt(2, 2);
+                // update statement
+                assertFalse(statement.execute());
+                assertNull(statement.getResultSet());
+                assertEquals(statement.getUpdateCount(), 2);
+                assertEquals(statement.getLargeUpdateCount(), 2);
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement("INSERT INTO test_table VALUES (?), (?), (?)")) {
+                // update statement
+                statement.setInt(1, 1);
+                statement.setInt(2, 2);
+                statement.setInt(3, 3);
+                assertFalse(statement.execute());
+                assertNull(statement.getResultSet());
+                assertEquals(statement.getUpdateCount(), 3);
+                assertEquals(statement.getLargeUpdateCount(), 3);
             }
         }
     }

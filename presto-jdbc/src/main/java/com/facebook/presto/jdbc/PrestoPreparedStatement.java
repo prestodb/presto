@@ -33,51 +33,63 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
+import java.text.MessageFormat;
 import java.util.Calendar;
+import java.util.HashMap;
 
 public class PrestoPreparedStatement
         extends PrestoStatement
         implements PreparedStatement
 {
+    /**
+     * save the SQL parameters {paramLoc:paramValue}
+     */
+    private final HashMap<Integer, String> parameters = new HashMap<Integer, String>();
+    private final String sql;
     PrestoPreparedStatement(PrestoConnection connection, String sql)
             throws SQLException
     {
         super(connection);
+        this.sql = sql;
     }
 
     @Override
     public ResultSet executeQuery()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "executeQuery");
+        return super.executeQuery(updateSql(this.sql, parameters));
     }
 
     @Override
     public int executeUpdate()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "executeUpdate");
+        if (!super.execute(updateSql(sql, parameters))) {
+            throw new SQLException("SQL statement is not a query: " + sql);
+        }
+        return (int) this.getLargeUpdateCount();
     }
 
     @Override
     public void setNull(int parameterIndex, int sqlType)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setNull");
+        this.parameters.put(parameterIndex, "NULL");
     }
 
     @Override
     public void setBoolean(int parameterIndex, boolean x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setBoolean");
+        this.parameters.put(parameterIndex, "" + x);
     }
 
     @Override
     public void setByte(int parameterIndex, byte x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setByte");
+        this.parameters.put(parameterIndex, "" + x);
     }
 
     @Override
@@ -91,28 +103,28 @@ public class PrestoPreparedStatement
     public void setInt(int parameterIndex, int x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setInt");
+        this.parameters.put(parameterIndex, "" + x);
     }
 
     @Override
     public void setLong(int parameterIndex, long x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setLong");
+        this.parameters.put(parameterIndex, "" + x);
     }
 
     @Override
     public void setFloat(int parameterIndex, float x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setFloat");
+        this.parameters.put(parameterIndex, "" + x);
     }
 
     @Override
     public void setDouble(int parameterIndex, double x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setDouble");
+        this.parameters.put(parameterIndex, "" + x);
     }
 
     @Override
@@ -126,7 +138,8 @@ public class PrestoPreparedStatement
     public void setString(int parameterIndex, String x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setString");
+        x = x.replace("'", "\\'");
+        this.parameters.put(parameterIndex, "'" + x + "'");
     }
 
     @Override
@@ -140,7 +153,7 @@ public class PrestoPreparedStatement
     public void setDate(int parameterIndex, Date x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setDate");
+        this.parameters.put(parameterIndex, "'" + x.toString() + "'");
     }
 
     @Override
@@ -154,7 +167,7 @@ public class PrestoPreparedStatement
     public void setTimestamp(int parameterIndex, Timestamp x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setTimestamp");
+        this.parameters.put(parameterIndex, "'" + x.toString() + "'");
     }
 
     @Override
@@ -182,7 +195,7 @@ public class PrestoPreparedStatement
     public void clearParameters()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "clearParameters");
+        this.parameters.clear();
     }
 
     @Override
@@ -196,14 +209,57 @@ public class PrestoPreparedStatement
     public void setObject(int parameterIndex, Object x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setObject");
+        if (x == null) {
+            setNull(parameterIndex, Types.NULL);
+        }
+        else if (x instanceof String) {
+            setString(parameterIndex, (String) x);
+        }
+        else if (x instanceof Short) {
+            setShort(parameterIndex, ((Short) x).shortValue());
+        }
+        else if (x instanceof Integer) {
+            setInt(parameterIndex, ((Integer) x).intValue());
+        }
+        else if (x instanceof Long) {
+            setLong(parameterIndex, ((Long) x).longValue());
+        }
+        else if (x instanceof Float) {
+            setFloat(parameterIndex, ((Float) x).floatValue());
+        }
+        else if (x instanceof Double) {
+            setDouble(parameterIndex, ((Double) x).doubleValue());
+        }
+        else if (x instanceof Boolean) {
+            setBoolean(parameterIndex, ((Boolean) x).booleanValue());
+        }
+        else if (x instanceof Byte) {
+            setByte(parameterIndex, ((Byte) x).byteValue());
+        }
+        else if (x instanceof Character) {
+            setString(parameterIndex, x.toString());
+        }
+        else if (x instanceof Timestamp) {
+            setTimestamp(parameterIndex, (Timestamp) x);
+        }
+        else if (x instanceof BigDecimal) {
+            setString(parameterIndex, x.toString());
+        }
+        else {
+            // Can't infer a type.
+            throw new SQLException(
+                    MessageFormat
+                            .format(
+                                    "Can''t infer the SQL type to use for an instance of {0}. Use setObject() with an explicit Types value to specify the type to use.",
+                                    x.getClass().getName()));
+        }
     }
 
     @Override
     public boolean execute()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "execute");
+        return super.execute(updateSql(sql, parameters));
     }
 
     @Override
@@ -280,7 +336,7 @@ public class PrestoPreparedStatement
     public void setNull(int parameterIndex, int sqlType, String typeName)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setNull");
+        this.parameters.put(parameterIndex, "NULL");
     }
 
     @Override
@@ -435,5 +491,65 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    /**
+     * update the SQL string with parameters set by setXXX methods of {@link PreparedStatement}
+     *
+     * @param sql
+     * @param parameters
+     * @return updated SQL string
+     */
+    private String updateSql(final String sql, HashMap<Integer, String> parameters)
+    {
+        if (!sql.contains("?")) {
+            return sql;
+        }
+
+        StringBuilder newSql = new StringBuilder(sql);
+
+        int paramLoc = 1;
+        while (getCharIndexFromSqlByParamLocation(sql, '?', paramLoc) > 0) {
+            // check the user has set the needs parameters
+            if (parameters.containsKey(paramLoc)) {
+                int tt = getCharIndexFromSqlByParamLocation(newSql.toString(), '?', 1);
+                newSql.deleteCharAt(tt);
+                newSql.insert(tt, parameters.get(paramLoc));
+            }
+            paramLoc++;
+        }
+        System.out.println(newSql.toString());
+        return newSql.toString();
+    }
+
+    /**
+     * Get the index of given char from the SQL string by parameter location
+     * </br> The -1 will be return, if nothing found
+     *
+     * @param sql
+     * @param cchar
+     * @param paramLoc
+     * @return
+     */
+    private int getCharIndexFromSqlByParamLocation(final String sql, final char cchar, final int paramLoc)
+    {
+        int signalCount = 0;
+        int charIndex = -1;
+        int num = 0;
+        for (int i = 0; i < sql.length(); i++) {
+            char c = sql.charAt(i);
+            if (c == '\'' || c == '\\') {
+                signalCount++;
+            }
+            else if (c == cchar && signalCount % 2 == 0) {
+                // check if the ? is really the parameter
+                num++;
+                if (num == paramLoc) {
+                    charIndex = i;
+                    break;
+                }
+            }
+        }
+        return charIndex;
     }
 }
