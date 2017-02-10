@@ -132,3 +132,8 @@ Array Functions
     If the arguments have an uneven length, missing values are filled with ``NULL``. ::
 
         SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
+
+.. function:: zip_with(array1, array2, function) -> array
+    :noindex:
+
+    See :func:`zip_with`.
