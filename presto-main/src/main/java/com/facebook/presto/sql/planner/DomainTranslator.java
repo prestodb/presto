@@ -34,6 +34,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
@@ -401,11 +402,31 @@ public final class DomainTranslator
             Type fieldType = checkedTypeLookup(symbol);
             NullableValue value = normalized.getValue();
 
-            Optional<NullableValue> coercedValue = coerce(value, fieldType);
-            if (coercedValue.isPresent()) {
-                return createComparisonExtractionResult(normalized.getComparisonType(), symbol, fieldType, coercedValue.get().getValue(), complement);
+            if (!normalized.wasNonCoercionCastRemoved()) {
+                // if during normalization we removed a cast which is not coercion it means that
+                // we cannot use coercion literal_type -> symbol_type to build tuple domain
+                //
+                // example which illustrates the problem:
+                //
+                // let t be of timestamp type:
+                //
+                // and expression be:
+                // cast(t as date) == date_literal
+                //
+                // after dropping cast we end up with:
+                //
+                // t == date_literal
+                //
+                // if we build tuple domain based coercion of date_literal to timestamp type we would
+                // end up with tuple domain with just one time point (cast(date_literal as timestamp).
+                // While we need range which maps to single date pointed by date_literal.
+                Optional<NullableValue> coercedValue = coerce(value, fieldType);
+                if (coercedValue.isPresent()) {
+                    return createComparisonExtractionResult(normalized.getComparisonType(), symbol, fieldType, coercedValue.get().getValue(), complement);
+                }
             }
 
+            // we can always use saturated_floor_cast.
             Optional<Expression> coercedExpression = coerceComparisonWithRounding(
                     fieldType, normalized.getNameReference(), value.getType(), value.getValue(), normalized.getComparisonType());
 
@@ -689,13 +710,44 @@ public final class DomainTranslator
         Object left = ExpressionInterpreter.expressionOptimizer(comparison.getLeft(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
         Object right = ExpressionInterpreter.expressionOptimizer(comparison.getRight(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
 
-        if (left instanceof SymbolReference && !(right instanceof Expression)) {
-            return Optional.of(new NormalizedSimpleComparison((SymbolReference) left, comparison.getType(), new NullableValue(expressionTypes.get(comparison.getRight()), right)));
+        if (left instanceof Expression && right instanceof Expression) {
+            return Optional.empty();
         }
-        if (right instanceof SymbolReference && !(left instanceof Expression)) {
-            return Optional.of(new NormalizedSimpleComparison((SymbolReference) right, comparison.getType().flip(), new NullableValue(expressionTypes.get(comparison.getLeft()), left)));
+
+        if (!(left instanceof Expression) && !(right instanceof Expression)) {
+            return Optional.empty();
         }
-        return Optional.empty();
+
+        if (left instanceof Expression) {
+            return toNormalizedSimpleComparison(metadata, expressionTypes, comparison.getLeft(), comparison.getType(), new NullableValue(expressionTypes.get(comparison.getRight()), right));
+        }
+        else {
+            return toNormalizedSimpleComparison(metadata, expressionTypes, comparison.getRight(), comparison.getType().flip(), new NullableValue(expressionTypes.get(comparison.getLeft()), left));
+        }
+    }
+
+    private static Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(Metadata metadata, IdentityHashMap<Expression, Type> expressionTypes, Expression nonLiteral, ComparisonExpressionType comparisonType, NullableValue literal)
+    {
+        boolean nonCoercionCastRemoved = false;
+        while (true) {
+            if (nonLiteral instanceof SymbolReference) {
+                return Optional.of(new NormalizedSimpleComparison((SymbolReference) nonLiteral, comparisonType, literal, nonCoercionCastRemoved));
+            }
+            else if (nonLiteral instanceof Cast) {
+                if (!isCoercion(metadata, expressionTypes, (Cast) nonLiteral)) {
+                    nonCoercionCastRemoved = true;
+                }
+                nonLiteral = ((Cast) nonLiteral).getExpression();
+            }
+            else {
+                return Optional.empty();
+            }
+        }
+    }
+
+    private static boolean isCoercion(Metadata metadata, Map<Expression, Type> expressionTypes, Cast cast)
+    {
+        return metadata.getTypeManager().canCoerce(expressionTypes.get(cast.getExpression()), expressionTypes.get(cast));
     }
 
     private static class NormalizedSimpleComparison
@@ -703,12 +755,14 @@ public final class DomainTranslator
         private final SymbolReference nameReference;
         private final ComparisonExpressionType comparisonType;
         private final NullableValue value;
+        private final boolean nonCoercionCastRemoved;
 
-        public NormalizedSimpleComparison(SymbolReference nameReference, ComparisonExpressionType comparisonType, NullableValue value)
+        public NormalizedSimpleComparison(SymbolReference nameReference, ComparisonExpressionType comparisonType, NullableValue value, boolean nonCoercionCastRemoved)
         {
             this.nameReference = requireNonNull(nameReference, "nameReference is null");
             this.comparisonType = requireNonNull(comparisonType, "comparisonType is null");
             this.value = requireNonNull(value, "value is null");
+            this.nonCoercionCastRemoved = nonCoercionCastRemoved;
         }
 
         public SymbolReference getNameReference()
@@ -724,6 +778,11 @@ public final class DomainTranslator
         public NullableValue getValue()
         {
             return value;
+        }
+
+        public boolean wasNonCoercionCastRemoved()
+        {
+            return nonCoercionCastRemoved;
         }
     }
 
