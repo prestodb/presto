@@ -217,6 +217,17 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupByWithSubquerySelectExpression()
+            throws Exception
+    {
+        // u.a is not GROUP-ed BY and it is used in select Subquery expression
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT (SELECT 1 FROM t1 WHERE a = u.a) FROM t1 u GROUP BY b");
+
+        // u.a is not GROUP-ed BY but select Subquery expression is using a different u.a
+        analyze("SELECT (SELECT 1 FROM t1 u WHERE a = u.a) FROM t1 u GROUP BY b");
+    }
+
+    @Test
     public void testOrderByInvalidOrdinal()
             throws Exception
     {
