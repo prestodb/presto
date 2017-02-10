@@ -84,6 +84,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.PrimitiveIterator;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -655,7 +656,35 @@ public final class ExpressionFormatter
 
     static String formatStringLiteral(String s)
     {
-        return "'" + s.replace("'", "''") + "'";
+        s = s.replace("'", "''");
+        if (isAsciiPrintable(s)) {
+            return "'" + s + "'";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("U&'");
+        PrimitiveIterator.OfInt iterator = s.codePoints().iterator();
+        while (iterator.hasNext()) {
+            int codePoint = iterator.nextInt();
+            checkArgument(codePoint >= 0, "Invalid UTF-8 encoding in characters: " + s);
+            if (isAsciiPrintable(codePoint)) {
+                char ch = (char) codePoint;
+                if (ch == '\\') {
+                    builder.append(ch);
+                }
+                builder.append(ch);
+            }
+            else if (codePoint <= 0xFFFF) {
+                builder.append('\\');
+                builder.append(String.format("%04X", codePoint));
+            }
+            else {
+                builder.append("\\+");
+                builder.append(String.format("%06X", codePoint));
+            }
+        }
+        builder.append("'");
+        return builder.toString();
     }
 
     static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
@@ -705,6 +734,24 @@ public final class ExpressionFormatter
             resultStrings.add(result);
         }
         return Joiner.on(", ").join(resultStrings.build());
+    }
+
+    private static boolean isAsciiPrintable(String s)
+    {
+        for (int i = 0; i < s.length(); i++) {
+            if (!isAsciiPrintable(s.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isAsciiPrintable(int codePoint)
+    {
+        if (codePoint >= 0x7F || codePoint < 0x20) {
+            return false;
+        }
+        return true;
     }
 
     private static String formatGroupingSet(Set<Expression> groupingSet, Optional<List<Expression>> parameters)

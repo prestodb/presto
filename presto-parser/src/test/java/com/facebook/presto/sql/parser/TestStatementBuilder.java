@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.SqlFormatter;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.io.Resources;
 import org.testng.annotations.Test;
@@ -26,6 +27,7 @@ import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestStatementBuilder
 {
@@ -237,6 +239,18 @@ public class TestStatementBuilder
     }
 
     @Test
+    public void testStringFormatter()
+            throws Exception
+    {
+        assertSqlFormatter("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801'",
+                "U&'hello\\6D4B\\8BD5\\+10FFFFworld\\7F16\\7801'");
+        assertSqlFormatter("'hello world'", "'hello world'");
+        assertSqlFormatter("U&'!+10FFFF!6d4B!8Bd5ABC!6d4B!8Bd5' UESCAPE '!'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
+        assertSqlFormatter("U&'\\+10FFFF\\6D4B\\8BD5\\0041\\0042\\0043\\6D4B\\8BD5'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
+        assertSqlFormatter("U&'\\\\abc\\6D4B'''", "U&'\\\\abc\\6D4B'''");
+   }
+
+    @Test
     public void testStatementBuilderTpch()
             throws Exception
     {
@@ -286,6 +300,13 @@ public class TestStatementBuilder
 
         println(repeat("=", 60));
         println("");
+    }
+
+    private static void assertSqlFormatter(String expression, String formatted)
+    {
+        Expression originalExpression = SQL_PARSER.createExpression(expression);
+        String real = SqlFormatter.formatSql(originalExpression, Optional.empty());
+        assertTrue(real.equals(formatted));
     }
 
     private static void println(String s)
