@@ -15,6 +15,7 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 
 import java.sql.Types;
@@ -93,7 +94,8 @@ class ColumnInfo
             parameterTypes.add(getType(parameter));
         }
         builder.setColumnParameterTypes(parameterTypes.build());
-        switch (type.toString()) {
+        List<TypeSignatureParameter> parameters = type.getParameters();
+        switch (type.getBase()) {
             case "boolean":
                 builder.setColumnDisplaySize(5);
                 break;
@@ -134,10 +136,22 @@ class ColumnInfo
                 builder.setColumnDisplaySize(24);
                 break;
             case "varchar":
-                builder.setSigned(true);
-                builder.setPrecision(VARCHAR_MAX);
+                if (parameters.get(0).getLongLiteral().intValue() == VarcharType.UNBOUNDED_LENGTH) {
+                    builder.setPrecision(VARCHAR_MAX);
+                    builder.setColumnDisplaySize(VARCHAR_MAX);
+                }
+                else {
+                    builder.setPrecision(parameters.get(0).getLongLiteral().intValue());
+                    builder.setColumnDisplaySize(parameters.get(0).getLongLiteral().intValue());
+                }
+                builder.setSigned(false);
                 builder.setScale(0);
-                builder.setColumnDisplaySize(VARCHAR_MAX);
+                break;
+            case "char":
+                builder.setSigned(false);
+                builder.setPrecision(parameters.get(0).getLongLiteral().intValue());
+                builder.setScale(0);
+                builder.setColumnDisplaySize(parameters.get(0).getLongLiteral().intValue());
                 break;
             case "varbinary":
                 builder.setSigned(true);
@@ -146,31 +160,31 @@ class ColumnInfo
                 builder.setColumnDisplaySize(VARBINARY_MAX);
                 break;
             case "time":
-                builder.setSigned(true);
+                builder.setSigned(false);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIME_MAX);
                 break;
             case "time with time zone":
-                builder.setSigned(true);
+                builder.setSigned(false);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIME_WITH_TIME_ZONE_MAX);
                 break;
             case "timestamp":
-                builder.setSigned(true);
+                builder.setSigned(false);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
             case "timestamp with time zone":
-                builder.setSigned(true);
+                builder.setSigned(false);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIMESTAMP_WITH_TIME_ZONE_MAX);
                 break;
             case "date":
-                builder.setSigned(true);
+                builder.setSigned(false);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(DATE_MAX);
                 break;
@@ -186,6 +200,7 @@ class ColumnInfo
                 builder.setPrecision(type.getParameters().get(0).getLongLiteral().intValue());
                 builder.setScale(type.getParameters().get(1).getLongLiteral().intValue());
                 break;
+            default:
         }
     }
 
