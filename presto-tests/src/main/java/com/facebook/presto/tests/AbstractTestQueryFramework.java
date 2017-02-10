@@ -162,16 +162,12 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
-        queryRunner.getExclusiveLock().lock();
         try {
             queryRunner.execute(session, sql);
             fail(format("Expected query to fail: %s", sql));
         }
         catch (RuntimeException ex) {
             assertExceptionMessage(sql, ex, expectedMessageRegExp);
-        }
-        finally {
-            queryRunner.getExclusiveLock().unlock();
         }
     }
 
