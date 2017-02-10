@@ -104,6 +104,13 @@ public class TestReorderWindows
                 ImmutableMap.of(RECEIPTDATE_ALIAS, SortOrder.ASC_NULLS_LAST));
     }
 
+    TestReorderWindows()
+    {
+        // this won't be necessary once ReorderWindows is turned on by default back
+        // currently it's disabled because of https://github.com/prestodb/presto/issues/7247
+        super(ImmutableMap.of("reorder_windows", "true"));
+    }
+
     @Test
     public void testNonMergeableABAReordersToAABAllOptimizers()
     {

@@ -90,6 +90,11 @@ public class WindowNode
         return ImmutableList.copyOf(concat(source.getOutputSymbols(), windowFunctions.keySet()));
     }
 
+    public Set<Symbol> getCreatedSymbols()
+    {
+        return ImmutableSet.copyOf(windowFunctions.keySet());
+    }
+
     @JsonProperty
     public PlanNode getSource()
     {
