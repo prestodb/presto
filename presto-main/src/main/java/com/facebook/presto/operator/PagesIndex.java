@@ -266,6 +266,15 @@ public class PagesIndex
         return types.get(channel).getSlice(block, blockPosition);
     }
 
+    public Block getBlock(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+
+        Block block = channels[channel].get(decodeSliceIndex(pageAddress));
+        int blockPosition = decodePosition(pageAddress);
+        return block.getSingleValueBlock(blockPosition);
+    }
+
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         sort(sortChannels, sortOrders, 0, getPositionCount());
