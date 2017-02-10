@@ -53,6 +53,17 @@ Lambda Functions
         SELECT transform(ARRAY ['x', 'abc', 'z'], x -> x || '0'); -- ['x0', 'abc0', 'z0']
         SELECT transform(ARRAY [ARRAY [1, NULL, 2], ARRAY[3, NULL]], a -> filter(a, x -> x IS NOT NULL)); -- [[1, 2], [3]]
 
+.. function:: transform_key(map<K1,V>, function<K1,V,K2>) -> MAP<K2,V>
+
+    Returns a map that applies ``function`` to each entry of ``map`` and transforms the keys::
+
+        SELECT transform_key(MAP(ARRAY[], ARRAY[]), (k, v) -> k + 1); -- {}
+        SELECT transform_key(MAP(ARRAY [1, 2, 3], ARRAY ['a', 'b', 'c']), (k, v) -> k + 1); -- {2 -> a, 3 -> b, 4 -> c}
+        SELECT transform_key(MAP(ARRAY ['a', 'b', 'c'], ARRAY [1, 2, 3]), (k, v) -> v * v); -- {1 -> 1, 4 -> 2, 9 -> 3}
+        SELECT transform_key(MAP(ARRAY ['a', 'b'], ARRAY [1, 2]), (k, v) -> k || CAST(v as VARCHAR)); -- {a1 -> 1, b2 -> 2}
+        SELECT transform_key(MAP(ARRAY [1, 2], ARRAY [1.0, 1.4]), -- {one -> 1.0, two -> 1.4}
+                             (k, v) -> MAP(ARRAY[1, 2], ARRAY['one', 'two'])[k]);
+
 .. function:: reduce(array<T>, initialState S, inputFunction<S,T,S>, outputFunction<S,R>) -> R
 
     Returns a single value reduced from ``array``. ``inputFunction`` will

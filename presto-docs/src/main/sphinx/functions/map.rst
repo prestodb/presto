@@ -46,6 +46,11 @@ Map Functions
 
     See :func:`map_filter`.
 
+.. function:: transform_key(map<K1,V>, function) -> MAP<K2,V>
+    :noindex:
+
+    See :func:`transform_key`.
+
 .. function:: map_keys(x<K,V>) -> array<K>
 
     Returns all the keys in the map ``x``.
