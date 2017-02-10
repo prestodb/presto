@@ -41,6 +41,9 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats listPrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats grantTablePrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats revokeTablePrivileges = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats listRoles = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats createRole = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats dropRole = new HiveMetastoreApiStats();
 
     @Managed
     @Nested
@@ -201,5 +204,26 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getListPrivileges()
     {
         return listPrivileges;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getListRoles()
+    {
+        return listRoles;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getCreateRole()
+    {
+        return createRole;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getDropRole()
+    {
+        return dropRole;
     }
 }

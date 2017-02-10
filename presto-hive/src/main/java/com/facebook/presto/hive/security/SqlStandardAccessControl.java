@@ -22,13 +22,16 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -40,11 +43,13 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -64,6 +69,7 @@ public class SqlStandardAccessControl
 {
     public static final String ADMIN_ROLE_NAME = "admin";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
+    private static final SchemaTableName ROLES = new SchemaTableName(INFORMATION_SCHEMA_NAME, "roles");
 
     private final String connectorId;
     // Two metastores (one transaction-aware, the other not) are available in this class
@@ -285,6 +291,26 @@ public class SqlStandardAccessControl
         return grantInfos;
     }
 
+    @Override
+    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role, Optional<PrestoPrincipal> grantor)
+    {
+        // currently specifying grantor is supported by metastore, but it is not supported by Hive itself
+        if (grantor.isPresent()) {
+            throw new AccessDeniedException("Hive Connector does not support WITH ADMIN statement");
+        }
+        if (!isAdmin(transactionHandle, identity)) {
+            denyCreateRole(role);
+        }
+    }
+
+    @Override
+    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role)
+    {
+        if (!isAdmin(transactionHandle, identity)) {
+            denyDropRole(role);
+        }
+    }
+
     private boolean checkDatabasePermission(ConnectorTransactionHandle transaction, Identity identity, String schemaName, HivePrivilege... requiredPrivileges)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
@@ -309,6 +335,10 @@ public class SqlStandardAccessControl
 
     private boolean checkTablePermission(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, HivePrivilege... requiredPrivileges)
     {
+        if (tableName.equals(ROLES) && !isAdmin(transaction, identity)) {
+            return false;
+        }
+
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
             return true;
         }

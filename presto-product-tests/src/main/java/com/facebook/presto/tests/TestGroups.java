@@ -54,6 +54,7 @@ public final class TestGroups
     public static final String CASSANDRA = "cassandra";
     public static final String LDAP = "ldap";
     public static final String LDAP_CLI = "ldap_cli";
+    public static final String ROLES = "roles";
 
     private TestGroups() {}
 }

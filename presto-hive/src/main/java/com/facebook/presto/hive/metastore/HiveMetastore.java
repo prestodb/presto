@@ -69,6 +69,12 @@ public interface HiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
+    void createRole(String role, String grantor);
+
+    void dropRole(String role);
+
+    Set<String> listRoles();
+
     Set<String> getRoles(String user);
 
     Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName);

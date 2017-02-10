@@ -49,6 +49,7 @@ public class MockHiveMetastoreClient
     static final String TEST_PARTITION2 = "key=testpartition2";
     static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
     static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
+    static final List<String> TEST_ROLES = ImmutableList.of("testrole");
 
     private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
             new StorageDescriptor(ImmutableList.of(), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
@@ -277,7 +278,25 @@ public class MockHiveMetastoreClient
     @Override
     public List<String> getRoleNames()
     {
-        throw new UnsupportedOperationException();
+        accessCount.incrementAndGet();
+        if (throwException) {
+            throw new IllegalStateException();
+        }
+        return TEST_ROLES;
+    }
+
+    @Override
+    public void createRole(String role, String grantor)
+            throws TException
+    {
+        // No-op
+    }
+
+    @Override
+    public void dropRole(String role)
+            throws TException
+    {
+        // No-op
     }
 
     @Override

@@ -221,6 +221,71 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public void createRole(String role, String grantor)
+    {
+        try {
+            retry()
+                    .stopOn(MetaException.class)
+                    .stopOnIllegalExceptions()
+                    .run("createRole", stats.getCreateRole().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            client.createRole(role, grantor);
+                            return null;
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
+    public void dropRole(String role)
+    {
+        try {
+            retry()
+                    .stopOn(MetaException.class)
+                    .stopOnIllegalExceptions()
+                    .run("dropRole", stats.getDropRole().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            client.dropRole(role);
+                            return null;
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
+    public Set<String> listRoles()
+    {
+        try {
+            return retry()
+                    .stopOn(MetaException.class)
+                    .stopOnIllegalExceptions()
+                    .run("listRoles", stats.getListRoles().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            return ImmutableSet.copyOf(client.getRoleNames());
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
     public Optional<List<String>> getAllViews(String databaseName)
     {
         try {
