@@ -45,6 +45,7 @@ import com.google.common.primitives.SignedBytes;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -443,6 +444,16 @@ public final class HiveWriteUtils
         }
     }
 
+    public static boolean isViewFileSystem(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    {
+        try {
+            return hdfsEnvironment.getFileSystem(user, path) instanceof ViewFileSystem;
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
+        }
+    }
+
     private static boolean isDirectory(String user, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
@@ -455,8 +466,8 @@ public final class HiveWriteUtils
 
     public static Path createTemporaryPath(String user, HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
-        // use a per-user temporary directory to avoid permission problems
-        String temporaryPrefix = "/tmp/presto-" + user;
+        // Will use the staging dir if it is viewFS. Otherwise, use the default tmp directory.
+        String temporaryPrefix = isViewFileSystem(user, hdfsEnvironment, targetPath) ? ".hive-staging" : "/tmp/presto-" + user;
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
