@@ -225,6 +225,13 @@ Property Name                                Description
 
 ``hive.s3.sse.enabled``                      Use S3 server-side encryption (defaults to ``false``).
 
+``hive.s3.sse.type``                         The type of key management for S3 server-side encryption.
+                                             Use ``S3`` for S3 managed or ``KMS`` for KMS-managed keys
+                                             (defaults to ``S3``)..
+
+``hive.s3.ss3.kms-key-id``                   The KMS Key ID to use for S3 server-side encryption with
+                                             KMS-managed keys. If not set, the default key is used.
+
 ``hive.s3.kms-key-id``                       If set, use S3 client-side encryption and use the AWS
                                              KMS to store encryption keys and use the value of
                                              this property as the KMS Key ID for newly created
