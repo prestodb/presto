@@ -653,6 +653,22 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    public synchronized void createRole(String role, String grantor)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.createRole(role, grantor));
+    }
+
+    public synchronized void dropRole(String role)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.dropRole(role));
+    }
+
+    public synchronized Set<String> listRoles()
+    {
+        checkReadable();
+        return delegate.listRoles();
+    }
+
     public synchronized Set<String> getRoles(String user)
     {
         checkReadable();

@@ -48,10 +48,10 @@ import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
-import static com.facebook.presto.spi.security.PrincipalType.ROLE;
-import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.security.PrincipalType.ROLE;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -428,6 +428,24 @@ public class TestingHiveMetastore
 
         dropPartition(databaseName, tableName, partition.getValues(), false);
         addPartitions(databaseName, tableName, ImmutableList.of(partition));
+    }
+
+    @Override
+    public synchronized void createRole(String role, String grantor)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public synchronized void dropRole(String role)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public synchronized Set<String> listRoles()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

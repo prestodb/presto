@@ -272,6 +272,24 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public void createRole(String role, String grantor)
+    {
+        delegate.createRole(role, grantor);
+    }
+
+    @Override
+    public void dropRole(String role)
+    {
+        delegate.dropRole(role);
+    }
+
+    @Override
+    public Set<String> listRoles()
+    {
+        return delegate.listRoles();
+    }
+
+    @Override
     public Set<String> getRoles(String user)
     {
         return delegate.getRoles(user);

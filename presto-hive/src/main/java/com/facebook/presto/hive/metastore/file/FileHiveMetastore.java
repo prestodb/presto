@@ -24,13 +24,13 @@ import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
-import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnNotFoundException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -67,10 +67,10 @@ import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
-import static com.facebook.presto.spi.security.PrincipalType.ROLE;
-import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.security.PrincipalType.ROLE;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -99,6 +99,9 @@ public class FileHiveMetastore
     private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
     private final JsonCodec<PartitionMetadata> partitionCodec = JsonCodec.jsonCodec(PartitionMetadata.class);
     private final JsonCodec<List<PermissionMetadata>> permissionsCodec = JsonCodec.listJsonCodec(PermissionMetadata.class);
+    private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
+
+    private final Object rolesLock = new Object();
 
     @Inject
     public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, FileHiveMetastoreConfig config)
@@ -564,6 +567,34 @@ public class FileHiveMetastore
     }
 
     @Override
+    public void createRole(String role, String grantor)
+    {
+        synchronized (rolesLock) {
+            Set<String> roles = new HashSet<>(listRoles());
+            roles.add(role);
+            writeFile("roles", getRolesFile(), rolesCodec, ImmutableList.copyOf(roles), true);
+        }
+    }
+
+    @Override
+    public void dropRole(String role)
+    {
+        synchronized (rolesLock) {
+            Set<String> roles = new HashSet<>(listRoles());
+            roles.remove(role);
+            writeFile("roles", getRolesFile(), rolesCodec, ImmutableList.copyOf(roles), true);
+        }
+    }
+
+    @Override
+    public Set<String> listRoles()
+    {
+        synchronized (rolesLock) {
+            return ImmutableSet.copyOf(readFile("roles", getRolesFile(), rolesCodec).orElse(ImmutableList.of()));
+        }
+    }
+
+    @Override
     public synchronized Optional<List<String>> getPartitionNames(String databaseName, String tableName)
     {
         requireNonNull(databaseName, "databaseName is null");
@@ -874,6 +905,11 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+    }
+
+    private Path getRolesFile()
+    {
+        return new Path(catalogDirectory, ".roles");
     }
 
     private void deleteMetadataDirectory(Path metadataDirectory)
