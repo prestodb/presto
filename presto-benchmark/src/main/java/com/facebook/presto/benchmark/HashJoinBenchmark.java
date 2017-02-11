@@ -22,6 +22,7 @@ import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
@@ -38,6 +39,7 @@ import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQuer
 public class HashJoinBenchmark
         extends AbstractOperatorBenchmark
 {
+    private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
     private LookupSourceFactory lookupSourceFactory;
 
     public HashJoinBenchmark(LocalQueryRunner localQueryRunner)
@@ -79,7 +81,7 @@ public class HashJoinBenchmark
 
         OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
 
-        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, new PlanNodeId("test"), lookupSourceFactory, lineItemTableScan.getTypes(), Ints.asList(0), Optional.empty(), Optional.empty());
+        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(1, new PlanNodeId("test"), lookupSourceFactory, lineItemTableScan.getTypes(), Ints.asList(0), Optional.empty(), Optional.empty());
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"), joinOperator.getTypes());
 
