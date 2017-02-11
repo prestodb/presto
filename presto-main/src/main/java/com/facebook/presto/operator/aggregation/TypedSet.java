@@ -18,8 +18,9 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.units.DataSize;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
+
+import java.util.Arrays;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
@@ -32,18 +33,16 @@ import static java.util.Objects.requireNonNull;
 public class TypedSet
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
-    private static final int INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
-
-    private final Type elementType;
-    private final IntArrayList blockPositionByHash;
-    private final BlockBuilder elementBlock;
-
-    private int maxFill;
-    private int hashMask;
     private static final int EMPTY_SLOT = -1;
 
+    private final Type elementType;
+    private final BlockBuilder elementBlock;
+
+    private int[] blockPositionByHash;
+    private int maxFill;
+    private int hashMask;
     private boolean containsNullElement;
 
     public TypedSet(Type elementType, int expectedSize)
@@ -56,18 +55,15 @@ public class TypedSet
         this.maxFill = calculateMaxFill(hashSize);
         this.hashMask = hashSize - 1;
 
-        blockPositionByHash = new IntArrayList(hashSize);
-        blockPositionByHash.size(hashSize);
-        for (int i = 0; i < hashSize; i++) {
-            blockPositionByHash.set(i, EMPTY_SLOT);
-        }
+        blockPositionByHash = new int[hashSize];
+        Arrays.fill(blockPositionByHash, EMPTY_SLOT);
 
         this.containsNullElement = false;
     }
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + INT_ARRAY_LIST_INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.size() * Integer.BYTES;
+        return INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.length * Integer.BYTES;
     }
 
     public boolean contains(Block block, int position)
@@ -79,7 +75,7 @@ public class TypedSet
             return containsNullElement;
         }
         else {
-            return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
+            return blockPositionByHash[getHashPositionOfElement(block, position)] != EMPTY_SLOT;
         }
     }
 
@@ -93,7 +89,7 @@ public class TypedSet
         }
         else {
             int hashPosition = getHashPositionOfElement(block, position);
-            if (blockPositionByHash.get(hashPosition) == EMPTY_SLOT) {
+            if (blockPositionByHash[hashPosition] == EMPTY_SLOT) {
                 addNewElement(hashPosition, block, position);
             }
         }
@@ -106,7 +102,7 @@ public class TypedSet
 
     public int positionOf(Block block, int position)
     {
-        return blockPositionByHash.get(getHashPositionOfElement(block, position));
+        return blockPositionByHash[getHashPositionOfElement(block, position)];
     }
 
     /**
@@ -116,7 +112,7 @@ public class TypedSet
     {
         int hashPosition = getMaskedHash(hashPosition(elementType, block, position));
         while (true) {
-            int blockPosition = blockPositionByHash.get(hashPosition);
+            int blockPosition = blockPositionByHash[hashPosition];
             // Doesn't have this element
             if (blockPosition == EMPTY_SLOT) {
                 return hashPosition;
@@ -136,7 +132,7 @@ public class TypedSet
         if (elementBlock.getSizeInBytes() > FOUR_MEGABYTES) {
             throw exceededLocalLimit(new DataSize(4, MEGABYTE));
         }
-        blockPositionByHash.set(hashPosition, elementBlock.getPositionCount() - 1);
+        blockPositionByHash[hashPosition] = elementBlock.getPositionCount() - 1;
 
         // increase capacity, if necessary
         if (elementBlock.getPositionCount() >= maxFill) {
@@ -149,10 +145,8 @@ public class TypedSet
         int newHashSize = arraySize(size + 1, FILL_RATIO);
         hashMask = newHashSize - 1;
         maxFill = calculateMaxFill(newHashSize);
-        blockPositionByHash.size(newHashSize);
-        for (int i = 0; i < newHashSize; i++) {
-            blockPositionByHash.set(i, EMPTY_SLOT);
-        }
+        blockPositionByHash = new int[newHashSize];
+        Arrays.fill(blockPositionByHash, EMPTY_SLOT);
 
         rehashBlock(elementBlock);
     }
@@ -160,7 +154,7 @@ public class TypedSet
     private void rehashBlock(Block block)
     {
         for (int blockPosition = 0; blockPosition < block.getPositionCount(); blockPosition++) {
-            blockPositionByHash.set(getHashPositionOfElement(block, blockPosition), blockPosition);
+            blockPositionByHash[getHashPositionOfElement(block, blockPosition)] = blockPosition;
         }
     }
 
