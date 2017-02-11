@@ -71,6 +71,7 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.GenericPageProcessor;
+import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
@@ -107,6 +108,7 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
+import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -572,7 +574,8 @@ public class LocalQueryRunner
                 spillerFactory,
                 blockEncodingSerde,
                 new PagesIndex.TestingFactory(),
-                new JoinCompiler());
+                new JoinCompiler(),
+                new LookupJoinOperators(new JoinProbeCompiler()));
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(

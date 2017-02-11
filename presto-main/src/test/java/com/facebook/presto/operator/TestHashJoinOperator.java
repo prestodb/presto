@@ -25,6 +25,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -62,6 +63,7 @@ import static org.testng.Assert.assertTrue;
 public class TestHashJoinOperator
 {
     private static final int PARTITION_COUNT = 4;
+    private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
 
     private ExecutorService executor;
 
@@ -107,7 +109,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = probePages
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -158,7 +160,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -202,7 +204,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -247,7 +249,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -281,7 +283,7 @@ public class TestHashJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -309,7 +311,7 @@ public class TestHashJoinOperator
         // probe
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.lookupOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.lookupOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -343,7 +345,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -383,7 +385,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.fullOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.fullOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -421,7 +423,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = probePages
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -474,7 +476,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = probePages
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -529,7 +531,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -577,7 +579,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -622,7 +624,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -670,7 +672,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -714,7 +716,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -763,7 +765,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
