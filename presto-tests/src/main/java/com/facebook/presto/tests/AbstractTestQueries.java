@@ -4845,13 +4845,13 @@ public abstract class AbstractTestQueries
     @Test
     public void testLargeIn()
     {
-        String longValues = range(0, 5000).asLongStream()
-                .mapToObj(Long::toString)
+        String longValues = range(0, 5000)
+                .mapToObj(Integer::toString)
                 .collect(joining(", "));
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
         assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
 
-        String arrayValues = range(0, 5000).asLongStream()
+        String arrayValues = range(0, 5000)
                 .mapToObj(i -> format("ARRAY[%s, %s, %s]", i, i + 1, i + 2))
                 .collect(joining(", "));
         assertQuery("SELECT ARRAY[0, 0, 0] in (ARRAY[0, 0, 0], " + arrayValues + ")", "values true");
