@@ -67,11 +67,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
+import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -89,7 +91,8 @@ class AggregationAnalyzer
     private final Metadata metadata;
     private final Analysis analysis;
 
-    private final Scope scope;
+    private final Scope sourceScope;
+    private final Optional<Scope> orderByScope;
 
     public static void verifySourceAggregations(
             List<Expression> groupByExpressions,
@@ -98,18 +101,32 @@ class AggregationAnalyzer
             Metadata metadata,
             Analysis analysis)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), metadata, analysis);
         analyzer.analyze(expression);
     }
 
-    private AggregationAnalyzer(List<Expression> groupByExpressions, Scope scope, Metadata metadata, Analysis analysis)
+    public static void verifyOrderByAggregations(
+            List<Expression> groupByExpressions,
+            Scope sourceScope,
+            Scope orderByScope,
+            Expression expression,
+            Metadata metadata,
+            Analysis analysis)
+    {
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), metadata, analysis);
+        analyzer.analyze(expression);
+    }
+
+    private AggregationAnalyzer(List<Expression> groupByExpressions, Scope sourceScope, Optional<Scope> orderByScope, Metadata metadata, Analysis analysis)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
-        requireNonNull(scope, "scope is null");
+        requireNonNull(sourceScope, "sourceScope is null");
+        requireNonNull(orderByScope, "orderByScope is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(analysis, "analysis is null");
 
-        this.scope = scope;
+        this.sourceScope = sourceScope;
+        this.orderByScope = orderByScope;
         this.metadata = metadata;
         this.analysis = analysis;
         this.expressions = groupByExpressions.stream()
@@ -135,12 +152,12 @@ class AggregationAnalyzer
                 name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
             }
 
-            List<Field> fields = scope.getRelationType().resolveFields(name);
+            List<Field> fields = sourceScope.getRelationType().resolveFields(name);
             checkState(fields.size() <= 1, "Found more than one field for name '%s': %s", name, fields);
 
             if (fields.size() == 1) {
                 Field field = Iterables.getOnlyElement(fields);
-                fieldIndexes.add(scope.getRelationType().indexOf(field));
+                fieldIndexes.add(sourceScope.getRelationType().indexOf(field));
             }
         }
         this.fieldIndexes = fieldIndexes.build();
@@ -154,6 +171,9 @@ class AggregationAnalyzer
         }
     }
 
+    /**
+     * visitor returns true if all expressions are constant with respect to the group.
+     */
     private class Visitor
             extends AstVisitor<Boolean, Void>
     {
@@ -315,6 +335,12 @@ class AggregationAnalyzer
                                 "Filtered aggregations not supported with DISTINCT: '%s'",
                                 node);
                     }
+
+                    // ensure that no output fields are referenced from ORDER BY clause
+                    if (orderByScope.isPresent()) {
+                        node.getArguments().stream().forEach(AggregationAnalyzer.this::verifyNoOrderByReferencesToOutputColumns);
+                    }
+
                     return true;
                 }
             }
@@ -398,36 +424,42 @@ class AggregationAnalyzer
             if (analysis.getLambdaArgumentReferences().containsKey(node)) {
                 return true;
             }
-            return isField(QualifiedName.of(node.getName()));
+            return isField(node, QualifiedName.of(node.getName()));
         }
 
         @Override
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             if (analysis.getColumnReferences().contains(node)) {
-                return isField(DereferenceExpression.getQualifiedName(node));
+                return isField(node, DereferenceExpression.getQualifiedName(node));
             }
 
             // Allow SELECT col1.f1 FROM table1 GROUP BY col1
             return process(node.getBase(), context);
         }
 
-        private Boolean isField(QualifiedName qualifiedName)
+        private boolean isField(Expression node, QualifiedName qualifiedName)
         {
-            List<Field> fields = scope.getRelationType().resolveFields(qualifiedName);
-            checkState(!fields.isEmpty(), "No fields for name '%s'", qualifiedName);
-            checkState(fields.size() <= 1, "Found more than one field for name '%s': %s", qualifiedName, fields);
+            Scope scope = orderByScope.orElse(sourceScope);
 
-            Field field = Iterables.getOnlyElement(fields);
-            return fieldIndexes.contains(scope.getRelationType().indexOf(field));
+            ResolvedField resolvedField = scope.resolveField(node, qualifiedName);
+            if (orderByScope.isPresent() && resolvedField.getScope().equals(orderByScope.get())) {
+                return true;
+            }
+
+            return resolvedField.getScope().equals(sourceScope) && fieldIndexes.contains(resolvedField.getRelationFieldIndex());
         }
 
         @Override
         protected Boolean visitFieldReference(FieldReference node, Void context)
         {
+            if (orderByScope.isPresent()) {
+                return true;
+            }
+
             boolean inGroup = fieldIndexes.contains(node.getFieldIndex());
             if (!inGroup) {
-                Field field = scope.getRelationType().getFieldByIndex(node.getFieldIndex());
+                Field field = sourceScope.getRelationType().getFieldByIndex(node.getFieldIndex());
 
                 String column;
                 if (!field.getName().isPresent()) {
@@ -536,11 +568,25 @@ class AggregationAnalyzer
         @Override
         public Boolean process(Node node, @Nullable Void context)
         {
-            if (expressions.stream().anyMatch(node::equals)) {
+            if (expressions.stream().anyMatch(node::equals) && (!orderByScope.isPresent() || !hasOrderByReferencesToOutputColumns(node))) {
                 return true;
             }
 
             return super.process(node, context);
         }
+    }
+
+    private boolean hasOrderByReferencesToOutputColumns(Node node)
+    {
+        return !getReferencesToScope(node, analysis, orderByScope.get()).isEmpty();
+    }
+
+    private void verifyNoOrderByReferencesToOutputColumns(Node node)
+    {
+        getReferencesToScope(node, analysis, orderByScope.get()).stream()
+                .findFirst()
+                .ifPresent(expression -> {
+                    throw new SemanticException(REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION, expression, "Invalid reference to output projection attribute from ORDER BY aggregation");
+                });
     }
 }
