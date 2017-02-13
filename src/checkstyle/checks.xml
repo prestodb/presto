@@ -164,5 +164,9 @@
                 jdk.nashorn.internal,
                 jdk.internal" />
         </module>
+
+        <module name="ImportControl">
+            <property name="file" value="src/checkstyle/import-control.xml"/>
+        </module>
     </module>
 </module>
