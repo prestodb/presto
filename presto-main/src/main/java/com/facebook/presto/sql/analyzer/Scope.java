@@ -63,6 +63,28 @@ public class Scope
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
     }
 
+    public Optional<Scope> getOuterQueryParent()
+    {
+        Scope scope = this;
+        while (scope.parent.isPresent()) {
+            if (scope.queryBoundary) {
+                return scope.parent;
+            }
+            scope = scope.parent.get();
+        }
+
+        return Optional.empty();
+    }
+
+    public Optional<Scope> getLocalParent()
+    {
+        if (!queryBoundary) {
+            return parent;
+        }
+
+        return Optional.empty();
+    }
+
     public RelationType getRelationType()
     {
         return relation;
