@@ -143,7 +143,7 @@ public class HiveSplitManager
     {
         HiveTableLayoutHandle layout = (HiveTableLayoutHandle) layoutHandle;
 
-        List<HivePartition> partitions = Lists.transform(layout.getPartitions().get(), partition -> (HivePartition) partition);
+        List<HivePartition> partitions = layout.getPartitions().get();
 
         HivePartition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
