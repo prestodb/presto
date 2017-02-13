@@ -304,6 +304,6 @@ class TranslationMap
         return plan.getScope()
                 .tryResolveField(expression)
                 .filter(ResolvedField::isLocal)
-                .map(field -> plan.getFieldMappings().get(field.getFieldIndex()));
+                .map(field -> plan.getFieldMappings().get(field.getHierarchyFieldIndex()));
     }
 }
