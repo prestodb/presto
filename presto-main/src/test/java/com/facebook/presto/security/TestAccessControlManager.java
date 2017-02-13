@@ -43,7 +43,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
-import static com.facebook.presto.security.AccessControlManager.ALLOW_ALL_ACCESS_CONTROL;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
@@ -68,7 +67,7 @@ public class TestAccessControlManager
             throws Exception
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
-        accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.of());
+        accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(null, USER_NAME);
     }
 

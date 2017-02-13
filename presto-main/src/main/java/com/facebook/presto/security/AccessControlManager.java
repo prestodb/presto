@@ -16,7 +16,6 @@ package com.facebook.presto.security;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -62,8 +61,6 @@ public class AccessControlManager
     private static final File ACCESS_CONTROL_CONFIGURATION = new File("etc/access-control.properties");
     private static final String ACCESS_CONTROL_PROPERTY_NAME = "access-control.name";
 
-    public static final String ALLOW_ALL_ACCESS_CONTROL = "allow-all";
-
     private final TransactionManager transactionManager;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<ConnectorId, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
@@ -80,22 +77,7 @@ public class AccessControlManager
     public AccessControlManager(TransactionManager transactionManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        systemAccessControlFactories.put(ALLOW_ALL_ACCESS_CONTROL, new SystemAccessControlFactory()
-        {
-            @Override
-            public String getName()
-            {
-                return ALLOW_ALL_ACCESS_CONTROL;
-            }
-
-            @Override
-            public SystemAccessControl create(Map<String, String> config)
-            {
-                requireNonNull(config, "config is null");
-                checkArgument(config.isEmpty(), "The none access-controller does not support any configuration properties");
-                return new AllowAllSystemAccessControl();
-            }
-        });
+        addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
     }
 
     public void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
@@ -133,7 +115,7 @@ public class AccessControlManager
             setSystemAccessControl(accessControlName, properties);
         }
         else {
-            setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.of());
+            setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         }
     }
 
@@ -309,7 +291,7 @@ public class AccessControlManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(tableNames, "tableNames is null");
 
-        tableNames =  systemAccessControl.get().filterTables(identity, catalogName, tableNames);
+        tableNames = systemAccessControl.get().filterTables(identity, catalogName, tableNames);
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
         if (entry != null) {
@@ -623,143 +605,6 @@ public class AccessControlManager
         public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
-        }
-    }
-
-    private static class AllowAllSystemAccessControl
-            implements SystemAccessControl
-    {
-        @Override
-        public void checkCanSetUser(Principal principal, String userName)
-        {
-        }
-
-        @Override
-        public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
-        {
-            return catalogs;
-        }
-
-        @Override
-        public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
-        {
-        }
-
-        @Override
-        public void checkCanCreateSchema(Identity identity, CatalogSchemaName schema)
-        {
-        }
-
-        @Override
-        public void checkCanDropSchema(Identity identity, CatalogSchemaName schema)
-        {
-        }
-
-        @Override
-        public void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
-        {
-        }
-
-        @Override
-        public void checkCanShowSchemas(Identity identity, String catalogName)
-        {
-        }
-
-        @Override
-        public Set<String> filterSchemas(Identity identity, String catalogName, Set<String> schemaNames)
-        {
-            return schemaNames;
-        }
-
-        @Override
-        public void checkCanCreateTable(Identity identity, CatalogSchemaTableName table)
-        {
-        }
-
-        @Override
-        public void checkCanDropTable(Identity identity, CatalogSchemaTableName table)
-        {
-        }
-
-        @Override
-        public void checkCanRenameTable(Identity identity, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
-        {
-        }
-
-        @Override
-        public void checkCanShowTables(Identity identity, CatalogSchemaName schema)
-        {
-        }
-
-        @Override
-        public Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
-        {
-            return tableNames;
-        }
-
-        @Override
-        public void checkCanAddColumn(Identity identity, CatalogSchemaTableName table)
-        {
-        }
-
-        @Override
-        public void checkCanRenameColumn(Identity identity, CatalogSchemaTableName table)
-        {
-        }
-
-        @Override
-        public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
-        {
-        }
-
-        @Override
-        public void checkCanInsertIntoTable(Identity identity, CatalogSchemaTableName table)
-        {
-        }
-
-        @Override
-        public void checkCanDeleteFromTable(Identity identity, CatalogSchemaTableName table)
-        {
-        }
-
-        @Override
-        public void checkCanCreateView(Identity identity, CatalogSchemaTableName view)
-        {
-        }
-
-        @Override
-        public void checkCanDropView(Identity identity, CatalogSchemaTableName view)
-        {
-        }
-
-        @Override
-        public void checkCanSelectFromView(Identity identity, CatalogSchemaTableName view)
-        {
-        }
-
-        @Override
-        public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
-        {
-        }
-
-        @Override
-        public void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
-        {
-        }
-
-        @Override
-        public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
-        {
-        }
-
-        @Override
-        public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table)
-        {
-        }
-
-        @Override
-        public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table)
-        {
         }
     }
 }
