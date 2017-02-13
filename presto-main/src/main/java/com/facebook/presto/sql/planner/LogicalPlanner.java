@@ -51,11 +51,11 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -381,9 +381,9 @@ public class LogicalPlanner
         return columns.build();
     }
 
-    private static IdentityHashMap<LambdaArgumentDeclaration, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
+    private static IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
     {
-        IdentityHashMap<LambdaArgumentDeclaration, Symbol> resultMap = new IdentityHashMap<>();
+        IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> resultMap = new IdentityLinkedHashMap<>();
         for (Map.Entry<Expression, Type> entry : analysis.getTypes().entrySet()) {
             if (!(entry.getKey() instanceof LambdaArgumentDeclaration)) {
                 continue;
