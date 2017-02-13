@@ -236,6 +236,16 @@ class StatementAnalyzer
             this.outerQueryScope = requireNonNull(outerQueryScope, "outerQueryScope is null");
         }
 
+        public Scope process(Node node, Optional<Scope> scope)
+        {
+            Scope returnScope = super.process(node, scope);
+            checkState(returnScope.getOuterQueryParent().equals(outerQueryScope), "result scope should have outer query scope equal with parameter outer query scope");
+            if (scope.isPresent()) {
+                checkState(hasScopeAsLocalParent(returnScope, scope.get()), "return scope should have context scope as one of ancestors");
+            }
+            return returnScope;
+        }
+
         private Scope process(Node node, Scope scope)
         {
             return process(node, Optional.of(scope));
@@ -1893,5 +1903,18 @@ class StatementAnalyzer
 
             return scopeBuilder;
         }
+    }
+
+    private static boolean hasScopeAsLocalParent(Scope root, Scope parent)
+    {
+        Scope scope = root;
+        while (scope.getLocalParent().isPresent()) {
+            scope = scope.getLocalParent().get();
+            if (scope.equals(parent)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
