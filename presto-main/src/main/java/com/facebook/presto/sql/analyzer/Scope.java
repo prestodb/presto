@@ -143,8 +143,9 @@ public class Scope
 
     private ResolvedField asResolvedField(Field field, int fieldIndexOffset, boolean local)
     {
-        int fieldIndex = relation.indexOf(field) + fieldIndexOffset;
-        return new ResolvedField(this, field, fieldIndex, local);
+        int relationFieldIndex = relation.indexOf(field);
+        int hierarchyFieldIndex = relation.indexOf(field) + fieldIndexOffset;
+        return new ResolvedField(this, field, hierarchyFieldIndex, relationFieldIndex, local);
     }
 
     public boolean isColumnReference(QualifiedName name)
