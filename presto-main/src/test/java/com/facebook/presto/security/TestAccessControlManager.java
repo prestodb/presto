@@ -21,12 +21,14 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
@@ -35,11 +37,13 @@ import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
@@ -48,6 +52,7 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestAccessControlManager
 {
@@ -69,6 +74,47 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(null, USER_NAME);
+    }
+
+    @Test
+    public void testReadOnlySystemAccessControl()
+            throws Exception
+    {
+        Identity identity = new Identity(USER_NAME, Optional.of(PRINCIPAL));
+        QualifiedObjectName tableName = new QualifiedObjectName("catalog", "schema", "table");
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+
+        accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
+        accessControlManager.checkCanSetUser(PRINCIPAL, USER_NAME);
+        accessControlManager.checkCanSetSystemSessionProperty(identity, "property");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSetCatalogSessionProperty(transactionId, identity, "catalog", "property");
+                    accessControlManager.checkCanSelectFromTable(transactionId, identity, tableName);
+                    accessControlManager.checkCanSelectFromView(transactionId, identity, tableName);
+                    accessControlManager.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
+                    accessControlManager.checkCanCreateViewWithSelectFromView(transactionId, identity, tableName);
+                    accessControlManager.checkCanShowSchemas(transactionId, identity, "catalog");
+                    accessControlManager.checkCanShowTables(transactionId, identity, new CatalogSchemaName("catalog", "schema"));
+                    Set<String> catalogs = ImmutableSet.of("catalog");
+                    assertEquals(accessControlManager.filterCatalogs(identity, catalogs), catalogs);
+                    Set<String> schemas = ImmutableSet.of("schema");
+                    assertEquals(accessControlManager.filterSchemas(transactionId, identity, "catalog", schemas), schemas);
+                    Set<SchemaTableName> tableNames = ImmutableSet.of(new SchemaTableName("schema", "table"));
+                    assertEquals(accessControlManager.filterTables(transactionId, identity, "catalog", tableNames), tableNames);
+                });
+
+        try {
+            transaction(transactionManager, accessControlManager)
+                    .execute(transactionId -> {
+                        accessControlManager.checkCanInsertIntoTable(transactionId, identity, tableName);
+                    });
+            fail();
+        }
+        catch (AccessDeniedException expected) {
+        }
     }
 
     @Test
