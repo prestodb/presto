@@ -258,11 +258,14 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(DOUBLE '-1234567890.49' AS DECIMAL(16,0))", decimal("-0000001234567890"));
         assertDecimalFunction("CAST(DOUBLE '-1234567890.51' AS DECIMAL(16,0))", decimal("-0000001234567891"));
 
-        assertInvalidCast("CAST(infinity() AS DECIMAL(17,16))", "Cannot cast DOUBLE 'Infinity' to DECIMAL(17, 16)");
         assertInvalidCast("CAST(DOUBLE '100.02' AS DECIMAL(17,16))", "Cannot cast DOUBLE '100.02' to DECIMAL(17, 16)");
         assertInvalidCast("CAST(DOUBLE '234.0' AS DECIMAL(2,0))", "Cannot cast DOUBLE '234.0' to DECIMAL(2, 0)");
         assertInvalidCast("CAST(DOUBLE '1000.01' AS DECIMAL(5,2))", "Cannot cast DOUBLE '1000.01' to DECIMAL(5, 2)");
         assertInvalidCast("CAST(DOUBLE '-234.0' AS DECIMAL(2,0))", "Cannot cast DOUBLE '-234.0' to DECIMAL(2, 0)");
+
+        assertInvalidCast("CAST(nan() AS DECIMAL(10,5))", "Cannot cast floating point NaN to DECIMAL(10, 5)");
+        assertInvalidCast("CAST(infinity() AS DECIMAL(10,1))", "Cannot cast floating point Infinity to DECIMAL(10, 1)");
+        assertInvalidCast("CAST(-infinity() AS DECIMAL(1,1))", "Cannot cast floating point -Infinity to DECIMAL(1, 1)");
     }
 
     @Test
@@ -288,16 +291,12 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(DOUBLE '-1234567890.49' AS DECIMAL(20,0))", decimal("-00000000001234567890"));
         assertDecimalFunction("CAST(DOUBLE '-1234567890.51' AS DECIMAL(20,0))", decimal("-00000000001234567891"));
 
-        assertInvalidCast("CAST(infinity() AS DECIMAL(38,37))", "Cannot cast DOUBLE 'Infinity' to DECIMAL(38, 37)");
         assertInvalidCast("CAST(DOUBLE '100.02' AS DECIMAL(38,37))", "Cannot cast DOUBLE '100.02' to DECIMAL(38, 37)");
         assertInvalidCast("CAST(DOUBLE '234000000000000000000.0' AS DECIMAL(20,0))", "Cannot cast DOUBLE '2.34E20' to DECIMAL(20, 0)");
         assertInvalidCast("CAST(DOUBLE '1000000000000000000.01' AS DECIMAL(20,2))", "Cannot cast DOUBLE '1.0E18' to DECIMAL(20, 2)");
         assertInvalidCast("CAST(DOUBLE '-234000000000000000000.0' AS DECIMAL(20,0))", "Cannot cast DOUBLE '-2.34E20' to DECIMAL(20, 0)");
         assertInvalidCast("CAST(DOUBLE '12345678901.1' AS DECIMAL(20, 10))", "Cannot cast DOUBLE '1.23456789011E10' to DECIMAL(20, 10)");
 
-        assertInvalidCast("CAST(nan() AS DECIMAL(10,5))", "Cannot cast floating point NaN to DECIMAL(10, 5)");
-        assertInvalidCast("CAST(infinity() AS DECIMAL(10,1))", "Cannot cast floating point Infinity to DECIMAL(10, 1)");
-        assertInvalidCast("CAST(-infinity() AS DECIMAL(1,1))", "Cannot cast floating point -Infinity to DECIMAL(1, 1)");
         assertInvalidCast("CAST(nan() AS DECIMAL(38,10))", "Cannot cast floating point NaN to DECIMAL(38, 10)");
         assertInvalidCast("CAST(infinity() AS DECIMAL(38,2))", "Cannot cast floating point Infinity to DECIMAL(38, 2)");
         assertInvalidCast("CAST(-infinity() AS DECIMAL(38,1))", "Cannot cast floating point -Infinity to DECIMAL(38, 1)");
