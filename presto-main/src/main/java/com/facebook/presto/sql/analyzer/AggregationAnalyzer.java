@@ -39,7 +39,6 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
@@ -59,16 +58,13 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
@@ -91,36 +87,33 @@ class AggregationAnalyzer
     private final List<Expression> expressions;
 
     private final Metadata metadata;
-    private final Set<Expression> columnReferences;
-    private final IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences;
-    private final List<Expression> parameters;
-    private final boolean isDescribe;
+    private final Analysis analysis;
 
     private final Scope scope;
 
-    public AggregationAnalyzer(
+    public static void verifySourceAggregations(
             List<Expression> groupByExpressions,
+            Scope sourceScope,
+            Expression expression,
             Metadata metadata,
-            Scope scope,
-            Set<Expression> columnReferences,
-            IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences,
-            List<Expression> parameters,
-            boolean isDescribe)
+            Analysis analysis)
+    {
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, metadata, analysis);
+        analyzer.analyze(expression);
+    }
+
+    private AggregationAnalyzer(List<Expression> groupByExpressions, Scope scope, Metadata metadata, Analysis analysis)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
-        requireNonNull(metadata, "metadata is null");
         requireNonNull(scope, "scope is null");
-        requireNonNull(columnReferences, "columnReferences is null");
-        requireNonNull(parameters, "parameters is null");
+        requireNonNull(metadata, "metadata is null");
+        requireNonNull(analysis, "analysis is null");
 
         this.scope = scope;
         this.metadata = metadata;
-        this.columnReferences = ImmutableSet.copyOf(columnReferences);
-        this.lambdaArgumentReferences = lambdaArgumentReferences;
-        this.parameters = parameters;
-        this.isDescribe = isDescribe;
+        this.analysis = analysis;
         this.expressions = groupByExpressions.stream()
-                .map(e -> ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), e))
+                .map(e -> ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters()), e))
                 .collect(toImmutableList());
         ImmutableList.Builder<Integer> fieldIndexes = ImmutableList.builder();
 
@@ -133,7 +126,7 @@ class AggregationAnalyzer
         // For a query like "SELECT * FROM T GROUP BY a", groupByExpressions will contain "a",
         // and the '*' will be expanded to Field references. Therefore we translate all simple name expressions
         // in the group by clause to fields they reference so that the expansion from '*' can be matched against them
-        for (Expression expression : Iterables.filter(expressions, columnReferences::contains)) {
+        for (Expression expression : Iterables.filter(expressions, analysis.getColumnReferences()::contains)) {
             QualifiedName name;
             if (expression instanceof Identifier) {
                 name = QualifiedName.of(((Identifier) expression).getName());
@@ -153,7 +146,7 @@ class AggregationAnalyzer
         this.fieldIndexes = fieldIndexes.build();
     }
 
-    public void analyze(Expression expression)
+    private void analyze(Expression expression)
     {
         Visitor visitor = new Visitor();
         if (!visitor.process(expression, null)) {
@@ -326,10 +319,10 @@ class AggregationAnalyzer
                 }
             }
             else if (node.getFilter().isPresent()) {
-                    throw new SemanticException(MUST_BE_AGGREGATION_FUNCTION,
-                            node,
-                            "Filter is only valid for aggregation functions",
-                            node);
+                throw new SemanticException(MUST_BE_AGGREGATION_FUNCTION,
+                        node,
+                        "Filter is only valid for aggregation functions",
+                        node);
             }
 
             if (node.getWindow().isPresent() && !process(node.getWindow().get(), context)) {
@@ -402,7 +395,7 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitIdentifier(Identifier node, Void context)
         {
-            if (lambdaArgumentReferences.containsKey(node)) {
+            if (analysis.getLambdaArgumentReferences().containsKey(node)) {
                 return true;
             }
             return isField(QualifiedName.of(node.getName()));
@@ -411,7 +404,7 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
-            if (columnReferences.contains(node)) {
+            if (analysis.getColumnReferences().contains(node)) {
                 return isField(DereferenceExpression.getQualifiedName(node));
             }
 
@@ -532,9 +525,10 @@ class AggregationAnalyzer
         @Override
         public Boolean visitParameter(Parameter node, Void context)
         {
-            if (isDescribe) {
+            if (analysis.isDescribe()) {
                 return true;
             }
+            List<Expression> parameters = analysis.getParameters();
             checkArgument(node.getPosition() < parameters.size(), "Invalid parameter number %s, max values is %s", node.getPosition(), parameters.size() - 1);
             return process(parameters.get(node.getPosition()), context);
         }
