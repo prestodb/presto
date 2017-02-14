@@ -187,6 +187,8 @@ public class WindowOperator
 
     private final PageBuilder pageBuilder;
 
+    private final WindowInfo.DriverWindowInfoBuilder windowInfo;
+
     private State state = State.NEEDS_INPUT;
 
     private WindowPartition partition;
@@ -257,6 +259,14 @@ public class WindowOperator
             this.orderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
             this.ordering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
         }
+
+        windowInfo = new WindowInfo.DriverWindowInfoBuilder();
+        operatorContext.setInfoSupplier(this::getWindowInfo);
+    }
+
+    private OperatorInfo getWindowInfo()
+    {
+        return new WindowInfo(ImmutableList.of(windowInfo.build()));
     }
 
     @Override
@@ -279,7 +289,7 @@ public class WindowOperator
         }
         if (state == State.NEEDS_INPUT) {
             // Since was waiting for more input, prepare what we have for output since we will not be getting any more input
-            sortPagesIndexIfNecessary();
+            finishPagesIndex();
         }
         state = State.FINISHING;
     }
@@ -324,7 +334,7 @@ public class WindowOperator
 
         // If we have unused input or are finishing, then we have buffered a full group
         if (pendingInput != null || state == State.FINISHING) {
-            sortPagesIndexIfNecessary();
+            finishPagesIndex();
             return true;
         }
         else {
@@ -421,6 +431,7 @@ public class WindowOperator
 
                 int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
                 partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy);
+                windowInfo.addPartition(partition);
             }
 
             partition.processNextRow(pageBuilder);
@@ -441,6 +452,12 @@ public class WindowOperator
                 startPosition = endPosition;
             }
         }
+    }
+
+    private void finishPagesIndex()
+    {
+        sortPagesIndexIfNecessary();
+        windowInfo.addIndex(pagesIndex);
     }
 
     // Assumes input grouped on relevant pagesHashStrategy columns
