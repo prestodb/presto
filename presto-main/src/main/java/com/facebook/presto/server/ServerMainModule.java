@@ -268,6 +268,7 @@ public class ServerMainModule
         binder.bind(AsyncHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AsyncHttpExecutionMBean.class).withGeneratedName();
         binder.bind(JoinFilterFunctionCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(JoinFilterFunctionCompiler.class).withGeneratedName();
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
