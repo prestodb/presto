@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -705,6 +706,23 @@ public abstract class AbstractTestDistributedQueries
         assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
 
         assertUpdate("DROP VIEW meta_test_view");
+    }
+
+    @Test
+    public void testQueryLoggingCount()
+            throws Exception
+    {
+        QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
+        executeExclusively(() -> {
+            long beforeQueryCount = queryManager.getStats().getCompletedQueries().getTotalCount();
+            assertUpdate("CREATE TABLE test_query_logging_count AS SELECT 1 foo_1, 2 foo_2_4", 1);
+            assertQuery("SELECT foo_1, foo_2_4 FROM test_query_logging_count", "SELECT 1, 2");
+            assertUpdate("DROP TABLE test_query_logging_count");
+            assertQueryFails("SELECT * FROM test_query_logging_count", ".*Table .* does not exist");
+
+            long queryCount = queryManager.getStats().getCompletedQueries().getTotalCount() - beforeQueryCount;
+            assertEquals(queryCount, 4, format("expected [%s] but found [%s]", 4, queryCount));
+        });
     }
 
     @Test

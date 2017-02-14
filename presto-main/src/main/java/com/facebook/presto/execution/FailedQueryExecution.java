@@ -44,7 +44,7 @@ public class FailedQueryExecution
         this.session = requireNonNull(session, "session is null");
         this.executor = requireNonNull(executor, "executor is null");
         QueryStateMachine queryStateMachine = QueryStateMachine.failed(queryId, query, session, self, transactionManager, executor, metadata, cause);
-        queryInfo = queryStateMachine.getQueryInfo(Optional.empty());
+        queryInfo = queryStateMachine.updateQueryInfo(Optional.empty());
         this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
     }
 
