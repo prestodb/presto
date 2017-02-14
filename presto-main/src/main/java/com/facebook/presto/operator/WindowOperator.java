@@ -21,11 +21,17 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 
+import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -185,6 +191,8 @@ public class WindowOperator
 
     private final PageBuilder pageBuilder;
 
+    private final SingleDriverWindowInfoBuilder windowInfo;
+
     private State state = State.NEEDS_INPUT;
 
     private WindowPartition partition;
@@ -255,6 +263,14 @@ public class WindowOperator
             this.orderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
             this.ordering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
         }
+
+        windowInfo = new SingleDriverWindowInfoBuilder();
+        operatorContext.setInfoSupplier(this::getWindowInfo);
+    }
+
+    private OperatorInfo getWindowInfo()
+    {
+        return new WindowInfo(ImmutableList.of(windowInfo.build()));
     }
 
     @Override
@@ -387,6 +403,9 @@ public class WindowOperator
     {
         // INVARIANT: pagesIndex contains the full grouped & sorted data for one or more partitions
 
+        // Index is already prepared
+        windowInfo.addIndex(pagesIndex);
+
         // Iterate through the positions sequentially until we have one full page
         while (!pageBuilder.isFull()) {
             if (partition == null || !partition.hasNext()) {
@@ -399,6 +418,7 @@ public class WindowOperator
 
                     // Try to extract more partitions from the pendingInput
                     if (pendingInput != null && processPendingInput()) {
+                        windowInfo.addIndex(pagesIndex);
                         partitionStart = 0;
                     }
                     else if (state == State.FINISHING) {
@@ -419,6 +439,7 @@ public class WindowOperator
 
                 int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
                 partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy);
+                windowInfo.addPartition(partition);
             }
 
             partition.processNextRow(pageBuilder);
@@ -479,5 +500,139 @@ public class WindowOperator
             endPosition++;
         }
         return endPosition;
+    }
+
+    public static class WindowInfo
+            implements Mergeable<WindowInfo>, OperatorInfo
+    {
+        private final List<SingleDriverWindowInfo> windowInfos;
+
+        @JsonCreator
+        public WindowInfo(@JsonProperty("windowInfos") List<SingleDriverWindowInfo> windowInfos)
+        {
+            this.windowInfos = ImmutableList.copyOf(windowInfos);
+        }
+
+        @JsonProperty
+        public List<SingleDriverWindowInfo> getWindowInfos()
+        {
+            return windowInfos;
+        }
+
+        @Override
+        public WindowInfo mergeWith(WindowInfo other)
+        {
+            return new WindowInfo(ImmutableList.copyOf(concat(this.windowInfos, other.windowInfos)));
+        }
+    }
+
+    @ThreadSafe
+    public static class SingleDriverWindowInfoBuilder
+    {
+        private List<IndexInfo> indexInfos = new ArrayList<>();
+        private IndexInfoBuilder currentIndexInfoBuilder = null;
+
+        public synchronized void addIndex(PagesIndex index)
+        {
+            if (currentIndexInfoBuilder != null) {
+                indexInfos.add(currentIndexInfoBuilder.build());
+            }
+            currentIndexInfoBuilder = new IndexInfoBuilder(index.getPositionCount(), index.getEstimatedSize().toBytes());
+        }
+
+        public synchronized void addPartition(WindowPartition partition)
+        {
+            checkState(currentIndexInfoBuilder != null, "addIndex must be called before addPartition");
+            currentIndexInfoBuilder.addPartition(partition);
+        }
+
+        public synchronized SingleDriverWindowInfo build()
+        {
+            ImmutableList.Builder<IndexInfo> infos = ImmutableList.builder();
+            infos.addAll(indexInfos);
+            if (currentIndexInfoBuilder != null) {
+                infos.add(currentIndexInfoBuilder.build());
+            }
+            return new SingleDriverWindowInfo(infos.build());
+        }
+    }
+
+    @Immutable
+    public static class SingleDriverWindowInfo
+    {
+        private final List<IndexInfo> indexInfo;
+
+        @JsonCreator
+        public SingleDriverWindowInfo(@JsonProperty("indexInfo") List<IndexInfo> indexInfo)
+        {
+            this.indexInfo = ImmutableList.copyOf(indexInfo);
+        }
+
+        @JsonProperty
+        public List<IndexInfo> getIndexInfo()
+        {
+            return indexInfo;
+        }
+    }
+
+    @ThreadSafe
+    private static class IndexInfoBuilder
+    {
+        private final long rowsNumber;
+        private final long sizeInBytes;
+        private final ImmutableList.Builder<Integer> partitions;
+
+        public IndexInfoBuilder(long rowsNumber, long sizeInBytes)
+        {
+            this.rowsNumber = rowsNumber;
+            this.sizeInBytes = sizeInBytes;
+            this.partitions = ImmutableList.builder();
+        }
+
+        public synchronized void addPartition(WindowPartition partition)
+        {
+            partitions.add(partition.getPartitionEnd() - partition.getPartitionStart());
+        }
+
+        public synchronized IndexInfo build()
+        {
+            return new IndexInfo(rowsNumber, sizeInBytes, partitions.build());
+        }
+    }
+
+    @Immutable
+    public static class IndexInfo
+    {
+        private final long rowsNumber;
+        private final long sizeInBytes;
+        private final List<Integer> partitions;
+
+        public IndexInfo(
+                @JsonProperty("rowsNumber") long rowsNumber,
+                @JsonProperty("sizeInBytes") long sizeInBytes,
+                @JsonProperty("partitions") List<Integer> partitions)
+        {
+            this.rowsNumber = rowsNumber;
+            this.sizeInBytes = sizeInBytes;
+            this.partitions = ImmutableList.copyOf(partitions);
+        }
+
+        @JsonProperty
+        public long getRowsNumber()
+        {
+            return rowsNumber;
+        }
+
+        @JsonProperty
+        public long getSizeInBytes()
+        {
+            return sizeInBytes;
+        }
+
+        @JsonProperty
+        public List<Integer> getPartitions()
+        {
+            return partitions;
+        }
     }
 }
