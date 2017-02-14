@@ -14,11 +14,14 @@
 package com.facebook.presto.resourceGroups.db;
 
 import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
+
 import org.skife.jdbi.v2.DBI;
+import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import static com.facebook.presto.resourceGroups.db.DatabaseUtil.onDemandDao;
 import static java.util.Objects.requireNonNull;
 
 public class MysqlDaoProvider
@@ -32,8 +35,8 @@ public class MysqlDaoProvider
         requireNonNull(config, "DbResourceGroupConfig is null");
         MysqlDataSource dataSource = new MysqlDataSource();
         dataSource.setURL(config.getConfigDbUrl());
-        DBI dbi = new DBI(dataSource);
-        this.dao = dbi.onDemand(ResourceGroupsDao.class);
+        IDBI dbi = new DBI(dataSource);
+        this.dao = onDemandDao(dbi, ResourceGroupsDao.class);
     }
 
     @Override

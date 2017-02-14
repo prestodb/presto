@@ -26,6 +26,7 @@ import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.PostConstruct;
@@ -57,6 +58,7 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public class DbResourceGroupConfigurationManager
         extends AbstractResourceConfigurationManager
 {
+    private static final Logger log = Logger.get(DbResourceGroupConfigurationManager.class);
     private final ResourceGroupsDao dao;
     private final ConcurrentMap<ResourceGroupId, ResourceGroup> groups = new ConcurrentHashMap<>();
     @GuardedBy("this")
@@ -135,25 +137,30 @@ public class DbResourceGroupConfigurationManager
 
     private synchronized void load()
     {
-        Map.Entry<ManagerSpec, Map<ResourceGroupIdTemplate, ResourceGroupSpec>> specsFromDb = buildSpecsFromDb();
-        ManagerSpec managerSpec = specsFromDb.getKey();
-        Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = specsFromDb.getValue();
-        Set<ResourceGroupIdTemplate> changedSpecs = new HashSet<>();
-        Set<ResourceGroupIdTemplate> deletedSpecs = Sets.difference(this.resourceGroupSpecs.keySet(), resourceGroupSpecs.keySet());
+        try {
+            Map.Entry<ManagerSpec, Map<ResourceGroupIdTemplate, ResourceGroupSpec>> specsFromDb = buildSpecsFromDb();
+            ManagerSpec managerSpec = specsFromDb.getKey();
+            Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = specsFromDb.getValue();
+            Set<ResourceGroupIdTemplate> changedSpecs = new HashSet<>();
+            Set<ResourceGroupIdTemplate> deletedSpecs = Sets.difference(this.resourceGroupSpecs.keySet(), resourceGroupSpecs.keySet());
 
-        for (Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry : resourceGroupSpecs.entrySet()) {
-            if (!entry.getValue().sameConfig(this.resourceGroupSpecs.get(entry.getKey()))) {
-                changedSpecs.add(entry.getKey());
+            for (Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry : resourceGroupSpecs.entrySet()) {
+                if (!entry.getValue().sameConfig(this.resourceGroupSpecs.get(entry.getKey()))) {
+                    changedSpecs.add(entry.getKey());
+                }
             }
+
+            this.resourceGroupSpecs = resourceGroupSpecs;
+            this.cpuQuotaPeriod.set(managerSpec.getCpuQuotaPeriod());
+            this.rootGroups.set(managerSpec.getRootGroups());
+            this.selectors.set(buildSelectors(managerSpec));
+
+            configureChangedGroups(changedSpecs);
+            disableDeletedGroups(deletedSpecs);
         }
-
-        this.resourceGroupSpecs = resourceGroupSpecs;
-        this.cpuQuotaPeriod.set(managerSpec.getCpuQuotaPeriod());
-        this.rootGroups.set(managerSpec.getRootGroups());
-        this.selectors.set(buildSelectors(managerSpec));
-
-        configureChangedGroups(changedSpecs);
-        disableDeletedGroups(deletedSpecs);
+        catch (Exception ex) {
+            log.error("Error loading resource groups: %s", ex);
+        }
     }
 
     // Populate temporary data structures to build resource group specs and selectors from db
