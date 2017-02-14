@@ -55,7 +55,6 @@
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
         <dep.tempto.version>1.27</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
-        <dep.datastax.version>3.0.5</dep.datastax.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -837,15 +836,8 @@
             <dependency>
                 <groupId>com.datastax.cassandra</groupId>
                 <artifactId>cassandra-driver-core</artifactId>
-                <version>${dep.datastax.version}</version>
+                <version>3.0.5</version>
             </dependency>
-
-            <dependency>
-                <groupId>com.datastax.cassandra</groupId>
-                <artifactId>cassandra-driver-mapping</artifactId>
-                <version>${dep.datastax.version}</version>
-            </dependency>
-
         </dependencies>
     </dependencyManagement>
 
