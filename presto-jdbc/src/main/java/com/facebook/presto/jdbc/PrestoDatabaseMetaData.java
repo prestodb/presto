@@ -30,6 +30,8 @@ import static java.util.Objects.requireNonNull;
 public class PrestoDatabaseMetaData
         implements DatabaseMetaData
 {
+    private static final String SEARCH_STRING_ESCAPE = "\\";
+
     private final PrestoConnection connection;
 
     PrestoDatabaseMetaData(PrestoConnection connection)
@@ -264,7 +266,7 @@ public class PrestoDatabaseMetaData
     public String getSearchStringEscape()
             throws SQLException
     {
-        return "\\";
+        return SEARCH_STRING_ESCAPE;
     }
 
     @Override
@@ -1484,6 +1486,8 @@ public class PrestoDatabaseMetaData
         StringBuilder filter = new StringBuilder();
         filter.append(columnName).append(" LIKE ");
         quoteStringLiteral(filter, pattern);
+        filter.append(" ESCAPE ");
+        quoteStringLiteral(filter, SEARCH_STRING_ESCAPE);
         return filter.toString();
     }
 
