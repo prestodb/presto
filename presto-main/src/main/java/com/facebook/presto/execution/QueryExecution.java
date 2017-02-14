@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import io.airlift.units.Duration;
@@ -32,6 +33,10 @@ public interface QueryExecution
 
     QueryState getState();
 
+    Optional<ResourceGroupId> getResourceGroup();
+
+    void setResourceGroup(ResourceGroupId resourceGroupId);
+
     Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException;
 
@@ -45,7 +50,7 @@ public interface QueryExecution
 
     Session getSession();
 
-    void start(Optional<String> resourceGroupName);
+    void start();
 
     void fail(Throwable cause);
 

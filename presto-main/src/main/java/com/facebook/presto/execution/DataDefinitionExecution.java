@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
@@ -102,7 +103,7 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public void start(Optional<String> resourceGroupName)
+    public void start()
     {
         try {
             // transition to running
@@ -199,6 +200,18 @@ public class DataDefinitionExecution<T extends Statement>
     public QueryState getState()
     {
         return stateMachine.getQueryState();
+    }
+
+    @Override
+    public Optional<ResourceGroupId> getResourceGroup()
+    {
+        return stateMachine.getResourceGroup();
+    }
+
+    @Override
+    public void setResourceGroup(ResourceGroupId resourceGroupId)
+    {
+        stateMachine.setResourceGroup(resourceGroupId);
     }
 
     public List<Expression> getParameters()

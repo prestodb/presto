@@ -24,6 +24,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.transaction.TransactionId;
@@ -130,7 +131,7 @@ public class QueryStateMachine
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
-    private final AtomicReference<String> resourceGroup = new AtomicReference<>();
+    private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
 
     private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata)
     {
@@ -253,13 +254,13 @@ public class QueryStateMachine
         }
     }
 
-    public void setResourceGroup(String group)
+    public void setResourceGroup(ResourceGroupId group)
     {
         requireNonNull(group, "group is null");
         resourceGroup.compareAndSet(null, group);
     }
 
-    public Optional<String> getResourceGroup()
+    public Optional<ResourceGroupId> getResourceGroup()
     {
         return Optional.ofNullable(resourceGroup.get());
     }
@@ -432,7 +433,7 @@ public class QueryStateMachine
                 inputs.get(),
                 output.get(),
                 completeInfo,
-                getResourceGroup());
+                getResourceGroup().map(ResourceGroupId::toString));
     }
 
     public VersionedMemoryPoolId getMemoryPool()

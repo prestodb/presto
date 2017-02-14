@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
+import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -25,6 +26,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -348,7 +350,11 @@ public class SqlQueryManager
                         .setIdentity(sessionSupplier.getIdentity())
                         .build();
             }
-            QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, transactionManager, queryExecutor, metadata, e);
+            Optional<ResourceGroupId> resourceGroup = Optional.empty();
+            if (e instanceof QueryQueueFullException) {
+                resourceGroup = Optional.of(((QueryQueueFullException) e).getResourceGroup());
+            }
+            QueryExecution execution = new FailedQueryExecution(queryId, query, resourceGroup, session, self, transactionManager, queryExecutor, metadata, e);
 
             QueryInfo queryInfo = null;
             try {

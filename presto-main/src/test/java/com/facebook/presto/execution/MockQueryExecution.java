@@ -18,6 +18,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,6 +35,7 @@ import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MockQueryExecution
@@ -45,6 +47,7 @@ public class MockQueryExecution
     private final Session session;
     private QueryState state = QUEUED;
     private Throwable failureCause;
+    private Optional<ResourceGroupId> resourceGroupId;
 
     public MockQueryExecution(long memoryUsage)
     {
@@ -63,6 +66,7 @@ public class MockQueryExecution
         this.session = testSessionBuilder()
                 .setSystemProperty(QUERY_PRIORITY, String.valueOf(priority))
                 .build();
+        this.resourceGroupId = Optional.empty();
     }
 
     public void complete()
@@ -155,7 +159,19 @@ public class MockQueryExecution
     }
 
     @Override
-    public void start(Optional<String> resourceGroupName)
+    public Optional<ResourceGroupId> getResourceGroup()
+    {
+        return this.resourceGroupId;
+    }
+
+    @Override
+    public void setResourceGroup(ResourceGroupId resourceGroupId)
+    {
+        this.resourceGroupId = Optional.of(requireNonNull(resourceGroupId, "resourceGroupId is null"));
+    }
+
+    @Override
+    public void start()
     {
         state = RUNNING;
         fireStateChange();

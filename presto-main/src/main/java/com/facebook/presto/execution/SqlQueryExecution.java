@@ -29,6 +29,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -223,11 +224,10 @@ public final class SqlQueryExecution
     }
 
     @Override
-    public void start(Optional<String> resourceGroupName)
+    public void start()
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
-                resourceGroupName.ifPresent(groupName -> stateMachine.setResourceGroup(groupName));
                 // transition to planning
                 if (!stateMachine.transitionToPlanning()) {
                     // query already started or finished
@@ -485,6 +485,18 @@ public final class SqlQueryExecution
     public QueryState getState()
     {
         return stateMachine.getQueryState();
+    }
+
+    @Override
+    public Optional<ResourceGroupId> getResourceGroup()
+    {
+        return stateMachine.getResourceGroup();
+    }
+
+    @Override
+    public void setResourceGroup(ResourceGroupId resourceGroupId)
+    {
+        stateMachine.setResourceGroup(resourceGroupId);
     }
 
     private QueryInfo buildQueryInfo(SqlQueryScheduler scheduler)

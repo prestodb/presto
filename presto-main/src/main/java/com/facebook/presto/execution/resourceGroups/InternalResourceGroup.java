@@ -15,7 +15,6 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
@@ -40,7 +39,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
@@ -48,7 +46,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -409,6 +406,7 @@ public class InternalResourceGroup
         synchronized (root) {
             checkState(subGroups.isEmpty(), "Cannot add queries to %s. It is not a leaf group.", id);
             // Check all ancestors for capacity
+            query.setResourceGroup(id);
             InternalResourceGroup group = this;
             boolean canQueue = true;
             boolean canRun = true;
@@ -421,7 +419,7 @@ public class InternalResourceGroup
                 group = group.parent.get();
             }
             if (!canQueue && !canRun) {
-                query.fail(new PrestoException(QUERY_QUEUE_FULL, format("Too many queued queries for \"%s\"", id)));
+                query.fail(new QueryQueueFullException(id));
                 return;
             }
             if (canRun) {
@@ -485,7 +483,7 @@ public class InternalResourceGroup
                 group = group.parent.get();
             }
             updateEligiblility();
-            executor.execute(() -> query.start(Optional.of(id.toString())));
+            executor.execute(query::start);
         }
     }
 
