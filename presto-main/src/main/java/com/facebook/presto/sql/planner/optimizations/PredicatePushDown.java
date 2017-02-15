@@ -289,8 +289,8 @@ public class PredicatePushDown
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
 
-            Expression leftEffectivePredicate = EffectivePredicateExtractor.extract(node.getLeft(), symbolAllocator.getTypes());
-            Expression rightEffectivePredicate = EffectivePredicateExtractor.extract(node.getRight(), symbolAllocator.getTypes());
+            Expression leftEffectivePredicate = EffectivePredicateExtractor.extract(node.getLeft());
+            Expression rightEffectivePredicate = EffectivePredicateExtractor.extract(node.getRight());
             Expression joinPredicate = extractJoinPredicate(node);
 
             Expression leftPredicate;
@@ -838,7 +838,7 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
 
-            Expression sourceEffectivePredicate = EffectivePredicateExtractor.extract(node.getSource(), symbolAllocator.getTypes());
+            Expression sourceEffectivePredicate = EffectivePredicateExtractor.extract(node.getSource());
 
             List<Expression> sourceConjuncts = new ArrayList<>();
             List<Expression> filteringSourceConjuncts = new ArrayList<>();
