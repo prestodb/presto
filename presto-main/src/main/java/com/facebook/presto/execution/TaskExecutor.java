@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -43,7 +44,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -86,6 +89,8 @@ public class TaskExecutor
     private final int minimumNumberOfDrivers;
 
     private final Ticker ticker;
+
+    private static final SortedSet<RunningSplitInfo> runningSplitInfos = new ConcurrentSkipListSet<>();
 
     @GuardedBy("this")
     private final List<TaskHandle> tasks;
@@ -682,7 +687,10 @@ public class TaskExecutor
                         return;
                     }
 
-                    try (SetThreadName splitName = new SetThreadName(split.getTaskHandle().getTaskId() + "-" + split.getSplitId())) {
+                    String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
+                    try (SetThreadName splitName = new SetThreadName(threadId)) {
+                        RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId);
+                        runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);
 
                         boolean finished;
@@ -692,6 +700,7 @@ public class TaskExecutor
                             finished = split.isFinished();
                         }
                         finally {
+                            runningSplitInfos.remove(splitInfo);
                             runningSplits.remove(split);
                         }
 
@@ -739,6 +748,38 @@ public class TaskExecutor
                     addRunnerThread();
                 }
             }
+        }
+    }
+
+    private static class RunningSplitInfo
+            implements Comparable<RunningSplitInfo>
+    {
+        private final long startTime;
+        private final String threadId;
+
+        public RunningSplitInfo(long startTime, String threadId)
+        {
+            this.startTime = startTime;
+            this.threadId = threadId;
+        }
+
+        public long getStartTime()
+        {
+            return startTime;
+        }
+
+        public String getThreadId()
+        {
+            return threadId;
+        }
+
+        @Override
+        public int compareTo(RunningSplitInfo o)
+        {
+            return ComparisonChain.start()
+                    .compare(startTime, o.getStartTime())
+                    .compare(threadId, o.getThreadId())
+                    .result();
         }
     }
 
@@ -852,6 +893,16 @@ public class TaskExecutor
     public long getRunningTasksLevel4()
     {
         return calculateRunningTasksForLevel(4);
+    }
+
+    @Managed
+    public long getMaxActiveSplitTime()
+    {
+        Iterator<RunningSplitInfo> iterator = runningSplitInfos.iterator();
+        if (iterator.hasNext()) {
+            return NANOSECONDS.toMillis(ticker.read() - iterator.next().getStartTime());
+        }
+        return 0;
     }
 
     @Managed

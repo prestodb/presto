@@ -17,6 +17,7 @@ import com.facebook.presto.execution.TaskExecutor.TaskHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -34,8 +35,10 @@ public class TestTaskExecutor
     public void test()
             throws Exception
     {
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8);
+        TestingTicker ticker = new TestingTicker();
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, ticker);
         taskExecutor.start();
+        ticker.increment(20, MILLISECONDS);
 
         try {
             TaskId taskId = new TaskId("test", 0, 0);
@@ -58,6 +61,8 @@ public class TestTaskExecutor
             beginPhase.arriveAndAwaitAdvance();
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
+            ticker.increment(10, MILLISECONDS);
+            assertEquals(taskExecutor.getMaxActiveSplitTime(), 10);
             verificationComplete.arriveAndAwaitAdvance();
 
             // advance one phase and verify
@@ -109,6 +114,10 @@ public class TestTaskExecutor
             assertEquals(driver1.getLastPhase(), 10);
             assertEquals(driver2.getLastPhase(), 10);
             assertEquals(driver3.getLastPhase(), 12);
+
+            // no splits remaining
+            ticker.increment(30, MILLISECONDS);
+            assertEquals(taskExecutor.getMaxActiveSplitTime(), 0);
         }
         finally {
             taskExecutor.stop();
