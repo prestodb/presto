@@ -267,6 +267,9 @@ public class TestTimestampWithTimeZone
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
                 TIME,
                 sqlTimeOf(3, 4, 5, 321, WEIRD_ZONE, session.getTimeZoneKey(), session.toConnectorSession()));
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
+                TIME,
+                "03:04:05.321");
     }
 
     @Test
@@ -276,6 +279,23 @@ public class TestTimestampWithTimeZone
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
                 new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "03:04:05.321 +07:09");
+
+        // Those tests are only passing in non-legacy mode of date time types.
+        Session localSession = testSessionBuilder()
+                .setSystemProperty("legacy_timestamp", "false")
+                .setTimeZoneKey(TIME_ZONE_KEY)
+                .build();
+        FunctionAssertions localAssertions = new FunctionAssertions(localSession);
+
+        localAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000 Europe/Warsaw' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "10:00:00.000 Europe/Warsaw");
+        localAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000 Asia/Kathmandu' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "10:00:00.000 Asia/Kathmandu");
     }
 
     @Test
@@ -284,6 +304,11 @@ public class TestTimestampWithTimeZone
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, WEIRD_ZONE, session.getTimeZoneKey(), session.toConnectorSession()));
+
+        // This TZ had switch in 2014, so if we test for 2014 and used unpacked value we would use wrong shift
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 Pacific/Bougainville' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("Pacific/Bougainville")), session.getTimeZoneKey(), session.toConnectorSession()));
     }
 
     @Test
