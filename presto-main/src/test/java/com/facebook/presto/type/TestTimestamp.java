@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -225,6 +226,11 @@ public class TestTimestamp
         assertFunction("cast('2001-1-22 03:04:05.321 \t\n' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
         assertFunction("cast('\n\t 2001-1-22 03:04:05.321 \t\n' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
 
+        if (!connectorSession().isLegacyTimestamp()) {
+            return;
+        }
+
+        // Those casts are only allowed in legacy mode
         assertFunction("cast('2001-1-22 03:04:05.321 +07:09' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, WEIRD_ZONE, TIME_ZONE_KEY, connectorSession()));
         assertFunction("cast('2001-1-22 03:04:05 +07:09' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, WEIRD_ZONE, TIME_ZONE_KEY, connectorSession()));
         assertFunction("cast('2001-1-22 03:04 +07:09' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, WEIRD_ZONE, TIME_ZONE_KEY, connectorSession()));
@@ -234,6 +240,49 @@ public class TestTimestamp
         assertFunction("cast('2001-1-22 03:04:05 Asia/Oral' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, ORAL_ZONE, TIME_ZONE_KEY, connectorSession()));
         assertFunction("cast('2001-1-22 03:04 Asia/Oral' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, ORAL_ZONE, TIME_ZONE_KEY, connectorSession()));
         assertFunction("cast('2001-1-22 Asia/Oral' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, ORAL_ZONE, TIME_ZONE_KEY, connectorSession()));
+    }
+
+    @Test
+    public void testCastFromSliceFailsOnTimestampWithTimeZone()
+    {
+        if (connectorSession().isLegacyTimestamp()) {
+            // we expect those not to fail in legacy mode
+            return;
+        }
+
+        functionAssertions.assertFunctionThrowsPrestoException(
+                "cast('2001-1-22 03:04:05.321 +07:09' as timestamp)",
+                INVALID_CAST_ARGUMENT,
+                "Value cannot be cast to timestamp as it contains explicitly defined TIME ZONE: 2001-1-22 03:04:05.321 +07:09");
+        functionAssertions.assertFunctionThrowsPrestoException(
+                "cast('2001-1-22 03:04:05 +07:09' as timestamp)",
+                INVALID_CAST_ARGUMENT,
+                "Value cannot be cast to timestamp as it contains explicitly defined TIME ZONE: 2001-1-22 03:04:05 +07:09");
+        functionAssertions.assertFunctionThrowsPrestoException(
+                "cast('2001-1-22 03:04 +07:09' as timestamp)",
+                INVALID_CAST_ARGUMENT,
+                "Value cannot be cast to timestamp as it contains explicitly defined TIME ZONE: 2001-1-22 03:04 +07:09");
+        functionAssertions.assertFunctionThrowsPrestoException(
+                "cast('2001-1-22 +07:09' as timestamp)",
+                INVALID_CAST_ARGUMENT,
+                "Value cannot be cast to timestamp as it contains explicitly defined TIME ZONE: 2001-1-22 +07:09");
+
+        functionAssertions.assertFunctionThrowsPrestoException(
+                "cast('2001-1-22 03:04:05.321 Asia/Oral' as timestamp)",
+                INVALID_CAST_ARGUMENT,
+                "Value cannot be cast to timestamp as it contains explicitly defined TIME ZONE: 2001-1-22 03:04:05.321 Asia/Oral");
+        functionAssertions.assertFunctionThrowsPrestoException(
+                "cast('2001-1-22 03:04:05 Asia/Oral' as timestamp)",
+                INVALID_CAST_ARGUMENT,
+                "Value cannot be cast to timestamp as it contains explicitly defined TIME ZONE: 2001-1-22 03:04:05 Asia/Oral");
+        functionAssertions.assertFunctionThrowsPrestoException(
+                "cast('2001-1-22 03:04 Asia/Oral' as timestamp)",
+                INVALID_CAST_ARGUMENT,
+                "Value cannot be cast to timestamp as it contains explicitly defined TIME ZONE: 2001-1-22 03:04 Asia/Oral");
+        functionAssertions.assertFunctionThrowsPrestoException(
+                "cast('2001-1-22 Asia/Oral' as timestamp)",
+                INVALID_CAST_ARGUMENT,
+                "Value cannot be cast to timestamp as it contains explicitly defined TIME ZONE: 2001-1-22 Asia/Oral");
     }
 
     @Test
