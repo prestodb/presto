@@ -51,7 +51,7 @@ public abstract class BaseStrictSymbolsMatcher
 
         Set<Symbol> expected = getExpectedSymbols(node, session, metadata, symbolAliases);
 
-        return new MatchResult(getActual.apply(node).equals(getExpectedSymbols(node, session, metadata, symbolAliases)));
+        return new MatchResult(getActual.apply(node).equals(expected));
     }
 
     protected abstract Set<Symbol> getExpectedSymbols(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
