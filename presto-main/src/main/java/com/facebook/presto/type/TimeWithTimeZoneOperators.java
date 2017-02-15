@@ -21,6 +21,11 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
+import org.joda.time.chrono.ISOChronology;
+
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
 
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
@@ -33,11 +38,15 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithTimeZone;
+import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public final class TimeWithTimeZoneOperators
 {
+    private static final long REFERENCE_TIMESTAMP_UTC = System.currentTimeMillis();
+
     private TimeWithTimeZoneOperators()
     {
     }
@@ -100,9 +109,19 @@ public final class TimeWithTimeZoneOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
+    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
-        return unpackMillisUtc(value);
+        if (session.isLegacyTimestamp()) {
+            return unpackMillisUtc(value);
+        }
+        else {
+            // FIXME This is hack that we need to use as the timezone interpretation depends on date (not only on time)
+            long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
+            long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(value);
+
+            ISOChronology chronology = getChronology(unpackZoneKey(value));
+            return unpackMillisUtc(value) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
+        }
     }
 
     @ScalarOperator(CAST)
