@@ -285,7 +285,7 @@ public final class PlanMatchPattern
     {
         PlanMatchPattern result = node(ValuesNode.class);
         values.entrySet().forEach(
-                alias -> result.withAlias(alias.getKey(), new ValuesMatcher(alias.getValue())));
+                alias -> result.withAlias(alias.getKey(), new SymbolMatcher(alias.getValue())));
         return result;
     }
 

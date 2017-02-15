@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PushFilterThroughAssignUniqueId;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
@@ -130,7 +131,10 @@ public class PlanOptimizers
                                 new MergeLimitWithDistinct(),
 
                                 new PruneValuesColumns(),
-                                new PruneTableScanColumns()
+                                new PruneTableScanColumns(),
+
+                                // PredicatePushDown migration
+                                new PushFilterThroughAssignUniqueId()
                         )),
                 new IterativeOptimizer(
                         stats,
