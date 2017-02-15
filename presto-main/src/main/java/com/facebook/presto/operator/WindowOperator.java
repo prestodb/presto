@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -471,7 +472,8 @@ public class WindowOperator
     }
 
     // comparator is suppose to return true if positions given as parameters are equal
-    private static int findEndPosition(int firstPosition, int lastPosition, BiFunction<Integer, Integer, Boolean> comparator)
+    @VisibleForTesting
+    static int findEndPosition(int firstPosition, int lastPosition, BiFunction<Integer, Integer, Boolean> comparator)
     {
         // TODO: do position binary search
         int endPosition = firstPosition + 1;

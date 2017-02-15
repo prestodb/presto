@@ -39,6 +39,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -57,6 +58,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestWindowOperator
@@ -593,6 +595,51 @@ public class TestWindowOperator
 
         // Since fully grouped and sorted already, should respect original input order
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testFindEndPosition()
+    {
+        BiFunction<Integer, Integer, Boolean> allPositionsOrdered = (x, y) -> true;
+
+        assertEquals(WindowOperator.findEndPosition(1, 1, allPositionsOrdered), 2);
+        assertEquals(WindowOperator.findEndPosition(1, 2, allPositionsOrdered), 3);
+        assertEquals(WindowOperator.findEndPosition(1, 10, allPositionsOrdered), 11);
+        assertEquals(WindowOperator.findEndPosition(2, 1, allPositionsOrdered), 3);
+
+        BiFunction<Integer, Integer, Boolean> firstElementDistinct = (p1, p2) -> (p1 == 1 && p2 == 1) || (p1 > 1 && p2 > 1);
+
+        assertEquals(WindowOperator.findEndPosition(1, 2, firstElementDistinct), 2);
+        assertEquals(WindowOperator.findEndPosition(1, 3, firstElementDistinct), 2);
+        assertEquals(WindowOperator.findEndPosition(1, 4, firstElementDistinct), 2);
+        assertEquals(WindowOperator.findEndPosition(1, 10, firstElementDistinct), 2);
+
+        BiFunction<Integer, Integer, Boolean> eachSeparate = (x, y) -> x == y;
+
+        assertEquals(WindowOperator.findEndPosition(1, 2, eachSeparate), 2);
+        assertEquals(WindowOperator.findEndPosition(1, 3, eachSeparate), 2);
+        assertEquals(WindowOperator.findEndPosition(1, 4, eachSeparate), 2);
+
+        // last element distinct, e.g. X, X, X, Y
+
+        assertEquals(WindowOperator.findEndPosition(1, 2, (x, y) -> true), 3);
+        assertEquals(WindowOperator.findEndPosition(1, 3, (x, y) -> (x == 3 && y == 3) || (x < 3 && y < 3)), 3);
+        assertEquals(WindowOperator.findEndPosition(1, 4, (x, y) -> (x == 4 && y == 4) || (x < 4 && y < 4)), 4);
+        assertEquals(WindowOperator.findEndPosition(1, 10, (x, y) -> (x == 10 && y == 10) || (x < 10 && y < 10)), 10);
+
+        // two groups, the split point is on half + 1
+
+        assertEquals(WindowOperator.findEndPosition(1, 4, (x, y) -> (x < 3 && y < 3) || (x >= 3 && y >= 3)), 3);
+        assertEquals(WindowOperator.findEndPosition(1, 5, (x, y) -> (x < 3 && y < 3) || (x >= 3 && y >= 3)), 3);
+        assertEquals(WindowOperator.findEndPosition(1, 7, (x, y) -> (x < 5 && y < 5) || (x >= 5 && y >= 5)), 5);
+        assertEquals(WindowOperator.findEndPosition(1, 8, (x, y) -> (x < 5 && y < 5) || (x >= 5 && y >= 5)), 5);
+        assertEquals(WindowOperator.findEndPosition(1, 26, (x, y) -> (x < 14 && y < 14) || (x >= 14 && y >= 14)), 14);
+
+        BiFunction<Integer, Integer, Boolean> allEqualButZeroth = (x, y) -> (x == 0 && y == 0) || (x != 0 && y != 0);
+
+        assertEquals(WindowOperator.findEndPosition(1, 2, allEqualButZeroth), 3);
+        assertEquals(WindowOperator.findEndPosition(1, 3, allEqualButZeroth), 4);
+        assertEquals(WindowOperator.findEndPosition(1, 4, allEqualButZeroth), 5);
     }
 
     private static WindowOperatorFactory createFactoryUnbounded(
