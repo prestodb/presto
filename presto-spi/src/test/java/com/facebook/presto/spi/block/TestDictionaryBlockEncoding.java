@@ -68,7 +68,7 @@ public class TestDictionaryBlockEncoding
         @Override
         public boolean isLegacyTimestamp()
         {
-            return true;
+            return false;
         }
 
         @Override
