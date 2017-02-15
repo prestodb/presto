@@ -135,13 +135,14 @@ public class PlanPrinter
     private final StringBuilder output = new StringBuilder();
     private final Metadata metadata;
     private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
+    private final boolean verbose;
 
     private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, CostCalculator costCalculator, Session sesion)
     {
-        this(plan, types, metadata, costCalculator, sesion, 0);
+        this(plan, types, metadata, costCalculator, sesion, 0, false);
     }
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, CostCalculator costCalculator, Session session, int indent)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, CostCalculator costCalculator, Session session, int indent, boolean verbose)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(types, "types is null");
@@ -150,13 +151,14 @@ public class PlanPrinter
 
         this.metadata = metadata;
         this.stats = Optional.empty();
+        this.verbose = verbose;
 
         Map<PlanNodeId, PlanNodeCost> costs = costCalculator.calculateCostForPlan(session, types, plan);
         Visitor visitor = new Visitor(types, costs, session);
         plan.accept(visitor, indent);
     }
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, CostCalculator costCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, CostCalculator costCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(types, "types is null");
@@ -165,6 +167,7 @@ public class PlanPrinter
 
         this.metadata = metadata;
         this.stats = Optional.of(stats);
+        this.verbose = verbose;
 
         Map<PlanNodeId, PlanNodeCost> costs = costCalculator.calculateCostForPlan(session, types, plan);
         Visitor visitor = new Visitor(types, costs, session);
@@ -184,12 +187,17 @@ public class PlanPrinter
 
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, CostCalculator costCalculator, Session session, int indent)
     {
-        return new PlanPrinter(plan, types, metadata, costCalculator, session, indent).toString();
+        return textLogicalPlan(plan, types, metadata, costCalculator, session, indent, false);
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, CostCalculator costCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, CostCalculator costCalculator, Session session, int indent, boolean verbose)
     {
-        return new PlanPrinter(plan, types, metadata, costCalculator, session, stats, indent).toString();
+        return new PlanPrinter(plan, types, metadata, costCalculator, session, indent, verbose).toString();
+    }
+
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, CostCalculator costCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
+    {
+        return new PlanPrinter(plan, types, metadata, costCalculator, session, stats, indent, verbose).toString();
     }
 
     public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, CostCalculator costCalculator, Session session)
@@ -205,7 +213,7 @@ public class PlanPrinter
                 .collect(toImmutableList());
         for (StageInfo stageInfo : allStages) {
             Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregatePlanNodeStats(stageInfo);
-            builder.append(formatFragment(metadata, costCalculator, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats)));
+            builder.append(formatFragment(metadata, costCalculator, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose));
         }
 
         return builder.toString();
@@ -213,15 +221,20 @@ public class PlanPrinter
 
     public static String textDistributedPlan(SubPlan plan, Metadata metadata, CostCalculator costCalculator, Session session)
     {
+        return textDistributedPlan(plan, metadata, costCalculator, session, false);
+    }
+
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata, CostCalculator costCalculator, Session session, boolean verbose)
+    {
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(metadata, costCalculator, session, fragment, Optional.empty(), Optional.empty()));
+            builder.append(formatFragment(metadata, costCalculator, session, fragment, Optional.empty(), Optional.empty(), verbose));
         }
 
         return builder.toString();
     }
 
-    private static String formatFragment(Metadata metadata, CostCalculator costCalculator, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats)
+    private static String formatFragment(Metadata metadata, CostCalculator costCalculator, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format("Fragment %s [%s]\n",
@@ -277,11 +290,11 @@ public class PlanPrinter
         }
 
         if (stageInfo.isPresent()) {
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, costCalculator, session, planNodeStats.get(), 1))
+            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, costCalculator, session, planNodeStats.get(), 1, verbose))
                     .append("\n");
         }
         else {
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, costCalculator, session, 1))
+            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, costCalculator, session, 1, verbose))
                     .append("\n");
         }
 
@@ -372,6 +385,11 @@ public class PlanPrinter
         output.append('\n');
 
         printDistributions(indent, nodeStats);
+
+        if (nodeStats.getWindowOperatorStats().isPresent()) {
+            // TODO: Once PlanNodeStats becomes broken into smaller classes, we should rely on toString() method of WindowOperatorStats here
+            printWindowOperatorStats(indent, nodeStats.getWindowOperatorStats().get());
+        }
     }
 
     private void printDistributions(int indent, PlanNodeStats nodeStats)
@@ -437,6 +455,34 @@ public class PlanPrinter
         }
 
         return ImmutableMap.of();
+    }
+
+    private void printWindowOperatorStats(int indent, WindowOperatorStats stats)
+    {
+        if (!verbose) {
+            // these stats are too detailed for non-verbose mode
+            return;
+        }
+
+        output.append(indentString(indent));
+        output.append(format("Active Drivers: [ %d / %d ]", stats.getActiveDrivers(), stats.getTotalDrivers()));
+        output.append('\n');
+
+        output.append(indentString(indent));
+        output.append(format("Index size: std.dev.: %s bytes , %s rows", formatDouble(stats.getIndexSizeStdDev()), formatDouble(stats.getIndexPositionsStdDev())));
+        output.append('\n');
+
+        output.append(indentString(indent));
+        output.append(format("Index count per driver: std.dev.: %s", formatDouble(stats.getIndexCountPerDriverStdDev())));
+        output.append('\n');
+
+        output.append(indentString(indent));
+        output.append(format("Rows per driver: std.dev.: %s", formatDouble(stats.getRowsPerDriverStdDev())));
+        output.append('\n');
+
+        output.append(indentString(indent));
+        output.append(format("Size of partition: std.dev.: %s", formatDouble(stats.getPartitionRowsStdDev())));
+        output.append('\n');
     }
 
     private static String formatDouble(double value)
