@@ -106,13 +106,19 @@ public final class TimestampOperators
     @SqlType(StandardTypes.DATE)
     public static long castToDate(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        // round down the current timestamp to days
-        ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        long date = chronology.dayOfYear().roundFloor(value);
-        // date is currently midnight in timezone of the session
-        // convert to UTC
-        long millis = date + chronology.getZone().getOffset(date);
-        return TimeUnit.MILLISECONDS.toDays(millis);
+        ISOChronology chronology;
+        if (session.isLegacyTimestamp()) {
+            // round down the current timestamp to days
+            chronology = getChronology(session.getTimeZoneKey());
+            long date = chronology.dayOfYear().roundFloor(value);
+            // date is currently midnight in timezone of the session
+            // convert to UTC
+            long millis = date + chronology.getZone().getOffset(date);
+            return TimeUnit.MILLISECONDS.toDays(millis);
+        }
+        else {
+            return TimeUnit.MILLISECONDS.toDays(value);
+        }
     }
 
     @ScalarOperator(CAST)
