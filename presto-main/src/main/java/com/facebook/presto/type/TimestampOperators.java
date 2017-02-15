@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
@@ -148,7 +149,12 @@ public final class TimestampOperators
     @SqlType("varchar(x)")
     public static Slice castToSlice(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        return utf8Slice(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+        if (session.isLegacyTimestamp()) {
+            return utf8Slice(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+        }
+        else {
+            return utf8Slice(printTimestampWithoutTimeZone(value));
+        }
     }
 
     @ScalarOperator(CAST)
@@ -157,10 +163,21 @@ public final class TimestampOperators
     public static long castFromSlice(ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return parseTimestampWithoutTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+            if (session.isLegacyTimestamp()) {
+                return parseTimestampWithoutTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+            }
+            else {
+                return parseTimestampWithoutTimeZone(trim(value).toStringUtf8());
+            }
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
+            try {
+                parseTimestampWithTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+                throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp as it contains explicitly defined TIME ZONE: " + value.toStringUtf8(), e);
+            }
+            catch (IllegalArgumentException ei) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), ei);
+            }
         }
     }
 
