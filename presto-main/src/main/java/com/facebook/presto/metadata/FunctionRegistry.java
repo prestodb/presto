@@ -234,7 +234,11 @@ import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castC
 import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
 import static com.facebook.presto.operator.scalar.RowDistinctFromOperator.ROW_DISTINCT_FROM;
 import static com.facebook.presto.operator.scalar.RowEqualOperator.ROW_EQUAL;
+import static com.facebook.presto.operator.scalar.RowGreaterThanOperator.ROW_GREATER_THAN;
+import static com.facebook.presto.operator.scalar.RowGreaterThanOrEqualOperator.ROW_GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
+import static com.facebook.presto.operator.scalar.RowLessThanOperator.ROW_LESS_THAN;
+import static com.facebook.presto.operator.scalar.RowLessThanOrEqualOperator.ROW_LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
@@ -539,7 +543,7 @@ public class FunctionRegistry
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
                 .function(COUNT_COLUMN)
-                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST)
+                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST)
                 .function(CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
