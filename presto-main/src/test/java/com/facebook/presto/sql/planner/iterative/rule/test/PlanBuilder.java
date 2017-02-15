@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -53,8 +55,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -91,6 +96,20 @@ public class PlanBuilder
     public SampleNode sample(double sampleRatio, SampleNode.Type type, PlanNode source)
     {
         return new SampleNode(idAllocator.getNextId(), source, sampleRatio, type);
+    }
+
+    public SortNode sort(List<Symbol> orderBy, PlanNode source)
+    {
+        return new SortNode(
+                idAllocator.getNextId(),
+                source,
+                orderBy,
+                orderBy.stream().collect(Collectors.toMap(Function.identity(), symbol -> ASC_NULLS_LAST)));
+    }
+
+    public SortNode sort(List<Symbol> orderBy, Map<Symbol, SortOrder> orderings, PlanNode source)
+    {
+        return new SortNode(idAllocator.getNextId(), source, orderBy, orderings);
     }
 
     public ProjectNode project(Assignments assignments, PlanNode source)
