@@ -51,7 +51,7 @@ public class TestingConnectorSession
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), true);
+        this("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), false);
     }
 
     public TestingConnectorSession(

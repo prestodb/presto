@@ -61,7 +61,7 @@ public class TestFeaturesConfig
                 .setLegacyOrderBy(false)
                 .setIterativeOptimizerEnabled(false)
                 .setExchangeCompressionEnabled(false)
-                .setLegacyTimestamp(true));
+                .setLegacyTimestamp(false));
     }
 
     @Test
@@ -94,7 +94,7 @@ public class TestFeaturesConfig
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path")
                 .put("experimental.spiller-threads", "42")
                 .put("exchange.compression-enabled", "true")
-                .put("deprecated.legacy-timestamp", "false")
+                .put("deprecated.legacy-timestamp", "true")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
@@ -123,7 +123,7 @@ public class TestFeaturesConfig
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path")
                 .put("experimental.spiller-threads", "42")
                 .put("exchange.compression-enabled", "true")
-                .put("deprecated.legacy-timestamp", "false")
+                .put("deprecated.legacy-timestamp", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -153,7 +153,7 @@ public class TestFeaturesConfig
                 .setSpillerThreads(42)
                 .setLegacyOrderBy(true)
                 .setExchangeCompressionEnabled(true)
-                .setLegacyTimestamp(false);
+                .setLegacyTimestamp(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
