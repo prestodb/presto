@@ -123,9 +123,14 @@ public final class TimestampWithTimeZoneOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIME)
-    public static long castToTime(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    public static long castToTime(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        return modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
+        if (session.isLegacyTimestamp()) {
+            return modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
+        }
+        else {
+            return modulo24Hour(castToTimestamp(session, value));
+        }
     }
 
     @ScalarOperator(CAST)
