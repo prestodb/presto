@@ -101,8 +101,8 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>com.datastax.cassandra</groupId>
-            <artifactId>cassandra-driver-core</artifactId>
+            <groupId>com.facebook.presto.cassandra</groupId>
+            <artifactId>cassandra-driver</artifactId>
         </dependency>
     </dependencies>
 

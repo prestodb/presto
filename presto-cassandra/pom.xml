@@ -17,8 +17,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.datastax.cassandra</groupId>
-            <artifactId>cassandra-driver-core</artifactId>
+            <groupId>com.facebook.presto.cassandra</groupId>
+            <artifactId>cassandra-driver</artifactId>
         </dependency>
 
         <dependency>
@@ -159,32 +159,9 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.cassandra</groupId>
-            <artifactId>cassandra-all</artifactId>
-            <version>2.1.12</version>
+            <groupId>com.facebook.presto.cassandra</groupId>
+            <artifactId>cassandra-server</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-all</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.thrift</groupId>
-                    <artifactId>libthrift</artifactId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>junit</artifactId>
-                    <groupId>junit</groupId>
-                </exclusion>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-classic</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-core</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -220,24 +197,6 @@
                 <groupId>com.ning.maven.plugins</groupId>
                 <artifactId>maven-duplicate-finder-plugin</artifactId>
                 <configuration>
-                    <exceptions combine.children="append">
-                        <exception>
-                            <conflictingDependencies>
-                                <dependency>
-                                    <groupId>org.apache.cassandra</groupId>
-                                    <artifactId>cassandra-all</artifactId>
-                                </dependency>
-                                <dependency>
-                                    <groupId>org.apache.cassandra</groupId>
-                                    <artifactId>cassandra-thrift</artifactId>
-                                </dependency>
-                            </conflictingDependencies>
-                            <classes>
-                                <class>org.apache.cassandra.thrift.ITransportFactory</class>
-                                <class>org.apache.cassandra.thrift.TFramedTransportFactory</class>
-                            </classes>
-                        </exception>
-                    </exceptions>
                     <ignoredDependencies>
                         <dependency>
                             <groupId>org.cassandraunit</groupId>
