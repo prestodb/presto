@@ -275,6 +275,7 @@ public class PredicatePushDown
             return node;
         }
 
+        @Deprecated
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Expression> context)
         {
