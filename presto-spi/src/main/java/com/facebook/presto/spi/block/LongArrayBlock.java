@@ -91,12 +91,6 @@ public class LongArrayBlock
     }
 
     @Override
-    public int getSliceLength(int position)
-    {
-        return Long.BYTES;
-    }
-
-    @Override
     public long getLong(int position, int offset)
     {
         checkReadablePosition(position);

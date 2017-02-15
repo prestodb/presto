@@ -149,34 +149,32 @@ public abstract class AbstractTestBlock
         if (expectedValue instanceof Slice) {
             Slice expectedSliceValue = (Slice) expectedValue;
 
-            int length = block.getSliceLength(position);
-            assertEquals(length, expectedSliceValue.length());
-
             if (isByteAccessSupported()) {
-                for (int offset = 0; offset <= length - SIZE_OF_BYTE; offset++) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_BYTE; offset++) {
                     assertEquals(block.getByte(position, offset), expectedSliceValue.getByte(offset));
                 }
             }
 
             if (isShortAccessSupported()) {
-                for (int offset = 0; offset <= length - SIZE_OF_SHORT; offset++) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_SHORT; offset++) {
                     assertEquals(block.getShort(position, offset), expectedSliceValue.getShort(offset));
                 }
             }
 
             if (isIntAccessSupported()) {
-                for (int offset = 0; offset <= length - SIZE_OF_INT; offset++) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_INT; offset++) {
                     assertEquals(block.getInt(position, offset), expectedSliceValue.getInt(offset));
                 }
             }
 
             if (isLongAccessSupported()) {
-                for (int offset = 0; offset <= length - SIZE_OF_LONG; offset++) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_LONG; offset++) {
                     assertEquals(block.getLong(position, offset), expectedSliceValue.getLong(offset));
                 }
             }
 
             if (isSliceAccessSupported()) {
+                assertEquals(block.getSliceLength(position), expectedSliceValue.length());
                 assertSlicePosition(block, position, expectedSliceValue);
             }
         }

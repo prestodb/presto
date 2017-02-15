@@ -141,12 +141,6 @@ public class ByteArrayBlockBuilder
     }
 
     @Override
-    public int getSliceLength(int position)
-    {
-        return Byte.BYTES;
-    }
-
-    @Override
     public byte getByte(int position, int offset)
     {
         checkReadablePosition(position);

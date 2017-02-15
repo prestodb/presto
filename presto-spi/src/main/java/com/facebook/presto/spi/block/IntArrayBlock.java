@@ -90,12 +90,6 @@ public class IntArrayBlock
     }
 
     @Override
-    public int getSliceLength(int position)
-    {
-        return Integer.BYTES;
-    }
-
-    @Override
     public int getInt(int position, int offset)
     {
         checkReadablePosition(position);
