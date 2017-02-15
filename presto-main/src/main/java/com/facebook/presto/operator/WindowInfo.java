@@ -211,7 +211,7 @@ public class WindowInfo
     }
 
     @Immutable
-    private static class IndexInfo
+    public static class IndexInfo
     {
         private final long totalRowsCount;
         private final long sizeInBytes;
