@@ -155,7 +155,16 @@ public final class TimestampOperators
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        return packDateTimeWithZone(value, session.getTimeZoneKey());
+        if (session.isLegacyTimestamp()) {
+            return packDateTimeWithZone(value, session.getTimeZoneKey());
+        }
+        else {
+            ISOChronology localChronology = getChronology(session.getTimeZoneKey());
+
+            // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
+            // its UTC representation we need to shift the value by the offset of TZ.
+            return packDateTimeWithZone(value - localChronology.getZone().getOffset(value), session.getTimeZoneKey());
+        }
     }
 
     @ScalarOperator(CAST)
