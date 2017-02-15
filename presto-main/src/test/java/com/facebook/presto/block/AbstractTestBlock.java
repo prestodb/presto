@@ -106,13 +106,19 @@ public abstract class AbstractTestBlock
     {
         // Asserting on `block` is not very effective because most blocks passed to this method is compact.
         // Therefore, we split the `block` into two and assert again.
-        assertEquals(block.getSizeInBytes(), copyBlock(block).getSizeInBytes());
+        int expectedBlockSize = copyBlock(block).getSizeInBytes();
+        assertEquals(block.getSizeInBytes(), expectedBlockSize);
+        assertEquals(block.getRegionSizeInBytes(0, block.getPositionCount()), expectedBlockSize);
 
         List<Block> splitBlock = splitBlock(block, 2);
         Block firstHalf = splitBlock.get(0);
+        int expectedFirstHalfSize = copyBlock(firstHalf).getSizeInBytes();
+        assertEquals(firstHalf.getSizeInBytes(), expectedFirstHalfSize);
+        assertEquals(block.getRegionSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfSize);
         Block secondHalf = splitBlock.get(1);
-        assertEquals(firstHalf.getSizeInBytes(), copyBlock(firstHalf).getSizeInBytes());
-        assertEquals(secondHalf.getSizeInBytes(), copyBlock(secondHalf).getSizeInBytes());
+        int expectedSecondHalfSize = copyBlock(secondHalf).getSizeInBytes();
+        assertEquals(secondHalf.getSizeInBytes(), expectedSecondHalfSize);
+        assertEquals(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount()), expectedSecondHalfSize);
     }
 
     protected <T> void assertBlockPosition(Block block, int position, T expectedValue)

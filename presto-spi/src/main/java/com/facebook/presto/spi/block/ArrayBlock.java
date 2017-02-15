@@ -88,7 +88,7 @@ public class ArrayBlock
     {
         int valueStart = offsets[arrayOffset];
         int valueEnd = offsets[arrayOffset + positionCount];
-        sizeInBytes = values.getRegion(valueStart, valueEnd - valueStart).getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * this.positionCount);
+        sizeInBytes = values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * this.positionCount);
     }
 
     @Override

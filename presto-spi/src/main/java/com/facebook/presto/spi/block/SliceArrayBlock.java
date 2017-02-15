@@ -188,6 +188,24 @@ public class SliceArrayBlock
         return intSaturatedCast(sizeInBytes);
     }
 
+    @Override
+    public int getRegionSizeInBytes(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        long sizeInBytes = length * (long) (ARRAY_OBJECT_INDEX_SCALE + SLICE_INSTANCE_SIZE);
+        for (int i = positionOffset; i < positionOffset + length; i++) {
+            Slice value = values[i];
+            if (value != null) {
+                sizeInBytes += value.length();
+            }
+        }
+        return intSaturatedCast(sizeInBytes);
+    }
+
     static int getSliceArrayRetainedSizeInBytes(Slice[] values)
     {
         long sizeInBytes = SizeOf.sizeOf(values);

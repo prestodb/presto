@@ -109,7 +109,7 @@ public class InterleavedBlock
         if (sizeInBytes < 0) {
             sizeInBytes = 0;
             for (int i = 0; i < getBlockCount(); i++) {
-                sizeInBytes += blocks[i].getRegion(start / blocks.length, positionCount / blocks.length).getSizeInBytes();
+                sizeInBytes += blocks[i].getRegionSizeInBytes(start / blocks.length, positionCount / blocks.length);
             }
             this.sizeInBytes.set(sizeInBytes);
         }

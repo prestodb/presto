@@ -21,8 +21,12 @@ public interface Block
 {
     /**
      * Gets the length of the value at the {@code position}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int getLength(int position);
+    default int getLength(int position)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Gets a byte at {@code offset} in the value at {@code position}.
@@ -159,6 +163,11 @@ public interface Block
      * Returns the logical size of this block in memory.
      */
     int getSizeInBytes();
+
+    /**
+     * Returns the logical size of {@code block.getRegion(position, length)} in memory.
+     */
+    int getRegionSizeInBytes(int position, int length);
 
     /**
      * Returns the retained size of this block in memory.

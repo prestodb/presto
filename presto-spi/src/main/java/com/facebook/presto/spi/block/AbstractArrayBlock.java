@@ -90,6 +90,20 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
+    public int getRegionSizeInBytes(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        if (position < 0 || length < 0 || position + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
+        }
+
+        int valueStart = getOffsets()[getOffsetBase() + position];
+        int valueEnd = getOffsets()[getOffsetBase() + position + length];
+
+        return getValues().getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * length);
+    }
+
+    @Override
     public Block copyRegion(int position, int length)
     {
         int positionCount = getPositionCount();
@@ -109,12 +123,6 @@ public abstract class AbstractArrayBlock
         boolean[] newValueIsNull = Arrays.copyOfRange(getValueIsNull(), position + getOffsetBase(), position + getOffsetBase() + length);
 
         return new ArrayBlock(length, newValueIsNull, newOffsets, newValues);
-    }
-
-    @Override
-    public int getLength(int position)
-    {
-        return getOffset(position + 1) - getOffset(position);
     }
 
     @Override

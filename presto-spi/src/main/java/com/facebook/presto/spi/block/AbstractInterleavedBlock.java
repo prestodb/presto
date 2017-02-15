@@ -252,6 +252,17 @@ public abstract class AbstractInterleavedBlock
         return sliceRange(position, length, true);
     }
 
+    @Override
+    public int getRegionSizeInBytes(int position, int length)
+    {
+        validateRange(position, length);
+        int result = 0;
+        for (int blockIndex = 0; blockIndex < getBlockCount(); blockIndex++) {
+            result += getBlock(blockIndex).getRegionSizeInBytes(position / columns, length / columns);
+        }
+        return result;
+    }
+
     protected void validateRange(int position, int length)
     {
         int positionCount = getPositionCount();

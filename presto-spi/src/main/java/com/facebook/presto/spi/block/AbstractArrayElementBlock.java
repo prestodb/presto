@@ -168,6 +168,12 @@ public abstract class AbstractArrayElementBlock
     }
 
     @Override
+    public int getRegionSizeInBytes(int position, int length)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Block copyRegion(int position, int length)
     {
         throw new UnsupportedOperationException();

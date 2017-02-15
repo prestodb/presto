@@ -164,6 +164,16 @@ public abstract class AbstractFixedWidthBlock
         return isEntryNull(position);
     }
 
+    @Override
+    public int getRegionSizeInBytes(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+        return length * (fixedSize + Byte.BYTES);
+    }
+
     private int valueOffset(int position)
     {
         return position * fixedSize;

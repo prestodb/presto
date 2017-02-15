@@ -205,8 +205,7 @@ public class DictionaryBlock
             int position = getId(i);
             if (!seen[position]) {
                 if (!dictionary.isNull(position)) {
-                    // todo this is wrong for ArrayBlock and InterleavedBlock as length means entry count
-                    sizeInBytes += dictionary.getLength(position);
+                    sizeInBytes += dictionary.getRegionSizeInBytes(position, 1);
                 }
                 uniqueIds++;
                 seen[position] = true;
@@ -214,6 +213,23 @@ public class DictionaryBlock
         }
         this.sizeInBytes = sizeInBytes + (positionCount * Integer.BYTES);
         this.uniqueIds = uniqueIds;
+    }
+
+    @Override
+    public int getRegionSizeInBytes(int positionOffset, int length)
+    {
+        int sizeInBytes = 0;
+        boolean[] seen = new boolean[length];
+        for (int i = positionOffset; i < length; i++) {
+            int position = getId(i);
+            if (!seen[position - positionOffset]) {
+                if (!dictionary.isNull(position)) {
+                    sizeInBytes += dictionary.getRegionSizeInBytes(position, 1);
+                }
+                seen[position - positionOffset] = true;
+            }
+        }
+        return sizeInBytes + (length * Integer.BYTES);
     }
 
     @Override

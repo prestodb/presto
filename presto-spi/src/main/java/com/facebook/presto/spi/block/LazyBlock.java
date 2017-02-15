@@ -171,6 +171,13 @@ public class LazyBlock
     }
 
     @Override
+    public int getRegionSizeInBytes(int position, int length)
+    {
+        assureLoaded();
+        return block.getRegionSizeInBytes(position, length);
+    }
+
+    @Override
     public int getRetainedSizeInBytes()
     {
         assureLoaded();

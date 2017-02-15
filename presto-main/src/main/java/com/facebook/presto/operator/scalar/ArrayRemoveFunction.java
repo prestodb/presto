@@ -90,7 +90,7 @@ public final class ArrayRemoveFunction
             try {
                 if (element == null || !(boolean) equalsFunction.invoke(element, value)) {
                     positions.add(i);
-                    sizeAfterRemove += array.getLength(i);
+                    sizeAfterRemove += array.getRegionSizeInBytes(i, 1);
                 }
             }
             catch (Throwable t) {
