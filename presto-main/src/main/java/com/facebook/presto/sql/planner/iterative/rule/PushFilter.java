@@ -22,6 +22,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -89,7 +91,10 @@ public class PushFilter
 
     private static Set<Symbol> getPushableSymbols(PlanNode planNode)
     {
-        if (planNode instanceof AssignUniqueId) {
+        if (planNode instanceof SortNode || planNode instanceof SampleNode) {
+            return ImmutableSet.copyOf(planNode.getOutputSymbols());
+        }
+        else if (planNode instanceof AssignUniqueId) {
             return ImmutableSet.copyOf(((AssignUniqueId) planNode).getSource().getOutputSymbols());
         }
         else {

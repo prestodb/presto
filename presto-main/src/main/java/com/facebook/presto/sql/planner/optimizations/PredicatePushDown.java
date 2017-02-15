@@ -246,6 +246,7 @@ public class PredicatePushDown
             return context.defaultRewrite(node, context.get());
         }
 
+        @Deprecated
         @Override
         public PlanNode visitSort(SortNode node, RewriteContext<Expression> context)
         {
@@ -994,6 +995,7 @@ public class PredicatePushDown
             return output;
         }
 
+        @Deprecated
         @Override
         public PlanNode visitSample(SampleNode node, RewriteContext<Expression> context)
         {
