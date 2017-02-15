@@ -32,6 +32,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.fail;
 
 public class RuleAssert
@@ -62,8 +63,10 @@ public class RuleAssert
         return this;
     }
 
-    public void doesNotFire()
+    public RuleAssert doesNotFire()
     {
+        checkState(plan != null, "plan has not been set");
+
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
         Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator);
 
@@ -73,10 +76,18 @@ public class RuleAssert
                     rule.getClass().getName(),
                     PlanPrinter.textLogicalPlan(plan, symbolAllocator.getTypes(), metadata, session, 2)));
         }
+
+        return this;
     }
 
-    public void matches(PlanMatchPattern pattern)
+    /**
+     * Assert that rule is applied, if so then plan stored in this {@link RuleAssert} will be updated
+     * to the one returned by rule.
+     */
+    public RuleAssert isFiredAndThen()
     {
+        checkState(plan != null, "plan has not been set");
+
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
         Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator);
 
@@ -106,6 +117,35 @@ public class RuleAssert
                     actual.getOutputSymbols()));
         }
 
-        assertPlan(session, metadata, new Plan(actual, symbolAllocator), pattern);
+        plan = actual;
+        symbols = symbolAllocator.getTypes();
+
+        return this;
+    }
+
+    public RuleAssert isFiredOnlyOnceAndThen()
+    {
+        return isFiredMultipleTimesAndThen(1);
+    }
+
+    public RuleAssert isFiredMultipleTimesAndThen(int count)
+    {
+        RuleAssert ruleAssert = this;
+        for (int i = 0; i < count; i++) {
+            ruleAssert = isFiredAndThen();
+        }
+        return ruleAssert.doesNotFire();
+    }
+
+    public void matches(PlanMatchPattern pattern)
+    {
+        checkState(plan != null, "plan has not been set");
+
+        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
+        assertPlan(session, metadata, new Plan(plan, symbolAllocator), pattern);
+
+        if (rule.apply(plan, x -> x, idAllocator, symbolAllocator).isPresent()) {
+            fail(String.format("%s: rule can be fired on its result.", rule.getClass().getName()));
+        }
     }
 }
