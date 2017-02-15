@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -28,6 +29,7 @@ import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -452,13 +454,7 @@ public class WindowOperator
             return page.getPositionCount();
         }
 
-        // TODO: do position binary search
-        int endPosition = startPosition + 1;
-        while (endPosition < page.getPositionCount() &&
-                pagesHashStrategy.rowEqualsRow(endPosition - 1, page, endPosition, page)) {
-            endPosition++;
-        }
-        return endPosition;
+        return findEndPosition(startPosition, page.getPositionCount(), (firstPosition, secondPosition) -> pagesHashStrategy.rowEqualsRow(firstPosition, page, secondPosition, page));
     }
 
     // Assumes input grouped on relevant pagesHashStrategy columns
@@ -472,11 +468,27 @@ public class WindowOperator
             return pagesIndex.getPositionCount();
         }
 
+        return findEndPosition(startPosition, pagesIndex.getPositionCount(), (firstPosition, secondPosition) -> pagesIndex.positionEqualsPosition(pagesHashStrategy, firstPosition, secondPosition));
+    }
+
+    /**
+     * @param startPosition - inclusive
+     * @param endPosition - exclusive
+     * @param comparator - returns true if positions given as parameters are equal
+     * @return the end of the group position exclusive (the position the very next group starts)
+     */
+    @VisibleForTesting
+    static int findEndPosition(int startPosition, int endPosition, BiFunction<Integer, Integer, Boolean> comparator)
+    {
+        checkArgument(startPosition >= 0, "startPosition must be greater or equal than zero: %d", startPosition);
+        checkArgument(endPosition > 0, "endPosition must be greater than zero: %d", endPosition);
+        checkArgument(startPosition < endPosition, "startPosition must be less than endPosition: %d < %d", startPosition, endPosition);
+
         // TODO: do position binary search
-        int endPosition = startPosition + 1;
-        while ((endPosition < pagesIndex.getPositionCount()) &&
-                pagesIndex.positionEqualsPosition(pagesHashStrategy, endPosition - 1, endPosition)) {
-            endPosition++;
+        for (int first = startPosition, second = startPosition + 1; second < endPosition; first++, second++) {
+            if (!comparator.apply(first, second)) {
+                return second;
+            }
         }
         return endPosition;
     }
