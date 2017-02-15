@@ -28,11 +28,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf-shims</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-orc</artifactId>
         </dependency>

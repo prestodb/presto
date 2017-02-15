@@ -28,7 +28,6 @@ import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
-import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
@@ -231,7 +230,6 @@ public class TestCachingOrcDataSource
         JobConf jobConf = new JobConf();
         jobConf.set("hive.exec.orc.write.format", format == ORC_12 ? "0.12" : "0.11");
         jobConf.set("hive.exec.orc.default.compress", compression.name());
-        ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", "test");

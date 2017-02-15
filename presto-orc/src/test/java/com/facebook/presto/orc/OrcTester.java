@@ -44,7 +44,6 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
-import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
@@ -648,7 +647,6 @@ public class OrcTester
         JobConf jobConf = new JobConf();
         jobConf.set("hive.exec.orc.write.format", format == ORC_12 ? "0.12" : "0.11");
         jobConf.set("hive.exec.orc.default.compress", compression.name());
-        ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         return new OrcOutputFormat().getHiveRecordWriter(
                 jobConf,
@@ -669,7 +667,6 @@ public class OrcTester
         OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_ENTROPY_STRING_THRESHOLD, 1);
         OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_DICTIONARY_ENCODING_INTERVAL, 2);
         OrcConf.setBoolVar(jobConf, OrcConf.ConfVars.HIVE_ORC_BUILD_STRIDE_DICTIONARY, true);
-        ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         return new com.facebook.hive.orc.OrcOutputFormat().getHiveRecordWriter(
                 jobConf,
