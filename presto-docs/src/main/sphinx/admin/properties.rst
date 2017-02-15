@@ -67,6 +67,14 @@ General properties
   a large value is not recommended when the environment is unstable.
 
 
+``optimizer.reorder-windows``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``true``
+ * **Description:** Allow reordering windows in order to put those with the same partitioning next to each other. This will sometimes decrease the number of repartitionings. This can also be specified on a per-query basis using the ``reorder_windows`` session property.
+
+
 .. _tuning-pref-query:
 
 Query execution properties
