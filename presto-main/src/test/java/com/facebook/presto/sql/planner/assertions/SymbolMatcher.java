@@ -17,16 +17,15 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 
 import java.util.Optional;
 
-public class ValuesMatcher
+public class SymbolMatcher
         implements RvalueMatcher
 {
-    int outputIndex;
+    private final int outputIndex;
 
-    public ValuesMatcher(int outputIndex)
+    public SymbolMatcher(int outputIndex)
     {
         this.outputIndex = outputIndex;
     }
@@ -34,12 +33,6 @@ public class ValuesMatcher
     @Override
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof ValuesNode)) {
-            return Optional.empty();
-        }
-
-        ValuesNode valuesNode = (ValuesNode) node;
-
-        return Optional.of(valuesNode.getOutputSymbols().get(outputIndex));
+        return Optional.of(node.getOutputSymbols().get(outputIndex));
     }
 }
