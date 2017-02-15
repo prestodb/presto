@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -78,7 +77,8 @@ public class ArbitraryOutputBuffer
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
 
-    public ArbitraryOutputBuffer(String taskInstanceId,
+    public ArbitraryOutputBuffer(
+            String taskInstanceId,
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
             SystemMemoryUsageListener systemMemoryUsageListener,
@@ -168,10 +168,8 @@ public class ArbitraryOutputBuffer
             outputBuffers = newOutputBuffers;
 
             // add the new buffers
-            for (Entry<OutputBufferId, Integer> entry : outputBuffers.getBuffers().entrySet()) {
-                if (!buffers.containsKey(entry.getKey())) {
-                    getBuffer(entry.getKey());
-                }
+            for (OutputBufferId outputBufferId : outputBuffers.getBuffers().keySet()) {
+                getBuffer(outputBufferId);
             }
 
             // update state if no more buffers is set

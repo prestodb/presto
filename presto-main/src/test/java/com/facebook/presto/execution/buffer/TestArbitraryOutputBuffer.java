@@ -92,13 +92,13 @@ public class TestArbitraryOutputBuffer
             throws Exception
     {
         try {
-            createBroadcastBuffer(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), new DataSize(0, BYTE));
+            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), new DataSize(0, BYTE));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {
         }
         try {
-            createBroadcastBuffer(createInitialEmptyOutputBuffers(ARBITRARY), new DataSize(0, BYTE));
+            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), new DataSize(0, BYTE));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {
@@ -791,13 +791,13 @@ public class TestArbitraryOutputBuffer
         assertTrue(buffer.isFinished());
     }
 
-    public static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
+    private static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
         CompletableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
         return getFuture(future, maxWait);
     }
 
-    public static BufferResult getFuture(CompletableFuture<BufferResult> future, Duration maxWait)
+    private static BufferResult getFuture(CompletableFuture<BufferResult> future, Duration maxWait)
     {
         return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
     }
@@ -871,19 +871,6 @@ public class TestArbitraryOutputBuffer
         assertEquals(bufferInfo.isFinished(), true);
     }
 
-    private BroadcastOutputBuffer createBroadcastBuffer(OutputBuffers outputBuffers, DataSize dataSize)
-    {
-        BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
-                TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
-                dataSize,
-                ignored -> {
-                },
-                stateNotificationExecutor);
-        buffer.setOutputBuffers(outputBuffers);
-        return buffer;
-    }
-
     private ArbitraryOutputBuffer createArbitraryBuffer(OutputBuffers buffers, DataSize dataSize)
     {
         ArbitraryOutputBuffer buffer = new ArbitraryOutputBuffer(
@@ -895,16 +882,6 @@ public class TestArbitraryOutputBuffer
                 stateNotificationExecutor);
         buffer.setOutputBuffers(buffers);
         return buffer;
-    }
-
-    private static BufferInfo getBufferInfo(OutputBuffer buffer, OutputBufferId bufferId)
-    {
-        for (BufferInfo bufferInfo : buffer.getInfo().getBuffers()) {
-            if (bufferInfo.getBufferId().equals(bufferId)) {
-                return bufferInfo;
-            }
-        }
-        return null;
     }
 
     private static void assertFinished(OutputBuffer buffer)
@@ -936,13 +913,13 @@ public class TestArbitraryOutputBuffer
         assertTrue(future.isDone());
     }
 
-    public static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
+    private static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
     {
         List<Page> pages = ImmutableList.<Page>builder().add(firstPage).add(otherPages).build();
         return bufferResult(token, pages);
     }
 
-    public static BufferResult bufferResult(long token, List<Page> pages)
+    private static BufferResult bufferResult(long token, List<Page> pages)
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
         return new BufferResult(
@@ -960,7 +937,7 @@ public class TestArbitraryOutputBuffer
         return new Page(BlockAssertions.createLongsBlock(id));
     }
 
-    public static DataSize sizeOfPages(int count)
+    private static DataSize sizeOfPages(int count)
     {
         return new DataSize(BUFFERED_PAGE_SIZE.toBytes() * count, BYTE);
     }
