@@ -256,7 +256,7 @@ public class Field
                 retval = equals(block1.getObject(i, Block.class), block2.getObject(i, Block.class));
             }
             else {
-                retval = block1.compareTo(i, 0, block1.getLength(i), block2, i, 0, block2.getLength(i)) == 0;
+                retval = block1.compareTo(i, 0, block1.getSliceLength(i), block2, i, 0, block2.getSliceLength(i)) == 0;
             }
         }
         return retval;

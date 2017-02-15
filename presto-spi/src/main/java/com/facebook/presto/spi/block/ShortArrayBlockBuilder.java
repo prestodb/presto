@@ -141,7 +141,7 @@ public class ShortArrayBlockBuilder
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         return Short.BYTES;
     }

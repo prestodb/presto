@@ -91,9 +91,9 @@ public class DictionaryBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
-        return dictionary.getLength(getId(position));
+        return dictionary.getSliceLength(getId(position));
     }
 
     @Override

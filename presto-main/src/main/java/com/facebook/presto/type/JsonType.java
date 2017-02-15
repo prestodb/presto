@@ -44,15 +44,15 @@ public class JsonType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        Slice leftValue = leftBlock.getSlice(leftPosition, 0, leftBlock.getLength(leftPosition));
-        Slice rightValue = rightBlock.getSlice(rightPosition, 0, rightBlock.getLength(rightPosition));
+        Slice leftValue = leftBlock.getSlice(leftPosition, 0, leftBlock.getSliceLength(leftPosition));
+        Slice rightValue = rightBlock.getSlice(rightPosition, 0, rightBlock.getSliceLength(rightPosition));
         return leftValue.equals(rightValue);
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return block.hash(position, 0, block.getLength(position));
+        return block.hash(position, 0, block.getSliceLength(position));
     }
 
     @Override
@@ -62,7 +62,7 @@ public class JsonType
             return null;
         }
 
-        return block.getSlice(position, 0, block.getLength(position)).toStringUtf8();
+        return block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
     }
 
     @Override
@@ -72,7 +72,7 @@ public class JsonType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -80,7 +80,7 @@ public class JsonType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     public void writeString(BlockBuilder blockBuilder, String value)

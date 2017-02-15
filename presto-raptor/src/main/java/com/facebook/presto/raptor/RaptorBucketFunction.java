@@ -88,7 +88,7 @@ public class RaptorBucketFunction
 
     private static HashFunction varcharHashFunction()
     {
-        return (block, position) -> XxHash64.hash(block.getSlice(position, 0, block.getLength(position)));
+        return (block, position) -> XxHash64.hash(block.getSlice(position, 0, block.getSliceLength(position)));
     }
 
     private interface HashFunction

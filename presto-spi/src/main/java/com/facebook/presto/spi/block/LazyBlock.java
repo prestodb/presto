@@ -43,10 +43,10 @@ public class LazyBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         assureLoaded();
-        return block.getLength(position);
+        return block.getSliceLength(position);
     }
 
     @Override

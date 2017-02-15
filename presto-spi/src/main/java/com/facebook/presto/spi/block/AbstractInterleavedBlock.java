@@ -137,13 +137,13 @@ public abstract class AbstractInterleavedBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
-        return getBlock(blockIndex).getLength(positionInBlock);
+        return getBlock(blockIndex).getSliceLength(positionInBlock);
     }
 
     @Override

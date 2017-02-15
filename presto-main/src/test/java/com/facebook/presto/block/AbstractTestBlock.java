@@ -149,7 +149,7 @@ public abstract class AbstractTestBlock
         if (expectedValue instanceof Slice) {
             Slice expectedSliceValue = (Slice) expectedValue;
 
-            int length = block.getLength(position);
+            int length = block.getSliceLength(position);
             assertEquals(length, expectedSliceValue.length());
 
             if (isByteAccessSupported()) {
@@ -211,7 +211,7 @@ public abstract class AbstractTestBlock
 
     protected void assertSlicePosition(Block block, int position, Slice expectedSliceValue)
     {
-        int length = block.getLength(position);
+        int length = block.getSliceLength(position);
         assertEquals(length, expectedSliceValue.length());
 
         Block expectedBlock = toSingeValuedBlock(expectedSliceValue);

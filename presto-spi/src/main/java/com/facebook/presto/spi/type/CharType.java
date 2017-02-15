@@ -78,7 +78,7 @@ public final class CharType
         }
 
         StringBuilder builder = new StringBuilder(length);
-        String value = block.getSlice(position, 0, block.getLength(position)).toStringUtf8();
+        String value = block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
         builder.append(value);
         for (int i = value.length(); i < length; i++) {
             builder.append(' ');
@@ -90,8 +90,8 @@ public final class CharType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
         if (leftLength != rightLength) {
             return false;
         }
@@ -101,14 +101,14 @@ public final class CharType
     @Override
     public long hash(Block block, int position)
     {
-        return block.hash(position, 0, block.getLength(position));
+        return block.hash(position, 0, block.getSliceLength(position));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        Slice leftSlice = leftBlock.getSlice(leftPosition, 0, leftBlock.getLength(leftPosition));
-        Slice rightSlice = rightBlock.getSlice(rightPosition, 0, rightBlock.getLength(rightPosition));
+        Slice leftSlice = leftBlock.getSlice(leftPosition, 0, leftBlock.getSliceLength(leftPosition));
+        Slice rightSlice = rightBlock.getSlice(rightPosition, 0, rightBlock.getSliceLength(rightPosition));
 
         return compareChars(leftSlice, rightSlice);
     }
@@ -120,7 +120,7 @@ public final class CharType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -128,7 +128,7 @@ public final class CharType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     public void writeString(BlockBuilder blockBuilder, String value)

@@ -74,7 +74,7 @@ public abstract class AbstractVariableWidthBlock
     {
         checkReadablePosition(position);
         Slice rawSlice = getRawSlice(position);
-        if (getLength(position) < length) {
+        if (getSliceLength(position) < length) {
             return false;
         }
         return otherBlock.bytesEqual(otherPosition, otherOffset, rawSlice, getPositionOffset(position) + offset, length);
@@ -99,7 +99,7 @@ public abstract class AbstractVariableWidthBlock
     {
         checkReadablePosition(position);
         Slice rawSlice = getRawSlice(position);
-        if (getLength(position) < length) {
+        if (getSliceLength(position) < length) {
             throw new IllegalArgumentException("Length longer than value length");
         }
         return -otherBlock.bytesCompare(otherPosition, otherOffset, otherLength, rawSlice, getPositionOffset(position) + offset, length);
@@ -122,7 +122,7 @@ public abstract class AbstractVariableWidthBlock
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
-        writeBytesTo(position, 0, getLength(position), blockBuilder);
+        writeBytesTo(position, 0, getSliceLength(position), blockBuilder);
     }
 
     @Override
@@ -133,7 +133,7 @@ public abstract class AbstractVariableWidthBlock
         }
 
         int offset = getPositionOffset(position);
-        int entrySize = getLength(position);
+        int entrySize = getSliceLength(position);
 
         Slice copy = Slices.copyOf(getRawSlice(position), offset, entrySize);
 

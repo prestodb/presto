@@ -23,7 +23,7 @@ public interface Block
      * Gets the length of the value at the {@code position}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
-    default int getLength(int position)
+    default int getSliceLength(int position)
     {
         throw new UnsupportedOperationException();
     }

@@ -40,7 +40,7 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         return fixedSize;
     }
@@ -138,7 +138,7 @@ public abstract class AbstractFixedWidthBlock
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
-        writeBytesTo(position, 0, getLength(position), blockBuilder);
+        writeBytesTo(position, 0, getSliceLength(position), blockBuilder);
     }
 
     @Override

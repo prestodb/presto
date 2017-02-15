@@ -90,7 +90,7 @@ public class ByteArrayBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         return Byte.BYTES;
     }

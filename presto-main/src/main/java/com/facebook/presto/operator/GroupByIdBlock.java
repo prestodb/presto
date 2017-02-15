@@ -69,9 +69,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
-        return block.getLength(position);
+        return block.getSliceLength(position);
     }
 
     @Override

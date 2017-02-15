@@ -69,7 +69,7 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         if (position >= positions) {
             throw new IllegalArgumentException("position " + position + " must be less than position count " + positions);
@@ -116,7 +116,7 @@ public class VariableWidthBlockBuilder
     @Override
     public Block copyPositions(List<Integer> positions)
     {
-        int finalLength = positions.stream().mapToInt(this::getLength).sum();
+        int finalLength = positions.stream().mapToInt(this::getSliceLength).sum();
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
         int[] newOffsets = new int[positions.size() + 1];
         boolean[] newValueIsNull = new boolean[positions.size()];
@@ -127,7 +127,7 @@ public class VariableWidthBlockBuilder
                 newValueIsNull[i] = true;
             }
             else {
-                newSlice.appendBytes(sliceOutput.getUnderlyingSlice().getBytes(getPositionOffset(position), getLength(position)));
+                newSlice.appendBytes(sliceOutput.getUnderlyingSlice().getBytes(getPositionOffset(position), getSliceLength(position)));
             }
             newOffsets[i + 1] = newSlice.size();
         }

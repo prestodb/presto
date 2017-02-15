@@ -142,7 +142,7 @@ public class LongArrayBlockBuilder
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         return Long.BYTES;
     }

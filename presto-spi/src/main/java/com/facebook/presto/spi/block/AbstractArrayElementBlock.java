@@ -37,10 +37,10 @@ public abstract class AbstractArrayElementBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         checkReadablePosition(position);
-        return getBlock().getLength(position + start);
+        return getBlock().getSliceLength(position + start);
     }
 
     @Override
