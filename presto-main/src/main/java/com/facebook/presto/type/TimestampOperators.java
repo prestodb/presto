@@ -126,7 +126,12 @@ public final class TimestampOperators
     @SqlType(StandardTypes.TIME)
     public static long castToTime(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), value);
+        if (session.isLegacyTimestamp()) {
+            return modulo24Hour(getChronology(session.getTimeZoneKey()), value);
+        }
+        else {
+            return modulo24Hour(value);
+        }
     }
 
     @ScalarOperator(CAST)
