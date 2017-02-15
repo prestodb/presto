@@ -704,6 +704,11 @@ public final class FunctionAssertions
         assertEquals(actualType, expectedType);
     }
 
+    public Session getSession()
+    {
+        return session;
+    }
+
     private static class TestPageSourceProvider
             implements PageSourceProvider
     {

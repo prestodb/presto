@@ -15,9 +15,8 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
@@ -34,6 +33,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimeOf;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimestampOf;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 
 public class TestTime
@@ -61,9 +62,9 @@ public class TestTime
     public void testLiteral()
             throws Exception
     {
-        assertFunction("TIME '03:04:05.321'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIME '03:04:05'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIME '03:04'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
+        assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
+        assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
     }
 
     @Test
@@ -152,7 +153,7 @@ public class TestTime
     {
         assertFunction("cast(TIME '03:04:05.321' as timestamp)",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                sqlTimestampOf(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
     }
 
     @Test
@@ -180,5 +181,10 @@ public class TestTime
         assertFunction("cast('03:04:05.321' as time) = TIME '03:04:05.321'", BOOLEAN, true);
         assertFunction("cast('03:04:05' as time) = TIME '03:04:05.000'", BOOLEAN, true);
         assertFunction("cast('03:04' as time) = TIME '03:04:00.000'", BOOLEAN, true);
+    }
+
+    private ConnectorSession connectorSession()
+    {
+        return functionAssertions.getSession().toConnectorSession();
     }
 }
