@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithTimeZone;
+import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -137,9 +138,15 @@ public final class TimestampWithTimeZoneOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        return unpackMillisUtc(value);
+        if (session.isLegacyTimestamp()) {
+            return unpackMillisUtc(value);
+        }
+        else {
+            ISOChronology chronology = getChronology(unpackZoneKey(value));
+            return unpackMillisUtc(value) + chronology.getZone().getOffset(unpackMillisUtc(value));
+        }
     }
 
     @ScalarOperator(CAST)
