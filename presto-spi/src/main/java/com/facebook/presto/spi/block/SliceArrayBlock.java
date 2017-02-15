@@ -25,11 +25,13 @@ import java.util.Map;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
+import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
 public class SliceArrayBlock
         extends AbstractVariableWidthBlock
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceArrayBlock.class).instanceSize();
+    private static final int SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
 
     private final int positionCount;
     private final Slice[] values;
@@ -177,7 +179,7 @@ public class SliceArrayBlock
 
     public static int getSliceArraySizeInBytes(Slice[] values)
     {
-        long sizeInBytes = SizeOf.sizeOf(values);
+        long sizeInBytes = values.length * (long) (ARRAY_OBJECT_INDEX_SCALE + SLICE_INSTANCE_SIZE);
         for (Slice value : values) {
             if (value != null) {
                 sizeInBytes += value.length();
