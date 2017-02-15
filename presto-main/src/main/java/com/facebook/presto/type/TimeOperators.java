@@ -120,7 +120,12 @@ public final class TimeOperators
     @SqlType("varchar(x)")
     public static Slice castToSlice(ConnectorSession session, @SqlType(StandardTypes.TIME) long value)
     {
-        return utf8Slice(printTimeWithoutTimeZone(session.getTimeZoneKey(), value));
+        if (session.isLegacyTimestamp()) {
+            return utf8Slice(printTimeWithoutTimeZone(session.getTimeZoneKey(), value));
+        }
+        else {
+            return utf8Slice(printTimeWithoutTimeZone(value));
+        }
     }
 
     @ScalarOperator(CAST)
@@ -129,7 +134,12 @@ public final class TimeOperators
     public static long castFromSlice(ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return parseTimeWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
+            if (session.isLegacyTimestamp()) {
+                return parseTimeWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
+            }
+            else {
+                return parseTimeWithoutTimeZone(value.toStringUtf8());
+            }
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to time: " + value.toStringUtf8(), e);
