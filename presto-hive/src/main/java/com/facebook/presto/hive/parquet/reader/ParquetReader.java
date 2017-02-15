@@ -150,15 +150,23 @@ public class ParquetReader
     public Block readArray(Type type, List<String> path)
             throws IOException
     {
+        return readArray(type, path, new IntArrayList());
+    }
+
+    private Block readArray(Type type, List<String> path, IntList elementOffsets)
+            throws IOException
+    {
         List<Type> parameters = type.getTypeParameters();
         checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %d", parameters.size());
-        IntList elementOffsets = new IntArrayList();
         path.add(ARRAY_TYPE_NAME);
         Type elementType = parameters.get(0);
         Block block = readBlock(ARRAY_ELEMENT_NAME, elementType, path, elementOffsets);
         path.remove(ARRAY_TYPE_NAME);
 
         if (elementOffsets.isEmpty()) {
+            for (int i = 0; i < batchSize; i++) {
+                elementOffsets.add(0);
+            }
             return RunLengthEncodedBlock.create(elementType, null, batchSize);
         }
 
@@ -170,6 +178,12 @@ public class ParquetReader
     }
 
     public Block readMap(Type type, List<String> path)
+            throws IOException
+    {
+        return readMap(type, path, new IntArrayList());
+    }
+
+    private Block readMap(Type type, List<String> path, IntList elementOffsets)
             throws IOException
     {
         List<Type> parameters = type.getTypeParameters();
@@ -184,17 +198,28 @@ public class ParquetReader
         path.remove(MAP_TYPE_NAME);
 
         if (blocks[0].getPositionCount() == 0) {
+            for (int i = 0; i < batchSize; i++) {
+                elementOffsets.add(0);
+            }
             return RunLengthEncodedBlock.create(parameters.get(0), null, batchSize);
         }
         InterleavedBlock interleavedBlock = new InterleavedBlock(new Block[] {blocks[0], blocks[1]});
         int[] offsets = new int[batchSize + 1];
         for (int i = 1; i < offsets.length; i++) {
-            offsets[i] = offsets[i - 1] + keyOffsets.getInt(i - 1) * 2;
+            int elementPositionCount = keyOffsets.getInt(i - 1) * 2;
+            elementOffsets.add(elementPositionCount);
+            offsets[i] = offsets[i - 1] + elementPositionCount;
         }
         return new ArrayBlock(batchSize, new boolean[batchSize], offsets, interleavedBlock);
     }
 
     public Block readStruct(Type type, List<String> path)
+            throws IOException
+    {
+        return readStruct(type, path, new IntArrayList());
+    }
+
+    private Block readStruct(Type type, List<String> path, IntList elementOffsets)
             throws IOException
     {
         List<TypeSignatureParameter> parameters = type.getTypeSignature().getParameters();
@@ -210,6 +235,7 @@ public class ParquetReader
         int blockSize = blocks[0].getPositionCount();
         int[] offsets = new int[blockSize + 1];
         for (int i = 1; i < offsets.length; i++) {
+            elementOffsets.add(parameters.size());
             offsets[i] = i * parameters.size();
         }
         return new ArrayBlock(blockSize, new boolean[blockSize], offsets, interleavedBlock);
@@ -279,28 +305,18 @@ public class ParquetReader
 
         Block block;
         if (ROW.equals(type.getTypeSignature().getBase())) {
-            block = readStruct(type, path);
-            getBlockOffsets(block, offsets);
+            block = readStruct(type, path, offsets);
         }
         else if (MAP.equals(type.getTypeSignature().getBase())) {
-            block = readMap(type, path);
-            getBlockOffsets(block, offsets);
+            block = readMap(type, path, offsets);
         }
         else if (ARRAY.equals(type.getTypeSignature().getBase())) {
-            block = readArray(type, path);
-            getBlockOffsets(block, offsets);
+            block = readArray(type, path, offsets);
         }
         else {
             block = readPrimitive(descriptor.get(), type, offsets);
         }
         path.remove(name);
         return block;
-    }
-
-    private static void getBlockOffsets(Block block, IntList offsets)
-    {
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            offsets.add(block.getLength(i));
-        }
     }
 }
