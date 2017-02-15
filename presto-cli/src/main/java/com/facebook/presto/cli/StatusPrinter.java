@@ -311,6 +311,11 @@ Spilled: 20GB
 
             verify(terminalWidth >= 75); // otherwise handled above
             int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
+            String formattedWallTime = formatTime(wallTime);
+            if (formattedWallTime.length() > 5) {
+                // fix overflowed progress bar for queries running over 100 minutes
+                progressWidth -= formattedWallTime.length() - 5;
+            }
 
             if (stats.isScheduled()) {
                 String progressBar = formatProgressBar(progressWidth,
@@ -320,7 +325,7 @@ Spilled: 20GB
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
                 String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
-                        formatTime(wallTime),
+                        formattedWallTime,
                         formatCount(stats.getProcessedRows()),
                         formatDataSize(bytes(stats.getProcessedBytes()), true),
                         formatCountRate(stats.getProcessedRows(), wallTime, false),
@@ -335,7 +340,7 @@ Spilled: 20GB
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [    <=>                                  ]
                 String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
-                        formatTime(wallTime),
+                        formattedWallTime,
                         formatCount(stats.getProcessedRows()),
                         formatDataSize(bytes(stats.getProcessedBytes()), true),
                         formatCountRate(stats.getProcessedRows(), wallTime, false),
