@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
@@ -30,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toMap;
 
+// TODO: break into operator-specific stats classes instead of having a big union-class aggregating all stats together
+@Deprecated
 public class PlanNodeStats
         implements Mergeable<PlanNodeStats>
 {
@@ -43,6 +46,7 @@ public class PlanNodeStats
 
     private final Map<String, OperatorInputStats> operatorInputStats;
     private final Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats;
+    private final Optional<WindowOperatorStats> windowOperatorStats;
 
     PlanNodeStats(
             PlanNodeId planNodeId,
@@ -52,7 +56,8 @@ public class PlanNodeStats
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             Map<String, OperatorInputStats> operatorInputStats,
-            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats)
+            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats,
+            Optional<WindowOperatorStats> windowOperatorStats)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
@@ -64,6 +69,7 @@ public class PlanNodeStats
 
         this.operatorInputStats = requireNonNull(operatorInputStats, "operatorInputStats is null");
         this.operatorHashCollisionsStats = requireNonNull(operatorHashCollisionsStats, "operatorHashCollisionsStats is null");
+        this.windowOperatorStats = requireNonNull(windowOperatorStats, "windowOperatorStats is null");
     }
 
     private static double computedStdDev(double sumSquared, double sum, long n)
@@ -163,6 +169,11 @@ public class PlanNodeStats
                         entry -> entry.getValue().getWeightedExpectedHashCollisions() / operatorInputStats.get(entry.getKey()).getInputPositions()));
     }
 
+    public Optional<WindowOperatorStats> getWindowOperatorStats()
+    {
+        return windowOperatorStats;
+    }
+
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
@@ -175,6 +186,7 @@ public class PlanNodeStats
 
         Map<String, OperatorInputStats> operatorInputStats = mergeMaps(this.operatorInputStats, other.operatorInputStats, OperatorInputStats::merge);
         Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeMaps(this.operatorHashCollisionsStats, other.operatorHashCollisionsStats, OperatorHashCollisionsStats::merge);
+        Optional<WindowOperatorStats> windowNodeStats = Mergeable.merge(this.windowOperatorStats, other.windowOperatorStats);
 
         return new PlanNodeStats(
                 planNodeId,
@@ -182,6 +194,7 @@ public class PlanNodeStats
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
                 operatorInputStats,
-                operatorHashCollisionsStats);
+                operatorHashCollisionsStats,
+                windowNodeStats);
     }
 }
