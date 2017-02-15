@@ -26,6 +26,9 @@ import com.facebook.presto.operator.HashCollisionsInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.operator.WindowOperator.IndexInfo;
+import com.facebook.presto.operator.WindowOperator.SingleDriverWindowInfo;
+import com.facebook.presto.operator.WindowOperator.WindowInfo;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.Domain;
@@ -95,6 +98,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
+import io.airlift.stats.Distribution;
+import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -121,6 +126,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.reverse;
@@ -233,6 +239,8 @@ public class PlanPrinter
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
 
+        Map<PlanNodeId, WindowNodeStats> windowNodeStats = new HashMap<>();
+
         for (PipelineStats pipelineStats : taskStats.getPipelines()) {
             // Due to eventual consistently collected stats, these could be empty
             if (pipelineStats.getOperatorSummaries().isEmpty()) {
@@ -279,6 +287,11 @@ public class PlanPrinter
                             PlanPrinter::mergeOperatorHashCollisionsStatsMaps);
                 }
 
+                if (operatorStats.getInfo() instanceof WindowInfo) {
+                    WindowInfo windowInfo = (WindowInfo) operatorStats.getInfo();
+                    windowNodeStats.merge(planNodeId, WindowNodeStats.create(windowInfo), WindowNodeStats::merge);
+                }
+
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
                 planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
                 processedNodes.add(planNodeId);
@@ -319,7 +332,8 @@ public class PlanPrinter
                     succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
                     operatorInputStats.get(planNodeId),
                     // Only some operators emit hash collisions statistics
-                    operatorHashCollisionsStats.getOrDefault(planNodeId, emptyMap())));
+                    operatorHashCollisionsStats.getOrDefault(planNodeId, emptyMap()),
+                    Optional.ofNullable(windowNodeStats.get(planNodeId))));
         }
         return stats;
     }
@@ -477,6 +491,10 @@ public class PlanPrinter
         output.append('\n');
 
         printDistributions(indent, nodeStats);
+
+        if (nodeStats.getWindowNodeStats().isPresent()) {
+            printWindowNodeStats(indent, nodeStats.getWindowNodeStats().get());
+        }
     }
 
     private void printDistributions(int indent, PlanNodeStats nodeStats)
@@ -544,6 +562,25 @@ public class PlanPrinter
         return ImmutableMap.of();
     }
 
+    private void printWindowNodeStats(int indent, WindowNodeStats stats)
+    {
+        output.append(indentString(indent));
+        output.append(format("Active Drivers: [ %d / %d ]", stats.getActiveDrivers(), stats.getTotalDrivers()));
+        output.append('\n');
+
+        output.append(indentString(indent));
+        output.append(formatDistribution("Index size in bytes", stats.getIndexSizeDistribution()));
+        output.append('\n');
+
+        output.append(indentString(indent));
+        output.append(formatDistribution("Rows in partitions per index", stats.getPartitionRowsPerIndexDistribution()));
+        output.append('\n');
+
+        output.append(indentString(indent));
+        output.append(formatDistribution("Rows in partitions per driver", stats.getPartitionRowsPerDriverDistribution()));
+        output.append('\n');
+    }
+
     private static String formatDouble(double value)
     {
         if (isFinite(value)) {
@@ -560,6 +597,13 @@ public class PlanPrinter
         }
 
         return positions + " rows";
+    }
+
+    private static String formatDistribution(String name, DistributionSnapshot d)
+    {
+        return format(Locale.US,
+                "%s: { count: %.0f, total: %.0f, min: %d, p05: %d, p25: %d, p50: %d, p75: %d, p95: %d, max: %d }",
+                name, d.getCount(), d.getTotal(), d.getMin(), d.getP05(), d.getP25(), d.getP50(), d.getP75(), d.getP95(), d.getMax());
     }
 
     private static String indentString(int indent)
@@ -1346,6 +1390,7 @@ public class PlanPrinter
 
         private final Map<String, OperatorInputStats> operatorInputStats;
         private final Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats;
+        private final Optional<WindowNodeStats> windowNodeStats;
 
         private PlanNodeStats(
                 PlanNodeId planNodeId,
@@ -1355,7 +1400,8 @@ public class PlanPrinter
                 long planNodeOutputPositions,
                 DataSize planNodeOutputDataSize,
                 Map<String, OperatorInputStats> operatorInputStats,
-                Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats)
+                Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats,
+                Optional<WindowNodeStats> windowNodeStats)
         {
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
@@ -1367,6 +1413,7 @@ public class PlanPrinter
 
             this.operatorInputStats = requireNonNull(operatorInputStats, "operatorInputStats is null");
             this.operatorHashCollisionsStats = requireNonNull(operatorHashCollisionsStats, "operatorHashCollisionsStats is null");
+            this.windowNodeStats = requireNonNull(windowNodeStats, "windowNodeStats is null");
         }
 
         public PlanNodeId getPlanNodeId()
@@ -1450,6 +1497,11 @@ public class PlanPrinter
                             entry -> entry.getValue().getWeightedExpectedHashCollisions() / operatorInputStats.get(entry.getKey()).getInputPositions()));
         }
 
+        public Optional<WindowNodeStats> getWindowNodeStats()
+        {
+            return windowNodeStats;
+        }
+
         public static PlanNodeStats merge(PlanNodeStats planNodeStats1, PlanNodeStats planNodeStats2)
         {
             checkArgument(planNodeStats1.getPlanNodeId().equals(planNodeStats2.getPlanNodeId()), "planNodeIds do not match. %s != %s", planNodeStats1.getPlanNodeId(), planNodeStats2.getPlanNodeId());
@@ -1461,14 +1513,15 @@ public class PlanPrinter
 
             Map<String, OperatorInputStats> operatorInputStats = mergeOperatorInputStatsMaps(planNodeStats1.operatorInputStats, planNodeStats2.operatorInputStats);
             Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeOperatorHashCollisionsStatsMaps(planNodeStats1.operatorHashCollisionsStats, planNodeStats2.operatorHashCollisionsStats);
-
+            Optional<WindowNodeStats> windowNodeStats = WindowNodeStats.merge(planNodeStats1.windowNodeStats, planNodeStats2.windowNodeStats);
             return new PlanNodeStats(
                     planNodeStats1.getPlanNodeId(),
                     new Duration(planNodeStats1.getPlanNodeWallTime().toMillis() + planNodeStats2.getPlanNodeWallTime().toMillis(), MILLISECONDS),
                     planNodeInputPositions, planNodeInputDataSize,
                     planNodeOutputPositions, planNodeOutputDataSize,
                     operatorInputStats,
-                    operatorHashCollisionsStats);
+                    operatorHashCollisionsStats,
+                    windowNodeStats);
         }
     }
 
@@ -1580,6 +1633,112 @@ public class PlanPrinter
                     first.weightedHashCollisions + second.weightedHashCollisions,
                     first.weightedSumSquaredHashCollisions + second.weightedSumSquaredHashCollisions,
                     first.weightedExpectedHashCollisions + second.weightedExpectedHashCollisions);
+        }
+    }
+
+    private static class WindowNodeStats
+    {
+        private final List<Long> indexSize;
+        private final List<Long> partitionRowsPerIndex;
+        private final List<Long> partitionRowsPerDriver;
+        private final int activeDrivers;
+        private final int totalDrivers;
+
+        public static WindowNodeStats create(WindowInfo info)
+        {
+            ImmutableList.Builder<Long> indexSize = ImmutableList.builder();
+            ImmutableList.Builder<Long> partitionRowsPerIndex = ImmutableList.builder();
+            info.getWindowInfos().stream()
+                    .map(SingleDriverWindowInfo::getIndexInfo)
+                    .flatMap(Collection::stream)
+                    .forEach(indexInfo -> {
+                        indexSize.add(indexInfo.getSizeInBytes());
+                        partitionRowsPerIndex.add(indexInfo.getTotalRowCountInPartitions());
+                    });
+
+            ImmutableList.Builder<Long> partitionRowsPerDriver = ImmutableList.builder();
+            int activeDrivers = 0;
+            int totalDrivers = 0;
+
+            for (SingleDriverWindowInfo singleDriverWindowInfo : info.getWindowInfos()) {
+                long partitionRowsCount = singleDriverWindowInfo.getIndexInfo().stream()
+                        .mapToLong(IndexInfo::getTotalRowCountInPartitions)
+                        .sum();
+                partitionRowsPerDriver.add(partitionRowsCount);
+                totalDrivers++;
+                if (partitionRowsCount > 0) {
+                    activeDrivers++;
+                }
+            }
+
+            return new WindowNodeStats(indexSize.build(), partitionRowsPerIndex.build(), partitionRowsPerDriver.build(), activeDrivers, totalDrivers);
+        }
+
+        private WindowNodeStats(List<Long> indexSize, List<Long> partitionRowsPerIndex, List<Long> partitionRowsPerDriver, int activeDrivers, int totalDrivers)
+        {
+            this.indexSize = requireNonNull(indexSize, "indexSize is null");
+            this.partitionRowsPerIndex = requireNonNull(partitionRowsPerIndex, "partitionRowsPerIndex is null");
+            this.partitionRowsPerDriver = requireNonNull(partitionRowsPerDriver, "partitionRowsPerDriver is null");
+            this.activeDrivers = activeDrivers;
+            this.totalDrivers = totalDrivers;
+        }
+
+        public static Optional<WindowNodeStats> merge(Optional<WindowNodeStats> first, Optional<WindowNodeStats> second)
+        {
+            if (first.isPresent() && second.isPresent()) {
+                return Optional.of(merge(first.get(), second.get()));
+            }
+            else if (first.isPresent()) {
+                return first;
+            }
+            else if (second.isPresent()) {
+                return second;
+            }
+            else {
+                return Optional.empty();
+            }
+        }
+
+        public static WindowNodeStats merge(WindowNodeStats first, WindowNodeStats second)
+        {
+            return new WindowNodeStats(
+                    ImmutableList.copyOf(concat(first.indexSize, second.indexSize)),
+                    ImmutableList.copyOf(concat(first.partitionRowsPerIndex, second.partitionRowsPerIndex)),
+                    ImmutableList.copyOf(concat(first.partitionRowsPerDriver, second.partitionRowsPerDriver)),
+                    first.activeDrivers + second.activeDrivers,
+                    first.totalDrivers + second.totalDrivers);
+        }
+
+        public DistributionSnapshot getIndexSizeDistribution()
+        {
+            return createDistributionSnapshot(indexSize);
+        }
+
+        public DistributionSnapshot getPartitionRowsPerIndexDistribution()
+        {
+            return createDistributionSnapshot(partitionRowsPerIndex);
+        }
+
+        public DistributionSnapshot getPartitionRowsPerDriverDistribution()
+        {
+            return createDistributionSnapshot(partitionRowsPerDriver);
+        }
+
+        private static DistributionSnapshot createDistributionSnapshot(List<Long> values)
+        {
+            Distribution distribution = new Distribution();
+            values.forEach(distribution::add);
+            return distribution.snapshot();
+        }
+
+        public int getActiveDrivers()
+        {
+            return activeDrivers;
+        }
+
+        public int getTotalDrivers()
+        {
+            return totalDrivers;
         }
     }
 }
