@@ -215,6 +215,11 @@ public final class Signature
         return new TypeVariableConstraint(name, true, false, null);
     }
 
+    public static TypeVariableConstraint orderableWithVariadicBound(String name, String variadicBound)
+    {
+        return new TypeVariableConstraint(name, false, true, variadicBound);
+    }
+
     public static TypeVariableConstraint orderableTypeParameter(String name)
     {
         return new TypeVariableConstraint(name, false, true, null);
