@@ -154,6 +154,10 @@
                 STAR, STAR_ASSIGN, TYPE_EXTENSION_AND" />
         </module>
 
+        <module name="IllegalToken">
+            <property name="tokens" value="LITERAL_ASSERT" />
+        </module>
+
         <module name="IllegalImport">
             <property name="illegalPkgs" value="
                 com.facebook.presto.hadoop.shaded,
