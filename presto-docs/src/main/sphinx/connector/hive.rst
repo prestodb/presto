@@ -40,22 +40,17 @@ The following file types are supported for the Hive connector:
 Configuration
 -------------
 
-Presto includes Hive connectors for multiple versions of Hadoop:
-
-* ``hive-hadoop1``: Apache Hadoop 1.x
-* ``hive-hadoop2``: Apache Hadoop 2.x
-* ``hive-cdh4``: Cloudera CDH 4
-* ``hive-cdh5``: Cloudera CDH 5
+The Hive connector supports Apache Hadoop 2.x and derivative distributions
+including Cloudera CDH 5 and Hortonworks Data Platform (HDP).
 
 Create ``etc/catalog/hive.properties`` with the following contents
-to mount the ``hive-cdh4`` connector as the ``hive`` catalog,
-replacing ``hive-cdh4`` with the proper connector for your version
-of Hadoop and ``example.net:9083`` with the correct host and port
+to mount the ``hive-hadoop2`` connector as the ``hive`` catalog,
+replacing ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:
 
 .. code-block:: none
 
-    connector.name=hive-cdh4
+    connector.name=hive-hadoop2
     hive.metastore.uri=thrift://example.net:9083
 
 Multiple Hive Clusters
@@ -105,14 +100,8 @@ appropriate username:
 Accessing Hadoop clusters protected with Kerberos authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Kerberos authentication is currently supported for both HDFS and the Hive
-metastore.
-
-However there are still a few limitations:
-
-* Kerberos authentication is only supported for the ``hive-hadoop2`` and
-  ``hive-cdh5`` connectors.
-* Kerberos authentication by ticket cache is not yet supported.
+Kerberos authentication is supported for both HDFS and the Hive metastore.
+However, Kerberos authentication by ticket cache is not yet supported.
 
 The properties that apply to Hive connector security are listed in the
 `Hive Configuration Properties`_ table. Please see the
