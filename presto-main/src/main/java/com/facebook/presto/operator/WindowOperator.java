@@ -484,12 +484,51 @@ public class WindowOperator
         checkArgument(endPosition > 0, "endPosition must be greater than zero: %d", endPosition);
         checkArgument(startPosition < endPosition, "startPosition must be less than endPosition: %d < %d", startPosition, endPosition);
 
-        // TODO: do position binary search
-        for (int first = startPosition, second = startPosition + 1; second < endPosition; first++, second++) {
-            if (!comparator.apply(first, second)) {
-                return second;
+        int left = startPosition;
+        int right = endPosition - 1;
+        for (int i = 0; i < endPosition - startPosition; i++) {
+            int distance = right - left;
+
+            if (distance == 0) {
+                return right + 1;
+            }
+
+            if (distance == 1) {
+                if (comparator.apply(left, right)) {
+                    return right + 1;
+                }
+                else {
+                    return right;
+                }
+            }
+
+            int mid = left + distance / 2;
+            if (comparator.apply(left, mid)) {
+                // explore to the right
+                left = mid;
+            }
+            else {
+                // explore to the left
+                right = mid;
             }
         }
-        return endPosition;
+
+        // hasn't managed to find a solution after N iteration. Probably the input is not sorted. Lets verify it.
+        for (int first = startPosition; first < endPosition; first++) {
+            boolean previousPairsWereEqual = true;
+            for (int second = first + 1; second < endPosition; second++) {
+                boolean currentPairIsEqual = comparator.apply(first, second);
+                if (!currentPairIsEqual) {
+                    previousPairsWereEqual = false;
+                }
+
+                if (currentPairIsEqual && !previousPairsWereEqual) {
+                    throw new IllegalArgumentException("The input is not sorted");
+                }
+            }
+        }
+
+        // the input is sorted, but the algorithm has still failed
+        throw new IllegalArgumentException("failed to find a group ending");
     }
 }
