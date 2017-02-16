@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.common.FileUtils;

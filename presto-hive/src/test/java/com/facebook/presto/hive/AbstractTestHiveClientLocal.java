@@ -15,10 +15,10 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.PrincipalType;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.io.Files;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
