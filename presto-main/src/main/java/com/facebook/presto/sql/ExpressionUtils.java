@@ -307,7 +307,7 @@ public final class ExpressionUtils
         return expression;
     }
 
-    public static Expression rewriteQualifiedNamesToSymbolReferences(Expression expression)
+    public static Expression rewriteIdentifiersToSymbolReferences(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>() {
             @Override

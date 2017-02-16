@@ -61,7 +61,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
-import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
+import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
@@ -1260,7 +1260,7 @@ public class TestExpressionInterpreter
         }
         assertEquals(
                 actualOptimized,
-                rewriteQualifiedNamesToSymbolReferences(SQL_PARSER.createExpression(expected)));
+                rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected)));
     }
 
     private static Object optimize(@Language("SQL") String expression)
