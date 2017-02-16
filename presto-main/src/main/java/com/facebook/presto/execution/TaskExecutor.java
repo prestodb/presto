@@ -66,6 +66,7 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -126,6 +127,11 @@ public class TaskExecutor
 
     private final TimeStat queuedTime = new TimeStat(NANOSECONDS);
     private final TimeStat wallTime = new TimeStat(NANOSECONDS);
+
+    // shared between SplitRunners
+    private final TimeStat overallQuantaWallTime = new TimeStat(MICROSECONDS);
+    private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
+    private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
 
     private volatile boolean closed;
 
@@ -238,7 +244,13 @@ public class TaskExecutor
         List<ListenableFuture<?>> finishedFutures = new ArrayList<>(taskSplits.size());
         synchronized (this) {
             for (SplitRunner taskSplit : taskSplits) {
-                PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(taskHandle, taskSplit, ticker);
+                PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
+                        taskHandle,
+                        taskSplit,
+                        ticker,
+                        overallQuantaWallTime,
+                        blockedQuantaWallTime,
+                        unblockedQuantaWallTime);
 
                 if (taskHandle.isDestroyed()) {
                     // If the handle is destroyed, we destroy the task splits to complete the future
@@ -500,13 +512,26 @@ public class TaskExecutor
         private final AtomicLong cpuTime = new AtomicLong();
         private final AtomicLong processCalls = new AtomicLong();
 
-        private PrioritizedSplitRunner(TaskHandle taskHandle, SplitRunner split, Ticker ticker)
+        private final TimeStat overallQuantaWallTime;
+        private final TimeStat blockedQuantaWallTime;
+        private final TimeStat unblockedQuantaWallTime;
+
+        private PrioritizedSplitRunner(
+                TaskHandle taskHandle,
+                SplitRunner split,
+                Ticker ticker,
+                TimeStat overallQuantaWallTime,
+                TimeStat blockedQuantaWallTime,
+                TimeStat unblockedQuantaWallTime)
         {
             this.taskHandle = taskHandle;
             this.splitId = taskHandle.getNextSplitId();
             this.split = split;
             this.ticker = ticker;
             this.workerId = NEXT_WORKER_ID.getAndIncrement();
+            this.overallQuantaWallTime = overallQuantaWallTime;
+            this.blockedQuantaWallTime = blockedQuantaWallTime;
+            this.unblockedQuantaWallTime = unblockedQuantaWallTime;
         }
 
         private TaskHandle getTaskHandle()
@@ -567,6 +592,19 @@ public class TaskExecutor
                 long threadUsageNanos = taskHandle.addThreadUsageNanos(durationNanos);
                 this.threadUsageNanos.set(threadUsageNanos);
                 priorityLevel.set(calculatePriorityLevel(threadUsageNanos));
+
+                long durationMicros = elapsed.getWall().roundTo(MICROSECONDS);
+
+                if (!split.isFinished()) {
+                    overallQuantaWallTime.add(durationMicros, MICROSECONDS);
+
+                    if (blocked.isDone()) {
+                        blockedQuantaWallTime.add(durationMicros, MICROSECONDS);
+                    }
+                    else {
+                        unblockedQuantaWallTime.add(durationMicros, MICROSECONDS);
+                    }
+                }
 
                 // record last run for prioritization within a level
                 lastRun.set(ticker.read());
@@ -915,6 +953,27 @@ public class TaskExecutor
     public TimeStat getWallTime()
     {
         return wallTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getOverallQuantaWallTime()
+    {
+        return overallQuantaWallTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getBlockedQuantaWallTime()
+    {
+        return blockedQuantaWallTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getUnblockedQuantaWallTime()
+    {
+        return unblockedQuantaWallTime;
     }
 
     private synchronized int calculateRunningTasksForLevel(int level)
