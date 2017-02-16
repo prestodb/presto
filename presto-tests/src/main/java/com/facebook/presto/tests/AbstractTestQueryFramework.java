@@ -162,17 +162,16 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
-        queryRunner.getExclusiveLock().lock();
-        try {
-            queryRunner.execute(session, sql);
-            fail(format("Expected query to fail: %s", sql));
-        }
-        catch (RuntimeException ex) {
-            assertExceptionMessage(sql, ex, expectedMessageRegExp);
-        }
-        finally {
-            queryRunner.getExclusiveLock().unlock();
-        }
+        Runnable checker = () -> {
+            try {
+                queryRunner.execute(session, sql);
+                fail(format("Expected query to fail: %s", sql));
+            }
+            catch (RuntimeException ex) {
+                assertExceptionMessage(sql, ex, expectedMessageRegExp);
+            }
+        };
+        executeInLock(checker);
     }
 
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
@@ -182,15 +181,16 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
     {
-        queryRunner.getExclusiveLock().lock();
-        try {
-            queryRunner.getAccessControl().deny(deniedPrivileges);
-            queryRunner.execute(session, sql);
-        }
-        finally {
-            queryRunner.getAccessControl().reset();
-            queryRunner.getExclusiveLock().unlock();
-        }
+        Runnable checker = () -> {
+            try {
+                queryRunner.getAccessControl().deny(deniedPrivileges);
+                queryRunner.execute(session, sql);
+            }
+            finally {
+                queryRunner.getAccessControl().reset();
+            }
+        };
+        executeInLock(checker);
     }
 
     protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges)
@@ -204,19 +204,20 @@ public abstract class AbstractTestQueryFramework
             @Language("RegExp") String exceptionsMessageRegExp,
             TestingPrivilege... deniedPrivileges)
     {
-        queryRunner.getExclusiveLock().lock();
-        try {
-            queryRunner.getAccessControl().deny(deniedPrivileges);
-            queryRunner.execute(session, sql);
-            fail("Expected " + AccessDeniedException.class.getSimpleName());
-        }
-        catch (RuntimeException e) {
-            assertExceptionMessage(sql, e, ".*Access Denied: " + exceptionsMessageRegExp);
-        }
-        finally {
-            queryRunner.getAccessControl().reset();
-            queryRunner.getExclusiveLock().unlock();
-        }
+        Runnable checker = () -> {
+            try {
+                queryRunner.getAccessControl().deny(deniedPrivileges);
+                queryRunner.execute(session, sql);
+                fail("Expected " + AccessDeniedException.class.getSimpleName());
+            }
+            catch (RuntimeException e) {
+                assertExceptionMessage(sql, e, ".*Access Denied: " + exceptionsMessageRegExp);
+            }
+            finally {
+                queryRunner.getAccessControl().reset();
+            }
+        };
+        executeInLock(checker);
     }
 
     protected void assertTableColumnNames(String tableName, String... columnNames)
@@ -239,6 +240,17 @@ public abstract class AbstractTestQueryFramework
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return h2QueryRunner.execute(getSession(), sql, resultTypes);
+    }
+
+    protected void executeInLock(Runnable executionBlock)
+    {
+        queryRunner.getExclusiveLock().lock();
+        try {
+            executionBlock.run();
+        }
+        finally {
+            queryRunner.getExclusiveLock().unlock();
+        }
     }
 
     protected String formatSqlText(String sql)

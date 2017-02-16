@@ -142,7 +142,7 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
-        stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
+        stateMachine.addDefinitionQueryInfoStateChangeListener(stateChangeListener);
     }
 
     @Override
