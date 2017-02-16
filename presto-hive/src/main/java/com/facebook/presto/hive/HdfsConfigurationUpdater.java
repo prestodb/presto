@@ -163,20 +163,16 @@ public class HdfsConfigurationUpdater
         config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());
         config.set("fs.s3a.impl", PrestoS3FileSystem.class.getName());
         config.set("fs.s3n.impl", PrestoS3FileSystem.class.getName());
-        config.set("fs.s3bfs.impl", "org.apache.hadoop.fs.s3.S3FileSystem");
 
         // set AWS credentials for S3
         if (s3AwsAccessKey != null) {
             config.set(PrestoS3FileSystem.S3_ACCESS_KEY, s3AwsAccessKey);
-            config.set("fs.s3bfs.awsAccessKeyId", s3AwsAccessKey);
         }
         if (s3AwsSecretKey != null) {
             config.set(PrestoS3FileSystem.S3_SECRET_KEY, s3AwsSecretKey);
-            config.set("fs.s3bfs.awsSecretAccessKey", s3AwsSecretKey);
         }
         if (s3Endpoint != null) {
             config.set(PrestoS3FileSystem.S3_ENDPOINT, s3Endpoint);
-            config.set("fs.s3bfs.Endpoint", s3Endpoint);
         }
         if (s3SignerType != null) {
             config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, s3SignerType.name());

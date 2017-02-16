@@ -188,9 +188,7 @@ This is accomplished by having a table or database location that
 uses an S3 prefix rather than an HDFS prefix.
 
 Presto uses its own S3 filesystem for the URI prefixes
-``s3://``, ``s3n://`` and  ``s3a://``. It also uses the ``s3bfs://``
-prefix for the legacy S3 block file system (not supported for
-``hive-hadoop2`` or ``hive-cdh5``).
+``s3://``, ``s3n://`` and  ``s3a://``.
 
 S3 Configuration Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
