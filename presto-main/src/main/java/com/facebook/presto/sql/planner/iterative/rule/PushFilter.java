@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -40,7 +41,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 
 public class PushFilter
-    implements Rule
+        implements Rule
 {
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
@@ -94,8 +95,8 @@ public class PushFilter
         if (planNode instanceof SortNode || planNode instanceof SampleNode) {
             return ImmutableSet.copyOf(planNode.getOutputSymbols());
         }
-        else if (planNode instanceof AssignUniqueId) {
-            return ImmutableSet.copyOf(((AssignUniqueId) planNode).getSource().getOutputSymbols());
+        else if (planNode instanceof AssignUniqueId || planNode instanceof MarkDistinctNode) {
+            return ImmutableSet.copyOf(getOnlyElement(planNode.getSources()).getOutputSymbols());
         }
         else {
             return ImmutableSet.of();
