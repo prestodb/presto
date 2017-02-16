@@ -36,7 +36,7 @@ public class TestExpressionVerifier
                 .put("Y", new SymbolReference("custkey"))
                 .build();
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+        NodeVerifier verifier = new NodeVerifier(symbolAliases);
 
         assertTrue(verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)")));
         assertThrows(() -> verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND Z < 10)")));
@@ -51,7 +51,7 @@ public class TestExpressionVerifier
                 .put("X", new SymbolReference("orderkey"))
                 .build();
 
-        ExpressionVerifier verifier = new ExpressionVerifier(aliases);
+        NodeVerifier verifier = new NodeVerifier(aliases);
         assertTrue(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS varchar)")));
         assertFalse(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS bigint)")));
         assertTrue(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)")));
