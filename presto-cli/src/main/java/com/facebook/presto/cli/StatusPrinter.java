@@ -34,6 +34,7 @@ import static com.facebook.presto.cli.FormatUtils.formatProgressBar;
 import static com.facebook.presto.cli.FormatUtils.formatTime;
 import static com.facebook.presto.cli.FormatUtils.pluralize;
 import static com.facebook.presto.cli.KeyReader.readKey;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Character.toUpperCase;
@@ -282,7 +283,7 @@ Parallelism: 2.5
                 reprintLine(String.format("Parallelism: %.1f", parallelism));
             }
 
-            assert terminalWidth >= 75;
+            verify(terminalWidth >= 75); // otherwise handled above
             int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
 
             if (stats.isScheduled()) {
