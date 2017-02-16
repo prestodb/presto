@@ -224,6 +224,7 @@ import static com.facebook.presto.operator.scalar.MapFilterFunction.MAP_FILTER_F
 import static com.facebook.presto.operator.scalar.MapHashCodeOperator.MAP_HASH_CODE;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static com.facebook.presto.operator.scalar.MapTransformKeyFunction.MAP_TRANSFORM_KEY_FUNCTION;
+import static com.facebook.presto.operator.scalar.MapTransformValueFunction.MAP_TRANSFORM_VALUE_FUNCTION;
 import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_CEILING_FUNCTIONS;
 import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_FLOOR_FUNCTION;
 import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
@@ -551,7 +552,7 @@ public class FunctionRegistry
                 .functions(DECIMAL_ROUND_FUNCTIONS)
                 .function(DECIMAL_TRUNCATE_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_FILTER_FUNCTION, ARRAY_REDUCE_FUNCTION)
-                .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION)
+                .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
                 .function(TRY_CAST);
 
         builder.function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg()));

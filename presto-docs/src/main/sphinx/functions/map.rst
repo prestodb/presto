@@ -51,6 +51,11 @@ Map Functions
 
     See :func:`transform_key`.
 
+.. function:: transform_value(map<K,V1>, function) -> MAP<K,V2>
+    :noindex:
+
+    See :func:`transform_value`.
+
 .. function:: map_keys(x<K,V>) -> array<K>
 
     Returns all the keys in the map ``x``.
