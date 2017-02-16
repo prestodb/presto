@@ -31,8 +31,10 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
+import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -42,12 +44,14 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -63,6 +67,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
@@ -244,6 +249,36 @@ public class PlanBuilder
     public PlanNode markDistinct(Symbol marker, PlanNode source)
     {
         return new MarkDistinctNode(idAllocator.getNextId(), source, marker, source.getOutputSymbols(), Optional.empty());
+    }
+
+    public UnionNode union(ListMultimap<Symbol, Symbol> mapping, PlanNode... sources)
+    {
+        checkMappingsMatchesSources(mapping, sources);
+        ImmutableList<Symbol> outputs = ImmutableList.copyOf(mapping.keySet());
+        return new UnionNode(idAllocator.getNextId(), ImmutableList.copyOf(sources), mapping, outputs);
+    }
+
+    public IntersectNode intersect(ListMultimap<Symbol, Symbol> mapping, PlanNode... sources)
+    {
+        checkMappingsMatchesSources(mapping, sources);
+        ImmutableList<Symbol> outputs = ImmutableList.copyOf(mapping.keySet());
+        return new IntersectNode(idAllocator.getNextId(), ImmutableList.copyOf(sources), mapping, outputs);
+    }
+
+    public ExceptNode except(ListMultimap<Symbol, Symbol> mapping, PlanNode... sources)
+    {
+        checkMappingsMatchesSources(mapping, sources);
+        ImmutableList<Symbol> outputs = ImmutableList.copyOf(mapping.keySet());
+        return new ExceptNode(idAllocator.getNextId(), ImmutableList.copyOf(sources), mapping, outputs);
+    }
+
+    private void checkMappingsMatchesSources(ListMultimap<Symbol, Symbol> mapping, PlanNode... sources)
+    {
+        checkArgument(
+                mapping.keySet().size() == sources.length,
+                "Mapping keys size does not match length of sources: %s vs %s",
+                mapping.keySet().size(),
+                sources.length);
     }
 
     public Symbol symbol(String name, Type type)

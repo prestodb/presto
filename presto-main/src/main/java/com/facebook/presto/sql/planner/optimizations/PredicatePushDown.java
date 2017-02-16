@@ -253,6 +253,7 @@ public class PredicatePushDown
         }
 
         @Override
+        @Deprecated
         public PlanNode visitUnion(UnionNode node, RewriteContext<Expression> context)
         {
             boolean modified = false;

@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -275,5 +277,60 @@ final class NodeVerifier
             return verified;
         }
         return false;
+    }
+
+    @Override
+    protected Boolean visitFunctionCall(FunctionCall node, Node expected)
+    {
+        if (!(expected instanceof FunctionCall)) {
+            return false;
+        }
+        FunctionCall expectedFunctionCall = (FunctionCall) expected;
+
+        if (!node.getName().equals(expectedFunctionCall.getName())) {
+            return false;
+        }
+
+        if (!process(node.getArguments(), expectedFunctionCall.getArguments())) {
+            return false;
+        }
+
+        if (!process(node.getFilter(), expectedFunctionCall.getFilter())) {
+            return false;
+        }
+
+        if (!process(node.getWindow(), expectedFunctionCall.getWindow())) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private <T extends Node> boolean process(List<T> actual, List<T> expected)
+    {
+        if (actual.size() != expected.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < actual.size(); i++) {
+            if (!process(actual.get(i), expected.get(i))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private <T extends Node> boolean process(Optional<T> actual, Optional<T> expected)
+    {
+        if (actual.isPresent() != expected.isPresent()) {
+            return false;
+        }
+
+        if (actual.isPresent() && !process(actual.get(), expected.get())) {
+            return false;
+        }
+
+        return true;
     }
 }

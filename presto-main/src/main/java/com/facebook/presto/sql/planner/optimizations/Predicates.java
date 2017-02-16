@@ -37,4 +37,9 @@ public class Predicates
     {
         return x -> false;
     }
+
+    public static <T> Predicate<T> predicate(Predicate<T> predicate)
+    {
+        return predicate;
+    }
 }
