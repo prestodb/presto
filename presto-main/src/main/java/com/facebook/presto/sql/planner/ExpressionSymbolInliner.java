@@ -16,51 +16,46 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class ExpressionSymbolInliner
 {
-    private final Function<Symbol, Expression> mapping;
+    private ExpressionSymbolInliner()
+    {
+    }
 
     @Deprecated
-    public ExpressionSymbolInliner(Map<Symbol, ? extends Expression> mappings)
+    public static Expression inlineSymbols(Map<Symbol, ? extends Expression> mappings, Expression expression)
     {
-        this.mapping = mappings::get;
+        return ExpressionTreeRewriter.rewriteWith(new Rewriter(mappings::get), expression);
     }
 
-    public ExpressionSymbolInliner(Function<Symbol, Expression> mapping)
+    public static Expression inlineSymbols(Function<Symbol, Expression> mappings, Expression expression)
     {
-        this.mapping = mapping;
+        return ExpressionTreeRewriter.rewriteWith(new Rewriter(mappings), expression);
     }
 
-    public Expression rewrite(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
-    }
-
-    private class Visitor
+    private static class Rewriter
             extends ExpressionRewriter<Void>
     {
-        private final Set<String> excludedNames = new HashSet<>();
+        private final Function<Symbol, ? extends Expression> mappings;
+
+        private Rewriter(Function<Symbol, ? extends Expression> mappings)
+        {
+            this.mappings = requireNonNull(mappings, "mappings is null");
+        }
 
         @Override
         public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (excludedNames.contains(node.getName())) {
-                return node;
-            }
-
-            Expression expression = mapping.apply(Symbol.from(node));
+            Expression expression = mappings.apply(Symbol.from(node));
             checkState(expression != null, "Cannot resolve symbol %s", node.getName());
             return expression;
         }
@@ -68,17 +63,8 @@ public class ExpressionSymbolInliner
         @Override
         public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                String argumentName = argument.getName();
-                // Symbol names are unique. As a result, a symbol should never be excluded multiple times.
-                checkArgument(!excludedNames.contains(argumentName));
-                excludedNames.add(argumentName);
-            }
-            Expression result = treeRewriter.defaultRewrite(node, context);
-            for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                excludedNames.remove(argument.getName());
-            }
-            return result;
+            // Lambda does not support capture yet. As a result, relation/columns can not exist in lambda.
+            return node;
         }
     }
 }

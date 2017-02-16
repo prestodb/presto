@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
-import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -31,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
@@ -66,7 +66,7 @@ public class MergeProjections
                 if (isDeterministic(sourceProject) && !containsTry(node)) {
                     Assignments.Builder projections = Assignments.builder();
                     for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
-                        Expression inlined = new ExpressionSymbolInliner(sourceProject.getAssignments().getMap()).rewrite(projection.getValue());
+                        Expression inlined = inlineSymbols(sourceProject.getAssignments().getMap(), projection.getValue());
                         projections.put(projection.getKey(), inlined);
                     }
 
