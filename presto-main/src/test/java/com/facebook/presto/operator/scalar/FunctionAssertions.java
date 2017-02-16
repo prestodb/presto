@@ -102,7 +102,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
+import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.LocalExecutionPlanner.toTypes;
@@ -434,7 +434,7 @@ public final class FunctionAssertions
     {
         Expression parsedExpression = SQL_PARSER.createExpression(expression);
 
-        parsedExpression = rewriteQualifiedNamesToSymbolReferences(parsedExpression);
+        parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
 
         final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(
                 TEST_SESSION,

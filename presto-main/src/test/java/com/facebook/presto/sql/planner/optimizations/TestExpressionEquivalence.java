@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
+import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.planner.DependencyExtractor.extractUnique;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -96,8 +96,8 @@ public class TestExpressionEquivalence
 
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        Expression leftExpression = rewriteQualifiedNamesToSymbolReferences(SQL_PARSER.createExpression(left));
-        Expression rightExpression = rewriteQualifiedNamesToSymbolReferences(SQL_PARSER.createExpression(right));
+        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left));
+        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         Map<Symbol, Type> types = symbols.stream()
@@ -142,8 +142,8 @@ public class TestExpressionEquivalence
 
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        Expression leftExpression = rewriteQualifiedNamesToSymbolReferences(SQL_PARSER.createExpression(left));
-        Expression rightExpression = rewriteQualifiedNamesToSymbolReferences(SQL_PARSER.createExpression(right));
+        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left));
+        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         Map<Symbol, Type> types = symbols.stream()

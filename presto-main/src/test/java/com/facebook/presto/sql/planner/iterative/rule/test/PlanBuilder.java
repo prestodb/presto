@@ -104,7 +104,7 @@ public class PlanBuilder
 
     public static Expression expression(String sql)
     {
-        return ExpressionUtils.rewriteQualifiedNamesToSymbolReferences(new SqlParser().createExpression(sql));
+        return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
     }
 
     public static List<Expression> expressions(String... expressions)
