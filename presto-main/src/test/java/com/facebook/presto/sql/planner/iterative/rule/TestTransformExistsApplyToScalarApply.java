@@ -40,16 +40,16 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestTransformExistsApplyToScalarApply
 {
-    private final TypeRegistry typeManager = new TypeRegistry();
-    private final FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-    private final Rule transformExistsApplyToScalarApply = new TransformExistsApplyToScalarApply(registry);
-
     private RuleTester tester;
+    private Rule transformExistsApplyToScalarApply;
 
     @BeforeClass
     public void setUp()
     {
         tester = new RuleTester();
+        TypeRegistry typeManager = new TypeRegistry();
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        transformExistsApplyToScalarApply = new TransformExistsApplyToScalarApply(registry);
     }
 
     @AfterClass(alwaysRun = true)
@@ -57,6 +57,7 @@ public class TestTransformExistsApplyToScalarApply
     {
         closeAllRuntimeException(tester);
         tester = null;
+        transformExistsApplyToScalarApply = null;
     }
 
     @Test

@@ -23,7 +23,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -40,7 +40,7 @@ public class TestRealAverageAggregation
 {
     private InternalAggregationFunction avgFunction;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();

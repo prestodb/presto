@@ -32,12 +32,12 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestSqlToRowExpressionTranslator
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final FunctionRegistry FUNCTION_REGISTRY = new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
     {
+        TypeManager typeManager = new TypeRegistry();
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+
         Expression expression = new LongLiteral("1");
         IdentityLinkedHashMap<Expression, Type> types = new IdentityLinkedHashMap<>();
         types.put(expression, BIGINT);
@@ -45,6 +45,6 @@ public class TestSqlToRowExpressionTranslator
             expression = new CoalesceExpression(expression);
             types.put(expression, BIGINT);
         }
-        SqlToRowExpressionTranslator.translate(expression, SCALAR, types, FUNCTION_REGISTRY, TYPE_MANAGER, TEST_SESSION, true);
+        SqlToRowExpressionTranslator.translate(expression, SCALAR, types, functionRegistry, typeManager, TEST_SESSION, true);
     }
 }
