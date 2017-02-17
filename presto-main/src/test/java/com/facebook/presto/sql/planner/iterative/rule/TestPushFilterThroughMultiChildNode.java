@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.assertions.SymbolMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
@@ -24,6 +25,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.except;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.intersect;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.union;
@@ -159,5 +161,27 @@ public class TestPushFilterThroughMultiChildNode
                                         filter("i12",
                                                 values(ImmutableMap.of("i12", 0, "i22", 1))))
                                         .withAlias("o2", new SymbolMatcher(1))));
+    }
+
+    @Test
+    public void testExchange()
+    {
+        tester.assertThat(rule)
+                .on(p ->
+                        p.filter(
+                                p.expression("o1 or o2"),
+                                p.exchange(
+                                        ImmutableListMultimap.<Symbol, Symbol>builder()
+                                                .putAll(p.symbol("o1", BOOLEAN), p.symbol("i11", BOOLEAN), p.symbol("i12", BOOLEAN))
+                                                .putAll(p.symbol("o2", BOOLEAN), p.symbol("i21", BOOLEAN), p.symbol("i22", BOOLEAN))
+                                                .build(),
+                                        p.values(p.symbol("i11", BOOLEAN), p.symbol("i21", BOOLEAN)),
+                                        p.values(p.symbol("i12", BOOLEAN), p.symbol("i22", BOOLEAN)))))
+                .matches(
+                        exchange(
+                                filter("i11 or i21",
+                                        values(ImmutableMap.of("i11", 0, "i21", 1))),
+                                filter("i12 or i22",
+                                        values(ImmutableMap.of("i12", 0, "i22", 1)))));
     }
 }

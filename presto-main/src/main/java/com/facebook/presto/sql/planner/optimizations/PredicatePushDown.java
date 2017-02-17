@@ -154,6 +154,7 @@ public class PredicatePushDown
         }
 
         @Override
+        @Deprecated
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Expression> context)
         {
             boolean modified = false;
