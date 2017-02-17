@@ -49,7 +49,6 @@ import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.String.format;
@@ -113,10 +112,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         public TaskContext createTaskContext()
         {
-            return TestingTaskContext.createTaskContext(
-                    checkNotSameThreadExecutor(executor, "executor is null"),
-                    TEST_SESSION,
-                    new DataSize(2, GIGABYTE));
+            return TestingTaskContext.createTaskContext(executor, TEST_SESSION, new DataSize(2, GIGABYTE));
         }
 
         public Optional<Integer> getHashChannel()
