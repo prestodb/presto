@@ -40,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -178,29 +177,6 @@ public class ExchangeClient
         }
 
         SerializedPage page = pageBuffer.poll();
-        return postProcessPage(page);
-    }
-
-    @Nullable
-    public SerializedPage getNextPage(Duration maxWaitTime)
-            throws InterruptedException
-    {
-        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
-
-        throwIfFailed();
-
-        if (closed.get()) {
-            return null;
-        }
-
-        scheduleRequestIfNecessary();
-
-        SerializedPage page = pageBuffer.poll();
-        // only wait for a page if we have remote clients
-        if (page == null && maxWaitTime.toMillis() >= 1 && !allClients.isEmpty()) {
-            page = pageBuffer.poll(maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
-        }
-
         return postProcessPage(page);
     }
 
@@ -351,7 +327,8 @@ public class ExchangeClient
         List<SettableFuture<?>> callers = ImmutableList.copyOf(blockedCallers);
         blockedCallers.clear();
         for (SettableFuture<?> blockedCaller : callers) {
-            blockedCaller.set(null);
+            // Notify callers in a separate thread to avoid callbacks while holding a lock
+            executor.execute(() -> blockedCaller.set(null));
         }
     }
 

@@ -19,6 +19,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.RemoteTask;
@@ -41,9 +42,12 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
@@ -80,6 +84,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -99,6 +104,7 @@ public class SqlQueryScheduler
     private final SplitSchedulerStats schedulerStats;
     private final boolean summarizeTaskInfo;
     private final AtomicBoolean started = new AtomicBoolean();
+    private final SettableFuture<QueryOutputInfo> rootStageOutputBufferLocations = SettableFuture.create();
 
     public SqlQueryScheduler(QueryStateMachine queryStateMachine,
             LocationFactory locationFactory,
@@ -164,6 +170,29 @@ public class SqlQueryScheduler
             else if (state == CANCELED) {
                 // output stage was canceled
                 queryStateMachine.transitionToCanceled();
+            }
+        });
+
+        // when scheduling of the root stage completes, set output buffer info
+        rootStage.addStateChangeListener(state -> {
+            if (rootStageOutputBufferLocations.isDone()) {
+                return;
+            }
+            if (state == SCHEDULED || state == RUNNING) {
+                Set<OutputBufferId> bufferIds = rootStage.getOutputBuffers().getBuffers().keySet();
+                ImmutableSetMultimap.Builder<OutputBufferId, URI> outputBufferLocations = ImmutableSetMultimap.builder();
+                for (RemoteTask task : rootStage.getAllTasks()) {
+                    URI taskUri = task.getTaskStatus().getSelf();
+                    for (OutputBufferId bufferId : bufferIds) {
+                        URI uri = uriBuilderFrom(taskUri).appendPath("results").appendPath(bufferId.toString()).build();
+                        outputBufferLocations.put(bufferId, uri);
+                    }
+                }
+
+                rootStageOutputBufferLocations.set(new QueryOutputInfo(
+                        plan.getFieldNames(),
+                        plan.getFragment().getTypes(),
+                        outputBufferLocations.build()));
             }
         });
 
@@ -292,6 +321,11 @@ public class SqlQueryScheduler
         stageLinkages.put(stageId, new StageLinkage(plan.getFragment().getId(), parent, childStages));
 
         return stages.build();
+    }
+
+    public ListenableFuture<QueryOutputInfo> getRootStageOutputBufferLocations()
+    {
+        return Futures.nonCancellationPropagating(rootStageOutputBufferLocations);
     }
 
     public StageInfo getStageInfo()
