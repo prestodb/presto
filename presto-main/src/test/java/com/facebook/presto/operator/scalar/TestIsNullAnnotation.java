@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -31,7 +32,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 public class TestIsNullAnnotation
         extends AbstractTestFunctions
 {
-    private TestIsNullAnnotation()
+    @BeforeClass
+    public void setUp()
     {
         registerScalar(getClass());
     }

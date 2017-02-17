@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
@@ -66,7 +67,8 @@ import static org.testng.Assert.assertEquals;
 public class TestMapOperators
         extends AbstractTestFunctions
 {
-    private TestMapOperators()
+    @BeforeClass
+    public void setUp()
     {
         registerScalar(getClass());
     }

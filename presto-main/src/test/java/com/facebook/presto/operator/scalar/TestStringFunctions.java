@@ -25,6 +25,7 @@ import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -42,7 +43,8 @@ import static java.lang.String.format;
 public class TestStringFunctions
         extends AbstractTestFunctions
 {
-    private TestStringFunctions()
+    @BeforeClass
+    public void setUp()
     {
         registerScalar(getClass());
     }

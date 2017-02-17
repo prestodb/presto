@@ -20,9 +20,12 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 
+import java.io.Closeable;
+
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class RuleTester
+        implements Closeable
 {
     private final Metadata metadata;
     private final Session session;
@@ -47,5 +50,11 @@ public class RuleTester
     public RuleAssert assertThat(Rule rule)
     {
         return new RuleAssert(metadata, session, rule);
+    }
+
+    @Override
+    public void close()
+    {
+        queryRunner.close();
     }
 }
