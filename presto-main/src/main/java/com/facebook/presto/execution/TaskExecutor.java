@@ -579,20 +579,22 @@ public class TaskExecutor
                 throws Exception
         {
             try {
-                start.compareAndSet(0, System.currentTimeMillis());
+                start.compareAndSet(0, ticker.read());
 
                 processCalls.incrementAndGet();
+
                 CpuTimer timer = new CpuTimer();
                 ListenableFuture<?> blocked = split.processFor(SPLIT_RUN_QUANTA);
-
                 CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
                 // update priority level base on total thread usage of task
-                long durationNanos = elapsed.getWall().roundTo(NANOSECONDS);
-                this.splitThreadUsageNanos.addAndGet(durationNanos);
-                long threadUsageNanos = taskHandle.addThreadUsageNanos(durationNanos);
-                this.threadUsageNanos.set(threadUsageNanos);
-                priorityLevel.set(calculatePriorityLevel(threadUsageNanos));
+                long quantaWallNanos = elapsed.getWall().roundTo(NANOSECONDS);
+                splitThreadUsageNanos.addAndGet(quantaWallNanos);
+
+                long taskWallNanos = taskHandle.addThreadUsageNanos(quantaWallNanos);
+                threadUsageNanos.set(taskWallNanos);
+
+                priorityLevel.set(calculatePriorityLevel(taskWallNanos));
 
                 long durationMicros = elapsed.getWall().roundTo(MICROSECONDS);
                 overallQuantaWallTime.add(durationMicros, MICROSECONDS);
@@ -662,8 +664,8 @@ public class TaskExecutor
                     taskHandle.getTaskId(),
                     splitId,
                     split.getInfo(),
-                    start.get(),
-                    System.currentTimeMillis() - start.get(),
+                    start.get() / 1.0e6,
+                    (int) ((ticker.read() - start.get()) / 1.0e6),
                     (int) (cpuTime.get() / 1.0e6),
                     processCalls.get());
         }
