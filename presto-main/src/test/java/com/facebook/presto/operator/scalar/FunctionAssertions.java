@@ -202,7 +202,7 @@ public final class FunctionAssertions
         this.session = requireNonNull(session, "session is null");
         runner = new LocalQueryRunner(session, featuresConfig);
         metadata = runner.getMetadata();
-        compiler = new ExpressionCompiler(metadata);
+        compiler = runner.getExpressionCompiler();
     }
 
     public Metadata getMetadata()
