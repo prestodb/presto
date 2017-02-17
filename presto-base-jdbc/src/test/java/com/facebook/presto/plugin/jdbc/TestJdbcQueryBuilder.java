@@ -39,6 +39,7 @@ import java.util.Locale;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -81,7 +82,8 @@ public class TestJdbcQueryBuilder
                 new JdbcColumnHandle("test_id", "col_7", TINYINT),
                 new JdbcColumnHandle("test_id", "col_8", SMALLINT),
                 new JdbcColumnHandle("test_id", "col_9", INTEGER),
-                new JdbcColumnHandle("test_id", "col_10", REAL));
+                new JdbcColumnHandle("test_id", "col_10", REAL),
+                new JdbcColumnHandle("test_id", "col_11", createCharType(50)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
@@ -95,7 +97,8 @@ public class TestJdbcQueryBuilder
                 "\"col_7\" TINYINT, " +
                 "\"col_8\" SMALLINT, " +
                 "\"col_9\" INTEGER, " +
-                "\"col_10\" REAL " +
+                "\"col_10\" REAL, " +
+                "\"col_11\" CHAR(50) " +
                 ")")) {
             preparedStatement.execute();
             StringBuilder stringBuilder = new StringBuilder("insert into \"test_table\" values ");
@@ -104,7 +107,7 @@ public class TestJdbcQueryBuilder
             for (int i = 0; i < len; i++) {
                 stringBuilder.append(format(
                         Locale.ENGLISH,
-                        "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s', %d, %d, %d, %f)",
+                        "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s', %d, %d, %d, %f, 'test_char_%d')",
                         i,
                         200000.0 + i / 2.0,
                         i % 2 == 0,
@@ -115,7 +118,8 @@ public class TestJdbcQueryBuilder
                         i % 128,
                         -i,
                         i - 100,
-                        100.0f + i));
+                        100.0f + i,
+                        i));
                 dateTime = dateTime.plusHours(26);
                 if (i != len - 1) {
                     stringBuilder.append(",");
@@ -241,6 +245,34 @@ public class TestJdbcQueryBuilder
             assertContains(preparedStatement.toString(), "\"col_3\" >= ?");
             assertContains(preparedStatement.toString(), "\"col_3\" < ?");
             assertContains(preparedStatement.toString(), "\"col_3\" IN (?,?)");
+        }
+    }
+
+    @Test
+    public void testBuildSqlWithChar()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columns.get(11), Domain.create(SortedRangeSet.copyOf(VARCHAR,
+                        ImmutableList.of(
+                                Range.range(VARCHAR, utf8Slice("test_char_700"), true, utf8Slice("test_char_702"), false),
+                                Range.equal(VARCHAR, utf8Slice("test_char_180")),
+                                Range.equal(VARCHAR, utf8Slice("test_char_196")))),
+                        false)
+        ));
+
+        Connection connection = database.getConnection();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
+            ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+            while (resultSet.next()) {
+                builder.add((String) resultSet.getObject("col_11"));
+            }
+            assertEquals(builder.build(), ImmutableSet.of("test_char_700", "test_char_701", "test_char_180", "test_char_196"));
+
+            assertContains(preparedStatement.toString(), "\"col_11\" >= ?");
+            assertContains(preparedStatement.toString(), "\"col_11\" < ?");
+            assertContains(preparedStatement.toString(), "\"col_11\" IN (?,?)");
         }
     }
 
