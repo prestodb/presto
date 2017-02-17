@@ -21,6 +21,7 @@ import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Factory;
 import org.testng.annotations.Test;
@@ -44,14 +45,16 @@ public class TestRegexpFunctions
     private static final FeaturesConfig RE2J_FEATURES_CONFIG = new FeaturesConfig()
             .setRegexLibrary(RE2J);
 
-    {
-        registerScalar(TestRegexpFunctions.class);
-    }
-
     @Factory(dataProvider = "featuresConfig")
     public TestRegexpFunctions(FeaturesConfig featuresConfig)
     {
         super(featuresConfig);
+    }
+
+    @BeforeClass
+    public void setUp()
+    {
+        registerScalar(TestRegexpFunctions.class);
     }
 
     @DataProvider(name = "featuresConfig")

@@ -95,6 +95,8 @@ public class TestMemoryPools
             // query should not block
             assertTrue(progress);
         } while (!drivers.stream().allMatch(Driver::isFinished));
+
+        localQueryRunner.close();
     }
 
     public static boolean isWaitingForMemory(List<Driver> drivers)

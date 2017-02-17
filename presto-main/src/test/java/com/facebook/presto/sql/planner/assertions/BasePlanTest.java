@@ -28,16 +28,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
 public class BasePlanTest
 {
-    protected final LocalQueryRunner queryRunner;
+    private final Map<String, String> sessionProperties;
+
+    private LocalQueryRunner queryRunner;
 
     public BasePlanTest()
     {
@@ -46,6 +52,12 @@ public class BasePlanTest
 
     public BasePlanTest(Map<String, String> sessionProperties)
     {
+        this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
+    }
+
+    @BeforeClass
+    public final void initPlanTest()
+    {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
@@ -53,11 +65,18 @@ public class BasePlanTest
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
-        this.queryRunner = new LocalQueryRunner(sessionBuilder.build());
+        queryRunner = new LocalQueryRunner(sessionBuilder.build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroyPlanTest()
+    {
+        closeAllRuntimeException(queryRunner);
+        queryRunner = null;
     }
 
     protected LocalQueryRunner getQueryRunner()

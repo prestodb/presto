@@ -19,6 +19,7 @@ import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -47,6 +48,11 @@ public class TestLambdaExpression
     private TestLambdaExpression(Session session)
     {
         super(session);
+    }
+
+    @BeforeClass
+    public void setUp()
+    {
         functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION, INVOKE_FUNCTION));
     }
 
