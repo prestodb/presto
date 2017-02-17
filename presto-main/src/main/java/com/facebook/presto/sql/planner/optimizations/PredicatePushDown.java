@@ -190,6 +190,7 @@ public class PredicatePushDown
         }
 
         @Override
+        @Deprecated
         public PlanNode visitProject(ProjectNode node, RewriteContext<Expression> context)
         {
             Set<Symbol> deterministicSymbols = node.getAssignments().entrySet().stream()
