@@ -433,6 +433,12 @@ public class IndexLoader
         }
 
         @Override
+        public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+        {
+            return true;
+        }
+
+        @Override
         public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
         {
             throw new UnsupportedOperationException();

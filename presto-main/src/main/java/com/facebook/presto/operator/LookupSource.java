@@ -45,6 +45,8 @@ public interface LookupSource
         return (pageBuilder, outputChannelOffset) -> false;
     }
 
+    boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
+
     @Override
     void close();
 

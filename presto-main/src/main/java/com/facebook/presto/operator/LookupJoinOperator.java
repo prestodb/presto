@@ -32,6 +32,8 @@ import static java.util.Objects.requireNonNull;
 public class LookupJoinOperator
         implements Operator, Closeable
 {
+    private static final int MAX_POSITIONS_EVALUATED_PER_CALL = 10000;
+
     private final OperatorContext operatorContext;
     private final List<Type> types;
     private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
@@ -48,6 +50,8 @@ public class LookupJoinOperator
     private boolean closed;
     private boolean finishing;
     private long joinPosition = -1;
+
+    private boolean currentProbePositionProducedRow;
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
@@ -143,15 +147,22 @@ public class LookupJoinOperator
         }
 
         // join probe page with the lookup source
+        Counter lookupPositionsConsidered = new Counter();
         if (probe != null) {
             while (true) {
-                if (!joinCurrentPosition()) {
-                    break;
+                if (probe.getPosition() >= 0) {
+                    if (!joinCurrentPosition(lookupPositionsConsidered)) {
+                        break;
+                    }
+                    if (!currentProbePositionProducedRow) {
+                        currentProbePositionProducedRow = true;
+                        if (!outerJoinCurrentPosition()) {
+                            break;
+                        }
+                    }
                 }
+                currentProbePositionProducedRow = false;
                 if (!advanceProbePosition()) {
-                    break;
-                }
-                if (!outerJoinCurrentPosition()) {
                     break;
                 }
             }
@@ -191,20 +202,27 @@ public class LookupJoinOperator
      *
      * @return true if all eligible rows have been produced; false otherwise (because pageBuilder became full)
      */
-    private boolean joinCurrentPosition()
+    private boolean joinCurrentPosition(Counter lookupPositionsConsidered)
     {
         // while we have a position on lookup side to join against...
         while (joinPosition >= 0) {
-            pageBuilder.declarePosition();
+            lookupPositionsConsidered.increment();
+            if (lookupSource.isJoinPositionEligible(joinPosition, probe.getPosition(), probe.getPage())) {
+                currentProbePositionProducedRow = true;
 
-            // write probe columns
-            probe.appendTo(pageBuilder);
-
-            // write build columns
-            lookupSource.appendTo(joinPosition, pageBuilder, probe.getOutputChannelCount());
+                pageBuilder.declarePosition();
+                // write probe columns
+                probe.appendTo(pageBuilder);
+                // write build columns
+                lookupSource.appendTo(joinPosition, pageBuilder, probe.getOutputChannelCount());
+            }
 
             // get next position on lookup side for this probe row
             joinPosition = lookupSource.getNextJoinPosition(joinPosition, probe.getPosition(), probe.getPage());
+
+            if (lookupPositionsConsidered.get() >= MAX_POSITIONS_EVALUATED_PER_CALL) {
+                return false;
+            }
             if (pageBuilder.isFull()) {
                 return false;
             }
@@ -250,5 +268,21 @@ public class LookupJoinOperator
             }
         }
         return true;
+    }
+
+    // This class needs to be public because LookupJoinOperator is isolated.
+    public static class Counter
+    {
+        private int count;
+
+        public void increment()
+        {
+            count++;
+        }
+
+        public int get()
+        {
+            return count;
+        }
     }
 }

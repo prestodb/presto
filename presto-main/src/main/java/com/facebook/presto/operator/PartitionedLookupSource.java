@@ -135,6 +135,15 @@ public class PartitionedLookupSource
     }
 
     @Override
+    public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    {
+        int partition = decodePartition(currentJoinPosition);
+        long joinPosition = decodeJoinPosition(currentJoinPosition);
+        LookupSource lookupSource = lookupSources[partition];
+        return lookupSource.isJoinPositionEligible(joinPosition, probePosition, allProbeChannelsPage);
+    }
+
+    @Override
     public void appendTo(long partitionedJoinPosition, PageBuilder pageBuilder, int outputChannelOffset)
     {
         int partition = decodePartition(partitionedJoinPosition);

@@ -88,6 +88,12 @@ public final class OuterLookupSource
     }
 
     @Override
+    public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    {
+        return lookupSource.isJoinPositionEligible(currentJoinPosition, probePosition, allProbeChannelsPage);
+    }
+
+    @Override
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         lookupSource.appendTo(position, pageBuilder, outputChannelOffset);

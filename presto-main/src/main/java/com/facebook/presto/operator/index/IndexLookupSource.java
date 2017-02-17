@@ -95,6 +95,12 @@ public class IndexLookupSource
     }
 
     @Override
+    public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    {
+        return true;
+    }
+
+    @Override
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         indexedData.appendTo(position, pageBuilder, outputChannelOffset);

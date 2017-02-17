@@ -30,7 +30,7 @@ public final class JoinHash
     private final PagesHash pagesHash;
 
     // we unwrap Optional<JoinFilterFunction> to actual verifier or null in constructor for performance reasons
-    // we do quick check for `filterFunction == null` in `getNextJoinPositionFrom` to avoid calls to applyFilterFunction
+    // we do quick check for `filterFunction == null` in `isJoinPositionEligible` to avoid calls to applyFilterFunction
     @Nullable
     private final JoinFilterFunction filterFunction;
 
@@ -67,36 +67,25 @@ public final class JoinHash
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        int addressIndex = pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage);
-        if (addressIndex == -1) {
-            return -1;
-        }
-        return getNextJoinPositionFrom(addressIndex, position, allChannelsPage);
+        return pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage);
     }
 
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
     {
-        int addressIndex = pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage, rawHash);
-        if (addressIndex == -1) {
-            return -1;
-        }
-        return getNextJoinPositionFrom(addressIndex, position, allChannelsPage);
+        return pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage, rawHash);
     }
 
     @Override
     public final long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        int nextAddressIndex = pagesHash.getNextAddressIndex(toIntExact(currentJoinPosition));
-        return getNextJoinPositionFrom(nextAddressIndex, probePosition, allProbeChannelsPage);
+        return pagesHash.getNextAddressIndex(toIntExact(currentJoinPosition));
     }
 
-    private int getNextJoinPositionFrom(int currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    @Override
+    public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        while (filterFunction != null && currentJoinPosition != -1 && !filterFunction.filter((currentJoinPosition), probePosition, allProbeChannelsPage)) {
-            currentJoinPosition = pagesHash.getNextAddressIndex(currentJoinPosition);
-        }
-        return currentJoinPosition;
+        return filterFunction == null || filterFunction.filter(toIntExact(currentJoinPosition), probePosition, allProbeChannelsPage);
     }
 
     @Override
