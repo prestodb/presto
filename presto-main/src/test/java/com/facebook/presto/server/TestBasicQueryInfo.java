@@ -92,7 +92,7 @@ public class TestBasicQueryInfo
                         false,
                         "33",
                         Optional.empty(),
-                        null,
+                        Optional.empty(),
                         StandardErrorCode.ABANDONED_QUERY.toErrorCode(),
                         ImmutableSet.of(),
                         Optional.empty(),

@@ -17,7 +17,6 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientTypeSignature;
 import com.facebook.presto.client.Column;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
@@ -28,6 +27,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.TaskFailureInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.PagesSerde;
@@ -719,14 +719,14 @@ public class StatementResource
 
         private static QueryError toQueryError(QueryInfo queryInfo)
         {
-            FailureInfo failure = queryInfo.getFailureInfo();
-            if (failure == null) {
+            Optional<TaskFailureInfo> failure = queryInfo.getTaskFailureInfo();
+            if (!failure.isPresent()) {
                 QueryState state = queryInfo.getState();
                 if ((!state.isDone()) || (state == QueryState.FINISHED)) {
                     return null;
                 }
                 log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);
-                failure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state))).toFailureInfo();
+                failure = Optional.of(new TaskFailureInfo(toFailure(new RuntimeException(format("Query is %s (reason unknown)", state))).toFailureInfo()));
             }
 
             ErrorCode errorCode;
@@ -738,13 +738,13 @@ public class StatementResource
                 log.warn("Failed query %s has no error code", queryInfo.getQueryId());
             }
             return new QueryError(
-                    failure.getMessage(),
+                    failure.get().getMessage(),
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),
                     errorCode.getType().toString(),
-                    failure.getErrorLocation(),
-                    failure);
+                    failure.get().getErrorLocation(),
+                    failure.get().getFailureInfo());
         }
 
         private static class RowIterable

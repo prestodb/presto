@@ -40,12 +40,18 @@ import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
 import com.facebook.presto.transaction.TransactionManager;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteStreams;
 import com.google.common.net.HostAndPort;
+import com.google.common.net.MediaType;
+import com.google.common.primitives.Ints;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -57,6 +63,10 @@ import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.discovery.client.ServiceSelectorManager;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.event.client.EventModule;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
+import io.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -67,8 +77,10 @@ import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.Immutable;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -84,8 +96,11 @@ import java.util.concurrent.CountDownLatch;
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static java.lang.Integer.parseInt;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -114,6 +129,7 @@ public class TestingPrestoServer
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final boolean coordinator;
+    private final ObjectMapper objectMapper;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -266,6 +282,7 @@ public class TestingPrestoServer
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
         taskManager = injector.getInstance(TaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
+        objectMapper = injector.getInstance(ObjectMapper.class);
         announcer = injector.getInstance(Announcer.class);
 
         announcer.forceAnnounce();
@@ -439,5 +456,72 @@ public class TestingPrestoServer
             }
         }
         throw new RuntimeException("Presto announcement not found: " + announcements);
+    }
+
+    public  <T> JsonResponseHandler<T> createJsonResponseHandler(Class<T> type)
+    {
+        return new JsonResponseHandler<T>(objectMapper, type);
+    }
+
+    @Immutable
+    private static class JsonResponseHandler<T> implements ResponseHandler<T, RuntimeException>
+    {
+        private final ObjectMapper objectMapper;
+        private final Set<Integer> successfulResponseCodes;
+        private final JavaType dataType;
+        private static final MediaType MEDIA_TYPE_JSON = MediaType.create("application", "json");
+
+        private JsonResponseHandler(ObjectMapper objectMapper, Class<T> type)
+        {
+            this(objectMapper, type, 200, 201, 202, 203, 204, 205, 206);
+        }
+
+        private JsonResponseHandler(ObjectMapper objectMapper, Class<T> type, int firstSuccessfulResponseCode, int... otherSuccessfulResponseCodes)
+        {
+            this.objectMapper = objectMapper;
+            this.successfulResponseCodes = ImmutableSet.<Integer>builder().add(firstSuccessfulResponseCode).addAll(Ints.asList(otherSuccessfulResponseCodes)).build();
+            this.dataType = objectMapper.getTypeFactory().constructType(type);
+        }
+
+        @Override
+        public T handleException(Request request, Exception exception)
+        {
+            throw propagate(request, exception);
+        }
+
+        @Override
+        public T handle(Request request, Response response)
+        {
+            if (!successfulResponseCodes.contains(response.getStatusCode())) {
+                throw new UnexpectedResponseException(
+                        String.format("Expected response code to be %s, but was %d: %s", successfulResponseCodes, response.getStatusCode(), response.getStatusMessage()),
+                        request,
+                        response);
+            }
+            String contentType = response.getHeader(CONTENT_TYPE);
+            if (contentType == null) {
+                throw new UnexpectedResponseException("Content-Type is not set for response", request, response);
+            }
+            if (!MediaType.parse(contentType).is(MEDIA_TYPE_JSON)) {
+                throw new UnexpectedResponseException("Expected application/json response from server but got " + contentType, request, response);
+            }
+            byte[] bytes;
+            try {
+                bytes = ByteStreams.toByteArray(response.getInputStream());
+            }
+            catch (IOException e) {
+                throw new RuntimeException("Error reading response from server");
+            }
+            try {
+                return objectMapper.readValue(bytes, dataType);
+            }
+            catch (IllegalArgumentException e) {
+                String json = new String(bytes, UTF_8);
+                throw new IllegalArgumentException(String.format("Unable to create %s from JSON response:\n[%s]", dataType, json), e);
+            }
+            catch (IOException e) {
+                throw new RuntimeException("Error reading response from server");
+            }
+        }
     }
 }

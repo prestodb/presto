@@ -892,11 +892,21 @@ var QueryDetail = React.createClass({
     },
     renderFailureInfo: function() {
         var query = this.state.query;
-        if (query.failureInfo) {
+        if (query.taskFailureInfo) {
+            var taskInfo = "N/A";
+            if (query.taskFailureInfo.task != null) {
+                var task = query.taskFailureInfo.task;
+                 taskInfo = (
+                     <a href={ query.taskFailureInfo.uri + "?pretty" }>
+                         { getTaskIdSuffix(task)}
+                     </a>
+                     );
+                }
+            }
             return (
                 <div className="row">
                     <div className="col-xs-12">
-                        <h3>Error Information</h3>
+                        <h3>Failure Information</h3>
                         <table className="table">
                             <tbody>
                                 <tr>
@@ -917,11 +927,27 @@ var QueryDetail = React.createClass({
                                 </tr>
                                 <tr>
                                     <td className="info-title">
+                                        Task
+                                    </td>
+                                    <td className="info-text">
+                                        { taskInfo }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Host
+                                    </td>
+                                    <td className="info-text">
+                                        { query.taskFailureInfo.host ? query.taskFailureInfo.host : "N/A" }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
                                         Stack Trace
                                     </td>
                                     <td className="info-text">
                                         <pre className="stack-trace">
-                                            { formatStackTrace(query.failureInfo) }
+                                            { formatStackTrace(query.taskFailureInfo) }
                                         </pre>
                                     </td>
                                 </tr>

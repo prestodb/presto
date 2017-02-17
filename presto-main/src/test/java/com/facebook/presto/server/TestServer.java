@@ -59,8 +59,10 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestServer
@@ -178,6 +180,36 @@ public class TestServer
     }
 
     @Test
+    public void testFailedSemanticCheckQuery()
+            throws Exception
+    {
+        QueryInfo queryInfo = runQuery("SELECT * FROM table_not_exist");
+        assertTrue(queryInfo.getTaskFailureInfo().isPresent());
+        // This happens during planning, no task is scheduled, so there is no task/host
+        assertFalse(queryInfo.getTaskFailureInfo().get().getTask().isPresent());
+        assertFalse(queryInfo.getTaskFailureInfo().get().getUri().isPresent());
+        assertFalse(queryInfo.getTaskFailureInfo().get().getHost().isPresent());
+        assertFalse(queryInfo.getTaskFailureInfo().get().getPort().isPresent());
+    }
+
+    @Test
+    public void testFailedExecutionQuery()
+            throws Exception
+    {
+        QueryInfo queryInfo = runQuery("SELECT if(x,fail(JSON '{"
+                + "\"type\": \"java.lang.RuntimeException\","
+                + "\"message\" : \"Test, I will always fail.\","
+                + "\"suppressed\" : [ ],"
+                + "\"stack\" : [ ]"
+                + "}'),1) FROM (VALUES rand()>= 0) t(x)");
+        assertTrue(queryInfo.getTaskFailureInfo().isPresent());
+        assertTrue(queryInfo.getTaskFailureInfo().get().getTask().isPresent());
+        assertTrue(queryInfo.getTaskFailureInfo().get().getUri().isPresent());
+        assertTrue(queryInfo.getTaskFailureInfo().get().getHost().isPresent());
+        assertTrue(queryInfo.getTaskFailureInfo().get().getPort().isPresent());
+    }
+
+    @Test
     public void testTransactionSupport()
             throws Exception
     {
@@ -228,5 +260,30 @@ public class TestServer
     public URI uriFor(String path)
     {
         return HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath(path).build();
+    }
+
+    private QueryInfo runQuery(String query)
+            throws Exception
+    {
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .setBodyGenerator(createStaticBodyGenerator(query, UTF_8))
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+
+        while (queryResults.getNextUri() != null) {
+            request = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        }
+
+        request = prepareGet().setUri(uriFor("/v1/query/" + queryResults.getId())).build();
+        // QueryInfo can contain polymorphic components, simple objectMapper in jsonCodec will not work.
+        // We have to use fully loaded objectMapper from TestingPrestoServer.
+        QueryInfo queryInfo = client.execute(request, server.createJsonResponseHandler(QueryInfo.class));
+        return queryInfo;
     }
 }
