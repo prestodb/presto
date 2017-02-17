@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.aggregation.TypedSet;
+import com.facebook.presto.operator.aggregation.TypedSet.ElementReference;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
@@ -32,6 +33,7 @@ import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 
 import java.math.BigInteger;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -1203,11 +1205,10 @@ public final class MathFunctions
         double result = 0.0;
 
         for (int i = 0; i < leftMap.getPositionCount(); i += 2) {
-            int position = rightMapKeys.positionOf(leftMap, i);
-
-            if (position != -1) {
+            Optional<ElementReference> rightMapKeyReference = rightMapKeys.find(ElementReference.of(leftMap, VARCHAR, i));
+            if (rightMapKeyReference.isPresent()) {
                 result += DOUBLE.getDouble(leftMap, i + 1) *
-                        DOUBLE.getDouble(rightMap, 2 * position + 1);
+                        DOUBLE.getDouble(rightMap, rightMapKeyReference.get().getPosition() + 1);
             }
         }
 
