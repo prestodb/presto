@@ -29,7 +29,6 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.TestingTicker;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -54,6 +53,7 @@ import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -104,7 +104,7 @@ public class TestQueryStateMachine
         assertState(stateMachine, RUNNING);
 
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
     }
 
@@ -128,7 +128,7 @@ public class TestQueryStateMachine
 
         stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
@@ -158,7 +158,7 @@ public class TestQueryStateMachine
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
@@ -187,7 +187,7 @@ public class TestQueryStateMachine
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToStarting();
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
@@ -214,7 +214,7 @@ public class TestQueryStateMachine
         assertState(stateMachine, RUNNING);
 
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
@@ -229,7 +229,7 @@ public class TestQueryStateMachine
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertFinalState(stateMachine, FINISHED);
     }
 
@@ -271,7 +271,7 @@ public class TestQueryStateMachine
 
         mockTicker.increment(200, TimeUnit.MILLISECONDS);
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();

@@ -701,10 +701,9 @@ public class QueryStateMachine
         fireOnceStateChangeListener.stateChanged(finalQueryInfo.get());
     }
 
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
-        return queryState.waitForStateChange(currentState, maxWait);
+        return queryState.getStateChange(currentState);
     }
 
     public void recordHeartbeat()

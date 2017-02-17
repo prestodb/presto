@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -115,12 +114,6 @@ public class TaskStateMachine
         checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
 
         taskState.setIf(doneState, currentState -> !currentState.isDone());
-    }
-
-    public Duration waitForStateChange(TaskState currentState, Duration maxWait)
-            throws InterruptedException
-    {
-        return taskState.waitForStateChange(currentState, maxWait);
     }
 
     public void addStateChangeListener(StateChangeListener<TaskState> stateChangeListener)

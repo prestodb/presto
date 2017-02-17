@@ -24,6 +24,8 @@ import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -39,6 +41,7 @@ import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -179,10 +182,15 @@ public class MockQueryExecution
     }
 
     @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public ListenableFuture<QueryOutputInfo> getOutputInfo()
     {
-        return null;
+        return SettableFuture.create();
+    }
+
+    @Override
+    public ListenableFuture<QueryState> getStateChange(QueryState currentState)
+    {
+        return immediateFuture(state);
     }
 
     @Override

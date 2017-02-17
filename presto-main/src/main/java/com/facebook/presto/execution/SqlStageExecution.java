@@ -146,6 +146,11 @@ public final class SqlStageExecution
         return stateMachine.getFragment();
     }
 
+    public OutputBuffers getOutputBuffers()
+    {
+        return outputBuffers.get();
+    }
+
     public void beginScheduling()
     {
         stateMachine.transitionToScheduling();

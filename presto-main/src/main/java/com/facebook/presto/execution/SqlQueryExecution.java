@@ -74,6 +74,10 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -134,6 +138,7 @@ public final class SqlQueryExecution
     private final ExecutionPolicy executionPolicy;
     private final List<Expression> parameters;
     private final SplitSchedulerStats schedulerStats;
+    private final SettableFuture<QueryOutputInfo> outputInfo = SettableFuture.create();
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -442,6 +447,20 @@ public final class SqlQueryExecution
 
         queryScheduler.set(scheduler);
 
+        Futures.addCallback(scheduler.getRootStageOutputBufferLocations(), new FutureCallback<QueryOutputInfo>()
+        {
+            @Override
+            public void onSuccess(QueryOutputInfo result)
+            {
+                outputInfo.set(result);
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+            }
+        });
+
         // if query was canceled during scheduler creation, abort the scheduler
         // directly since the callback may have already fired
         if (stateMachine.isDone()) {
@@ -494,12 +513,15 @@ public final class SqlQueryExecution
     }
 
     @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public ListenableFuture<QueryOutputInfo> getOutputInfo()
     {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
-            return stateMachine.waitForStateChange(currentState, maxWait);
-        }
+        return Futures.nonCancellationPropagating(outputInfo);
+    }
+
+    @Override
+    public ListenableFuture<QueryState> getStateChange(QueryState currentState)
+    {
+        return stateMachine.getStateChange(currentState);
     }
 
     @Override
