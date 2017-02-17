@@ -20,6 +20,8 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class SymbolMatcher
         implements RvalueMatcher
 {
@@ -34,5 +36,13 @@ public class SymbolMatcher
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         return Optional.of(node.getOutputSymbols().get(outputIndex));
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("outputIndex", outputIndex)
+                .toString();
     }
 }
