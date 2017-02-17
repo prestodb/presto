@@ -144,7 +144,10 @@ public class LookupJoinOperator
 
         // join probe page with the lookup source
         if (probe != null) {
-            while (joinCurrentPosition()) {
+            while (true) {
+                if (!joinCurrentPosition()) {
+                    break;
+                }
                 if (!advanceProbePosition()) {
                     break;
                 }
@@ -181,9 +184,16 @@ public class LookupJoinOperator
         onClose.run();
     }
 
+    /**
+     * Produce rows matching join condition for the current probe position. If this method was called previously
+     * for the current probe position, calling this again will produce rows that wasn't been produced in previous
+     * invocations.
+     *
+     * @return true if all eligible rows have been produced; false otherwise (because pageBuilder became full)
+     */
     private boolean joinCurrentPosition()
     {
-        // while we have a position to join against...
+        // while we have a position on lookup side to join against...
         while (joinPosition >= 0) {
             pageBuilder.declarePosition();
 
@@ -193,7 +203,7 @@ public class LookupJoinOperator
             // write build columns
             lookupSource.appendTo(joinPosition, pageBuilder, probe.getOutputChannelCount());
 
-            // get next join position for this row
+            // get next position on lookup side for this probe row
             joinPosition = lookupSource.getNextJoinPosition(joinPosition, probe.getPosition(), probe.getPage());
             if (pageBuilder.isFull()) {
                 return false;
@@ -202,6 +212,9 @@ public class LookupJoinOperator
         return true;
     }
 
+    /**
+     * @return whether there are more positions on probe side
+     */
     private boolean advanceProbePosition()
     {
         if (!probe.advanceNextPosition()) {
@@ -214,6 +227,11 @@ public class LookupJoinOperator
         return true;
     }
 
+    /**
+     * Produce a row for the current probe position, if it doesn't match any row on lookup side and this is an outer join.
+     *
+     * @return whether pageBuilder became full
+     */
     private boolean outerJoinCurrentPosition()
     {
         if (probeOnOuterSide && joinPosition < 0) {
