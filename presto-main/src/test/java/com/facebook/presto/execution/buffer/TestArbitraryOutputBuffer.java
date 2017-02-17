@@ -42,6 +42,7 @@ import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -57,7 +58,7 @@ import static org.testng.Assert.fail;
 
 public class TestArbitraryOutputBuffer
 {
-    private static final PagesSerde PAGES_SERDE = new TestingPagesSerdeFactory().createPagesSerde();
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     private static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
     private static final Duration MAX_WAIT = new Duration(1, SECONDS);

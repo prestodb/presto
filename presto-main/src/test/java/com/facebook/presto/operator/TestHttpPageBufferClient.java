@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.Page;
 import com.google.common.base.Throwables;
@@ -47,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
@@ -62,7 +62,7 @@ public class TestHttpPageBufferClient
 {
     private ScheduledExecutorService executor;
 
-    private static final PagesSerde PAGES_SERDE = new TestingPagesSerdeFactory().createPagesSerde();
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     @BeforeClass
     public void setUp()
@@ -436,13 +436,8 @@ public class TestHttpPageBufferClient
         public List<Page> getPages()
         {
             return pages.stream()
-                    .map(this::deserialize)
+                    .map(PAGES_SERDE::deserialize)
                     .collect(Collectors.toList());
-        }
-
-        private synchronized Page deserialize(SerializedPage serializedPage)
-        {
-            return PAGES_SERDE.deserialize(serializedPage);
         }
 
         private int getCompletedRequests()

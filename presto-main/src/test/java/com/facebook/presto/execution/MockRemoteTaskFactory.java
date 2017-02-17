@@ -19,8 +19,6 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
-import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.Split;
@@ -134,8 +132,6 @@ public class MockRemoteTaskFactory
     public static final class MockRemoteTask
             implements RemoteTask
     {
-        private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new TestingPagesSerdeFactory();
-
         private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
 
         private final URI location;

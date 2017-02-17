@@ -42,6 +42,7 @@ import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -57,7 +58,7 @@ import static org.testng.Assert.fail;
 
 public class TestBroadcastOutputBuffer
 {
-    private static final PagesSerde PAGES_SERDE = new TestingPagesSerdeFactory().createPagesSerde();
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     private static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
     private static final Duration MAX_WAIT = new Duration(1, SECONDS);
@@ -873,14 +874,14 @@ public class TestBroadcastOutputBuffer
         return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
     }
 
-    private static synchronized ListenableFuture<?> enqueuePage(BroadcastOutputBuffer buffer, Page page)
+    private static ListenableFuture<?> enqueuePage(BroadcastOutputBuffer buffer, Page page)
     {
         ListenableFuture<?> future = buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
         assertFalse(future.isDone());
         return future;
     }
 
-    private static synchronized void addPage(BroadcastOutputBuffer buffer, Page page)
+    private static void addPage(BroadcastOutputBuffer buffer, Page page)
     {
         assertTrue(buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page))).isDone(), "Expected add page to not block");
     }
@@ -947,7 +948,7 @@ public class TestBroadcastOutputBuffer
         }
     }
 
-    private static synchronized void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
+    private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
     {
         assertEquals(actual.getSerializedPages().size(), expected.getSerializedPages().size());
         assertEquals(actual.getToken(), expected.getToken());
@@ -972,7 +973,7 @@ public class TestBroadcastOutputBuffer
         return bufferResult(token, pages);
     }
 
-    public static synchronized BufferResult bufferResult(long token, List<Page> pages)
+    public static BufferResult bufferResult(long token, List<Page> pages)
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
         return new BufferResult(

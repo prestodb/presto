@@ -38,7 +38,6 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
@@ -61,6 +60,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writePages;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -79,7 +79,7 @@ public class TestExchangeOperator
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
     private static final Page PAGE = createSequencePage(TYPES, 10, 100);
     private static final PagesSerdeFactory SERDE_FACTORY = new TestingPagesSerdeFactory();
-    private static final PagesSerde SERDE = SERDE_FACTORY.createPagesSerde();
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     private static final String TASK_1_ID = "task1";
     private static final String TASK_2_ID = "task2";
@@ -364,11 +364,6 @@ public class TestExchangeOperator
             this.taskBuffers = taskBuffers;
         }
 
-        private synchronized void writeSerializedPages(SliceOutput output, Page page)
-        {
-            writePages(SERDE, output, page);
-        }
-
         @Override
         public Response handle(Request request)
         {
@@ -393,7 +388,7 @@ public class TestExchangeOperator
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
                 headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
                 DynamicSliceOutput output = new DynamicSliceOutput(256);
-                writeSerializedPages(output, page);
+                writePages(PAGES_SERDE, output, page);
                 return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
             }
             else if (taskBuffer.isFinished()) {

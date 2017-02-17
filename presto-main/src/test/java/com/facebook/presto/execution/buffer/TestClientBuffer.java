@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -52,7 +53,7 @@ import static org.testng.Assert.fail;
 
 public class TestClientBuffer
 {
-    private static final PagesSerde PAGES_SERDE = new TestingPagesSerdeFactory().createPagesSerde();
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     private static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
     private static final DataSize BUFFERED_PAGE_SIZE = new DataSize(PAGES_SERDE.serialize(createPage(42)).getRetainedSizeInBytes(), BYTE);
@@ -401,7 +402,7 @@ public class TestClientBuffer
         return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
     }
 
-    private static synchronized AtomicBoolean addPage(ClientBuffer buffer, Page page)
+    private static AtomicBoolean addPage(ClientBuffer buffer, Page page)
     {
         AtomicBoolean dereferenced = new AtomicBoolean(true);
         SerializedPageReference serializedPageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> dereferenced.set(false));
@@ -441,7 +442,7 @@ public class TestClientBuffer
         assertEquals(buffer.isDestroyed(), true);
     }
 
-    private static synchronized void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
+    private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
     {
         assertEquals(actual.getSerializedPages().size(), expected.getSerializedPages().size());
         assertEquals(actual.getToken(), expected.getToken());
@@ -460,7 +461,7 @@ public class TestClientBuffer
         return bufferResult(token, pages);
     }
 
-    private static synchronized BufferResult bufferResult(long token, List<Page> pages)
+    private static BufferResult bufferResult(long token, List<Page> pages)
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
         return new BufferResult(

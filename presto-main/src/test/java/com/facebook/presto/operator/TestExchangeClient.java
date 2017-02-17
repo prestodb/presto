@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.testing.TestingHttpClient;
@@ -31,6 +30,7 @@ import java.net.URI;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -48,7 +48,7 @@ public class TestExchangeClient
 {
     private ScheduledExecutorService executor;
 
-    private static final PagesSerde PAGES_SERDE = new TestingPagesSerdeFactory().createPagesSerde();
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     @BeforeClass
     public void setUp()

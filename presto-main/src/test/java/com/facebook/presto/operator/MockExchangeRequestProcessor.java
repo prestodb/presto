@@ -18,7 +18,6 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeUtil;
 import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.spi.Page;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -46,6 +45,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
@@ -55,7 +55,7 @@ public class MockExchangeRequestProcessor
         implements TestingHttpClient.Processor
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
-    private static final PagesSerde PAGES_SERDE = new TestingPagesSerdeFactory().createPagesSerde();
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(new CacheLoader<URI, MockBuffer>()
     {
