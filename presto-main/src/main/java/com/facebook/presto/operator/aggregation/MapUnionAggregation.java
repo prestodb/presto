@@ -73,7 +73,7 @@ public class MapUnionAggregation
         DynamicClassLoader classLoader = new DynamicClassLoader(MapUnionAggregation.class.getClassLoader());
         Type outputType = new MapType(keyType, valueType);
         List<Type> inputTypes = ImmutableList.of(outputType);
-        KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(keyType, valueType, false);
+        KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(keyType, valueType);
         Type intermediateType = stateSerializer.getSerializedType();
 
         AggregationMetadata metadata = new AggregationMetadata(

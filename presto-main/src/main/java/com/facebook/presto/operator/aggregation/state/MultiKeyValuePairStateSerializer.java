@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.operator.aggregation.KeyValuePairs;
+import com.facebook.presto.operator.aggregation.MultiKeyValuePairs;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.MapType;
 
-public class KeyValuePairStateSerializer
-        implements AccumulatorStateSerializer<KeyValuePairsState>
+public class MultiKeyValuePairStateSerializer
+        implements AccumulatorStateSerializer<MultiKeyValuePairsState>
 {
     private final MapType mapType;
 
-    public KeyValuePairStateSerializer(Type keyType, Type valueType)
+    public MultiKeyValuePairStateSerializer(Type keyType, Type valueType)
     {
         this.mapType = new MapType(keyType, valueType);
     }
@@ -37,19 +37,20 @@ public class KeyValuePairStateSerializer
     }
 
     @Override
-    public void serialize(KeyValuePairsState state, BlockBuilder out)
+    public void serialize(MultiKeyValuePairsState state, BlockBuilder out)
     {
         if (state.get() == null) {
             out.appendNull();
         }
         else {
+            //  FIXME: This assumes MapType allows duplicate keys when writing object out
             mapType.writeObject(out, state.get().serialize());
         }
     }
 
     @Override
-    public void deserialize(Block block, int index, KeyValuePairsState state)
+    public void deserialize(Block block, int index, MultiKeyValuePairsState state)
     {
-        state.set(new KeyValuePairs(mapType.getObject(block, index), state.getKeyType(), state.getValueType()));
+        state.set(new MultiKeyValuePairs(mapType.getObject(block, index), state.getKeyType(), state.getValueType()));
     }
 }
