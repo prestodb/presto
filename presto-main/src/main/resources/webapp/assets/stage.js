@@ -481,8 +481,6 @@ let StageOperatorGraph = React.createClass({
                 <div className="row error-message">
                     <div className="col-xs-12">
                         <h4>Operator data not available for { stage.stageId }</h4>
-                        <h4>Graph will appear when query completes.</h4>
-                        <div className="loader">Loading...</div>
                     </div>
                 </div>
             );
@@ -613,6 +611,22 @@ let StagePerformance = React.createClass({
                 </div>
             );
         }
+
+        let stageOperatorGraph = null;
+        if (!isQueryComplete(query)) {
+            stageOperatorGraph = (
+                <div className="row error-message">
+                    <div className="col-xs-12">
+                        <h4>Operator graph will appear automatically when query completes.</h4>
+                        <div className="loader">Loading...</div>
+                    </div>
+                </div>
+            )
+        }
+        else {
+            stageOperatorGraph = <StageOperatorGraph id={ stage.stageId } stage={ stage }/>;
+        }
+
         return (
             <div>
                 <div className="row">
@@ -654,7 +668,7 @@ let StagePerformance = React.createClass({
                                         { this.renderProgressBar() }
                                     </td>
                                     <td>
-                                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className={ "btn btn-warning " + (["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1 ? "disabled" : "") } target="_blank">
+                                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className={ "btn btn-warning " + (isQueryComplete(query) ? "disabled" : "") } target="_blank">
                                             Kill
                                         </a>
                                     </td>
@@ -686,7 +700,7 @@ let StagePerformance = React.createClass({
                 <hr className="h3-hr"/>
                 <div className="row">
                     <div className="col-xs-12">
-                        <StageOperatorGraph id = { stage.stageId } stage = { stage } />
+                        { stageOperatorGraph }
                     </div>
                 </div>
             </div>

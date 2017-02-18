@@ -977,7 +977,7 @@ let QueryDetail = React.createClass({
                                         { this.renderProgressBar() }
                                     </td>
                                     <td>
-                                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className={ "btn btn-warning " + (["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1 ? "disabled" : "") } target="_blank">
+                                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className={ "btn btn-warning " + (isQueryComplete(query) ? "disabled" : "") } target="_blank">
                                             Kill
                                         </a>
                                     </td>

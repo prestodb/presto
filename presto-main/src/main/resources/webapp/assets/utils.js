@@ -158,6 +158,11 @@ function getProgressBarTitle(query)
     return getHumanReadableState(query)
 }
 
+function isQueryComplete(query)
+{
+    return ["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1;
+}
+
 // Sparkline-related functions
 // ===========================
 
