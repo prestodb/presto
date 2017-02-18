@@ -579,10 +579,12 @@ let QueryDetail = React.createClass({
             lastSnapshotStages: null,
             lastSnapshotTasks: null,
 
+            lastScheduledTime: 0,
             lastCpuTime: 0,
             lastRowInput: 0,
             lastByteInput: 0,
 
+            scheduledTimeRate: [],
             cpuTimeRate: [],
             rowInputRate: [],
             byteInputRate: [],
@@ -622,6 +624,7 @@ let QueryDetail = React.createClass({
             }
 
             let lastRefresh = this.state.lastRefresh;
+            const lastScheduledTime = this.state.lastScheduledTime;
             const lastCpuTime = this.state.lastCpuTime;
             const lastRowInput = this.state.lastRowInput;
             const lastByteInput = this.state.lastByteInput;
@@ -633,6 +636,7 @@ let QueryDetail = React.createClass({
                 lastSnapshotStage: lastSnapshotStages,
                 lastSnapshotTasks: lastSnapshotTasks,
 
+                lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
                 lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
                 lastRowInput: query.queryStats.processedInputPositions,
                 lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
@@ -655,10 +659,12 @@ let QueryDetail = React.createClass({
 
             const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000;
             if (elapsedSecsSinceLastRefresh != 0) {
+                const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / elapsedSecsSinceLastRefresh;
                 const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / elapsedSecsSinceLastRefresh;
                 const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
                 const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
                 this.setState({
+                    scheduledTimeRate: addToHistory(currentScheduledTimeRate, this.state.scheduledTimeRate),
                     cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
                     rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
                     byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
@@ -741,6 +747,7 @@ let QueryDetail = React.createClass({
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender == null || (Date.now() - this.state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
+            $('#scheduled-time-rate-sparkline').sparkline(this.state.scheduledTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
             $('#cpu-time-rate-sparkline').sparkline(this.state.cpuTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
             $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
             $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
@@ -1130,6 +1137,22 @@ let QueryDetail = React.createClass({
                                         </tr>
                                         <tr>
                                             <td className="info-title">
+                                                Scheduled Time
+                                            </td>
+                                            <td className="info-text">
+                                                { query.queryStats.totalScheduledTime }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Blocked Time
+                                            </td>
+                                            <td className="info-text">
+                                                { query.queryStats.totalBlockedTime }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
                                                 Input Rows
                                             </td>
                                             <td className="info-text">
@@ -1205,6 +1228,21 @@ let QueryDetail = React.createClass({
                                         <tr className="tr-noborder">
                                             <td className="info-sparkline-text">
                                                 { formatCount(this.state.cpuTimeRate[this.state.cpuTimeRate.length - 1]) }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Scheduled Time/s
+                                            </td>
+                                            <td rowSpan="2">
+                                                <div className="query-stats-sparkline-container">
+                                                    <span className="sparkline" id="scheduled-time-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr className="tr-noborder">
+                                            <td className="info-sparkline-text">
+                                                { formatCount(this.state.scheduledTimeRate[this.state.scheduledTimeRate.length - 1]) }
                                             </td>
                                         </tr>
                                         <tr>
