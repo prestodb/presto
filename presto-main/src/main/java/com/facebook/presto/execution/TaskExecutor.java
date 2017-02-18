@@ -693,18 +693,16 @@ public class TaskExecutor
                         runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);
 
-                        boolean finished;
                         ListenableFuture<?> blocked;
                         try {
                             blocked = split.process();
-                            finished = split.isFinished();
                         }
                         finally {
                             runningSplitInfos.remove(splitInfo);
                             runningSplits.remove(split);
                         }
 
-                        if (finished) {
+                        if (split.isFinished()) {
                             log.debug("%s is finished", split.getInfo());
                             splitFinished(split);
                         }
