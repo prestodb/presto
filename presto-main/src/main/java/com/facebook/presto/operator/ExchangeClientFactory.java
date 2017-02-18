@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SystemMemoryUsageListener;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,7 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeClientFactory
         implements ExchangeClientSupplier
 {
-    private final BlockEncodingSerde blockEncodingSerde;
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;
     private final Duration minErrorDuration;
@@ -40,12 +38,12 @@ public class ExchangeClientFactory
     private final ScheduledExecutorService executor;
 
     @Inject
-    public ExchangeClientFactory(BlockEncodingSerde blockEncodingSerde,
+    public ExchangeClientFactory(
             ExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
             @ForExchange ScheduledExecutorService executor)
     {
-        this(blockEncodingSerde,
+        this(
                 config.getMaxBufferSize(),
                 config.getMaxResponseSize(),
                 config.getConcurrentRequestMultiplier(),
@@ -56,7 +54,6 @@ public class ExchangeClientFactory
     }
 
     public ExchangeClientFactory(
-            BlockEncodingSerde blockEncodingSerde,
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
@@ -65,7 +62,6 @@ public class ExchangeClientFactory
             HttpClient httpClient,
             ScheduledExecutorService executor)
     {
-        this.blockEncodingSerde = blockEncodingSerde;
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.minErrorDuration = requireNonNull(minErrorDuration, "minErrorDuration is null");
