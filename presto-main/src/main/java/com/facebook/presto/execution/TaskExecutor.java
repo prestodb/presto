@@ -59,6 +59,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
 
+import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -596,11 +597,11 @@ public class TaskExecutor
                 long durationMicros = elapsed.getWall().roundTo(MICROSECONDS);
                 overallQuantaWallTime.add(durationMicros, MICROSECONDS);
 
-                if (blocked.isDone()) {
-                    blockedQuantaWallTime.add(durationMicros, MICROSECONDS);
+                if (blocked == NOT_BLOCKED) {
+                    unblockedQuantaWallTime.add(durationMicros, MICROSECONDS);
                 }
                 else {
-                    unblockedQuantaWallTime.add(durationMicros, MICROSECONDS);
+                    blockedQuantaWallTime.add(durationMicros, MICROSECONDS);
                 }
 
                 // record last run for prioritization within a level
