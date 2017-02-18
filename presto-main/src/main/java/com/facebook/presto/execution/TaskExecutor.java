@@ -594,16 +594,13 @@ public class TaskExecutor
                 priorityLevel.set(calculatePriorityLevel(threadUsageNanos));
 
                 long durationMicros = elapsed.getWall().roundTo(MICROSECONDS);
+                overallQuantaWallTime.add(durationMicros, MICROSECONDS);
 
-                if (!split.isFinished()) {
-                    overallQuantaWallTime.add(durationMicros, MICROSECONDS);
-
-                    if (blocked.isDone()) {
-                        blockedQuantaWallTime.add(durationMicros, MICROSECONDS);
-                    }
-                    else {
-                        unblockedQuantaWallTime.add(durationMicros, MICROSECONDS);
-                    }
+                if (blocked.isDone()) {
+                    blockedQuantaWallTime.add(durationMicros, MICROSECONDS);
+                }
+                else {
+                    unblockedQuantaWallTime.add(durationMicros, MICROSECONDS);
                 }
 
                 // record last run for prioritization within a level
