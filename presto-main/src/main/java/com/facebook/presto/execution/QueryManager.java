@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.QueryId;
-import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,9 +23,6 @@ import java.util.concurrent.CompletableFuture;
 public interface QueryManager
 {
     List<QueryInfo> getAllQueryInfo();
-
-    Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
-            throws InterruptedException;
 
     CompletableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState);
 

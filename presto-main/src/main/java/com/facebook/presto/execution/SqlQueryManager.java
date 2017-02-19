@@ -33,7 +33,6 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
-import io.airlift.concurrent.SetThreadName;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -56,14 +55,12 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
@@ -78,14 +75,11 @@ import static com.facebook.presto.sql.planner.ExpressionInterpreter.verifyExpres
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class SqlQueryManager
@@ -255,20 +249,6 @@ public class SqlQueryManager
                 })
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
-            throws InterruptedException
-    {
-        long start = System.nanoTime();
-        try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
-            getStateChange(queryId, currentState).get(maxWait.toMillis(), MILLISECONDS);
-        }
-        catch (TimeoutException | ExecutionException ignored) {
-        }
-        long remaining = maxWait.roundTo(NANOSECONDS) - (start - System.nanoTime());
-        return new Duration(max(0, remaining), NANOSECONDS);
     }
 
     @Override
