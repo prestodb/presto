@@ -179,7 +179,7 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS));
+        return createResponse(query, query.getNextResults(uriInfo, null));
     }
 
     @GET
@@ -198,20 +198,11 @@ public class StatementResource
         }
 
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        return getQueryResults(query, Optional.of(token), uriInfo, wait);
+        return createResponse(query, query.getResults(token, uriInfo, wait));
     }
 
-    private static Response getQueryResults(Query query, Optional<Long> token, UriInfo uriInfo, Duration wait)
-            throws InterruptedException
+    private static Response createResponse(Query query, QueryResults queryResults)
     {
-        QueryResults queryResults;
-        if (token.isPresent()) {
-            queryResults = query.getResults(token.get(), uriInfo, wait);
-        }
-        else {
-            queryResults = query.getNextResults(uriInfo, wait);
-        }
-
         ResponseBuilder response = Response.ok(queryResults);
 
         // add set session properties
@@ -387,7 +378,6 @@ public class StatementResource
             String requestedPath = uriInfo.getAbsolutePath().getPath();
             if (lastResultPath != null && requestedPath.equals(lastResultPath)) {
                 // tell query manager we are still interested in the query
-                queryManager.getQueryInfo(queryId);
                 queryManager.recordHeartbeat(queryId);
                 return lastResult;
             }
@@ -402,24 +392,24 @@ public class StatementResource
                 throw new WebApplicationException(Status.NOT_FOUND);
             }
 
-            return getNextResults(uriInfo, maxWaitTime);
-        }
-
-        public synchronized QueryResults getNextResults(UriInfo uriInfo, Duration maxWaitTime)
-                throws InterruptedException
-        {
-            Iterable<List<Object>> data = getData(maxWaitTime);
-
-            // get the query info before returning
-            // force update if query manager is closed
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            // tell query manager we are still interested in the query
             queryManager.recordHeartbeat(queryId);
 
+            // wait for output data
+            Iterable<List<Object>> data = getData(maxWaitTime);
+
             // if we have received all of the output data and the query is not marked as done, wait for the query to finish
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             if (exchangeClient.isClosed() && !queryInfo.getState().isDone()) {
                 queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWaitTime);
-                queryInfo = queryManager.getQueryInfo(queryId);
             }
+
+            return getNextResults(uriInfo, data);
+        }
+
+        public synchronized QueryResults getNextResults(UriInfo uriInfo, Iterable<List<Object>> data)
+        {
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
 
             // TODO: figure out a better way to do this
             // grab the update count for non-queries
@@ -468,7 +458,7 @@ public class StatementResource
             startedTransactionId = queryInfo.getStartedTransactionId();
             clearTransactionId = queryInfo.isClearTransactionId();
 
-            // first time through, self is null
+            // build query results
             QueryResults queryResults = new QueryResults(
                     queryId.toString(),
                     uriInfo.getRequestUriBuilder().replaceQuery(queryId.toString()).replacePath("query.html").build(),
@@ -489,6 +479,7 @@ public class StatementResource
                 lastResultPath = null;
             }
             lastResult = queryResults;
+
             return queryResults;
         }
 
