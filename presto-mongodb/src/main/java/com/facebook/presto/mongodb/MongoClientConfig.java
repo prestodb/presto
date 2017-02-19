@@ -103,7 +103,7 @@ public class MongoClientConfig
         return this;
     }
 
-    public MongoClientConfig setCredentils(String... credentials)
+    public MongoClientConfig setCredentials(String... credentials)
     {
         this.credentials = buildCredentials(Arrays.asList(credentials));
         return this;
