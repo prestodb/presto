@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -668,6 +669,11 @@ public class QueryStateMachine
         endNanos.compareAndSet(0, tickerNanos());
     }
 
+    public CompletableFuture<QueryState> getStateChange(QueryState currentState)
+    {
+        return queryState.getStateChange(currentState);
+    }
+
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         queryState.addStateChangeListener(stateChangeListener);
@@ -685,10 +691,10 @@ public class QueryStateMachine
         fireOnceStateChangeListener.stateChanged(finalQueryInfo.get());
     }
 
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
+    public void waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException
     {
-        return queryState.waitForStateChange(currentState, maxWait);
+        queryState.waitForStateChange(currentState, maxWait);
     }
 
     public void recordHeartbeat()

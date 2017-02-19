@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 public interface QueryManager
 {
@@ -26,6 +27,8 @@ public interface QueryManager
 
     Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
             throws InterruptedException;
+
+    CompletableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState);
 
     QueryInfo getQueryInfo(QueryId queryId);
 

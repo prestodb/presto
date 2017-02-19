@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 public interface QueryExecution
 {
@@ -31,9 +32,6 @@ public interface QueryExecution
     QueryInfo getQueryInfo();
 
     QueryState getState();
-
-    Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException;
 
     VersionedMemoryPoolId getMemoryPool();
 
@@ -57,6 +55,8 @@ public interface QueryExecution
 
     // XXX: This should be removed when the client protocol is improved, so that we don't need to hold onto so much query history
     void pruneInfo();
+
+    CompletableFuture<QueryState> getStateChange(QueryState currentState);
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 

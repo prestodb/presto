@@ -27,6 +27,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_PRIORITY;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -118,13 +119,6 @@ public class MockQueryExecution
     }
 
     @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
-    {
-        return null;
-    }
-
-    @Override
     public VersionedMemoryPoolId getMemoryPool()
     {
         throw new UnsupportedOperationException();
@@ -190,6 +184,12 @@ public class MockQueryExecution
     @Override
     public void pruneInfo()
     {
+    }
+
+    @Override
+    public CompletableFuture<QueryState> getStateChange(QueryState currentState)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

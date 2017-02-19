@@ -23,11 +23,13 @@ import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class FailedQueryExecution
         implements QueryExecution
@@ -101,10 +103,9 @@ public class FailedQueryExecution
     }
 
     @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public CompletableFuture<QueryState> getStateChange(QueryState currentState)
     {
-        return maxWait;
+        return completedFuture(QueryState.FAILED);
     }
 
     @Override
