@@ -197,7 +197,7 @@ public abstract class AbstractTestFunctions
         metadata.getFunctionRegistry().addFunctions(functions);
     }
 
-    protected SqlDecimal decimal(String decimalString)
+    protected static SqlDecimal decimal(String decimalString)
     {
         DecimalParseResult parseResult = Decimals.parseIncludeLeadingZerosInPrecision(decimalString);
         BigInteger unscaledValue;
@@ -210,7 +210,7 @@ public abstract class AbstractTestFunctions
         return new SqlDecimal(unscaledValue, parseResult.getType().getPrecision(), parseResult.getType().getScale());
     }
 
-    protected SqlDecimal maxPrecisionDecimal(long value)
+    protected static SqlDecimal maxPrecisionDecimal(long value)
     {
         final String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
         return decimal(String.format(maxPrecisionFormat, value));
