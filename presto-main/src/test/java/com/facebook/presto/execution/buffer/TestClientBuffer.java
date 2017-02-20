@@ -404,11 +404,11 @@ public class TestClientBuffer
 
     private static AtomicBoolean addPage(ClientBuffer buffer, Page page)
     {
-        AtomicBoolean dereferenced = new AtomicBoolean(true);
-        SerializedPageReference serializedPageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> dereferenced.set(false));
+        AtomicBoolean isReferenced = new AtomicBoolean(true);
+        SerializedPageReference serializedPageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> isReferenced.set(false));
         buffer.enqueuePages(ImmutableList.of(serializedPageReference));
         serializedPageReference.dereferencePage();
-        return dereferenced;
+        return isReferenced;
     }
 
     private static void assertBufferInfo(
