@@ -27,6 +27,7 @@ import static org.testng.Assert.assertEquals;
  * while registering catalog -> query Id mapping.
  * This mapping has to be manually cleaned when query finishes execution (Metadata#cleanupQuery method).
  */
+@Test(singleThreaded = true)
 public class TestMetadataManager
 {
     private final QueryRunner queryRunner;
