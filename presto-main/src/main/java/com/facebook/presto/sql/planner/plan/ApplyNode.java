@@ -85,12 +85,17 @@ public class ApplyNode
         this.correlation = ImmutableList.copyOf(correlation);
     }
 
-    /**
-     * @return true when subquery is scalar and it's output symbols are directly mapped to ApplyNode output symbols
-     */
     public boolean isResolvedScalarSubquery()
     {
-        return isScalar(subquery) && subqueryAssignments.getExpressions().stream()
+        return isScalar(subquery) && isSubqueryResolved();
+    }
+
+    /**
+     * @return true if output symbols of subquery are directly mapped to ApplyNode output symbols
+     */
+    public boolean isSubqueryResolved()
+    {
+        return subqueryAssignments.getExpressions().stream()
                 .allMatch(expression -> expression instanceof SymbolReference);
     }
 
