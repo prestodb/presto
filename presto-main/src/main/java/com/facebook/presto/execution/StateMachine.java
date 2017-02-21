@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -27,7 +28,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -36,6 +36,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -237,7 +238,7 @@ public class StateMachine<T>
     /**
      * Gets a future that completes when the state is no longer {@code .equals()} to {@code currentState)}.
      */
-    public CompletableFuture<T> getStateChange(T currentState)
+    public ListenableFuture<T> getStateChange(T currentState)
     {
         checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
         requireNonNull(currentState, "currentState is null");
@@ -245,7 +246,7 @@ public class StateMachine<T>
         synchronized (lock) {
             // return a completed future if the state has already changed, or we are in a terminal state
             if (isPossibleStateChange(currentState)) {
-                return CompletableFuture.completedFuture(state);
+                return immediateFuture(state);
             }
 
             return futureStateChange.get().createNewListener();

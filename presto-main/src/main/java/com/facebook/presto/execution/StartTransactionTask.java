@@ -26,13 +26,13 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TRANSACTION_MODE;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class StartTransactionTask
         implements DataDefinitionTask<StartTransaction>
@@ -44,7 +44,7 @@ public class StartTransactionTask
     }
 
     @Override
-    public CompletableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         if (!session.isClientTransactionSupport()) {
@@ -68,7 +68,7 @@ public class StartTransactionTask
         // when this statement completes.
         transactionManager.trySetInactive(transactionId);
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 
     @Override

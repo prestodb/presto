@@ -19,11 +19,11 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DeallocateTask
         implements DataDefinitionTask<Deallocate>
@@ -35,10 +35,10 @@ public class DeallocateTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         String statementName = statement.getName();
         stateMachine.removePreparedStatement(statementName);
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 }

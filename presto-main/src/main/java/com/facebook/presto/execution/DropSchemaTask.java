@@ -22,15 +22,15 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropSchemaTask
         implements DataDefinitionTask<DropSchema>
@@ -48,7 +48,7 @@ public class DropSchemaTask
     }
 
     @Override
-    public CompletableFuture<?> execute(DropSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(DropSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         if (statement.isCascade()) {
             throw new PrestoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
@@ -61,13 +61,13 @@ public class DropSchemaTask
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", schema);
             }
-            return completedFuture(null);
+            return immediateFuture(null);
         }
 
         accessControl.checkCanDropSchema(session.getRequiredTransactionId(), session.getIdentity(), schema);
 
         metadata.dropSchema(session, schema);
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 }

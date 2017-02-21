@@ -20,20 +20,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.concurrent.MoreFutures;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
 import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceFactory
@@ -45,7 +44,7 @@ public final class PartitionedLookupSourceFactory
     private final List<Type> hashChannelTypes;
     private final Supplier<LookupSource>[] partitions;
     private final boolean outer;
-    private final CompletableFuture<?> destroyed = new CompletableFuture<>();
+    private final SettableFuture<?> destroyed = SettableFuture.create();
 
     @GuardedBy("this")
     private int partitionsSet;
@@ -142,11 +141,11 @@ public final class PartitionedLookupSourceFactory
     @Override
     public void destroy()
     {
-        destroyed.complete(null);
+        destroyed.set(null);
     }
 
-    public CompletableFuture<?> isDestroyed()
+    public ListenableFuture<?> isDestroyed()
     {
-        return MoreFutures.unmodifiableFuture(destroyed);
+        return nonCancellationPropagating(destroyed);
     }
 }

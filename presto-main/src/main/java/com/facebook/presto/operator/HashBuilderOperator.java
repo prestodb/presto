@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.MoreFutures;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -222,7 +221,7 @@ public class HashBuilderOperator
         if (!finishing) {
             return NOT_BLOCKED;
         }
-        return MoreFutures.toListenableFuture(lookupSourceFactory.isDestroyed());
+        return lookupSourceFactory.isDestroyed();
     }
 
     @Override

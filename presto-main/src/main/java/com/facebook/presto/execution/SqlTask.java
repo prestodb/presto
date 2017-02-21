@@ -29,6 +29,8 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -41,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -50,8 +51,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class SqlTask
 {
@@ -258,19 +259,19 @@ public class SqlTask
                 taskStatus.getState().isDone());
     }
 
-    public CompletableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
+    public ListenableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
     {
         requireNonNull(callersCurrentState, "callersCurrentState is null");
 
         if (callersCurrentState.isDone()) {
-            return completedFuture(getTaskInfo().getTaskStatus());
+            return immediateFuture(getTaskInfo().getTaskStatus());
         }
 
-        CompletableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return futureTaskState.thenApply(input -> getTaskInfo().getTaskStatus());
+        ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
+        return Futures.transform(futureTaskState, input -> getTaskInfo().getTaskStatus());
     }
 
-    public CompletableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)
+    public ListenableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)
     {
         requireNonNull(callersCurrentState, "callersCurrentState is null");
 
@@ -279,11 +280,11 @@ public class SqlTask
         // (due to a bug in the caller), since we can not transition from a done
         // state.
         if (callersCurrentState.isDone()) {
-            return completedFuture(getTaskInfo());
+            return immediateFuture(getTaskInfo());
         }
 
-        CompletableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return futureTaskState.thenApply(input -> getTaskInfo());
+        ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
+        return Futures.transform(futureTaskState, input -> getTaskInfo());
     }
 
     public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
@@ -326,7 +327,7 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public CompletableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");

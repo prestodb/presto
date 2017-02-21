@@ -15,6 +15,8 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -26,7 +28,6 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -35,9 +36,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 @ThreadSafe
 class ClientBuffer
@@ -161,12 +162,12 @@ class ClientBuffer
         bufferedBytes.addAndGet(bytesAdded);
     }
 
-    public CompletableFuture<BufferResult> getPages(long sequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getPages(long sequenceId, DataSize maxSize)
     {
         return getPages(sequenceId, maxSize, Optional.empty());
     }
 
-    public CompletableFuture<BufferResult> getPages(long sequenceId, DataSize maxSize, Optional<PagesSupplier> pagesSupplier)
+    public ListenableFuture<BufferResult> getPages(long sequenceId, DataSize maxSize, Optional<PagesSupplier> pagesSupplier)
     {
         checkArgument(sequenceId >= 0, "Invalid sequence id");
 
@@ -186,7 +187,7 @@ class ClientBuffer
                 // Return results immediately if we have data, there will be no more data, or this is
                 // an out of order request
                 if (!pages.isEmpty() || noMorePages || sequenceId != currentSequenceId.get()) {
-                    return completedFuture(processRead(sequenceId, maxSize));
+                    return immediateFuture(processRead(sequenceId, maxSize));
                 }
 
                 // otherwise, wait for more data to arrive
@@ -298,7 +299,7 @@ class ClientBuffer
         }
 
         BufferResult bufferResult = processRead(pendingRead.getSequenceId(), pendingRead.getMaxSize());
-        pendingRead.getResultFuture().complete(bufferResult);
+        pendingRead.getResultFuture().set(bufferResult);
     }
 
     /**
@@ -425,7 +426,7 @@ class ClientBuffer
         private final String taskInstanceId;
         private final long sequenceId;
         private final DataSize maxSize;
-        private final CompletableFuture<BufferResult> resultFuture = new CompletableFuture<>();
+        private final SettableFuture<BufferResult> resultFuture = SettableFuture.create();
 
         private PendingRead(String taskInstanceId, long sequenceId, DataSize maxSize)
         {
@@ -444,14 +445,14 @@ class ClientBuffer
             return maxSize;
         }
 
-        public CompletableFuture<BufferResult> getResultFuture()
+        public SettableFuture<BufferResult> getResultFuture()
         {
             return resultFuture;
         }
 
         public void completeResultFutureWithEmpty()
         {
-            resultFuture.complete(emptyResults(taskInstanceId, sequenceId, false));
+            resultFuture.set(emptyResults(taskInstanceId, sequenceId, false));
         }
     }
 

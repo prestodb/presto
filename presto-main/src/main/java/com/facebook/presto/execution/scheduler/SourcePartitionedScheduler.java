@@ -23,19 +23,21 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class SourcePartitionedScheduler
@@ -47,7 +49,7 @@ public class SourcePartitionedScheduler
     private final int splitBatchSize;
     private final PlanNodeId partitionedNode;
 
-    private CompletableFuture<List<Split>> batchFuture;
+    private ListenableFuture<List<Split>> batchFuture;
     private Set<Split> pendingSplits = ImmutableSet.of();
 
     public SourcePartitionedScheduler(
@@ -81,12 +83,24 @@ public class SourcePartitionedScheduler
 
                 long start = System.nanoTime();
                 batchFuture = splitSource.getNextBatch(splitBatchSize);
-                batchFuture.thenRun(() -> stage.recordGetSplitTime(start));
+                Futures.addCallback(batchFuture, new FutureCallback<List<Split>>()
+                {
+                    @Override
+                    public void onSuccess(List<Split> result)
+                    {
+                        stage.recordGetSplitTime(start);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t)
+                    {
+                    }
+                });
             }
 
             if (!batchFuture.isDone()) {
-                // wrap batch future in unmodifiable future so cancellation is not propagated
-                CompletableFuture<List<Split>> blocked = unmodifiableFuture(batchFuture);
+                // wrap batch future so cancellation is not propagated
+                ListenableFuture<List<Split>> blocked = nonCancellationPropagating(batchFuture);
                 return new ScheduleResult(false, ImmutableSet.of(), blocked, WAITING_FOR_SOURCE, 0);
             }
             pendingSplits = ImmutableSet.copyOf(getFutureValue(batchFuture));

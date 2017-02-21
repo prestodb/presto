@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
@@ -451,7 +450,7 @@ public class TestPartitionedOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfBufferedPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfBufferedPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -490,7 +489,7 @@ public class TestPartitionedOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfBufferedPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfBufferedPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -572,7 +571,7 @@ public class TestPartitionedOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfBufferedPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfBufferedPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -644,7 +643,7 @@ public class TestPartitionedOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfBufferedPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfBufferedPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -747,11 +746,11 @@ public class TestPartitionedOutputBuffer
 
     public static BufferResult getBufferResult(PartitionedOutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
-        CompletableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
+        ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
         return getFuture(future, maxWait);
     }
 
-    public static BufferResult getFuture(CompletableFuture<BufferResult> future, Duration maxWait)
+    public static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
     {
         return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
     }

@@ -49,6 +49,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TRANSAC
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -84,7 +85,7 @@ public class TestStartTransactionTask
 
         try {
             try {
-                new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
+                getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
                 fail();
             }
             catch (CompletionException e) {
@@ -115,7 +116,7 @@ public class TestStartTransactionTask
 
         try {
             try {
-                new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
+                getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
                 fail();
             }
             catch (CompletionException e) {
@@ -143,7 +144,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
+        getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
         assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
         assertTrue(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
@@ -164,13 +165,13 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        new StartTransactionTask().execute(
+        getFutureValue(new StartTransactionTask().execute(
                 new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.SERIALIZABLE), new TransactionAccessMode(true))),
                 transactionManager,
                 metadata,
                 new AllowAllAccessControl(),
                 stateMachine,
-                emptyList()).join();
+                emptyList()));
         assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
         assertTrue(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
@@ -195,13 +196,13 @@ public class TestStartTransactionTask
 
         try {
             try {
-                new StartTransactionTask().execute(
+                getFutureValue(new StartTransactionTask().execute(
                         new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
                         transactionManager,
                         metadata,
                         new AllowAllAccessControl(),
                         stateMachine,
-                        emptyList()).join();
+                        emptyList()));
                 fail();
             }
             catch (CompletionException e) {
@@ -231,13 +232,13 @@ public class TestStartTransactionTask
 
         try {
             try {
-                new StartTransactionTask().execute(
+                getFutureValue(new StartTransactionTask().execute(
                         new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
                         transactionManager,
                         metadata,
                         new AllowAllAccessControl(),
                         stateMachine,
-                        emptyList()).join();
+                        emptyList()));
                 fail();
             }
             catch (CompletionException e) {
@@ -271,13 +272,13 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        new StartTransactionTask().execute(
+        getFutureValue(new StartTransactionTask().execute(
                 new StartTransaction(ImmutableList.of()),
                 transactionManager,
                 metadata,
                 new AllowAllAccessControl(),
                 stateMachine,
-                emptyList()).join();
+                emptyList()));
         assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
         assertTrue(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
 

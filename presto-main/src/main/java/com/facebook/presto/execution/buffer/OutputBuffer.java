@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public interface OutputBuffer
 {
@@ -58,7 +57,7 @@ public interface OutputBuffer
      * If the buffer result is marked as complete, the client must call abort to acknowledge
      * receipt of the final state.
      */
-    CompletableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize);
+    ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize);
 
     /**
      * Closes the specified output buffer.
