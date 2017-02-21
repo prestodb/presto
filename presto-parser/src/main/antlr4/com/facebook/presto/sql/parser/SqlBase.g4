@@ -58,6 +58,18 @@ statement
         (IN catalog=identifier)?                                       #createRole
     | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
     | GRANT
+        roles
+        TO principal (',' principal)*
+        (WITH ADMIN OPTION)?
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #grantRoles
+    | REVOKE
+        (ADMIN OPTION FOR)?
+        roles
+        FROM principal (',' principal)*
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #revokeRoles
+    | GRANT
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON TABLE? qualifiedName TO grantee=identifier
         (WITH GRANT OPTION)?                                           #grant
@@ -445,6 +457,10 @@ principal
     | ROLE identifier       #rolePrincipal
     ;
 
+roles
+    : identifier (',' identifier)*
+    ;
+
 identifier
     : IDENTIFIER             #unquotedIdentifier
     | quotedIdentifier       #quotedIdentifierAlternative
@@ -489,7 +505,7 @@ nonReserved
     | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
     | ALL | SOME | ANY
-    | USER | ROLE | ADMIN
+    | USER | ROLE | ADMIN | GRANTED
     ;
 
 SELECT: 'SELECT';
@@ -598,6 +614,7 @@ CURRENT_ROLE: 'CURRENT_ROLE';
 ADMIN: 'ADMIN';
 GRANT: 'GRANT';
 REVOKE: 'REVOKE';
+GRANTED: 'GRANTED';
 PRIVILEGES: 'PRIVILEGES';
 PUBLIC: 'PUBLIC';
 OPTION: 'OPTION';
