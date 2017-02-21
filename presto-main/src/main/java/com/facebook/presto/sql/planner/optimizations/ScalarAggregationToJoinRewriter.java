@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
@@ -61,13 +60,15 @@ import static java.util.Objects.requireNonNull;
 
 public class ScalarAggregationToJoinRewriter
 {
-    private final Metadata metadata;
+    private static final QualifiedName COUNT = QualifiedName.of("count");
+
+    private final FunctionRegistry functionRegistry;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
 
-    public ScalarAggregationToJoinRewriter(Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public ScalarAggregationToJoinRewriter(FunctionRegistry functionRegistry, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionRegistry = requireNonNull(functionRegistry, "metadata is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
     }
@@ -162,19 +163,17 @@ public class ScalarAggregationToJoinRewriter
     {
         ImmutableMap.Builder<Symbol, FunctionCall> aggregations = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
-        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
         for (Map.Entry<Symbol, FunctionCall> entry : scalarAggregation.getAggregations().entrySet()) {
             FunctionCall call = entry.getValue();
-            QualifiedName count = QualifiedName.of("count");
             Symbol symbol = entry.getKey();
-            if (call.getName().equals(count)) {
+            if (call.getName().equals(COUNT)) {
                 aggregations.put(symbol, new FunctionCall(
-                        count,
+                        COUNT,
                         ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())));
                 List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
                 functions.put(symbol, functionRegistry.resolveFunction(
-                        count,
+                        COUNT,
                         fromTypeSignatures(scalarAggregationSourceTypeSignatures)));
             }
             else {
