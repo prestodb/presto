@@ -104,8 +104,8 @@ public final class WindowPartition
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
-                    range.start,
-                    range.end);
+                    range.getStart(),
+                    range.getEnd());
             channel++;
         }
 
