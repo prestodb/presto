@@ -27,11 +27,14 @@ import io.airlift.http.client.BasicAuthRequestFilter;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.json.ObjectMapperProvider;
 
 import javax.inject.Named;
 
+import java.io.File;
 import java.net.URI;
+import java.util.Optional;
 import java.util.Set;
 
 @AutoModuleProvider
@@ -65,8 +68,17 @@ public class QueryStatsClientModuleProvider
                     HttpClientConfig httpClientConfig = new HttpClientConfig();
                     httpClientConfig.setKeyStorePath(configuration.getString("databases.presto.https_keystore_path").orElse(null));
                     httpClientConfig.setKeyStorePassword(configuration.getString("databases.presto.https_keystore_password").orElse(null));
+
+                    httpClientConfig.setAuthenticationEnabled(configuration.getBoolean("databases.presto.cli_kerberos_authentication").orElse(false));
+                    httpClientConfig.setKerberosPrincipal(configuration.getString("databases.presto.cli_kerberos_principal").orElse(null));
+                    httpClientConfig.setKerberosRemoteServiceName(configuration.getString("databases.presto.cli_kerberos_service_name").orElse(null));
+                    KerberosConfig kerberosConfig = new KerberosConfig();
+                    kerberosConfig.setConfig(new File(configuration.getString("databases.presto.cli_kerberos_config_path").orElse("")));
+                    kerberosConfig.setKeytab(new File(configuration.getString("databases.presto.cli_kerberos_keytab").orElse("")));
+                    kerberosConfig.setUseCanonicalHostname(configuration.getBoolean("databases.presto.cli_kerberos_use_canonical_hostname").orElse(true));
+
                     Set<HttpRequestFilter> filters = ImmutableSet.of(new BasicAuthRequestFilter(user, password));
-                    httpQueryStatsClient = new HttpQueryStatsClient(new JettyHttpClient(httpClientConfig, filters), objectMapper, URI.create(serverAddress));
+                    httpQueryStatsClient = new HttpQueryStatsClient(new JettyHttpClient(httpClientConfig, kerberosConfig, Optional.empty(), filters), objectMapper, URI.create(serverAddress));
                 }
                 return httpQueryStatsClient;
             }
