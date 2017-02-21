@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.sql.planner.iterative.GroupReference;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 
@@ -29,18 +31,35 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeSearcher
 {
+    @Deprecated
     public static PlanNodeSearcher searchFrom(PlanNode node)
     {
         return new PlanNodeSearcher(node);
     }
 
+    public static PlanNodeSearcher searchFrom(PlanNode node, Lookup lookup)
+    {
+        return new PlanNodeSearcher(node, lookup);
+    }
+
     private final PlanNode node;
+    private final Lookup lookup;
     private Predicate<PlanNode> where = alwaysTrue();
     private Predicate<PlanNode> skipOnly = alwaysTrue();
 
-    public PlanNodeSearcher(PlanNode node)
+    @Deprecated
+    public PlanNodeSearcher(PlanNode planNode)
+    {
+        this(planNode, (node) -> {
+            checkArgument(!(node instanceof GroupReference), "GroupReference cannot occur in non-iterative plan");
+            return node;
+        });
+    }
+
+    public PlanNodeSearcher(PlanNode node, Lookup lookup)
     {
         this.node = requireNonNull(node, "node is null");
+        this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
     public PlanNodeSearcher where(Predicate<PlanNode> where)
@@ -62,6 +81,8 @@ public class PlanNodeSearcher
 
     private <T extends PlanNode> Optional<T> findFirstRecursive(PlanNode node)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             return Optional.of((T) node);
         }
@@ -99,6 +120,8 @@ public class PlanNodeSearcher
 
     private <T extends PlanNode> void findAllRecursive(PlanNode node, ImmutableList.Builder<T> nodes)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             nodes.add((T) node);
         }
@@ -116,6 +139,8 @@ public class PlanNodeSearcher
 
     private PlanNode removeAllRecursive(PlanNode node)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             checkArgument(
                     node.getSources().size() == 1,
@@ -138,6 +163,8 @@ public class PlanNodeSearcher
 
     private PlanNode removeFirstRecursive(PlanNode node)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             checkArgument(
                     node.getSources().size() == 1,
@@ -166,6 +193,8 @@ public class PlanNodeSearcher
 
     private PlanNode replaceAllRecursive(PlanNode node, PlanNode nodeToReplace)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             return nodeToReplace;
         }
@@ -185,6 +214,8 @@ public class PlanNodeSearcher
 
     private PlanNode replaceFirstRecursive(PlanNode node, PlanNode nodeToReplace)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             return nodeToReplace;
         }
