@@ -59,6 +59,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+// TODO: move this class to TransformCorrelatedScalarAggregationToJoin when old optimizer is gone
 public class ScalarAggregationToJoinRewriter
 {
     private static final QualifiedName COUNT = QualifiedName.of("count");
