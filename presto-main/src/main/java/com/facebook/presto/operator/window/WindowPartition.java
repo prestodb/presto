@@ -149,6 +149,11 @@ public final class WindowPartition
         int rowPosition = currentPosition - partitionStart;
         int endPosition = partitionEnd - partitionStart - 1;
 
+        // handle empty frame
+        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
+            return new Range(-1, -1);
+        }
+
         int frameStart;
         int frameEnd;
 
@@ -184,12 +189,6 @@ public final class WindowPartition
         }
         else {
             frameEnd = rowPosition;
-        }
-
-        // handle empty frame
-        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
-            frameStart = -1;
-            frameEnd = -1;
         }
 
         return new Range(frameStart, frameEnd);
