@@ -42,6 +42,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProp
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -112,13 +113,13 @@ public class TestResetSessionTask
                 executor,
                 metadata);
 
-        new ResetSessionTask().execute(
+        getFutureValue(new ResetSessionTask().execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),
                 transactionManager,
                 metadata,
                 accessControl,
                 stateMachine,
-                emptyList()).join();
+                emptyList()));
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));

@@ -20,13 +20,13 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class ResetSessionTask
         implements DataDefinitionTask<ResetSession>
@@ -38,7 +38,7 @@ public class ResetSessionTask
     }
 
     @Override
-    public CompletableFuture<?> execute(ResetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(ResetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         List<String> parts = statement.getName().getParts();
         if (parts.size() > 2) {
@@ -59,6 +59,6 @@ public class ResetSessionTask
 
         stateMachine.addResetSessionProperties(statement.getName().toString());
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 }

@@ -44,6 +44,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
@@ -59,7 +61,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
@@ -72,7 +73,6 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
-import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -152,7 +152,7 @@ public class MockRemoteTaskFactory
         private int runningDrivers = 0;
 
         @GuardedBy("this")
-        private CompletableFuture<?> whenSplitQueueHasSpace = new CompletableFuture<>();
+        private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
@@ -236,12 +236,12 @@ public class MockRemoteTaskFactory
         {
             if (getQueuedPartitionedSplitCount() < 9) {
                 if (!whenSplitQueueHasSpace.isDone()) {
-                    whenSplitQueueHasSpace.complete(null);
+                    whenSplitQueueHasSpace.set(null);
                 }
             }
             else {
                 if (whenSplitQueueHasSpace.isDone()) {
-                    whenSplitQueueHasSpace = new CompletableFuture<>();
+                    whenSplitQueueHasSpace = SettableFuture.create();
                 }
             }
         }
@@ -322,9 +322,9 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public synchronized CompletableFuture<?> whenSplitQueueHasSpace(int threshold)
+        public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
         {
-            return unmodifiableFuture(whenSplitQueueHasSpace);
+            return whenSplitQueueHasSpace;
         }
 
         @Override

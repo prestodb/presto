@@ -63,7 +63,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
@@ -84,13 +83,13 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -389,7 +388,7 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized CompletableFuture<?> whenSplitQueueHasSpace(int threshold)
+    public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
     {
         if (whenSplitQueueHasSpaceThreshold.isPresent()) {
             checkArgument(threshold == whenSplitQueueHasSpaceThreshold.getAsInt(), "Multiple split queue space notification thresholds not supported");
@@ -399,7 +398,7 @@ public final class HttpRemoteTask
             updateSplitQueueSpace();
         }
         if (splitQueueHasSpace) {
-            return completedFuture(null);
+            return immediateFuture(null);
         }
         return whenSplitQueueHasSpace.createNewListener();
     }

@@ -16,15 +16,16 @@ package com.facebook.presto.split;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class BufferingSplitSource
         implements SplitSource
@@ -45,25 +46,25 @@ public class BufferingSplitSource
     }
 
     @Override
-    public CompletableFuture<List<Split>> getNextBatch(int maxSize)
+    public ListenableFuture<List<Split>> getNextBatch(int maxSize)
     {
         checkArgument(maxSize > 0, "Cannot fetch a batch of zero size");
         List<Split> result = synchronizedList(new ArrayList<>(maxSize));
-        CompletableFuture<?> future = fetchSplits(Math.min(bufferSize, maxSize), maxSize, result);
-        return future.thenApply(ignored -> ImmutableList.copyOf(result));
+        ListenableFuture<?> future = fetchSplits(Math.min(bufferSize, maxSize), maxSize, result);
+        return Futures.transform(future, ignored -> ImmutableList.copyOf(result));
     }
 
-    private CompletableFuture<?> fetchSplits(int min, int max, List<Split> output)
+    private ListenableFuture<?> fetchSplits(int min, int max, List<Split> output)
     {
         checkArgument(min <= max, "Min splits greater than max splits");
         if (source.isFinished() || output.size() >= min) {
-            return completedFuture(null);
+            return immediateFuture(null);
         }
-        return source.getNextBatch(max - output.size())
-                .thenCompose(splits -> {
-                    output.addAll(splits);
-                    return fetchSplits(min, max, output);
-                });
+        ListenableFuture<List<Split>> future = source.getNextBatch(max - output.size());
+        return Futures.transformAsync(future, splits -> {
+            output.addAll(splits);
+            return fetchSplits(min, max, output);
+        });
     }
 
     @Override

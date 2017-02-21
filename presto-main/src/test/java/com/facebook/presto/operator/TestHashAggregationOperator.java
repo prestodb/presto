@@ -34,7 +34,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
@@ -67,7 +66,8 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -558,10 +558,10 @@ public class TestHashAggregationOperator
                 private final List<Iterator<Page>> spills = new ArrayList<>();
 
                 @Override
-                public CompletableFuture<?> spill(Iterator<Page> pageIterator)
+                public ListenableFuture<?> spill(Iterator<Page> pageIterator)
                 {
                     spills.add(pageIterator);
-                    return CompletableFuture.completedFuture(null);
+                    return immediateFuture(null);
                 }
 
                 @Override
@@ -586,11 +586,9 @@ public class TestHashAggregationOperator
         {
             return new Spiller() {
                 @Override
-                public CompletableFuture<?> spill(Iterator<Page> pageIterator)
+                public ListenableFuture<?> spill(Iterator<Page> pageIterator)
                 {
-                    SettableFuture<Object> future = SettableFuture.create();
-                    future.setException(new IOException("Failed to spill"));
-                    return toCompletableFuture(future);
+                    return immediateFailedFuture(new IOException("Failed to spill"));
                 }
 
                 @Override

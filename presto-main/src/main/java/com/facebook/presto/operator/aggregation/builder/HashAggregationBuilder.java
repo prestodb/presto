@@ -15,9 +15,9 @@ package com.facebook.presto.operator.aggregation.builder;
 
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.spi.Page;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
 
 public interface HashAggregationBuilder
         extends AutoCloseable
@@ -28,7 +28,7 @@ public interface HashAggregationBuilder
 
     boolean isFull();
 
-    CompletableFuture<?> isBlocked();
+    ListenableFuture<?> isBlocked();
 
     void updateMemory();
 

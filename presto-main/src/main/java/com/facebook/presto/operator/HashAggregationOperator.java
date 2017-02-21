@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -344,7 +343,7 @@ public class HashAggregationOperator
     public ListenableFuture<?> isBlocked()
     {
         if (aggregationBuilder != null) {
-            return toListenableFuture(aggregationBuilder.isBlocked());
+            return aggregationBuilder.isBlocked();
         }
         return NOT_BLOCKED;
     }

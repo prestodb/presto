@@ -21,7 +21,10 @@ import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -30,7 +33,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
@@ -40,8 +42,8 @@ import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class LazyOutputBuffer
         implements OutputBuffer
@@ -175,13 +177,13 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public CompletableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
             if (delegate == null) {
                 if (state.get() == FINISHED) {
-                    return completedFuture(emptyResults(taskInstanceId, 0, true));
+                    return immediateFuture(emptyResults(taskInstanceId, 0, true));
                 }
 
                 PendingRead pendingRead = new PendingRead(bufferId, token, maxSize);
@@ -263,7 +265,7 @@ public class LazyOutputBuffer
         // if there is no output buffer, free the pending reads
         if (outputBuffer == null) {
             for (PendingRead pendingRead : pendingReads) {
-                pendingRead.getFutureResult().complete(emptyResults(taskInstanceId, 0, true));
+                pendingRead.getFutureResult().set(emptyResults(taskInstanceId, 0, true));
             }
             return;
         }
@@ -294,7 +296,7 @@ public class LazyOutputBuffer
         private final long startingSequenceId;
         private final DataSize maxSize;
 
-        private final CompletableFuture<BufferResult> futureResult = new CompletableFuture<>();
+        private final SettableFuture<BufferResult> futureResult = SettableFuture.create();
 
         public PendingRead(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
         {
@@ -303,7 +305,7 @@ public class LazyOutputBuffer
             this.maxSize = requireNonNull(maxSize, "maxSize is null");
         }
 
-        public CompletableFuture<BufferResult> getFutureResult()
+        public SettableFuture<BufferResult> getFutureResult()
         {
             return futureResult;
         }
@@ -315,18 +317,23 @@ public class LazyOutputBuffer
             }
 
             try {
-                CompletableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxSize);
-                result.whenComplete((value, exception) -> {
-                    if (exception != null) {
-                        futureResult.completeExceptionally(exception);
+                ListenableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxSize);
+                Futures.addCallback(result, new FutureCallback<BufferResult>() {
+                    @Override
+                    public void onSuccess(BufferResult value)
+                    {
+                        futureResult.set(value);
                     }
-                    else {
-                        futureResult.complete(value);
+
+                    @Override
+                    public void onFailure(Throwable t)
+                    {
+                        futureResult.setException(t);
                     }
                 });
             }
             catch (Exception e) {
-                futureResult.completeExceptionally(e);
+                futureResult.setException(e);
             }
         }
     }

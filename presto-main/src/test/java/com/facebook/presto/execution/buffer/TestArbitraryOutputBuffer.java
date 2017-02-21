@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
@@ -383,7 +382,7 @@ public class TestArbitraryOutputBuffer
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
         assertFalse(future.isDone());
 
         // add a page and verify the future is complete
@@ -400,7 +399,7 @@ public class TestArbitraryOutputBuffer
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, (long) 0, sizeOfPages(1));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, (long) 0, sizeOfPages(1));
         assertFalse(future.isDone());
 
         // abort that buffer, and verify the future is finishd
@@ -503,7 +502,7 @@ public class TestArbitraryOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -535,7 +534,7 @@ public class TestArbitraryOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -621,7 +620,7 @@ public class TestArbitraryOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -692,7 +691,7 @@ public class TestArbitraryOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -794,11 +793,11 @@ public class TestArbitraryOutputBuffer
 
     private static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
-        CompletableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
+        ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
         return getFuture(future, maxWait);
     }
 
-    private static BufferResult getFuture(CompletableFuture<BufferResult> future, Duration maxWait)
+    private static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
     {
         return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
     }

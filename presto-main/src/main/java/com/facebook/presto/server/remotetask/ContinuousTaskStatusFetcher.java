@@ -30,7 +30,6 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -251,7 +250,7 @@ class ContinuousTaskStatusFetcher
         taskStatus.addStateChangeListener(stateChangeListener);
     }
 
-    public CompletableFuture<TaskStatus> getStateChange(TaskStatus taskStatus)
+    public ListenableFuture<TaskStatus> getStateChange(TaskStatus taskStatus)
     {
         return this.taskStatus.getStateChange(taskStatus);
     }

@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterator;
@@ -40,13 +41,12 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
+import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class InMemoryHashAggregationBuilder
         implements HashAggregationBuilder
@@ -171,9 +171,9 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public CompletableFuture<?> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
-        return completedFuture(null);
+        return NOT_BLOCKED;
     }
 
     public long getSizeInMemory()

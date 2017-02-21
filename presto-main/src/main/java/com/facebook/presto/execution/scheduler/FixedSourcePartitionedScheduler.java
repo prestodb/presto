@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 
 import java.util.ArrayDeque;
@@ -29,13 +30,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 public class FixedSourcePartitionedScheduler
@@ -83,7 +84,7 @@ public class FixedSourcePartitionedScheduler
             scheduledTasks = true;
         }
 
-        CompletableFuture<?> blocked = CompletableFuture.completedFuture(null);
+        ListenableFuture<?> blocked = immediateFuture(null);
         ScheduleResult.BlockedReason blockedReason = null;
         int splitsScheduled = 0;
         while (!sourcePartitionedSchedulers.isEmpty()) {

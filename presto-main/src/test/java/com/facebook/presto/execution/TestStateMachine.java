@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
@@ -228,7 +229,7 @@ public class TestStateMachine
             throws Exception
     {
         State initialState = stateMachine.get();
-        Future<State> futureChange = stateMachine.getStateChange(initialState);
+        ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
 
         SettableFuture<State> listenerChange = SettableFuture.create();
         stateMachine.addStateChangeListener(listenerChange::set);
@@ -266,7 +267,7 @@ public class TestStateMachine
             throws Exception
     {
         State initialState = stateMachine.get();
-        Future<State> futureChange = stateMachine.getStateChange(initialState);
+        ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
 
         SettableFuture<State> listenerChange = SettableFuture.create();
         stateMachine.addStateChangeListener(listenerChange::set);

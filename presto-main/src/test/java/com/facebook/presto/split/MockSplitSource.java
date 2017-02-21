@@ -19,10 +19,12 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class MockSplitSource
         implements SplitSource
@@ -53,7 +55,7 @@ public class MockSplitSource
     }
 
     @Override
-    public CompletableFuture<List<Split>> getNextBatch(int maxSize)
+    public ListenableFuture<List<Split>> getNextBatch(int maxSize)
     {
         nextBatchCalls++;
         if (nextBatchCalls > failAfter) {
@@ -61,7 +63,7 @@ public class MockSplitSource
         }
         int splits = Math.min(Math.min(batchSize, maxSize), remainingSplits);
         remainingSplits -= splits;
-        return CompletableFuture.completedFuture(Collections.nCopies(splits, SPLIT));
+        return immediateFuture(Collections.nCopies(splits, SPLIT));
     }
 
     @Override
