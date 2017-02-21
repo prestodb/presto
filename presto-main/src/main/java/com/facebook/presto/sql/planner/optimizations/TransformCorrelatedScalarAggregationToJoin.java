@@ -62,6 +62,7 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * Note only conjunction predicates in FilterNode are supported
  */
+@Deprecated
 public class TransformCorrelatedScalarAggregationToJoin
         implements PlanOptimizer
 {
