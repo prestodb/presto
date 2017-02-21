@@ -592,6 +592,16 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitGrantRoles(GrantRoles node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRevokeRoles(RevokeRoles node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitGrant(Grant node, C context)
     {
         return visitStatement(node, context);
