@@ -192,6 +192,11 @@ public class SliceArrayBlock
     public int getRegionSizeInBytes(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
+        if (positionOffset == 0 && length == positionCount) {
+            // Calculation of getRegionSizeInBytes is expensive in this class.
+            // On the other hand, getSizeInBytes result is pre-computed.
+            return getSizeInBytes();
+        }
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }

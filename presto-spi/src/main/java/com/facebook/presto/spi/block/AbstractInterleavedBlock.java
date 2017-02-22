@@ -255,6 +255,11 @@ public abstract class AbstractInterleavedBlock
     @Override
     public int getRegionSizeInBytes(int position, int length)
     {
+        if (position == 0 && length == getPositionCount()) {
+            // Calculation of getRegionSizeInBytes is expensive in this class.
+            // On the other hand, getSizeInBytes result is cached or pre-computed.
+            return getSizeInBytes();
+        }
         validateRange(position, length);
         int result = 0;
         for (int blockIndex = 0; blockIndex < getBlockCount(); blockIndex++) {

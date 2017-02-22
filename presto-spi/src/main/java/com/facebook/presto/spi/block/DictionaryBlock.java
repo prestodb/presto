@@ -218,6 +218,12 @@ public class DictionaryBlock
     @Override
     public int getRegionSizeInBytes(int positionOffset, int length)
     {
+        if (positionOffset == 0 && length == getPositionCount()) {
+            // Calculation of getRegionSizeInBytes is expensive in this class.
+            // On the other hand, getSizeInBytes result is cached.
+            return getSizeInBytes();
+        }
+
         int sizeInBytes = 0;
         boolean[] seen = new boolean[dictionary.getPositionCount()];
         for (int i = positionOffset; i < positionOffset + length; i++) {
