@@ -219,14 +219,14 @@ public class DictionaryBlock
     public int getRegionSizeInBytes(int positionOffset, int length)
     {
         int sizeInBytes = 0;
-        boolean[] seen = new boolean[length];
-        for (int i = positionOffset; i < length; i++) {
+        boolean[] seen = new boolean[dictionary.getPositionCount()];
+        for (int i = positionOffset; i < positionOffset + length; i++) {
             int position = getId(i);
-            if (!seen[position - positionOffset]) {
+            if (!seen[position]) {
                 if (!dictionary.isNull(position)) {
                     sizeInBytes += dictionary.getRegionSizeInBytes(position, 1);
                 }
-                seen[position - positionOffset] = true;
+                seen[position] = true;
             }
         }
         return sizeInBytes + (length * Integer.BYTES);
