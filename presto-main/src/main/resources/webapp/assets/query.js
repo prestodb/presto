@@ -802,7 +802,6 @@ let QueryDetail = React.createClass({
                         </table>
                     </div>
                 </div>
-                <hr className="h3-hr" />
                 <div className="row">
                     <div className="col-xs-12">
                         <TaskList key={ this.state.query.queryId } tasks={ tasks } />
@@ -832,7 +831,6 @@ let QueryDetail = React.createClass({
                         </table>
                     </div>
                 </div>
-                <hr className="h3-hr" />
                 <div className="row">
                     <div className="col-xs-12">
                         <StageList key={ this.state.query.queryId } outputStage={ this.state.lastSnapshotStage } />
@@ -1305,7 +1303,6 @@ let QueryDetail = React.createClass({
                                 <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
                             </a>
                         </h3>
-                        <hr className="h3-hr" />
                         <pre id="query">
                             <code className="lang-sql" id="query-text">
                                 { query.query }
