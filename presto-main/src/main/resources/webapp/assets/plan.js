@@ -113,13 +113,36 @@ let LivePlan = React.createClass({
         const query = this.state.query;
         const progressBarStyle = { width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query) };
 
-        return (
-            <div className="progress-large">
-                <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
-                    { getProgressBarTitle(query) }
+        if (isQueryComplete(query)) {
+            return (
+                <div className="progress-large">
+                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
+                        { getProgressBarTitle(query) }
+                    </div>
                 </div>
-            </div>
-        )
+            );
+        }
+
+        return (
+            <table>
+                <tbody>
+                <tr>
+                    <td width="100%">
+                        <div className="progress-large">
+                            <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
+                                { getProgressBarTitle(query) }
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className="btn btn-warning" target="_blank">
+                            Kill
+                        </a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        );
     },
     refreshLoop: function() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
@@ -273,20 +296,7 @@ let LivePlan = React.createClass({
                 <hr className="h2-hr"/>
                 <div className="row">
                     <div className="col-xs-12">
-                        <table>
-                            <tbody>
-                                <tr>
-                                    <td width="100%">
-                                        { this.renderProgressBar() }
-                                    </td>
-                                    <td>
-                                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className={ "btn btn-warning " + (isQueryComplete(query) ? "disabled" : "") } target="_blank">
-                                            Kill
-                                        </a>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        { this.renderProgressBar() }
                     </div>
                 </div>
             </div>
