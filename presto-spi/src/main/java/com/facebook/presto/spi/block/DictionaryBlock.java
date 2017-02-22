@@ -311,6 +311,9 @@ public class DictionaryBlock
 
     public int getId(int position)
     {
+        if (position < 0 || position >= positionCount) {
+            throw new IllegalArgumentException("Invalid position " + position + " in block with " + positionCount + " positions");
+        }
         return ids[position + idsOffset];
     }
 
