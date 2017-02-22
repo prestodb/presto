@@ -20,8 +20,11 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
+
+import java.util.Optional;
 
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static java.util.Objects.requireNonNull;
@@ -38,12 +41,15 @@ public class MultiKeyValuePairs
     private final BlockBuilder valueBlockBuilder;
     private final Type valueType;
 
+    private final RowType serializedRowType;
+
     public MultiKeyValuePairs(Type keyType, Type valueType)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.valueType = requireNonNull(valueType, "valueType is null");
         keyBlockBuilder = this.keyType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
         valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
+        serializedRowType = new RowType(ImmutableList.of(keyType, valueType), Optional.empty());
     }
 
     public MultiKeyValuePairs(Block serialized, Type keyType, Type valueType)
@@ -64,8 +70,9 @@ public class MultiKeyValuePairs
 
     private void deserialize(Block block)
     {
-        for (int i = 0; i < block.getPositionCount(); i += 2) {
-            add(block, block, i, i + 1);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            Block entryBlock = block.getObject(i, Block.class);
+            add(entryBlock, entryBlock, 0, 1);
         }
     }
 
@@ -73,11 +80,15 @@ public class MultiKeyValuePairs
     {
         Block keys = keyBlockBuilder.build();
         Block values = valueBlockBuilder.build();
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), keys.getPositionCount() * 2);
+        BlockBuilder blockBuilder = serializedRowType.createBlockBuilder(new BlockBuilderStatus(), keys.getPositionCount());
+
         for (int i = 0; i < keys.getPositionCount(); i++) {
-            keyType.appendTo(keys, i, blockBuilder);
-            valueType.appendTo(values, i, blockBuilder);
+            BlockBuilder writer = blockBuilder.beginBlockEntry();
+            keyType.appendTo(keys, i, writer);
+            valueType.appendTo(values, i, writer);
+            blockBuilder.closeEntry();
         }
+
         return blockBuilder.build();
     }
 
