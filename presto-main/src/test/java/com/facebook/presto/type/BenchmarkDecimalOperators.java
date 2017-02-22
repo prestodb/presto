@@ -172,6 +172,41 @@ public class BenchmarkDecimalOperators
     }
 
     @State(Thread)
+    public static class CastDecimalToVarcharBenchmarkState
+            extends BaseState
+    {
+        private static final int SCALE = 10;
+
+        @Param({"15", "35"})
+        private String precision = "35";
+
+        @Setup
+        public void setup()
+        {
+            addSymbol("v1", createDecimalType(Integer.valueOf(precision), SCALE));
+
+            String expression = "CAST(v1 AS VARCHAR)";
+            generateRandomInputPage();
+            generateProcessor(expression);
+            generateResultPageBuilder(expression);
+        }
+    }
+
+    @Benchmark
+    public List<Page> castDecimalToVarcharBenchmark(CastDecimalToVarcharBenchmarkState state)
+    {
+        return execute(state);
+    }
+
+    @Test
+    public void testCastDecimalToVarcharBenchmark()
+    {
+        CastDecimalToVarcharBenchmarkState state = new CastDecimalToVarcharBenchmarkState();
+        state.setup();
+        castDecimalToVarcharBenchmark(state);
+    }
+
+    @State(Thread)
     public static class AdditionBenchmarkState
             extends BaseState
     {
