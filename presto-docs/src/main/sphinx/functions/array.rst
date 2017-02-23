@@ -33,6 +33,10 @@ Array Functions
 
     Returns an array of the elements in the union of ``x`` and ``y``, without duplicates.
 
+.. function:: array_except(x, y) -> array
+
+    Returns an array of elements in ``x`` but not in ``y``, without duplicates.
+
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
     Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
