@@ -93,6 +93,7 @@
         <module>presto-raptor</module>
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
+        <module>presto-opendatabus</module>
         <module>presto-postgresql</module>
         <module>presto-mongodb</module>
         <module>presto-bytecode</module>
@@ -233,6 +234,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-mysql</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-opendatabus</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

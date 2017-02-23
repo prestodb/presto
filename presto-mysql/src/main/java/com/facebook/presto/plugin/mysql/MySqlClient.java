@@ -69,6 +69,7 @@ public class MySqlClient
                 // skip internal schemas
                 if (!schemaName.equals("information_schema") && !schemaName.equals("mysql")) {
                     schemaNames.add(schemaName);
+                    System.out.println(schemaName);
                 }
             }
             return schemaNames.build();
