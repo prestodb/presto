@@ -81,6 +81,17 @@ public abstract class AbstractTestFunctions
                 expectedResult);
     }
 
+    protected void assertInvalidFunction(String projection)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to fail");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+    }
+
     protected void assertInvalidFunction(String projection, String message)
     {
         try {
@@ -101,6 +112,18 @@ public abstract class AbstractTestFunctions
         }
         catch (SemanticException e) {
             assertEquals(e.getCode(), expectedErrorCode);
+        }
+    }
+
+    protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode, String message)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail(format("Expected to throw %s exception", expectedErrorCode));
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), expectedErrorCode);
+            assertEquals(e.getMessage(), message);
         }
     }
 
