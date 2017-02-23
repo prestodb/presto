@@ -21,11 +21,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.PrestoPrincipal;
-import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.metastore.TableType;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -36,10 +34,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -49,15 +45,10 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
-import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.security.PrincipalType.ROLE;
-import static com.facebook.presto.spi.security.PrincipalType.USER;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -74,19 +65,12 @@ import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 public class TestingHiveMetastore
         implements ExtendedHiveMetastore
 {
-    private static final String PUBLIC_ROLE_NAME = "public";
-
     @GuardedBy("this")
     private final Map<String, Database> databases = new HashMap<>();
     @GuardedBy("this")
     private final Map<SchemaTableName, Table> relations = new HashMap<>();
     @GuardedBy("this")
     private final Map<PartitionName, Partition> partitions = new HashMap<>();
-
-    @GuardedBy("this")
-    private final Map<String, Set<String>> roleGrants = new HashMap<>();
-    @GuardedBy("this")
-    private final Map<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new HashMap<>();
 
     private final File baseDirectory;
 
@@ -176,13 +160,6 @@ public class TestingHiveMetastore
         if (relations.putIfAbsent(schemaTableName, table) != null) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
-
-        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
-            setTablePrivileges(entry.getKey(), USER, table.getDatabaseName(), table.getTableName(), entry.getValue());
-        }
-        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
-            setTablePrivileges(entry.getKey(), ROLE, table.getDatabaseName(), table.getTableName(), entry.getValue());
-        }
     }
 
     @Override
@@ -200,11 +177,6 @@ public class TestingHiveMetastore
         ImmutableList.copyOf(partitions.keySet()).stream()
                 .filter(partitionName -> partitionName.matches(databaseName, tableName))
                 .forEach(partitions::remove);
-
-        // remove permissions
-        ImmutableList.copyOf(tablePrivileges.keySet()).stream()
-                .filter(key -> key.matches(databaseName, tableName))
-                .forEach(tablePrivileges::remove);
 
         // remove data
         if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
@@ -250,19 +222,6 @@ public class TestingHiveMetastore
 
         // replace table
         relations.put(schemaTableName, newTable);
-
-        // remove old permissions
-        ImmutableList.copyOf(tablePrivileges.keySet()).stream()
-                .filter(key -> key.matches(databaseName, tableName))
-                .forEach(tablePrivileges::remove);
-
-        // add new permissions
-        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
-            setTablePrivileges(entry.getKey(), USER, newTable.getDatabaseName(), newTable.getTableName(), entry.getValue());
-        }
-        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
-            setTablePrivileges(entry.getKey(), ROLE, newTable.getDatabaseName(), newTable.getTableName(), entry.getValue());
-        }
     }
 
     @Override
@@ -294,18 +253,6 @@ public class TestingHiveMetastore
                                 .setDatabaseName(newDatabaseName)
                                 .setTableName(newTableName)
                                 .build());
-            }
-        }
-
-        // rename privileges
-        for (Entry<PrincipalTableKey, Set<HivePrivilegeInfo>> entry : ImmutableList.copyOf(tablePrivileges.entrySet())) {
-            PrincipalTableKey principalTableKey = entry.getKey();
-            Set<HivePrivilegeInfo> privileges = entry.getValue();
-            if (principalTableKey.matches(databaseName, tableName)) {
-                tablePrivileges.remove(principalTableKey);
-                tablePrivileges.put(
-                        new PrincipalTableKey(principalTableKey.getPrincipalName(), principalTableKey.getPrincipalType(), newTableName, newDatabaseName),
-                        privileges);
             }
         }
     }
@@ -497,6 +444,24 @@ public class TestingHiveMetastore
     }
 
     @Override
+    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public synchronized Optional<List<String>> getPartitionNames(String databaseName, String tableName)
     {
         return getTable(databaseName, tableName).map(table ->
@@ -582,102 +547,9 @@ public class TestingHiveMetastore
         return oldTable;
     }
 
-    @Override
-    public synchronized Set<String> getRoles(String user)
-    {
-        return ImmutableSet.<String>builder()
-                .add(PUBLIC_ROLE_NAME)
-                .addAll(roleGrants.getOrDefault(user, ImmutableSet.of()))
-                .build();
-    }
-
-    public synchronized void setUserRoles(String user, ImmutableSet<String> roles)
-    {
-        roleGrants.put(user, roles);
-    }
-
-    @Override
-    public synchronized Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
-    {
-        Set<HivePrivilegeInfo> privileges = new HashSet<>();
-        if (isDatabaseOwner(user, databaseName)) {
-            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
-        }
-        return privileges;
-    }
-
-    @Override
-    public synchronized Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
-    {
-        Set<HivePrivilegeInfo> privileges = new HashSet<>();
-        if (isTableOwner(user, databaseName, tableName)) {
-            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
-        }
-        privileges.addAll(tablePrivileges.getOrDefault(new PrincipalTableKey(user, USER, tableName, databaseName), ImmutableSet.of()));
-        for (String role : getRoles(user)) {
-            privileges.addAll(tablePrivileges.getOrDefault(new PrincipalTableKey(role, ROLE, tableName, databaseName), ImmutableSet.of()));
-        }
-        return privileges;
-    }
-
-    private synchronized void setTablePrivileges(String principalName,
-            PrincipalType principalType,
-            String databaseName,
-            String tableName,
-            Iterable<HivePrivilegeInfo> privileges)
-    {
-        tablePrivileges.put(new PrincipalTableKey(principalName, principalType, tableName, databaseName), ImmutableSet.copyOf(privileges));
-    }
-
-    @Override
-    public synchronized void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
-    {
-        setTablePrivileges(grantee, USER, databaseName, tableName, privileges);
-    }
-
-    @Override
-    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
-    {
-        Set<HivePrivilegeInfo> currentPrivileges = getTablePrivileges(grantee, databaseName, tableName);
-        currentPrivileges.removeAll(privileges);
-
-        setTablePrivileges(grantee, USER, databaseName, tableName, currentPrivileges);
-    }
-
     private static boolean isParentDir(File directory, File baseDirectory)
     {
         return directory.toPath().startsWith(baseDirectory.toPath());
-    }
-
-    private boolean isDatabaseOwner(String user, String databaseName)
-    {
-        // all users are "owners" of the default database
-        if (DEFAULT_DATABASE_NAME.equalsIgnoreCase(databaseName)) {
-            return true;
-        }
-
-        Optional<Database> databaseMetadata = getDatabase(databaseName);
-        if (!databaseMetadata.isPresent()) {
-            return false;
-        }
-
-        Database database = databaseMetadata.get();
-
-        // a database can be owned by a user or role
-        if (database.getOwnerType() == USER && user.equals(database.getOwnerName())) {
-            return true;
-        }
-        if (database.getOwnerType() == ROLE && getRoles(user).contains(database.getOwnerName())) {
-            return true;
-        }
-        return false;
-    }
-
-    private boolean isTableOwner(String user, String databaseName, String tableName)
-    {
-        // a table can only be owned by a user
-        Optional<Table> table = getTable(databaseName, tableName);
-        return table.isPresent() && user.equals(table.get().getOwner());
     }
 
     static void deleteDirectory(File dir)
@@ -744,70 +616,6 @@ public class TestingHiveMetastore
         public String toString()
         {
             return schemaName + "/" + tableName + "/" + values;
-        }
-    }
-
-    private static class PrincipalTableKey
-    {
-        private final String principalName;
-        private final PrincipalType principalType;
-        private final String database;
-        private final String table;
-
-        public PrincipalTableKey(String principalName, PrincipalType principalType, String table, String database)
-        {
-            this.principalName = requireNonNull(principalName, "principalName is null");
-            this.principalType = requireNonNull(principalType, "principalType is null");
-            this.table = requireNonNull(table, "table is null");
-            this.database = requireNonNull(database, "database is null");
-        }
-
-        public String getPrincipalName()
-        {
-            return principalName;
-        }
-
-        public PrincipalType getPrincipalType()
-        {
-            return principalType;
-        }
-
-        public boolean matches(String databaseName, String tableName)
-        {
-            return this.database.equals(databaseName) && this.table.equals(tableName);
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            PrincipalTableKey that = (PrincipalTableKey) o;
-            return Objects.equals(principalName, that.principalName) &&
-                    Objects.equals(principalType, that.principalType) &&
-                    Objects.equals(table, that.table) &&
-                    Objects.equals(database, that.database);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(principalName, principalType, table, database);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("principalName", principalName)
-                    .add("principalType", principalType)
-                    .add("table", table)
-                    .add("database", database)
-                    .toString();
         }
     }
 }
