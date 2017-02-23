@@ -67,6 +67,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
+import static com.facebook.presto.metadata.MetadataListing.listTablePrivileges;
 import static com.facebook.presto.metadata.MetadataListing.listTables;
 import static com.facebook.presto.metadata.MetadataListing.listViews;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -210,30 +211,23 @@ public class InformationSchemaPageSourceProvider
 
     private InternalTable buildTablePrivileges(Session session, String catalogName, Map<String, NullableValue> filters)
     {
-        List<GrantInfo> grants = ImmutableList.copyOf(getTablePrivilegesList(session, catalogName, filters));
-
+        QualifiedTablePrefix prefix = extractQualifiedTablePrefix(catalogName, filters);
+        List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLE_PRIVILEGES));
         for (GrantInfo grant : grants) {
-            if (session.getIdentity().getUser().equals(grant.getIdentity().getUser())) {
-                for (PrivilegeInfo privilegeInfo : grant.getPrivilegeInfo()) {
-                    table.add(
-                            grant.getGrantor().orElse(null),
-                            grant.getIdentity().getUser(),
-                            catalogName,
-                            grant.getSchemaTableName().getSchemaName(),
-                            grant.getSchemaTableName().getTableName(),
-                            privilegeInfo.getPrivilege().name(),
-                            privilegeInfo.isGrantOption(),
-                            grant.getWithHierarchy().orElse(null));
-                }
+            for (PrivilegeInfo privilegeInfo : grant.getPrivilegeInfo()) {
+                table.add(
+                        grant.getGrantor().orElse(null),
+                        grant.getIdentity().getUser(),
+                        catalogName,
+                        grant.getSchemaTableName().getSchemaName(),
+                        grant.getSchemaTableName().getTableName(),
+                        privilegeInfo.getPrivilege().name(),
+                        privilegeInfo.isGrantOption(),
+                        grant.getWithHierarchy().orElse(null));
             }
         }
         return table.build();
-    }
-
-    private List<GrantInfo> getTablePrivilegesList(Session session, String catalogName, Map<String, NullableValue> filters)
-    {
-        return metadata.listTablePrivileges(session, extractQualifiedTablePrefix(catalogName, filters), extractGrantee(session, filters));
     }
 
     private InternalTable buildViews(Session session, String catalogName, Map<String, NullableValue> filters)
@@ -345,15 +339,6 @@ public class InformationSchemaPageSourceProvider
             return new QualifiedTablePrefix(catalogName, Optional.empty(), Optional.empty());
         }
         return new QualifiedTablePrefix(catalogName, schemaName, tableName);
-    }
-
-    private static String extractGrantee(Session session, Map<String, NullableValue> filters)
-    {
-        Optional<String> grantee = getFilterColumn(filters, "grantee");
-        if (!grantee.isPresent()) {
-            return session.getUser();
-        }
-        return grantee.get();
     }
 
     private static Optional<String> getFilterColumn(Map<String, NullableValue> filters, String columnName)

@@ -18,6 +18,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.metadata.TableHandle;
@@ -217,6 +218,16 @@ final class ShowQueriesRewrite
             if (catalogName == null) {
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, showGrant, "Catalog must be specified when session catalog is not set");
             }
+
+            Optional<String> optionalTableName = Optional.empty();
+            if (tableName.isPresent()) {
+                optionalTableName = Optional.of(tableName.get().getSuffix());
+            }
+
+            accessControl.checkCanShowGrants(
+                    session.getRequiredTransactionId(),
+                    session.getIdentity(),
+                    new QualifiedTablePrefix(catalogName, session.getSchema(), optionalTableName));
 
             return simpleQuery(
                     selectList(

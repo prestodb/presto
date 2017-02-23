@@ -14,8 +14,10 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
@@ -165,16 +167,27 @@ public interface AccessControl
     void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName);
 
     /**
-     * Check if identity is allowed to grant a privilege on the specified table.
+     * Check if identity is allowed to grant the specified privilege on the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName);
 
     /**
-     * Check if identity is allowed to revoke a privilege on the specified table.
+     * Check if identity is allowed to revoke the specified privilege on the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName);
+
+    /**
+     * Check if identity is allowed to show grants on the specified catalog or schema or table.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowGrants(TransactionId transactionId, Identity identity, QualifiedTablePrefix prefix);
+
+    /**
+     * Filter the list of grants to those visible to the identity.
+     */
+    Set<GrantInfo> filterGrants(TransactionId transactionId, Identity identity, QualifiedTablePrefix prefix, Set<GrantInfo> privilegeInfos);
 
     /**
      * Check if identity is allowed to set the specified system property.

@@ -16,6 +16,8 @@ package com.facebook.presto.security;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
@@ -184,5 +186,16 @@ public class AllowAllSystemAccessControl
     @Override
     public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table)
     {
+    }
+
+    @Override
+    public void checkCanShowGrants(Identity identity, String catalogName, SchemaTablePrefix schemaTablePrefix)
+    {
+    }
+
+    @Override
+    public Set<GrantInfo> filterGrants(Identity identity, String catalogName, SchemaTablePrefix schemaTablePrefix, Set<GrantInfo> grantInfos)
+    {
+        return grantInfos;
     }
 }
