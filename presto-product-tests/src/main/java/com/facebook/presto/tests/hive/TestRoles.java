@@ -401,6 +401,60 @@ public class TestRoles
                         row("alice", "USER", "public", "NO"));
     }
 
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testGrantRevokeRoleAccessControl()
+            throws Exception
+    {
+        onPresto().executeQuery("CREATE ROLE role1");
+        onPresto().executeQuery("CREATE ROLE role2");
+
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
+                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION"))
+                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob"))
+                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
+                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
+
+        onPresto().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
+
+        onPrestoAlice().executeQuery("GRANT role1 TO USER bob");
+        onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION");
+        onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob");
+        onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob");
+
+        onPresto().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
+
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
+                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION"))
+                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob"))
+                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
+                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
+
+        onPresto().executeQuery("GRANT role2 TO USER alice");
+        onPresto().executeQuery("GRANT role1 TO ROLE role2 WITH ADMIN OPTION");
+
+        onPrestoAlice().executeQuery("GRANT role1 TO USER bob");
+        onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION");
+        onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob");
+        onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob");
+
+        onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM ROLE role2");
+
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
+                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION"))
+                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob"))
+                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
+                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
+    }
+
     private static QueryExecutor onPrestoAlice()
     {
         return connectToPresto("alice@presto");
