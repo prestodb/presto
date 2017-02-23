@@ -88,13 +88,9 @@ public interface ExtendedHiveMetastore
 
     Set<RoleGrant> listRoleGrants(PrestoPrincipal principal);
 
-    Set<String> getRoles(String user);
-
-    Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName);
-
-    Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName);
-
     void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges);
 
     void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges);
+
+    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal);
 }
