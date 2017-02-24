@@ -269,7 +269,7 @@ public class PlanPrinter
                                         operatorStats.getTotalDrivers(),
                                         operatorStats.getInputPositions(),
                                         operatorStats.getSumSquaredInputPositions())),
-                        PlanPrinter::mergeOperatorInputStatsMaps);
+                        (map1, map2) -> mergeMaps(map1, map2, OperatorInputStats::merge));
 
                 if (operatorStats.getInfo() instanceof HashCollisionsInfo) {
                     HashCollisionsInfo hashCollisionsInfo = (HashCollisionsInfo) operatorStats.getInfo();
@@ -280,7 +280,7 @@ public class PlanPrinter
                                             hashCollisionsInfo.getWeightedHashCollisions(),
                                             hashCollisionsInfo.getWeightedSumSquaredHashCollisions(),
                                             hashCollisionsInfo.getWeightedExpectedHashCollisions())),
-                            PlanPrinter::mergeOperatorHashCollisionsStatsMaps);
+                            (map1, map2) -> mergeMaps(map1, map2, OperatorHashCollisionsStats::merge));
                 }
 
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
@@ -1463,8 +1463,8 @@ public class PlanPrinter
             long planNodeOutputPositions = left.planNodeOutputPositions + right.planNodeOutputPositions;
             DataSize planNodeOutputDataSize = succinctBytes(left.planNodeOutputDataSize.toBytes() + right.planNodeOutputDataSize.toBytes());
 
-            Map<String, OperatorInputStats> operatorInputStats = mergeOperatorInputStatsMaps(left.operatorInputStats, right.operatorInputStats);
-            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeOperatorHashCollisionsStatsMaps(left.operatorHashCollisionsStats, right.operatorHashCollisionsStats);
+            Map<String, OperatorInputStats> operatorInputStats = mergeMaps(left.operatorInputStats, right.operatorInputStats, OperatorInputStats::merge);
+            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeMaps(left.operatorHashCollisionsStats, right.operatorHashCollisionsStats, OperatorHashCollisionsStats::merge);
 
             return new PlanNodeStats(
                     left.getPlanNodeId(),
@@ -1490,15 +1490,5 @@ public class PlanPrinter
             // variance might be negative because of numeric inaccuracy, therefore we need to use max
             return sqrt(max(variance, 0d));
         }
-    }
-
-    private static <K> Map<K, OperatorInputStats> mergeOperatorInputStatsMaps(Map<K, OperatorInputStats> map1, Map<K, OperatorInputStats> map2)
-    {
-        return mergeMaps(map1, map2, OperatorInputStats::merge);
-    }
-
-    private static <K> Map<K, OperatorHashCollisionsStats> mergeOperatorHashCollisionsStatsMaps(Map<K, OperatorHashCollisionsStats> map1, Map<K, OperatorHashCollisionsStats> map2)
-    {
-        return mergeMaps(map1, map2, OperatorHashCollisionsStats::merge);
     }
 }
