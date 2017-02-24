@@ -16,7 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.PlanPrinter;
+import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.testing.LocalQueryRunner;
 
 import java.util.function.Function;
