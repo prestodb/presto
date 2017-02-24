@@ -335,7 +335,6 @@ public class ExchangeClient
         // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
         averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + responseSize / successfulRequests);
 
-        scheduleRequestIfNecessary();
         return true;
     }
 
@@ -395,9 +394,7 @@ public class ExchangeClient
             requireNonNull(client, "client is null");
             requireNonNull(pages, "pages is null");
             checkArgument(!pages.isEmpty(), "pages is empty");
-            boolean added = ExchangeClient.this.addPages(pages);
-            scheduleRequestIfNecessary();
-            return added;
+            return ExchangeClient.this.addPages(pages);
         }
 
         @Override
