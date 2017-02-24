@@ -19,7 +19,6 @@ import com.facebook.presto.hive.authentication.GenericExceptionAction;
 import com.facebook.presto.hive.authentication.HdfsAuthentication;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.security.ConnectorIdentity;
-import com.facebook.presto.spi.security.Identity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
