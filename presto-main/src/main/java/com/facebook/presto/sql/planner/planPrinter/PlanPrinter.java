@@ -1518,41 +1518,4 @@ public class PlanPrinter
                         Map.Entry::getValue,
                         merger::apply));
     }
-
-    private static class OperatorHashCollisionsStats
-    {
-        private final double weightedHashCollisions;
-        private final double weightedSumSquaredHashCollisions;
-        private final double weightedExpectedHashCollisions;
-
-        public OperatorHashCollisionsStats(double weightedHashCollisions, double weightedSumSquaredHashCollisions, double weightedExpectedHashCollisions)
-        {
-            this.weightedHashCollisions = weightedHashCollisions;
-            this.weightedSumSquaredHashCollisions = weightedSumSquaredHashCollisions;
-            this.weightedExpectedHashCollisions = weightedExpectedHashCollisions;
-        }
-
-        public double getWeightedHashCollisions()
-        {
-            return weightedHashCollisions;
-        }
-
-        public double getWeightedSumSquaredHashCollisions()
-        {
-            return weightedSumSquaredHashCollisions;
-        }
-
-        public double getWeightedExpectedHashCollisions()
-        {
-            return weightedExpectedHashCollisions;
-        }
-
-        public static OperatorHashCollisionsStats merge(OperatorHashCollisionsStats first, OperatorHashCollisionsStats second)
-        {
-            return new OperatorHashCollisionsStats(
-                    first.weightedHashCollisions + second.weightedHashCollisions,
-                    first.weightedSumSquaredHashCollisions + second.weightedSumSquaredHashCollisions,
-                    first.weightedExpectedHashCollisions + second.weightedExpectedHashCollisions);
-        }
-    }
 }
