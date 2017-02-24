@@ -615,6 +615,18 @@ public class AccessControlManager
         }
     }
 
+    @Override
+    public void checkCanSetRole(TransactionId transactionId, Identity identity, String role, String catalogName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(role, "role is null");
+        requireNonNull(catalogName, "catalog is null");
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanSetRole(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(catalogName), role, catalogName));
+        }
+    }
+
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)

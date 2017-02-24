@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -48,6 +49,7 @@ public final class SessionRepresentation
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> catalogProperties;
+    private final Map<String, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
 
     @JsonCreator
@@ -68,6 +70,7 @@ public final class SessionRepresentation
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
+            @JsonProperty("roles") Map<String, SelectedRole> roles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -85,6 +88,7 @@ public final class SessionRepresentation
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
+        this.roles = ImmutableMap.copyOf(roles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
 
         ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
@@ -191,6 +195,12 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
+    public Map<String, SelectedRole> getRoles()
+    {
+        return roles;
+    }
+
+    @JsonProperty
     public Map<String, String> getPreparedStatements()
     {
         return preparedStatements;
@@ -202,7 +212,7 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                new Identity(user, Optional.empty()),
+                new Identity(user, Optional.empty(), roles),
                 source,
                 catalog,
                 schema,
