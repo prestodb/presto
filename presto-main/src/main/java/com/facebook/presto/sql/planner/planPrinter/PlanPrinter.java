@@ -1476,8 +1476,8 @@ public class PlanPrinter
             long planNodeOutputPositions = left.planNodeOutputPositions + right.planNodeOutputPositions;
             DataSize planNodeOutputDataSize = succinctBytes(left.planNodeOutputDataSize.toBytes() + right.planNodeOutputDataSize.toBytes());
 
-            Map<String, OperatorInputStats> operatorInputStats = mergeOperatorInputStatsMaps(left.operatorInputStats, right.operatorInputStats);
-            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeOperatorHashCollisionsStatsMaps(left.operatorHashCollisionsStats, right.operatorHashCollisionsStats);
+            Map<String, OperatorInputStats> operatorInputStats = mergeMaps(left.operatorInputStats, right.operatorInputStats, OperatorInputStats::merge);
+            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeMaps(left.operatorHashCollisionsStats, right.operatorHashCollisionsStats, OperatorHashCollisionsStats::merge);
 
             return new PlanNodeStats(
                     left.getPlanNodeId(),
