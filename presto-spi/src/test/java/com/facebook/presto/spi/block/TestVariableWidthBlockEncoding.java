@@ -43,7 +43,7 @@ public class TestVariableWidthBlockEncoding
         @Override
         public ConnectorIdentity getIdentity()
         {
-            return new ConnectorIdentity("user", Optional.empty());
+            return new ConnectorIdentity("user", Optional.empty(), Optional.empty());
         }
 
         @Override

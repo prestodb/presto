@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.primitives.Ints;
 
 import java.sql.Connection;
@@ -22,6 +23,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -211,6 +213,10 @@ public class PrestoStatement
 
             resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer);
             checkSetOrResetSession(client);
+
+            for (Map.Entry<String, SelectedRole> entry : client.getSetRoles().entrySet()) {
+                connection.get().setRole(entry.getKey(), entry.getValue());
+            }
 
             // check if this is a query
             if (client.current().getUpdateType() == null) {

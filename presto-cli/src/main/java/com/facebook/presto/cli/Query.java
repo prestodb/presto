@@ -19,6 +19,7 @@ import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -70,6 +71,11 @@ public class Query
     public Set<String> getResetSessionProperties()
     {
         return client.getResetSessionProperties();
+    }
+
+    public Map<String, SelectedRole> getSetRoles()
+    {
+        return client.getSetRoles();
     }
 
     public Map<String, String> getAddedPreparedStatements()

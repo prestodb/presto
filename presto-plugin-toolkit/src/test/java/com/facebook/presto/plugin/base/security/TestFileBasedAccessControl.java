@@ -129,7 +129,7 @@ public class TestFileBasedAccessControl
 
     private static ConnectorIdentity user(String name)
     {
-        return new ConnectorIdentity(name, Optional.empty());
+        return new ConnectorIdentity(name, Optional.empty(), Optional.empty());
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)

@@ -917,8 +917,8 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT count(*) FILTER (WHERE x > 1), count(DISTINCT y) FROM (VALUES (1, 10), (2, 10), (3, 10), (4, 20)) t (x, y)", "SELECT 3, 2");
 
         assertQuery("" +
-                "SELECT sum(b) FILTER (WHERE true) " +
-                "FROM (SELECT count(*) FILTER (WHERE true) AS b)",
+                        "SELECT sum(b) FILTER (WHERE true) " +
+                        "FROM (SELECT count(*) FILTER (WHERE true) AS b)",
                 "SELECT 1");
 
         // TODO: enable when DISTINCT is allowed with filtered aggregations
@@ -988,9 +988,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
 
         assertQuery("" +
-                "SELECT DISTINCT x " +
-                "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
-                "LIMIT 100",
+                        "SELECT DISTINCT x " +
+                        "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
+                        "LIMIT 100",
                 "SELECT 1");
     }
 
@@ -1048,10 +1048,10 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("" +
-                "SELECT x, sum(cast(x AS double))\n" +
-                "FROM (VALUES '1.0') t(x)\n" +
-                "GROUP BY x\n" +
-                "ORDER BY sum(cast(x AS double))",
+                        "SELECT x, sum(cast(x AS double))\n" +
+                        "FROM (VALUES '1.0') t(x)\n" +
+                        "GROUP BY x\n" +
+                        "ORDER BY sum(cast(x AS double))",
                 "VALUES ('1.0', 1.0)");
     }
 
@@ -3666,11 +3666,11 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
-                    "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
-                    "min(tax) OVER(PARTITION BY suppkey ORDER BY shipdate)" +
-                    "FROM lineitem " +
-                    "ORDER BY 1 " +
-                    "LIMIT 10");
+                "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
+                "min(tax) OVER(PARTITION BY suppkey ORDER BY shipdate)" +
+                "FROM lineitem " +
+                "ORDER BY 1 " +
+                "LIMIT 10");
 
         MaterializedResult expected = resultBuilder(getSession(), DOUBLE, DOUBLE)
                 .row(1.0, 0.0)
@@ -3693,11 +3693,11 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
-                    "max(tax) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate)," +
-                    "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)" +
-                    "FROM lineitem " +
-                    "ORDER BY 2, 1 " +
-                    "LIMIT 10");
+                "max(tax) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate)," +
+                "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)" +
+                "FROM lineitem " +
+                "ORDER BY 2, 1 " +
+                "LIMIT 10");
 
         MaterializedResult expected = resultBuilder(getSession(), DOUBLE, DOUBLE)
                 .row(0.06, 1.0)

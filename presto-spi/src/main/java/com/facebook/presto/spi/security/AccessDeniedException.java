@@ -284,6 +284,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot revoke roles %s from %s ", roles, grantees));
     }
 
+    public static void denySetRole(String role)
+    {
+        throw new AccessDeniedException(format("Cannot set role %s", role));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {

@@ -14,20 +14,25 @@
 package com.facebook.presto.spi.security;
 
 import java.security.Principal;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.singletonMap;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorIdentity
 {
     private final String user;
     private final Optional<Principal> principal;
+    private final Optional<SelectedRole> role;
 
-    public ConnectorIdentity(String user, Optional<Principal> principal)
+    public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.role = requireNonNull(role, "role is null");
     }
 
     public String getUser()
@@ -40,9 +45,16 @@ public class ConnectorIdentity
         return principal;
     }
 
+    public Optional<SelectedRole> getRole()
+    {
+        return role;
+    }
+
     public Identity toIdentity(String catalogName)
     {
-        return new Identity(user, principal);
+        requireNonNull(catalogName, "catalogName is null");
+        Map<String, SelectedRole> roles = role.isPresent() ? singletonMap(catalogName, role.get()) : emptyMap();
+        return new Identity(user, principal, roles);
     }
 
     @Override
