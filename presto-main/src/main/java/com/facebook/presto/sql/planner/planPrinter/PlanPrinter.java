@@ -1378,6 +1378,14 @@ public class PlanPrinter
             this.operatorHashCollisionsStats = requireNonNull(operatorHashCollisionsStats, "operatorHashCollisionsStats is null");
         }
 
+        private static double computedStdDev(double sumSquared, double sum, long n)
+        {
+            double average = sum / n;
+            double variance = (sumSquared - 2 * sum * average + average * average * n) / n;
+            // variance might be negative because of numeric inaccuracy, therefore we need to use max
+            return sqrt(max(variance, 0d));
+        }
+
         public PlanNodeId getPlanNodeId()
         {
             return planNodeId;
@@ -1487,14 +1495,6 @@ public class PlanPrinter
                     operatorInputStats,
                     operatorHashCollisionsStats);
         }
-    }
-
-    private static double computedStdDev(double sumSquared, double sum, long n)
-    {
-        double average = sum / n;
-        double variance = (sumSquared - 2 * sum * average + average * average * n) / n;
-        // variance might be negative because of numeric inaccuracy, therefore we need to use max
-        return sqrt(max(variance, 0d));
     }
 
     private static <K> Map<K, OperatorInputStats> mergeOperatorInputStatsMaps(Map<K, OperatorInputStats> map1, Map<K, OperatorInputStats> map2)
