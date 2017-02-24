@@ -340,13 +340,15 @@ public final class HttpPageBufferClient
                 }
 
                 // add pages
-                if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
-                    pagesReceived.addAndGet(pages.size());
-                    rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
-                }
-                else {
-                    pagesRejected.addAndGet(pages.size());
-                    rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                if (!pages.isEmpty()) {
+                    if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
+                        pagesReceived.addAndGet(pages.size());
+                        rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
+                    else {
+                        pagesRejected.addAndGet(pages.size());
+                        rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
                 }
 
                 synchronized (HttpPageBufferClient.this) {
