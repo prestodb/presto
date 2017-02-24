@@ -105,7 +105,6 @@ import io.airlift.units.Duration;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -114,7 +113,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -123,6 +121,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.MoreMaps.mergeMaps;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -1501,16 +1500,5 @@ public class PlanPrinter
     private static <K> Map<K, OperatorHashCollisionsStats> mergeOperatorHashCollisionsStatsMaps(Map<K, OperatorHashCollisionsStats> map1, Map<K, OperatorHashCollisionsStats> map2)
     {
         return mergeMaps(map1, map2, OperatorHashCollisionsStats::merge);
-    }
-
-    private static <K, V> Map<K, V> mergeMaps(Map<K, V> map1, Map<K, V> map2, BinaryOperator<V> merger)
-    {
-        return Stream.of(map1, map2)
-                .map(Map::entrySet)
-                .flatMap(Collection::stream)
-                .collect(toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        merger::apply));
     }
 }
