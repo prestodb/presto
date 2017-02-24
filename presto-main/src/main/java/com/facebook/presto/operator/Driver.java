@@ -557,7 +557,7 @@ public class Driver
 
     private synchronized void checkLockHeld(String message)
     {
-        checkState(Thread.currentThread() == lockHolder, message);
+        checkState(exclusiveLock.isHeldByCurrentThread() && Thread.currentThread() == lockHolder, message);
     }
 
     private static ListenableFuture<?> firstFinishedFuture(List<ListenableFuture<?>> futures)
