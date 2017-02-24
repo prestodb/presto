@@ -1450,21 +1450,21 @@ public class PlanPrinter
                             entry -> entry.getValue().getWeightedExpectedHashCollisions() / operatorInputStats.get(entry.getKey()).getInputPositions()));
         }
 
-        public static PlanNodeStats merge(PlanNodeStats planNodeStats1, PlanNodeStats planNodeStats2)
+        public static PlanNodeStats merge(PlanNodeStats left, PlanNodeStats right)
         {
-            checkArgument(planNodeStats1.getPlanNodeId().equals(planNodeStats2.getPlanNodeId()), "planNodeIds do not match. %s != %s", planNodeStats1.getPlanNodeId(), planNodeStats2.getPlanNodeId());
+            checkArgument(left.getPlanNodeId().equals(right.getPlanNodeId()), "planNodeIds do not match. %s != %s", left.getPlanNodeId(), right.getPlanNodeId());
 
-            long planNodeInputPositions = planNodeStats1.planNodeInputPositions + planNodeStats2.planNodeInputPositions;
-            DataSize planNodeInputDataSize = succinctBytes(planNodeStats1.planNodeInputDataSize.toBytes() + planNodeStats2.planNodeInputDataSize.toBytes());
-            long planNodeOutputPositions = planNodeStats1.planNodeOutputPositions + planNodeStats2.planNodeOutputPositions;
-            DataSize planNodeOutputDataSize = succinctBytes(planNodeStats1.planNodeOutputDataSize.toBytes() + planNodeStats2.planNodeOutputDataSize.toBytes());
+            long planNodeInputPositions = left.planNodeInputPositions + right.planNodeInputPositions;
+            DataSize planNodeInputDataSize = succinctBytes(left.planNodeInputDataSize.toBytes() + right.planNodeInputDataSize.toBytes());
+            long planNodeOutputPositions = left.planNodeOutputPositions + right.planNodeOutputPositions;
+            DataSize planNodeOutputDataSize = succinctBytes(left.planNodeOutputDataSize.toBytes() + right.planNodeOutputDataSize.toBytes());
 
-            Map<String, OperatorInputStats> operatorInputStats = mergeOperatorInputStatsMaps(planNodeStats1.operatorInputStats, planNodeStats2.operatorInputStats);
-            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeOperatorHashCollisionsStatsMaps(planNodeStats1.operatorHashCollisionsStats, planNodeStats2.operatorHashCollisionsStats);
+            Map<String, OperatorInputStats> operatorInputStats = mergeOperatorInputStatsMaps(left.operatorInputStats, right.operatorInputStats);
+            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeOperatorHashCollisionsStatsMaps(left.operatorHashCollisionsStats, right.operatorHashCollisionsStats);
 
             return new PlanNodeStats(
-                    planNodeStats1.getPlanNodeId(),
-                    new Duration(planNodeStats1.getPlanNodeWallTime().toMillis() + planNodeStats2.getPlanNodeWallTime().toMillis(), MILLISECONDS),
+                    left.getPlanNodeId(),
+                    new Duration(left.getPlanNodeWallTime().toMillis() + right.getPlanNodeWallTime().toMillis(), MILLISECONDS),
                     planNodeInputPositions, planNodeInputDataSize,
                     planNodeOutputPositions, planNodeOutputDataSize,
                     operatorInputStats,
