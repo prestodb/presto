@@ -146,7 +146,7 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages(), metadata, operatorContext.getSession());
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get(), metadata, operatorContext.getSession());
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         VARCHAR.writeString(builder, plan);
 
