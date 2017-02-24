@@ -1447,6 +1447,14 @@ public class PlanPrinter
                                     operatorInputStats.get(entry.getKey()).getInputPositions())));
         }
 
+        private static double computedWeightedStdDev(double sumSquared, double sum, double totalWeight)
+        {
+            double average = sum / totalWeight;
+            double variance = (sumSquared - 2 * sum * average) / totalWeight + average * average;
+            // variance might be negative because of numeric inaccuracy, therefore we need to use max
+            return sqrt(max(variance, 0d));
+        }
+
         public Map<String, Double> getOperatorExpectedCollisionsAverages()
         {
             return operatorHashCollisionsStats.entrySet().stream()
@@ -1481,14 +1489,6 @@ public class PlanPrinter
     {
         double average = sum / n;
         double variance = (sumSquared - 2 * sum * average + average * average * n) / n;
-        // variance might be negative because of numeric inaccuracy, therefore we need to use max
-        return sqrt(max(variance, 0d));
-    }
-
-    private static double computedWeightedStdDev(double sumSquared, double sum, double totalWeight)
-    {
-        double average = sum / totalWeight;
-        double variance = (sumSquared - 2 * sum * average) / totalWeight + average * average;
         // variance might be negative because of numeric inaccuracy, therefore we need to use max
         return sqrt(max(variance, 0d));
     }
