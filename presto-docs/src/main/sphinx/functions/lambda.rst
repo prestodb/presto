@@ -43,6 +43,26 @@ Lambda Functions
         SELECT map_filter(MAP(ARRAY[10, 20, 30], ARRAY['a', NULL, 'c']), (k, v) -> v IS NOT NULL); -- {10 -> a, 30 -> c}
         SELECT map_filter(MAP(ARRAY['k1', 'k2', 'k3'], ARRAY[20, 3, 15]), (k, v) -> v > 10); -- {k1 -> 20, k3 -> 15}
 
+.. function:: reduce(array<T>, initialState S, inputFunction<S,T,S>, outputFunction<S,R>) -> R
+
+    Returns a single value reduced from ``array``. ``inputFunction`` will
+    be invoked for each element in ``array`` in order. In addition to taking
+    the element, ``inputFunction`` takes the current state, initially
+    ``initialState``, and returns the new state. ``outputFunction`` will be
+    invoked to turn the final state into the result value. It may be identity
+    function (``i -> i``). For example::
+
+        SELECT reduce(ARRAY [], 0, (s, x) -> s + x, s -> s); -- 0
+        SELECT reduce(ARRAY [5, 20, 50], 0, (s, x) -> s + x, s -> s); -- 75
+        SELECT reduce(ARRAY [5, 20, NULL, 50], 0, (s, x) -> s + x, s -> s); -- NULL
+        SELECT reduce(ARRAY [5, 20, NULL, 50], 0, (s, x) -> s + COALESCE(x, 0), s -> s); -- 75
+        SELECT reduce(ARRAY [5, 20, NULL, 50], 0, (s, x) -> IF(x IS NULL, s, s + x), s -> s); -- 75
+        SELECT reduce(ARRAY [2147483647, 1], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s); -- 2147483648
+        SELECT reduce(ARRAY [5, 6, 10, 20], -- calculates arithmetic average: 10.25
+                      CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)),
+                      (s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)),
+                      s -> IF(s.count = 0, NULL, s.sum / s.count));
+
 .. function:: transform(array<T>, function<T,U>) -> ARRAY<U>
 
     Returns an array that applies ``function`` to each element of ``array``::
@@ -74,26 +94,6 @@ Lambda Functions
         SELECT transform_values(MAP(ARRAY ['a', 'b'], ARRAY [1, 2]), (k, v) -> k || CAST(v as VARCHAR)); -- {a -> a1, b -> b2}
         SELECT transform_values(MAP(ARRAY [1, 2], ARRAY [1.0, 1.4]), -- {1 -> one_1.0, 2 -> two_1.4}
                                 (k, v) -> MAP(ARRAY[1, 2], ARRAY['one', 'two'])[k] || '_' || CAST(v AS VARCHAR));
-
-.. function:: reduce(array<T>, initialState S, inputFunction<S,T,S>, outputFunction<S,R>) -> R
-
-    Returns a single value reduced from ``array``. ``inputFunction`` will
-    be invoked for each element in ``array`` in order. In addition to taking
-    the element, ``inputFunction`` takes the current state, initially
-    ``initialState``, and returns the new state. ``outputFunction`` will be
-    invoked to turn the final state into the result value. It may be identity
-    function (``i -> i``). For example::
-
-        SELECT reduce(ARRAY [], 0, (s, x) -> s + x, s -> s); -- 0
-        SELECT reduce(ARRAY [5, 20, 50], 0, (s, x) -> s + x, s -> s); -- 75
-        SELECT reduce(ARRAY [5, 20, NULL, 50], 0, (s, x) -> s + x, s -> s); -- NULL
-        SELECT reduce(ARRAY [5, 20, NULL, 50], 0, (s, x) -> s + COALESCE(x, 0), s -> s); -- 75
-        SELECT reduce(ARRAY [5, 20, NULL, 50], 0, (s, x) -> IF(x IS NULL, s, s + x), s -> s); -- 75
-        SELECT reduce(ARRAY [2147483647, 1], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s); -- 2147483648
-        SELECT reduce(ARRAY [5, 6, 10, 20], -- calculates arithmetic average: 10.25
-                      CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)),
-                      (s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)),
-                      s -> IF(s.count = 0, NULL, s.sum / s.count));
 
 .. function:: zip_with(array<T>, array<U>, function<T,U,R>) -> array<R>
 
