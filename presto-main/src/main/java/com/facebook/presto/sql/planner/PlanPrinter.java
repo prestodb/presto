@@ -202,19 +202,24 @@ public class PlanPrinter
                 .flatMap(stage -> getAllStages(Optional.of(stage)).stream())
                 .collect(toImmutableList());
         for (StageInfo stageInfo : allStages) {
-            Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
-            List<PlanNodeStats> planNodeStats = stageInfo.getTasks().stream()
-                    .map(TaskInfo::getStats)
-                    .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
-                    .collect(toList());
-            for (PlanNodeStats stats : planNodeStats) {
-                aggregatedStats.merge(stats.getPlanNodeId(), stats, PlanNodeStats::merge);
-            }
-
+            Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregatePlanNodeStats(stageInfo);
             builder.append(formatFragment(metadata, session, stageInfo.getPlan(), Optional.of(stageInfo.getStageStats()), Optional.of(aggregatedStats)));
         }
 
         return builder.toString();
+    }
+
+    private static Map<PlanNodeId, PlanNodeStats> aggregatePlanNodeStats(StageInfo stageInfo)
+    {
+        Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
+        List<PlanNodeStats> planNodeStats = stageInfo.getTasks().stream()
+                .map(TaskInfo::getStats)
+                .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
+                .collect(toList());
+        for (PlanNodeStats stats : planNodeStats) {
+            aggregatedStats.merge(stats.getPlanNodeId(), stats, PlanNodeStats::merge);
+        }
+        return aggregatedStats;
     }
 
     private static List<PlanNodeStats> getPlanNodeStats(TaskStats taskStats)
