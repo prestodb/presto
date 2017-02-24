@@ -98,6 +98,7 @@ import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -2192,6 +2193,18 @@ public class TestSqlParser
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "admin")))),
                         Optional.of("catalog")));
+    }
+
+    @Test
+    public void testSetRole()
+            throws Exception
+    {
+        assertStatement("SET ROLE ALL", new SetRole(SetRole.Type.ALL, Optional.empty(), Optional.empty()));
+        assertStatement("SET ROLE NONE", new SetRole(SetRole.Type.NONE, Optional.empty(), Optional.empty()));
+        assertStatement("SET ROLE role", new SetRole(SetRole.Type.ROLE, Optional.of("role"), Optional.empty()));
+        assertStatement("SET ROLE ALL IN catalog", new SetRole(SetRole.Type.ALL, Optional.empty(), Optional.of("catalog")));
+        assertStatement("SET ROLE NONE IN catalog", new SetRole(SetRole.Type.NONE, Optional.empty(), Optional.of("catalog")));
+        assertStatement("SET ROLE role IN catalog", new SetRole(SetRole.Type.ROLE, Optional.of("role"), Optional.of("catalog")));
     }
 
     private static void assertCast(String type)
