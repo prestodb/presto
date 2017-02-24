@@ -203,30 +203,32 @@ public class ExchangeClient
     {
         checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
 
+        if (page == null) {
+            return null;
+        }
+
         if (page == NO_MORE_PAGES) {
             // mark client closed
-            closed.set(true);
+            close();
 
             // add end marker back to queue
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
             notifyBlockedCallers();
 
             // don't return end of stream marker
-            page = null;
+            return null;
         }
 
-        if (page != null) {
-            synchronized (this) {
-                if (!closed.get()) {
-                    bufferBytes -= page.getRetainedSizeInBytes();
-                    systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
+        synchronized (this) {
+            if (!closed.get()) {
+                bufferBytes -= page.getRetainedSizeInBytes();
+                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
+                if (pageBuffer.peek() == NO_MORE_PAGES) {
+                    close();
                 }
             }
-            if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
-                closed.set(true);
-            }
-            scheduleRequestIfNecessary();
         }
+        scheduleRequestIfNecessary();
         return page;
     }
 
@@ -272,8 +274,8 @@ public class ExchangeClient
             if (pageBuffer.peekLast() != NO_MORE_PAGES) {
                 checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
             }
-            if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
-                closed.set(true);
+            if (pageBuffer.peek() == NO_MORE_PAGES) {
+                close();
             }
             notifyBlockedCallers();
             return;
