@@ -1514,43 +1514,6 @@ public class PlanPrinter
                         merger::apply));
     }
 
-    private static class OperatorInputStats
-    {
-        private final long totalDrivers;
-        private final long inputPositions;
-        private final double sumSquaredInputPositions;
-
-        public OperatorInputStats(long totalDrivers, long inputPositions, double sumSquaredInputPositions)
-        {
-            this.totalDrivers = totalDrivers;
-            this.inputPositions = inputPositions;
-            this.sumSquaredInputPositions = sumSquaredInputPositions;
-        }
-
-        public long getTotalDrivers()
-        {
-            return totalDrivers;
-        }
-
-        public long getInputPositions()
-        {
-            return inputPositions;
-        }
-
-        public double getSumSquaredInputPositions()
-        {
-            return sumSquaredInputPositions;
-        }
-
-        public static OperatorInputStats merge(OperatorInputStats first, OperatorInputStats second)
-        {
-            return new OperatorInputStats(
-                    first.totalDrivers + second.totalDrivers,
-                    first.inputPositions + second.inputPositions,
-                    first.sumSquaredInputPositions + second.sumSquaredInputPositions);
-        }
-    }
-
     private static class OperatorHashCollisionsStats
     {
         private final double weightedHashCollisions;
