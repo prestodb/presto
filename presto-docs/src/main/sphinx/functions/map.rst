@@ -46,15 +46,15 @@ Map Functions
 
     See :func:`map_filter`.
 
-.. function:: transform_key(map<K1,V>, function) -> MAP<K2,V>
+.. function:: transform_keys(map<K1,V>, function) -> MAP<K2,V>
     :noindex:
 
-    See :func:`transform_key`.
+    See :func:`transform_keys`.
 
-.. function:: transform_value(map<K,V1>, function) -> MAP<K,V2>
+.. function:: transform_values(map<K,V1>, function) -> MAP<K,V2>
     :noindex:
 
-    See :func:`transform_value`.
+    See :func:`transform_values`.
 
 .. function:: map_keys(x<K,V>) -> array<K>
 

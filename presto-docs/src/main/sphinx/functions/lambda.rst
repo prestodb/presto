@@ -53,27 +53,27 @@ Lambda Functions
         SELECT transform(ARRAY ['x', 'abc', 'z'], x -> x || '0'); -- ['x0', 'abc0', 'z0']
         SELECT transform(ARRAY [ARRAY [1, NULL, 2], ARRAY[3, NULL]], a -> filter(a, x -> x IS NOT NULL)); -- [[1, 2], [3]]
 
-.. function:: transform_key(map<K1,V>, function<K1,V,K2>) -> MAP<K2,V>
+.. function:: transform_keys(map<K1,V>, function<K1,V,K2>) -> MAP<K2,V>
 
     Returns a map that applies ``function`` to each entry of ``map`` and transforms the keys::
 
-        SELECT transform_key(MAP(ARRAY[], ARRAY[]), (k, v) -> k + 1); -- {}
-        SELECT transform_key(MAP(ARRAY [1, 2, 3], ARRAY ['a', 'b', 'c']), (k, v) -> k + 1); -- {2 -> a, 3 -> b, 4 -> c}
-        SELECT transform_key(MAP(ARRAY ['a', 'b', 'c'], ARRAY [1, 2, 3]), (k, v) -> v * v); -- {1 -> 1, 4 -> 2, 9 -> 3}
-        SELECT transform_key(MAP(ARRAY ['a', 'b'], ARRAY [1, 2]), (k, v) -> k || CAST(v as VARCHAR)); -- {a1 -> 1, b2 -> 2}
-        SELECT transform_key(MAP(ARRAY [1, 2], ARRAY [1.0, 1.4]), -- {one -> 1.0, two -> 1.4}
-                             (k, v) -> MAP(ARRAY[1, 2], ARRAY['one', 'two'])[k]);
+        SELECT transform_keys(MAP(ARRAY[], ARRAY[]), (k, v) -> k + 1); -- {}
+        SELECT transform_keys(MAP(ARRAY [1, 2, 3], ARRAY ['a', 'b', 'c']), (k, v) -> k + 1); -- {2 -> a, 3 -> b, 4 -> c}
+        SELECT transform_keys(MAP(ARRAY ['a', 'b', 'c'], ARRAY [1, 2, 3]), (k, v) -> v * v); -- {1 -> 1, 4 -> 2, 9 -> 3}
+        SELECT transform_keys(MAP(ARRAY ['a', 'b'], ARRAY [1, 2]), (k, v) -> k || CAST(v as VARCHAR)); -- {a1 -> 1, b2 -> 2}
+        SELECT transform_keys(MAP(ARRAY [1, 2], ARRAY [1.0, 1.4]), -- {one -> 1.0, two -> 1.4}
+                              (k, v) -> MAP(ARRAY[1, 2], ARRAY['one', 'two'])[k]);
 
-.. function:: transform_value(map<K, V1>, function<K,V1,V2>) -> MAP<K, V2>
+.. function:: transform_values(map<K, V1>, function<K,V1,V2>) -> MAP<K, V2>
 
     Returns a map that applies ``function`` to each entry of ``map`` and transforms the values::
 
-        SELECT transform_value(MAP(ARRAY[], ARRAY[]), (k, v) -> v + 1); -- {}
-        SELECT transform_value(MAP(ARRAY [1, 2, 3], ARRAY [10, 20, 30]), (k, v) -> v + 1); -- {1 -> 11, 2 -> 22, 3 -> 33}
-        SELECT transform_value(MAP(ARRAY [1, 2, 3], ARRAY ['a', 'b', 'c']), (k, v) -> k * k); -- {1 -> 1, 2 -> 4, 3 -> 9}
-        SELECT transform_value(MAP(ARRAY ['a', 'b'], ARRAY [1, 2]), (k, v) -> k || CAST(v as VARCHAR)); -- {a -> a1, b -> b2}
-        SELECT transform_value(MAP(ARRAY [1, 2], ARRAY [1.0, 1.4]), -- {1 -> one_1.0, 2 -> two_1.4}
-                               (k, v) -> MAP(ARRAY[1, 2], ARRAY['one', 'two'])[k] || '_' || CAST(v AS VARCHAR));
+        SELECT transform_values(MAP(ARRAY[], ARRAY[]), (k, v) -> v + 1); -- {}
+        SELECT transform_values(MAP(ARRAY [1, 2, 3], ARRAY [10, 20, 30]), (k, v) -> v + 1); -- {1 -> 11, 2 -> 22, 3 -> 33}
+        SELECT transform_values(MAP(ARRAY [1, 2, 3], ARRAY ['a', 'b', 'c']), (k, v) -> k * k); -- {1 -> 1, 2 -> 4, 3 -> 9}
+        SELECT transform_values(MAP(ARRAY ['a', 'b'], ARRAY [1, 2]), (k, v) -> k || CAST(v as VARCHAR)); -- {a -> a1, b -> b2}
+        SELECT transform_values(MAP(ARRAY [1, 2], ARRAY [1.0, 1.4]), -- {1 -> one_1.0, 2 -> two_1.4}
+                                (k, v) -> MAP(ARRAY[1, 2], ARRAY['one', 'two'])[k] || '_' || CAST(v AS VARCHAR));
 
 .. function:: reduce(array<T>, initialState S, inputFunction<S,T,S>, outputFunction<S,R>) -> R
 

@@ -53,7 +53,7 @@ public final class MapTransformValueFunction
     private MapTransformValueFunction()
     {
         super(new Signature(
-                "transform_value",
+                "transform_values",
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2")),
                 ImmutableList.of(),

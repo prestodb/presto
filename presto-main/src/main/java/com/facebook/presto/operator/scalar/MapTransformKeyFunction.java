@@ -59,7 +59,7 @@ public final class MapTransformKeyFunction
     private MapTransformKeyFunction()
     {
         super(new Signature(
-                "transform_key",
+                "transform_keys",
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K1"), typeVariable("K2"), typeVariable("V")),
                 ImmutableList.of(),
