@@ -398,6 +398,12 @@ public class DummyMetadata
     }
 
     @Override
+    public Set<String> listEnabledRoles(Session session, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
     {
         throw new UnsupportedOperationException();

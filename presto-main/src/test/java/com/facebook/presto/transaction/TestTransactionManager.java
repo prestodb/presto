@@ -216,7 +216,7 @@ public class TestTransactionManager
                 connectorId,
                 connector,
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, new AllowAllAccessControl()),
+                new InformationSchemaConnector(catalogName, nodeManager, metadata, new AllowAllAccessControl(), transactionManager),
                 systemId,
                 new SystemConnector(
                         systemId,
