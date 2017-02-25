@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
+import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -47,6 +49,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
@@ -129,6 +132,9 @@ public class HivePageSourceProvider
         List<ColumnMapping> regularColumnMappings = ColumnMapping.extractRegularColumnMappings(columnMappings);
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
+            // only Parquet support flexible non-primitive converter in its cursor
+            boolean doCoercionOnNonPrimitive = !(pageSourceFactory instanceof ParquetPageSourceFactory);
+
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,
@@ -136,7 +142,7 @@ public class HivePageSourceProvider
                     start,
                     length,
                     schema,
-                    extractRegularColumnHandles(regularColumnMappings, true),
+                    extractRegularColumnHandles(regularColumnMappings, true, doCoercionOnNonPrimitive),
                     effectivePredicate,
                     hiveStorageTimeZone
             );
@@ -153,6 +159,8 @@ public class HivePageSourceProvider
         for (HiveRecordCursorProvider provider : cursorProviders) {
             // GenericHiveRecordCursor will automatically do the coercion without HiveCoercionRecordCursor
             boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
+            // only Parquet support non-primitive coercion without HiveCoercionRecordCursor
+            boolean doCoercionOnNonPrimitive = !(provider instanceof ParquetRecordCursorProvider);
 
             Optional<RecordCursor> cursor = provider.createRecordCursor(
                     clientId,
@@ -162,7 +170,7 @@ public class HivePageSourceProvider
                     start,
                     length,
                     schema,
-                    extractRegularColumnHandles(regularColumnMappings, doCoercion),
+                    extractRegularColumnHandles(regularColumnMappings, doCoercion, doCoercionOnNonPrimitive),
                     effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager);
@@ -241,6 +249,12 @@ public class HivePageSourceProvider
             return coercionFrom;
         }
 
+        public boolean isFromPrimitiveType()
+        {
+            checkState(coercionFrom.isPresent(), "coercionFrom is not present");
+            return coercionFrom.get().getCategory() == PRIMITIVE;
+        }
+
         private static boolean isPrefilled(HiveColumnHandle hiveColumnHandle)
         {
             return hiveColumnHandle.getColumnType() != REGULAR;
@@ -286,12 +300,15 @@ public class HivePageSourceProvider
                     .collect(toList());
         }
 
-        public static List<HiveColumnHandle> extractRegularColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion)
+        public static List<HiveColumnHandle> extractRegularColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion, boolean doCoercionOnNonPrimitive)
         {
             return regularColumnMappings.stream()
                     .map(columnMapping -> {
                         HiveColumnHandle columnHandle = columnMapping.getHiveColumnHandle();
                         if (!doCoercion || !columnMapping.getCoercionFrom().isPresent()) {
+                            return columnHandle;
+                        }
+                        if (!columnMapping.isFromPrimitiveType() && !doCoercionOnNonPrimitive) {
                             return columnHandle;
                         }
                         return new HiveColumnHandle(columnHandle.getClientId(),

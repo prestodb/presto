@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
+import com.facebook.presto.hive.parquet.ParquetHiveRecordCursor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
@@ -64,6 +65,10 @@ public class HiveCoercionRecordCursor
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
 
             if (columnMapping.getCoercionFrom().isPresent()) {
+                // skip non-primitive coercion for Parquet
+                if (delegate instanceof ParquetHiveRecordCursor && !columnMapping.isFromPrimitiveType()) {
+                    continue;
+                }
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
         }

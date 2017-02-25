@@ -26,6 +26,9 @@ import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.LIST;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.MAP;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.STRUCT;
 
 public class HiveCoercionPolicy
         implements CoercionPolicy
@@ -41,6 +44,10 @@ public class HiveCoercionPolicy
     @Override
     public boolean canCoerce(HiveType fromHiveType, HiveType toHiveType)
     {
+        if (fromHiveType.getCategory() == MAP || fromHiveType.getCategory() == LIST || fromHiveType.getCategory() == STRUCT) {
+            return fromHiveType.getCategory().equals(toHiveType.getCategory());
+        }
+
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
         Type toType = typeManager.getType(toHiveType.getTypeSignature());
         if (fromType instanceof VarcharType) {
