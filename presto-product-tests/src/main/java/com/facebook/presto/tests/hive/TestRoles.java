@@ -455,6 +455,66 @@ public class TestRoles
                 .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
     }
 
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testSetRole()
+            throws Exception
+    {
+        onPresto().executeQuery("CREATE ROLE role1");
+        onPresto().executeQuery("CREATE ROLE role2");
+        onPresto().executeQuery("CREATE ROLE role3");
+        onPresto().executeQuery("GRANT role1 TO USER alice");
+        onPresto().executeQuery("GRANT role2 TO ROLE role1");
+        onPresto().executeQuery("GRANT role3 TO ROLE role2");
+
+        onPrestoAlice().executeQuery("SET ROLE ALL");
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
+                .containsOnly(
+                        row("public"),
+                        row("role1"),
+                        row("role2"),
+                        row("role3"));
+
+        onPrestoAlice().executeQuery("SET ROLE NONE");
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
+                .containsOnly(
+                        row("public"));
+
+        onPrestoAlice().executeQuery("SET ROLE role1");
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
+                .containsOnly(
+                        row("public"),
+                        row("role1"),
+                        row("role2"),
+                        row("role3"));
+
+        onPrestoAlice().executeQuery("SET ROLE role2");
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
+                .containsOnly(
+                        row("public"),
+                        row("role2"),
+                        row("role3"));
+
+        onPrestoAlice().executeQuery("SET ROLE role3");
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
+                .containsOnly(
+                        row("public"),
+                        row("role3"));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testSetAdminRole()
+            throws Exception
+    {
+        QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
+                .containsOnly(
+                        row("public"));
+        onPresto().executeQuery("SET ROLE admin");
+        QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
+                .containsOnly(
+                        row("public"),
+                        row("admin"));
+    }
+
     private static QueryExecutor onPrestoAlice()
     {
         return connectToPresto("alice@presto");
