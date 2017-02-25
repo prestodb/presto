@@ -67,6 +67,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
@@ -333,6 +334,15 @@ public class SqlStandardAccessControl
         }
         if (!hasAdminOptionForRoles(transactionHandle, identity, roles)) {
             denyRevokeRoles(roles, grantees);
+        }
+    }
+
+    @Override
+    public void checkCanSetRole(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String role, String catalogName)
+    {
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
+        if (!listApplicableRoles(metastore, new PrestoPrincipal(USER, identity.getUser())).contains(role)) {
+            denySetRole(role);
         }
     }
 

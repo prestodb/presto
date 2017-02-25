@@ -1307,6 +1307,12 @@ public class HiveMetadata
     }
 
     @Override
+    public Set<String> listEnabledRoles(ConnectorSession session)
+    {
+        return MetastoreUtil.listEnabledRoles(session.getIdentity(), metastore::listRoleGrants);
+    }
+
+    @Override
     public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, String grantee, boolean grantOption)
     {
         String schemaName = schemaTableName.getSchemaName();
