@@ -361,7 +361,7 @@ public class TestHiveRoles
         executeFromAdmin("CREATE ROLE grant_revoke_role_existing_1");
         assertQueryFails(createAdminSession(), "REVOKE grant_revoke_role_existing_1 FROM ROLE grant_revoke_role_existing_2", ".*?Role 'grant_revoke_role_existing_2' does not exist");
     }
-    
+
     private Set<String> listRoles()
     {
         return executeFromAdmin("SELECT * FROM hive.information_schema.roles")

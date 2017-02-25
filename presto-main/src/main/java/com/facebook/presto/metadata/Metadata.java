@@ -311,6 +311,11 @@ public interface Metadata
     Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog);
 
     /**
+     * List applicable roles, including the transitive grants, in given session
+     */
+    Set<String> listEnabledRoles(Session session, String catalog);
+
+    /**
      * Grants the specified privilege to the specified user on the specified table
      */
     void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption);

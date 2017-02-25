@@ -428,6 +428,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * List applicable roles, including the transitive grants, in given session
+     */
+    default Set<String> listEnabledRoles(ConnectorSession session)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+    }
+
+    /**
      * Grants the specified privilege to the specified user on the specified table
      */
     default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
