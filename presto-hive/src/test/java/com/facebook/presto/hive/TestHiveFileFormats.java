@@ -23,7 +23,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
@@ -32,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
@@ -44,6 +47,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
+import org.apache.hadoop.hive.serde2.objectinspector.StandardStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
@@ -98,6 +102,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@SuppressWarnings({"deprecation", "unused"})
 public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
 {
@@ -402,54 +407,247 @@ public class TestHiveFileFormats
                 .collect(toList());
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testParquetThrift(int rowCount)
+    @Test
+    public void testParquetExtraStructFields1()
             throws Exception
     {
-        RowType nameType = new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty());
-        RowType phoneType = new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty());
+        List<Type> nameTypes = ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType());
+        RowType nameType = new RowType(nameTypes, Optional.empty());
+        Block expectedNameBlock = rowBlockOf(nameTypes, "Bob", "Roberts", null);
+        StandardStructObjectInspector nameObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("first_name", "last_name", "suffix"),
+                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector, javaStringObjectInspector)
+              );
+
+        StandardStructObjectInspector phoneObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("number", "type", "fake_name_struct"),
+                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector, nameObjectInspector)
+              );
+        Block expectedPhoneBlock = rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType(), nameType), "1234567890", null, null);
+
+        testParquetReadAndVerify(nameType,
+                new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType(), nameType), Optional.empty()),
+                nameObjectInspector,
+                phoneObjectInspector,
+                expectedNameBlock,
+                expectedPhoneBlock,
+                true);
+    }
+
+    @Test
+    public void testParquetExtraStructFields2()
+            throws Exception
+    {
+        List<Type> nameTypes = ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType());
+        RowType nameType = new RowType(nameTypes, Optional.empty());
+        Block expectedNameBlock = rowBlockOf(nameTypes, "Bob", null, "Roberts", null);
+        StandardStructObjectInspector nameObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("first_name", "middle", "last_name", "suffix"),
+                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector, javaStringObjectInspector, javaStringObjectInspector)
+              );
+
+        StandardStructObjectInspector phoneObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("fake_name_struct", "number", "type"),
+                ImmutableList.of(nameObjectInspector, javaStringObjectInspector, javaStringObjectInspector)
+              );
+        Block expectedPhoneBlock = rowBlockOf(ImmutableList.of(nameType, createUnboundedVarcharType(), createUnboundedVarcharType()), null, "1234567890", null);
+
+        testParquetReadAndVerify(nameType,
+                new RowType(ImmutableList.of(nameType, createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty()),
+                nameObjectInspector,
+                phoneObjectInspector,
+                expectedNameBlock,
+                expectedPhoneBlock,
+                true);
+    }
+
+    @Test
+    public void testParquetRemovedStructFields1()
+            throws Exception
+    {
+        List<Type> nameTypes = ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType());
+        RowType nameType = new RowType(nameTypes, Optional.empty());
+        Block expectedNameBlock = rowBlockOf(nameTypes, "Bob", null);
+        StandardStructObjectInspector nameObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("first_name", "middle"),
+                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+              );
+
+        StandardStructObjectInspector phoneObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("number"),
+                ImmutableList.of(javaStringObjectInspector)
+              );
+        Block expectedPhoneBlock = rowBlockOf(ImmutableList.of(createUnboundedVarcharType()), "1234567890");
+
+        testParquetReadAndVerify(nameType,
+                new RowType(ImmutableList.of(createUnboundedVarcharType()), Optional.empty()),
+                nameObjectInspector,
+                phoneObjectInspector,
+                expectedNameBlock,
+                expectedPhoneBlock,
+                true);
+    }
+
+    @Test
+    public void testParquetRemovedStructFields2()
+            throws Exception
+    {
+        List<Type> nameTypes = ImmutableList.of(createUnboundedVarcharType());
+        RowType nameType = new RowType(nameTypes, Optional.empty());
+        Block expectedNameBlock = rowBlockOf(nameTypes, "Roberts");
+        StandardStructObjectInspector nameObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("last_name"),
+                ImmutableList.of(javaStringObjectInspector)
+              );
+
+        StandardStructObjectInspector phoneObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("fake_name_struct", "number"),
+                ImmutableList.of(nameObjectInspector, javaStringObjectInspector)
+              );
+        Block expectedPhoneBlock = rowBlockOf(ImmutableList.of(nameType, createUnboundedVarcharType()), null, "1234567890");
+
+        testParquetReadAndVerify(nameType,
+                new RowType(ImmutableList.of(nameType, createUnboundedVarcharType()), Optional.empty()),
+                nameObjectInspector,
+                phoneObjectInspector,
+                expectedNameBlock,
+                expectedPhoneBlock,
+                true);
+    }
+
+    @Test
+    public void testParquetStructFieldOrderChanged()
+            throws Exception
+    {
+        List<Type> nameTypes = ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType());
+        RowType nameType = new RowType(nameTypes, Optional.empty());
+        Block expectedNameBlock = rowBlockOf(nameTypes, "Roberts", "Bob");
+        StandardStructObjectInspector nameObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("last_name", "first_name"),
+                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+              );
+
+        StandardStructObjectInspector phoneObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("type", "number"),
+                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+              );
+        Block expectedPhoneBlock = rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), null, "1234567890");
+
+        testParquetReadAndVerify(nameType,
+                new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty()),
+                nameObjectInspector,
+                phoneObjectInspector,
+                expectedNameBlock,
+                expectedPhoneBlock,
+                true);
+    }
+
+    @Test
+    public void testParquetStructFieldOrderChangedWithExtraFields()
+            throws Exception
+    {
+        List<Type> nameTypes = ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType());
+        RowType nameType = new RowType(nameTypes, Optional.empty());
+        Block expectedNameBlock = rowBlockOf(nameTypes, null, "Roberts", null, "Bob");
+        StandardStructObjectInspector nameObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("middle", "last_name", "suffix", "first_name"),
+                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector, javaStringObjectInspector, javaStringObjectInspector)
+              );
+
+        StandardStructObjectInspector phoneObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("type", "fake_name_struct", "number"),
+                ImmutableList.of(javaStringObjectInspector, nameObjectInspector, javaStringObjectInspector)
+              );
+        Block expectedPhoneBlock = rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), nameType, createUnboundedVarcharType()), null, null, "1234567890");
+
+        testParquetReadAndVerify(nameType,
+                new RowType(ImmutableList.of(createUnboundedVarcharType(), nameType, createUnboundedVarcharType()), Optional.empty()),
+                nameObjectInspector,
+                phoneObjectInspector,
+                expectedNameBlock,
+                expectedPhoneBlock,
+                true);
+    }
+
+    @Test
+    public void testParquetThriftUseNames()
+            throws Exception
+    {
+        testParquetThrift(true);
+    }
+
+    @Test
+    public void testParquetThriftUseIndexes()
+            throws Exception
+    {
+        testParquetThrift(false);
+    }
+
+    private void testParquetThrift(boolean useParquetColumnNames)
+            throws Exception
+    {
+        List<Type> nameTypes = ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType());
+        Block expectedNameBlock = rowBlockOf(nameTypes, "Bob", "Roberts");
+        StandardStructObjectInspector nameObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("first_name", "last_name"),
+                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+              );
+
+        StandardStructObjectInspector phoneObjectInspector = getStandardStructObjectInspector(
+                ImmutableList.of("number", "type"),
+                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+              );
+        Block expectedPhoneBlock = rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "1234567890", null);
+
+        testParquetReadAndVerify(new RowType(nameTypes, Optional.empty()),
+                new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty()),
+                nameObjectInspector,
+                phoneObjectInspector,
+                expectedNameBlock,
+                expectedPhoneBlock,
+                useParquetColumnNames);
+    }
+
+    private void testParquetReadAndVerify(RowType nameType,
+            RowType phoneType,
+            StandardStructObjectInspector nameObjectInspector,
+            StandardStructObjectInspector phoneObjectInspector,
+            Block expectedNameBlock,
+            Block expectedPhoneBlock,
+            boolean useParquetColumnNames)
+            throws Exception
+    {
         RowType personType = new RowType(ImmutableList.of(nameType, INTEGER, createUnboundedVarcharType(), new ArrayType(phoneType)), Optional.empty());
 
-        List<TestColumn> testColumns = ImmutableList.of(
+        List<TestColumn> testColumns = ImmutableList.<TestColumn>of(
                 new TestColumn(
                         "persons",
                         getStandardListObjectInspector(
                                 getStandardStructObjectInspector(
                                         ImmutableList.of("name", "id", "email", "phones"),
-                                        ImmutableList.of(
-                                                getStandardStructObjectInspector(
-                                                        ImmutableList.of("first_name", "last_name"),
-                                                        ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
-                                                ),
+                                        ImmutableList.<ObjectInspector>of(
+                                                nameObjectInspector,
                                                 javaIntObjectInspector,
                                                 javaStringObjectInspector,
-                                                getStandardListObjectInspector(
-                                                        getStandardStructObjectInspector(
-                                                                ImmutableList.of("number", "type"),
-                                                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
-                                                        )
-                                                )
+                                                getStandardListObjectInspector(phoneObjectInspector))
                                         )
-                                )
-                        ),
+                                ),
                         null,
                         arrayBlockOf(personType,
                                 rowBlockOf(ImmutableList.of(nameType, INTEGER, createUnboundedVarcharType(), new ArrayType(phoneType)),
-                                        rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "Bob", "Roberts"),
+                                        expectedNameBlock,
                                         0,
                                         "bob.roberts@example.com",
-                                        arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "1234567890", null))
+                                        arrayBlockOf(phoneType, expectedPhoneBlock))
                                 )
                         )
-                )
         );
 
         InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
-        @SuppressWarnings("deprecation")
         SerDe serde = new ParquetHiveSerDe();
         File file = new File(this.getClass().getClassLoader().getResource("addressbook.parquet").getPath());
         FileSplit split = new FileSplit(new Path(file.getAbsolutePath()), 0, file.length(), new String[0]);
-        HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT);
+        HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(useParquetColumnNames, HDFS_ENVIRONMENT);
         testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns, 1);
     }
 
@@ -584,7 +782,7 @@ public class TestHiveFileFormats
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
             FileSplit split,
             InputFormat<?, ?> inputFormat,
-            @SuppressWarnings("deprecation") SerDe serde,
+            SerDe serde,
             List<TestColumn> testColumns,
             int rowCount)
             throws IOException
