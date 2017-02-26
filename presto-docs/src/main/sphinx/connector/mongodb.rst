@@ -46,6 +46,7 @@ Property Name                         Description
 ``mongodb.connection-timeout``        The socket connect timeout
 ``mongodb.socket-timeout``            The socket timeout
 ``mongodb.socket-keep-alive``         Whether keep-alive is enabled on each socket
+``mongodb.ssl.enabled``               Use HTTPS to communicate with the mongod servers (defaults to ``false``)
 ``mongodb.read-preference``           The read preference
 ``mongodb.write-concern``             The write concern
 ``mongodb.required-replica-set``      The required replica set name
@@ -115,6 +116,13 @@ This property is optional; the default is ``0`` and means no timeout.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This flag controls the socket keep alive feature that keeps a connection alive through firewalls.
+
+This property is optional; the default is ``false``.
+
+``mongodb.ssl.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This flag controls enabling ssl feature that uses HTTPS connection with the mongod servers.
 
 This property is optional; the default is ``false``.
 
