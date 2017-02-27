@@ -241,6 +241,7 @@ public class Driver
         }
     }
 
+    @GuardedBy("exclusiveLock")
     private void processNewSource(TaskSource source)
     {
         checkLockHeld("Lock must be held to call processNewSources");
@@ -272,9 +273,7 @@ public class Driver
                 Split split = newSplit.getSplit();
 
                 Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.get().addSplit(split);
-                if (deleteOperator.isPresent()) {
-                    deleteOperator.get().setPageSource(pageSource);
-                }
+                deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
             }
 
             // set no more splits
@@ -510,7 +509,8 @@ public class Driver
 
         if (inFlightException != null) {
             // this will always be an Error or Runtime
-            throw Throwables.propagate(inFlightException);
+            Throwables.throwIfUnchecked(inFlightException);
+            throw new RuntimeException(inFlightException);
         }
     }
 
