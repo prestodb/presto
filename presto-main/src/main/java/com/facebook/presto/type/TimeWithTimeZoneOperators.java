@@ -39,6 +39,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -139,6 +140,14 @@ public final class TimeWithTimeZoneOperators
     public static Slice castToSlice(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
         return utf8Slice(printTimeWithTimeZone(value));
+    }
+
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
+    public static long castFromSlice(@SqlType("varchar(x)") Slice value)
+    {
+        return parseTimeWithTimeZone(value.toStringUtf8());
     }
 
     @ScalarOperator(HASH_CODE)
