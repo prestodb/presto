@@ -22,27 +22,34 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
-public class TestDateTimeFunctions extends TestDateTimeFunctionsBase
+public class TestDateTimeFunctionsLegacy
+        extends TestDateTimeFunctionsBase
 {
     @Test
-    public TestDateTimeFunctions()
+    public TestDateTimeFunctionsLegacy()
     {
         super(
                 testSessionBuilder()
                         .setTimeZoneKey(TIME_ZONE_KEY)
-                        .setSystemProperty("legacy_timestamp", "false")
+                        .setSystemProperty("legacy_timestamp", "true")
                         .build()
         );
     }
 
     @Test
-    public void testFormatDateCannotImplicitlyAddTimeZoneToTimestampLiteral()
+    public void toIso8601ExistsForTimestamp()
     {
-        assertInvalidFunction(
-                "format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')",
-                "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
+        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING);
+    }
+
+    @Test
+    public void testFormatDateCanImplicitlyAddTimeZoneToTimestampLiteral()
+    {
+        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 Asia/Kathmandu");
     }
 
     @Test
@@ -50,12 +57,12 @@ public class TestDateTimeFunctions extends TestDateTimeFunctionsBase
             throws Exception
     {
         Session localSession = testSessionBuilder()
-                .setSystemProperty("legacy_timestamp", "false")
+                .setSystemProperty("legacy_timestamp", "true")
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
                 .build();
         FunctionAssertions localAssertion = new FunctionAssertions(localSession);
-        localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "15:45:00.000");
+        localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "15:30:00.000");
     }
 
     @Test
@@ -63,19 +70,19 @@ public class TestDateTimeFunctions extends TestDateTimeFunctionsBase
             throws Exception
     {
         Session localSession = testSessionBuilder()
-                .setSystemProperty("legacy_timestamp", "false")
+                .setSystemProperty("legacy_timestamp", "true")
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
                 .build();
         FunctionAssertions localAssertion = new FunctionAssertions(localSession);
-        localAssertion.assertFunctionString("CURRENT_TIME", TIME_WITH_TIME_ZONE, "15:45:00.000 Asia/Kathmandu");
+        localAssertion.assertFunctionString("CURRENT_TIME", TIME_WITH_TIME_ZONE, "15:30:00.000 Asia/Kathmandu");
     }
 
     @Test
     public void testLocalTimestamp()
     {
         Session localSession = testSessionBuilder()
-                .setSystemProperty("legacy_timestamp", "false")
+                .setSystemProperty("legacy_timestamp", "true")
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
                 .build();
@@ -87,7 +94,7 @@ public class TestDateTimeFunctions extends TestDateTimeFunctionsBase
     public void testCurrentTimestamp()
     {
         Session localSession = testSessionBuilder()
-                .setSystemProperty("legacy_timestamp", "false")
+                .setSystemProperty("legacy_timestamp", "true")
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
                 .build();
