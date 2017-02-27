@@ -29,7 +29,7 @@ public class MemoryConfig
         return splitsPerNode;
     }
 
-    @Config("metadata-uri")
+    @Config("splits-per-node")
     public MemoryConfig setSplitsPerNode(int splitsPerNode)
     {
         this.splitsPerNode = splitsPerNode;
