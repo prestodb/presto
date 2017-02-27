@@ -132,6 +132,14 @@ public class TestDriver
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
             assertEquals(statement.executeUpdate("CREATE TABLE test_table (x bigint)"), 0);
+
+            assertEquals(statement.executeUpdate("CREATE TABLE slow_test_table (x bigint) " +
+                    "WITH (" +
+                    "   split_count = 1, " +
+                    "   pages_per_split = 1, " +
+                    "   rows_per_page = 1, " +
+                    "   page_processing_delay = '1m'" +
+                    ")"), 0);
         }
     }
 
@@ -1345,20 +1353,9 @@ public class TestDriver
     }
 
     @Test(timeOut = 10000)
-    public void testQueryCancellation()
+    public void testQueryCancelByInterrupt()
             throws Exception
     {
-        try (Connection connection = createConnection("blackhole", "blackhole");
-                Statement statement = connection.createStatement()) {
-            statement.executeUpdate("CREATE TABLE test_cancellation (key BIGINT) " +
-                    "WITH (" +
-                    "   split_count = 1, " +
-                    "   pages_per_split = 1, " +
-                    "   rows_per_page = 1, " +
-                    "   page_processing_delay = '1m'" +
-                    ")");
-        }
-
         CountDownLatch queryStarted = new CountDownLatch(1);
         CountDownLatch queryFinished = new CountDownLatch(1);
         AtomicReference<String> queryId = new AtomicReference<>();
@@ -1367,7 +1364,7 @@ public class TestDriver
         Future<?> queryFuture = executorService.submit(() -> {
             try (Connection connection = createConnection("blackhole", "default");
                     Statement statement = connection.createStatement();
-                    ResultSet resultSet = statement.executeQuery("SELECT * FROM test_cancellation")) {
+                    ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_test_table")) {
                 queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
                 queryStarted.countDown();
                 try {
@@ -1395,10 +1392,46 @@ public class TestDriver
         queryFinished.await(10, SECONDS);
         assertNotNull(queryFailure.get());
         assertEquals(getQueryState(queryId.get()), FAILED);
+    }
 
-        try (Connection connection = createConnection("blackhole", "blackhole");
-                Statement statement = connection.createStatement()) {
-            statement.executeUpdate("DROP TABLE test_cancellation");
+    @Test(timeOut = 10000)
+    public void testQueryCancelExplicit()
+            throws Exception
+    {
+        CountDownLatch queryStarted = new CountDownLatch(1);
+        CountDownLatch queryFinished = new CountDownLatch(1);
+        AtomicReference<String> queryId = new AtomicReference<>();
+        AtomicReference<Throwable> queryFailure = new AtomicReference<>();
+
+        try (Connection connection = createConnection("blackhole", "default");
+                final Statement statement = connection.createStatement()) {
+            // execute the slow query on another thread
+            executorService.execute(() -> {
+                try (ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_test_table")) {
+                    queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
+                    queryStarted.countDown();
+                    resultSet.next();
+                }
+                catch (SQLException t) {
+                    queryFailure.set(t);
+                }
+                finally {
+                    queryFinished.countDown();
+                }
+            });
+
+            // start query and make sure it is not finished
+            queryStarted.await(10, SECONDS);
+            assertNotNull(queryId.get());
+            assertFalse(getQueryState(queryId.get()).isDone());
+
+            // cancel the query from this test thread
+            statement.cancel();
+
+            // make sure the query was aborted
+            queryFinished.await(10, SECONDS);
+            assertNotNull(queryFailure.get());
+            assertEquals(getQueryState(queryId.get()), FAILED);
         }
     }
 
