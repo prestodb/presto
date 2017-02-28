@@ -125,6 +125,7 @@ public class TaskExecutor
     private final Map<PrioritizedSplitRunner, Future<?>> blockedSplits = new ConcurrentHashMap<>();
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
+    private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
 
     private final TimeStat queuedTime = new TimeStat(NANOSECONDS);
     private final TimeStat wallTime = new TimeStat(NANOSECONDS);
@@ -283,6 +284,7 @@ public class TaskExecutor
 
     private void splitFinished(PrioritizedSplitRunner split)
     {
+        completedSplitsPerLevel.incrementAndGet(split.priorityLevel.get());
         synchronized (this) {
             allSplits.remove(split);
             forcedRunningSplits.remove(split);
@@ -899,6 +901,36 @@ public class TaskExecutor
     public long getCompletedTasksLevel4()
     {
         return completedTasksPerLevel.get(4);
+    }
+
+    @Managed
+    public long getCompletedSplitsLevel0()
+    {
+        return completedSplitsPerLevel.get(0);
+    }
+
+    @Managed
+    public long getCompletedSplitsLevel1()
+    {
+        return completedSplitsPerLevel.get(1);
+    }
+
+    @Managed
+    public long getCompletedSplitsLevel2()
+    {
+        return completedSplitsPerLevel.get(2);
+    }
+
+    @Managed
+    public long getCompletedSplitsLevel3()
+    {
+        return completedSplitsPerLevel.get(3);
+    }
+
+    @Managed
+    public long getCompletedSplitsLevel4()
+    {
+        return completedSplitsPerLevel.get(4);
     }
 
     @Managed
