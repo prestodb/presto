@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import io.airlift.slice.Slice;
 import org.joda.time.chrono.ISOChronology;
 
@@ -39,11 +40,13 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 
@@ -159,11 +162,14 @@ public final class TimestampOperators
             return packDateTimeWithZone(value, session.getTimeZoneKey());
         }
         else {
-            ISOChronology localChronology = getChronology(session.getTimeZoneKey());
+            long millisOffset = getDateTimeZone(session.getTimeZoneKey()).getOffset(session.getStartTime());
+            TimeZoneKey fixedTimeZoneKey = getTimeZoneKeyForOffset(TimeUnit.MILLISECONDS.toMinutes(millisOffset));
+
+            ISOChronology localChronology = getChronology(fixedTimeZoneKey);
 
             // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
             // its UTC representation we need to shift the value by the offset of TZ.
-            return packDateTimeWithZone(value - localChronology.getZone().getOffset(value), session.getTimeZoneKey());
+            return packDateTimeWithZone(value - localChronology.getZone().getOffset(value), fixedTimeZoneKey);
         }
     }
 

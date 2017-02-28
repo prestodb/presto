@@ -200,9 +200,13 @@ public class TestTimestamp
     @Test
     public void testCastToTimestampWithTimeZone()
     {
+        long millisOffset = getDateTimeZone(connectorSession().getTimeZoneKey()).getOffset(connectorSession().getStartTime());
+        TimeZoneKey fixedTimeZoneKey = getTimeZoneKeyForOffset(TimeUnit.MILLISECONDS.toMinutes(millisOffset));
+        DateTimeZone fixedDateTimeZone = getDateTimeZone(fixedTimeZoneKey);
+
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as timestamp with time zone)",
                 TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), DATE_TIME_ZONE.toTimeZone()));
+                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 3, 4, 5, 321, fixedDateTimeZone).getMillis(), fixedDateTimeZone.toTimeZone()));
     }
 
     @Test
