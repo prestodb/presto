@@ -24,7 +24,8 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
-public class TestDateTimeFunctions extends TestDateTimeFunctionsBase
+public class TestDateTimeFunctions
+        extends TestDateTimeFunctionsBase
 {
     @Test
     public TestDateTimeFunctions()

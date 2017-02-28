@@ -132,8 +132,8 @@ public abstract class TestDateTimeFunctionsBase
         long timeIncrement = TimeUnit.MINUTES.toMillis(53);
         // We expect UTC millis later on so we have to use UTC chronology
         for (long instant = ISOChronology.getInstanceUTC().getDateTimeMillis(2000, 6, 15, 0, 0, 0, 0);
-             instant < ISOChronology.getInstanceUTC().getDateTimeMillis(2016, 6, 15, 0, 0, 0, 0);
-             instant += timeIncrement) {
+                instant < ISOChronology.getInstanceUTC().getDateTimeMillis(2016, 6, 15, 0, 0, 0, 0);
+                instant += timeIncrement) {
             assertCurrentDateAtInstant(kievTimeZoneKey, instant);
             assertCurrentDateAtInstant(montrealTimeZoneKey, instant);
             assertCurrentDateAtInstant(TIME_ZONE_KEY, instant);
