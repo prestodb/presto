@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +33,11 @@ public interface TypeManager
      * Gets a list of all registered types.
      */
     List<Type> getTypes();
+
+    /**
+     * Gets all registered parametric types.
+     */
+    Collection<ParametricType> getParametricTypes();
 
     Optional<Type> getCommonSuperType(Type firstType, Type secondType);
 

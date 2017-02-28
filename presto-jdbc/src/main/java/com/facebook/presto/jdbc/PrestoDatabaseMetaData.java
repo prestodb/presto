@@ -1044,8 +1044,13 @@ public class PrestoDatabaseMetaData
     public ResultSet getTypeInfo()
             throws SQLException
     {
-        // TODO: implement this
-        throw new NotImplementedException("DatabaseMetaData", "getTypeInfo");
+        return select("" +
+                "SELECT TYPE_NAME, DATA_TYPE, PRECISION, LITERAL_PREFIX, LITERAL_SUFFIX,\n" +
+                "CREATE_PARAMS, NULLABLE, CASE_SENSITIVE, SEARCHABLE, UNSIGNED_ATTRIBUTE,\n" +
+                "FIXED_PREC_SCALE, AUTO_INCREMENT, LOCAL_TYPE_NAME, MINIMUM_SCALE, MAXIMUM_SCALE,\n" +
+                "SQL_DATA_TYPE, SQL_DATETIME_SUB, NUM_PREC_RADIX\n" +
+                "FROM system.jdbc.types\n" +
+                "ORDER BY DATA_TYPE");
     }
 
     @Override

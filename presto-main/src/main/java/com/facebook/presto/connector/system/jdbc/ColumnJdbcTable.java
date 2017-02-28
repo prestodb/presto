@@ -166,7 +166,7 @@ public class ColumnJdbcTable
         }
     }
 
-    private static int jdbcDataType(Type type)
+    static int jdbcDataType(Type type)
     {
         if (type.equals(BOOLEAN)) {
             return Types.BOOLEAN;
@@ -222,7 +222,7 @@ public class ColumnJdbcTable
         return Types.JAVA_OBJECT;
     }
 
-    private static Integer columnSize(Type type)
+    static Integer columnSize(Type type)
     {
         if (type.equals(BIGINT)) {
             return 19;  // 2**63-1
@@ -295,7 +295,7 @@ public class ColumnJdbcTable
         return null;
     }
 
-    private static Integer numPrecRadix(Type type)
+    static Integer numPrecRadix(Type type)
     {
         if (type.equals(BIGINT) ||
                 type.equals(INTEGER) ||
