@@ -2,9 +2,9 @@ version: '2'
 services:
   hadoop-master:
     hostname: hadoop-master
-    image: 'teradatalabs/cdh5-hive:2.6.0-cdh5.6.0-sshd-4e54a19'
+    image: 'teradatalabs/cdh5-hive:14'
     ports:
-      - '1080:1080'
+      - '1180:1180'
       - '8020:8020'
       - '8088:8088'
       - '9083:9083'
@@ -20,4 +20,4 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
-      - '5353:53/udp'
+      - '55353:53/udp'

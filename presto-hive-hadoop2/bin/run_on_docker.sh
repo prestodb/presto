@@ -112,11 +112,11 @@ set +e
   -Dhive.hadoop2.timeZone=UTC \
   -DHADOOP_USER_NAME=hive \
   -Dhive.hadoop2.metastoreHost=hadoop-master \
-  -Dhive.metastore.thrift.client.socks-proxy=$PROXY:1080 \
+  -Dhive.metastore.thrift.client.socks-proxy=$PROXY:1180 \
   -Dsun.net.spi.nameservice.provider.1=default \
   -Dsun.net.spi.nameservice.provider.2=dns,dnsjava \
   -Ddns.server=$PROXY \
-  -Ddns.port=5353 \
+  -Ddns.port=55353 \
   -Ddns.search=. &
 PRODUCT_TESTS_PROCESS_ID=$!
 
