@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.application.ApplicationManager;
+import com.facebook.presto.application.ApplicationModule;
+import com.facebook.presto.application.StaticApplicationStore;
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
@@ -105,6 +108,7 @@ public class PrestoServer
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
+                new ApplicationModule(),
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule());
 
@@ -118,6 +122,9 @@ public class PrestoServer
             injector.getInstance(PluginManager.class).loadPlugins();
 
             injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+
+            injector.getInstance(StaticApplicationStore.class).loadApplications();
+            injector.getInstance(ApplicationManager.class).startApplications(injector);
 
             // TODO: remove this huge hack
             updateConnectorIds(
