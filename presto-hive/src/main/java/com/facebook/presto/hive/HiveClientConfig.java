@@ -74,6 +74,7 @@ public class HiveClientConfig
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
     private boolean verifyChecksum = true;
+    private boolean fallbackSimpleAuthAllowed = false;
     private String domainSocketPath;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
@@ -572,6 +573,18 @@ public class HiveClientConfig
     {
         this.verifyChecksum = verifyChecksum;
         return this;
+    }
+
+    @Config("hive.ipc.client.fallback-to-simple-auth-allowed")
+    public HiveClientConfig setClientFallbackSimpleAuthAllowed(boolean fallbackAllowed)
+    {
+        this.fallbackSimpleAuthAllowed = fallbackAllowed;
+        return this;
+    }
+
+    public boolean isClientFallbackSimpleAuthAllowed()
+    {
+        return this.fallbackSimpleAuthAllowed;
     }
 
     @Deprecated

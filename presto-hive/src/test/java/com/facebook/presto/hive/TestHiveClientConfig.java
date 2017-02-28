@@ -90,7 +90,8 @@ public class TestHiveClientConfig
                 .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
                 .setBucketWritingEnabled(true)
-                .setFileSystemMaxCacheSize(1000));
+                .setFileSystemMaxCacheSize(1000)
+                .setClientFallbackSimpleAuthAllowed(false));
     }
 
     @Test
@@ -154,6 +155,7 @@ public class TestHiveClientConfig
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
                 .put("hive.fs.cache.max-size", "1010")
+                .put("hive.ipc.client.fallback-to-simple-auth-allowed", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -213,7 +215,8 @@ public class TestHiveClientConfig
                 .setSkipDeletionForAlter(true)
                 .setBucketExecutionEnabled(false)
                 .setBucketWritingEnabled(false)
-                .setFileSystemMaxCacheSize(1010);
+                .setFileSystemMaxCacheSize(1010)
+                .setClientFallbackSimpleAuthAllowed(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

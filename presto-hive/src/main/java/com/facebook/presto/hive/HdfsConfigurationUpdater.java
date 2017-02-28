@@ -75,6 +75,7 @@ public class HdfsConfigurationUpdater
     private final File s3StagingDirectory;
     private final boolean pinS3ClientToCurrentRegion;
     private final String s3UserAgentPrefix;
+    private final boolean clientFallbackSimpleAuthAllowed;
 
     @Inject
     public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig, HiveS3Config s3Config)
@@ -115,6 +116,7 @@ public class HdfsConfigurationUpdater
         this.s3StagingDirectory = s3Config.getS3StagingDirectory();
         this.pinS3ClientToCurrentRegion = s3Config.isPinS3ClientToCurrentRegion();
         this.s3UserAgentPrefix = s3Config.getS3UserAgentPrefix();
+        this.clientFallbackSimpleAuthAllowed = hiveClientConfig.isClientFallbackSimpleAuthAllowed();
     }
 
     private static Configuration readConfiguration(List<String> resourcePaths)
@@ -158,6 +160,9 @@ public class HdfsConfigurationUpdater
         config.setInt("ipc.ping.interval", toIntExact(ipcPingInterval.toMillis()));
         config.setInt("ipc.client.connect.timeout", toIntExact(dfsConnectTimeout.toMillis()));
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
+
+        // set whether ipc client can fallback to simple auth
+        config.setBoolean("ipc.client.fallback-to-simple-auth-allowed", clientFallbackSimpleAuthAllowed);
 
         // re-map filesystem schemes to match Amazon Elastic MapReduce
         config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());
