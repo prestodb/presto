@@ -31,6 +31,7 @@ public final class PageAssertions
     {
         assertEquals(types.size(), actualPage.getChannelCount());
         assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
+        assertEquals(actualPage.getPositionCount(), expectedPage.getPositionCount());
         for (int i = 0; i < actualPage.getChannelCount(); i++) {
             assertBlockEquals(types.get(i), actualPage.getBlock(i), expectedPage.getBlock(i));
         }
