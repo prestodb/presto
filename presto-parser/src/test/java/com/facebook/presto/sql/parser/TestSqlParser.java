@@ -91,6 +91,7 @@ import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
@@ -805,13 +806,25 @@ public class TestSqlParser
     {
         assertStatement("SHOW TABLES", new ShowTables(Optional.empty(), Optional.empty()));
         assertStatement("SHOW TABLES FROM a", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.empty()));
+        assertStatement("SHOW TABLES FROM \"awesome schema\"", new ShowTables(Optional.of(QualifiedName.of("awesome schema")), Optional.empty()));
         assertStatement("SHOW TABLES IN a LIKE '%'", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.of("%")));
+    }
+
+    @Test
+    public void testShowColumns() throws Exception
+    {
+        assertStatement("SHOW COLUMNS FROM a", new ShowColumns(QualifiedName.of("a")));
+        assertStatement("SHOW COLUMNS FROM a.b", new ShowColumns(QualifiedName.of("a", "b")));
+        assertStatement("SHOW COLUMNS FROM \"awesome table\"", new ShowColumns(QualifiedName.of("awesome table")));
+        assertStatement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\"", new ShowColumns(QualifiedName.of("awesome schema", "awesome table")));
     }
 
     @Test
     public void testShowPartitions()
     {
         assertStatement("SHOW PARTITIONS FROM t", new ShowPartitions(QualifiedName.of("t"), Optional.empty(), ImmutableList.of(), Optional.empty()));
+        assertStatement("SHOW PARTITIONS FROM \"awesome table\"",
+            new ShowPartitions(QualifiedName.of("awesome table"), Optional.empty(), ImmutableList.of(), Optional.empty()));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1",
                 new ShowPartitions(
@@ -1107,6 +1120,9 @@ public class TestSqlParser
                         ImmutableMap.of(
                                 "a", new StringLiteral("apple"),
                                 "b", new LongLiteral("123"))));
+
+        assertStatement("CREATE SCHEMA \"some name that contains space\"",
+            new CreateSchema(QualifiedName.of("some name that contains space"), false, ImmutableMap.of()));
     }
 
     @Test
@@ -1123,6 +1139,9 @@ public class TestSqlParser
 
         assertStatement("DROP SCHEMA IF EXISTS test RESTRICT",
                 new DropSchema(QualifiedName.of("test"), true, false));
+
+        assertStatement("DROP SCHEMA \"some schema that contains space\"",
+            new DropSchema(QualifiedName.of("some schema that contains space"), false, false));
     }
 
     @Test
@@ -1133,6 +1152,9 @@ public class TestSqlParser
 
         assertStatement("ALTER SCHEMA foo.bar RENAME TO baz",
                 new RenameSchema(QualifiedName.of("foo", "bar"), "baz"));
+
+        assertStatement("ALTER SCHEMA \"awesome schema\".\"awesome table\" RENAME TO \"even more awesome table\"",
+            new RenameSchema(QualifiedName.of("awesome schema", "awesome table"), "even more awesome table"));
     }
 
     @Test
@@ -1277,6 +1299,7 @@ public class TestSqlParser
     public void testDelete()
     {
         assertStatement("DELETE FROM t", new Delete(table(QualifiedName.of("t")), Optional.empty()));
+        assertStatement("DELETE FROM \"awesome table\"", new Delete(table(QualifiedName.of("awesome table")), Optional.empty()));
 
         assertStatement("DELETE FROM t WHERE a = b", new Delete(table(QualifiedName.of("t")), Optional.of(
                 new ComparisonExpression(ComparisonExpressionType.EQUAL,
