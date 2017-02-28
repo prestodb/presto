@@ -167,6 +167,7 @@ public class Driver
         }
     }
 
+    @GuardedBy("exclusiveLock")
     private boolean isFinishedInternal()
     {
         checkLockHeld("Lock must be held to call isFinishedInternal");
@@ -218,6 +219,7 @@ public class Driver
         tryLockAndProcessPendingStateChanges(0, TimeUnit.MILLISECONDS).close();
     }
 
+    @GuardedBy("exclusiveLock")
     private void processNewSources()
     {
         checkLockHeld("Lock must be held to call processNewSources");
@@ -327,6 +329,7 @@ public class Driver
         }
     }
 
+    @GuardedBy("exclusiveLock")
     private ListenableFuture<?> processInternal()
     {
         checkLockHeld("Lock must be held to call processInternal");
@@ -433,6 +436,7 @@ public class Driver
         }
     }
 
+    @GuardedBy("exclusiveLock")
     private void destroyIfNecessary()
     {
         checkLockHeld("Lock must be held to call destroyIfNecessary");
@@ -559,6 +563,7 @@ public class Driver
         checkState(Thread.currentThread() != lockHolder, message);
     }
 
+    @GuardedBy("exclusiveLock")
     private synchronized void checkLockHeld(String message)
     {
         checkState(exclusiveLock.isHeldByCurrentThread() && Thread.currentThread() == lockHolder, message);
