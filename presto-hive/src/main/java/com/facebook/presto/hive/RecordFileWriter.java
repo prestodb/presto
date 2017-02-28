@@ -57,6 +57,7 @@ public class RecordFileWriter
         implements HiveFileWriter
 {
     private final Path path;
+    private final JobConf conf;
     private final int fieldCount;
     @SuppressWarnings("deprecation")
     private final Serializer serializer;
@@ -77,6 +78,7 @@ public class RecordFileWriter
             TypeManager typeManager)
     {
         this.path = requireNonNull(path, "path is null");
+        this.conf = requireNonNull(conf, "conf is null");
 
         // existing tables may have columns in a different order
         List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
@@ -160,7 +162,13 @@ public class RecordFileWriter
     public void rollback()
     {
         try {
-            recordWriter.close(true);
+            try {
+                recordWriter.close(true);
+            }
+            finally {
+                // perform explicit deletion here as implementations of RecordWriter.close() often ignore the abort flag.
+                path.getFileSystem(conf).delete(path, false);
+            }
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
