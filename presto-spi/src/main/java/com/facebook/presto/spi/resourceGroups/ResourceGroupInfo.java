@@ -11,14 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.spi.resourceGroups;
 
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
 import java.util.List;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class ResourceGroupInfo
@@ -50,7 +49,7 @@ public class ResourceGroupInfo
         this.runningQueries = runningQueries;
         this.queuedQueries = queuedQueries;
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
-        this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null"));
+        this.subGroups = unmodifiableList(requireNonNull(subGroups, "subGroups is null"));
     }
 
     public ResourceGroupId getId()
