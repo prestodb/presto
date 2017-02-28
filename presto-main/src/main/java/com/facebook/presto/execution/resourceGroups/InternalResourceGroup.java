@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -36,13 +37,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
+import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
+import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.FULL;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -128,17 +132,33 @@ public class InternalResourceGroup
     public ResourceGroupInfo getInfo()
     {
         synchronized (root) {
+            checkState(!subGroups.isEmpty() || (descendantRunningQueries == 0 && descendantQueuedQueries == 0), "Leaf resource group has descendant queries.");
+
             List<ResourceGroupInfo> infos = subGroups.values().stream()
                     .map(InternalResourceGroup::getInfo)
-                    .collect(Collectors.toList());
+                    .collect(toImmutableList());
+
+            ResourceGroupState resourceGroupState;
+            if (canRunMore()) {
+                resourceGroupState = CAN_RUN;
+            }
+            else if (canQueueMore()) {
+                resourceGroupState = CAN_QUEUE;
+            }
+            else {
+                resourceGroupState = FULL;
+            }
+
             return new ResourceGroupInfo(
                     id,
                     new DataSize(softMemoryLimitBytes, BYTE),
                     maxRunningQueries,
                     maxQueuedQueries,
+                    resourceGroupState,
+                    eligibleSubGroups.size(),
+                    new DataSize(cachedMemoryUsageBytes, BYTE),
                     runningQueries.size() + descendantRunningQueries,
                     queuedQueries.size() + descendantQueuedQueries,
-                    new DataSize(cachedMemoryUsageBytes, BYTE),
                     infos);
         }
     }

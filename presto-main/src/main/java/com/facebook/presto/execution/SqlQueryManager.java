@@ -281,6 +281,19 @@ public class SqlQueryManager
     }
 
     @Override
+    public Optional<ResourceGroupId> getQueryResourceGroup(QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query == null) {
+            throw new NoSuchElementException();
+        }
+
+        return query.getResourceGroup();
+    }
+
+    @Override
     public Optional<QueryState> getQueryState(QueryId queryId)
     {
         requireNonNull(queryId, "queryId is null");

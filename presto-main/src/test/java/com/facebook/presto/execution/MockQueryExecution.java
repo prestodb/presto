@@ -45,21 +45,22 @@ public class MockQueryExecution
     private final long memoryUsage;
     private final Duration cpuUsage;
     private final Session session;
+    private final QueryId queryId;
     private QueryState state = QUEUED;
     private Throwable failureCause;
     private Optional<ResourceGroupId> resourceGroupId;
 
     public MockQueryExecution(long memoryUsage)
     {
-        this(memoryUsage, 1);
+        this(memoryUsage, "query_id", 1);
     }
 
-    public MockQueryExecution(long memoryUsage, int priority)
+    public MockQueryExecution(long memoryUsage, String queryId, int priority)
     {
-        this(memoryUsage, new Duration(0, MILLISECONDS), priority);
+        this(memoryUsage, queryId, priority, new Duration(0, MILLISECONDS));
     }
 
-    public MockQueryExecution(long memoryUsage, Duration cpuUsage, int priority)
+    public MockQueryExecution(long memoryUsage, String queryId, int priority, Duration cpuUsage)
     {
         this.memoryUsage = memoryUsage;
         this.cpuUsage = cpuUsage;
@@ -67,6 +68,7 @@ public class MockQueryExecution
                 .setSystemProperty(QUERY_PRIORITY, String.valueOf(priority))
                 .build();
         this.resourceGroupId = Optional.empty();
+        this.queryId = new QueryId(queryId);
     }
 
     public void complete()
@@ -78,7 +80,7 @@ public class MockQueryExecution
     @Override
     public QueryId getQueryId()
     {
-        throw new UnsupportedOperationException();
+        return queryId;
     }
 
     @Override

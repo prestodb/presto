@@ -15,6 +15,9 @@ package com.facebook.presto.spi.resourceGroups;
 
 import org.testng.annotations.Test;
 
+import static org.testng.Assert.assertFalse;
+import static org.testng.AssertJUnit.assertTrue;
+
 public class TestResourceGroupId
 {
     @Test
@@ -22,5 +25,24 @@ public class TestResourceGroupId
     {
         new ResourceGroupId("test.test");
         new ResourceGroupId(new ResourceGroupId("test"), "test");
+    }
+
+    @Test
+    public void testIsAncestor()
+    {
+        ResourceGroupId root = new ResourceGroupId("root");
+        ResourceGroupId rootA = new ResourceGroupId(root, "a");
+        ResourceGroupId rootAFoo = new ResourceGroupId(rootA, "foo");
+        ResourceGroupId rootBar = new ResourceGroupId(root, "bar");
+        assertTrue(root.isAncestorOf(rootA));
+        assertTrue(root.isAncestorOf(rootAFoo));
+        assertTrue(root.isAncestorOf(rootBar));
+        assertTrue(rootA.isAncestorOf(rootAFoo));
+        assertFalse(rootA.isAncestorOf(rootBar));
+        assertFalse(rootAFoo.isAncestorOf(rootBar));
+        assertFalse(rootBar.isAncestorOf(rootAFoo));
+        assertFalse(rootAFoo.isAncestorOf(root));
+        assertFalse(root.isAncestorOf(root));
+        assertFalse(rootAFoo.isAncestorOf(rootAFoo));
     }
 }
