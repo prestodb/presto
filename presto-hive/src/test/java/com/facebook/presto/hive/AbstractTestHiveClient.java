@@ -30,6 +30,8 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.ThriftHiveMetastore;
 import com.facebook.presto.hive.orc.OrcPageSource;
 import com.facebook.presto.hive.parquet.ParquetHiveRecordCursor;
+import com.facebook.presto.hive.parquet.ParquetPageSource;
+import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -2928,11 +2930,16 @@ public abstract class AbstractTestHiveClient
     private static Class<? extends ConnectorPageSource> pageSourceType(HiveStorageFormat hiveStorageFormat)
     {
         switch (hiveStorageFormat) {
+            case RCTEXT:
+            case RCBINARY:
+                return RcFilePageSource.class;
             case ORC:
             case DWRF:
                 return OrcPageSource.class;
+            case PARQUET:
+                return ParquetPageSource.class;
             default:
-                throw new AssertionError("Filed type " + hiveStorageFormat + " does not use a page source");
+                throw new AssertionError("File type does not use a PageSource: " + hiveStorageFormat);
         }
     }
 
