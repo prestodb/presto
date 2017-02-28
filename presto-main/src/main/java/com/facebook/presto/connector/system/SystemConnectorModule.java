@@ -25,6 +25,7 @@ import com.facebook.presto.connector.system.jdbc.SuperTableJdbcTable;
 import com.facebook.presto.connector.system.jdbc.SuperTypeJdbcTable;
 import com.facebook.presto.connector.system.jdbc.TableJdbcTable;
 import com.facebook.presto.connector.system.jdbc.TableTypeJdbcTable;
+import com.facebook.presto.connector.system.jdbc.TypesJdbcTable;
 import com.facebook.presto.connector.system.jdbc.UdtJdbcTable;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -58,6 +59,7 @@ public class SystemConnectorModule
         globalTableBinder.addBinding().to(AttributeJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(ColumnJdbcTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(TypesJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(ProcedureColumnJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(ProcedureJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(PseudoColumnJdbcTable.class).in(Scopes.SINGLETON);
