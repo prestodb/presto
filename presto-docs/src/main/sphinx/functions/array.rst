@@ -66,11 +66,11 @@ Array Functions
 
     Returns the cardinality (size) of the array ``x``.
 
-.. function:: concat(x, y) -> array
+.. function:: concat(array1, array2, ..., arrayN) -> array
     :noindex:
 
-    Concatenates the arrays ``x`` and ``y``. This function provides the same
-    functionality as the SQL-standard concatenation operator (``||``).
+    Concatenates the arrays ``array1``, ``array2``, ``...``, ``arrayN``.
+    This function provides the same functionality as the SQL-standard concatenation operator (``||``).
 
 .. function:: contains(x, element) -> boolean
 

@@ -36,10 +36,10 @@ Map Functions
 
     See also :func:`map_agg` and :func:`multimap_agg` for creating a map as an aggregation.
 
-.. function:: map_concat(x<K,V>, y<K,V>) -> map<K,V>
+.. function:: map_concat(map1<K,V>, map2<K,V>, ..., mapN<K,V>) -> map<K,V>
 
-   Returns the union of two maps. If a key is found in both ``x`` and ``y``,
-   that key's value in the resulting map comes from ``y``.
+   Returns the union of all the given maps. If a key is found in multiple given maps,
+   that key's value in the resulting map comes from the last one of those maps.
 
 .. function:: map_filter(map<K,V>, function) -> map<K,V>
     :noindex:
