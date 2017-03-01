@@ -384,6 +384,10 @@ public class Driver
                         next.getOperatorContext().recordAddInput(page);
                         movedPage = true;
                     }
+
+                    if (current instanceof SourceOperator) {
+                        movedPage = true;
+                    }
                 }
 
                 // if current operator is finished...
