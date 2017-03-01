@@ -45,6 +45,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -192,7 +193,7 @@ public class OptimizeMixedDistinctAggregations
 
             PlanNode source = context.rewrite(node.getSource(), Optional.empty());
 
-            List<Symbol> allSymbols = new ArrayList<>();
+            Set<Symbol> allSymbols = new HashSet<>();
             List<Symbol> groupBySymbols = aggregateInfo.get().getGroupBySymbols(); // a
             List<Symbol> nonDistinctAggregateSymbols = aggregateInfo.get().getOriginalNonDistinctAggregateArgs(); //b
             Symbol distinctSymbol = Iterables.getOnlyElement(aggregateInfo.get().getOriginalDistinctAggregateArgs()); // c
@@ -223,7 +224,7 @@ public class OptimizeMixedDistinctAggregations
                     source);
 
             // 2. Add aggregation node
-            List<Symbol> groupByKeys = new ArrayList<>();
+            Set<Symbol> groupByKeys = new HashSet<>();
             groupByKeys.addAll(groupBySymbols);
             groupByKeys.add(distinctSymbol);
             groupByKeys.add(groupSymbol);
@@ -246,6 +247,7 @@ public class OptimizeMixedDistinctAggregations
                     aggregateInfo.get(),
                     distinctSymbol,
                     groupSymbol,
+                    groupBySymbols,
                     aggregationOutputSymbolsMap);
 
             return projectNode;
@@ -282,6 +284,7 @@ public class OptimizeMixedDistinctAggregations
                 AggregateInfo aggregateInfo,
                 Symbol distinctSymbol,
                 Symbol groupSymbol,
+                List<Symbol> groupBySymbols,
                 Map<Symbol, Symbol> aggregationOutputSymbolsMap)
         {
             Assignments.Builder outputSymbols = Assignments.builder();
@@ -311,7 +314,9 @@ public class OptimizeMixedDistinctAggregations
                             symbolAllocator.getTypes().get(symbol));
                     outputSymbols.put(newSymbol, expression);
                 }
-                else {
+
+                // A symbol can appear both in groupBy and distinct/non-distinct aggregation
+                if (groupBySymbols.contains(symbol)) {
                     Expression expression = symbol.toSymbolReference();
                     outputSymbols.put(symbol, expression);
                 }
@@ -332,7 +337,7 @@ public class OptimizeMixedDistinctAggregations
                 Symbol distinctSymbol,
                 Symbol duplicatedDistinctSymbol,
                 Symbol groupSymbol,
-                List<Symbol> allSymbols,
+                Set<Symbol> allSymbols,
                 PlanNode source)
         {
             List<List<Symbol>> groups = new ArrayList<>();
@@ -341,16 +346,16 @@ public class OptimizeMixedDistinctAggregations
             // symbols present in Group_i will be set, rest will be Null
 
             //g0
-            List<Symbol> group0 = new ArrayList<>();
+            Set<Symbol> group0 = new HashSet<>();
             group0.addAll(groupBySymbols);
             group0.addAll(nonDistinctAggregateSymbols);
-            groups.add(group0);
+            groups.add(ImmutableList.copyOf(group0));
 
             // g1
-            List<Symbol> group1 = new ArrayList<>();
+            Set<Symbol> group1 = new HashSet<>();
             group1.addAll(groupBySymbols);
             group1.add(distinctSymbol);
-            groups.add(group1);
+            groups.add(ImmutableList.copyOf(group1));
 
             return new GroupIdNode(
                     idAllocator.getNextId(),
@@ -376,7 +381,7 @@ public class OptimizeMixedDistinctAggregations
                 AggregateInfo aggregateInfo,
                 Symbol distinctSymbol,
                 Symbol duplicatedDistinctSymbol,
-                List<Symbol> groupByKeys,
+                Set<Symbol> groupByKeys,
                 GroupIdNode groupIdNode,
                 MarkDistinctNode originalNode,
                 ImmutableMap.Builder aggregationOutputSymbolsMapBuilder
@@ -421,7 +426,7 @@ public class OptimizeMixedDistinctAggregations
                     aggregations.build(),
                     functions.build(),
                     Collections.emptyMap(),
-                    ImmutableList.of(groupByKeys),
+                    ImmutableList.of(ImmutableList.copyOf(groupByKeys)),
                     SINGLE,
                     originalNode.getHashSymbol(),
                     Optional.empty());
