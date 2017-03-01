@@ -16,7 +16,6 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -25,7 +24,8 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static java.lang.Math.abs;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;
@@ -36,8 +36,6 @@ import static java.math.RoundingMode.UNNECESSARY;
 public final class Decimals
 {
     private Decimals() {}
-
-    public static final int SIZE_OF_LONG_DECIMAL = 2 * SIZE_OF_LONG;
 
     public static final int MAX_PRECISION = 38;
     public static final int MAX_SHORT_PRECISION = 17;
@@ -135,28 +133,12 @@ public final class Decimals
     @SuppressWarnings("NumericCastThatLosesPrecision")
     public static Slice encodeUnscaledValue(BigInteger unscaledValue)
     {
-        Slice result = Slices.allocate(SIZE_OF_LONG_DECIMAL);
-        byte[] bytes = unscaledValue.toByteArray();
-        if (unscaledValue.signum() < 0) {
-            // need to fill with 0xff for negative values as we
-            // represent value in two's-complement representation.
-            result.fill((byte) 0xff);
-        }
-        result.setBytes(SIZE_OF_LONG_DECIMAL - bytes.length, bytes);
-        return result;
+        return unscaledDecimal(unscaledValue);
     }
 
     public static Slice encodeUnscaledValue(long unscaledValue)
     {
-        // we just fill top 8 bytes with unscaled value from long
-        // the bottom 8 bytes are filled with 0 for positive values and 0xff for negative ones
-        // conforming two's-complement representation.
-        Slice result = Slices.allocate(SIZE_OF_LONG_DECIMAL);
-        if (unscaledValue < 0) {
-            result.setLong(0, -1L); // fill bottom 8 bytes with 0xff
-        }
-        result.setLong(SIZE_OF_LONG, Long.reverseBytes(unscaledValue));
-        return result;
+        return unscaledDecimal(unscaledValue);
     }
 
     public static Slice encodeScaledValue(BigDecimal value)
@@ -166,7 +148,7 @@ public final class Decimals
 
     public static BigInteger decodeUnscaledValue(Slice valueSlice)
     {
-        return new BigInteger(valueSlice.getBytes());
+        return unscaledDecimalToBigInteger(valueSlice);
     }
 
     public static String toString(long unscaledValue, int scale)

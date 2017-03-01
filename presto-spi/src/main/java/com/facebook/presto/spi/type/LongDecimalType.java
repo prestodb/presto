@@ -22,14 +22,14 @@ import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
-import static com.facebook.presto.spi.type.Decimals.SIZE_OF_LONG_DECIMAL;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 final class LongDecimalType
         extends DecimalType
 {
-    private static final int SIGN_BIT_MASK = 0x80;
-
     LongDecimalType(int precision, int scale)
     {
         super(precision, scale, Slice.class);
@@ -39,7 +39,7 @@ final class LongDecimalType
     @Override
     public int getFixedSize()
     {
-        return SIZE_OF_LONG_DECIMAL;
+        return UNSCALED_DECIMAL_128_SLICE_LENGTH;
     }
 
     @Override
@@ -76,26 +76,25 @@ final class LongDecimalType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, getFixedSize());
+        return compareTo(leftBlock, leftPosition, rightBlock, rightPosition) == 0;
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return block.hash(position, 0, getFixedSize());
+        long low = block.getLong(position, 0);
+        long high = block.getLong(position, SIZE_OF_LONG);
+        return UnscaledDecimal128Arithmetic.hash(low, high);
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        byte left = leftBlock.getByte(leftPosition, 0);
-        byte right = rightBlock.getByte(rightPosition, 0);
-        if ((left & SIGN_BIT_MASK) != (right & SIGN_BIT_MASK)) {
-            // difference in signs of compared values
-            return Byte.compare(left, right);
-        }
-        // sign matches - we compare bytes lexicographically
-        return leftBlock.compareTo(leftPosition, 0, getFixedSize(), rightBlock, rightPosition, 0, getFixedSize());
+        long leftLow = leftBlock.getLong(leftPosition, 0);
+        long leftHigh = leftBlock.getLong(leftPosition, SIZE_OF_LONG);
+        long rightLow = rightBlock.getLong(rightPosition, 0);
+        long rightHigh = rightBlock.getLong(rightPosition, SIZE_OF_LONG);
+        return compare(leftLow, leftHigh, rightLow, rightHigh);
     }
 
     @Override

@@ -26,10 +26,10 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.airlift.slice.XxHash64;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -623,7 +623,7 @@ public final class DecimalOperators
         @SqlType("bigint")
         public static long hashCode(@SqlType("decimal(p, s)") Slice value)
         {
-            return XxHash64.hash(value);
+            return UnscaledDecimal128Arithmetic.hash(value);
         }
     }
 }
