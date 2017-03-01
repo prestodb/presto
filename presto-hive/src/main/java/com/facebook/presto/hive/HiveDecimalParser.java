@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.DecimalType;
 import java.math.BigDecimal;
 
 import static com.facebook.presto.spi.type.Decimals.rescale;
+import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class HiveDecimalParser
@@ -26,6 +27,11 @@ public final class HiveDecimalParser
 
     public static BigDecimal parseHiveDecimal(byte[] bytes, int start, int length, DecimalType columnType)
     {
-        return rescale(new BigDecimal(new String(bytes, start, length, UTF_8)), columnType);
+        BigDecimal parsed = new BigDecimal(new String(bytes, start, length, UTF_8));
+        if (parsed.scale() > columnType.getScale()) {
+            // Hive rounds HALF_UP too
+            parsed = parsed.setScale(columnType.getScale(), HALF_UP);
+        }
+        return rescale(parsed, columnType);
     }
 }
