@@ -28,9 +28,11 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
@@ -43,31 +45,69 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    protected final H2QueryRunner h2QueryRunner;
-    protected final QueryRunner queryRunner;
-    private final SqlParser sqlParser;
+    private QueryRunnerSupplier queryRunnerSupplier;
+    private final Closer closer = Closer.create();
+    protected QueryRunner queryRunner;
+    private H2QueryRunner h2QueryRunner;
+    private SqlParser sqlParser;
+    private boolean initialized;
 
+    @Deprecated
     protected AbstractTestQueryFramework(QueryRunner queryRunner)
     {
-        this.queryRunner = queryRunner;
-        h2QueryRunner = new H2QueryRunner();
+        this(() -> queryRunner, true);
+    }
+
+    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
+    {
+        this(supplier, false);
+    }
+
+    private AbstractTestQueryFramework(QueryRunnerSupplier supplier, boolean initialize)
+    {
+        this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+        // TODO refactor all the tests and remove this hack
+        if (initialize) {
+            init();
+        }
+    }
+
+    @BeforeClass
+    public void init()
+    {
+        if (initialized) {
+            return;
+        }
+        try {
+            queryRunner = closer.register(queryRunnerSupplier.get());
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("interrupted", e);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        h2QueryRunner = closer.register(new H2QueryRunner());
         sqlParser = new SqlParser();
+        initialized = true;
     }
 
     @AfterClass(alwaysRun = true)
     public void close()
+            throws Exception
     {
-        try {
-            h2QueryRunner.close();
-        }
-        finally {
-            queryRunner.close();
-        }
+        closer.close();
+        queryRunner = null;
+        h2QueryRunner = null;
+        sqlParser = null;
+        queryRunnerSupplier = null;
     }
 
     protected Session getSession()
@@ -281,5 +321,11 @@ public abstract class AbstractTestQueryFramework
         if (!requirement) {
             throw new SkipException("requirement not met");
         }
+    }
+
+    public interface QueryRunnerSupplier
+    {
+        QueryRunner get()
+                throws Exception;
     }
 }
