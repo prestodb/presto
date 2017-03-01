@@ -20,14 +20,12 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.metadata.SqlScalarFunctionBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.math.BigInteger;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.SqlScalarFunctionBuilder.constant;
@@ -42,6 +40,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class DecimalInequalityOperators
@@ -62,7 +61,7 @@ public class DecimalInequalityOperators
     public static final SqlScalarFunction DECIMAL_GREATER_THAN_OPERATOR = binaryOperator(GREATER_THAN, IS_RESULT_GREATER_THAN);
     public static final SqlScalarFunction DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR = binaryOperator(GREATER_THAN_OR_EQUAL, IS_RESULT_GREATER_THAN_OR_EQUAL);
     public static final SqlScalarFunction DECIMAL_BETWEEN_OPERATOR = betweenOperator();
-    public static final SqlScalarFunction DECIMAL_DISTINCT_FROM_OPERATOR = binaryOperatorNullable(IS_DISTINCT_FROM, IS_RESULT_NOT_EQUAL);
+    public static final SqlScalarFunction DECIMAL_DISTINCT_FROM_OPERATOR = distinctOperator();
 
     private DecimalInequalityOperators() {}
 
@@ -124,18 +123,6 @@ public class DecimalInequalityOperators
                 .build();
     }
 
-    private static SqlScalarFunction binaryOperatorNullable(OperatorType operatorType, MethodHandle getResultMethodHandle)
-    {
-        return makeBinaryOperatorFunctionBuilder(operatorType)
-                .nullableArguments(true, true)
-                .nullFlags(true, true)
-                .implementation(b -> b
-                        .methods("opShortShortShortNullable", "opLongLongNullable")
-                        .withExtraParameters(constant(getResultMethodHandle))
-                )
-                .build();
-    }
-
     @UsedByGeneratedCode
     public static boolean opShortShort(long a, long b, MethodHandle getResultMethodHandle)
     {
@@ -143,45 +130,44 @@ public class DecimalInequalityOperators
     }
 
     @UsedByGeneratedCode
-    public static boolean opShortShortShortNullable(
-            long a,
-            boolean aNull,
-            long b,
-            boolean bNull,
-            MethodHandle getResultMethodHandle)
+    public static boolean opLongLong(Slice left, Slice right, MethodHandle getResultMethodHandle)
     {
-        if (aNull != bNull) {
-            return true;
-        }
-        if (aNull) {
-            return false;
-        }
-        return opShortShort(a, b, getResultMethodHandle);
+        return invokeGetResult(getResultMethodHandle, compare(left, right));
+    }
+
+    private static SqlScalarFunction distinctOperator()
+    {
+        return makeBinaryOperatorFunctionBuilder(IS_DISTINCT_FROM)
+                .nullableArguments(true, true)
+                .nullFlags(true, true)
+                .implementation(b -> b
+                        .methods("distinctShortShort", "distinctLongLong")
+                )
+                .build();
     }
 
     @UsedByGeneratedCode
-    public static boolean opLongLong(Slice a, Slice b, MethodHandle getResultMethodHandle)
+    public static boolean distinctShortShort(long left, boolean leftNull, long right, boolean rightNull)
     {
-        BigInteger left = Decimals.decodeUnscaledValue(a);
-        BigInteger right = Decimals.decodeUnscaledValue(b);
-        return invokeGetResult(getResultMethodHandle, left.compareTo(right));
+        if (leftNull != rightNull) {
+            return true;
+        }
+        if (leftNull) {
+            return false;
+        }
+        return opShortShort(left, right, IS_RESULT_NOT_EQUAL);
     }
 
     @UsedByGeneratedCode
-    public static boolean opLongLongNullable(
-            Slice a,
-            boolean aNull,
-            Slice b,
-            boolean bNull,
-            MethodHandle getResultMethodHandle)
+    public static boolean distinctLongLong(Slice left, boolean leftNull, Slice right, boolean rightNull)
     {
-        if (aNull != bNull) {
+        if (leftNull != rightNull) {
             return true;
         }
-        if (aNull && bNull) {
+        if (leftNull) {
             return false;
         }
-        return opLongLong(a, b, getResultMethodHandle);
+        return opLongLong(left, right, IS_RESULT_NOT_EQUAL);
     }
 
     private static boolean invokeGetResult(MethodHandle getResultMethodHandle, int comparisonResult)
@@ -219,11 +205,8 @@ public class DecimalInequalityOperators
     }
 
     @UsedByGeneratedCode
-    public static boolean betweenLongLongLong(Slice valueSlice, Slice lowSlice, Slice highSlice)
+    public static boolean betweenLongLongLong(Slice value, Slice low, Slice high)
     {
-        BigInteger value = Decimals.decodeUnscaledValue(valueSlice);
-        BigInteger low = Decimals.decodeUnscaledValue(lowSlice);
-        BigInteger high = Decimals.decodeUnscaledValue(highSlice);
-        return low.compareTo(value) <= 0 && value.compareTo(high) <= 0;
+        return compare(low, value) <= 0 && compare(value, high) <= 0;
     }
 }
