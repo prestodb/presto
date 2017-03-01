@@ -83,6 +83,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -1185,21 +1186,25 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, Constraint.alwaysTrue());
-        if (!hivePartitionResult.getBucketHandle().isPresent()) {
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(connectorId, table);
+        if (!hiveBucketHandle.isPresent()) {
             return Optional.empty();
         }
         if (!bucketWritingEnabled) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed Hive table has been temporarily disabled");
         }
-        HiveBucketHandle hiveBucketHandle = hivePartitionResult.getBucketHandle().get();
         HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
                 connectorId,
-                hiveBucketHandle.getBucketCount(),
-                hiveBucketHandle.getColumns().stream()
+                hiveBucketHandle.get().getBucketCount(),
+                hiveBucketHandle.get().getColumns().stream()
                         .map(HiveColumnHandle::getHiveType)
                         .collect(Collectors.toList()));
-        List<String> partitionColumns = hiveBucketHandle.getColumns().stream()
+        List<String> partitionColumns = hiveBucketHandle.get().getColumns().stream()
                 .map(HiveColumnHandle::getName)
                 .collect(Collectors.toList());
         return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
