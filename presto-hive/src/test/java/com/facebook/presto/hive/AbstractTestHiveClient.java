@@ -1026,9 +1026,9 @@ public abstract class AbstractTestHiveClient
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableOffline);
-            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(newSession(), tableHandle);
-            Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
+            Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(newSession(), tableOffline.toSchemaTablePrefix());
+            assertEquals(columns.size(), 1);
+            Map<String, ColumnMetadata> map = uniqueIndex(getOnlyElement(columns.values()), ColumnMetadata::getName);
 
             assertPrimitiveField(map, "t_string", createUnboundedVarcharType(), false);
         }
@@ -1116,9 +1116,8 @@ public abstract class AbstractTestHiveClient
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableOffline);
             try {
-                metadata.getTableLayouts(newSession(), tableHandle, new Constraint<>(TupleDomain.all(), bindings -> true), Optional.empty());
+                getTableHandle(metadata, tableOffline);
                 fail("expected TableOfflineException");
             }
             catch (TableOfflineException e) {

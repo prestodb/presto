@@ -121,6 +121,8 @@ import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrincipalType.USER;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
@@ -223,9 +225,11 @@ public class HiveMetadata
     public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
-        if (!metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).isPresent()) {
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!table.isPresent()) {
             return null;
         }
+        verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
         return new HiveTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
     }
 
