@@ -42,6 +42,7 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveDecimalParser.parseHiveDecimal;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.base64Decode;
 import static com.facebook.presto.hive.HiveUtil.closeWithSuppression;
@@ -59,7 +60,6 @@ import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
-import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -76,7 +76,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 class ColumnarTextHiveRecordCursor<K>
@@ -504,7 +503,7 @@ class ColumnarTextHiveRecordCursor<K>
         }
         else {
             DecimalType columnType = (DecimalType) types[column];
-            BigDecimal decimal = rescale(new BigDecimal(new String(bytes, start, length, UTF_8)), columnType);
+            BigDecimal decimal = parseHiveDecimal(bytes, start, length, columnType);
 
             if (columnType.isShort()) {
                 longs[column] = decimal.unscaledValue().longValue();
