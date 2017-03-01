@@ -15,7 +15,10 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionOfflineException;
+import com.facebook.presto.hive.TableOfflineException;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.common.FileUtils;
@@ -35,9 +38,11 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -454,5 +459,23 @@ public class MetastoreUtil
                 .setSorted(storageDescriptor.isSetSortCols() && !storageDescriptor.getSortCols().isEmpty())
                 .setSkewed(storageDescriptor.isSetSkewedInfo() && storageDescriptor.getSkewedInfo().isSetSkewedColNames() && !storageDescriptor.getSkewedInfo().getSkewedColNames().isEmpty())
                 .setSerdeParameters(serdeInfo.getParameters() == null ? ImmutableMap.of() : serdeInfo.getParameters());
+    }
+
+    public static void verifyOnline(SchemaTableName tableName, Optional<String> partitionName, ProtectMode protectMode, Map<String, String> parameters)
+    {
+        if (protectMode.offline) {
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
+            }
+            throw new TableOfflineException(tableName, false, null);
+        }
+
+        String prestoOffline = parameters.get(PRESTO_OFFLINE);
+        if (!isNullOrEmpty(prestoOffline)) {
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), true, prestoOffline);
+            }
+            throw new TableOfflineException(tableName, true, prestoOffline);
+        }
     }
 }
