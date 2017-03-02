@@ -61,6 +61,7 @@ import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -230,6 +231,11 @@ public class QueryStateMachine
     public Session getSession()
     {
         return session;
+    }
+
+    public TransactionId getRequiredTransactionId()
+    {
+        return session.getTransactionId().orElseThrow(() -> new PrestoException(NOT_IN_TRANSACTION, "No transaction in progress"));
     }
 
     public boolean isAutoCommit()

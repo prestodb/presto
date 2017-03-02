@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionId;
@@ -24,8 +22,6 @@ import com.facebook.presto.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
-import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 
 public class CommitTask
         implements DataDefinitionTask<Commit>
@@ -39,11 +35,7 @@ public class CommitTask
     @Override
     public CompletableFuture<?> execute(Commit statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        Session session = stateMachine.getSession();
-        if (!session.getTransactionId().isPresent()) {
-            throw new PrestoException(NOT_IN_TRANSACTION, "No transaction in progress");
-        }
-        TransactionId transactionId = session.getTransactionId().get();
+        TransactionId transactionId = stateMachine.getRequiredTransactionId();
 
         stateMachine.clearTransactionId();
         return transactionManager.asyncCommit(transactionId);

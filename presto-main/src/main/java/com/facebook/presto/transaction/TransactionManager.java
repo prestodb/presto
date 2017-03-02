@@ -279,6 +279,13 @@ public class TransactionManager
     @ThreadSafe
     private static class TransactionMetadata
     {
+        private enum State
+        {
+            ACTIVE,
+            COMMITTED,
+            ABORTED
+        }
+
         private final DateTime createTime = DateTime.now();
         private final CatalogManager catalogManager;
         private final TransactionId transactionId;
@@ -290,8 +297,10 @@ public class TransactionManager
         @GuardedBy("this")
         private final AtomicReference<ConnectorId> writtenConnectorId = new AtomicReference<>();
         private final Executor finishingExecutor;
-        private final AtomicReference<Boolean> completedSuccessfully = new AtomicReference<>();
         private final AtomicReference<Long> idleStartTime = new AtomicReference<>();
+
+        @GuardedBy("this")
+        private State state = State.ACTIVE;
 
         @GuardedBy("this")
         private final Map<String, Optional<Catalog>> catalogByName = new ConcurrentHashMap<>();
@@ -332,17 +341,16 @@ public class TransactionManager
             return idleStartTime != null && Duration.nanosSince(idleStartTime).compareTo(idleTimeout) > 0;
         }
 
-        public void checkOpenTransaction()
+        public synchronized void checkOpenTransaction()
         {
-            Boolean completedStatus = this.completedSuccessfully.get();
-            if (completedStatus != null) {
-                if (completedStatus) {
+            switch (state) {
+                case ACTIVE:
+                    return;
+                case COMMITTED:
                     // Should not happen normally
                     throw new IllegalStateException("Current transaction already committed");
-                }
-                else {
+                case ABORTED:
                     throw new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
-                }
             }
         }
 
@@ -443,14 +451,14 @@ public class TransactionManager
 
         public synchronized CompletableFuture<?> asyncCommit()
         {
-            if (!completedSuccessfully.compareAndSet(null, true)) {
-                if (completedSuccessfully.get()) {
-                    // Already done
-                    return completedFuture(null);
-                }
-                // Transaction already aborted
+            if (state == State.COMMITTED) {
+                return completedFuture(null);
+            }
+            if (state == State.ABORTED) {
                 return failedFuture(new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
             }
+            verify(state == State.ACTIVE);
+            state = State.COMMITTED;
 
             ConnectorId writeConnectorId = this.writtenConnectorId.get();
             if (writeConnectorId == null) {
@@ -489,14 +497,16 @@ public class TransactionManager
 
         public synchronized CompletableFuture<?> asyncAbort()
         {
-            if (!completedSuccessfully.compareAndSet(null, false)) {
-                if (completedSuccessfully.get()) {
-                    // Should not happen normally
-                    return failedFuture(new IllegalStateException("Current transaction already committed"));
-                }
-                // Already done
+            if (state == State.ABORTED) {
                 return completedFuture(null);
             }
+            if (state == State.COMMITTED) {
+                // Should not happen normally
+                return failedFuture(new IllegalStateException("Current transaction already committed"));
+            }
+            verify(state == State.ACTIVE);
+            state = State.ABORTED;
+
             return abortInternal();
         }
 
