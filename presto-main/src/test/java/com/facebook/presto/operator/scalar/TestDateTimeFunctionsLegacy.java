@@ -36,6 +36,7 @@ public class TestDateTimeFunctionsLegacy
                 testSessionBuilder()
                         .setTimeZoneKey(TIME_ZONE_KEY)
                         .setSystemProperty("legacy_timestamp", "true")
+                        .setStartTime(new DateTime(2017, 04, 01, 12, 34, 56, 789, UTC_TIME_ZONE).getMillis())
                         .build());
     }
 
