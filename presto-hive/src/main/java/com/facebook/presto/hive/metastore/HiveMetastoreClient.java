@@ -22,6 +22,7 @@ import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
+import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
@@ -117,5 +118,14 @@ public interface HiveMetastoreClient
             throws TException;
 
     boolean revokePrivileges(PrivilegeBag privilegeBag)
+            throws TException;
+
+    void grantRole(String role, String granteeName, PrincipalType granteeType, String grantorName, PrincipalType grantorType, boolean grantOption)
+            throws TException;
+
+    void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
+            throws TException;
+
+    List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
             throws TException;
 }
