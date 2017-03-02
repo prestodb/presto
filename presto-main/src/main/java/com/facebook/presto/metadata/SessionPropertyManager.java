@@ -23,6 +23,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.ParameterRewriter;
@@ -250,6 +251,9 @@ public final class SessionPropertyManager
         if (BigintType.BIGINT.equals(type)) {
             return value.toString();
         }
+        if (IntegerType.INTEGER.equals(type)) {
+            return value.toString();
+        }
         if (DoubleType.DOUBLE.equals(type)) {
             return value.toString();
         }
@@ -276,6 +280,9 @@ public final class SessionPropertyManager
         if (BigintType.BIGINT.equals(type)) {
             return Long.valueOf(value);
         }
+        if (IntegerType.INTEGER.equals(type)) {
+            return Integer.valueOf(value);
+        }
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.valueOf(value);
         }
@@ -295,6 +302,9 @@ public final class SessionPropertyManager
         }
         if (BigintType.BIGINT.equals(type)) {
             return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Long.class);
+        }
+        if (IntegerType.INTEGER.equals(type)) {
+            return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Integer.class);
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Double.class);
@@ -321,6 +331,9 @@ public final class SessionPropertyManager
         }
         if (BigintType.BIGINT.equals(type)) {
             return Long.class;
+        }
+        if (IntegerType.INTEGER.equals(type)) {
+            return Integer.class;
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.class;
