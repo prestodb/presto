@@ -49,7 +49,7 @@ public class TestHiveFileBasedSecurity
     @Test
     public void testAdminCanRead()
     {
-        Session admin = getSession("user");
+        Session admin = getSession("hive");
         queryRunner.execute(admin, "SELECT * FROM orders");
     }
 
