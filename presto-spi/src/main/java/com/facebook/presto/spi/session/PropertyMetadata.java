@@ -20,6 +20,7 @@ import java.util.function.Function;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -151,7 +152,7 @@ public final class PropertyMetadata<T>
         return new PropertyMetadata<>(
                 name,
                 description,
-                BIGINT,
+                INTEGER,
                 Integer.class,
                 defaultValue,
                 hidden,
