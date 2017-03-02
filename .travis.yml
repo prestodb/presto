@@ -8,17 +8,16 @@ env:
     - ARTIFACTS_UPLOAD_PATH=travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
   matrix:
     - MAVEN_CHECKS=true
-    - TEST_SPECIFIC_MODULES=presto-tests
-    - TEST_SPECIFIC_MODULES=presto-raptor
-    - TEST_SPECIFIC_MODULES=presto-accumulo
-    - TEST_SPECIFIC_MODULES=presto-cassandra
-    - TEST_SPECIFIC_MODULES=presto-hive,presto-kafka,presto-mysql,presto-postgresql,presto-redis
-    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kafka,!presto-mysql,!presto-postgresql,!presto-redis,!presto-docs,!presto-server,!presto-server-rpm
     - PRODUCT_TESTS=true
+    - PRODUCT_TEST_NAME_PREFIX='q0,q1'
+    - PRODUCT_TEST_NAME_PREFIX='q2,q3,q4'
+    - PRODUCT_TEST_NAME_PREFIX='q5,q6,q9'
+    - PRODUCT_TEST_NAME_PREFIX='q7,q8'
     - HIVE_TESTS=true
 
 sudo: required
 dist: trusty
+group: deprecated
 
 cache:
   directories:
@@ -44,6 +43,10 @@ install:
   - |
     if [[ -v HIVE_TESTS ]]; then
       ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
+    fi
+  - |
+    if [[ -v PRODUCT_TEST_NAME_PREFIX ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
     fi
 
 script:
@@ -72,6 +75,10 @@ script:
   - |
     if [[ -v HIVE_TESTS ]]; then
       presto-hive-hadoop2/bin/run_on_docker.sh
+    fi
+  - |
+    if [[ -v PRODUCT_TEST_NAME_PREFIX ]]; then
+      travis_wait 40 ./presto-product-tests/bin/run_on_docker.sh singlenode -g tpcds -x big_query,quarantine -t ${PRODUCT_TEST_NAME_PREFIX}
     fi
 
 before_cache:
