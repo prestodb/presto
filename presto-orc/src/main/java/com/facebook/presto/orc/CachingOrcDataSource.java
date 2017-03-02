@@ -119,6 +119,12 @@ public class CachingOrcDataSource
         dataSource.close();
     }
 
+    @Override
+    public String toString()
+    {
+        return dataSource.toString();
+    }
+
     public interface RegionFinder
     {
         DiskRange getRangeFor(long desiredOffset);
