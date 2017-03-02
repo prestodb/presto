@@ -40,6 +40,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
@@ -139,8 +140,14 @@ public class RcFileFileWriterFactory
                 });
             }
 
+            Callable<Void> outputFileDeleteRoutine = () -> {
+                fileSystem.delete(path, false);
+                return null;
+            };
+
             return Optional.of(new RcFileFileWriter(
                     outputStream,
+                    outputFileDeleteRoutine,
                     rcFileEncoding,
                     fileColumnTypes,
                     codecName,
