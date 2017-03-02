@@ -55,6 +55,7 @@ script:
     fi
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES -Dtest=TestLocalBinarySpilledQueries -DfailIfNoTests=false
       ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES $TEST_FLAGS
     fi
   - |
