@@ -32,6 +32,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntIterator;
@@ -51,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -63,6 +65,8 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSink
         implements ConnectorPageSink
 {
+    private static final Logger log = Logger.get(HivePageSink.class);
+
     private static final int MAX_PAGE_POSITIONS = 4096;
 
     private final HiveWriterFactory writerFactory;
@@ -192,7 +196,7 @@ public class HivePageSink
 
         try {
             List<ListenableFuture<?>> futures = writeVerificationExecutor.invokeAll(verificationTasks).stream()
-                    .map(future-> (ListenableFuture<?>) future)
+                    .map(future -> (ListenableFuture<?>) future)
                     .collect(toList());
             return Futures.transform(Futures.allAsList(futures), input -> result);
         }
@@ -212,11 +216,21 @@ public class HivePageSink
 
     private void doAbort()
     {
+        Optional<Exception> rollbackException = Optional.empty();
         for (HiveWriter writer : writers) {
             // writers can contain nulls if an exception is thrown when doAppend expends the writer list
             if (writer != null) {
-                writer.rollback();
+                try {
+                    writer.rollback();
+                }
+                catch (Exception e) {
+                    log.warn("exception '%s' while rollback on %s", e, writer);
+                    rollbackException = Optional.of(e);
+                }
             }
+        }
+        if (rollbackException.isPresent()) {
+            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.get());
         }
     }
 
