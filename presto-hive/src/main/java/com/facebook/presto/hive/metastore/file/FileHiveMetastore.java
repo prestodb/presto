@@ -72,6 +72,7 @@ import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
@@ -83,8 +84,11 @@ public class FileHiveMetastore
         implements ExtendedHiveMetastore
 {
     private static final String PUBLIC_ROLE_NAME = "public";
+    private static final String ADMIN_ROLE_NAME = "admin";
     private static final String PRESTO_SCHEMA_FILE_NAME = ".prestoSchema";
     private static final String PRESTO_PERMISSIONS_DIRECTORY_NAME = ".prestoPermissions";
+    // todo there should be a way to manage the admins list
+    private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
 
     private final HdfsEnvironment hdfsEnvironment;
     private final Path catalogDirectory;
@@ -677,10 +681,12 @@ public class FileHiveMetastore
     @Override
     public synchronized Set<String> getRoles(String user)
     {
-        return ImmutableSet.<String>builder()
-                .add(PUBLIC_ROLE_NAME)
-                .add("admin")  // todo there should be a way to manage the admins list
-                .build();
+        ImmutableSet.Builder<String> result = ImmutableSet.builder();
+        result.add(PUBLIC_ROLE_NAME);
+        if (ADMIN_USERS.contains(user.toLowerCase(ENGLISH))) {
+            result.add(ADMIN_ROLE_NAME);
+        }
+        return result.build();
     }
 
     @Override
