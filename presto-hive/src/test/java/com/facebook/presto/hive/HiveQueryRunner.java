@@ -18,6 +18,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -32,6 +33,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
@@ -138,6 +140,7 @@ public final class HiveQueryRunner
     public static Session createSession()
     {
         return testSessionBuilder()
+                .setIdentity(new Identity("hive", Optional.empty()))
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
@@ -146,6 +149,7 @@ public final class HiveQueryRunner
     public static Session createBucketedSession()
     {
         return testSessionBuilder()
+                .setIdentity(new Identity("hive", Optional.empty()))
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
