@@ -34,6 +34,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
@@ -46,12 +47,14 @@ public class RcFileFileWriter
         implements HiveFileWriter
 {
     private final RcFileWriter rcFileWriter;
+    private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<RcFileDataSource>> validationInputFactory;
 
     public RcFileFileWriter(
             OutputStream outputStream,
+            Callable<Void> rollbackAction,
             RcFileEncoding rcFileEncoding,
             List<Type> fileColumnTypes,
             Optional<String> codecName,
@@ -68,6 +71,7 @@ public class RcFileFileWriter
                 new AircompressorCodecFactory(new HadoopCodecFactory(getClass().getClassLoader())),
                 metadata,
                 validationInputFactory.isPresent());
+        this.rollbackAction = rollbackAction;
 
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "outputColumnInputIndexes is null");
 
@@ -116,7 +120,12 @@ public class RcFileFileWriter
             rcFileWriter.close();
         }
         catch (IOException e) {
-            // todo delete file
+            try {
+                rollbackAction.call();
+            }
+            catch (Exception e2) {
+                // ignore
+            }
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
 
@@ -136,10 +145,14 @@ public class RcFileFileWriter
     public void rollback()
     {
         try {
-            rcFileWriter.close();
-            // todo delete file
+            try {
+                rcFileWriter.close();
+            }
+            finally {
+                rollbackAction.call();
+            }
         }
-        catch (IOException e) {
+        catch (Exception e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
     }
