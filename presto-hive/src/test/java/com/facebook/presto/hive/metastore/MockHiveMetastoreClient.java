@@ -31,6 +31,7 @@ import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
+import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -38,6 +39,9 @@ import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
+import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
 public class MockHiveMetastoreClient
         implements HiveMetastoreClient
@@ -50,6 +54,9 @@ public class MockHiveMetastoreClient
     static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
     static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
     static final List<String> TEST_ROLES = ImmutableList.of("testrole");
+    static final List<RolePrincipalGrant> TEST_ROLE_GRANTS = ImmutableList.of(
+            new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
+            new RolePrincipalGrant("role2", "role1", ROLE, true, 0, "grantor2", ROLE));
 
     private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
             new StorageDescriptor(ImmutableList.of(), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
@@ -309,6 +316,31 @@ public class MockHiveMetastoreClient
     public boolean revokePrivileges(PrivilegeBag privilegeBag)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void grantRole(String role, String granteeName, PrincipalType granteeType, String grantorName, PrincipalType grantorType, boolean grantOption)
+            throws TException
+    {
+        // No-op
+    }
+
+    @Override
+    public void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
+            throws TException
+    {
+        // No-op
+    }
+
+    @Override
+    public List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
+            throws TException
+    {
+        accessCount.incrementAndGet();
+        if (throwException) {
+            throw new IllegalStateException();
+        }
+        return TEST_ROLE_GRANTS;
     }
 
     @Override

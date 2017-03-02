@@ -15,16 +15,24 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -119,6 +127,241 @@ public class TestHiveRoles
         assertQueryFails(createUserSession("non_admin_user"), "SELECT * FROM hive.information_schema.roles", "Access Denied: Cannot select from table information_schema.roles");
     }
 
+    @Test
+    public void testPublicRoleIsGrantedToAnyone()
+            throws Exception
+    {
+        assertContains(listApplicableRoles("some_user"), applicableRoles("some_user", "USER", "public", "NO"));
+    }
+
+    @Test
+    public void testAdminRoleIsGrantedToAdmin()
+            throws Exception
+    {
+        assertContains(listApplicableRoles("admin"), applicableRoles("admin", "USER", "admin", "YES"));
+    }
+
+    @Test
+    public void testGrantRoleToUser()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("GRANT role1 TO USER user");
+        assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
+    }
+
+    @Test
+    public void testGrantRoleToRole()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("CREATE ROLE role2");
+        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin("GRANT role2 TO ROLE role1");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "NO",
+                "role1", "ROLE", "role2", "NO"));
+    }
+
+    @Test
+    public void testGrantRoleWithAdminOption()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("CREATE ROLE role2");
+        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
+        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "YES",
+                "role1", "ROLE", "role2", "YES"));
+    }
+
+    @Test
+    public void testGrantRoleMultipleTimes()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("CREATE ROLE role2");
+        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin("GRANT role2 TO ROLE role1");
+        executeFromAdmin("GRANT role2 TO ROLE role1");
+        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
+        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
+        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "YES",
+                "role1", "ROLE", "role2", "YES"));
+    }
+
+    @Test
+    public void testGrantNonExistingRole()
+            throws Exception
+    {
+        assertQueryFails("GRANT grant_revoke_role_existing_1 TO USER grant_revoke_existing_user_1", ".*?Role 'grant_revoke_role_existing_1' does not exist");
+        executeFromAdmin("CREATE ROLE grant_revoke_role_existing_1");
+        assertQueryFails("GRANT grant_revoke_role_existing_1 TO ROLE grant_revoke_role_existing_2", ".*?Role 'grant_revoke_role_existing_2' does not exist");
+    }
+
+    @Test
+    public void testRevokeRoleFromUser()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("GRANT role1 TO USER user");
+        assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
+
+        executeFromAdmin("REVOKE role1 FROM USER user");
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+    }
+
+    @Test
+    public void testRevokeRoleFromRole()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("CREATE ROLE role2");
+        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin("GRANT role2 TO ROLE role1");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "NO",
+                "role1", "ROLE", "role2", "NO"));
+
+        executeFromAdmin("REVOKE role2 FROM ROLE role1");
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "public", "NO",
+                "user", "USER", "role1", "NO"));
+    }
+
+    @Test
+    public void testDropGrantedRole()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("GRANT role1 TO USER user");
+        assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
+
+        executeFromAdmin("DROP ROLE role1");
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+    }
+
+    @Test
+    public void testRevokeTransitiveRoleFromUser()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("CREATE ROLE role2");
+        executeFromAdmin("CREATE ROLE role3");
+        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin("GRANT role2 TO ROLE role1");
+        executeFromAdmin("GRANT role3 TO ROLE role2");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "NO",
+                "role1", "ROLE", "role2", "NO",
+                "role2", "ROLE", "role3", "NO"));
+
+        executeFromAdmin("REVOKE role1 FROM USER user");
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+    }
+
+    @Test
+    public void testRevokeTransitiveRoleFromRole()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("CREATE ROLE role2");
+        executeFromAdmin("CREATE ROLE role3");
+        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin("GRANT role2 TO ROLE role1");
+        executeFromAdmin("GRANT role3 TO ROLE role2");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "NO",
+                "role1", "ROLE", "role2", "NO",
+                "role2", "ROLE", "role3", "NO"));
+
+        executeFromAdmin("REVOKE role2 FROM ROLE role1");
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "public", "NO",
+                "user", "USER", "role1", "NO"));
+    }
+
+    @Test
+    public void testDropTransitiveRole()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("CREATE ROLE role2");
+        executeFromAdmin("CREATE ROLE role3");
+        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin("GRANT role2 TO ROLE role1");
+        executeFromAdmin("GRANT role3 TO ROLE role2");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "NO",
+                "role1", "ROLE", "role2", "NO",
+                "role2", "ROLE", "role3", "NO"));
+
+        executeFromAdmin("DROP ROLE role2");
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "public", "NO",
+                "user", "USER", "role1", "NO"));
+    }
+
+    @Test
+    public void testRevokeAdminOption()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("CREATE ROLE role2");
+        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
+        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "YES",
+                "role1", "ROLE", "role2", "YES"));
+
+        executeFromAdmin("REVOKE ADMIN OPTION FOR role1 FROM USER user");
+        executeFromAdmin("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "NO",
+                "role1", "ROLE", "role2", "NO"));
+    }
+
+    @Test
+    public void testRevokeRoleMultipleTimes()
+            throws Exception
+    {
+        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin("CREATE ROLE role2");
+        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
+        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "YES",
+                "role1", "ROLE", "role2", "YES"));
+
+        executeFromAdmin("REVOKE ADMIN OPTION FOR role1 FROM USER user");
+        executeFromAdmin("REVOKE ADMIN OPTION FOR role1 FROM USER user");
+        executeFromAdmin("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
+        executeFromAdmin("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                "user", "USER", "role1", "NO",
+                "role1", "ROLE", "role2", "NO"));
+
+        executeFromAdmin("REVOKE role1 FROM USER user");
+        executeFromAdmin("REVOKE role1 FROM USER user");
+        executeFromAdmin("REVOKE role2 FROM ROLE role1");
+        executeFromAdmin("REVOKE role2 FROM ROLE role1");
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+    }
+
+    @Test
+    public void testRevokeNonExistingRole()
+            throws Exception
+    {
+        assertQueryFails(createAdminSession(), "REVOKE grant_revoke_role_existing_1 FROM USER grant_revoke_existing_user_1", ".*?Role 'grant_revoke_role_existing_1' does not exist");
+        executeFromAdmin("CREATE ROLE grant_revoke_role_existing_1");
+        assertQueryFails(createAdminSession(), "REVOKE grant_revoke_role_existing_1 FROM ROLE grant_revoke_role_existing_2", ".*?Role 'grant_revoke_role_existing_2' does not exist");
+    }
+
     private Set<String> listRoles()
     {
         return executeFromAdmin("SELECT * FROM hive.information_schema.roles")
@@ -126,6 +369,34 @@ public class TestHiveRoles
                 .stream()
                 .map(row -> row.getField(0).toString())
                 .collect(Collectors.toSet());
+    }
+
+    private MaterializedResult listApplicableRoles(String user)
+    {
+        return executeFromUser(user, "SELECT * FROM hive.information_schema.applicable_roles");
+    }
+
+    private MaterializedResult applicableRoles(String... values)
+    {
+        List<Type> types = ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType());
+        int rowLength = types.size();
+        checkArgument(values.length % rowLength == 0);
+        MaterializedResult.Builder result = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), types);
+        Object[] row = null;
+        for (int i = 0; i < values.length; i++) {
+            if (i % rowLength == 0) {
+                if (row != null) {
+                    result.row(row);
+                }
+                row = new Object[rowLength];
+            }
+            checkState(row != null);
+            row[i % rowLength] = values[i];
+        }
+        if (row != null) {
+            result.row(row);
+        }
+        return result.build();
     }
 
     private MaterializedResult executeFromAdmin(String sql)
