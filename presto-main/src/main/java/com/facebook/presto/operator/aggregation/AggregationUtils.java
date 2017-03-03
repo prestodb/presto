@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.aggregation.state.CentralMomentsState;
 import com.facebook.presto.operator.aggregation.state.CorrelationState;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
 import com.facebook.presto.operator.aggregation.state.RegressionState;
@@ -40,6 +41,24 @@ public final class AggregationUtils
         double delta = value - state.getMean();
         state.setMean(state.getMean() + delta / state.getCount());
         state.setM2(state.getM2() + delta * (value - state.getMean()));
+    }
+
+    public static void updateCentralMomentsState(CentralMomentsState state, double value)
+    {
+        long n1 = state.getCount();
+        long n = n1 + 1;
+        double m1 = state.getM1();
+        double m2 = state.getM2();
+        double m3 = state.getM3();
+        double delta = value - m1;
+        double deltaN = delta / n;
+        double deltaN2 = deltaN * deltaN;
+        double dm2 = delta * deltaN * n1;
+        state.setCount(n);
+        state.setM1(m1 + deltaN);
+        state.setM2(m2 + dm2);
+        state.setM3(m3 + dm2 * deltaN * (n - 2) - 3 * deltaN * m2);
+        state.setM4(state.getM4() + dm2 * deltaN2 * (n * (double) n - 3 * n + 3) + 6 * deltaN2 * m2 - 4 * deltaN * m3);
     }
 
     public static void updateCovarianceState(CovarianceState state, double x, double y)
@@ -122,6 +141,40 @@ public final class AggregationUtils
         state.setM2(state.getM2() + m2Delta);
         state.setCount(newCount);
         state.setMean(newMean);
+    }
+
+    public static void mergeCentralMomentsState(CentralMomentsState state, CentralMomentsState otherState)
+    {
+        long na = state.getCount();
+        long nb = otherState.getCount();
+
+        checkArgument(nb >= 0, "count is negative");
+        if (nb == 0) {
+            return;
+        }
+
+        double m1a = state.getM1();
+        double m2a = state.getM2();
+        double m3a = state.getM3();
+        double m1b = otherState.getM1();
+        double m2b = otherState.getM2();
+        double m3b = otherState.getM3();
+        double n = na + nb; // Use double as type of n to avoid integer overflow for n*n and n*n*n
+        double delta = m1b - m1a;
+        double delta2 = delta * delta;
+        double delta3 = delta * delta2;
+        double delta4 = delta2 * delta2;
+
+        state.setCount((long) n);
+        state.setM1((na * m1a + nb * m1b) / n);
+        state.setM2(m2a + m2b + delta2 * na * nb / n);
+        state.setM3(m3a + m3b
+                + delta3 * na * nb * (na - nb) / (n * n)
+                + 3 * delta * (na * m2b - nb * m2a) / n);
+        state.setM4(state.getM4() + otherState.getM4()
+                + delta4 * na * nb * (na * na - na * nb + nb * nb) / (n * n * n)
+                + 6 * delta2 * (na * na * m2b + nb * nb * m2a) / (n * n)
+                + 4 * delta * (na * m3b - nb * m3a) / n);
     }
 
     private static void updateCovarianceState(CovarianceState state, CovarianceState otherState)
