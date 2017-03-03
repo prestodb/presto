@@ -62,7 +62,7 @@ public class TestFeaturesConfig
                 .setSpillerThreads(4)
                 .setOptimizeMixedDistinctAggregations(false)
                 .setLegacyOrderBy(false)
-                .setIterativeOptimizerEnabled(false)
+                .setIterativeOptimizerEnabled(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setExchangeCompressionEnabled(false));
     }
@@ -72,7 +72,7 @@ public class TestFeaturesConfig
     {
         Map<String, String> propertiesLegacy = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
-                .put("experimental.iterative-optimizer-enabled", "true")
+                .put("experimental.iterative-optimizer-enabled", "false")
                 .put("experimental.iterative-optimizer-timeout", "10s")
                 .put("deprecated.legacy-array-agg", "true")
                 .put("deprecated.legacy-order-by", "true")
@@ -101,7 +101,7 @@ public class TestFeaturesConfig
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
-                .put("experimental.iterative-optimizer-enabled", "true")
+                .put("experimental.iterative-optimizer-enabled", "false")
                 .put("experimental.iterative-optimizer-timeout", "10s")
                 .put("deprecated.legacy-array-agg", "true")
                 .put("deprecated.legacy-order-by", "true")
@@ -131,7 +131,7 @@ public class TestFeaturesConfig
 
         FeaturesConfig expected = new FeaturesConfig()
                 .setResourceGroupsEnabled(true)
-                .setIterativeOptimizerEnabled(true)
+                .setIterativeOptimizerEnabled(false)
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))
                 .setDistributedIndexJoinsEnabled(true)
                 .setDistributedJoinsEnabled(false)
