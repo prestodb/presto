@@ -177,6 +177,26 @@ public class BridgingHiveMetastore
         alterTable(databaseName, tableName, table);
     }
 
+    @Override
+    public void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
+        if (!source.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        if (table.getSd().getCols().size() == 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Dropping last column is not supported");
+        }
+
+        for (FieldSchema fieldSchema : table.getSd().getCols()) {
+            if (fieldSchema.getName().equals(columnName)) {
+                table.getSd().getCols().remove(fieldSchema);
+            }
+        }
+        alterTable(databaseName, tableName, table);
+    }
+
     private void alterTable(String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
     {
         delegate.alterTable(databaseName, tableName, table);

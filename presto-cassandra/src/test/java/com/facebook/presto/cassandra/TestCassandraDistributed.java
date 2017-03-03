@@ -71,6 +71,12 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testDropColumn()
+    {
+        // Cassandra does not support dropping columns
+    }
+
+    @Override
     public void testInsert()
     {
         // Cassandra connector currently does not support insert

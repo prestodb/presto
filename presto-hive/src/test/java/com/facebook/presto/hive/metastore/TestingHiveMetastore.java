@@ -335,6 +335,32 @@ public class TestingHiveMetastore
     }
 
     @Override
+    public synchronized void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        SchemaTableName name = new SchemaTableName(databaseName, tableName);
+        Table oldTable = getRequiredTable(name);
+
+        if (!oldTable.getColumn(columnName).isPresent()) {
+            throw new ColumnNotFoundException(name, columnName);
+        }
+        if (oldTable.getPartitionColumns().size() == 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Dropping last column is not supported");
+        }
+
+        ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
+        for (Column fieldSchema : oldTable.getDataColumns()) {
+            if (!fieldSchema.getName().equals(columnName)) {
+                newDataColumns.add(fieldSchema);
+            }
+        }
+
+        Table newTable = Table.builder(oldTable)
+                .setDataColumns(newDataColumns.build())
+                .build();
+        relations.put(name, newTable);
+    }
+
+    @Override
     public synchronized Optional<List<String>> getAllTables(String databaseName)
     {
         if (!databases.containsKey(databaseName)) {

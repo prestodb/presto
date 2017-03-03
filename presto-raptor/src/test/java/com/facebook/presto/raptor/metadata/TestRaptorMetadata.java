@@ -141,6 +141,24 @@ public class TestRaptorMetadata
     }
 
     @Test
+    public void testDropColumn()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, getOrdersTable());
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+        ColumnHandle columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
+
+        metadata.renameColumn(SESSION, raptorTableHandle, columnHandle, "orderkey_renamed");
+
+        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
+        assertNotNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey_renamed"));
+    }
+
+    @Test
     public void testRenameTable()
             throws Exception
     {

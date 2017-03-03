@@ -55,6 +55,8 @@ public interface ExtendedHiveMetastore
 
     void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName);
 
+    void dropColumn(String databaseName, String tableName, String columnName);
+
     Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
 
     Optional<List<String>> getPartitionNames(String databaseName, String tableName);

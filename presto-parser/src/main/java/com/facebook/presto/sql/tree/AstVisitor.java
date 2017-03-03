@@ -547,6 +547,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitDropColumn(DropColumn node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitAddColumn(AddColumn node, C context)
     {
         return visitStatement(node, context);
