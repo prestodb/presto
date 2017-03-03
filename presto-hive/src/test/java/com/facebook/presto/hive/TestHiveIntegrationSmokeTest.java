@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.type.TypeRegistry;
@@ -96,19 +95,12 @@ public class TestHiveIntegrationSmokeTest
     private final TypeManager typeManager;
     private final TypeTranslator typeTranslator;
 
-    @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
-            throws Exception
     {
-        this(createQueryRunner(ORDERS, CUSTOMER), createBucketedSession(), HIVE_CATALOG, new HiveTypeTranslator());
-    }
-
-    protected TestHiveIntegrationSmokeTest(QueryRunner queryRunner, Session bucketedSession, String catalog, TypeTranslator typeTranslator)
-    {
-        super(queryRunner);
-        this.catalog = requireNonNull(catalog, "catalog is null");
-        this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
-        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+        super(() -> createQueryRunner(ORDERS, CUSTOMER));
+        this.catalog = HIVE_CATALOG;
+        this.bucketedSession = createBucketedSession();
+        this.typeTranslator = new HiveTypeTranslator();
 
         this.typeManager = new TypeRegistry();
     }

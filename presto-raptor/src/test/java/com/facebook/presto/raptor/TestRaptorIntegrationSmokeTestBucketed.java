@@ -24,7 +24,7 @@ public class TestRaptorIntegrationSmokeTestBucketed
     public TestRaptorIntegrationSmokeTestBucketed()
             throws Exception
     {
-        super(createRaptorQueryRunner(ImmutableMap.of(), true, true));
+        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
     }
 
     @Test

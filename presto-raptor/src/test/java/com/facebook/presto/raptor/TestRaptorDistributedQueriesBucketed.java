@@ -23,6 +23,6 @@ public class TestRaptorDistributedQueriesBucketed
     public TestRaptorDistributedQueriesBucketed()
             throws Exception
     {
-        super(createRaptorQueryRunner(ImmutableMap.of(), true, true));
+        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
     }
 }

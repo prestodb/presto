@@ -23,6 +23,6 @@ public class TestDistributedQueriesNoHashGeneration
     public TestDistributedQueriesNoHashGeneration()
             throws Exception
     {
-        super(createQueryRunner(ImmutableMap.of(), ImmutableMap.of("optimizer.optimize-hash-generation", "false")));
+        super(() -> createQueryRunner(ImmutableMap.of(), ImmutableMap.of("optimizer.optimize-hash-generation", "false")));
     }
 }

@@ -30,7 +30,7 @@ public class TestLocalBinarySpilledQueries
 {
     public TestLocalBinarySpilledQueries()
     {
-        super(createLocalQueryRunner());
+        super(TestLocalBinarySpilledQueries::createLocalQueryRunner);
     }
 
     private static LocalQueryRunner createLocalQueryRunner()

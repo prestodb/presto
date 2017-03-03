@@ -30,7 +30,6 @@ import java.util.Date;
 import java.util.List;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
-import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_PARTITION_KEY;
@@ -67,7 +66,7 @@ public class TestCassandraIntegrationSmokeTest
     public TestCassandraIntegrationSmokeTest()
             throws Exception
     {
-        super(createCassandraQueryRunner());
+        super(CassandraQueryRunner::createCassandraQueryRunner);
     }
 
     @BeforeClass

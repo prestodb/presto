@@ -16,31 +16,34 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static java.util.Objects.requireNonNull;
 
 @Test
 public class TestMongoDistributedQueries
         extends AbstractTestQueries
 {
-    private final MongoQueryRunner runner;
+    private MongoQueryRunner mongoQueryRunner;
 
     public TestMongoDistributedQueries()
-            throws Exception
     {
-        this(createMongoQueryRunner(TpchTable.getTables()));
+        super(() -> createMongoQueryRunner(TpchTable.getTables()));
     }
 
-    private TestMongoDistributedQueries(MongoQueryRunner runner)
+    @BeforeClass
+    public void setUp()
+            throws Exception
     {
-        super(runner);
-        this.runner = runner;
+        mongoQueryRunner = (MongoQueryRunner) requireNonNull(queryRunner, "queryRunner is null");
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        runner.shutdown();
+        mongoQueryRunner.shutdown();
+        mongoQueryRunner = null;
     }
 }

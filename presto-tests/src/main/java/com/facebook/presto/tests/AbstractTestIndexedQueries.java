@@ -14,7 +14,6 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchIndexSpec;
 import com.facebook.presto.tests.tpch.TpchIndexSpec.Builder;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -35,9 +34,9 @@ public abstract class AbstractTestIndexedQueries
             .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderstatus", "shippriority"))
             .build();
 
-    protected AbstractTestIndexedQueries(QueryRunner queryRunner)
+    protected AbstractTestIndexedQueries(QueryRunnerSupplier supplier)
     {
-        super(queryRunner);
+        super(supplier);
     }
 
     @Test
