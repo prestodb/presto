@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.google.common.base.CharMatcher;
-import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 
 import java.io.Closeable;
@@ -24,11 +22,13 @@ import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 
@@ -49,17 +49,17 @@ public class PrestoDriver
     private final QueryExecutor queryExecutor;
 
     static {
-        String version = PrestoDriver.class.getPackage().getImplementationVersion();
-        if (version == null) {
+        String version = nullToEmpty(PrestoDriver.class.getPackage().getImplementationVersion());
+        Matcher matcher = Pattern.compile("^(\\d+)\\.(\\d+)($|[.-])").matcher(version);
+        if (!matcher.find()) {
             DRIVER_VERSION = "unknown";
             DRIVER_VERSION_MAJOR = 0;
             DRIVER_VERSION_MINOR = 0;
         }
         else {
             DRIVER_VERSION = version;
-            List<String> parts = Splitter.on(CharMatcher.anyOf(".-")).limit(3).splitToList(version);
-            DRIVER_VERSION_MAJOR = parseInt(parts.get(0));
-            DRIVER_VERSION_MINOR = parseInt(parts.get(1));
+            DRIVER_VERSION_MAJOR = parseInt(matcher.group(1));
+            DRIVER_VERSION_MINOR = parseInt(matcher.group(2));
         }
 
         try {
