@@ -70,6 +70,7 @@ public final class SystemSessionProperties
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -300,6 +301,11 @@ public final class SystemSessionProperties
                         EXCHANGE_COMPRESSION,
                         "Enable compression in exchanges",
                         featuresConfig.isExchangeCompressionEnabled(),
+                        false),
+                booleanSessionProperty(
+                        ENABLE_INTERMEDIATE_AGGREGATIONS,
+                        "Enable the use of intermediate aggregations",
+                        featuresConfig.isEnableIntermediateAggregations(),
                         false));
     }
 
@@ -465,5 +471,10 @@ public final class SystemSessionProperties
     public static boolean isExchangeCompressionEnabled(Session session)
     {
         return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
+    }
+
+    public static boolean isEnableIntermediateAggregations(Session session)
+    {
+        return session.getSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, Boolean.class);
     }
 }

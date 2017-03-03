@@ -18,6 +18,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
@@ -240,7 +241,9 @@ public class PlanOptimizers
         builder.add(new PartialAggregationPushDown(metadata.getFunctionRegistry()));
         builder.add(new IterativeOptimizer(
                 stats,
-                ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+                ImmutableSet.of(
+                        new AddIntermediateAggregations(),
+                        new RemoveRedundantIdentityProjections())));
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 

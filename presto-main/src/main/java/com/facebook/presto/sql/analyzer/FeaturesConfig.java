@@ -48,6 +48,7 @@ public class FeaturesConfig
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
+    private boolean enableIntermediateAggregations = false;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled = false;
     private boolean legacyArrayAgg;
@@ -397,6 +398,18 @@ public class FeaturesConfig
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
         this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        return this;
+    }
+
+    public boolean isEnableIntermediateAggregations()
+    {
+        return enableIntermediateAggregations;
+    }
+
+    @Config("optimizer.enable-intermediate-aggregations")
+    public FeaturesConfig setEnableIntermediateAggregations(boolean enableIntermediateAggregations)
+    {
+        this.enableIntermediateAggregations = enableIntermediateAggregations;
         return this;
     }
 }
