@@ -47,6 +47,6 @@ public class TestRedisDistributedHash
     public void destroy()
             throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedRedis);
+        closeAllRuntimeException(getQueryRunner(), embeddedRedis);
     }
 }

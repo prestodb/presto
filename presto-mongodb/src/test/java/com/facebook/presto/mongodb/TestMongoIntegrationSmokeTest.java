@@ -27,7 +27,6 @@ import java.util.Date;
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -48,7 +47,7 @@ public class TestMongoIntegrationSmokeTest
     public void setUp()
             throws Exception
     {
-        mongoQueryRunner = (MongoQueryRunner) requireNonNull(queryRunner, "queryRunner is null");
+        mongoQueryRunner = (MongoQueryRunner) getQueryRunner();
     }
 
     @AfterClass(alwaysRun = true)
@@ -75,7 +74,7 @@ public class TestMongoIntegrationSmokeTest
 
         assertUpdate(query, 1);
 
-        MaterializedResult results = queryRunner.execute(getSession(), "SELECT * FROM test_types_table").toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toJdbcTypes();
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0), "foo");
@@ -87,7 +86,7 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(6), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
         assertUpdate("DROP TABLE test_types_table");
 
-        assertFalse(queryRunner.tableExists(getSession(), "test_types_table"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
     }
 
     @Test
@@ -155,7 +154,7 @@ public class TestMongoIntegrationSmokeTest
 
     private void assertOneNotNullResult(String query)
     {
-        MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), query).toJdbcTypes();
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));

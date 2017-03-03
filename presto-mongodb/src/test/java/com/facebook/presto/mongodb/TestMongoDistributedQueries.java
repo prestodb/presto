@@ -20,7 +20,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
-import static java.util.Objects.requireNonNull;
 
 @Test
 public class TestMongoDistributedQueries
@@ -37,7 +36,7 @@ public class TestMongoDistributedQueries
     public void setUp()
             throws Exception
     {
-        mongoQueryRunner = (MongoQueryRunner) requireNonNull(queryRunner, "queryRunner is null");
+        mongoQueryRunner = (MongoQueryRunner) getQueryRunner();
     }
 
     @AfterClass(alwaysRun = true)

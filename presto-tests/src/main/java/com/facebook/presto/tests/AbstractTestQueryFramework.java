@@ -42,6 +42,8 @@ import java.util.OptionalLong;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -51,7 +53,7 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestQueryFramework
 {
     private QueryRunnerSupplier queryRunnerSupplier;
-    protected QueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
 
@@ -73,9 +75,8 @@ public abstract class AbstractTestQueryFramework
     public void close()
             throws Exception
     {
-        queryRunner.close();
+        closeAllRuntimeException(queryRunner, h2QueryRunner);
         queryRunner = null;
-        h2QueryRunner.close();
         h2QueryRunner = null;
         sqlParser = null;
         queryRunnerSupplier = null;
@@ -292,6 +293,12 @@ public abstract class AbstractTestQueryFramework
         if (!requirement) {
             throw new SkipException("requirement not met");
         }
+    }
+
+    protected QueryRunner getQueryRunner()
+    {
+        checkState(queryRunner != null, "queryRunner not set");
+        return queryRunner;
     }
 
     public interface QueryRunnerSupplier

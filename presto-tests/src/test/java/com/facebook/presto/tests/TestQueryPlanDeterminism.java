@@ -45,7 +45,7 @@ public class TestQueryPlanDeterminism
     @BeforeClass
     public void setUp()
     {
-        determinismChecker = new PlanDeterminismChecker((LocalQueryRunner) queryRunner);
+        determinismChecker = new PlanDeterminismChecker((LocalQueryRunner) getQueryRunner());
     }
 
     @AfterClass(alwaysRun = true)

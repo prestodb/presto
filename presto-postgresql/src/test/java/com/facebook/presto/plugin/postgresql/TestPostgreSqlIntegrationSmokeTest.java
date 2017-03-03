@@ -69,7 +69,7 @@ public class TestPostgreSqlIntegrationSmokeTest
             throws Exception
     {
         execute("CREATE MATERIALIZED VIEW tpch.test_mv as SELECT * FROM tpch.orders");
-        assertTrue(queryRunner.tableExists(getSession(), "test_mv"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_mv"));
         assertQuery("SELECT orderkey FROM test_mv", "SELECT orderkey FROM orders");
         execute("DROP MATERIALIZED VIEW tpch.test_mv");
     }

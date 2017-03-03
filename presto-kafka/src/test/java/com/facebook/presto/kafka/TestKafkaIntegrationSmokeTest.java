@@ -48,6 +48,6 @@ public class TestKafkaIntegrationSmokeTest
     public void destroy()
             throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedKafka);
+        closeAllRuntimeException(getQueryRunner(), embeddedKafka);
     }
 }
