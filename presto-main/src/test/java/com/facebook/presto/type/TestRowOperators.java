@@ -78,6 +78,35 @@ public class TestRowOperators
     }
 
     @Test
+    public void testJsonToRow()
+    {
+        assertFunction("cast(JSON '{\"name\":\"b\",\"value\":9}' as ROW(name VARCHAR, value BIGINT)).name", VARCHAR, "b");
+        assertFunction("cast(JSON '{\"name\":\"b\",\"value\":9}' as ROW(name VARCHAR, value BIGINT)).value", BIGINT, 9L);
+        assertFunction("cast(JSON '{\"value\":9,\"name\":\"b\"}' as ROW(name VARCHAR, value BIGINT)).name", VARCHAR, "b");
+        assertFunction("cast(JSON '{\"value\":9,\"name\":\"b\"}' as ROW(name VARCHAR, value BIGINT)).value", BIGINT, 9L);
+        assertFunction("cast(JSON '[{\"name\":\"b\",\"value\":9}, {\"name\":\"c\",\"value\":10}]' as ARRAY(ROW(name VARCHAR, value BIGINT)))[2].name", VARCHAR, "c");
+        assertFunction("cast(JSON '[{\"name\":\"b\",\"value\":9}, {\"name\":\"c\",\"value\":10}]' as ARRAY(ROW(name VARCHAR, value BIGINT)))[2].value", BIGINT, 10L);
+
+        assertFunction("cast(JSON '{\"field0\":\"b\",\"field1\":9}' as ROW(VARCHAR, BIGINT)).field0", VARCHAR, "b");
+        assertFunction("cast(JSON '{\"field0\":\"b\",\"field1\":9}' as ROW(VARCHAR, BIGINT)).field1", BIGINT, 9L);
+        assertFunction("cast(JSON '{\"name\":\"b\",\"value\":[9,10]}' as ROW(name VARCHAR, value ARRAY(BIGINT))).value", new ArrayType(BIGINT), Arrays.asList(9L, 10L));
+
+        assertFunction("cast(JSON '{\"namex\":\"b\",\"value\":9}' as ROW(name VARCHAR, value BIGINT)).name", VARCHAR, null);
+        assertFunction("cast(JSON '{\"namex\":\"b\",\"value\":9}' as ROW(name VARCHAR, value BIGINT)).value", BIGINT, 9L);
+        assertFunction("cast(JSON '{\"name\":\"b\",\"value\":9}' as ROW(name VARCHAR, value VARCHAR)).value", VARCHAR, "9");
+        try {
+            assertFunction("cast(JSON '{\"name\":\"b\",\"value\":9}' as ROW(name BIGINT, value VARCHAR)).name", BIGINT, null);
+            fail("String value cannot be casted to numeric");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+        // case insensitive
+        assertFunction("cast(JSON '{\"NaMe\":\"b\",\"value\":9}' as ROW(name VARCHAR, value BIGINT)).name", VARCHAR, "b");
+        assertFunction("cast(JSON '{\"name\":\"b\",\"value\":{\"key\":\"x\",\"value\":\"y\"}}' as ROW(name VARCHAR, value ROW(key VARCHAR, value VARCHAR))).value.value", VARCHAR, "y");
+    }
+
+    @Test
     public void testFieldAccessor()
             throws Exception
     {

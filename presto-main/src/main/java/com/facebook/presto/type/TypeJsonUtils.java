@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
@@ -114,19 +115,47 @@ public final class TypeJsonUtils
         }
 
         if (type instanceof RowType) {
-            List<Object> list = new ArrayList<>();
-            checkState(parser.getCurrentToken() == JsonToken.START_ARRAY, "Expected a json array");
-            int field = 0;
-            RowType rowType = (RowType) type;
-            while (parser.nextValue() != JsonToken.END_ARRAY) {
-                checkArgument(field < rowType.getFields().size(), "Unexpected field for type %s", type);
-                Object value = stackRepresentationToObjectHelper(session, parser, rowType.getFields().get(field).getType());
-                list.add(value);
-                field++;
-            }
-            checkArgument(field == rowType.getFields().size(), "Expected %s fields for type %s", rowType.getFields().size(), type);
+            if (parser.getCurrentToken() == JsonToken.START_ARRAY) {
+                List<Object> list = new ArrayList<>();
+                checkState(parser.getCurrentToken() == JsonToken.START_ARRAY, "Expected a json array");
+                int field = 0;
+                RowType rowType = (RowType) type;
+                while (parser.nextValue() != JsonToken.END_ARRAY) {
+                    checkArgument(field < rowType.getFields().size(), "Unexpected field for type %s", type);
+                    Object value = stackRepresentationToObjectHelper(session, parser, rowType.getFields().get(field).getType());
+                    list.add(value);
+                    field++;
+                }
+                checkArgument(field == rowType.getFields().size(), "Expected %s fields for type %s", rowType.getFields().size(), type);
 
-            return Collections.unmodifiableList(list);
+                return Collections.unmodifiableList(list);
+            }
+            else if (parser.getCurrentToken() == JsonToken.START_OBJECT) {
+                List<Object> list = new ArrayList<>();
+                Map<Object, Object> map = new LinkedHashMap<>();
+                Map<String, Type> fieldTypes = new LinkedHashMap<>();
+
+                RowType rowType = (RowType) type;
+                checkState(rowType.getFields().stream().allMatch(field -> field.getName().isPresent()), "Expected field name at %s", type);
+                rowType.getFields().forEach(field -> fieldTypes.put(field.getName().get().toLowerCase(session.getLocale()), field.getType()));
+
+                while (parser.nextValue() != JsonToken.END_OBJECT) {
+                    String key = parser.getCurrentName().toLowerCase(session.getLocale());
+                    Type fieldType = fieldTypes.get(key);
+                    if (fieldType == null) {
+                        // ignore unspecified field
+                        continue; // TODO: or raise an exception
+                    }
+                    Object value = stackRepresentationToObjectHelper(session, parser, fieldType);
+                    map.put(key, value);
+                }
+                fieldTypes.keySet().forEach(name -> list.add(map.get(name)));
+
+                return Collections.unmodifiableList(list);
+            }
+            else {
+                throw new IllegalStateException("Expected a json array or object");
+            }
         }
 
         Slice sliceValue = null;
@@ -233,6 +262,9 @@ public final class TypeJsonUtils
         if (type instanceof MapType) {
             return isValidJsonObjectKeyType(((MapType) type).getKeyType()) && canCastFromJson(((MapType) type).getValueType());
         }
+        if (type instanceof RowType) {
+            return type.getTypeParameters().stream().allMatch(TypeJsonUtils::canCastFromJson);
+        }
         return false;
     }
 
@@ -277,6 +309,17 @@ public final class TypeJsonUtils
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
                 appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
+            }
+            blockBuilder.closeEntry();
+        }
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW) && element instanceof Map<?, ?>) {
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
+            int field = 0;
+            for (TypeSignatureParameter typeParameter : type.getTypeSignature().getParameters()) {
+                String name = typeParameter.getNamedTypeSignature().getName();
+                Object value = ((Map<?, ?>) element).get(name);
+                appendToBlockBuilder(type.getTypeParameters().get(field), value, subBlockBuilder);
+                field++;
             }
             blockBuilder.closeEntry();
         }
