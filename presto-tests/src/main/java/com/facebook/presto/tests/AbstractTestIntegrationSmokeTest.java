@@ -14,7 +14,6 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -27,9 +26,9 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
+    protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
-        super(queryRunner);
+        super(supplier);
     }
 
     @Test

@@ -25,7 +25,7 @@ public class TestAccumuloIntegrationSmokeTest
     public TestAccumuloIntegrationSmokeTest()
             throws Exception
     {
-        super(AccumuloQueryRunner.createAccumuloQueryRunner(ImmutableMap.of()));
+        super(() -> AccumuloQueryRunner.createAccumuloQueryRunner(ImmutableMap.of()));
     }
 
     @Override

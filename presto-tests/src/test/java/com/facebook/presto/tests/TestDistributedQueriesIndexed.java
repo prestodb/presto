@@ -27,7 +27,7 @@ public class TestDistributedQueriesIndexed
     public TestDistributedQueriesIndexed()
             throws Exception
     {
-        super(createQueryRunner());
+        super(TestDistributedQueriesIndexed::createQueryRunner);
     }
 
     @AfterClass

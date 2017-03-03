@@ -40,7 +40,7 @@ public class TestKafkaDistributed
     public TestKafkaDistributed(EmbeddedKafka embeddedKafka)
             throws Exception
     {
-        super(createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
+        super(() -> createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
         this.embeddedKafka = embeddedKafka;
     }
 

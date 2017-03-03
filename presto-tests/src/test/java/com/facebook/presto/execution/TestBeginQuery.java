@@ -59,7 +59,7 @@ public class TestBeginQuery
     protected TestBeginQuery()
             throws Exception
     {
-        super(createQueryRunner());
+        super(TestBeginQuery::createQueryRunner);
     }
 
     private static QueryRunner createQueryRunner()

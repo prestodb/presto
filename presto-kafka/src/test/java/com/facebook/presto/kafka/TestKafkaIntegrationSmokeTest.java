@@ -40,7 +40,7 @@ public class TestKafkaIntegrationSmokeTest
     public TestKafkaIntegrationSmokeTest(EmbeddedKafka embeddedKafka)
             throws Exception
     {
-        super(createKafkaQueryRunner(embeddedKafka, ORDERS));
+        super(() -> createKafkaQueryRunner(embeddedKafka, ORDERS));
         this.embeddedKafka = embeddedKafka;
     }
 

@@ -23,7 +23,6 @@ import java.util.Set;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.connector.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static com.facebook.presto.connector.jmx.JmxMetadata.JMX_SCHEMA_NAME;
-import static com.facebook.presto.connector.jmx.JmxQueryRunner.createJmxQueryRunner;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static java.lang.String.format;
@@ -45,7 +44,7 @@ public class TestJmxQueries
     public TestJmxQueries()
             throws Exception
     {
-        super(createJmxQueryRunner());
+        super(JmxQueryRunner::createJmxQueryRunner);
     }
 
     @Test

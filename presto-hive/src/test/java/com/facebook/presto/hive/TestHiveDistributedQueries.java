@@ -29,7 +29,7 @@ public class TestHiveDistributedQueries
     public TestHiveDistributedQueries()
             throws Exception
     {
-        super(createQueryRunner(getTables()));
+        super(() -> createQueryRunner(getTables()));
     }
 
     @Override

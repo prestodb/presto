@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
@@ -57,9 +56,9 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunner queryRunner)
+    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier)
     {
-        super(queryRunner);
+        super(supplier);
     }
 
     protected boolean supportsViews()

@@ -40,7 +40,7 @@ public class TestAccumuloDistributedQueries
     public TestAccumuloDistributedQueries()
             throws Exception
     {
-        super(createAccumuloQueryRunner(ImmutableMap.of()));
+        super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
     }
 
     @Override

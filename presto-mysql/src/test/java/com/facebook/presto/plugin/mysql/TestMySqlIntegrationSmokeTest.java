@@ -51,7 +51,7 @@ public class TestMySqlIntegrationSmokeTest
     public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
             throws Exception
     {
-        super(createMySqlQueryRunner(mysqlServer, ORDERS));
+        super(() -> createMySqlQueryRunner(mysqlServer, ORDERS));
         this.mysqlServer = mysqlServer;
     }
 
