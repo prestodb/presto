@@ -58,6 +58,7 @@ public class FeaturesConfig
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
     private boolean optimizeMixedDistinctAggregations;
+    private boolean enableIntermediateAggregations = false;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
@@ -388,6 +389,18 @@ public class FeaturesConfig
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
         this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        return this;
+    }
+
+    public boolean isEnableIntermediateAggregations()
+    {
+        return enableIntermediateAggregations;
+    }
+
+    @Config("optimizer.enable-intermediate-aggregations")
+    public FeaturesConfig setEnableIntermediateAggregations(boolean enableIntermediateAggregations)
+    {
+        this.enableIntermediateAggregations = enableIntermediateAggregations;
         return this;
     }
 }
