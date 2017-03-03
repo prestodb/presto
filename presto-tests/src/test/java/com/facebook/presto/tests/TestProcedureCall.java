@@ -52,7 +52,7 @@ public class TestProcedureCall
     public void setUp()
             throws Exception
     {
-        TestingPrestoServer coordinator = ((DistributedQueryRunner) queryRunner).getCoordinator();
+        TestingPrestoServer coordinator = ((DistributedQueryRunner) getQueryRunner()).getCoordinator();
         tester = coordinator.getProcedureTester();
 
         // register procedures in the bogus testing catalog

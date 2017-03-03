@@ -276,6 +276,6 @@ public class TestCassandraIntegrationSmokeTest
 
     private MaterializedResult execute(String sql)
     {
-        return queryRunner.execute(SESSION, sql);
+        return getQueryRunner().execute(SESSION, sql);
     }
 }

@@ -77,16 +77,16 @@ public class TestBeginQuery
             throws Exception
     {
         metadata = new TestMetadata();
-        queryRunner.installPlugin(new TestPlugin(metadata));
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("test", "test", ImmutableMap.of());
-        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
+        getQueryRunner().installPlugin(new TestPlugin(metadata));
+        getQueryRunner().installPlugin(new TpchPlugin());
+        getQueryRunner().createCatalog("test", "test", ImmutableMap.of());
+        getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
     private void tearDown()
     {
-        queryRunner.close();
+        getQueryRunner().close();
     }
 
     @BeforeMethod

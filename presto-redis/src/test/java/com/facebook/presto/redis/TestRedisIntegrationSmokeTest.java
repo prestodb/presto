@@ -48,6 +48,6 @@ public class TestRedisIntegrationSmokeTest
     public void destroy()
             throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedRedis);
+        closeAllRuntimeException(getQueryRunner(), embeddedRedis);
     }
 }

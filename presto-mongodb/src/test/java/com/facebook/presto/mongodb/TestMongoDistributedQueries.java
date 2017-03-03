@@ -37,7 +37,7 @@ public class TestMongoDistributedQueries
     public void setUp()
             throws Exception
     {
-        mongoQueryRunner = (MongoQueryRunner) requireNonNull(queryRunner, "queryRunner is null");
+        mongoQueryRunner = (MongoQueryRunner) requireNonNull(getQueryRunner(), "queryRunner is null");
     }
 
     @AfterClass(alwaysRun = true)

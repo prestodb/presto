@@ -5364,7 +5364,7 @@ public abstract class AbstractTestQueries
                         .put("connector_string", "bar string")
                         .put("connector_long", "11")
                         .build()),
-                queryRunner.getMetadata().getSessionPropertyManager(),
+                getQueryRunner().getMetadata().getSessionPropertyManager(),
                 getSession().getPreparedStatements());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 

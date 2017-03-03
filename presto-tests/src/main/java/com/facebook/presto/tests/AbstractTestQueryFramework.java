@@ -51,7 +51,7 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestQueryFramework
 {
     private QueryRunnerSupplier queryRunnerSupplier;
-    protected QueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
 
@@ -292,6 +292,11 @@ public abstract class AbstractTestQueryFramework
         if (!requirement) {
             throw new SkipException("requirement not met");
         }
+    }
+
+    protected QueryRunner getQueryRunner()
+    {
+        return requireNonNull(queryRunner, "queryRunner is null");
     }
 
     public interface QueryRunnerSupplier

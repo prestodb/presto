@@ -34,7 +34,7 @@ public class TestDistributedQueriesIndexed
     public void destroy()
             throws Exception
     {
-        Closeables.closeQuietly(queryRunner);
+        Closeables.closeQuietly(getQueryRunner());
     }
 
     private static DistributedQueryRunner createQueryRunner()

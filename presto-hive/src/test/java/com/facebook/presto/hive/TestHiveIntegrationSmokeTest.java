@@ -179,7 +179,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(query, 1);
 
-        MaterializedResult results = queryRunner.execute(getSession(), "SELECT * FROM test_types_table").toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toJdbcTypes();
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0), "foo");
@@ -195,7 +195,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(row.getField(10), "bar       ");
         assertUpdate("DROP TABLE test_types_table");
 
-        assertFalse(queryRunner.tableExists(getSession(), "test_types_table"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
     }
 
     @Test
@@ -301,7 +301,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE test_partitioned_table");
 
-        assertFalse(queryRunner.tableExists(session, "test_partitioned_table"));
+        assertFalse(getQueryRunner().tableExists(session, "test_partitioned_table"));
     }
 
     @Test
@@ -466,7 +466,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE test_format_table");
 
-        assertFalse(queryRunner.tableExists(session, "test_format_table"));
+        assertFalse(getQueryRunner().tableExists(session, "test_format_table"));
     }
 
     @Test
@@ -504,7 +504,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE test_create_partitioned_table_as");
 
-        assertFalse(queryRunner.tableExists(session, "test_create_partitioned_table_as"));
+        assertFalse(getQueryRunner().tableExists(session, "test_create_partitioned_table_as"));
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
@@ -601,7 +601,7 @@ public class TestHiveIntegrationSmokeTest
         }
 
         assertUpdate(session, "DROP TABLE " + tableName);
-        assertFalse(queryRunner.tableExists(session, tableName));
+        assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
     @Test
@@ -637,7 +637,7 @@ public class TestHiveIntegrationSmokeTest
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(queryRunner.tableExists(getSession(), tableName));
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test
@@ -678,7 +678,7 @@ public class TestHiveIntegrationSmokeTest
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(queryRunner.tableExists(getSession(), tableName));
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     private void verifyPartitionedBucketedTable(HiveStorageFormat storageFormat, String tableName)
@@ -759,7 +759,7 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(e.getMessage(), "INSERT must write all distribution columns: [custkey, custkey3]");
         }
 
-        assertFalse(queryRunner.tableExists(getSession(), tableName));
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test
@@ -809,7 +809,7 @@ public class TestHiveIntegrationSmokeTest
         }
 
         assertUpdate(session, "DROP TABLE test_insert_partitioned_bucketed_table_few_rows");
-        assertFalse(queryRunner.tableExists(session, tableName));
+        assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
     private void verifyPartitionedBucketedTableAsFewRows(HiveStorageFormat storageFormat, String tableName)
@@ -875,7 +875,7 @@ public class TestHiveIntegrationSmokeTest
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(queryRunner.tableExists(getSession(), tableName));
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test
@@ -924,7 +924,7 @@ public class TestHiveIntegrationSmokeTest
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(queryRunner.tableExists(getSession(), tableName));
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test
@@ -1012,7 +1012,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE test_insert_format_table");
 
-        assertFalse(queryRunner.tableExists(session, "test_insert_format_table"));
+        assertFalse(getQueryRunner().tableExists(session, "test_insert_format_table"));
     }
 
     @Test
@@ -1082,7 +1082,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE test_insert_partitioned_table");
 
-        assertFalse(queryRunner.tableExists(session, "test_insert_partitioned_table"));
+        assertFalse(getQueryRunner().tableExists(session, "test_insert_partitioned_table"));
     }
 
     @Test
@@ -1140,7 +1140,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE " + tableName);
 
-        assertFalse(queryRunner.tableExists(session, tableName));
+        assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
     @Test
@@ -1192,7 +1192,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE " + tableName);
 
-        assertFalse(queryRunner.tableExists(session, tableName));
+        assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
     @Test
@@ -1208,7 +1208,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("DROP TABLE test_delete_unpartitioned");
 
-        assertFalse(queryRunner.tableExists(getSession(), "test_delete_unpartitioned"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_delete_unpartitioned"));
     }
 
     @Test
@@ -1245,7 +1245,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
 
         try {
-            queryRunner.execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
+            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
             fail("expected exception");
         }
         catch (RuntimeException e) {
@@ -1256,15 +1256,15 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("DROP TABLE test_metadata_delete");
 
-        assertFalse(queryRunner.tableExists(getSession(), "test_metadata_delete"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_metadata_delete"));
     }
 
     private TableMetadata getTableMetadata(String catalog, String schema, String tableName)
     {
         Session session = getSession();
-        Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
+        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
 
-        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
@@ -1276,9 +1276,9 @@ public class TestHiveIntegrationSmokeTest
     private Object getHiveTableProperty(String tableName, Function<HiveTableLayoutHandle, Object> propertyGetter)
     {
         Session session = getSession();
-        Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
+        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
 
-        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
@@ -1569,7 +1569,7 @@ public class TestHiveIntegrationSmokeTest
                 "(2, 2), (5, 2) " +
                 " ) t(col0, col1) ";
         assertUpdate(session, createTable, 8);
-        assertTrue(queryRunner.tableExists(getSession(), "test_path"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_path"));
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
@@ -1609,7 +1609,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(partitionPathMap.size(), 3);
 
         assertUpdate(session, "DROP TABLE test_path");
-        assertFalse(queryRunner.tableExists(session, "test_path"));
+        assertFalse(getQueryRunner().tableExists(session, "test_path"));
     }
 
     @Test
@@ -1627,7 +1627,7 @@ public class TestHiveIntegrationSmokeTest
                 "(6, 17), (7, 18), (8, 19)" +
                 " ) t (col0, col1) ";
         assertUpdate(createTable, 9);
-        assertTrue(queryRunner.tableExists(getSession(), "test_bucket_hidden_column"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_bucket_hidden_column"));
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_bucket_hidden_column");
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("col0"));
@@ -1663,7 +1663,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(results.getRowCount(), 4);
 
         assertUpdate("DROP TABLE test_bucket_hidden_column");
-        assertFalse(queryRunner.tableExists(getSession(), "test_bucket_hidden_column"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_bucket_hidden_column"));
     }
 
     @Test
@@ -1702,7 +1702,7 @@ public class TestHiveIntegrationSmokeTest
                 .getMaterializedRows();
 
         try {
-            transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                     .execute(session, transactionSession -> {
                         assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
                         assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
@@ -1720,7 +1720,7 @@ public class TestHiveIntegrationSmokeTest
         MaterializedResult actualAfterRollback = computeActual(session, "SELECT * FROM tmp_delete_insert");
         assertEqualsIgnoreOrder(actualAfterRollback, expectedBefore);
 
-        transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
                     assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
@@ -1748,7 +1748,7 @@ public class TestHiveIntegrationSmokeTest
                 .build()
                 .getMaterializedRows();
 
-        transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     assertUpdate(
                             transactionSession,
@@ -1803,7 +1803,7 @@ public class TestHiveIntegrationSmokeTest
 
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
-        MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), query).toJdbcTypes();
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));
