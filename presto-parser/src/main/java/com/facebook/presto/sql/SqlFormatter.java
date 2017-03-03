@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -852,6 +853,17 @@ public final class SqlFormatter
                     .append(node.getSource())
                     .append(" TO ")
                     .append(node.getTarget());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropColumn(DropColumn node, Integer context)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(node.getTable())
+                    .append(" DROP COLUMN ")
+                    .append(node.getColumn());
 
             return null;
         }

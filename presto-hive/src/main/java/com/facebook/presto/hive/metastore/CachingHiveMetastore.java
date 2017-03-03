@@ -422,6 +422,17 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
+    public void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        try {
+            delegate.dropColumn(databaseName, tableName, columnName);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
     protected void invalidateTable(String databaseName, String tableName)
     {
         tableCache.invalidate(new HiveTableName(databaseName, tableName));

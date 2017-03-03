@@ -414,6 +414,29 @@ public class FileHiveMetastore
         });
     }
 
+    @Override
+    public synchronized void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        alterTable(databaseName, tableName, oldTable -> {
+            if (!oldTable.getColumn(columnName).isPresent()) {
+                SchemaTableName name = new SchemaTableName(databaseName, tableName);
+                throw new ColumnNotFoundException(name, columnName);
+            }
+            if (oldTable.getDataColumns().size() == 1) {
+                throw new PrestoException(NOT_SUPPORTED, "Dropping last column is not supported");
+            }
+
+            ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
+            for (Column fieldSchema : oldTable.getDataColumns()) {
+                if (!fieldSchema.getName().equals(columnName)) {
+                    newDataColumns.add(fieldSchema);
+                }
+            }
+
+            return oldTable.withDataColumns(newDataColumns.build());
+        });
+    }
+
     private void alterTable(String databaseName, String tableName, Function<TableMetadata, TableMetadata> alterFunction)
     {
         requireNonNull(databaseName, "databaseName is null");

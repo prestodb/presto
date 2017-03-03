@@ -141,6 +141,28 @@ public class TestRaptorMetadata
     }
 
     @Test
+    public void testDropColumn()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, getDropColumnTable());
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+
+        metadata.dropColumn(SESSION, raptorTableHandle, "id");
+        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("id"));
+
+        try {
+            metadata.dropColumn(SESSION, raptorTableHandle, "price");
+        }
+        catch (Exception e) {
+            assertEquals("Dropping last column is not supported", e.getMessage());
+        }
+    }
+
+    @Test
     public void testRenameTable()
             throws Exception
     {
@@ -797,6 +819,18 @@ public class TestRaptorMetadata
             }
         }
         return builder.build();
+    }
+
+    private static ConnectorTableMetadata getDropColumnTable()
+    {
+        return getDropColumnTable(ImmutableMap.of());
+    }
+
+    private static ConnectorTableMetadata getDropColumnTable(Map<String, Object> properties)
+    {
+        return buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                .column("id", BIGINT)
+                .column("price", BIGINT));
     }
 
     private static void assertTableEqual(ConnectorTableMetadata actual, ConnectorTableMetadata expected)

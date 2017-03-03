@@ -472,6 +472,20 @@ public class RaptorMetadata
     }
 
     @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, String column)
+    {
+        RaptorTableHandle table = (RaptorTableHandle) tableHandle;
+        List<TableColumn> existingColumns = dao.listTableColumns(table.getSchemaName(), table.getTableName());
+        if (existingColumns.size() == 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Dropping last column is not supported");
+        }
+        daoTransaction(dbi, MetadataDao.class, dao -> {
+            dao.dropColumn(table.getTableId(), column);
+            dao.updateTableVersion(table.getTableId(), session.getStartTime());
+        });
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         Optional<RaptorPartitioningHandle> partitioning = layout
