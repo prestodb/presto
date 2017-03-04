@@ -24,6 +24,7 @@ import io.airlift.concurrent.SetThreadName;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.stats.CpuTimer;
+import io.airlift.stats.TimeDistribution;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -135,6 +136,10 @@ public class TaskExecutor
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
 
+    // shared between TaskHandles
+    private final TimeDistribution normalSplitWallTime = new TimeDistribution(MICROSECONDS);
+    private final TimeDistribution forcedSplitWallTime = new TimeDistribution(MICROSECONDS);
+
     private volatile boolean closed;
 
     @Inject
@@ -207,7 +212,7 @@ public class TaskExecutor
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
-        TaskHandle taskHandle = new TaskHandle(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
+        TaskHandle taskHandle = new TaskHandle(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, normalSplitWallTime, forcedSplitWallTime);
         tasks.add(taskHandle);
         return taskHandle;
     }
@@ -388,13 +393,18 @@ public class TaskExecutor
         @GuardedBy("this")
         private final SplitConcurrencyController concurrencyController;
 
+        private final TimeDistribution normalSplitWallTime;
+        private final TimeDistribution forcedSplitWallTime;
+
         private final AtomicInteger nextSplitId = new AtomicInteger();
 
-        private TaskHandle(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
+        private TaskHandle(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency, TimeDistribution normalSplitWallTime, TimeDistribution forcedSplitWallTime)
         {
             this.taskId = taskId;
             this.utilizationSupplier = utilizationSupplier;
             this.concurrencyController = new SplitConcurrencyController(initialSplitConcurrency, splitConcurrencyAdjustFrequency);
+            this.normalSplitWallTime = normalSplitWallTime;
+            this.forcedSplitWallTime = forcedSplitWallTime;
         }
 
         private synchronized long addThreadUsageNanos(long durationNanos)
@@ -472,8 +482,12 @@ public class TaskExecutor
         private synchronized void splitComplete(PrioritizedSplitRunner split)
         {
             concurrencyController.splitFinished(split.getSplitThreadUsageNanos(), utilizationSupplier.getAsDouble(), runningSplits.size());
-            forcedRunningSplits.remove(split);
-            runningSplits.remove(split);
+            if (forcedRunningSplits.remove(split)) {
+                forcedSplitWallTime.add(split.getSplitThreadUsageNanos());
+            }
+            if (runningSplits.remove(split)) {
+                normalSplitWallTime.add(split.getSplitThreadUsageNanos());
+            }
         }
 
         private int getNextSplitId()
@@ -1006,6 +1020,20 @@ public class TaskExecutor
     public TimeStat getUnblockedQuantaWallTime()
     {
         return unblockedQuantaWallTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeDistribution getNormalSplitWallTime()
+    {
+        return normalSplitWallTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeDistribution getForcedSplitWallTime()
+    {
+        return forcedSplitWallTime;
     }
 
     private synchronized int calculateRunningTasksForLevel(int level)
