@@ -35,7 +35,6 @@ import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public final class QueryAssertions
@@ -164,46 +163,6 @@ public final class QueryAssertions
                         expectedSubset.getMaterializedRows().size(),
                         Joiner.on("\n    ").join(Iterables.limit(expectedSubset, 100))));
             }
-        }
-    }
-
-    public static void assertApproximateQuery(
-            QueryRunner queryRunner,
-            Session session,
-            @Language("SQL") String actual,
-            H2QueryRunner h2QueryRunner,
-            @Language("SQL") String expected)
-    {
-        long start = System.nanoTime();
-        MaterializedResult actualResults = queryRunner.execute(session, actual);
-        log.info("FINISHED in %s", nanosSince(start));
-
-        MaterializedResult expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
-        assertApproximatelyEqual(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
-    }
-
-    public static void assertApproximatelyEqual(List<MaterializedRow> actual, List<MaterializedRow> expected)
-    {
-        // TODO: support GROUP BY queries
-        assertEquals(actual.size(), 1, "approximate query returned more than one row");
-
-        MaterializedRow actualRow = actual.get(0);
-        MaterializedRow expectedRow = expected.get(0);
-
-        for (int i = 0; i < actualRow.getFieldCount(); i++) {
-            String actualField = (String) actualRow.getField(i);
-            double actualValue = Double.parseDouble(actualField.split(" ")[0]);
-            double error = Double.parseDouble(actualField.split(" ")[2]);
-            Object expectedField = expectedRow.getField(i);
-            assertTrue(expectedField instanceof String || expectedField instanceof Number);
-            double expectedValue;
-            if (expectedField instanceof String) {
-                expectedValue = Double.parseDouble((String) expectedField);
-            }
-            else {
-                expectedValue = ((Number) expectedField).doubleValue();
-            }
-            assertTrue(Math.abs(actualValue - expectedValue) < error);
         }
     }
 
