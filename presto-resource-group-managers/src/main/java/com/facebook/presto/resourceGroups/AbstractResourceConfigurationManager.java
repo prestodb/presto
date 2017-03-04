@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 
+import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -62,6 +63,18 @@ public abstract class AbstractResourceConfigurationManager
             if (group.getSoftCpuLimit().isPresent()) {
                 checkArgument(group.getHardCpuLimit().isPresent(), "Must specify hard CPU limit in addition to soft limit");
                 checkArgument(group.getSoftCpuLimit().get().compareTo(group.getHardCpuLimit().get()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
+            }
+            if (group.getSchedulingPolicy().isPresent()) {
+                if (group.getSchedulingPolicy().get() == WEIGHTED) {
+                    for (ResourceGroupSpec subGroup : group.getSubGroups()) {
+                        checkArgument(subGroup.getSchedulingWeight().isPresent(), "Must specify scheduling weight for each sub group when using \"weighted\" scheduling policy");
+                    }
+                }
+                else {
+                    for (ResourceGroupSpec subGroup : group.getSubGroups()) {
+                        checkArgument(!subGroup.getSchedulingWeight().isPresent(), "Must use \"weight\" scheduling policy when using scheduling weight");
+                    }
+                }
             }
         }
     }
