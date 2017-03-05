@@ -286,7 +286,7 @@ public class PerfTest
             if (session.getSchema() != null) {
                 builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
             }
-            builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
+            builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZone().getId());
             builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
 
             return builder.build();
