@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -92,7 +93,7 @@ public class StatementClient
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean gone = new AtomicBoolean();
     private final AtomicBoolean valid = new AtomicBoolean(true);
-    private final String timeZoneId;
+    private final TimeZoneKey timeZone;
     private final long requestTimeoutNanos;
     private final String user;
 
@@ -106,7 +107,7 @@ public class StatementClient
         this.httpClient = httpClient;
         this.responseHandler = createFullJsonResponseHandler(queryResultsCodec);
         this.debug = session.isDebug();
-        this.timeZoneId = session.getTimeZoneId();
+        this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout().roundTo(NANOSECONDS);
         this.user = session.getUser();
@@ -138,7 +139,7 @@ public class StatementClient
         if (session.getSchema() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
         }
-        builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
+        builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZone().getId());
         if (session.getLocale() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
         }
@@ -163,9 +164,9 @@ public class StatementClient
         return query;
     }
 
-    public String getTimeZoneId()
+    public TimeZoneKey getTimeZone()
     {
-        return timeZoneId;
+        return timeZone;
     }
 
     public boolean isDebug()

@@ -119,7 +119,7 @@ public class PrestoResultSet
         this.client = requireNonNull(client, "client is null");
         requireNonNull(progressCallback, "progressCallback is null");
 
-        this.sessionTimeZone = DateTimeZone.forID(client.getTimeZoneId());
+        this.sessionTimeZone = DateTimeZone.forID(client.getTimeZone().getId());
         this.queryId = client.current().getId();
 
         List<Column> columns = getColumns(client, progressCallback);
