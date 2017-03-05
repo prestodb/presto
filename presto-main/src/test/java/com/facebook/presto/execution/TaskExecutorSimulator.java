@@ -70,7 +70,7 @@ public class TaskExecutorSimulator
     {
         executor = listeningDecorator(newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%s")));
 
-        taskExecutor = new TaskExecutor(24, 48, new Ticker()
+        taskExecutor = new TaskExecutor(new StaticTaskExecutorController(24), new Duration(1, TimeUnit.SECONDS), 48, new Ticker()
         {
             private final long start = System.nanoTime();
 

@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestTaskExecutor
@@ -36,7 +37,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(new StaticTaskExecutorController(4), new Duration(1, SECONDS), 8, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -128,7 +129,7 @@ public class TestTaskExecutor
     public void testTaskHandle()
             throws Exception
     {
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8);
+        TaskExecutor taskExecutor = new TaskExecutor(new StaticTaskExecutorController(4), new Duration(1, SECONDS), 8);
         taskExecutor.start();
 
         try {
