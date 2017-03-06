@@ -83,6 +83,7 @@ public final class BlockAssertions
 
     public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
+        assertEquals(actual.getPositionCount(), expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
             assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
         }
