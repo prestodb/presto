@@ -38,18 +38,21 @@ implements ColumnHandle
     private final Type type;
     private final String comment;
     private final ColumnType colType;
+    private final String connectorId;
 
     @JsonCreator
     public HDFSColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
             @JsonProperty("comment") String comment,
-            @JsonProperty("columnType") ColumnType colType)
+            @JsonProperty("columnType") ColumnType colType,
+            @JsonProperty("connectorId") String connectorId)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.colType = requireNonNull(colType, "col type is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @JsonProperty
@@ -74,5 +77,11 @@ implements ColumnHandle
     public ColumnType getColType()
     {
         return colType;
+    }
+
+    @JsonProperty
+    public String getConnectorId()
+    {
+        return connectorId;
     }
 }

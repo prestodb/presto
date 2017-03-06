@@ -27,6 +27,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,12 +45,13 @@ import static java.util.Objects.requireNonNull;
 public class HDFSMetadata
 implements ConnectorMetadata
 {
-//    private final String connectorId;
+    private final String connectorId;
     private final MetaServer metaServer;
 
-    public HDFSMetadata(MetaServer metaServer)
+    @Inject
+    public HDFSMetadata(MetaServer metaServer, String connectorId)
     {
-//        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.metaServer = requireNonNull(metaServer, "metaServer is null");
     }
 
@@ -73,7 +75,7 @@ implements ConnectorMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<HDFSTableHandle> table = metaServer.getTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        Optional<HDFSTableHandle> table = metaServer.getTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
         return table.orElse(null);
     }
 
@@ -157,7 +159,7 @@ implements ConnectorMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HDFSTableHandle table = checkType(tableHandle, HDFSTableHandle.class, "table");
-        List<HDFSColumnHandle> cols = metaServer.getTableColumnHandle(table.getSchemaName(), table.getTableName())
+        List<HDFSColumnHandle> cols = metaServer.getTableColumnHandle(connectorId, table.getSchemaName(), table.getTableName())
                 .orElse(new ArrayList<>());
         Map<String, ColumnHandle> columnMap = new HashMap<>();
         for (HDFSColumnHandle col : cols) {

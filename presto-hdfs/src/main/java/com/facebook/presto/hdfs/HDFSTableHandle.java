@@ -27,19 +27,19 @@ import static java.util.Objects.requireNonNull;
 public class HDFSTableHandle
     implements ConnectorTableHandle
 {
-//    private final String clientId;
+    private final String connectorId;
     private final String tableName;
     private final String schemaName;
     private Path path;
 
     @JsonCreator
     public HDFSTableHandle(
-//            @JsonProperty("clientId") String clientId,
+            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("location") Path path)
     {
-//        this.clientId = requireNonNull(clientId, "clientId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.path = requireNonNull(path, "path is null");
@@ -61,6 +61,12 @@ public class HDFSTableHandle
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
+    }
+
+    @JsonProperty
+    public String getConnectorId()
+    {
+        return connectorId;
     }
 
     @JsonProperty
@@ -87,6 +93,6 @@ public class HDFSTableHandle
     public String toString()
     {
         // TODO toString
-        return "";
+        return "Table " + tableName + ": " + schemaName;
     }
 }

@@ -45,7 +45,7 @@ public class MemoryMetaServer
     }
 
     @Override
-    public Optional<HDFSTableHandle> getTableHandle(String databaseName, String tableName)
+    public Optional<HDFSTableHandle> getTableHandle(String connectorId, String databaseName, String tableName)
     {
         return null;
     }
@@ -63,7 +63,7 @@ public class MemoryMetaServer
     }
 
     @Override
-    public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String databaseName, String tableName)
+    public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String connectorId, String databaseName, String tableName)
     {
         return null;
     }

@@ -289,7 +289,7 @@ implements MetaServer
 //    }
 
     @Override
-    public Optional<HDFSTableHandle> getTableHandle(String databaseName, String tableName)
+    public Optional<HDFSTableHandle> getTableHandle(String connectorId, String databaseName, String tableName)
     {
         log.debug("Get table handle " + Utils.formName(databaseName, tableName));
         HDFSTableHandle table;
@@ -306,7 +306,9 @@ implements MetaServer
         JDBCRecord record = records.get(0);
         String schema = record.getString(fields[0]);
         String location = record.getString(fields[1]);
-        table = new HDFSTableHandle(requireNonNull(Utils.getDatabaseName(schema), "database name is null"),
+        table = new HDFSTableHandle(
+                requireNonNull(connectorId, "connectorId is null"),
+                requireNonNull(Utils.getDatabaseName(schema), "database name is null"),
                 requireNonNull(Utils.getTableName(schema), "table name is null"),
                 requireNonNull(new Path(location), "location uri is null"));
         return Optional.of(table);
@@ -346,7 +348,7 @@ implements MetaServer
     /**
      * Get all column handles of specified table
      * */
-    public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String databaseName, String tableName)
+    public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String connectorId, String databaseName, String tableName)
     {
         log.debug("Get list of column handles of table " + Utils.formName(databaseName, tableName));
         List<HDFSColumnHandle> columnHandles = new ArrayList<>();
@@ -364,21 +366,21 @@ implements MetaServer
         }
         for (JDBCRecord record : records) {
             colName = record.getString(colFields[0]);
-            columnHandles.add(getColumnHandle(colName));
+            columnHandles.add(getColumnHandle(connectorId, colName));
         }
         return Optional.of(columnHandles);
     }
 
-    private HDFSColumnHandle getColumnHandle(String databaseTableColName)
+    private HDFSColumnHandle getColumnHandle(String connectorId, String databaseTableColName)
     {
         log.debug("Get handle of column " + databaseTableColName);
         String databaseName = Utils.getDatabaseName(databaseTableColName);
         String tableName = Utils.getTableName(databaseTableColName);
         String colName = Utils.getColName(databaseTableColName);
-        return getColumnHandle(colName, Utils.formName(databaseName, tableName, colName));
+        return getColumnHandle(connectorId, colName, Utils.formName(databaseName, tableName, colName));
     }
 
-    private HDFSColumnHandle getColumnHandle(String colName, String databaseTableColName)
+    private HDFSColumnHandle getColumnHandle(String connectorId, String colName, String databaseTableColName)
     {
         List<JDBCRecord> records;
         String sql = "SELECT col_type, type FROM cols WHERE col_name='"
@@ -406,7 +408,7 @@ implements MetaServer
             log.error("Type unknown!");
             throw new TypeUnknownException();
         }
-        return new HDFSColumnHandle(colName, type, "", HDFSColumnHandle.ColumnType.REGULAR);
+        return new HDFSColumnHandle(colName, type, "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
     }
 
     public Optional<List<ColumnMetadata>> getTableColMetadata(String databaseName, String tableName)
