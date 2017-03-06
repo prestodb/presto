@@ -56,7 +56,7 @@ implements ConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new HDFSModule(connectorId, config)
+                    new HDFSModule(connectorId, config, context.getTypeManager())
             );
 
             // TODO restore strictConfig, which leads to config kvs not used error

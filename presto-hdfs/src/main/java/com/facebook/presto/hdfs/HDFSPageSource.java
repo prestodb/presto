@@ -13,10 +13,35 @@
  */
 package com.facebook.presto.hdfs;
 
+import com.facebook.presto.hdfs.exception.HdfsCursorException;
+import com.facebook.presto.hdfs.util.Utils;
+import com.facebook.presto.hive.parquet.ParquetDataSource;
+import com.facebook.presto.hive.parquet.ParquetTypeUtils;
+import com.facebook.presto.hive.parquet.RichColumnDescriptor;
+import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.LazyBlockLoader;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
+import parquet.column.ColumnDescriptor;
+import parquet.schema.MessageType;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author jelly.guodong.jin@gmail.com
@@ -24,6 +49,60 @@ import java.io.IOException;
 public class HDFSPageSource
 implements ConnectorPageSource
 {
+    private static final int MAX_VECTOR_LENGTH = 1024;
+    private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
+
+    private final ParquetReader parquetReader;
+    private final ParquetDataSource dataSource;
+    private final MessageType fileSchema;
+    private final MessageType requestedSchema;
+    private final long totalBytes;
+
+    private final List<String> columnNames;
+    private final List<Type> types;
+    private final Block[] constantBlocks;
+
+    private int batchId;
+    private final int columnSize;
+    private boolean closed;
+    private long readTimeNanos;
+
+    public HDFSPageSource(
+            ParquetReader parquetReader,
+            ParquetDataSource dataSource,
+            MessageType fileSchema,
+            MessageType requestedSchema,
+            long totalBytes,
+            List<HDFSColumnHandle> columns,
+            TypeManager typeManager)
+    {
+        checkArgument(totalBytes >= 0, "totalBytes is negative");
+
+        this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
+        this.dataSource = requireNonNull(dataSource, "dataSource is null");
+        this.fileSchema = requireNonNull(fileSchema, "fileSchema is null");
+        this.requestedSchema = requireNonNull(requestedSchema, "requestedSchema is null");
+        this.totalBytes = totalBytes;
+
+        this.columnSize = columns.size();
+        this.constantBlocks = new Block[columnSize];
+        ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
+        for (int columnIndex = 0; columnIndex < columnSize; columnIndex++) {
+            HDFSColumnHandle column = columns.get(columnIndex);
+            String name = column.getName();
+            Type type = typeManager.getType(column.getType().getTypeSignature());
+
+            namesBuilder.add(name);
+            typesBuilder.add(type);
+
+            if (Utils.getParquetType(column, fileSchema) == null) {
+                constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_VECTOR_LENGTH);
+            }
+        }
+        columnNames = namesBuilder.build();
+        types = typesBuilder.build();
+    }
     /**
      * Gets the total input bytes that will be processed by this page source.
      * This is normally the same size as the split.  If size is not available,
@@ -32,7 +111,7 @@ implements ConnectorPageSource
     @Override
     public long getTotalBytes()
     {
-        return 0;
+        return totalBytes;
     }
 
     /**
@@ -42,7 +121,7 @@ implements ConnectorPageSource
     @Override
     public long getCompletedBytes()
     {
-        return 0;
+        return dataSource.getReadBytes();
     }
 
     /**
@@ -52,7 +131,7 @@ implements ConnectorPageSource
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return readTimeNanos;
     }
 
     /**
@@ -61,7 +140,7 @@ implements ConnectorPageSource
     @Override
     public boolean isFinished()
     {
-        return false;
+        return closed;
     }
 
     /**
@@ -70,7 +149,54 @@ implements ConnectorPageSource
     @Override
     public Page getNextPage()
     {
-        return null;
+        try {
+            batchId++;
+            long start = System.nanoTime();
+
+            int batchSize = parquetReader.nextBatch();
+
+            readTimeNanos += System.nanoTime() - start;
+
+            if (closed || batchSize <= 0) {
+                close();
+                return null;
+            }
+
+            Block[] blocks = new Block[columnSize];
+            for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
+                if (constantBlocks[fieldId] != null) {
+                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
+                }
+                else {
+                    Type type = types.get(fieldId);
+                    int fieldIndex = Utils.getFieldIndex(fileSchema, columnNames.get(fieldId));
+                    if (fieldIndex == -1) {
+                        blocks[fieldId] = RunLengthEncodedBlock.create(type, null, batchSize);
+                        continue;
+                    }
+
+                    List<String> path = new ArrayList<>();
+                    path.add(fileSchema.getFields().get(fieldIndex).getName());
+                    if (StandardTypes.ROW.equals(type.getTypeSignature().getBase())) {
+                        blocks[fieldId] = parquetReader.readStruct(type, path);
+                    }
+                    else {
+                        Optional<RichColumnDescriptor> descriptor = ParquetTypeUtils.getDescriptor(fileSchema, requestedSchema, path);
+                        if (descriptor.isPresent()) {
+                            blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(descriptor.get(), type));
+                        }
+                        else {
+                            blocks[fieldId] = RunLengthEncodedBlock.create(type, null, batchSize);
+                        }
+                    }
+                }
+            }
+            return new Page(batchSize, blocks);
+        }
+        catch (IOException e) {
+            closeWithSupression(e);
+            throw new HdfsCursorException();
+        }
     }
 
     /**
@@ -82,7 +208,7 @@ implements ConnectorPageSource
     @Override
     public long getSystemMemoryUsage()
     {
-        return 0;
+        return GUESSED_MEMORY_USAGE;
     }
 
     /**
@@ -91,6 +217,63 @@ implements ConnectorPageSource
     @Override
     public void close() throws IOException
     {
-        return;
+        if (closed) {
+            return;
+        }
+        closed = true;
+
+        try {
+            parquetReader.close();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private void closeWithSupression(Throwable throwable)
+    {
+        requireNonNull(throwable, "throwable is null");
+        try {
+            close();
+        }
+        catch (IOException e) {
+            if (e != throwable) {
+                throwable.addSuppressed(e);
+            }
+        }
+    }
+
+    private final class ParquetBlockLoader
+    implements LazyBlockLoader<LazyBlock>
+    {
+        private final int expectedBatchId = batchId;
+        private final ColumnDescriptor columnDescriptor;
+        private final Type type;
+        private boolean loaded;
+
+        public ParquetBlockLoader(ColumnDescriptor columnDescriptor, Type type)
+        {
+            this.columnDescriptor = columnDescriptor;
+            this.type = requireNonNull(type, "type is null");
+        }
+
+        @Override
+        public final void load(LazyBlock lazyBlock)
+        {
+            if (loaded) {
+                return;
+            }
+
+            checkState(batchId == expectedBatchId);
+
+            try {
+                Block block = parquetReader.readPrimitive(columnDescriptor, type);
+                lazyBlock.setBlock(block);
+            }
+            catch (IOException e) {
+                throw new HdfsCursorException();
+            }
+            loaded = true;
+        }
     }
 }

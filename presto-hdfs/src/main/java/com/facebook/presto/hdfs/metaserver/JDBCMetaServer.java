@@ -110,7 +110,7 @@ implements MetaServer
         sqlTable.putIfAbsent("fibers",
                 "CREATE TABLE FIBERS(INDEX_ID BIGSERIAL PRIMARY KEY, TBL_NAME varchar(256), FIBER bigint, TIME_BEGIN timestamp, TIME_END timestamp);");
 
-        fileSystem = FSFactory.getFS(HDFSConfig.getMetaserverStore()).get();
+        fileSystem = FSFactory.getFS().get();
 
         // initialise meta tables
         initMeta();

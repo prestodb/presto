@@ -14,6 +14,7 @@
 package com.facebook.presto.hdfs.fs;
 
 import com.facebook.presto.hdfs.HDFSConfig;
+import com.facebook.presto.hdfs.util.Utils;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -52,14 +53,36 @@ public final class FSFactory
         return getFS(HDFSConfig.getMetaserverStore());
     }
 
-    public static Optional<FileSystem> getFS(String basePath)
+    public static Optional<FileSystem> getFS(String path)
+    {
+        conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
+        conf.set("fs.file.impl", LocalFileSystem.class.getName());
+        if (path.isEmpty()) {
+            try {
+                return Optional.of(new Path(HDFSConfig.getMetaserverStore()).getFileSystem(conf));
+            }
+            catch (IOException e) {
+                log.error(e);
+                return Optional.empty();
+            }
+        }
+        try {
+            return Optional.of(Utils.formPath(path).getFileSystem(conf));
+        }
+        catch (IOException e) {
+            log.error(e);
+            return Optional.empty();
+        }
+    }
+
+    public static Optional<FileSystem> getFS(Path path)
     {
         conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
         conf.set("fs.file.impl", LocalFileSystem.class.getName());
         try {
-            return Optional.of(FileSystem.get(new URI(basePath), conf));
+            return Optional.of(path.getFileSystem(conf));
         }
-        catch (IOException | URISyntaxException e) {
+        catch (IOException e) {
             log.error(e);
             return Optional.empty();
         }
