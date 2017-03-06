@@ -60,7 +60,7 @@ public class TestJsonExtract
 
         assertQuotedPathToken("-1.1");
         assertQuotedPathToken("!@#$%^&*()[]{}/?'");
-        assertQuotedPathToken("ab\\u0001c");
+        assertQuotedPathToken("ab\u0001c");
         assertQuotedPathToken("ab\0c");
         assertQuotedPathToken("ab\t\n\rc");
         assertQuotedPathToken(".");
