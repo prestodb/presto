@@ -93,7 +93,7 @@ public class TaskExecutor
 
     private final Ticker ticker;
 
-    private static final SortedSet<RunningSplitInfo> runningSplitInfos = new ConcurrentSkipListSet<>();
+    private final SortedSet<RunningSplitInfo> runningSplitInfos = new ConcurrentSkipListSet<>();
 
     @GuardedBy("this")
     private final List<TaskHandle> tasks;
