@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Pick an arbitrary layout if none has been chosen
  */
+@Deprecated
 public class PickLayout
         implements PlanOptimizer
 {
@@ -85,7 +86,5 @@ public class PickLayout
 
             return tableLayoutRewriter.planTableScan(node, BooleanLiteral.TRUE_LITERAL);
         }
-
-
     }
 }
