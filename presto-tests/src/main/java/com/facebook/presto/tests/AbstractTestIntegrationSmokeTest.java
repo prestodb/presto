@@ -14,7 +14,6 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -27,9 +26,9 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
+    protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
-        super(queryRunner);
+        super(supplier);
     }
 
     @Test
@@ -103,7 +102,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     {
         MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toJdbcTypes();
 
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
                 .row("tpch");
 
         assertContains(actualSchemas, resultBuilder.build());
@@ -114,7 +113,7 @@ public abstract class AbstractTestIntegrationSmokeTest
             throws Exception
     {
         MaterializedResult actualTables = computeActual("SHOW TABLES").toJdbcTypes();
-        MaterializedResult expectedTables = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
+        MaterializedResult expectedTables = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
                 .row("orders")
                 .build();
         assertContains(actualTables, expectedTables);
@@ -146,7 +145,7 @@ public abstract class AbstractTestIntegrationSmokeTest
             orderDateType = "varchar";
         }
         if (parametrizedVarchar) {
-            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                     .row("orderkey", "bigint", "", "")
                     .row("custkey", "bigint", "", "")
                     .row("orderstatus", "varchar", "", "")
@@ -159,7 +158,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .build();
         }
         else {
-            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                     .row("orderkey", "bigint", "", "")
                     .row("custkey", "bigint", "", "")
                     .row("orderstatus", "varchar(1)", "", "")

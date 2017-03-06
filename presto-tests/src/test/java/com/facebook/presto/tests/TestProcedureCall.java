@@ -17,16 +17,17 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.ProcedureRegistry;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.ProcedureTester;
+import com.facebook.presto.tests.tpch.TpchQueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
@@ -38,19 +39,23 @@ public class TestProcedureCall
         extends AbstractTestQueryFramework
 {
     private static final String PROCEDURE_SCHEMA = "procedure_schema";
-    private final ProcedureTester tester;
-    private final Session session;
+    private ProcedureTester tester;
+    private Session session;
 
     public TestProcedureCall()
             throws Exception
     {
-        super(createQueryRunner());
+        super(TpchQueryRunner::createQueryRunner);
+    }
 
-        TestingPrestoServer coordinator = ((DistributedQueryRunner) queryRunner).getCoordinator();
+    @BeforeClass
+    public void setUp()
+            throws Exception
+    {
+        TestingPrestoServer coordinator = ((DistributedQueryRunner) getQueryRunner()).getCoordinator();
         tester = coordinator.getProcedureTester();
 
         // register procedures in the bogus testing catalog
-        TypeManager typeManager = coordinator.getMetadata().getTypeManager();
         ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
         TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
         procedureRegistry.addProcedures(
@@ -61,6 +66,14 @@ public class TestProcedureCall
                 .setCatalog(TESTING_CATALOG)
                 .setSchema(PROCEDURE_SCHEMA)
                 .build();
+    }
+
+    @AfterClass
+    public void tearDown()
+            throws Exception
+    {
+        tester = null;
+        session = null;
     }
 
     @Override

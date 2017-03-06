@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
@@ -43,31 +44,41 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    protected final H2QueryRunner h2QueryRunner;
-    protected final QueryRunner queryRunner;
-    private final SqlParser sqlParser;
+    private QueryRunnerSupplier queryRunnerSupplier;
+    private QueryRunner queryRunner;
+    private H2QueryRunner h2QueryRunner;
+    private SqlParser sqlParser;
 
-    protected AbstractTestQueryFramework(QueryRunner queryRunner)
+    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
     {
-        this.queryRunner = queryRunner;
+        this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+    }
+
+    @BeforeClass
+    public void init()
+            throws Exception
+    {
+        queryRunner = queryRunnerSupplier.get();
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
     }
 
     @AfterClass(alwaysRun = true)
     public void close()
+            throws Exception
     {
-        try {
-            h2QueryRunner.close();
-        }
-        finally {
-            queryRunner.close();
-        }
+        queryRunner.close();
+        queryRunner = null;
+        h2QueryRunner.close();
+        h2QueryRunner = null;
+        sqlParser = null;
+        queryRunnerSupplier = null;
     }
 
     protected Session getSession()
@@ -281,5 +292,16 @@ public abstract class AbstractTestQueryFramework
         if (!requirement) {
             throw new SkipException("requirement not met");
         }
+    }
+
+    protected QueryRunner getQueryRunner()
+    {
+        return requireNonNull(queryRunner, "queryRunner is null");
+    }
+
+    public interface QueryRunnerSupplier
+    {
+        QueryRunner get()
+                throws Exception;
     }
 }

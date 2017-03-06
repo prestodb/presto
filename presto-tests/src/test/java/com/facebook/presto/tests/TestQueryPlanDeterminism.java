@@ -23,6 +23,8 @@ import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 
@@ -33,12 +35,23 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 public class TestQueryPlanDeterminism
         extends AbstractTestQueries
 {
-    private final PlanDeterminismChecker determinismChecker;
+    private PlanDeterminismChecker determinismChecker;
 
     protected TestQueryPlanDeterminism()
     {
-        super(createLocalQueryRunner());
-        determinismChecker = new PlanDeterminismChecker((LocalQueryRunner) queryRunner);
+        super(TestQueryPlanDeterminism::createLocalQueryRunner);
+    }
+
+    @BeforeClass
+    public void setUp()
+    {
+        determinismChecker = new PlanDeterminismChecker((LocalQueryRunner) getQueryRunner());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        determinismChecker = null;
     }
 
     public static LocalQueryRunner createLocalQueryRunner()
@@ -144,7 +157,7 @@ public class TestQueryPlanDeterminism
     protected void assertUpdate(Session session, @Language("SQL") String sql)
     {
         determinismChecker.checkPlanIsDeterministic(session, sql);
-   }
+    }
 
     @Override
     protected void assertUpdate(@Language("SQL") String sql, long count)

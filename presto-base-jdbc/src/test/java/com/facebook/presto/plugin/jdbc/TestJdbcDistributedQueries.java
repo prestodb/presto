@@ -24,7 +24,7 @@ public class TestJdbcDistributedQueries
     public TestJdbcDistributedQueries()
             throws Exception
     {
-        super(createJdbcQueryRunner(TpchTable.getTables()));
+        super(() -> createJdbcQueryRunner(TpchTable.getTables()));
     }
 
     @Override

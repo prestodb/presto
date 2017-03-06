@@ -40,7 +40,7 @@ public class TestRedisIntegrationSmokeTest
     public TestRedisIntegrationSmokeTest(EmbeddedRedis embeddedRedis)
             throws Exception
     {
-        super(createRedisQueryRunner(embeddedRedis, "string", ORDERS));
+        super(() -> createRedisQueryRunner(embeddedRedis, "string", ORDERS));
         this.embeddedRedis = embeddedRedis;
     }
 
@@ -48,6 +48,6 @@ public class TestRedisIntegrationSmokeTest
     public void destroy()
             throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedRedis);
+        closeAllRuntimeException(getQueryRunner(), embeddedRedis);
     }
 }

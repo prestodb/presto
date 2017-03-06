@@ -40,7 +40,7 @@ public class TestKafkaIntegrationSmokeTest
     public TestKafkaIntegrationSmokeTest(EmbeddedKafka embeddedKafka)
             throws Exception
     {
-        super(createKafkaQueryRunner(embeddedKafka, ORDERS));
+        super(() -> createKafkaQueryRunner(embeddedKafka, ORDERS));
         this.embeddedKafka = embeddedKafka;
     }
 
@@ -48,6 +48,6 @@ public class TestKafkaIntegrationSmokeTest
     public void destroy()
             throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedKafka);
+        closeAllRuntimeException(getQueryRunner(), embeddedKafka);
     }
 }

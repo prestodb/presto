@@ -63,7 +63,7 @@ public class TestMySqlDistributedQueries
     public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
             throws Exception
     {
-        super(createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
+        super(() -> createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
         this.mysqlServer = mysqlServer;
     }
 
@@ -77,10 +77,10 @@ public class TestMySqlDistributedQueries
     public void testDropTable()
     {
         assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(queryRunner.tableExists(getSession(), "test_drop"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
 
         assertUpdate("DROP TABLE test_drop");
-        assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
     }
 
     @Test
@@ -107,7 +107,7 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(stringDataType("varchar(16777216)", createUnboundedVarcharType()), "text_g")
                 .addRoundTrip(stringDataType("varchar(" + VarcharType.MAX_LENGTH + ")", createUnboundedVarcharType()), "text_h")
                 .addRoundTrip(stringDataType("varchar", createUnboundedVarcharType()), "unbounded")
-                .execute(queryRunner, prestoCreateAsSelect("presto_test_parameterized_varchar"));
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_parameterized_varchar"));
     }
 
     @Test
@@ -120,7 +120,7 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(stringDataType("longtext", createUnboundedVarcharType()), "d")
                 .addRoundTrip(varcharDataType(32), "e")
                 .addRoundTrip(varcharDataType(20000), "f")
-                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
     }
 
     @Test
@@ -135,19 +135,19 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(varcharDataType(sampleUnicodeText.length(), CHARACTER_SET_UTF8), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(32, CHARACTER_SET_UTF8), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(20000, CHARACTER_SET_UTF8), sampleUnicodeText)
-                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar_unicode"));
     }
 
     @Test
     public void testPrestoCreatedParameterizedChar()
     {
-        mysqlCharTypeTest().execute(queryRunner, prestoCreateAsSelect("mysql_test_parameterized_char"));
+        mysqlCharTypeTest().execute(getQueryRunner(), prestoCreateAsSelect("mysql_test_parameterized_char"));
     }
 
     @Test
     public void testMySqlCreatedParameterizedChar()
     {
-        mysqlCharTypeTest().execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
+        mysqlCharTypeTest().execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
     }
 
     private DataTypeTest mysqlCharTypeTest()
@@ -169,12 +169,12 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(charDataType(1, CHARACTER_SET_UTF8), "\u653b")
                 .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "\u653b\u6bbb")
                 .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "\u653b\u6bbb\u6a5f\u52d5\u968a")
-                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(queryRunner), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)

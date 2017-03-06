@@ -40,7 +40,7 @@ public class TestAccumuloDistributedQueries
     public TestAccumuloDistributedQueries()
             throws Exception
     {
-        super(createAccumuloQueryRunner(ImmutableMap.of()));
+        super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
     }
 
     @Override
@@ -56,16 +56,16 @@ public class TestAccumuloDistributedQueries
         // Some test cases from the base class are removed
 
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
         MaterializedResult materializedRows = computeActual("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT UUID() AS uuid, orderkey, discount FROM lineitem");
         assertEquals(materializedRows.getRowCount(), 0);
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
         assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
-        assertFalse(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
 
         this.assertCreateTableAsSelect(
                 "test_group",

@@ -40,7 +40,7 @@ public class TestKafkaDistributed
     public TestKafkaDistributed(EmbeddedKafka embeddedKafka)
             throws Exception
     {
-        super(createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
+        super(() -> createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
         this.embeddedKafka = embeddedKafka;
     }
 
@@ -48,6 +48,6 @@ public class TestKafkaDistributed
     public void destroy()
             throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedKafka);
+        closeAllRuntimeException(getQueryRunner(), embeddedKafka);
     }
 }

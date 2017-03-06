@@ -30,7 +30,7 @@ public class TestLocalQueries
 {
     public TestLocalQueries()
     {
-        super(createLocalQueryRunner());
+        super(TestLocalQueries::createLocalQueryRunner);
     }
 
     public static LocalQueryRunner createLocalQueryRunner()

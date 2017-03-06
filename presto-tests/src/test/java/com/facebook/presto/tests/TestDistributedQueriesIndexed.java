@@ -27,14 +27,14 @@ public class TestDistributedQueriesIndexed
     public TestDistributedQueriesIndexed()
             throws Exception
     {
-        super(createQueryRunner());
+        super(TestDistributedQueriesIndexed::createQueryRunner);
     }
 
     @AfterClass
     public void destroy()
             throws Exception
     {
-        Closeables.closeQuietly(queryRunner);
+        Closeables.closeQuietly(getQueryRunner());
     }
 
     private static DistributedQueryRunner createQueryRunner()

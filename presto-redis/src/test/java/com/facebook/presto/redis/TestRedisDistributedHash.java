@@ -39,7 +39,7 @@ public class TestRedisDistributedHash
     public TestRedisDistributedHash(EmbeddedRedis embeddedRedis)
             throws Exception
     {
-        super(RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "hash", TpchTable.getTables()));
+        super(() -> RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "hash", TpchTable.getTables()));
         this.embeddedRedis = embeddedRedis;
     }
 
@@ -47,6 +47,6 @@ public class TestRedisDistributedHash
     public void destroy()
             throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedRedis);
+        closeAllRuntimeException(getQueryRunner(), embeddedRedis);
     }
 }

@@ -15,7 +15,6 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.util.ImmutableCollectors;
@@ -61,12 +60,12 @@ public class TestRaptorIntegrationSmokeTest
     public TestRaptorIntegrationSmokeTest()
             throws Exception
     {
-        this(createRaptorQueryRunner(ImmutableMap.of(), true, false));
+        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false));
     }
 
-    protected TestRaptorIntegrationSmokeTest(QueryRunner queryRunner)
+    protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
-        super(queryRunner);
+        super(supplier);
     }
 
     @Test

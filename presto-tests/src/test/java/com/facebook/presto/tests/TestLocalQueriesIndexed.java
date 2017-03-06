@@ -26,7 +26,7 @@ public class TestLocalQueriesIndexed
 {
     public TestLocalQueriesIndexed()
     {
-        super(createLocalQueryRunner());
+        super(TestLocalQueriesIndexed::createLocalQueryRunner);
     }
 
     private static LocalQueryRunner createLocalQueryRunner()

@@ -44,7 +44,7 @@ public class TestRaptorIntegrationSmokeTestMySql
     public TestRaptorIntegrationSmokeTestMySql(TestingMySqlServer mysqlServer)
             throws Exception
     {
-        super(createRaptorMySqlQueryRunner(mysqlServer));
+        super(() -> createRaptorMySqlQueryRunner(mysqlServer));
         this.mysqlServer = mysqlServer;
     }
 
