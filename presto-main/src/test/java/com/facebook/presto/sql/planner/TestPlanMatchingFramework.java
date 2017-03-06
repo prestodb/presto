@@ -250,14 +250,6 @@ public class TestPlanMatchingFramework
                                         tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey"))))));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = ".*already bound in.*")
-    public void testBindMultipleAliasesSameExpression()
-    {
-        assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
-                output(ImmutableList.of("ORDERKEY", "TWO"),
-                        tableScan("lineitem", ImmutableMap.of("FIRST", "orderkey", "SECOND", "orderkey"))));
-    }
-
     @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = "missing expression for alias .*")
     public void testProjectLimitsScope()
     {

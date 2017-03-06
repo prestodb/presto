@@ -206,7 +206,6 @@ public final class SymbolAliases
             }
 
             checkState(!bindings.containsKey(alias), "Alias '%s' already bound to expression '%s'. Tried to rebind to '%s'", alias, bindings.get(alias), symbolReference);
-            checkState(!bindings.values().contains(symbolReference), "Expression '%s' is already bound in %s. Tried to rebind as '%s'.", symbolReference, bindings, alias);
             bindings.put(alias, symbolReference);
             return this;
         }
