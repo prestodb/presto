@@ -30,7 +30,7 @@ public class SchemaTableName
     public static SchemaTableName valueOf(String schemaTableName)
     {
         checkNotEmpty(schemaTableName, "schemaTableName");
-        String[] parts = schemaTableName.split("\\.");
+        String[] parts = schemaTableName.split("\\.(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
         if (parts.length != 2) {
             throw new IllegalArgumentException("Invalid schemaTableName " + schemaTableName);
         }
@@ -77,7 +77,13 @@ public class SchemaTableName
     @Override
     public String toString()
     {
-        return schemaName + '.' + tableName;
+        return wrapPeriodWithDoubleQuote(schemaName) + "." + wrapPeriodWithDoubleQuote(tableName);
+    }
+
+    private static String wrapPeriodWithDoubleQuote(String str)
+    {
+        return str.contains(".") && !str.startsWith("\"") && !str.endsWith("\"") ?
+                String.format("\"%s\"", str) : str;
     }
 
     public SchemaTablePrefix toSchemaTablePrefix()
