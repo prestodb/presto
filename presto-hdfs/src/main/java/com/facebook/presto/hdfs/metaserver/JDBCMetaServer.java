@@ -289,7 +289,7 @@ implements MetaServer
 //    }
 
     @Override
-    public Optional<HDFSTableHandle> getTableHandle(String databaseName, String tableName)
+    public Optional<HDFSTableHandle> getTableHandle(String connectorId, String databaseName, String tableName)
     {
         log.debug("Get table handle " + Utils.formName(databaseName, tableName));
         HDFSTableHandle table;
@@ -306,7 +306,9 @@ implements MetaServer
         JDBCRecord record = records.get(0);
         String schema = record.getString(fields[0]);
         String location = record.getString(fields[1]);
-        table = new HDFSTableHandle(requireNonNull(Utils.getDatabaseName(schema), "database name is null"),
+        table = new HDFSTableHandle(
+                requireNonNull(connectorId, "connectorId is null"),
+                requireNonNull(Utils.getDatabaseName(schema), "database name is null"),
                 requireNonNull(Utils.getTableName(schema), "table name is null"),
                 requireNonNull(new Path(location), "location uri is null"));
         return Optional.of(table);
@@ -315,6 +317,7 @@ implements MetaServer
     @Override
     public Optional<HDFSTableLayoutHandle> getTableLayout(String databaseName, String tableName)
     {
+        // TODO add fiberCol, timeCol, fiberFunc
         log.debug("Get table layout " + Utils.formName(databaseName, tableName));
         HDFSTableLayoutHandle tableLayout;
         List<JDBCRecord> records;
@@ -327,24 +330,25 @@ implements MetaServer
             log.error("Match more/less than one table");
             return Optional.empty();
         }
-        JDBCRecord record = records.get(0);
-        String fiberColName = record.getString(fields[0]);
-        String timeColName = record.getString(fields[1]);
-        String fiberFunc = record.getString(fields[2]);
+//        JDBCRecord record = records.get(0);
+//        String fiberColName = record.getString(fields[0]);
+//        String timeColName = record.getString(fields[1]);
+//        String fiberFunc = record.getString(fields[2]);
         records.clear();
 
         // construct ColumnHandle
-        HDFSColumnHandle fiberCol = getColumnHandle(fiberColName);
-        HDFSColumnHandle timeCol = getColumnHandle(timeColName);
+//        HDFSColumnHandle fiberCol = getColumnHandle(fiberColName);
+//        HDFSColumnHandle timeCol = getColumnHandle(timeColName);
 
-        tableLayout = new HDFSTableLayoutHandle(new SchemaTableName(databaseName, tableName), fiberCol, timeCol, fiberFunc);
+//        tableLayout = new HDFSTableLayoutHandle(new SchemaTableName(databaseName, tableName), fiberCol, timeCol, fiberFunc);
+        tableLayout = new HDFSTableLayoutHandle(new SchemaTableName(databaseName, tableName));
         return Optional.of(tableLayout);
     }
 
     /**
      * Get all column handles of specified table
      * */
-    public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String databaseName, String tableName)
+    public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String connectorId, String databaseName, String tableName)
     {
         log.debug("Get list of column handles of table " + Utils.formName(databaseName, tableName));
         List<HDFSColumnHandle> columnHandles = new ArrayList<>();
@@ -354,29 +358,29 @@ implements MetaServer
         String sql = "SELECT col_name FROM cols WHERE tbl_name='"
                 + databaseTableName
                 + "';";
-        String[] colFields = {"tbl_name"};
+        String[] colFields = {"col_name"};
         records = jdbcDriver.executreQuery(sql, colFields);
         if (records.size() == 0) {
             log.warn("No col matches!");
             return Optional.empty();
         }
         for (JDBCRecord record : records) {
-            colName = Utils.formName(databaseName, tableName, record.getString(colFields[0]));
-            columnHandles.add(getColumnHandle(colName));
+            colName = record.getString(colFields[0]);
+            columnHandles.add(getColumnHandle(connectorId, colName));
         }
         return Optional.of(columnHandles);
     }
 
-    private HDFSColumnHandle getColumnHandle(String databaseTableColName)
+    private HDFSColumnHandle getColumnHandle(String connectorId, String databaseTableColName)
     {
         log.debug("Get handle of column " + databaseTableColName);
         String databaseName = Utils.getDatabaseName(databaseTableColName);
         String tableName = Utils.getTableName(databaseTableColName);
         String colName = Utils.getColName(databaseTableColName);
-        return getColumnHandle(colName, Utils.formName(databaseName, tableName, colName));
+        return getColumnHandle(connectorId, colName, Utils.formName(databaseName, tableName, colName));
     }
 
-    private HDFSColumnHandle getColumnHandle(String colName, String databaseTableColName)
+    private HDFSColumnHandle getColumnHandle(String connectorId, String colName, String databaseTableColName)
     {
         List<JDBCRecord> records;
         String sql = "SELECT col_type, type FROM cols WHERE col_name='"
@@ -389,22 +393,22 @@ implements MetaServer
             throw new RecordMoreLessException();
         }
         JDBCRecord fiberColRecord = records.get(0);
-        String colTypeName = fiberColRecord.getString(colFields[0]);
+//        String colTypeName = fiberColRecord.getString(colFields[0]);
         String typeName = fiberColRecord.getString(colFields[1]);
         records.clear();
-        // Deal with colType
-        HDFSColumnHandle.ColumnType colType = getColType(colTypeName);
-        if (colType == HDFSColumnHandle.ColumnType.NOTVALID) {
-            log.error("Col type not match!");
-            throw new RecordMoreLessException();
-        }
+        // TODO Deal with colType
+//        HDFSColumnHandle.ColumnType colType = getColType(colTypeName);
+//        if (colType == HDFSColumnHandle.ColumnType.NOTVALID) {
+//            log.error("Col type non valid!");
+//            throw new ColTypeNonValidException();
+//        }
         // Deal with type
         Type type = getType(typeName);
         if (type == UnknownType.UNKNOWN) {
             log.error("Type unknown!");
             throw new TypeUnknownException();
         }
-        return new HDFSColumnHandle(colName, type, "", colType);
+        return new HDFSColumnHandle(colName, type, "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
     }
 
     public Optional<List<ColumnMetadata>> getTableColMetadata(String databaseName, String tableName)
@@ -453,7 +457,7 @@ implements MetaServer
     private HDFSColumnHandle.ColumnType getColType(String typeName)
     {
         log.debug("Get col type " + typeName);
-        switch (typeName) {
+        switch (typeName.toUpperCase()) {
             case "FIBER_COL": return HDFSColumnHandle.ColumnType.FIBER_COL;
             case "TIME_COL": return HDFSColumnHandle.ColumnType.TIME_COL;
             case "REGULAR": return HDFSColumnHandle.ColumnType.REGULAR;

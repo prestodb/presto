@@ -15,7 +15,6 @@ package com.facebook.presto.hdfs;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import org.apache.hadoop.fs.Path;
 
 import javax.validation.constraints.NotNull;
 
@@ -101,6 +100,4 @@ public final class HDFSConfig
     {
         HDFSConfig.metaserverStore = requireNonNull(metaserverStore);
     }
-
-
 }

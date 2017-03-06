@@ -84,10 +84,11 @@ public class JDBCDriver
         try (
                 PreparedStatement statement = connection.prepareStatement(sql);
                 ResultSet resultSet = statement.executeQuery()) {
+            log.debug("Executing: " + sql);
             while (resultSet != null && resultSet.next()) {
                 JDBCRecord record = new JDBCRecord();
                 for (String field : fields) {
-                    record.put(field, resultSet.getString(field));
+                    record.setField(field, resultSet.getString(field));
                 }
                 recordList.add(record);
             }

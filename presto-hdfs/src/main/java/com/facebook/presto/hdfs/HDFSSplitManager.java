@@ -55,7 +55,7 @@ implements ConnectorSplitManager
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle handle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
         HDFSTableLayoutHandle layout = checkType(layoutHandle, HDFSTableLayoutHandle.class, "layoutHandle");
-        Optional<HDFSTableHandle> tableHandle = metaServer.getTableHandle(layout.getTableName().getSchemaName(), layout.getTableName().getTableName());
+        Optional<HDFSTableHandle> tableHandle = metaServer.getTableHandle(connectorId.getId(), layout.getTableName().getSchemaName(), layout.getTableName().getTableName());
         if (!tableHandle.isPresent()) {
             throw new TableNotFoundException(layout.getTableName().toString());
         }

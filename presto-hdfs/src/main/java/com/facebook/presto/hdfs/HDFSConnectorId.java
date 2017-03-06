@@ -30,6 +30,11 @@ public class HDFSConnectorId
         this.connectorId = connectorId;
     }
 
+    public String getId()
+    {
+        return connectorId;
+    }
+
     @Override
     public int hashCode()
     {

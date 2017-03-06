@@ -62,6 +62,7 @@ implements Module
 
         binder.bind(HDFSMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(MetaServer.class).toInstance(new JDBCMetaServer());
+        binder.bind(HDFSMetadata.class).in(Scopes.SINGLETON);
         binder.bind(HDFSConnector.class).in(Scopes.SINGLETON);
         binder.bind(HDFSSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(HDFSPageSourceProvider.class).in(Scopes.SINGLETON);

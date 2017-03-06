@@ -18,7 +18,6 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import static com.facebook.presto.hdfs.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -39,18 +38,21 @@ implements ColumnHandle
     private final Type type;
     private final String comment;
     private final ColumnType colType;
+    private final String connectorId;
 
     @JsonCreator
     public HDFSColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
             @JsonProperty("comment") String comment,
-            @JsonProperty("columnType") ColumnType colType)
+            @JsonProperty("columnType") ColumnType colType,
+            @JsonProperty("connectorId") String connectorId)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.colType = requireNonNull(colType, "col type is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @JsonProperty
@@ -77,8 +79,9 @@ implements ColumnHandle
         return colType;
     }
 
-    public static HDFSColumnHandle toHDFSColumnHandle(ColumnHandle columnHandle)
+    @JsonProperty
+    public String getConnectorId()
     {
-        return checkType(columnHandle, HDFSColumnHandle.class, "hdfs column handle");
+        return connectorId;
     }
 }
