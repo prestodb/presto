@@ -19,10 +19,7 @@ import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 @Test
 public class TestRedisDistributedHash
@@ -45,8 +42,7 @@ public class TestRedisDistributedHash
 
     @AfterClass(alwaysRun = true)
     public void destroy()
-            throws IOException
     {
-        closeAllRuntimeException(getQueryRunner(), embeddedRedis);
+        embeddedRedis.close();
     }
 }

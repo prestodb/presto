@@ -15,8 +15,6 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
-import io.airlift.testing.Closeables;
-import org.testng.annotations.AfterClass;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -28,13 +26,6 @@ public class TestDistributedQueriesIndexed
             throws Exception
     {
         super(TestDistributedQueriesIndexed::createQueryRunner);
-    }
-
-    @AfterClass
-    public void destroy()
-            throws Exception
-    {
-        Closeables.closeQuietly(getQueryRunner());
     }
 
     private static DistributedQueryRunner createQueryRunner()

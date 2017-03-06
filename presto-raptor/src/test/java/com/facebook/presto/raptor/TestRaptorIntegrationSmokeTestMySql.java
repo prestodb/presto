@@ -26,7 +26,6 @@ import java.util.Map;
 import static com.facebook.presto.raptor.RaptorQueryRunner.copyTables;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSession;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.lang.String.format;
 
 @Test
@@ -51,7 +50,7 @@ public class TestRaptorIntegrationSmokeTestMySql
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        closeAllRuntimeException(mysqlServer);
+        mysqlServer.close();
     }
 
     private static DistributedQueryRunner createRaptorMySqlQueryRunner(TestingMySqlServer server)

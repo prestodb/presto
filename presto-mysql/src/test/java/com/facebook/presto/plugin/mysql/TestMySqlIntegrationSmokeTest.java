@@ -30,7 +30,6 @@ import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQuery
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -55,6 +54,12 @@ public class TestMySqlIntegrationSmokeTest
         this.mysqlServer = mysqlServer;
     }
 
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+    {
+        mysqlServer.close();
+    }
+
     @Override
     public void testDescribeTable()
             throws Exception
@@ -75,12 +80,6 @@ public class TestMySqlIntegrationSmokeTest
                 .row("comment", "varchar(255)", "", "")
                 .build();
         assertEquals(actualColumns, expectedColumns);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        closeAllRuntimeException(mysqlServer);
     }
 
     @Test
