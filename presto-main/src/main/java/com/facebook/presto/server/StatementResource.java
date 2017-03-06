@@ -29,7 +29,6 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
@@ -52,6 +51,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -69,6 +69,8 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -88,10 +90,14 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
@@ -102,13 +108,21 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -118,10 +132,14 @@ public class StatementResource
 {
     private static final Logger log = Logger.get(StatementResource.class);
 
-    private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
+    private static final Duration DEFAULT_WAIT_TIME = new Duration(1, SECONDS);
+    private static final Duration MAX_WAIT_TIME = new Duration(10, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
     private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
 
+    private final ExecutorService dataExecutor = newCachedThreadPool(daemonThreadsNamed("statement-resource-%s"));
+    private final Executor responseExecutor;
+    private final ScheduledExecutorService timeoutExecutor;
     private final QueryManager queryManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
@@ -132,11 +150,15 @@ public class StatementResource
 
     @Inject
     public StatementResource(
+            @ForAsyncHttp BoundedExecutor responseExecutor,
+            @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
             QueryManager queryManager,
             SessionPropertyManager sessionPropertyManager,
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde)
     {
+        this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
+        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
@@ -148,6 +170,7 @@ public class StatementResource
     @PreDestroy
     public void stop()
     {
+        dataExecutor.shutdownNow();
         queryPurger.shutdownNow();
     }
 
@@ -173,45 +196,43 @@ public class StatementResource
         Query query = new Query(
                 sessionSupplier,
                 statement,
+                dataExecutor,
+                timeoutExecutor,
                 queryManager,
                 sessionPropertyManager,
                 exchangeClient,
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS));
+        return createResponse(query, query.getNextResults(uriInfo, null));
     }
 
     @GET
     @Path("{queryId}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getQueryResults(
+    public void getQueryResults(
             @PathParam("queryId") QueryId queryId,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
-            @Context UriInfo uriInfo)
+            @Context UriInfo uriInfo,
+            @Suspended AsyncResponse asyncResponse)
             throws InterruptedException
     {
         Query query = queries.get(queryId);
         if (query == null) {
-            return Response.status(Status.NOT_FOUND).build();
+            asyncResponse.resume(Response.status(Status.NOT_FOUND).build());
+            return;
         }
 
-        Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        return getQueryResults(query, Optional.of(token), uriInfo, wait);
+        Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, firstNonNull(maxWait, DEFAULT_WAIT_TIME));
+        CompletableFuture<Response> future = query.getResults(token, uriInfo, wait);
+
+        bindAsyncResponse(asyncResponse, future, responseExecutor)
+                .withTimeout(new Duration(5, SECONDS));
     }
 
-    private static Response getQueryResults(Query query, Optional<Long> token, UriInfo uriInfo, Duration wait)
-            throws InterruptedException
+    private static Response createResponse(Query query, QueryResults queryResults)
     {
-        QueryResults queryResults;
-        if (token.isPresent()) {
-            queryResults = query.getResults(token.get(), uriInfo, wait);
-        }
-        else {
-            queryResults = query.getNextResults(uriInfo, wait);
-        }
-
         ResponseBuilder response = Response.ok(queryResults);
 
         // add set session properties
@@ -273,6 +294,8 @@ public class StatementResource
     @ThreadSafe
     public static class Query
     {
+        private final Executor dataExecutor;
+        private final ScheduledExecutorService timeoutExecutor;
         private final QueryManager queryManager;
         private final QueryId queryId;
         private final ExchangeClient exchangeClient;
@@ -314,6 +337,8 @@ public class StatementResource
         public Query(
                 SessionSupplier sessionSupplier,
                 String query,
+                Executor dataExecutor,
+                ScheduledExecutorService timeoutExecutor,
                 QueryManager queryManager,
                 SessionPropertyManager sessionPropertyManager,
                 ExchangeClient exchangeClient,
@@ -324,6 +349,8 @@ public class StatementResource
             requireNonNull(queryManager, "queryManager is null");
             requireNonNull(exchangeClient, "exchangeClient is null");
 
+            this.dataExecutor = requireNonNull(dataExecutor, "dataExecutor is null");
+            this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
             this.queryManager = queryManager;
 
             QueryInfo queryInfo = queryManager.createQuery(sessionSupplier, query);
@@ -380,46 +407,43 @@ public class StatementResource
             return clearTransactionId;
         }
 
-        public synchronized QueryResults getResults(long token, UriInfo uriInfo, Duration maxWaitTime)
+        public synchronized CompletableFuture<Response> getResults(long token, UriInfo uriInfo, Duration maxWaitTime)
                 throws InterruptedException
         {
             // is the a repeated request for the last results?
             String requestedPath = uriInfo.getAbsolutePath().getPath();
             if (lastResultPath != null && requestedPath.equals(lastResultPath)) {
                 // tell query manager we are still interested in the query
-                queryManager.getQueryInfo(queryId);
                 queryManager.recordHeartbeat(queryId);
-                return lastResult;
+                return completedFuture(Response.ok(lastResult).build());
             }
 
             if (token < resultId.get()) {
-                throw new WebApplicationException(Status.GONE);
+                return completedFuture(Response.status(Status.GONE).build());
             }
 
             // if this is not a request for the next results, return not found
             if (lastResult.getNextUri() == null || !requestedPath.equals(lastResult.getNextUri().getPath())) {
                 // unknown token
-                throw new WebApplicationException(Status.NOT_FOUND);
+                return completedFuture(Response.status(Status.NOT_FOUND).build());
             }
 
-            return getNextResults(uriInfo, maxWaitTime);
-        }
-
-        public synchronized QueryResults getNextResults(UriInfo uriInfo, Duration maxWaitTime)
-                throws InterruptedException
-        {
-            Iterable<List<Object>> data = getData(maxWaitTime);
-
-            // get the query info before returning
-            // force update if query manager is closed
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            // tell query manager we are still interested in the query
             queryManager.recordHeartbeat(queryId);
 
-            // if we have received all of the output data and the query is not marked as done, wait for the query to finish
-            if (exchangeClient.isClosed() && !queryInfo.getState().isDone()) {
-                queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWaitTime);
-                queryInfo = queryManager.getQueryInfo(queryId);
-            }
+            return waitForQueryStart(maxWaitTime)
+                    .thenCompose(ignored -> getData(maxWaitTime))
+                    .whenComplete((ignored, throwable) -> {
+                        if (throwable == null) {
+                            waitForQueryFinish(maxWaitTime);
+                        }
+                    })
+                    .thenApplyAsync(data -> createResponse(this, getNextResults(uriInfo, data)));
+        }
+
+        public synchronized QueryResults getNextResults(UriInfo uriInfo, Iterable<List<Object>> data)
+        {
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
 
             // TODO: figure out a better way to do this
             // grab the update count for non-queries
@@ -468,7 +492,7 @@ public class StatementResource
             startedTransactionId = queryInfo.getStartedTransactionId();
             clearTransactionId = queryInfo.isClearTransactionId();
 
-            // first time through, self is null
+            // build query results
             QueryResults queryResults = new QueryResults(
                     queryId.toString(),
                     uriInfo.getRequestUriBuilder().replaceQuery(queryId.toString()).replacePath("query.html").build(),
@@ -489,39 +513,78 @@ public class StatementResource
                 lastResultPath = null;
             }
             lastResult = queryResults;
+
             return queryResults;
         }
 
-        private synchronized Iterable<List<Object>> getData(Duration maxWait)
-                throws InterruptedException
+        private CompletableFuture<?> waitForQueryStart(Duration maxWaitTime)
         {
-            // wait for query to start
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
-            while (maxWait.toMillis() > 1 && !isQueryStarted(queryInfo)) {
-                queryManager.recordHeartbeat(queryId);
-                maxWait = queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWait);
-                queryInfo = queryManager.getQueryInfo(queryId);
+            CompletableFuture<?> future = new CompletableFuture<>();
+            QueryState state = queryManager.getQueryInfo(queryId).getState();
+            waitForQueryState(future, state, Query::isQueryStarted);
+            return addTimeout(future, () -> null, maxWaitTime, timeoutExecutor);
+        }
+
+        private CompletableFuture<?> waitForQueryFinish(Duration maxWaitTime)
+        {
+            // check if we have received all of the output data
+            if (!exchangeClient.isClosed()) {
+                return completedFuture(null);
             }
 
+            // wait for the query to finish
+            CompletableFuture<?> future = new CompletableFuture<>();
+            QueryState state = queryManager.getQueryInfo(queryId).getState();
+            waitForQueryState(future, state, QueryState::isDone);
+            return addTimeout(future, () -> null, maxWaitTime, timeoutExecutor);
+        }
+
+        private void waitForQueryState(CompletableFuture<?> future, QueryState currentState, Predicate<QueryState> predicate)
+        {
+            if (predicate.test(currentState)) {
+                future.complete(null);
+            }
+            else {
+                queryManager.getStateChange(queryId, currentState)
+                        .whenComplete((state, throwable) -> waitForQueryState(future, state, predicate));
+            }
+        }
+
+        private synchronized CompletableFuture<Iterable<List<Object>>> getData(Duration maxWait)
+        {
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             StageInfo outputStage = queryInfo.getOutputStage().orElse(null);
+
             // if query did not finish starting or does not have output, just return
-            if (!isQueryStarted(queryInfo) || outputStage == null) {
-                return null;
+            if (!isQueryStarted(queryInfo.getState()) || outputStage == null) {
+                return completedFuture(null);
             }
 
             if (columns == null) {
                 columns = createColumnsList(queryInfo);
             }
 
-            List<Type> types = outputStage.getTypes();
+            return runAsync(() -> updateExchangeClient(outputStage), dataExecutor)
+                    .thenCompose(ignored -> getData(outputStage.getTypes(), maxWait));
+        }
 
-            updateExchangeClient(outputStage);
+        private synchronized CompletableFuture<Iterable<List<Object>>> getData(List<Type> types, Duration maxWait)
+        {
+            return addTimeout(
+                    toCompletableFuture(exchangeClient.isBlocked())
+                            .thenApplyAsync(ignored -> getData(types), dataExecutor),
+                    () -> null,
+                    maxWait,
+                    timeoutExecutor);
+        }
 
+        private Iterable<List<Object>> getData(List<Type> types)
+        {
+            // return as much as available, up to the limit
             ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
-            // wait up to max wait for data to arrive; then try to return at least DESIRED_RESULT_BYTES
             long bytes = 0;
             while (bytes < DESIRED_RESULT_BYTES) {
-                SerializedPage serializedPage = exchangeClient.getNextPage(maxWait);
+                SerializedPage serializedPage = exchangeClient.pollPage();
                 if (serializedPage == null) {
                     break;
                 }
@@ -529,9 +592,6 @@ public class StatementResource
                 Page page = serde.deserialize(serializedPage);
                 bytes += page.getSizeInBytes();
                 pages.add(new RowIterable(session.toConnectorSession(), types, page));
-
-                // only wait on first call
-                maxWait = new Duration(0, MILLISECONDS);
             }
 
             if (bytes == 0) {
@@ -541,10 +601,11 @@ public class StatementResource
             return Iterables.concat(pages.build());
         }
 
-        private static boolean isQueryStarted(QueryInfo queryInfo)
+        private static boolean isQueryStarted(QueryState state)
         {
-            QueryState state = queryInfo.getState();
-            return state != QueryState.QUEUED && queryInfo.getState() != QueryState.PLANNING && queryInfo.getState() != QueryState.STARTING;
+            return (state != QueryState.QUEUED) &&
+                    (state != QueryState.PLANNING) &&
+                    (state != QueryState.STARTING);
         }
 
         private synchronized void updateExchangeClient(StageInfo outputStage)
@@ -552,11 +613,6 @@ public class StatementResource
             // add any additional output locations
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
-                    OutputBufferInfo outputBuffers = taskInfo.getOutputBuffers();
-                    if (outputBuffers.getState().canAddBuffers()) {
-                        // output buffer are still being created
-                        continue;
-                    }
                     OutputBufferId bufferId = new OutputBufferId(0);
                     URI uri = uriBuilderFrom(taskInfo.getTaskStatus().getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
                     exchangeClient.addLocation(uri);

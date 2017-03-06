@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -263,6 +264,12 @@ public final class SqlQueryExecution
     }
 
     @Override
+    public CompletableFuture<QueryState> getStateChange(QueryState currentState)
+    {
+        return stateMachine.getStateChange(currentState);
+    }
+
+    @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
@@ -434,15 +441,6 @@ public final class SqlQueryExecution
         requireNonNull(cause, "cause is null");
 
         stateMachine.transitionToFailed(cause);
-    }
-
-    @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
-    {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
-            return stateMachine.waitForStateChange(currentState, maxWait);
-        }
     }
 
     @Override

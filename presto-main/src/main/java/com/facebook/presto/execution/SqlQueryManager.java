@@ -52,6 +52,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -251,18 +252,14 @@ public class SqlQueryManager
     }
 
     @Override
-    public Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public CompletableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
     {
-        requireNonNull(queryId, "queryId is null");
-        requireNonNull(maxWait, "maxWait is null");
-
         QueryExecution query = queries.get(queryId);
         if (query == null) {
-            return maxWait;
+            throw new NoSuchElementException();
         }
 
-        return query.waitForStateChange(currentState, maxWait);
+        return query.getStateChange(currentState);
     }
 
     @Override

@@ -127,10 +127,9 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public CompletableFuture<QueryState> getStateChange(QueryState currentState)
     {
-        return stateMachine.waitForStateChange(currentState, maxWait);
+        return stateMachine.getStateChange(currentState);
     }
 
     @Override

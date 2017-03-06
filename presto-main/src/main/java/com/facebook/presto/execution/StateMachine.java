@@ -28,16 +28,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  * Simple state machine which holds a single state.  Callers can register for
@@ -276,34 +278,22 @@ public class StateMachine<T>
     /**
      * Wait for the state to not be {@code .equals()} to the specified current state.
      */
-    public Duration waitForStateChange(T currentState, Duration maxWait)
+    @VisibleForTesting
+    public void waitForStateChange(T currentState, Duration maxWait)
             throws InterruptedException
     {
         checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
         requireNonNull(currentState, "currentState is null");
         requireNonNull(maxWait, "maxWait is null");
 
-        // don't wait if the state has already changed, or we are in a terminal state
-        if (isPossibleStateChange(currentState)) {
-            return maxWait;
+        try {
+            getStateChange(currentState).get(maxWait.toMillis(), TimeUnit.MILLISECONDS);
         }
-
-        // wait for task state to change
-        long remainingNanos = maxWait.roundTo(NANOSECONDS);
-        long start = System.nanoTime();
-        long end = start + remainingNanos;
-
-        synchronized (lock) {
-            while (remainingNanos > 0 && !isPossibleStateChange(currentState)) {
-                // wait for timeout or notification
-                NANOSECONDS.timedWait(lock, remainingNanos);
-                remainingNanos = end - System.nanoTime();
-            }
+        catch (ExecutionException e) {
+            throw new AssertionError(e.getCause());
         }
-        if (remainingNanos < 0) {
-            remainingNanos = 0;
+        catch (TimeoutException ignored) {
         }
-        return new Duration(remainingNanos, NANOSECONDS);
     }
 
     private boolean isPossibleStateChange(T currentState)
