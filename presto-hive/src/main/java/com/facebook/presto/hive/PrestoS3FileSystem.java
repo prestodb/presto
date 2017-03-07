@@ -337,7 +337,6 @@ public class PrestoS3FileSystem
             long decryptedLength = metadata.getContentLength();
 
             try (FSDataInputStream inputStream = this.open(path)) {
-
                 int eofOffset = 25;
                 long startingPos = (decryptedLength > eofOffset) ? decryptedLength - eofOffset : 0;
 
