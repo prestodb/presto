@@ -2054,6 +2054,52 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithConstantFalseExpressionWithCoercion()
+    {
+        // Covers #7520
+
+        // Cannot use assertQuery because H2 behaves differently than Presto in CHAR(x) = CHAR(y) comparison, when x != y
+        // assertQuery("select (cast ('a' as char(1)) = cast ('a' as char(2)))") would fail
+        MaterializedResult actual = computeActual("select count(*) > 0 from nation join region on (cast('a' as char(1)) = cast('a' as char(2)))");
+
+        MaterializedResult expected = resultBuilder(getSession(), BOOLEAN)
+                .row(false)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testJoinWithConstantTrueExpressionWithCoercion()
+    {
+        // Covers #7520
+        assertQuery("select count(*) > 0 from nation join region on (cast(1.2 as real) = cast(1.2 as decimal(2,1)))");
+    }
+
+    @Test
+    public void testJoinWithCanonicalizedConstantFalseExpressionWithCoercion()
+    {
+        // Covers #7520
+
+        // Cannot use assertQuery because H2 behaves differently than Presto in CHAR(x) = CHAR(y) comparison, when x != y
+        // assertQuery("select (cast ('a' as char(1)) = cast ('a' as char(2)))") would fail
+        MaterializedResult actual = computeActual("select count(*) > 0 from nation join region ON CAST((CASE WHEN (TRUE IS NOT NULL) THEN 'a' ELSE 'a' END) as char(1)) = CAST('a' as char(2))");
+
+        MaterializedResult expected = resultBuilder(getSession(), BOOLEAN)
+                .row(false)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testJoinWithCanonicalizedConstantTrueExpressionWithCoercion()
+    {
+        // Covers #7520
+        assertQuery("select count(*) > 0 from nation join region ON CAST((CASE WHEN (TRUE IS NOT NULL) THEN '1.2' ELSE '1.2' END) as real) = CAST(1.2 as decimal(2,1))");
+    }
+
+    @Test
     public void testJoinWithConstantPredicatePushDown()
     {
         assertQuery("" +
