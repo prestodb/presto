@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -76,7 +77,7 @@ public class Driver
     private TaskSource currentTaskSource;
 
     @GuardedBy("exclusiveLock")
-    private TaskSource noMoreSplitsTaskSource;
+    private volatile TaskSource noMoreSplitsTaskSource;
 
     private enum State
     {
@@ -198,54 +199,63 @@ public class Driver
         tryLockAndProcessPendingStateChanges(0, TimeUnit.MILLISECONDS).close();
     }
 
+    private final AtomicInteger users = new AtomicInteger();
+
     @GuardedBy("exclusiveLock")
     private void processNewSources()
     {
         checkLockHeld("Lock must be held to call processNewSources");
 
-        // only update if the driver is still alive
-        if (state.get() != State.ALIVE) {
-            return;
-        }
-
-        TaskSource source = newTaskSource.getAndSet(null);
-        if (source == null) {
-            return;
-        }
-
-        // merge the current source and the specified source
-        TaskSource newSource = currentTaskSource.update(source);
-
-        // if source contains no new data, just return
-        if (newSource == currentTaskSource) {
-            return;
-        }
-
-        // determine new splits to add
-        Set<ScheduledSplit> newSplits = Sets.difference(newSource.getSplits(), currentTaskSource.getSplits());
-
-        // add new splits
         try {
-            SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
-            for (ScheduledSplit newSplit : newSplits) {
-                Split split = newSplit.getSplit();
+            checkState(users.incrementAndGet() == 1);
 
-                Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
-                deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
+            // only update if the driver is still alive
+            if (state.get() != State.ALIVE) {
+                return;
             }
 
-            // set no more splits
-            if (newSource.isNoMoreSplits()) {
-                if (noMoreSplitsTaskSource == null) {
-                    noMoreSplitsTaskSource = newSource;
+            TaskSource source = newTaskSource.getAndSet(null);
+            if (source == null) {
+                return;
+            }
+
+            // merge the current source and the specified source
+            TaskSource newSource = currentTaskSource.update(source);
+
+            // if source contains no new data, just return
+            if (newSource == currentTaskSource) {
+                return;
+            }
+
+            // determine new splits to add
+            Set<ScheduledSplit> newSplits = Sets.difference(newSource.getSplits(), currentTaskSource.getSplits());
+
+            // add new splits
+            try {
+                SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
+                for (ScheduledSplit newSplit : newSplits) {
+                    Split split = newSplit.getSplit();
+
+                    Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
+                    deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
                 }
-                sourceOperator.noMoreSplits();
+
+                // set no more splits
+                if (newSource.isNoMoreSplits()) {
+                    if (noMoreSplitsTaskSource == null) {
+                        noMoreSplitsTaskSource = newSource;
+                    }
+                    sourceOperator.noMoreSplits();
+                }
             }
+            catch (NoMoreLocationsAlreadySetException e) {
+                throw new NoMoreLocationsAlreadySetException(String.format("current=%s, next=%s, update=%s, noMoreSplitsTaskSource=%s", currentTaskSource, newSource, source, noMoreSplitsTaskSource), e);
+            }
+            currentTaskSource = newSource;
         }
-        catch (NoMoreLocationsAlreadySetException e) {
-            throw new NoMoreLocationsAlreadySetException(String.format("current=%s, next=%s, update=%s, noMoreSplitsTaskSource=%s", currentTaskSource, newSource, source, noMoreSplitsTaskSource), e);
+        finally {
+            checkState(users.decrementAndGet() == 0);
         }
-        currentTaskSource = newSource;
     }
 
     public ListenableFuture<?> processFor(Duration duration)
