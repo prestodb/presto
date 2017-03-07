@@ -323,7 +323,8 @@ public class PrestoS3FileSystem
                 qualifiedPath(path));
     }
 
-    private long getObjectSize(ObjectMetadata metadata, Path path) throws IOException
+    private long getObjectSize(ObjectMetadata metadata, Path path)
+            throws IOException
     {
         String length = metadata.getUserMetadata().get(UNENCRYPTED_CONTENT_LENGTH);
 
@@ -331,34 +332,24 @@ public class PrestoS3FileSystem
             return Long.parseLong(length);
         }
 
-        // check if file has KMS encryption
-        String cryptoAlg = metadata.getUserMetadata().get(CRYPTO_KEYWRAP_ALGORITHM);
-        if (cryptoAlg != null && cryptoAlg.equalsIgnoreCase("kms")) {
-            // KMS client-side encryption
+        String cryptoAlgorithm = metadata.getUserMetadata().get(CRYPTO_KEYWRAP_ALGORITHM);
+        if ("kms".equalsIgnoreCase(cryptoAlgorithm)) {
             long decryptedLength = metadata.getContentLength();
 
-            // load file and determine actual length
-            FSDataInputStream inputStream = this.open(path);
+            try (FSDataInputStream inputStream = this.open(path)) {
 
-            // read last 25 bytes of file to help determine length
-            int eofOffset = 25;
-            long startingPos = (decryptedLength > eofOffset) ? decryptedLength - eofOffset : 0;
+                int eofOffset = 25;
+                long startingPos = (decryptedLength > eofOffset) ? decryptedLength - eofOffset : 0;
 
-            // seek to starting point
-            inputStream.seek(startingPos);
+                inputStream.seek(startingPos);
 
-            while (inputStream.read() != -1) {
-                startingPos++;
+                while (inputStream.read() != -1) {
+                    startingPos++;
+                }
+                return startingPos;
             }
-            decryptedLength = startingPos;
-
-            inputStream.close();
-            return decryptedLength;
         }
-        else {
-            // use content length from S3 request
-            return metadata.getContentLength();
-        }
+        return metadata.getContentLength();
     }
 
     @Override
