@@ -76,7 +76,6 @@ public final class UnscaledDecimal128Arithmetic
      * 10^9 fits in 2^31.
      */
     private static final int MAX_POWER_OF_TEN_INT = 9;
-    private static final int MAX_POWER_OF_TEN_INT_VALUE = (int) Math.pow(10, 9);
     /**
      * 10^18 fits in 2^63.
      */
