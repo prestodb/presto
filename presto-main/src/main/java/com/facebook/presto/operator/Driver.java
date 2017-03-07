@@ -75,6 +75,9 @@ public class Driver
     @GuardedBy("exclusiveLock")
     private TaskSource currentTaskSource;
 
+    @GuardedBy("exclusiveLock")
+    private TaskSource noMoreSplitsTaskSource;
+
     private enum State
     {
         ALIVE, NEED_DESTRUCTION, DESTROYED
@@ -233,11 +236,14 @@ public class Driver
 
             // set no more splits
             if (newSource.isNoMoreSplits()) {
+                if (noMoreSplitsTaskSource == null) {
+                    noMoreSplitsTaskSource = newSource;
+                }
                 sourceOperator.noMoreSplits();
             }
         }
         catch (NoMoreLocationsAlreadySetException e) {
-            throw new NoMoreLocationsAlreadySetException(String.format("current=%s, next=%s, update=%s", currentTaskSource, newSource, source), e);
+            throw new NoMoreLocationsAlreadySetException(String.format("current=%s, next=%s, update=%s, noMoreSplitsTaskSource=%s", currentTaskSource, newSource, source, noMoreSplitsTaskSource), e);
         }
         currentTaskSource = newSource;
     }
