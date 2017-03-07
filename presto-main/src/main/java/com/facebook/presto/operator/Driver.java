@@ -222,19 +222,23 @@ public class Driver
         Set<ScheduledSplit> newSplits = Sets.difference(newSource.getSplits(), currentTaskSource.getSplits());
 
         // add new splits
-        SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
-        for (ScheduledSplit newSplit : newSplits) {
-            Split split = newSplit.getSplit();
+        try {
+            SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
+            for (ScheduledSplit newSplit : newSplits) {
+                Split split = newSplit.getSplit();
 
-            Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
-            deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
+                Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
+                deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
+            }
+
+            // set no more splits
+            if (newSource.isNoMoreSplits()) {
+                sourceOperator.noMoreSplits();
+            }
         }
-
-        // set no more splits
-        if (newSource.isNoMoreSplits()) {
-            sourceOperator.noMoreSplits();
+        catch (NoMoreLocationsAlreadySetException e) {
+            throw new NoMoreLocationsAlreadySetException(String.format("current=%s, next=%s, update=%s", currentTaskSource, newSource, source), e);
         }
-
         currentTaskSource = newSource;
     }
 
