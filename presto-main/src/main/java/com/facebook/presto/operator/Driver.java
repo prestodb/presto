@@ -46,6 +46,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
 //
@@ -67,10 +68,7 @@ public class Driver
 
     private final AtomicReference<State> state = new AtomicReference<>(State.ALIVE);
 
-    private final ReentrantLock exclusiveLock = new ReentrantLock();
-
-    @GuardedBy("this")
-    private Thread lockHolder;
+    private final DriverLock exclusiveLock = new DriverLock();
 
     @GuardedBy("exclusiveLock")
     private TaskSource currentTaskSource;
@@ -131,23 +129,17 @@ public class Driver
             return;
         }
 
-        // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
-        try (DriverLockResult lockResult = tryLockAndProcessPendingStateChanges(0, TimeUnit.MILLISECONDS)) {
-            // if we did not get the lock, interrupt the lock holder
-            if (!lockResult.wasAcquired()) {
-                // there is a benign race condition here were the lock holder
-                // can be change between attempting to get lock and grabbing
-                // the synchronized lock here, but in either case we want to
-                // interrupt the lock holder thread
-                synchronized (this) {
-                    if (lockHolder != null) {
-                        lockHolder.interrupt();
-                    }
-                }
-            }
-
-            // clean shutdown is automatically triggered during lock release
+        // there is a benign race condition here were the lock holder
+        // can be change between attempting to get lock and grabbing
+        // the synchronized lock here, but in either case we want to
+        // interrupt the lock holder thread
+        Thread lockOwner = exclusiveLock.getOwner();
+        if (lockOwner != null) {
+            lockOwner.interrupt();
         }
+
+        // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
+        tryWithLock(() -> TRUE);
     }
 
     public boolean isFinished()
@@ -155,15 +147,8 @@ public class Driver
         checkLockNotHeld("Can not check finished status while holding the driver lock");
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
-        try (DriverLockResult lockResult = tryLockAndProcessPendingStateChanges(0, TimeUnit.MILLISECONDS)) {
-            if (lockResult.wasAcquired()) {
-                return isFinishedInternal();
-            }
-            else {
-                // did not get the lock, so we can't check operators, or destroy
-                return state.get() != State.ALIVE || driverContext.isDone();
-            }
-        }
+        Optional<Boolean> result = tryWithLock(this::isFinishedInternal);
+        return result.orElseGet(() -> state.get() != State.ALIVE || driverContext.isDone());
     }
 
     @GuardedBy("exclusiveLock")
@@ -192,7 +177,7 @@ public class Driver
 
         // attempt to get the lock and process the updates we staged above
         // updates will be processed in close if and only if we got the lock
-        tryLockAndProcessPendingStateChanges(0, TimeUnit.MILLISECONDS).close();
+        tryWithLock(() -> TRUE);
     }
 
     @GuardedBy("exclusiveLock")
@@ -246,40 +231,32 @@ public class Driver
 
         long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
 
-        try (DriverLockResult lockResult = tryLockAndProcessPendingStateChanges(100, TimeUnit.MILLISECONDS)) {
-            if (lockResult.wasAcquired()) {
-                driverContext.startProcessTimer();
-                try {
-                    long start = System.nanoTime();
-                    do {
-                        ListenableFuture<?> future = processInternal();
-                        if (!future.isDone()) {
-                            return future;
-                        }
+        Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
+            driverContext.startProcessTimer();
+            try {
+                long start = System.nanoTime();
+                do {
+                    ListenableFuture<?> future = processInternal();
+                    if (!future.isDone()) {
+                        return future;
                     }
-                    while (System.nanoTime() - start < maxRuntime && !isFinishedInternal());
                 }
-                finally {
-                    driverContext.recordProcessed();
-                }
+                while (System.nanoTime() - start < maxRuntime && !isFinishedInternal());
             }
-        }
-        return NOT_BLOCKED;
+            finally {
+                driverContext.recordProcessed();
+            }
+            return NOT_BLOCKED;
+        });
+        return result.orElse(NOT_BLOCKED);
     }
 
     public ListenableFuture<?> process()
     {
         checkLockNotHeld("Can not process while holding the driver lock");
 
-        try (DriverLockResult lockResult = tryLockAndProcessPendingStateChanges(100, TimeUnit.MILLISECONDS)) {
-            if (!lockResult.wasAcquired()) {
-                // this is unlikely to happen unless the driver is being
-                // destroyed and in that case the caller should notice
-                // this state change by calling isFinished
-                return NOT_BLOCKED;
-            }
-            return processInternal();
-        }
+        Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, this::processInternal);
+        return result.orElse(NOT_BLOCKED);
     }
 
     @GuardedBy("exclusiveLock")
@@ -502,22 +479,15 @@ public class Driver
         return inFlightException;
     }
 
-    private DriverLockResult tryLockAndProcessPendingStateChanges(int timeout, TimeUnit unit)
-    {
-        checkLockNotHeld("Can not acquire the driver lock while already holding the driver lock");
-
-        return new DriverLockResult(timeout, unit);
-    }
-
     private synchronized void checkLockNotHeld(String message)
     {
-        checkState(Thread.currentThread() != lockHolder, message);
+        checkState(!exclusiveLock.isHeldByCurrentThread(), message);
     }
 
     @GuardedBy("exclusiveLock")
     private synchronized void checkLockHeld(String message)
     {
-        checkState(exclusiveLock.isHeldByCurrentThread() && Thread.currentThread() == lockHolder, message);
+        checkState(exclusiveLock.isHeldByCurrentThread(), message);
     }
 
     private static ListenableFuture<?> firstFinishedFuture(List<ListenableFuture<?>> futures)
@@ -532,72 +502,73 @@ public class Driver
         return result;
     }
 
-    private class DriverLockResult
-            implements AutoCloseable
+    // Note: task can not return null
+    private <T> Optional<T> tryWithLock(Supplier<T> task)
     {
-        private final boolean acquired;
+        return tryWithLock(0, TimeUnit.MILLISECONDS, task);
+    }
 
-        private DriverLockResult(int timeout, TimeUnit unit)
-        {
-            acquired = tryAcquire(timeout, unit);
+    // Note: task can not return null
+    private <T> Optional<T> tryWithLock(long timeout, TimeUnit unit, Supplier<T> task)
+    {
+        checkLockNotHeld("Lock can not be reacquired");
+
+        boolean acquired = false;
+        try {
+            acquired = exclusiveLock.tryLock(timeout, unit);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
 
-        private boolean tryAcquire(int timeout, TimeUnit unit)
-        {
-            boolean acquired = false;
+        if (!acquired) {
+            return Optional.empty();
+        }
+
+        Optional<T> result;
+        try {
+            result = Optional.of(task.get());
+        }
+        finally {
             try {
-                acquired = exclusiveLock.tryLock(timeout, unit);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-
-            if (acquired) {
-                synchronized (Driver.this) {
-                    lockHolder = Thread.currentThread();
-                }
-            }
-
-            return acquired;
-        }
-
-        public boolean wasAcquired()
-        {
-            return acquired;
-        }
-
-        @Override
-        public void close()
-        {
-            if (!acquired) {
-                return;
-            }
-
-            boolean done = false;
-            while (!done) {
-                done = true;
-                // before releasing the lock, process any new sources and/or destroy the driver
                 try {
-                    try {
-                        processNewSources();
-                    }
-                    finally {
-                        destroyIfNecessary();
-                    }
+                    processNewSources();
                 }
                 finally {
-                    synchronized (Driver.this) {
-                        lockHolder = null;
-                    }
-                    exclusiveLock.unlock();
-
-                    // if new sources were added after we processed them, go around and try again
-                    // in case someone else failed to acquire the lock and as a result won't update them
-                    if (newTaskSource.get() != null && state.get() == State.ALIVE && tryAcquire(0, TimeUnit.MILLISECONDS)) {
-                        done = false;
-                    }
+                    destroyIfNecessary();
                 }
             }
+            finally {
+                exclusiveLock.unlock();
+            }
+        }
+
+        // if necessary, attempt to reacquire the lock and process new sources
+        // NOTE: this is separate duplicate code to make debugging lock reacquisition easier
+        while (newTaskSource.get() != null && state.get() == State.ALIVE && exclusiveLock.tryLock()) {
+            try {
+                try {
+                    processNewSources();
+                }
+                finally {
+                    destroyIfNecessary();
+                }
+            }
+            finally {
+                exclusiveLock.unlock();
+            }
+        }
+
+        return result;
+    }
+
+    private static class DriverLock
+            extends ReentrantLock
+    {
+        @Override
+        public Thread getOwner()
+        {
+            return super.getOwner();
         }
     }
 }
