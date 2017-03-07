@@ -86,8 +86,8 @@ public class HiveClientConfig
     private List<String> resourceConfigFiles;
 
     private boolean useParquetColumnNames;
-    private boolean parquetOptimizedReaderEnabled;
-    private boolean parquetPredicatePushdownEnabled;
+    private boolean parquetOptimizedReaderEnabled = true;
+    private boolean parquetPredicatePushdownEnabled = true;
 
     private boolean assumeCanonicalPartitionKeys;
 
