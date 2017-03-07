@@ -15,36 +15,33 @@ package com.facebook.presto.operator.scalar;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
-public class TestDateTimeFunctions extends TestDateTimeFunctionsBase
+public class TestDateTimeFunctionsLegacy
+        extends TestDateTimeFunctionsBase
 {
     @Test
-    public TestDateTimeFunctions()
+    public TestDateTimeFunctionsLegacy()
     {
         super(
                 testSessionBuilder()
                         .setTimeZoneKey(TIME_ZONE_KEY)
-                        .setSystemProperty("legacy_timestamp", "false")
+                        .setSystemProperty("legacy_timestamp", "true")
                         .build()
         );
     }
 
     @Test
-    public void toIso8601DoesNotExistsForTimestamp()
+    public void toIso8601ExistsForTimestamp()
     {
-        assertThrowsPrestoException(
-                "to_iso8601(" + TIMESTAMP_LITERAL + ")",
-                FUNCTION_NOT_FOUND,
-                "to_iso8601(timestamp) does not exist");
+        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING);
     }
 
     @Test
-    public void testFormatDateCannotImplicitlyAddTimeZoneToTimestampLiteral()
+    public void testFormatDateCanImplicitlyAddTimeZoneToTimestampLiteral()
     {
-        assertInvalidFunction(
-                "format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')",
-                "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
+        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 Asia/Kathmandu");
     }
 }

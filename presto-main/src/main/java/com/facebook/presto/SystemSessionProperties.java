@@ -69,6 +69,7 @@ public final class SystemSessionProperties
     public static final String REORDER_WINDOWS = "reorder_windows";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -283,6 +284,11 @@ public final class SystemSessionProperties
                         EXCHANGE_COMPRESSION,
                         "Enable compression in exchanges",
                         featuresConfig.isExchangeCompressionEnabled(),
+                        false),
+                booleanSessionProperty(
+                        LEGACY_TIMESTAMP,
+                        "Use legacy TIMESTAMP, TIME & DATE semantics",
+                        featuresConfig.isLegacyTimestamp(),
                         false));
     }
 
@@ -443,6 +449,12 @@ public final class SystemSessionProperties
     public static boolean isNewOptimizerEnabled(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER, Boolean.class);
+    }
+
+    @Deprecated
+    public static boolean isLegacyTimestamp(Session session)
+    {
+        return session.getSystemProperty(LEGACY_TIMESTAMP, Boolean.class);
     }
 
     public static boolean isExchangeCompressionEnabled(Session session)
