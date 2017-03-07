@@ -405,7 +405,7 @@ public class TestBroadcastOutputBuffer
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*does not contain.*\\[0\\]")
-    public void testFinishWithoutDeclaringBuffer()
+    public void testSetFinalBuffersWihtoutDeclaringUsedBuffer()
             throws Exception
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(10));
@@ -427,8 +427,23 @@ public class TestBroadcastOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 1, true));
         buffer.abort(FIRST);
 
-        // destroy without declaring the buffer, which will fail
-        buffer.destroy();
+        // set final buffers to a set that does not contain the buffer, which will fail
+        buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No more buffers already set")
+    public void testUseUndeclaredBufferAfterFinalBuffersSet()
+            throws Exception
+    {
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(
+                createInitialEmptyOutputBuffers(BROADCAST)
+                        .withBuffer(FIRST, BROADCAST_PARTITION_ID)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(10));
+        assertFalse(buffer.isFinished());
+
+        // get a page from a buffer that was not declared, which will fail
+        buffer.get(SECOND, (long) 0, sizeOfPages(1));
     }
 
     @Test

@@ -392,6 +392,21 @@ public class TestArbitraryOutputBuffer
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(33)));
     }
 
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No more buffers already set")
+    public void testUseUndeclaredBufferAfterFinalBuffersSet()
+            throws Exception
+    {
+        ArbitraryOutputBuffer buffer = createArbitraryBuffer(
+                createInitialEmptyOutputBuffers(ARBITRARY)
+                        .withBuffer(FIRST, BROADCAST_PARTITION_ID)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(10));
+        assertFalse(buffer.isFinished());
+
+        // get a page from a buffer that was not declared, which will fail
+        buffer.get(SECOND, (long) 0, sizeOfPages(1));
+    }
+
     @Test
     public void testAbortBeforeCreate()
             throws Exception

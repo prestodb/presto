@@ -153,6 +153,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
+        checkState(!Thread.holdsLock(this), "Can not set output buffers while holding a lock on this");
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
 
         synchronized (this) {
@@ -189,6 +190,7 @@ public class ArbitraryOutputBuffer
     @Override
     public ListenableFuture<?> enqueue(List<SerializedPage> pages)
     {
+        checkState(!Thread.holdsLock(this), "Can not enqueue pages while holding a lock on this");
         requireNonNull(pages, "page is null");
 
         // ignore pages after "no more pages" is set
@@ -235,6 +237,7 @@ public class ArbitraryOutputBuffer
     @Override
     public CompletableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
+        checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
@@ -244,6 +247,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void abort(OutputBufferId bufferId)
     {
+        checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
 
         getBuffer(bufferId).destroy();
@@ -254,6 +258,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void setNoMorePages()
     {
+        checkState(!Thread.holdsLock(this), "Can not set no more pages while holding a lock on this");
         state.compareAndSet(OPEN, NO_MORE_PAGES);
         state.compareAndSet(NO_MORE_BUFFERS, FLUSHING);
         memoryManager.setNoBlockOnFull();
@@ -266,6 +271,8 @@ public class ArbitraryOutputBuffer
     @Override
     public void destroy()
     {
+        checkState(!Thread.holdsLock(this), "Can not destroy while holding a lock on this");
+
         // ignore destroy if the buffer already in a terminal state.
         if (state.setIf(FINISHED, oldState -> !oldState.isTerminal())) {
             noMoreBuffers();
@@ -295,7 +302,10 @@ public class ArbitraryOutputBuffer
             return buffer;
         }
 
-        checkState(state.get().canAddBuffers(), "No more buffers already set");
+        // NOTE: buffers are allowed to be created in the FINISHED state because destroy() can move to the finished state
+        // without a clean "no-more-buffers" message from the scheduler.  This happens with limit queries and is ok because
+        // the buffer will be immediately destroyed.
+        checkState(state.get().canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared
@@ -317,9 +327,11 @@ public class ArbitraryOutputBuffer
 
     private synchronized void noMoreBuffers()
     {
-        // verify all created buffers have been declared
-        SetView<OutputBufferId> undeclaredCreatedBuffers = Sets.difference(buffers.keySet(), outputBuffers.getBuffers().keySet());
-        checkState(undeclaredCreatedBuffers.isEmpty(), "Final output buffers does not contain all created buffer ids: %s", undeclaredCreatedBuffers);
+        if (outputBuffers.isNoMoreBufferIds()) {
+            // verify all created buffers have been declared
+            SetView<OutputBufferId> undeclaredCreatedBuffers = Sets.difference(buffers.keySet(), outputBuffers.getBuffers().keySet());
+            checkState(undeclaredCreatedBuffers.isEmpty(), "Final output buffers does not contain all created buffer ids: %s", undeclaredCreatedBuffers);
+        }
     }
 
     @GuardedBy("this")
