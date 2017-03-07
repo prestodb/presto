@@ -42,8 +42,6 @@ public class CassandraClientConfig
     private Duration schemaCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration schemaRefreshInterval = new Duration(2, TimeUnit.MINUTES);
     private int maxSchemaRefreshThreads = 10;
-    private int limitForPartitionKeySelect = 200;
-    private int fetchSizeForPartitionKeySelect = 20_000;
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
@@ -68,19 +66,6 @@ public class CassandraClientConfig
     private int noHostAvailableRetryCount = 1;
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
-
-    @Min(0)
-    public int getLimitForPartitionKeySelect()
-    {
-        return limitForPartitionKeySelect;
-    }
-
-    @Config("cassandra.limit-for-partition-key-select")
-    public CassandraClientConfig setLimitForPartitionKeySelect(int limitForPartitionKeySelect)
-    {
-        this.limitForPartitionKeySelect = limitForPartitionKeySelect;
-        return this;
-    }
 
     @Min(1)
     public int getMaxSchemaRefreshThreads()
@@ -177,19 +162,6 @@ public class CassandraClientConfig
     public CassandraClientConfig setFetchSize(int fetchSize)
     {
         this.fetchSize = fetchSize;
-        return this;
-    }
-
-    @Min(1)
-    public int getFetchSizeForPartitionKeySelect()
-    {
-        return fetchSizeForPartitionKeySelect;
-    }
-
-    @Config("cassandra.fetch-size-for-partition-key-select")
-    public CassandraClientConfig setFetchSizeForPartitionKeySelect(int fetchSizeForPartitionKeySelect)
-    {
-        this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
         return this;
     }
 

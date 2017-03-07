@@ -48,8 +48,6 @@ public class MockCassandraSession
         super(connectorId,
                 ImmutableList.of(),
                 null,
-                config.getFetchSizeForPartitionKeySelect(),
-                config.getLimitForPartitionKeySelect(),
                 listJsonCodec(ExtraColumnMetadata.class),
                 config.getNoHostAvailableRetryCount());
     }
