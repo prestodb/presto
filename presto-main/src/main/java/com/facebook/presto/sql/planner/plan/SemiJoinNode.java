@@ -37,6 +37,7 @@ public class SemiJoinNode
     private final Symbol semiJoinOutput;
     private final Optional<Symbol> sourceHashSymbol;
     private final Optional<Symbol> filteringSourceHashSymbol;
+    private final Optional<DistributionType> distributionType;
 
     @JsonCreator
     public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
@@ -46,7 +47,8 @@ public class SemiJoinNode
             @JsonProperty("filteringSourceJoinSymbol") Symbol filteringSourceJoinSymbol,
             @JsonProperty("semiJoinOutput") Symbol semiJoinOutput,
             @JsonProperty("sourceHashSymbol") Optional<Symbol> sourceHashSymbol,
-            @JsonProperty("filteringSourceHashSymbol") Optional<Symbol> filteringSourceHashSymbol)
+            @JsonProperty("filteringSourceHashSymbol") Optional<Symbol> filteringSourceHashSymbol,
+            @JsonProperty("distributionType") Optional<DistributionType> distributionType)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -56,9 +58,16 @@ public class SemiJoinNode
         this.semiJoinOutput = requireNonNull(semiJoinOutput, "semiJoinOutput is null");
         this.sourceHashSymbol = requireNonNull(sourceHashSymbol, "sourceHashSymbol is null");
         this.filteringSourceHashSymbol = requireNonNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
+        this.distributionType = requireNonNull(distributionType, "distributionType is null");
 
         checkArgument(source.getOutputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
         checkArgument(filteringSource.getOutputSymbols().contains(filteringSourceJoinSymbol), "Filtering source does not contain filtering join symbol");
+    }
+
+    public enum DistributionType
+    {
+        PARTITIONED,
+        REPLICATED
     }
 
     @JsonProperty("source")
@@ -103,6 +112,12 @@ public class SemiJoinNode
         return filteringSourceHashSymbol;
     }
 
+    @JsonProperty("distributionType")
+    public Optional<DistributionType> getDistributionType()
+    {
+        return distributionType;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -128,6 +143,15 @@ public class SemiJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new SemiJoinNode(getId(), newChildren.get(0), newChildren.get(1), sourceJoinSymbol, filteringSourceJoinSymbol, semiJoinOutput, sourceHashSymbol, filteringSourceHashSymbol);
+        return new SemiJoinNode(
+                getId(),
+                newChildren.get(0),
+                newChildren.get(1),
+                sourceJoinSymbol,
+                filteringSourceJoinSymbol,
+                semiJoinOutput,
+                sourceHashSymbol,
+                filteringSourceHashSymbol,
+                distributionType);
     }
 }

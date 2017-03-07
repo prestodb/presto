@@ -105,6 +105,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                     Symbol.from(inPredicate.getValueList()),
                     semiJoinSymbol,
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty()
             );
         }
