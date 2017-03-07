@@ -239,7 +239,7 @@ public class Driver
                 if (noMoreSplitsTaskSource == null) {
                     noMoreSplitsTaskSource = newSource;
                 }
-                sourceOperator.noMoreSplits();
+                sourceOperator.noMoreSplits(newSource);
             }
         }
         catch (NoMoreLocationsAlreadySetException e) {

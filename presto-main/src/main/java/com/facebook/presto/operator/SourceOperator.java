@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -28,4 +29,9 @@ public interface SourceOperator
     Supplier<Optional<UpdatablePageSource>> addSplit(Split split);
 
     void noMoreSplits();
+
+    default void noMoreSplits(TaskSource newSource)
+    {
+        noMoreSplits();
+    }
 }
