@@ -20,11 +20,9 @@ import com.datastax.driver.core.Host;
 import com.datastax.driver.core.IndexMetadata;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.ResultSetFuture;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
-import com.datastax.driver.core.VersionNumber;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.querybuilder.Clause;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
@@ -68,8 +66,6 @@ public class CassandraSession
 {
     static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
     protected final String connectorId;
-    private final int fetchSizeForPartitionKeySelect;
-    private final int limitForPartitionKeySelect;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
     private final int noHostAvailableRetryCount;
 
@@ -78,14 +74,10 @@ public class CassandraSession
     public CassandraSession(String connectorId,
             final List<String> contactPoints,
             final Builder clusterBuilder,
-            int fetchSizeForPartitionKeySelect,
-            int limitForPartitionKeySelect,
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
             int noHostAvailableRetryCount)
     {
         this.connectorId = connectorId;
-        this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
-        this.limitForPartitionKeySelect = limitForPartitionKeySelect;
         this.extraColumnMetadataCodec = extraColumnMetadataCodec;
         this.noHostAvailableRetryCount = noHostAvailableRetryCount;
 
@@ -336,52 +328,13 @@ public class CassandraSession
         String schemaName = tableHandle.getSchemaName();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
-        boolean fullPartitionKey = filterPrefix.size() == partitionKeyColumns.size();
-        ResultSetFuture countFuture;
-        if (!fullPartitionKey) {
-            final Select countAll = CassandraCqlUtils.selectCountAllFrom(tableHandle).limit(limitForPartitionKeySelect);
-            countFuture = executeWithSession(schemaName, session -> session.executeAsync(countAll));
-        }
-        else {
-            // no need to count if partition key is completely known
-            countFuture = null;
+        if (filterPrefix.size() != partitionKeyColumns.size()) {
+            return null;
         }
 
-        int limit = fullPartitionKey ? 1 : limitForPartitionKeySelect;
-        final Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
-        partitionKeys.limit(limit);
-        partitionKeys.setFetchSize(fetchSizeForPartitionKeySelect);
-
-        if (!fullPartitionKey) {
-            Set<Host> clusterHosts = getSession(schemaName).getCluster().getMetadata().getAllHosts();
-            if (!clusterHosts.isEmpty()) {
-                VersionNumber version = clusterHosts.iterator().next().getCassandraVersion();
-                // Cassandra 2.2 changes the functionality of COUNT(*) to be
-                // more like SQL standard. COUNT(*) can no longer
-                // be used to see if a table has < limitForPartitionKeySelect partitions.
-                // See CASSANDRA-8216
-                if (version.getMajor() >= 3 || (version.getMajor() == 2 && version.getMinor() >= 2)) {
-                    return null;
-                }
-            }
-
-            addWhereClause(partitionKeys.where(), partitionKeyColumns, new ArrayList<>());
-            ResultSetFuture partitionKeyFuture = executeWithSession(schemaName, session -> session.executeAsync(partitionKeys));
-
-            long count = countFuture.getUninterruptibly().one().getLong(0);
-            if (count == limitForPartitionKeySelect) {
-                partitionKeyFuture.cancel(true);
-                return null; // too much effort to query all partition keys
-            }
-            else {
-                return partitionKeyFuture.getUninterruptibly();
-            }
-        }
-        else {
-            addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
-            ResultSetFuture partitionKeyFuture = executeWithSession(schemaName, session -> session.executeAsync(partitionKeys));
-            return partitionKeyFuture.getUninterruptibly();
-        }
+        Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
+        addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
+        return executeWithSession(schemaName, session -> session.execute(partitionKeys)).all();
     }
 
     public <T> T executeWithSession(SessionCallable<T> sessionCallable)

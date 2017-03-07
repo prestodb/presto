@@ -165,8 +165,6 @@ public class CassandraClientModule
                 connectorId.toString(),
                 contactPoints,
                 clusterBuilder,
-                config.getFetchSizeForPartitionKeySelect(),
-                config.getLimitForPartitionKeySelect(),
                 extraColumnMetadataCodec,
                 config.getNoHostAvailableRetryCount());
     }

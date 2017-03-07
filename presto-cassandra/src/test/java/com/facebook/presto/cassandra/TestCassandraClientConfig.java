@@ -32,8 +32,6 @@ public class TestCassandraClientConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(CassandraClientConfig.class)
-                .setLimitForPartitionKeySelect(200)
-                .setFetchSizeForPartitionKeySelect(20_000)
                 .setMaxSchemaRefreshThreads(10)
                 .setSchemaCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setSchemaRefreshInterval(new Duration(2, TimeUnit.MINUTES))
@@ -67,8 +65,6 @@ public class TestCassandraClientConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("cassandra.limit-for-partition-key-select", "100")
-                .put("cassandra.fetch-size-for-partition-key-select", "500")
                 .put("cassandra.max-schema-refresh-threads", "2")
                 .put("cassandra.schema-cache-ttl", "2h")
                 .put("cassandra.schema-refresh-interval", "30m")
@@ -99,8 +95,6 @@ public class TestCassandraClientConfig
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
-                .setLimitForPartitionKeySelect(100)
-                .setFetchSizeForPartitionKeySelect(500)
                 .setMaxSchemaRefreshThreads(2)
                 .setSchemaCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setSchemaRefreshInterval(new Duration(30, TimeUnit.MINUTES))

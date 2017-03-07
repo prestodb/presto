@@ -51,8 +51,6 @@ public class TestCassandraTokenSplitManager
                 CONNECTOR_ID,
                 ImmutableList.of(HOSTNAME),
                 cluster,
-                DOES_NOT_MATTER,
-                DOES_NOT_MATTER,
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
                 DOES_NOT_MATTER);
         splitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE);
