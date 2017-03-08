@@ -128,6 +128,7 @@ public final class RaptorQueryRunner
                 .setSchema(schema)
                 .setSystemProperty("processing_optimization", "columnar_dictionary")
                 .setSystemProperty("dictionary_aggregation", "true")
+                .setSystemProperty("enable_intermediate_aggregations", "true")
                 .build();
     }
 
