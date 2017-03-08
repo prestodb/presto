@@ -511,6 +511,8 @@ public class Driver
     // Note: task can not return null
     private <T> Optional<T> tryWithLock(long timeout, TimeUnit unit, Supplier<T> task)
     {
+        checkLockNotHeld("Lock can not be reacquired");
+
         boolean acquired = false;
         try {
             acquired = exclusiveLock.tryLock(timeout, unit);
@@ -523,26 +525,40 @@ public class Driver
             return Optional.empty();
         }
 
+        Optional<T> result;
         try {
-            return Optional.of(task.get());
+            result = Optional.of(task.get());
         }
         finally {
-            do {
+            try {
                 try {
-                    try {
-                        processNewSources();
-                    }
-                    finally {
-                        destroyIfNecessary();
-                    }
+                    processNewSources();
                 }
                 finally {
-                    exclusiveLock.unlock();
+                    destroyIfNecessary();
                 }
-
-                // if necessary, attempt to reacquire the lock and process new sources
-            } while (newTaskSource.get() != null && state.get() == State.ALIVE && exclusiveLock.tryLock());
+            }
+            finally {
+                exclusiveLock.unlock();
+            }
         }
+        
+        // if necessary, attempt to reacquire the lock and process new sources
+        while (newTaskSource.get() != null && state.get() == State.ALIVE && exclusiveLock.tryLock()) {
+            try {
+                try {
+                    processNewSources();
+                }
+                finally {
+                    destroyIfNecessary();
+                }
+            }
+            finally {
+                exclusiveLock.unlock();
+            }
+        }
+
+        return result;
     }
 
     private static class DriverLock
