@@ -111,8 +111,8 @@ Parallelism: 2.5
                         console.resetScreen();
                         update = true;
                     }
-
                     // update screen
+
                     if (update) {
                         updateScreen();
                         lastPrint = System.nanoTime();
