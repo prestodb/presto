@@ -154,7 +154,7 @@ public class TestingHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
 
         if (tableType == VIRTUAL_VIEW) {
-            checkArgument(table.getStorage().getLocation() == null, "Storage location for view must be null");
+            checkArgument(table.getStorage().getLocation().isEmpty(), "Storage location for view must be empty");
         }
         else {
             File directory = new File(URI.create(table.getStorage().getLocation()));
@@ -235,8 +235,27 @@ public class TestingHiveMetastore
     @Override
     public synchronized void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
-        dropTable(databaseName, tableName, false);
-        createTable(newTable, principalPrivileges);
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        Table table = getRequiredTable(schemaTableName);
+        checkArgument(newTable.getDatabaseName().equals(databaseName) && newTable.getTableName().equals(tableName), "Replacement table must have same name");
+        checkArgument(newTable.getTableType().equals(table.getTableType()), "Replacement table must have same type");
+        checkArgument(newTable.getStorage().getLocation().equals(table.getStorage().getLocation()), "Replacement table must have same location");
+
+        // replace table
+        relations.put(schemaTableName, newTable);
+
+        // remove old permissions
+        ImmutableList.copyOf(tablePrivileges.keySet()).stream()
+                .filter(key -> key.matches(databaseName, tableName))
+                .forEach(tablePrivileges::remove);
+
+        // add new permissions
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
+            setTablePrivileges(entry.getKey(), USER, newTable.getDatabaseName(), newTable.getTableName(), entry.getValue());
+        }
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
+            setTablePrivileges(entry.getKey(), ROLE, newTable.getDatabaseName(), newTable.getTableName(), entry.getValue());
+        }
     }
 
     @Override
@@ -370,7 +389,10 @@ public class TestingHiveMetastore
     public synchronized void addPartitions(String databaseName, String tableName, List<Partition> partitions)
     {
         for (Partition partition : partitions) {
-            this.partitions.put(new PartitionName(databaseName, tableName, partition.getValues()), partition);
+            PartitionName name = new PartitionName(databaseName, tableName, partition.getValues());
+            if (this.partitions.putIfAbsent(name, partition) != null) {
+                throw new PrestoException(HIVE_METASTORE_ERROR, "Partition already exists");
+            }
         }
     }
 
@@ -379,16 +401,15 @@ public class TestingHiveMetastore
     {
         Table table = getRequiredTable(new SchemaTableName(databaseName, tableName));
 
-        for (Entry<PartitionName, Partition> entry : ImmutableList.copyOf(partitions.entrySet())) {
-            PartitionName partitionName = entry.getKey();
-            Partition partition = entry.getValue();
-            if (partitionName.matches(databaseName, tableName) && partition.getValues().equals(parts)) {
-                if (partitions.remove(partitionName, partition) && deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
-                    File directory = new File(URI.create(partition.getStorage().getLocation()));
-                    checkArgument(isParentDir(directory, baseDirectory), "Partition directory must be inside of the metastore base directory");
-                    deleteRecursively(directory);
-                }
-            }
+        Partition partition = partitions.remove(new PartitionName(databaseName, tableName, parts));
+        if (partition == null) {
+            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), parts);
+        }
+
+        if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
+            File directory = new File(URI.create(partition.getStorage().getLocation()));
+            checkArgument(isParentDir(directory, baseDirectory), "Partition directory must be inside of the metastore base directory");
+            deleteRecursively(directory);
         }
     }
 
