@@ -33,10 +33,10 @@ import parquet.column.values.ValuesReader;
 import parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import parquet.io.ParquetDecodingException;
 import parquet.schema.DecimalMetadata;
-import parquet.schema.OriginalType;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.hive.parquet.ParquetValuesType.DEFINITION_LEVEL;
@@ -45,6 +45,7 @@ import static com.facebook.presto.hive.parquet.ParquetValuesType.VALUES;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static parquet.schema.OriginalType.DECIMAL;
 
 public abstract class ParquetColumnReader
 {
@@ -75,9 +76,9 @@ public abstract class ParquetColumnReader
             case BOOLEAN:
                 return new ParquetBooleanColumnReader(descriptor);
             case INT32:
-                return new ParquetIntColumnReader(descriptor);
+                return createDecimalColumnReader(descriptor).orElse(new ParquetIntColumnReader(descriptor));
             case INT64:
-                return new ParquetLongColumnReader(descriptor);
+                return createDecimalColumnReader(descriptor).orElse(new ParquetLongColumnReader(descriptor));
             case INT96:
                 return new ParquetTimestampColumnReader(descriptor);
             case FLOAT:
@@ -85,18 +86,22 @@ public abstract class ParquetColumnReader
             case DOUBLE:
                 return new ParquetDoubleColumnReader(descriptor);
             case BINARY:
-                return new ParquetBinaryColumnReader(descriptor);
+                return createDecimalColumnReader(descriptor).orElse(new ParquetBinaryColumnReader(descriptor));
             case FIXED_LEN_BYTE_ARRAY:
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.DECIMAL) {
-                    DecimalMetadata decimalMetadata = descriptor.getPrimitiveType().getDecimalMetadata();
-                    return ParquetDecimalColumnReaderFactory.createReader(descriptor, decimalMetadata.getPrecision(), decimalMetadata.getScale());
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, "Parquet type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType());
-                }
+                return createDecimalColumnReader(descriptor)
+                        .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, "Parquet type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getType());
         }
+    }
+
+    private static Optional<ParquetColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
+    {
+        if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
+            return Optional.empty();
+        }
+        DecimalMetadata decimalMetadata = descriptor.getPrimitiveType().getDecimalMetadata();
+        return Optional.of(ParquetDecimalColumnReaderFactory.createReader(descriptor, decimalMetadata.getPrecision(), decimalMetadata.getScale()));
     }
 
     public ParquetColumnReader(ColumnDescriptor columnDescriptor)
