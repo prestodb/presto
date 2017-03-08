@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -227,13 +228,18 @@ public class PlanBuilder
 
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
+        return tableScanWithTableLayout(symbols, assignments, tableHandle, null);
+    }
+
+    public TableScanNode tableScanWithTableLayout(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, TableHandle tableHandle, TableLayoutHandle tableLayout)
+    {
         Expression originalConstraint = null;
         return new TableScanNode(
                 idAllocator.getNextId(),
                 tableHandle,
                 symbols,
                 assignments,
-                Optional.empty(),
+                Optional.ofNullable(tableLayout),
                 TupleDomain.all(),
                 originalConstraint
         );
