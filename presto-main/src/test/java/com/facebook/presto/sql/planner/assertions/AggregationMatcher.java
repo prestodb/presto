@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Collection;
@@ -37,12 +38,14 @@ public class AggregationMatcher
     private final Map<Symbol, Symbol> masks;
     private final List<List<String>> groupingSets;
     private final Optional<Symbol> groupId;
+    private final Step step;
 
-    public AggregationMatcher(List<List<String>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId)
+    public AggregationMatcher(List<List<String>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
     {
         this.masks = masks;
         this.groupingSets = groupingSets;
         this.groupId = groupId;
+        this.step = step;
     }
 
     @Override
@@ -88,6 +91,10 @@ public class AggregationMatcher
             }
         }
 
+        if (step != aggregationNode.getStep()) {
+            return NO_MATCH;
+        }
+
         return match();
     }
 
@@ -116,6 +123,7 @@ public class AggregationMatcher
                 .add("groupingSets", groupingSets)
                 .add("masks", masks)
                 .add("groudId", groupId)
+                .add("step", step)
                 .toString();
     }
 }
