@@ -250,6 +250,12 @@ public final class PlanMatchPattern
         return node(ExchangeNode.class, sources);
     }
 
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
+    {
+        return node(ExchangeNode.class, sources)
+                .with(new ExchangeMatcher(scope, type));
+    }
+
     public static PlanMatchPattern union(PlanMatchPattern... sources)
     {
         return node(UnionNode.class, sources);
