@@ -3137,18 +3137,19 @@ public abstract class AbstractTestHiveClient
                     RCBINARY,
                     temporaryDeleteInsert,
                     true,
-                    ImmutableList.of(
-                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_RIGHT_AWAY, Optional.empty()),
-                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_DELETE, Optional.empty()),
-                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_BEGIN_INSERT, Optional.empty()),
-                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_APPEND_PAGE, Optional.empty()),
-                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_SINK_FINISH, Optional.empty()),
-                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_FINISH_INSERT, Optional.empty()),
-                            new TransactionDeleteInsertTestCase(false, false, COMMIT, Optional.of(new AddPartitionFailure())),
-                            new TransactionDeleteInsertTestCase(false, false, COMMIT, Optional.of(new DirectoryRenameFailure())),
-                            new TransactionDeleteInsertTestCase(false, false, COMMIT, Optional.of(new FileRenameFailure())),
-                            new TransactionDeleteInsertTestCase(true, false, COMMIT, Optional.of(new DropPartitionFailure())),
-                            new TransactionDeleteInsertTestCase(true, true, COMMIT, Optional.empty())));
+                    ImmutableList.<TransactionDeleteInsertTestCase>builder()
+                            .add(new TransactionDeleteInsertTestCase(false, false, ROLLBACK_RIGHT_AWAY, Optional.empty()))
+                            .add(new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_DELETE, Optional.empty()))
+                            .add(new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_BEGIN_INSERT, Optional.empty()))
+                            .add(new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_APPEND_PAGE, Optional.empty()))
+                            .add(new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_SINK_FINISH, Optional.empty()))
+                            .add(new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_FINISH_INSERT, Optional.empty()))
+                            .add(new TransactionDeleteInsertTestCase(false, false, COMMIT, Optional.of(new AddPartitionFailure())))
+                            .add(new TransactionDeleteInsertTestCase(false, false, COMMIT, Optional.of(new DirectoryRenameFailure())))
+                            .add(new TransactionDeleteInsertTestCase(false, false, COMMIT, Optional.of(new FileRenameFailure())))
+                            .add(new TransactionDeleteInsertTestCase(true, false, COMMIT, Optional.of(new DropPartitionFailure())))
+                            .add(new TransactionDeleteInsertTestCase(true, true, COMMIT, Optional.empty()))
+                            .build());
         }
         finally {
             dropTable(temporaryDeleteInsert);
