@@ -571,6 +571,10 @@ public class FileHiveMetastore
 
     private List<ArrayDeque<String>> listPartitions(Path director, List<Column> partitionColumns)
     {
+        if (partitionColumns.isEmpty()) {
+            return ImmutableList.of();
+        }
+
         try {
             String directoryPrefix = partitionColumns.get(0).getName() + '=';
 
