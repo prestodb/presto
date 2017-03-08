@@ -90,7 +90,7 @@ public class TestIterativeOptimizer
         // In that case, it will be removed.
         // Thanks to that approach, it never converges and always produces different node.
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+        public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
             if (node instanceof ProjectNode) {
                 ProjectNode project = (ProjectNode) node;
