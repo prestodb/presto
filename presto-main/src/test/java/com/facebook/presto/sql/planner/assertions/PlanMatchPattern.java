@@ -238,6 +238,12 @@ public final class PlanMatchPattern
                         expectedFilter.map(predicate -> rewriteQualifiedNamesToSymbolReferences(new SqlParser().createExpression(predicate)))));
     }
 
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
+    {
+        return node(ExchangeNode.class, sources)
+                .with(new ExchangeMatcher(scope, type));
+    }
+
     public static PlanMatchPattern union(PlanMatchPattern... sources)
     {
         return node(UnionNode.class, sources);
