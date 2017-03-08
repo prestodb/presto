@@ -14,11 +14,16 @@
 
 package com.facebook.presto.hive.parquet.reader;
 
-import com.facebook.presto.hive.util.DecimalUtils;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import parquet.column.ColumnDescriptor;
-import parquet.io.api.Binary;
+
+import static com.facebook.presto.hive.util.DecimalUtils.getShortDecimalValue;
+import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 public class ParquetShortDecimalColumnReader
         extends ParquetColumnReader
@@ -32,8 +37,19 @@ public class ParquetShortDecimalColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary value = valuesReader.readBytes();
-            type.writeLong(blockBuilder, DecimalUtils.getShortDecimalValue(value.getBytes()));
+            long decimalValue;
+            if (columnDescriptor.getType().equals(INT32)) {
+                HiveDecimalWritable hiveDecimalWritable = new HiveDecimalWritable(HiveDecimal.create(valuesReader.readInteger()));
+                decimalValue = getShortDecimalValue(hiveDecimalWritable, ((DecimalType) type).getScale());
+            }
+            else if (columnDescriptor.getType().equals(INT64)) {
+                HiveDecimalWritable hiveDecimalWritable = new HiveDecimalWritable(HiveDecimal.create(valuesReader.readLong()));
+                decimalValue = getShortDecimalValue(hiveDecimalWritable, ((DecimalType) type).getScale());
+            }
+            else {
+                decimalValue = getShortDecimalValue(valuesReader.readBytes().getBytes());
+            }
+            type.writeLong(blockBuilder, decimalValue);
         }
         else {
             blockBuilder.appendNull();
