@@ -37,7 +37,7 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
-    private final Session session;
+    private Session session;
     private final Rule rule;
 
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -52,11 +52,24 @@ public class RuleAssert
         this.rule = rule;
     }
 
+    public RuleAssert setSystemProperty(String key, String value)
+    {
+        return withSession(Session.builder(session)
+                .setSystemProperty(key, value)
+                .build());
+    }
+
+    public RuleAssert withSession(Session session)
+    {
+        this.session = session;
+        return this;
+    }
+
     public RuleAssert on(Function<PlanBuilder, PlanNode> planProvider)
     {
         checkArgument(plan == null, "plan has already been set");
 
-        PlanBuilder builder = new PlanBuilder(idAllocator);
+        PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
         plan = planProvider.apply(builder);
         symbols = builder.getSymbols();
         return this;
