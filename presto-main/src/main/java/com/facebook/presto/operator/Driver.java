@@ -20,7 +20,9 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -32,16 +34,12 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.io.Closeable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -66,7 +64,7 @@ public class Driver
     private final List<Operator> operators;
     private final Optional<SourceOperator> sourceOperator;
     private final Optional<DeleteOperator> deleteOperator;
-    private final ConcurrentMap<PlanNodeId, TaskSource> newSources = new ConcurrentHashMap<>();
+    private final AtomicReference<TaskSource> newTaskSource = new AtomicReference<>();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.ALIVE);
 
@@ -76,7 +74,10 @@ public class Driver
     private Thread lockHolder;
 
     @GuardedBy("exclusiveLock")
-    private final Map<PlanNodeId, TaskSource> currentSources = new ConcurrentHashMap<>();
+    private TaskSource currentTaskSource;
+
+    @GuardedBy("exclusiveLock")
+    private volatile TaskSource noMoreSplitsTaskSource;
 
     private enum State
     {
@@ -112,6 +113,8 @@ public class Driver
         }
         this.sourceOperator = sourceOperator;
         this.deleteOperator = deleteOperator;
+
+        currentTaskSource = sourceOperator.map(operator -> new TaskSource(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
     }
 
     public DriverContext getDriverContext()
@@ -167,6 +170,7 @@ public class Driver
         }
     }
 
+    @GuardedBy("exclusiveLock")
     private boolean isFinishedInternal()
     {
         checkLockHeld("Lock must be held to call isFinishedInternal");
@@ -188,98 +192,69 @@ public class Driver
         }
 
         // stage the new updates
-        while (true) {
-            // attempt to update directly to the new source
-            TaskSource currentNewSource = newSources.putIfAbsent(source.getPlanNodeId(), source);
-
-            // if update succeeded, just break
-            if (currentNewSource == null) {
-                break;
-            }
-
-            // merge source into the current new source
-            TaskSource newSource = currentNewSource.update(source);
-
-            // if this is not a new source, just return
-            if (newSource == currentNewSource) {
-                break;
-            }
-
-            // attempt to replace the currentNewSource with the new source
-            if (newSources.replace(source.getPlanNodeId(), currentNewSource, newSource)) {
-                break;
-            }
-
-            // someone else updated while we were processing
-        }
+        newTaskSource.updateAndGet(current -> current == null ? source : current.update(source));
 
         // attempt to get the lock and process the updates we staged above
         // updates will be processed in close if and only if we got the lock
         tryLockAndProcessPendingStateChanges(0, TimeUnit.MILLISECONDS).close();
     }
 
+    private final AtomicInteger users = new AtomicInteger();
+
+    @GuardedBy("exclusiveLock")
     private void processNewSources()
     {
         checkLockHeld("Lock must be held to call processNewSources");
 
-        // only update if the driver is still alive
-        if (state.get() != State.ALIVE) {
-            return;
-        }
+        try {
+            checkState(users.incrementAndGet() == 1);
 
-        // copy the pending sources
-        // it is ok to "miss" a source added during the copy as it will be
-        // handled on the next call to this method
-        Map<PlanNodeId, TaskSource> sources = new HashMap<>(newSources);
-        for (Entry<PlanNodeId, TaskSource> entry : sources.entrySet()) {
-            // Remove the entries we are going to process from the newSources map.
-            // It is ok if someone already updated the entry; we will catch it on
-            // the next iteration.
-            newSources.remove(entry.getKey(), entry.getValue());
-
-            processNewSource(entry.getValue());
-        }
-    }
-
-    @GuardedBy("exclusiveLock")
-    private void processNewSource(TaskSource source)
-    {
-        checkLockHeld("Lock must be held to call processNewSources");
-
-        // create new source
-        Set<ScheduledSplit> newSplits;
-        TaskSource currentSource = currentSources.get(source.getPlanNodeId());
-        if (currentSource == null) {
-            newSplits = source.getSplits();
-            currentSources.put(source.getPlanNodeId(), source);
-        }
-        else {
-            // merge the current source and the specified source
-            TaskSource newSource = currentSource.update(source);
-
-            // if this is not a new source, just return
-            if (newSource == currentSource) {
+            // only update if the driver is still alive
+            if (state.get() != State.ALIVE) {
                 return;
             }
 
-            // find the new splits to add
-            newSplits = Sets.difference(newSource.getSplits(), currentSource.getSplits());
-            currentSources.put(source.getPlanNodeId(), newSource);
+            TaskSource source = newTaskSource.getAndSet(null);
+            if (source == null) {
+                return;
+            }
+
+            // merge the current source and the specified source
+            TaskSource newSource = currentTaskSource.update(source);
+
+            // if source contains no new data, just return
+            if (newSource == currentTaskSource) {
+                return;
+            }
+
+            // determine new splits to add
+            Set<ScheduledSplit> newSplits = Sets.difference(newSource.getSplits(), currentTaskSource.getSplits());
+
+            // add new splits
+            try {
+                SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
+                for (ScheduledSplit newSplit : newSplits) {
+                    Split split = newSplit.getSplit();
+
+                    Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
+                    deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
+                }
+
+                // set no more splits
+                if (newSource.isNoMoreSplits()) {
+                    if (noMoreSplitsTaskSource == null) {
+                        noMoreSplitsTaskSource = newSource;
+                    }
+                    sourceOperator.noMoreSplits();
+                }
+            }
+            catch (NoMoreLocationsAlreadySetException e) {
+                throw new NoMoreLocationsAlreadySetException(String.format("current=%s, next=%s, update=%s, noMoreSplitsTaskSource=%s", currentTaskSource, newSource, source, noMoreSplitsTaskSource), e);
+            }
+            currentTaskSource = newSource;
         }
-
-        // add new splits
-        if (sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(source.getPlanNodeId())) {
-            for (ScheduledSplit newSplit : newSplits) {
-                Split split = newSplit.getSplit();
-
-                Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.get().addSplit(split);
-                deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
-            }
-
-            // set no more splits
-            if (source.isNoMoreSplits()) {
-                sourceOperator.get().noMoreSplits();
-            }
+        finally {
+            checkState(users.decrementAndGet() == 0);
         }
     }
 
@@ -327,14 +302,13 @@ public class Driver
         }
     }
 
+    @GuardedBy("exclusiveLock")
     private ListenableFuture<?> processInternal()
     {
         checkLockHeld("Lock must be held to call processInternal");
 
         try {
-            if (!newSources.isEmpty()) {
-                processNewSources();
-            }
+            processNewSources();
 
             // special handling for drivers with a single operator
             if (operators.size() == 1) {
@@ -433,6 +407,7 @@ public class Driver
         }
     }
 
+    @GuardedBy("exclusiveLock")
     private void destroyIfNecessary()
     {
         checkLockHeld("Lock must be held to call destroyIfNecessary");
@@ -559,6 +534,7 @@ public class Driver
         checkState(Thread.currentThread() != lockHolder, message);
     }
 
+    @GuardedBy("exclusiveLock")
     private synchronized void checkLockHeld(String message)
     {
         checkState(exclusiveLock.isHeldByCurrentThread() && Thread.currentThread() == lockHolder, message);
@@ -637,7 +613,7 @@ public class Driver
 
                     // if new sources were added after we processed them, go around and try again
                     // in case someone else failed to acquire the lock and as a result won't update them
-                    if (!newSources.isEmpty() && state.get() == State.ALIVE && tryAcquire(0, TimeUnit.MILLISECONDS)) {
+                    if (newTaskSource.get() != null && state.get() == State.ALIVE && tryAcquire(0, TimeUnit.MILLISECONDS)) {
                         done = false;
                     }
                 }
