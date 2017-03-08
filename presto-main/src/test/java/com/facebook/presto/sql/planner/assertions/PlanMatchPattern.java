@@ -132,6 +132,12 @@ public final class PlanMatchPattern
         return result.addColumnReferences(expectedTableName, columnReferences);
     }
 
+    public static PlanMatchPattern constrainedTableScanWithTableLayout(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
+    {
+        PlanMatchPattern result = node(TableScanNode.class).with(new TableScanMatcher(expectedTableName, constraint, TableLayoutHandleMatcher.any()));
+        return result.addColumnReferences(expectedTableName, columnReferences);
+    }
+
     private PlanMatchPattern addColumnReferences(String expectedTableName, Map<String, String> columnReferences)
     {
         columnReferences.entrySet().forEach(

@@ -35,17 +35,27 @@ final class TableScanMatcher
 {
     private final String expectedTableName;
     private final Optional<Map<String, Domain>> expectedConstraint;
+    private final Optional<TableLayoutHandleMatcher> expectedTableLayout;
 
     TableScanMatcher(String expectedTableName)
     {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
         expectedConstraint = Optional.empty();
+        expectedTableLayout = Optional.empty();
     }
 
     public TableScanMatcher(String expectedTableName, Map<String, Domain> expectedConstraint)
     {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
         this.expectedConstraint = Optional.of(requireNonNull(expectedConstraint, "expectedConstraint is null"));
+        expectedTableLayout = Optional.empty();
+    }
+
+    public TableScanMatcher(String expectedTableName, Map<String, Domain> expectedConstraint, TableLayoutHandleMatcher expectedTableLayout)
+    {
+        this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
+        this.expectedConstraint = Optional.of(requireNonNull(expectedConstraint, "expectedConstraint is null"));
+        this.expectedTableLayout = Optional.of(expectedTableLayout);
     }
 
     @Override
@@ -64,7 +74,8 @@ final class TableScanMatcher
         String actualTableName = tableMetadata.getTable().getTableName();
         return new MatchResult(
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
-                        domainMatches(tableScanNode, session, metadata));
+                        domainMatches(tableScanNode, session, metadata) &&
+                        tableLayoutMatches(tableScanNode));
     }
 
     private boolean domainMatches(TableScanNode tableScanNode, Session session, Metadata metadata)
@@ -95,6 +106,15 @@ final class TableScanMatcher
         return true;
     }
 
+    private boolean tableLayoutMatches(TableScanNode tableScanNode)
+    {
+        if (expectedTableLayout.isPresent()) {
+            return expectedTableLayout.get().matches(tableScanNode.getLayout());
+        }
+
+        return true;
+    }
+
     @Override
     public String toString()
     {
@@ -102,6 +122,7 @@ final class TableScanMatcher
                 .omitNullValues()
                 .add("expectedTableName", expectedTableName)
                 .add("expectedConstraint", expectedConstraint.orElse(null))
+                .add("expectedTableLayout", expectedTableLayout.orElse(null))
                 .toString();
     }
 }
