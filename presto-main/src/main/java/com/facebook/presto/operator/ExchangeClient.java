@@ -129,17 +129,18 @@ public class ExchangeClient
     {
         requireNonNull(location, "location is null");
 
+        // Ignore new locations after close
+        // NOTE: this MUST happen before checking no more locations is checked
+        if (closed.get()) {
+            return;
+        }
+
         // ignore duplicate locations
         if (allClients.containsKey(location)) {
             return;
         }
 
         checkState(!noMoreLocations, "No more locations already set");
-
-        // ignore new locations after close
-        if (closed.get()) {
-            return;
-        }
 
         HttpPageBufferClient client = new HttpPageBufferClient(
                 httpClient,
