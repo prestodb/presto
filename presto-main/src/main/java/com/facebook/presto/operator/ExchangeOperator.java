@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.buffer.PagesSerde;
@@ -171,6 +172,12 @@ public class ExchangeOperator
     public void noMoreSplits()
     {
         exchangeClient.noMoreLocations();
+    }
+
+    @Override
+    public void noMoreSplits(TaskSource newSource)
+    {
+        exchangeClient.noMoreLocations(newSource);
     }
 
     @Override

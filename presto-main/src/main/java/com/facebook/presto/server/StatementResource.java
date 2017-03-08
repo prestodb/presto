@@ -36,6 +36,7 @@ import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.NoMoreLocationsAlreadySetException;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
@@ -549,22 +550,42 @@ public class StatementResource
 
         private synchronized void updateExchangeClient(StageInfo outputStage)
         {
-            // add any additional output locations
-            if (!outputStage.getState().isDone()) {
-                for (TaskInfo taskInfo : outputStage.getTasks()) {
-                    OutputBufferInfo outputBuffers = taskInfo.getOutputBuffers();
-                    if (outputBuffers.getState().canAddBuffers()) {
-                        // output buffer are still being created
-                        continue;
+            try {
+                // add any additional output locations
+                if (!outputStage.getState().isDone()) {
+                    for (TaskInfo taskInfo : outputStage.getTasks()) {
+                        OutputBufferInfo outputBuffers = taskInfo.getOutputBuffers();
+                        if (outputBuffers.getState().canAddBuffers()) {
+                            // output buffer are still being created
+                            continue;
+                        }
+                        OutputBufferId bufferId = new OutputBufferId(0);
+                        URI uri = uriBuilderFrom(taskInfo.getTaskStatus().getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
+                        exchangeClient.addLocation(uri);
                     }
-                    OutputBufferId bufferId = new OutputBufferId(0);
-                    URI uri = uriBuilderFrom(taskInfo.getTaskStatus().getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
-                    exchangeClient.addLocation(uri);
+                }
+
+                if (allOutputBuffersCreated(outputStage)) {
+                    exchangeClient.noMoreLocations();
                 }
             }
+            catch (NoMoreLocationsAlreadySetException e) {
+                List<URI> taskLocations = new ArrayList<>();
+                if (!outputStage.getState().isDone()) {
+                    for (TaskInfo taskInfo : outputStage.getTasks()) {
+                        OutputBufferInfo outputBuffers = taskInfo.getOutputBuffers();
+                        if (outputBuffers.getState().canAddBuffers()) {
+                            // output buffer are still being created
+                            continue;
+                        }
+                        OutputBufferId bufferId = new OutputBufferId(0);
+                        URI uri = uriBuilderFrom(taskInfo.getTaskStatus().getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
+                        taskLocations.add(uri);
+                    }
+                }
 
-            if (allOutputBuffersCreated(outputStage)) {
-                exchangeClient.noMoreLocations();
+                boolean noMoreLocations = allOutputBuffersCreated(outputStage);
+                throw new NoMoreLocationsAlreadySetException(format("taskLocations=%s, noMoreLocations=%s", taskLocations, noMoreLocations), e);
             }
         }
 

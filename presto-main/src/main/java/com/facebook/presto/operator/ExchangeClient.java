@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -66,6 +68,9 @@ public class ExchangeClient
 
     @GuardedBy("this")
     private boolean noMoreLocations;
+
+    @GuardedBy("this")
+    private Exception noMoreLocationsSetter;
 
     private final ConcurrentMap<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
 
@@ -133,7 +138,9 @@ public class ExchangeClient
             return;
         }
 
-        checkState(!noMoreLocations, "No more locations already set");
+        if (noMoreLocations) {
+            throw new NoMoreLocationsAlreadySetException(String.format("No more locations already set: newLocation=%s, existingLocations=%s", location, allClients.keySet()), noMoreLocationsSetter);
+        }
 
         // ignore new locations after close
         if (closed.get()) {
@@ -156,7 +163,23 @@ public class ExchangeClient
 
     public synchronized void noMoreLocations()
     {
+        if (noMoreLocations) {
+            return;
+        }
         noMoreLocations = true;
+        noMoreLocationsSetter = new Exception("This stack set no more locations: locations=" + ImmutableSet.copyOf(allClients.keySet()));
+        noMoreLocationsSetter.fillInStackTrace();
+        scheduleRequestIfNecessary();
+    }
+
+    public synchronized void noMoreLocations(TaskSource newSource)
+    {
+        if (noMoreLocations) {
+            return;
+        }
+        noMoreLocations = true;
+        noMoreLocationsSetter = new Exception(String.format("This stack set no more locations: locations=%s, taskSource=%s", ImmutableSet.copyOf(allClients.keySet()), newSource));
+        noMoreLocationsSetter.fillInStackTrace();
         scheduleRequestIfNecessary();
     }
 
