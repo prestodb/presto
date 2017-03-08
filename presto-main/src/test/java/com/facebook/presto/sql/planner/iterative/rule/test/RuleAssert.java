@@ -65,7 +65,7 @@ public class RuleAssert
     public void doesNotFire()
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-        Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator);
+        Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator, session);
 
         if (result.isPresent()) {
             fail(String.format(
@@ -78,7 +78,7 @@ public class RuleAssert
     public void matches(PlanMatchPattern pattern)
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-        Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator);
+        Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator, session);
 
         if (!result.isPresent()) {
             fail(String.format(

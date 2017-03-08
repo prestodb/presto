@@ -74,7 +74,7 @@ public class IterativeOptimizer
             return node;
         };
 
-        exploreGroup(memo.getRootGroup(), new Context(memo, lookup, idAllocator, symbolAllocator));
+        exploreGroup(memo.getRootGroup(), new Context(memo, lookup, idAllocator, symbolAllocator, session));
 
         return memo.extract();
     }
@@ -113,7 +113,7 @@ public class IterativeOptimizer
                 long duration;
                 try {
                     long start = System.nanoTime();
-                    transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
+                    transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator(), context.getSession());
                     duration = System.nanoTime() - start;
                 }
                 catch (RuntimeException e) {
@@ -156,13 +156,15 @@ public class IterativeOptimizer
         private final Lookup lookup;
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
+        private final Session session;
 
-        public Context(Memo memo, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+        public Context(Memo memo, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
             this.memo = memo;
             this.lookup = lookup;
             this.idAllocator = idAllocator;
             this.symbolAllocator = symbolAllocator;
+            this.session = session;
         }
 
         public Memo getMemo()
@@ -183,6 +185,11 @@ public class IterativeOptimizer
         public SymbolAllocator getSymbolAllocator()
         {
             return symbolAllocator;
+        }
+
+        public Session getSession()
+        {
+            return session;
         }
     }
 }
