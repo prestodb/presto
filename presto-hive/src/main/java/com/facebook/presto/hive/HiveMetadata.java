@@ -94,6 +94,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
+import static com.facebook.presto.hive.HivePartitionManager.extractPartitionKeyValues;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -873,29 +874,22 @@ public class HiveMetadata
 
     private Partition buildPartitionObject(String queryId, Table table, PartitionUpdate partitionUpdate)
     {
-        List<String> values = HivePartitionManager.extractPartitionKeyValues(partitionUpdate.getName());
-
-        Partition.Builder partition = Partition.builder();
-        partition.setDatabaseName(table.getDatabaseName());
-        partition.setTableName(table.getTableName());
-        partition.setValues(values);
-
-        if (respectTableFormat) {
-            partition.getStorageBuilder().setStorageFormat(table.getStorage().getStorageFormat());
-        }
-        else {
-            partition.getStorageBuilder().setStorageFormat(fromHiveStorageFormat(defaultStorageFormat));
-        }
-        partition.setParameters(ImmutableMap.<String, String>builder()
-                .put(PRESTO_VERSION_NAME, prestoVersion)
-                .put(PRESTO_QUERY_ID_NAME, queryId)
-                .build());
-
-        partition.getStorageBuilder().setLocation(partitionUpdate.getTargetPath().toString());
-        partition.getStorageBuilder().setBucketProperty(table.getStorage().getBucketProperty());
-        partition.setColumns(table.getDataColumns());
-
-        return partition.build();
+        return Partition.builder()
+                .setDatabaseName(table.getDatabaseName())
+                .setTableName(table.getTableName())
+                .setColumns(table.getDataColumns())
+                .setValues(extractPartitionKeyValues(partitionUpdate.getName()))
+                .setParameters(ImmutableMap.<String, String>builder()
+                        .put(PRESTO_VERSION_NAME, prestoVersion)
+                        .put(PRESTO_QUERY_ID_NAME, queryId)
+                        .build())
+                .withStorage(storage -> storage
+                        .setStorageFormat(respectTableFormat ?
+                                table.getStorage().getStorageFormat() :
+                                fromHiveStorageFormat(defaultStorageFormat))
+                        .setLocation(partitionUpdate.getTargetPath().toString())
+                        .setBucketProperty(table.getStorage().getBucketProperty()))
+                .build();
     }
 
     @Override

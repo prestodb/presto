@@ -1762,9 +1762,9 @@ public class SemiTransactionalHiveMetastore
             Partition partition = this.partition;
             String currentLocation = this.currentLocation.toString();
             if (!currentLocation.equals(partition.getStorage().getLocation())) {
-                Partition.Builder partitionBuilder = Partition.builder(partition);
-                partitionBuilder.getStorageBuilder().setLocation(currentLocation);
-                partition = partitionBuilder.build();
+                partition = Partition.builder(partition)
+                        .withStorage(storage -> storage.setLocation(currentLocation))
+                        .build();
             }
             return partition;
         }

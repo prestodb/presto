@@ -22,6 +22,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -154,6 +155,12 @@ public class Partition
         public Storage.Builder getStorageBuilder()
         {
             return storageBuilder;
+        }
+
+        public Builder withStorage(Consumer<Storage.Builder> consumer)
+        {
+            consumer.accept(storageBuilder);
+            return this;
         }
 
         public Builder setColumns(List<Column> columns)
