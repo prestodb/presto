@@ -32,6 +32,7 @@ import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -133,6 +134,10 @@ public class ExchangeOperator
     private final List<Type> types;
     private final PagesSerde serde;
 
+    private static final AtomicLong ID_GENERATOR = new AtomicLong();
+
+    private final long operatorId = ID_GENERATOR.incrementAndGet();
+
     public ExchangeOperator(
             OperatorContext operatorContext,
             List<Type> types,
@@ -161,8 +166,13 @@ public class ExchangeOperator
         requireNonNull(split, "split is null");
         checkArgument(split.getConnectorId().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
-        URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
-        exchangeClient.addLocation(location);
+        try {
+            URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
+            exchangeClient.addLocation(location);
+        }
+        catch (NoMoreLocationsException e) {
+            throw new NoMoreLocationsException(String.format("operatorId=%d", operatorId), e);
+        }
 
         return Optional::empty;
     }
@@ -170,7 +180,13 @@ public class ExchangeOperator
     @Override
     public void noMoreSplits()
     {
-        exchangeClient.noMoreLocations();
+        exchangeClient.noMoreLocations("operatorId=" + operatorId);
+    }
+
+    @Override
+    public void noMoreSplits(String message)
+    {
+        exchangeClient.noMoreLocations("operatorId=" + operatorId + ", " + message);
     }
 
     @Override

@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -78,9 +79,14 @@ public class Driver
         ALIVE, NEED_DESTRUCTION, DESTROYED
     }
 
+    private static final AtomicLong ID_GENERATOR = new AtomicLong();
+
+    private final long driverId = ID_GENERATOR.incrementAndGet();
+
     public Driver(DriverContext driverContext, Operator firstOperator, Operator... otherOperators)
     {
-        this(requireNonNull(driverContext, "driverContext is null"),
+        this(
+                requireNonNull(driverContext, "driverContext is null"),
                 ImmutableList.<Operator>builder()
                         .add(requireNonNull(firstOperator, "firstOperator is null"))
                         .add(requireNonNull(otherOperators, "otherOperators is null"))
@@ -211,13 +217,30 @@ public class Driver
         for (ScheduledSplit newSplit : newSplits) {
             Split split = newSplit.getSplit();
 
-            Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
-            deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
+            try {
+                Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
+                deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
+            }
+            catch (NoMoreLocationsException e) {
+                throw new NoMoreLocationsException(String.format(
+                        "driverID=%d, holdsLock=%s, currentSource=%s, newSource=%s, newSplits=%s",
+                        driverId,
+                        exclusiveLock.isHeldByCurrentThread(),
+                        currentTaskSource,
+                        newSource,
+                        newSplits), e);
+            }
         }
 
         // set no more splits
         if (newSource.isNoMoreSplits()) {
-            sourceOperator.noMoreSplits();
+            sourceOperator.noMoreSplits(String.format(
+                    "driverID=%d, holdsLock=%s, currentSource=%s, newSource=%s, newSplits=%s",
+                    driverId,
+                    exclusiveLock.isHeldByCurrentThread(),
+                    currentTaskSource,
+                    newSource,
+                    newSplits));
         }
 
         currentTaskSource = newSource;
@@ -542,7 +565,7 @@ public class Driver
                 exclusiveLock.unlock();
             }
         }
-        
+
         // if necessary, attempt to reacquire the lock and process new sources
         while (newTaskSource.get() != null && state.get() == State.ALIVE && exclusiveLock.tryLock()) {
             try {

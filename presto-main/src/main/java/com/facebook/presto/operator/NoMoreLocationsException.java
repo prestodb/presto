@@ -13,24 +13,25 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-
-import java.util.Optional;
-import java.util.function.Supplier;
-
-public interface SourceOperator
-        extends Operator
+public class NoMoreLocationsException
+        extends IllegalArgumentException
 {
-    PlanNodeId getSourceId();
-
-    Supplier<Optional<UpdatablePageSource>> addSplit(Split split);
-
-    void noMoreSplits();
-
-    default void noMoreSplits(String message)
+    public NoMoreLocationsException()
     {
-        noMoreSplits();
+    }
+
+    public NoMoreLocationsException(String message)
+    {
+        super(message);
+    }
+
+    public NoMoreLocationsException(String message, Throwable cause)
+    {
+        super(message, cause);
+    }
+
+    public NoMoreLocationsException(Throwable cause)
+    {
+        super(cause);
     }
 }

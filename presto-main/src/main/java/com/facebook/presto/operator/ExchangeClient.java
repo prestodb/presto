@@ -67,6 +67,9 @@ public class ExchangeClient
     @GuardedBy("this")
     private boolean noMoreLocations;
 
+    @GuardedBy("this")
+    private Exception noMoreLocationsSource;
+
     private final ConcurrentMap<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
@@ -133,7 +136,9 @@ public class ExchangeClient
             return;
         }
 
-        checkState(!noMoreLocations, "No more locations already set");
+        if (noMoreLocations) {
+            throw new NoMoreLocationsException(String.format("No more locations already set: location=%s, allLocation=%s", location, allClients.keySet()), noMoreLocationsSource);
+        }
 
         // ignore new locations after close
         if (closed.get()) {
@@ -157,6 +162,14 @@ public class ExchangeClient
     public synchronized void noMoreLocations()
     {
         noMoreLocations = true;
+        scheduleRequestIfNecessary();
+    }
+
+    public synchronized void noMoreLocations(String message)
+    {
+        noMoreLocations = true;
+        noMoreLocationsSource = new Exception(String.format("No more locations set from here: allLocation=%s, message=%s", allClients.keySet(), message));
+        noMoreLocationsSource.fillInStackTrace();
         scheduleRequestIfNecessary();
     }
 
