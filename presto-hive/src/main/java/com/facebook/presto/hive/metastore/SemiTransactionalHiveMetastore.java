@@ -1363,7 +1363,7 @@ public class SemiTransactionalHiveMetastore
                     return;
                 }
                 try {
-                    if (!fileSystem.rename(source, target)) {
+                    if (fileSystem.exists(target) || !fileSystem.rename(source, target)) {
                         throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target));
                     }
                 }
