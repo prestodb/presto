@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
@@ -216,7 +217,12 @@ public class PlanOptimizers
 
         builder.add(new PickLayout(metadata));
 
-        builder.add(new EmptyDeleteOptimizer()); // Run after table scan is removed by PickLayout
+        builder.add(
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableList.of(new EmptyDeleteOptimizer()),
+                        ImmutableSet.of(new RemoveEmptyDelete()) // Run RemoveEmptyDelete after table scan is removed by PickLayout/AddExchanges
+                ));
 
         builder.add(new PredicatePushDown(metadata, sqlParser)); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(new ProjectionPushDown());
