@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.controller.TaskExectorController;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -43,6 +44,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.SortedSet;
@@ -60,9 +62,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
 
+import static com.facebook.presto.execution.controller.TaskExectorControllerFactory.createTaskExecutorController;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -151,23 +153,23 @@ public class TaskExecutor
     @Inject
     public TaskExecutor(TaskManagerConfig config)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers());
+        this(createTaskExecutorController(requireNonNull(config, "config is null")), config.getMinDrivers());
     }
 
-    public TaskExecutor(int runnerThreads, int minDrivers)
+    public TaskExecutor(TaskExectorController controller, int minDrivers)
     {
-        this(runnerThreads, minDrivers, Ticker.systemTicker());
+        this(controller, minDrivers, Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
+    public TaskExecutor(TaskExectorController controller, int minDrivers, Ticker ticker)
     {
-        checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
+        requireNonNull(controller, "controller is null");
 
         // we manages thread pool size directly, so create an unlimited pool
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
-        this.runnerThreads = runnerThreads;
+        this.runnerThreads = controller.getNewNumRunnerThreads(Optional.empty());
 
         this.ticker = requireNonNull(ticker, "ticker is null");
 

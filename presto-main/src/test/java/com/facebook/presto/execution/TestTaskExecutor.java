@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
+import com.facebook.presto.execution.controller.StaticTaskExecutorController;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -36,7 +37,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(new StaticTaskExecutorController(4), 8, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -128,7 +129,7 @@ public class TestTaskExecutor
     public void testTaskHandle()
             throws Exception
     {
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8);
+        TaskExecutor taskExecutor = new TaskExecutor(new StaticTaskExecutorController(4), 8);
         taskExecutor.start();
 
         try {
