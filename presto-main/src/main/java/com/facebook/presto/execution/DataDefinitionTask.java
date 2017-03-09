@@ -20,16 +20,16 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 public interface DataDefinitionTask<T extends Statement>
 {
     String getName();
 
-    CompletableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters);
+    ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters);
 
     default String explain(T statement, List<Expression> parameters)
     {

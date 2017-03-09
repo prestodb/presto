@@ -21,6 +21,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -33,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -138,7 +138,7 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 3, 0);
 
         // acknowledge first three pages in the buffer
-        CompletableFuture<BufferResult> pendingRead = buffer.getPages(3, sizeOfPages(1));
+        ListenableFuture<BufferResult> pendingRead = buffer.getPages(3, sizeOfPages(1));
         // pages now acknowledged
         assertEquals(supplier.getBufferedPages(), 0);
         assertBufferInfo(buffer, 0, 3);
@@ -266,7 +266,7 @@ public class TestClientBuffer
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -296,7 +296,7 @@ public class TestClientBuffer
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -387,17 +387,17 @@ public class TestClientBuffer
 
     private static BufferResult getBufferResult(ClientBuffer buffer, long sequenceId, DataSize maxSize, Duration maxWait)
     {
-        CompletableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize);
+        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize);
         return getFuture(future, maxWait);
     }
 
     private static BufferResult getBufferResult(ClientBuffer buffer, PagesSupplier supplier, long sequenceId, DataSize maxSize, Duration maxWait)
     {
-        CompletableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize, Optional.of(supplier));
+        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize, Optional.of(supplier));
         return getFuture(future, maxWait);
     }
 
-    private static BufferResult getFuture(CompletableFuture<BufferResult> future, Duration maxWait)
+    private static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
     {
         return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
     }

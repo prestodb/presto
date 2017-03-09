@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
@@ -41,7 +42,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -55,8 +55,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Arrays.asList;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class CallTask
         implements DataDefinitionTask<Call>
@@ -68,7 +68,7 @@ public class CallTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         if (!stateMachine.isAutoCommit()) {
             throw new PrestoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
@@ -168,7 +168,7 @@ public class CallTask
             throw new PrestoException(PROCEDURE_CALL_FAILED, t);
         }
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 
     private static Object toTypeObjectValue(Session session, Type type, Object value)

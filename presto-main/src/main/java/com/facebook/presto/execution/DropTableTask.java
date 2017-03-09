@@ -22,14 +22,14 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropTableTask
         implements DataDefinitionTask<DropTable>
@@ -41,7 +41,7 @@ public class DropTableTask
     }
 
     @Override
-    public CompletableFuture<?> execute(DropTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(DropTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
@@ -51,13 +51,13 @@ public class DropTableTask
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
             }
-            return completedFuture(null);
+            return immediateFuture(null);
         }
 
         accessControl.checkCanDropTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
         metadata.dropTable(session, tableHandle.get());
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 }

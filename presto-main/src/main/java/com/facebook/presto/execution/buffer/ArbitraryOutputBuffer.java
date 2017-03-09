@@ -33,7 +33,6 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -235,7 +234,7 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public CompletableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");

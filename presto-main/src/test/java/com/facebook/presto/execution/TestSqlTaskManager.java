@@ -296,31 +296,31 @@ public class TestSqlTaskManager
         @Override
         public URI createQueryLocation(QueryId queryId)
         {
-            return URI.create("fake://query/" + queryId);
+            return URI.create("http://fake.invalid/query/" + queryId);
         }
 
         @Override
         public URI createStageLocation(StageId stageId)
         {
-            return URI.create("fake://stage/" + stageId);
+            return URI.create("http://fake.invalid/stage/" + stageId);
         }
 
         @Override
         public URI createLocalTaskLocation(TaskId taskId)
         {
-            return URI.create("fake://task/" + taskId);
+            return URI.create("http://fake.invalid/task/" + taskId);
         }
 
         @Override
         public URI createTaskLocation(Node node, TaskId taskId)
         {
-            return URI.create("fake://task/" + node.getNodeIdentifier() + "/" + taskId);
+            return URI.create("http://fake.invalid/task/" + node.getNodeIdentifier() + "/" + taskId);
         }
 
         @Override
         public URI createMemoryInfoLocation(Node node)
         {
-            return URI.create("fake://" + node.getNodeIdentifier() + "/memory");
+            return URI.create("http://fake.invalid/" + node.getNodeIdentifier() + "/memory");
         }
     }
 }

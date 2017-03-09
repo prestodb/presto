@@ -32,10 +32,14 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
@@ -577,15 +581,21 @@ public class QueryStateMachine
         }
 
         if (autoCommit) {
-            transactionManager.asyncCommit(session.getTransactionId().get())
-                    .whenComplete((value, throwable) -> {
-                        if (throwable == null) {
-                            transitionToFinished();
-                        }
-                        else {
-                            transitionToFailed(unwrapCompletionException(throwable));
-                        }
-                    });
+            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(session.getTransactionId().get());
+            Futures.addCallback(commitFuture, new FutureCallback<Object>()
+            {
+                @Override
+                public void onSuccess(@Nullable Object result)
+                {
+                    transitionToFinished();
+                }
+
+                @Override
+                public void onFailure(Throwable throwable)
+                {
+                    transitionToFailed(unwrapCompletionException(throwable));
+                }
+            });
         }
         else {
             transitionToFinished();

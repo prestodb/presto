@@ -47,6 +47,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -128,7 +129,7 @@ public class TestSetSessionTask
             throws Exception
     {
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), false, transactionManager, accessControl, executor, metadata);
-        new SetSessionTask().execute(new SetSession(QualifiedName.of(CATALOG_NAME, "bar"), expression), transactionManager, metadata, accessControl, stateMachine, parameters).join();
+        getFutureValue(new SetSessionTask().execute(new SetSession(QualifiedName.of(CATALOG_NAME, "bar"), expression), transactionManager, metadata, accessControl, stateMachine, parameters));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of("foo.bar", expectedValue));

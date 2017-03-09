@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -191,7 +190,7 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public CompletableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(outputBufferId, "outputBufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
