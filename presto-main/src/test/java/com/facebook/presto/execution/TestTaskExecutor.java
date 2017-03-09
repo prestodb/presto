@@ -23,11 +23,11 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.Phaser;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestTaskExecutor
@@ -37,7 +37,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(new StaticTaskExecutorController(4), 8, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(new StaticTaskExecutorController(4), new Duration(1, SECONDS), 8, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -94,8 +94,8 @@ public class TestTaskExecutor
             assertEquals(driver1.getCompletedPhases(), 10);
             assertEquals(driver2.getCompletedPhases(), 10);
             assertEquals(driver3.getCompletedPhases(), 8);
-            future1.get(1, TimeUnit.SECONDS);
-            future2.get(1, TimeUnit.SECONDS);
+            future1.get(1, SECONDS);
+            future2.get(1, SECONDS);
             verificationComplete.arriveAndAwaitAdvance();
 
             // advance two more times and verify
@@ -105,7 +105,7 @@ public class TestTaskExecutor
             assertEquals(driver1.getCompletedPhases(), 10);
             assertEquals(driver2.getCompletedPhases(), 10);
             assertEquals(driver3.getCompletedPhases(), 10);
-            future3.get(1, TimeUnit.SECONDS);
+            future3.get(1, SECONDS);
             verificationComplete.arriveAndAwaitAdvance();
 
             assertEquals(driver1.getFirstPhase(), 0);
@@ -129,7 +129,7 @@ public class TestTaskExecutor
     public void testTaskHandle()
             throws Exception
     {
-        TaskExecutor taskExecutor = new TaskExecutor(new StaticTaskExecutorController(4), 8);
+        TaskExecutor taskExecutor = new TaskExecutor(new StaticTaskExecutorController(4), new Duration(1, SECONDS), 8);
         taskExecutor.start();
 
         try {

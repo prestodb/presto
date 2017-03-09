@@ -51,7 +51,8 @@ public class TestTaskManagerConfig
                 .setTaskConcurrency(16)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
-                .setTaskNotificationThreads(5));
+                .setTaskNotificationThreads(5)
+                .setWorkerThreadsAdjustmentInterval(new Duration(1, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -78,6 +79,7 @@ public class TestTaskManagerConfig
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
+                .put("task.worker-threads-adjustment-interval", "2s")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -100,7 +102,8 @@ public class TestTaskManagerConfig
                 .setTaskConcurrency(8)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)
-                .setTaskNotificationThreads(13);
+                .setTaskNotificationThreads(13)
+                .setWorkerThreadsAdjustmentInterval(new Duration(2, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
     }

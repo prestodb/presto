@@ -46,6 +46,7 @@ public class TaskManagerConfig
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
+    private Duration workerThreadsAdjustmentInterval = new Duration(1000, TimeUnit.MILLISECONDS);
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -169,6 +170,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
     {
         this.maxWorkerThreads = maxWorkerThreads;
+        return this;
+    }
+
+    @MinDuration("500ms")
+    public Duration getWorkerThreadsAdjustmentInterval()
+    {
+        return workerThreadsAdjustmentInterval;
+    }
+
+    @Config("task.worker-threads-adjustment-interval")
+    public TaskManagerConfig setWorkerThreadsAdjustmentInterval(Duration workerThreadsAdjustmentInterval)
+    {
+        this.workerThreadsAdjustmentInterval = workerThreadsAdjustmentInterval;
         return this;
     }
 
