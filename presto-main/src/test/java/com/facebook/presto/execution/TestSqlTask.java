@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -78,7 +79,7 @@ public class TestSqlTask
 
     public TestSqlTask()
     {
-        taskExecutor = new TaskExecutor(new StaticTaskExecutorController(8), 16);
+        taskExecutor = new TaskExecutor(new StaticTaskExecutorController(8), new Duration(1, SECONDS), 16);
         taskExecutor.start();
 
         taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
