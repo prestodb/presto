@@ -20,15 +20,19 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 
 public class TypedKeyValueHeap
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedKeyValueHeap.class).instanceSize();
+
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in keyBlockBuilder is unreferenced, do compact
 
@@ -65,7 +69,7 @@ public class TypedKeyValueHeap
 
     public long getEstimatedSize()
     {
-        return keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + capacity * Integer.BYTES;
+        return INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + sizeOf(heapIndex);
     }
 
     public boolean isEmpty()
