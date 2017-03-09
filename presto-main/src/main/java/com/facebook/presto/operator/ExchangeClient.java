@@ -209,11 +209,9 @@ public class ExchangeClient
         }
 
         if (page == NO_MORE_PAGES) {
-            // mark client closed
+            // mark client closed; close() will add the end marker
             close();
 
-            // add end marker back to queue
-            checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
             notifyBlockedCallers();
 
             // don't return end of stream marker
