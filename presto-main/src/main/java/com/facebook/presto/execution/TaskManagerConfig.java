@@ -44,10 +44,12 @@ public class TaskManagerConfig
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private Integer minWorkerThreads;
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
     private Duration workerThreadsAdjustmentInterval = new Duration(1000, TimeUnit.MILLISECONDS);
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
+    private double targetCpuUtilization = 0.8;
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -170,6 +172,34 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
     {
         this.maxWorkerThreads = maxWorkerThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinWorkerThreads()
+    {
+        if (minWorkerThreads == null) {
+            return maxWorkerThreads;
+        }
+        return minWorkerThreads;
+    }
+
+    @Config("task.min-worker-threads")
+    public TaskManagerConfig setMinWorkerThreads(int minWorkerThreads)
+    {
+        this.minWorkerThreads = minWorkerThreads;
+        return this;
+    }
+
+    public double getTargetCpuUtilization()
+    {
+        return targetCpuUtilization;
+    }
+
+    @Config("task.target-cpu-utilization")
+    public TaskManagerConfig setTargetCpuUtilization(double targetCpuUtilization)
+    {
+        this.targetCpuUtilization = targetCpuUtilization;
         return this;
     }
 
