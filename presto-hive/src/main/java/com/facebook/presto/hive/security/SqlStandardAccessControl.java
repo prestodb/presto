@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -385,21 +384,6 @@ public class SqlStandardAccessControl
     {
     }
 
-    private boolean checkDatabasePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String schemaName, HivePrivilege... requiredPrivileges)
-    {
-        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        Set<HivePrivilege> privilegeSet = getDatabasePrivileges(metastore, identity.getUser(), schemaName).stream()
-                .map(HivePrivilegeInfo::getHivePrivilege)
-                .collect(toSet());
-
-        return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
-    }
-
-    private boolean isDatabaseOwner(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String schemaName)
-    {
-        return checkDatabasePermission(transaction, identity, schemaName, OWNERSHIP);
-    }
-
     private boolean getGrantOptionForPrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
@@ -439,22 +423,14 @@ public class SqlStandardAccessControl
         return listApplicableRoles(metastore, new PrestoPrincipal(USER, identity.getUser())).contains(ADMIN_ROLE_NAME);
     }
 
-    private static Set<HivePrivilegeInfo> getDatabasePrivileges(SemiTransactionalHiveMetastore metastore, String user, String databaseName)
-    {
-        Set<HivePrivilegeInfo> privileges = new HashSet<>();
-        if (isDatabaseOwner(metastore, user, databaseName)) {
-            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
-        }
-        return privileges;
-    }
-
-    private static boolean isDatabaseOwner(SemiTransactionalHiveMetastore metastore, String user, String databaseName)
+    private boolean isDatabaseOwner(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String databaseName)
     {
         // all users are "owners" of the default database
         if (DEFAULT_DATABASE_NAME.equalsIgnoreCase(databaseName)) {
             return true;
         }
 
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         Optional<Database> databaseMetadata = metastore.getDatabase(databaseName);
         if (!databaseMetadata.isPresent()) {
             return false;
@@ -463,10 +439,10 @@ public class SqlStandardAccessControl
         Database database = databaseMetadata.get();
 
         // a database can be owned by a user or role
-        if (database.getOwnerType() == USER && user.equals(database.getOwnerName())) {
+        if (database.getOwnerType() == USER && identity.getUser().equals(database.getOwnerName())) {
             return true;
         }
-        if (database.getOwnerType() == ROLE && listApplicableRoles(metastore, new PrestoPrincipal(USER, user)).contains(database.getOwnerName())) {
+        if (database.getOwnerType() == ROLE && listApplicableRoles(metastore, new PrestoPrincipal(USER, identity.getUser())).contains(database.getOwnerName())) {
             return true;
         }
         return false;
