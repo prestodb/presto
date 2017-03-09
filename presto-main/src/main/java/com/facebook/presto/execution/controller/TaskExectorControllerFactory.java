@@ -15,6 +15,7 @@ package com.facebook.presto.execution.controller;
 
 import com.facebook.presto.execution.TaskManagerConfig;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class TaskExectorControllerFactory
@@ -24,6 +25,20 @@ public final class TaskExectorControllerFactory
     public static TaskExectorController createTaskExecutorController(TaskManagerConfig config)
     {
         requireNonNull(config, "config is null");
-        return new StaticTaskExecutorController(config.getMaxWorkerThreads());
+        checkArgument(config.getMinWorkerThreads() <= config.getMaxWorkerThreads(), "minWorkerThreads should be less than maxWorkerThreads");
+
+        if (config.getMinWorkerThreads() == config.getMaxWorkerThreads()) {
+            return new StaticTaskExecutorController(config.getMaxWorkerThreads());
+        }
+
+        // choose conservative parameters for PID (kp, ki, kd) controller as default values,
+        // these parameters (kp, ki, kd) might be exposed to user in the future
+        return new PidTaskExecutorController(
+                config.getTargetCpuUtilization(),
+                config.getMinWorkerThreads(),
+                config.getMaxWorkerThreads(),
+                0.1,
+                0.1,
+                0.01);
     }
 }
