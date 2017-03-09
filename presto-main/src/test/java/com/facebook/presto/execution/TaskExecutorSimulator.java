@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
+import com.facebook.presto.execution.controller.StaticTaskExecutorController;
 import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ArrayListMultimap;
@@ -70,7 +71,7 @@ public class TaskExecutorSimulator
     {
         executor = listeningDecorator(newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%s")));
 
-        taskExecutor = new TaskExecutor(24, 48, new Ticker()
+        taskExecutor = new TaskExecutor(new StaticTaskExecutorController(24), 48, new Ticker()
         {
             private final long start = System.nanoTime();
 
