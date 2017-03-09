@@ -111,7 +111,7 @@ public class TestingPrestoClient
         @Override
         public void setUpdateType(String type)
         {
-            updateType.set(Optional.of(requireNonNull("update type is null")));
+            updateType.set(Optional.of(type));
         }
 
         @Override
