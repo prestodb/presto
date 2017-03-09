@@ -96,8 +96,9 @@ public class HivePrivilegeInfo
                 return DELETE;
             case UPDATE:
                 return UPDATE;
+            default:
+                throw new IllegalArgumentException("Unexpected privilege: " + privilege);
         }
-        return null;
     }
 
     public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)
