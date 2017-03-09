@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
@@ -134,9 +135,9 @@ public class LogicalPlanner
     {
         if (statement instanceof CreateTableAsSelect && analysis.isCreateTableAsSelectNoOp()) {
             checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
-            List<Expression> emptyRow = ImmutableList.of();
-            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow));
-            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of(), ImmutableList.of());
+            Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
+            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(ImmutableList.of(new LongLiteral("0"))));
+            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
     }
