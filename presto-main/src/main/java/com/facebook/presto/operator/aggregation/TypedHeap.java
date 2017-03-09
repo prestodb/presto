@@ -17,11 +17,15 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class TypedHeap
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedHeap.class).instanceSize();
+
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in heapBlockBuilder is unreferenced, do compact
 
@@ -49,7 +53,7 @@ public class TypedHeap
 
     public long getEstimatedSize()
     {
-        return heapBlockBuilder.getRetainedSizeInBytes() + capacity * Integer.BYTES;
+        return INSTANCE_SIZE + heapBlockBuilder.getRetainedSizeInBytes() + sizeOf(heapIndex);
     }
 
     public boolean isEmpty()

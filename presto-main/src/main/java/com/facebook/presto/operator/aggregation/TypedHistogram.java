@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -34,6 +35,8 @@ import static java.util.Objects.requireNonNull;
 
 public class TypedHistogram
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedHistogram.class).instanceSize();
+
     private static final float FILL_RATIO = 0.9f;
     private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
 
@@ -74,9 +77,7 @@ public class TypedHistogram
 
     public long getEstimatedSize()
     {
-        return values.getRetainedSizeInBytes() +
-                counts.sizeOf() +
-                hashPositions.sizeOf();
+        return INSTANCE_SIZE + values.getRetainedSizeInBytes() + counts.sizeOf() + hashPositions.sizeOf();
     }
 
     private Block getValues()
