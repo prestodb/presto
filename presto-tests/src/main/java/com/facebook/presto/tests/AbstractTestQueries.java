@@ -2215,6 +2215,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithNormalization()
+    {
+        assertQuery("select COUNT(*) from nation a join nation b on not ((a.nationkey + b.nationkey) <> b.nationkey)");
+        assertQuery("select COUNT(*) from nation a join nation b on not (a.nationkey <> b.nationkey)");
+        assertQuery("select COUNT(*) from nation a join nation b on not (a.nationkey = b.nationkey)");
+        assertQuery("select COUNT(*) from nation a join nation b on not (not cast(a.nationkey as boolean))");
+        assertQuery("select COUNT(*) from nation a join nation b on not not not (a.nationkey = b.nationkey)");
+    }
+
+    @Test
     public void testSelfJoin()
     {
         assertQuery("SELECT COUNT(*) FROM orders a JOIN orders b on a.orderkey = b.orderkey");
