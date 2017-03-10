@@ -34,8 +34,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
+import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_METADATA_ERROR;
 import static com.facebook.presto.cassandra.TokenRing.createForPartitioner;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_EXTERNAL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -72,7 +72,7 @@ public class CassandraTokenSplitManager
         Set<TokenRange> tokenRanges = getTokenRanges();
 
         if (tokenRanges.isEmpty()) {
-            throw new PrestoException(GENERIC_EXTERNAL, "The cluster metadata is not available. " +
+            throw new PrestoException(CASSANDRA_METADATA_ERROR, "The cluster metadata is not available. " +
                     "Please make sure that the Cassandra cluster is up and running, " +
                     "and that the contact points are specified correctly.");
         }

@@ -38,8 +38,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_METADATA_ERROR;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_EXTERNAL;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -146,7 +146,7 @@ public class CassandraPartitionManager
                 throw Throwables.propagate(e);
             }
             catch (ExecutionException e) {
-                throw new PrestoException(GENERIC_EXTERNAL, "Error fetching cassandra partitions", e);
+                throw new PrestoException(CASSANDRA_METADATA_ERROR, "Error fetching cassandra partitions", e);
             }
         }
 
