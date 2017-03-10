@@ -92,6 +92,7 @@ statement
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
     | SHOW STATS (FOR | ON) qualifiedName                              #showStats
     | SHOW STATS FOR '(' querySpecification ')'                        #showStatsForQuery
+    | SHOW ROLES ((FROM | IN) identifier)?                             #showRoles
     | DESCRIBE qualifiedName                                           #showColumns
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS                                                   #showFunctions
@@ -493,7 +494,7 @@ nonReserved
     | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
     | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES | PUBLIC
-    | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESTRICT | REVOKE | ROLE | ROLLBACK | ROW | ROWS
+    | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SMALLINT | SOME | START | STATS | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TINYINT | TO | TRANSACTION | TRY_CAST | TYPE
@@ -640,6 +641,7 @@ RESTRICT: 'RESTRICT';
 REVOKE: 'REVOKE';
 RIGHT: 'RIGHT';
 ROLE: 'ROLE';
+ROLES: 'ROLES';
 ROLLBACK: 'ROLLBACK';
 ROLLUP: 'ROLLUP';
 ROW: 'ROW';
