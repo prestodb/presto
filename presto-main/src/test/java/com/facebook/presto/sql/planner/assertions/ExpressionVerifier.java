@@ -23,6 +23,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -31,6 +32,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
@@ -178,6 +180,18 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitIfExpression(IfExpression actual, Expression expectedExpression)
+    {
+        if (expectedExpression instanceof IfExpression) {
+            IfExpression expected = (IfExpression) expectedExpression;
+            return process(actual.getCondition(), expected.getCondition()) &&
+                    process(actual.getTrueValue(), expected.getTrueValue()) &&
+                    process(actual.getFalseValue().orElse(null), expected.getFalseValue().orElse(null));
+        }
+        return false;
+    }
+
+    @Override
     protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression actual, Expression expectedExpression)
     {
         if (expectedExpression instanceof ArithmeticBinaryExpression) {
@@ -189,6 +203,13 @@ final class ExpressionVerifier
         return false;
     }
 
+    @Override
+    protected Boolean visitNullLiteral(NullLiteral actual, Expression expected)
+    {
+        return expected instanceof NullLiteral;
+    }
+
+    @Override
     protected Boolean visitGenericLiteral(GenericLiteral actual, Expression expected)
     {
         if (expected instanceof GenericLiteral) {

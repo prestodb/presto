@@ -57,6 +57,16 @@ public class RuleTester
         this.accessControl = queryRunner.getAccessControl();
     }
 
+    public RuleTester(LocalQueryRunner queryRunner)
+    {
+        this.queryRunner = queryRunner;
+        this.session = queryRunner.getDefaultSession();
+        this.metadata = queryRunner.getMetadata();
+        this.costCalculator = queryRunner.getCostCalculator();
+        this.transactionManager = queryRunner.getTransactionManager();
+        this.accessControl = queryRunner.getAccessControl();
+    }
+
     public RuleAssert assertThat(Rule rule)
     {
         return new RuleAssert(metadata, costCalculator, session, rule, transactionManager, accessControl);
