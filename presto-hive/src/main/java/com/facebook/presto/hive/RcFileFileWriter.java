@@ -47,14 +47,14 @@ public class RcFileFileWriter
         implements HiveFileWriter
 {
     private final RcFileWriter rcFileWriter;
-    private final Callable<Void> outputFileDeleteRoutine;
+    private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<RcFileDataSource>> validationInputFactory;
 
     public RcFileFileWriter(
             OutputStream outputStream,
-            Callable<Void> outputFileDeleteRoutine,
+            Callable<Void> rollbackAction,
             RcFileEncoding rcFileEncoding,
             List<Type> fileColumnTypes,
             Optional<String> codecName,
@@ -71,7 +71,7 @@ public class RcFileFileWriter
                 new AircompressorCodecFactory(new HadoopCodecFactory(getClass().getClassLoader())),
                 metadata,
                 validationInputFactory.isPresent());
-        this.outputFileDeleteRoutine = outputFileDeleteRoutine;
+        this.rollbackAction = rollbackAction;
 
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "outputColumnInputIndexes is null");
 
@@ -121,7 +121,7 @@ public class RcFileFileWriter
         }
         catch (IOException e) {
             try {
-                outputFileDeleteRoutine.call();
+                rollbackAction.call();
             }
             catch (Exception e2) {
                 // ignore
@@ -149,7 +149,7 @@ public class RcFileFileWriter
                 rcFileWriter.close();
             }
             finally {
-                outputFileDeleteRoutine.call();
+                rollbackAction.call();
             }
         }
         catch (Exception e) {

@@ -140,14 +140,14 @@ public class RcFileFileWriterFactory
                 });
             }
 
-            Callable<Void> outputFileDeleteRoutine = () -> {
+            Callable<Void> rollbackAction = () -> {
                 fileSystem.delete(path, false);
                 return null;
             };
 
             return Optional.of(new RcFileFileWriter(
                     outputStream,
-                    outputFileDeleteRoutine,
+                    rollbackAction,
                     rcFileEncoding,
                     fileColumnTypes,
                     codecName,
