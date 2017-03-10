@@ -970,52 +970,7 @@ class StatementAnalyzer
 
                 Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), expression, "JOIN clause");
 
-                Set<Expression> postJoinConjuncts = new HashSet<>();
-
-                for (Expression conjunct : ExpressionUtils.extractConjuncts(expression)) {
-                    conjunct = ExpressionUtils.normalize(conjunct);
-
-                    if (conjunct instanceof ComparisonExpression
-                            && (((ComparisonExpression) conjunct).getType() == EQUAL || node.getType() == Join.Type.INNER)) {
-                        Expression conjunctFirst = ((ComparisonExpression) conjunct).getLeft();
-                        Expression conjunctSecond = ((ComparisonExpression) conjunct).getRight();
-                        Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(conjunctFirst, expressionAnalysis.getColumnReferences());
-                        Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(conjunctSecond, expressionAnalysis.getColumnReferences());
-
-                        Expression leftExpression = null;
-                        Expression rightExpression = null;
-                        if (firstDependencies.stream().allMatch(left.getRelationType()::canResolve) && secondDependencies.stream().allMatch(right.getRelationType()::canResolve)) {
-                            leftExpression = conjunctFirst;
-                            rightExpression = conjunctSecond;
-                        }
-                        else if (firstDependencies.stream().allMatch(right.getRelationType()::canResolve) && secondDependencies.stream().allMatch(left.getRelationType()::canResolve)) {
-                            leftExpression = conjunctSecond;
-                            rightExpression = conjunctFirst;
-                        }
-
-                        // expression on each side of comparison operator references only symbols from one side of join.
-                        // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
-                        if (rightExpression != null) {
-                            ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left);
-                            ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right);
-                            analysis.recordSubqueries(node, leftExpressionAnalysis);
-                            analysis.recordSubqueries(node, rightExpressionAnalysis);
-                            addCoercionForJoinCriteria(node, leftExpression, rightExpression);
-                        }
-                        else {
-                            // mixed references to both left and right join relation on one side of comparison operator.
-                            // expression will be put in post-join condition; analyze in context of output table.
-                            postJoinConjuncts.add(conjunct);
-                        }
-                    }
-                    else {
-                        // non-comparison expression.
-                        // expression will be put in post-join condition; analyze in context of output table.
-                        postJoinConjuncts.add(conjunct);
-                    }
-                }
-                Expression postJoinPredicate = ExpressionUtils.combineConjuncts(postJoinConjuncts);
-                analysis.recordSubqueries(node, analyzeExpression(postJoinPredicate, output));
+                analysis.recordSubqueries(node, expressionAnalysis);
                 analysis.setJoinCriteria(node, expression);
             }
             else {
