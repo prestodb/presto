@@ -266,6 +266,7 @@ final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().orElseGet(() -> session.getCatalog().get());
+            accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
             return simpleQuery(
                     selectList(aliasedName("role_name", "Role")),
                     from(catalog, TABLE_ROLES));

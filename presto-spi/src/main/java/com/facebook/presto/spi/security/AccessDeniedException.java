@@ -239,6 +239,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowRoles(String catalogName)
+    {
+        throw new AccessDeniedException(format("Cannot show roles from catalog %s", catalogName));
+    }
+
     public static void denySetSystemSessionProperty(String propertyName)
     {
         denySetSystemSessionProperty(propertyName, null);

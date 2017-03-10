@@ -225,6 +225,17 @@ public class FileBasedAccessControl
         }
     }
 
+    @Override
+    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+    }
+
+    @Override
+    public Set<String> filterRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName, Set<String> roles)
+    {
+        return roles;
+    }
+
     private boolean canSetSessionProperty(ConnectorIdentity identity, String property)
     {
         for (SessionPropertyAccessControlRule rule : sessionPropertyRules) {

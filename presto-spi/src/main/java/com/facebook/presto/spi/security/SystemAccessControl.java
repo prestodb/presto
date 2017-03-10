@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
 
@@ -309,5 +310,23 @@ public interface SystemAccessControl
     default void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to show roles on the specified catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoles(Identity identity, String catalogName)
+    {
+        denyShowRoles(catalogName);
+    }
+
+    /**
+     * Filter the list of roles to those visible to the identity in the given catalog.
+     */
+    default Set<String> filterRoles(Identity identity, String catalogName, Set<String> roles)
+    {
+        return Collections.emptySet();
     }
 }
