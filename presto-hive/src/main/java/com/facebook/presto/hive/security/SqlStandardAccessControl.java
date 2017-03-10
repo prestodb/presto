@@ -23,7 +23,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessDeniedException;
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -98,7 +98,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName)
+    public void checkCanCreateSchema(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String schemaName)
     {
         if (!isAdmin(transaction, identity)) {
             denyCreateSchema(schemaName);
@@ -106,7 +106,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanDropSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName)
+    public void checkCanDropSchema(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String schemaName)
     {
         if (!isDatabaseOwner(transaction, identity, schemaName)) {
             denyDropSchema(schemaName);
@@ -114,7 +114,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRenameSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName, String newSchemaName)
+    public void checkCanRenameSchema(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String schemaName, String newSchemaName)
     {
         if (!isAdmin(transaction, identity) || !isDatabaseOwner(transaction, identity, schemaName)) {
             denyRenameSchema(schemaName, newSchemaName);
@@ -122,18 +122,18 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
+    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
     {
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> schemaNames)
+    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames)
     {
         return schemaNames;
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanCreateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
         if (!isDatabaseOwner(transaction, identity, tableName.getSchemaName())) {
             denyCreateTable(tableName.toString());
@@ -141,7 +141,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanDropTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanDropTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyDropTable(tableName.toString());
@@ -149,7 +149,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRenameTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanRenameTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
@@ -157,18 +157,18 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
     {
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
     {
         return tableNames;
     }
 
     @Override
-    public void checkCanAddColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanAddColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyAddColumn(tableName.toString());
@@ -176,7 +176,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyRenameColumn(tableName.toString());
@@ -184,7 +184,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
@@ -192,7 +192,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, INSERT)) {
             denyInsertTable(tableName.toString());
@@ -200,7 +200,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, DELETE)) {
             denyDeleteTable(tableName.toString());
@@ -208,7 +208,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
     {
         if (!isDatabaseOwner(transaction, identity, viewName.getSchemaName())) {
             denyCreateView(viewName.toString());
@@ -216,7 +216,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanDropView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanDropView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
     {
         if (!checkTablePermission(transaction, identity, viewName, OWNERSHIP)) {
             denyDropView(viewName.toString());
@@ -224,7 +224,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
     {
         if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
             denySelectView(viewName.toString());
@@ -232,7 +232,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
@@ -243,7 +243,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
     {
         if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
             denySelectView(viewName.toString());
@@ -254,7 +254,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorIdentity identity, String propertyName)
     {
         // TODO: when this is updated to have a transaction, use isAdmin()
         Set<String> roles = listApplicableRoles(new PrestoPrincipal(USER, identity.getUser()), metastore::listRoleGrants)
@@ -267,7 +267,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
         if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             return;
@@ -280,7 +280,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
         if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             return;
@@ -293,7 +293,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role, Optional<PrestoPrincipal> grantor)
+    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, Optional<PrestoPrincipal> grantor)
     {
         // currently specifying grantor is supported by metastore, but it is not supported by Hive itself
         if (grantor.isPresent()) {
@@ -305,7 +305,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role)
+    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role)
     {
         if (!isAdmin(transactionHandle, identity)) {
             denyDropRole(role);
@@ -313,7 +313,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         // currently specifying grantor is supported by metastore, but it is not supported by Hive itself
         if (grantor.isPresent()) {
@@ -325,7 +325,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         // currently specifying grantor is supported by metastore, but it is not supported by Hive itself
         if (grantor.isPresent()) {
@@ -336,7 +336,7 @@ public class SqlStandardAccessControl
         }
     }
 
-    private boolean hasAdminOptionForRoles(ConnectorTransactionHandle transaction, Identity identity, Set<String> roles)
+    private boolean hasAdminOptionForRoles(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Set<String> roles)
     {
         if (isAdmin(transaction, identity)) {
             return true;
@@ -350,7 +350,7 @@ public class SqlStandardAccessControl
         return rolesWithGrantOption.containsAll(roles);
     }
 
-    private boolean checkDatabasePermission(ConnectorTransactionHandle transaction, Identity identity, String schemaName, HivePrivilege... requiredPrivileges)
+    private boolean checkDatabasePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String schemaName, HivePrivilege... requiredPrivileges)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         Set<HivePrivilege> privilegeSet = getDatabasePrivileges(metastore, identity.getUser(), schemaName).stream()
@@ -360,12 +360,12 @@ public class SqlStandardAccessControl
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 
-    private boolean isDatabaseOwner(ConnectorTransactionHandle transaction, Identity identity, String schemaName)
+    private boolean isDatabaseOwner(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String schemaName)
     {
         return checkDatabasePermission(transaction, identity, schemaName, OWNERSHIP);
     }
 
-    private boolean getGrantOptionForPrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
+    private boolean getGrantOptionForPrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         return listApplicableTablePrivileges(
@@ -376,7 +376,7 @@ public class SqlStandardAccessControl
                 .contains(new HivePrivilegeInfo(toHivePrivilege(privilege), true));
     }
 
-    private boolean checkTablePermission(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, HivePrivilege... requiredPrivileges)
+    private boolean checkTablePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, HivePrivilege... requiredPrivileges)
     {
         if (tableName.equals(ROLES) && !isAdmin(transaction, identity)) {
             return false;
@@ -398,7 +398,7 @@ public class SqlStandardAccessControl
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 
-    private boolean isAdmin(ConnectorTransactionHandle transaction, Identity identity)
+    private boolean isAdmin(ConnectorTransactionHandle transaction, ConnectorIdentity identity)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         return listApplicableRoles(metastore, new PrestoPrincipal(USER, identity.getUser())).contains(ADMIN_ROLE_NAME);
