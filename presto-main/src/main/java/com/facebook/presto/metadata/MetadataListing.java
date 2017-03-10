@@ -98,4 +98,10 @@ public final class MetadataListing
         }
         return result.build();
     }
+
+    public static Set<String> listRoles(Session session, Metadata metadata, AccessControl accessControl, String catalogName)
+    {
+        Set<String> roles = ImmutableSet.copyOf(metadata.listRoles(session, catalogName));
+        return accessControl.filterRoles(session.getRequiredTransactionId(), session.getIdentity(), catalogName, roles);
+    }
 }

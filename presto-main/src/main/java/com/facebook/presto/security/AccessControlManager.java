@@ -597,6 +597,34 @@ public class AccessControlManager
         }
     }
 
+    @Override
+    public void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(catalogName, "catalogName is null");
+
+        authenticationCheck(() -> systemAccessControl.get().checkCanShowRoles(identity, catalogName));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
+        if (entry != null) {
+            authenticationCheck(() -> entry.getAccessControl().checkCanShowRoles(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(catalogName), catalogName));
+        }
+    }
+
+    @Override
+    public Set<String> filterRoles(TransactionId transactionId, Identity identity, String catalogName, Set<String> roles)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(roles, "roles is null");
+
+        Set<String> filteredRoles = systemAccessControl.get().filterRoles(identity, catalogName, roles);
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
+        if (entry != null) {
+            filteredRoles = entry.getAccessControl().filterRoles(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(catalogName), catalogName, roles);
+        }
+        return filteredRoles;
+    }
+
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)

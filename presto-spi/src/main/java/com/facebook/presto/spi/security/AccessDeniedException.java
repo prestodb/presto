@@ -234,6 +234,11 @@ public class AccessDeniedException
         denyShowGrants(qualifiedTablePrefix, null);
     }
 
+    public static void denyShowRoles(String catalogName)
+    {
+        throw new AccessDeniedException(format("Cannot show roles from catalog %s", catalogName));
+    }
+
     public static void denyShowGrants(String qualifiedTablePrefix, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot show grants on %s%s", qualifiedTablePrefix, formatExtraInfo(extraInfo)));

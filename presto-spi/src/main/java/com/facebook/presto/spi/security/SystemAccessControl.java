@@ -41,6 +41,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowGrants;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTables;
 
@@ -316,6 +317,23 @@ public interface SystemAccessControl
      * Filter the list of grants to those visible to the identity.
      */
     default Set<GrantInfo> filterGrants(Identity identity, String catalogName, SchemaTablePrefix schemaTablePrefix, Set<GrantInfo> grantInfos)
+    {
+        return Collections.emptySet();
+    }
+
+    /**
+     * Check if identity is allowed to show roles on the specified catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoles(Identity identity, String catalogName)
+    {
+        denyShowRoles(catalogName);
+    }
+
+    /**
+     * Filter the list of roles to those visible to the identity in the given catalog.
+     */
+    default Set<String> filterRoles(Identity identity, String catalogName, Set<String> roles)
     {
         return Collections.emptySet();
     }
