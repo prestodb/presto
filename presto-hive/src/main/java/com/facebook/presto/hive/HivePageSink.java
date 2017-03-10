@@ -196,7 +196,7 @@ public class HivePageSink
 
         try {
             List<ListenableFuture<?>> futures = writeVerificationExecutor.invokeAll(verificationTasks).stream()
-                    .map(future-> (ListenableFuture<?>) future)
+                    .map(future -> (ListenableFuture<?>) future)
                     .collect(toList());
             return Futures.transform(Futures.allAsList(futures), input -> result);
         }
@@ -216,7 +216,7 @@ public class HivePageSink
 
     private void doAbort()
     {
-        Map<HiveWriter, Exception> exceptions = new HashMap<>();
+        Optional<Exception> rollbackException = Optional.empty();
         for (HiveWriter writer : writers) {
             // writers can contain nulls if an exception is thrown when doAppend expends the writer list
             if (writer != null) {
@@ -224,15 +224,13 @@ public class HivePageSink
                     writer.rollback();
                 }
                 catch (Exception e) {
-                    exceptions.put(writer, e);
+                    log.warn("exception '%s' while rollback on %s", e, writer);
+                    rollbackException = Optional.of(e);
                 }
             }
         }
-        if (!exceptions.isEmpty()) {
-            exceptions.entrySet().forEach(
-                    entry -> log.warn("exception '%s' while rollback on %s", entry.getValue(), entry.getKey())
-            );
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive");
+        if (rollbackException.isPresent()) {
+            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.get());
         }
     }
 
