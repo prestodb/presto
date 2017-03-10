@@ -16,9 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
@@ -69,16 +67,14 @@ public class KeyValuePairs
         }
     }
 
-    public Block serialize()
+    public void serialize(BlockBuilder out)
     {
-        Block keys = keyBlockBuilder.build();
-        Block values = valueBlockBuilder.build();
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), keys.getPositionCount() * 2);
-        for (int i = 0; i < keys.getPositionCount(); i++) {
-            keyType.appendTo(keys, i, blockBuilder);
-            valueType.appendTo(values, i, blockBuilder);
+        BlockBuilder mapBlockBuilder = out.beginBlockEntry();
+        for (int i = 0; i < keyBlockBuilder.getPositionCount(); i++) {
+            keyType.appendTo(keyBlockBuilder, i, mapBlockBuilder);
+            valueType.appendTo(valueBlockBuilder, i, mapBlockBuilder);
         }
-        return blockBuilder.build();
+        out.closeEntry();
     }
 
     public long estimatedInMemorySize()

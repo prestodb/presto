@@ -47,7 +47,7 @@ public class MultiKeyValuePairStateSerializer
             out.appendNull();
         }
         else {
-            serializedType.writeObject(out, state.get().serialize());
+            state.get().serialize(out);
         }
     }
 

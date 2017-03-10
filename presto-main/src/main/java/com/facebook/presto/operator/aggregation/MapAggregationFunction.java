@@ -156,9 +156,7 @@ public class MapAggregationFunction
             out.appendNull();
         }
         else {
-            Block block = pairs.serialize();
-            out.writeObject(block);
-            out.closeEntry();
+            pairs.serialize(out);
         }
     }
 }

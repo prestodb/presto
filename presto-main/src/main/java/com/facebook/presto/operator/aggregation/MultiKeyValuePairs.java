@@ -76,20 +76,16 @@ public class MultiKeyValuePairs
         }
     }
 
-    public Block serialize()
+    public void serialize(BlockBuilder out)
     {
-        Block keys = keyBlockBuilder.build();
-        Block values = valueBlockBuilder.build();
-        BlockBuilder blockBuilder = serializedRowType.createBlockBuilder(new BlockBuilderStatus(), keys.getPositionCount());
-
-        for (int i = 0; i < keys.getPositionCount(); i++) {
-            BlockBuilder writer = blockBuilder.beginBlockEntry();
-            keyType.appendTo(keys, i, writer);
-            valueType.appendTo(values, i, writer);
-            blockBuilder.closeEntry();
+        BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
+        for (int i = 0; i < keyBlockBuilder.getPositionCount(); i++) {
+            BlockBuilder rowBlockBuilder = arrayBlockBuilder.beginBlockEntry();
+            keyType.appendTo(keyBlockBuilder, i, rowBlockBuilder);
+            valueType.appendTo(valueBlockBuilder, i, rowBlockBuilder);
+            arrayBlockBuilder.closeEntry();
         }
-
-        return blockBuilder.build();
+        out.closeEntry();
     }
 
     /**

@@ -43,7 +43,7 @@ public class KeyValuePairStateSerializer
             out.appendNull();
         }
         else {
-            mapType.writeObject(out, state.get().serialize());
+            state.get().serialize(out);
         }
     }
 
