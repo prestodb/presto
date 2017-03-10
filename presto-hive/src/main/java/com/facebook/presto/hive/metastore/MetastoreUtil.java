@@ -32,7 +32,6 @@ import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -409,12 +408,26 @@ public class MetastoreUtil
                 .collect(toSet());
     }
 
-    public static Set<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, PrestoPrincipal principal)
+    public static Set<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
     {
-        Set<String> applicableRoles = listApplicableRoles(metastore, principal);
-        List<PrestoPrincipal> principals = new ArrayList<>();
-        principals.add(principal);
-        applicableRoles.stream().map(role -> new PrestoPrincipal(ROLE, role)).forEach(principals::add);
+        ImmutableSet.Builder<PrestoPrincipal> principals = ImmutableSet.builder();
+        PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, identity.getUser());
+        principals.add(userPrincipal);
+        listEnabledRoles(identity, metastore::listRoleGrants).stream().map(role -> new PrestoPrincipal(ROLE, role)).forEach(principals::add);
+        return listTablePrivileges(metastore, databaseName, tableName, principals.build());
+    }
+
+    public static Set<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, String user)
+    {
+        ImmutableSet.Builder<PrestoPrincipal> principals = ImmutableSet.builder();
+        PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, user);
+        principals.add(userPrincipal);
+        listApplicableRoles(metastore, userPrincipal).stream().map(role -> new PrestoPrincipal(ROLE, role)).forEach(principals::add);
+        return listTablePrivileges(metastore, databaseName, tableName, principals.build());
+    }
+
+    private static Set<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, Set<PrestoPrincipal> principals)
+    {
         ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
         for (PrestoPrincipal current : principals) {
             result.addAll(metastore.listTablePrivileges(databaseName, tableName, current));
