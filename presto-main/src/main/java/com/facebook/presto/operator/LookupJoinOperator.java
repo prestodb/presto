@@ -96,7 +96,7 @@ public class LookupJoinOperator
     @Override
     public boolean isFinished()
     {
-        boolean finished = (finishing && probe == null && pageBuilder.isEmpty()) || (!probeOnOuterSide && lookupSource != null && lookupSource.isEmpty());
+        boolean finished = finishing && probe == null && pageBuilder.isEmpty();
 
         // if finished drop references so memory is freed early
         if (finished) {
@@ -121,7 +121,7 @@ public class LookupJoinOperator
         if (lookupSource == null) {
             lookupSource = tryGetFutureValue(lookupSourceFuture).orElse(null);
         }
-        return lookupSource != null && probe == null && (probeOnOuterSide || !lookupSource.isEmpty());
+        return lookupSource != null && probe == null;
     }
 
     @Override

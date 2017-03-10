@@ -40,12 +40,6 @@ public class IndexLookupSource
     }
 
     @Override
-    public boolean isEmpty()
-    {
-        return false;
-    }
-
-    @Override
     public int getChannelCount()
     {
         return indexLoader.getChannelCount();

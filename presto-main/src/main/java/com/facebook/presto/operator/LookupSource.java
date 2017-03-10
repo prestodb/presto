@@ -24,8 +24,6 @@ import java.io.Closeable;
 public interface LookupSource
         extends Closeable
 {
-    boolean isEmpty();
-
     int getChannelCount();
 
     long getInMemorySizeInBytes();

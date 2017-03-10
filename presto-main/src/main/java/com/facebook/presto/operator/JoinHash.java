@@ -41,12 +41,6 @@ public final class JoinHash
     }
 
     @Override
-    public boolean isEmpty()
-    {
-        return getJoinPositionCount() == 0;
-    }
-
-    @Override
     public final int getChannelCount()
     {
         return pagesHash.getChannelCount();
