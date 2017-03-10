@@ -18,6 +18,7 @@ import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.authentication.GenericExceptionAction;
 import com.facebook.presto.hive.authentication.HdfsAuthentication;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.Identity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -87,13 +88,13 @@ public class HdfsEnvironment
 
     public static class HdfsContext
     {
-        private final Identity identity;
+        private final ConnectorIdentity identity;
         private final Optional<String> source;
         private final Optional<String> queryId;
         private final Optional<String> schemaName;
         private final Optional<String> tableName;
 
-        public HdfsContext(Identity identity)
+        public HdfsContext(ConnectorIdentity identity)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.source = Optional.empty();
@@ -125,7 +126,7 @@ public class HdfsEnvironment
             this.tableName = Optional.of(tableName);
         }
 
-        public Identity getIdentity()
+        public ConnectorIdentity getIdentity()
         {
             return identity;
         }

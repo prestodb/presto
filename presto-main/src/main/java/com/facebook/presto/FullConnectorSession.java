@@ -17,7 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 
@@ -34,7 +34,7 @@ public class FullConnectorSession
         implements ConnectorSession
 {
     private final String queryId;
-    private final Identity identity;
+    private final ConnectorIdentity identity;
     private final Optional<String> source;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
@@ -46,7 +46,7 @@ public class FullConnectorSession
 
     public FullConnectorSession(
             String queryId,
-            Identity identity,
+            ConnectorIdentity identity,
             Optional<String> source,
             TimeZoneKey timeZoneKey,
             Locale locale,
@@ -67,7 +67,7 @@ public class FullConnectorSession
 
     public FullConnectorSession(
             String queryId,
-            Identity identity,
+            ConnectorIdentity identity,
             Optional<String> source,
             TimeZoneKey timeZoneKey,
             Locale locale,
@@ -103,7 +103,7 @@ public class FullConnectorSession
     }
 
     @Override
-    public Identity getIdentity()
+    public ConnectorIdentity getIdentity()
     {
         return identity;
     }

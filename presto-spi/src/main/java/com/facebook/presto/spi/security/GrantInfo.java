@@ -22,12 +22,12 @@ import java.util.Set;
 public class GrantInfo
 {
     private final Set<PrivilegeInfo> privilegeInfo;
-    private final Identity grantee;
+    private final ConnectorIdentity grantee;
     private final SchemaTableName schemaTableName;
-    private final Optional<Identity> grantor;
+    private final Optional<ConnectorIdentity> grantor;
     private final Optional<Boolean> withHierarchy;
 
-    public GrantInfo(Set<PrivilegeInfo> privilegeInfo, Identity grantee, SchemaTableName schemaTableName, Optional<Identity> grantor, Optional<Boolean> withHierarchy)
+    public GrantInfo(Set<PrivilegeInfo> privilegeInfo, ConnectorIdentity grantee, SchemaTableName schemaTableName, Optional<ConnectorIdentity> grantor, Optional<Boolean> withHierarchy)
     {
         this.privilegeInfo = privilegeInfo;
         this.grantee = grantee;
@@ -41,7 +41,7 @@ public class GrantInfo
         return privilegeInfo;
     }
 
-    public Identity getIdentity()
+    public ConnectorIdentity getIdentity()
     {
         return grantee;
     }
@@ -51,7 +51,7 @@ public class GrantInfo
         return schemaTableName;
     }
 
-    public Optional<Identity> getGrantor()
+    public Optional<ConnectorIdentity> getGrantor()
     {
         return grantor;
     }
