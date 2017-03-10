@@ -229,6 +229,8 @@ public class TestStatementBuilder
         printStatement("show grants on table t");
         printStatement("show grants on t");
         printStatement("show grants on all");
+        printStatement("show roles");
+        printStatement("show roles from foo");
 
         printStatement("prepare p from select * from (select * from T) \"A B\"");
 
