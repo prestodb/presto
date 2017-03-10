@@ -79,6 +79,7 @@ public class HiveWriter
     {
         return toStringHelper(this)
                 .add("fileWriter", fileWriter)
+                .add("filePath", writePath + "/" + fileName)
                 .toString();
     }
 }
