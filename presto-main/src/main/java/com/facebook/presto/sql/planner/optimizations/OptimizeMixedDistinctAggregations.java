@@ -70,6 +70,7 @@ import static java.util.Objects.requireNonNull;
  *      GROUP BY a1, a2,..., an, c, group
  *  GROUP BY a1, a2,..., an
  */
+@Deprecated
 public class OptimizeMixedDistinctAggregations
         implements PlanOptimizer
 {

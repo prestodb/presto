@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -183,6 +184,18 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitIfExpression(IfExpression actual, Node expectedExpression)
+    {
+        if (expectedExpression instanceof IfExpression) {
+            IfExpression expected = (IfExpression) expectedExpression;
+            return process(actual.getCondition(), expected.getCondition()) &&
+                    process(actual.getTrueValue(), expected.getTrueValue()) &&
+                    process(actual.getFalseValue().orElse(null), expected.getFalseValue().orElse(null));
+        }
+        return false;
+    }
+
+    @Override
     protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression actual, Node expectedExpression)
     {
         if (expectedExpression instanceof ArithmeticBinaryExpression) {
@@ -194,6 +207,7 @@ final class ExpressionVerifier
         return false;
     }
 
+    @Override
     protected Boolean visitGenericLiteral(GenericLiteral actual, Node expected)
     {
         if (expected instanceof GenericLiteral) {
