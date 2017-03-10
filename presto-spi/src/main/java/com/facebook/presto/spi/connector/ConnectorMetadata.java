@@ -460,7 +460,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * List the table privileges granted to the specified grantee for the tables that have the specified prefix
+     * List the table privileges granted to the specified grantee for the tables that have the specified prefix considering the selected session role
      */
     default List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
     {

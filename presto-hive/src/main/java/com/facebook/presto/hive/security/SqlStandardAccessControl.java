@@ -43,6 +43,8 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.listApplicableRoles;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.listApplicableTablePrivileges;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.listEnabledRoles;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.listEnabledTablePrivileges;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
@@ -368,7 +370,7 @@ public class SqlStandardAccessControl
     private boolean isAdmin(ConnectorTransactionHandle transaction, ConnectorIdentity identity)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        return listApplicableRoles(metastore, new PrestoPrincipal(USER, identity.getUser())).contains(ADMIN_ROLE_NAME);
+        return listEnabledRoles(identity, metastore::listRoleGrants).contains(ADMIN_ROLE_NAME);
     }
 
     private boolean isDatabaseOwner(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String databaseName)
@@ -394,7 +396,7 @@ public class SqlStandardAccessControl
         if (database.getOwnerType() == USER && identity.getUser().equals(database.getOwnerName())) {
             return true;
         }
-        if (database.getOwnerType() == ROLE && listApplicableRoles(metastore, new PrestoPrincipal(USER, identity.getUser())).contains(database.getOwnerName())) {
+        if (database.getOwnerType() == ROLE && listEnabledRoles(identity, metastore::listRoleGrants).contains(database.getOwnerName())) {
             return true;
         }
         return false;
@@ -425,7 +427,7 @@ public class SqlStandardAccessControl
         }
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        return listApplicableTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), new PrestoPrincipal(USER, identity.getUser()))
+        return listEnabledTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), identity)
                 .stream()
                 .filter(privilegeInfo -> !grantOptionRequired || privilegeInfo.isGrantOption())
                 .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege().equals(requiredPrivilege));
@@ -442,7 +444,7 @@ public class SqlStandardAccessControl
                 metastore,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                new PrestoPrincipal(USER, identity.getUser()))
+                identity.getUser())
                 .contains(new HivePrivilegeInfo(toHivePrivilege(privilege), true));
     }
 
