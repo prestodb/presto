@@ -166,7 +166,7 @@ public class RecordFileWriter
                 recordWriter.close(true);
             }
             finally {
-                // perform explicit delete of written file here as recordWriter.close() ignores the abort flag.
+                // perform explicit deletion here as implementations of RecordWriter.close() often ignore the abort flag.
                 path.getFileSystem(conf).delete(path, false);
             }
         }
