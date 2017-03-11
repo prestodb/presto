@@ -258,18 +258,18 @@ public final class JsonOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType(JSON)
-    public static Slice castFromVarchar(@SqlType("varchar(x)") Slice slice)
+    public static Slice castFromVarchar(@SqlType("varchar(x)") Slice value)
             throws IOException
     {
         try {
-            SliceOutput output = new DynamicSliceOutput(slice.length() + 2);
+            SliceOutput output = new DynamicSliceOutput(value.length() + 2);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeString(slice.toStringUtf8());
+                jsonGenerator.writeString(value.toStringUtf8());
             }
             return output.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", slice.toStringUtf8(), JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value.toStringUtf8(), JSON));
         }
     }
 
