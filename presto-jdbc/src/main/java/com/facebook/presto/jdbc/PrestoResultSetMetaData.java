@@ -228,7 +228,7 @@ public class PrestoResultSetMetaData
             case Types.CLOB:
                 return Clob.class.getName();
             case Types.ARRAY:
-            	return Array.class.getName();
+                return Array.class.getName();
         }
         return String.class.getName();
     }
