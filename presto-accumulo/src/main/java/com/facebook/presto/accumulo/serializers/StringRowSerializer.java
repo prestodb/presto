@@ -46,6 +46,8 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Implementation of {@link StringRowSerializer} that encodes and decodes Presto column values as human-readable String objects.
@@ -163,13 +165,13 @@ public class StringRowSerializer
     @Override
     public Date getDate(String name)
     {
-        return new Date(Long.parseLong(getFieldValue(name)));
+        return new Date(DAYS.toMillis(Long.parseLong(getFieldValue(name))));
     }
 
     @Override
     public void setDate(Text text, Date value)
     {
-        text.set(Long.toString(value.getTime()).getBytes(UTF_8));
+        text.set(Long.toString(MILLISECONDS.toDays(value.getTime())).getBytes(UTF_8));
     }
 
     @Override

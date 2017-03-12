@@ -54,6 +54,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Implementation of Presto RecordCursor, responsible for iterating over a Presto split,
@@ -218,7 +219,7 @@ public class AccumuloRecordCursor
             return serializer.getLong(fieldToColumnName[field]);
         }
         else if (type.equals(DATE)) {
-            return serializer.getDate(fieldToColumnName[field]).getTime();
+            return MILLISECONDS.toDays(serializer.getDate(fieldToColumnName[field]).getTime());
         }
         else if (type.equals(INTEGER)) {
             return serializer.getInt(fieldToColumnName[field]);

@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
 import org.apache.accumulo.core.data.Value;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
@@ -44,6 +46,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestAccumuloRowSerializer
@@ -99,16 +102,15 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testDate()
             throws Exception
     {
+        Date expected = new Date(new DateTime(2001, 2, 3, 4, 5, 6, DateTimeZone.UTC).getMillis());
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
-        Type type = DATE;
-        Date expected = new Date(new java.util.Date().getTime());
-        byte[] data = serializer.encode(type, expected);
-        Date actual = new Date(serializer.decode(type, data));
-        assertEquals(actual, expected);
+        byte[] data = serializer.encode(DATE, expected);
 
         deserializeData(serializer, data);
-        actual = serializer.getDate(COLUMN_NAME);
-        assertEquals(actual, expected);
+        Date actual = serializer.getDate(COLUMN_NAME);
+
+        // Convert milliseconds to days so they can be compared regardless of the time of day
+        assertEquals(MILLISECONDS.toDays(actual.getTime()), MILLISECONDS.toDays(expected.getTime()));
     }
 
     @Test
