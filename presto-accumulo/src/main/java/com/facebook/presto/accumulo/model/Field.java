@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 
 public class Field
 {
@@ -424,7 +425,7 @@ public class Field
         }
         else if (type.equals(DATE)) {
             if (value instanceof Long) {
-                return new Date((Long) value);
+                return new Date(DAYS.toMillis((Long) value));
             }
 
             if (value instanceof Calendar) {
