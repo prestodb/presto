@@ -17,7 +17,6 @@ import com.facebook.presto.hive.HiveConnectorId;
 import com.facebook.presto.hive.HiveTransactionHandle;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -458,7 +457,8 @@ public class SqlStandardAccessControl
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 identity.getUser())
-                .contains(new HivePrivilegeInfo(toHivePrivilege(privilege), true));
+                .stream()
+                .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege().equals(toHivePrivilege(privilege)) && privilegeInfo.isGrantOption());
     }
 
     private boolean hasAdminOptionForRoles(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Set<String> roles)
