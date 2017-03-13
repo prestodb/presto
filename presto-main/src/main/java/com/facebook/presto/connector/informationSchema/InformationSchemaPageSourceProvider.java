@@ -44,7 +44,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
-import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
@@ -236,17 +235,17 @@ public class InformationSchemaPageSourceProvider
         List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLE_PRIVILEGES));
         for (GrantInfo grant : grants) {
-            for (PrivilegeInfo privilegeInfo : grant.getPrivilegeInfo()) {
-                table.add(
-                        grant.getGrantor().orElse(null),
-                        grant.getIdentity().getUser(),
-                        catalogName,
-                        grant.getSchemaTableName().getSchemaName(),
-                        grant.getSchemaTableName().getTableName(),
-                        privilegeInfo.getPrivilege().name(),
-                        privilegeInfo.isGrantOption(),
-                        grant.getWithHierarchy().orElse(null));
-            }
+            table.add(
+                    grant.getGrantor().map(PrestoPrincipal::getName).orElse(null),
+                    grant.getGrantor().map(principal -> principal.getType().toString()).orElse(null),
+                    grant.getGrantee().getName(),
+                    grant.getGrantee().getType().toString(),
+                    catalogName,
+                    grant.getSchemaTableName().getSchemaName(),
+                    grant.getSchemaTableName().getTableName(),
+                    grant.getPrivilegeInfo().getPrivilege().name(),
+                    grant.getPrivilegeInfo().isGrantOption() ? "YES" : "NO",
+                    grant.getWithHierarchy().map(withHierarchy -> withHierarchy ? "YES" : "NO").orElse(null));
         }
         return table.build();
     }

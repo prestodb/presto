@@ -124,7 +124,7 @@ import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.listEnabledTablePrivileges;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.listEnabledPrincipals;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
@@ -1300,24 +1300,26 @@ public class HiveMetadata
     @Override
     public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
     {
-        ImmutableList.Builder<GrantInfo> grantInfoBuilder = ImmutableList.builder();
+        Set<PrestoPrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity());
+        ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (SchemaTableName tableName : listTables(session, schemaTablePrefix)) {
-            Set<PrivilegeInfo> privilegeInfoSet =
-                    listEnabledTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), session.getIdentity())
-                            .stream()
-                            .map(HivePrivilegeInfo::toPrivilegeInfo)
-                            .flatMap(Collection::stream)
-                            .collect(toSet());
-
-            grantInfoBuilder.add(
-                    new GrantInfo(
-                            privilegeInfoSet,
-                            session.getIdentity(),
-                            tableName,
-                            Optional.empty(), // Can't access grantor
-                            Optional.empty())); // Can't access withHierarchy
+            for (PrestoPrincipal grantee : principals) {
+                Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(tableName.getSchemaName(), tableName.getTableName(), grantee);
+                for (HivePrivilegeInfo hivePrivilege : hivePrivileges) {
+                    Set<PrivilegeInfo> prestoPrivileges = hivePrivilege.toPrivilegeInfo();
+                    for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {
+                        GrantInfo grant = new GrantInfo(
+                                prestoPrivilege,
+                                grantee,
+                                tableName,
+                                Optional.of(hivePrivilege.getGrantor()),
+                                Optional.empty());
+                        result.add(grant);
+                    }
+                }
+            }
         }
-        return grantInfoBuilder.build();
+        return result.build();
     }
 
     @Override

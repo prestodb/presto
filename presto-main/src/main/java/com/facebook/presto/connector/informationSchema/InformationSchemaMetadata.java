@@ -38,7 +38,6 @@ import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.sc
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.compose;
@@ -102,13 +101,15 @@ public class InformationSchemaMetadata
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLE_PRIVILEGES)
                     .column("grantor", createUnboundedVarcharType())
+                    .column("grantor_type", createUnboundedVarcharType())
                     .column("grantee", createUnboundedVarcharType())
+                    .column("grantee_type", createUnboundedVarcharType())
                     .column("table_catalog", createUnboundedVarcharType())
                     .column("table_schema", createUnboundedVarcharType())
                     .column("table_name", createUnboundedVarcharType())
                     .column("privilege_type", createUnboundedVarcharType())
-                    .column("is_grantable", BOOLEAN)
-                    .column("with_hierarchy", BOOLEAN)
+                    .column("is_grantable", createUnboundedVarcharType())
+                    .column("with_hierarchy", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_ROLES)
                     .column("role_name", createUnboundedVarcharType())
