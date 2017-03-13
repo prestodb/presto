@@ -547,13 +547,18 @@ public class MetastoreUtil
                 .collect(toSet());
     }
 
-    public static Set<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
+    public static Set<PrestoPrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity)
     {
         ImmutableSet.Builder<PrestoPrincipal> principals = ImmutableSet.builder();
         PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, identity.getUser());
         principals.add(userPrincipal);
         listEnabledRoles(identity, metastore::listRoleGrants).stream().map(role -> new PrestoPrincipal(ROLE, role)).forEach(principals::add);
-        return listTablePrivileges(metastore, databaseName, tableName, principals.build());
+        return principals.build();
+    }
+
+    public static Set<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
+    {
+        return listTablePrivileges(metastore, databaseName, tableName, listEnabledPrincipals(metastore, identity));
     }
 
     public static Set<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, String user)
