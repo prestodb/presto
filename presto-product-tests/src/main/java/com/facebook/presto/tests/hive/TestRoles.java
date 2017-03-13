@@ -515,6 +515,30 @@ public class TestRoles
                         row("admin"));
     }
 
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testShowRoles()
+            throws Exception
+    {
+        QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLES"))
+                .containsOnly(
+                        row("public"),
+                        row("admin"));
+        onPresto().executeQuery("CREATE ROLE role1");
+        QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLES"))
+                .containsOnly(
+                        row("public"),
+                        row("admin"),
+                        row("role1"));
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("SHOW ROLES"))
+                .failsWithMessage("Cannot show roles from catalog hive");
+        onPresto().executeQuery("GRANT admin TO alice");
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW ROLES"))
+                .containsOnly(
+                        row("public"),
+                        row("admin"),
+                        row("role1"));
+    }
+
     private static QueryExecutor onPrestoAlice()
     {
         return connectToPresto("alice@presto");
