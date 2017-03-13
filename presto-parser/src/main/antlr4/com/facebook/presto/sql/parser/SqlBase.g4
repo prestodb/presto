@@ -87,6 +87,7 @@ statement
     | SHOW CATALOGS (LIKE pattern=STRING)?                             #showCatalogs
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
     | SHOW CURRENT? ROLES ((FROM | IN) identifier)?                    #showRoles
+    | SHOW ROLE GRANTS ((FROM | IN) identifier)?                       #showRoleGrants
     | DESCRIBE qualifiedName                                           #showColumns
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS                                                   #showFunctions
