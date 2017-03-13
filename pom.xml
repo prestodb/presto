@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>61</version>
+        <version>62</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -639,7 +639,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.27</version>
+                <version>1.28</version>
             </dependency>
 
             <dependency>
