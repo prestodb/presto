@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.teradata.tempto.AfterTestWithContext;
 import com.teradata.tempto.BeforeTestWithContext;
@@ -588,6 +589,125 @@ public class TestRoles
                 .containsOnly(
                         row("public"),
                         row("role1"));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testSetRoleCreateDropSchema()
+            throws Exception
+    {
+        assertAdminExecute("CREATE SCHEMA hive.test_admin_schema");
+        onPresto().executeQuery("DROP SCHEMA hive.test_admin_schema");
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAdminCanDropAnyTable()
+            throws Exception
+    {
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        assertAdminExecute("DROP TABLE hive.default.test_table");
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAdminCanRenameAnyTable()
+            throws Exception
+    {
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        assertAdminExecute("ALTER TABLE hive.default.test_table RENAME TO hive.default.test_table_1");
+        onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table_1");
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAdminCanAddColumnToAnyTable()
+            throws Exception
+    {
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        assertAdminExecute("ALTER TABLE hive.default.test_table ADD COLUMN bar DATE");
+        onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAdminCanRenameColumnInAnyTable()
+            throws Exception
+    {
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        assertAdminExecute("ALTER TABLE hive.default.test_table RENAME COLUMN foo TO bar");
+        onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testSetRoleTablePermissions()
+            throws Exception
+    {
+        onPresto().executeQuery("CREATE ROLE role1");
+        onPresto().executeQuery("CREATE ROLE role2");
+
+        onPresto().executeQuery("GRANT role1 TO USER bob");
+        onPresto().executeQuery("GRANT role2 TO USER bob");
+
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        onPrestoAlice().executeQuery("GRANT SELECT ON hive.default.test_table TO ROLE role1");
+        onPrestoAlice().executeQuery("GRANT INSERT ON hive.default.test_table TO ROLE role2");
+
+        String select = "SELECT * FROM hive.default.test_table";
+        String insert = "INSERT INTO hive.default.test_table (foo) VALUES (1)";
+
+        assertAdminExecute(select);
+        assertAdminExecute(insert);
+
+        onPrestoBob().executeQuery(select);
+        onPrestoBob().executeQuery(insert);
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of(
+                        row("alice", "USER", "role1", "ROLE", "hive", "default", "test_table", "SELECT", "NO", null),
+                        row("alice", "USER", "role2", "ROLE", "hive", "default", "test_table", "INSERT", "NO", null)));
+
+        onPrestoBob().executeQuery("SET ROLE ALL");
+        onPrestoBob().executeQuery(select);
+        onPrestoBob().executeQuery(insert);
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of(
+                        row("alice", "USER", "role1", "ROLE", "hive", "default", "test_table", "SELECT", "NO", null),
+                        row("alice", "USER", "role2", "ROLE", "hive", "default", "test_table", "INSERT", "NO", null)));
+
+        onPrestoBob().executeQuery("SET ROLE NONE");
+        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(select))
+                .failsWithMessage("Access Denied");
+        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(insert))
+                .failsWithMessage("Access Denied");
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of());
+
+        onPrestoBob().executeQuery("SET ROLE role1");
+        onPrestoBob().executeQuery(select);
+        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(insert))
+                .failsWithMessage("Access Denied");
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of(
+                        row("alice", "USER", "role1", "ROLE", "hive", "default", "test_table", "SELECT", "NO", null)));
+
+        onPrestoBob().executeQuery("SET ROLE role2");
+        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(select))
+                .failsWithMessage("Access Denied");
+        onPrestoBob().executeQuery(insert);
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of(
+                        row("alice", "USER", "role2", "ROLE", "hive", "default", "test_table", "INSERT", "NO", null)));
+
+        onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
+    }
+
+    private static void assertAdminExecute(String query)
+    {
+        onPresto().executeQuery("SET ROLE NONE");
+        QueryAssert.assertThat(() -> onPresto().executeQuery(query))
+                .failsWithMessage("Access Denied");
+
+        onPresto().executeQuery("SET ROLE ALL");
+        QueryAssert.assertThat(() -> onPresto().executeQuery(query))
+                .failsWithMessage("Access Denied");
+
+        onPresto().executeQuery("SET ROLE admin");
+        onPresto().executeQuery(query);
     }
 
     private static QueryExecutor onPrestoAlice()
