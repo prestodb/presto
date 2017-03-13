@@ -50,6 +50,7 @@ import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -67,6 +68,11 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -74,6 +80,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.typeToThriftType;
@@ -713,6 +720,30 @@ public class MetastoreUtil
                 throw new PartitionOfflineException(tableName, partitionName.get(), true, prestoOffline);
             }
             throw new TableOfflineException(tableName, true, prestoOffline);
+        }
+    }
+
+    public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant)
+    {
+        boolean withGrantOption = userGrant.isGrantOption();
+        String name = userGrant.getPrivilege().toUpperCase(ENGLISH);
+        switch (name) {
+            case "ALL":
+                return ImmutableSet.copyOf(Arrays.stream(HivePrivilegeInfo.HivePrivilege.values())
+                        .map(hivePrivilege -> new HivePrivilegeInfo(hivePrivilege, withGrantOption))
+                        .collect(toSet()));
+            case "SELECT":
+                return ImmutableSet.of(new HivePrivilegeInfo(SELECT, withGrantOption));
+            case "INSERT":
+                return ImmutableSet.of(new HivePrivilegeInfo(INSERT, withGrantOption));
+            case "UPDATE":
+                return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, withGrantOption));
+            case "DELETE":
+                return ImmutableSet.of(new HivePrivilegeInfo(DELETE, withGrantOption));
+            case "OWNERSHIP":
+                return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, withGrantOption));
+            default:
+                throw new IllegalArgumentException("Unsupported privilege name: " + name);
         }
     }
 }
