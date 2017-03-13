@@ -88,7 +88,7 @@ public class ArrayBlock
     {
         int valueStart = offsets[arrayOffset];
         int valueEnd = offsets[arrayOffset + positionCount];
-        sizeInBytes = values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * this.positionCount);
+        sizeInBytes = intSaturatedCast(values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) this.positionCount));
     }
 
     @Override
