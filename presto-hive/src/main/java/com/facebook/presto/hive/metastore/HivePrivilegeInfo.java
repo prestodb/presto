@@ -42,22 +42,6 @@ public class HivePrivilegeInfo
     private final HivePrivilege hivePrivilege;
     private final boolean grantOption;
 
-    public HivePrivilegeInfo(HivePrivilege hivePrivilege, boolean grantOption)
-    {
-        this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
-        this.grantOption = grantOption;
-    }
-
-    public HivePrivilege getHivePrivilege()
-    {
-        return hivePrivilege;
-    }
-
-    public boolean isGrantOption()
-    {
-        return grantOption;
-    }
-
     public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant)
     {
         boolean withGrantOption = userGrant.isGrantOption();
@@ -96,6 +80,22 @@ public class HivePrivilegeInfo
             default:
                 throw new IllegalArgumentException("Unexpected privilege: " + privilege);
         }
+    }
+
+    public HivePrivilegeInfo(HivePrivilege hivePrivilege, boolean grantOption)
+    {
+        this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
+        this.grantOption = grantOption;
+    }
+
+    public HivePrivilege getHivePrivilege()
+    {
+        return hivePrivilege;
+    }
+
+    public boolean isGrantOption()
+    {
+        return grantOption;
     }
 
     public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)
