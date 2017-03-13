@@ -81,6 +81,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.typeToThriftType;
@@ -256,38 +257,38 @@ public class MetastoreUtil
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(MetastoreUtil::toMetastoreApiFieldSchema).collect(toList()));
         result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
-        result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(new PrestoPrincipal(USER, table.getOwner()), privileges));
+        result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(privileges));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
         result.setViewExpandedText(table.getViewExpandedText().orElse(null));
         return result;
     }
 
-    private static PrincipalPrivilegeSet toMetastoreApiPrincipalPrivilegeSet(PrestoPrincipal grantee, PrincipalPrivileges privileges)
+    private static PrincipalPrivilegeSet toMetastoreApiPrincipalPrivilegeSet(PrincipalPrivileges privileges)
     {
         ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> userPrivileges = ImmutableMap.builder();
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getUserPrivileges().asMap().entrySet()) {
             userPrivileges.put(entry.getKey(), entry.getValue().stream()
-                    .map(privilegeInfo -> toMetastoreApiPrivilegeGrantInfo(grantee, privilegeInfo))
+                    .map(MetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                     .collect(toList()));
         }
 
         ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> rolePrivileges = ImmutableMap.builder();
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getRolePrivileges().asMap().entrySet()) {
             rolePrivileges.put(entry.getKey(), entry.getValue().stream()
-                    .map(privilegeInfo -> toMetastoreApiPrivilegeGrantInfo(grantee, privilegeInfo))
+                    .map(MetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                     .collect(toList()));
         }
 
         return new PrincipalPrivilegeSet(userPrivileges.build(), ImmutableMap.of(), rolePrivileges.build());
     }
 
-    public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(PrestoPrincipal grantee, HivePrivilegeInfo privilegeInfo)
+    public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(HivePrivilegeInfo privilegeInfo)
     {
         return new PrivilegeGrantInfo(
                 privilegeInfo.getHivePrivilege().name().toLowerCase(),
                 0,
-                grantee.getName(),
-                fromPrestoPrincipalType(grantee.getType()),
+                privilegeInfo.getGrantor().getName(),
+                fromPrestoPrincipalType(privilegeInfo.getGrantor().getType()),
                 privilegeInfo.isGrantOption());
     }
 
@@ -607,6 +608,7 @@ public class MetastoreUtil
 
     private static PrincipalType fromMetastoreApiPrincipalType(org.apache.hadoop.hive.metastore.api.PrincipalType principalType)
     {
+        requireNonNull(principalType, "principalType is null");
         switch (principalType) {
             case USER:
                 return PrincipalType.USER;
@@ -727,21 +729,22 @@ public class MetastoreUtil
     {
         boolean withGrantOption = userGrant.isGrantOption();
         String name = userGrant.getPrivilege().toUpperCase(ENGLISH);
+        PrestoPrincipal grantor = new PrestoPrincipal(fromMetastoreApiPrincipalType(userGrant.getGrantorType()), userGrant.getGrantor());
         switch (name) {
             case "ALL":
                 return ImmutableSet.copyOf(Arrays.stream(HivePrivilegeInfo.HivePrivilege.values())
-                        .map(hivePrivilege -> new HivePrivilegeInfo(hivePrivilege, withGrantOption))
+                        .map(hivePrivilege -> new HivePrivilegeInfo(hivePrivilege, withGrantOption, grantor))
                         .collect(toSet()));
             case "SELECT":
-                return ImmutableSet.of(new HivePrivilegeInfo(SELECT, withGrantOption));
+                return ImmutableSet.of(new HivePrivilegeInfo(SELECT, withGrantOption, grantor));
             case "INSERT":
-                return ImmutableSet.of(new HivePrivilegeInfo(INSERT, withGrantOption));
+                return ImmutableSet.of(new HivePrivilegeInfo(INSERT, withGrantOption, grantor));
             case "UPDATE":
-                return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, withGrantOption));
+                return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, withGrantOption, grantor));
             case "DELETE":
-                return ImmutableSet.of(new HivePrivilegeInfo(DELETE, withGrantOption));
+                return ImmutableSet.of(new HivePrivilegeInfo(DELETE, withGrantOption, grantor));
             case "OWNERSHIP":
-                return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, withGrantOption));
+                return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, withGrantOption, grantor));
             default:
                 throw new IllegalArgumentException("Unsupported privilege name: " + name);
         }
