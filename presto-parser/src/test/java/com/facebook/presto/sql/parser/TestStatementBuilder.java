@@ -242,6 +242,8 @@ public class TestStatementBuilder
         printStatement("show grants");
         printStatement("show roles");
         printStatement("show roles from foo");
+        printStatement("show current roles");
+        printStatement("show current roles from foo");
 
         printStatement("prepare p from select * from (select * from T) \"A B\"");
 

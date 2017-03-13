@@ -26,26 +26,33 @@ public class ShowRoles
     extends Statement
 {
     private final Optional<String> catalog;
+    private final boolean current;
 
-    public ShowRoles(Optional<String> catalog)
+    public ShowRoles(Optional<String> catalog, boolean current)
     {
-        this(Optional.empty(), catalog);
+        this(Optional.empty(), catalog, current);
     }
 
-    public ShowRoles(NodeLocation location, Optional<String> catalog)
+    public ShowRoles(NodeLocation location, Optional<String> catalog, boolean current)
     {
-        this(Optional.of(location), catalog);
+        this(Optional.of(location), catalog, current);
     }
 
-    public ShowRoles(Optional<NodeLocation> location, Optional<String> catalog)
+    public ShowRoles(Optional<NodeLocation> location, Optional<String> catalog, boolean current)
     {
         super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");
+        this.current = current;
     }
 
     public Optional<String> getCatalog()
     {
         return catalog;
+    }
+
+    public boolean isCurrent()
+    {
+        return current;
     }
 
     @Override
@@ -63,7 +70,7 @@ public class ShowRoles
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalog);
+        return Objects.hash(catalog, current);
     }
 
     @Override
@@ -76,7 +83,8 @@ public class ShowRoles
             return false;
         }
         ShowRoles o = (ShowRoles) obj;
-        return Objects.equals(catalog, o.catalog);
+        return Objects.equals(catalog, o.catalog) &&
+                current == o.current;
     }
 
     @Override
@@ -84,6 +92,7 @@ public class ShowRoles
     {
         return toStringHelper(this)
                 .add("catalog", catalog)
+                .add("current", current)
                 .toString();
     }
 }
