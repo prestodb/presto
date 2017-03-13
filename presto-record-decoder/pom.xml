@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <repositories>
+        <repository>
+            <id>repo</id>
+            <releases>
+                <enabled>true</enabled>
+                <checksumPolicy>ignore</checksumPolicy>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <url>file://${project.basedir}/repo</url>
+        </repository>
+    </repositories>
+
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -82,6 +96,11 @@
             <artifactId>jackson-annotations</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -95,4 +114,45 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>analyze</id>
+                        <goals>
+                            <goal>analyze-only</goal>
+                        </goals>
+                        <configuration>
+                            <failOnWarning>false</failOnWarning>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.github.os72</groupId>
+                <artifactId>protoc-jar-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <protocVersion>${dep.protobuf.version}</protocVersion>
+                            <inputDirectories>
+                                <include>src/test/resources/decoder/protobuf</include>
+                            </inputDirectories>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

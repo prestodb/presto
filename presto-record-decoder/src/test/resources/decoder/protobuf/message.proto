@@ -1,0 +1,49 @@
+package com.facebook.presto.decoder.protobuf;
+
+option java_outer_classname = "MessageSchema";
+
+message Message {
+    message User {
+        optional int64  id = 1;
+        optional string id_str = 2;
+        optional string name = 3;
+        optional string screen_name = 4;
+        optional string location = 5;
+        optional string url = 6;
+        optional string description = 7;
+        optional bool   protected = 8;
+        optional bool   verified = 9;
+        optional int64  followers_count = 10;
+        optional int64  friends_count = 11;
+        optional int64  listed_count = 12;
+        optional int64  favourites_count = 13;
+        optional int64  statuses_count = 14;
+        optional string created_at = 15;
+        optional int64  utc_offset = 16;
+        optional string time_zone = 17;
+        optional bool   geo_enabled = 18;
+        optional string lang = 19;
+        optional bool   contributors_enabled = 20;
+        optional bool   is_translator = 21;
+        optional string profile_background_color = 22;
+        optional string profile_background_image_url = 23;
+        optional string profile_background_image_url_https = 24;
+        optional bool   profile_background_tile = 25;
+        optional string profile_link_color = 26;
+        optional string profile_sidebar_border_color = 27;
+        optional string profile_sidebar_fill_color = 28;
+        optional string profile_text_color = 29;
+        optional string profile_use_background_image = 30;
+        optional string profile_image_url = 31;
+        optional string profile_image_url_https = 32;
+        optional bool   default_profile = 33;
+        optional bool   default_profile_image = 34;
+    }
+    optional string created_at = 1;
+    optional int64 id = 2;
+    optional string id_str = 3;
+    optional string text = 4;
+    optional string source = 5;
+    optional bool   truncated = 6;
+    optional User user = 14;
+}
