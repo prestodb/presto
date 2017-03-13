@@ -1653,11 +1653,18 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("SHOW ROLES",
-                new ShowRoles(Optional.empty()));
+                new ShowRoles(Optional.empty(), false));
         assertStatement("SHOW ROLES FROM foo",
-                new ShowRoles(Optional.of(new Identifier("foo"))));
+                new ShowRoles(Optional.of(new Identifier("foo")), false));
         assertStatement("SHOW ROLES IN foo",
-                new ShowRoles(Optional.of(new Identifier("foo"))));
+                new ShowRoles(Optional.of(new Identifier("foo")), false));
+
+        assertStatement("SHOW CURRENT ROLES",
+                new ShowRoles(Optional.empty(), true));
+        assertStatement("SHOW CURRENT ROLES FROM foo",
+                new ShowRoles(Optional.of(new Identifier("foo")), true));
+        assertStatement("SHOW CURRENT ROLES IN foo",
+                new ShowRoles(Optional.of(new Identifier("foo")), true));
     }
 
     @Test

@@ -92,7 +92,7 @@ statement
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
     | SHOW STATS (FOR | ON) qualifiedName                              #showStats
     | SHOW STATS FOR '(' querySpecification ')'                        #showStatsForQuery
-    | SHOW ROLES ((FROM | IN) identifier)?                             #showRoles
+    | SHOW CURRENT? ROLES ((FROM | IN) identifier)?                    #showRoles
     | DESCRIBE qualifiedName                                           #showColumns
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS                                                   #showFunctions
