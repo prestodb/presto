@@ -78,8 +78,8 @@ public class CanonicalizeExpressions
                     return new JoinNode(
                             node.getId(),
                             node.getType(),
-                            node.getLeft(),
-                            node.getRight(),
+                            context.rewrite(node.getLeft()),
+                            context.rewrite(node.getRight()),
                             node.getCriteria(),
                             node.getOutputSymbols(),
                             Optional.of(canonicalizedExpression),
@@ -89,7 +89,7 @@ public class CanonicalizeExpressions
                 }
             }
 
-            return node;
+            return context.defaultRewrite(node);
         }
 
         @Override
