@@ -52,6 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -65,9 +66,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -82,6 +85,9 @@ public class TaskExecutor
     // each time we run a split, run it for this length before returning to the pool
     private static final Duration SPLIT_RUN_QUANTA = new Duration(1, TimeUnit.SECONDS);
 
+    // print out split call stack if it has been running for a certain amount of time
+    private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(1000, TimeUnit.SECONDS);
+
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
     private static final AtomicLong NEXT_WORKER_ID = new AtomicLong();
 
@@ -93,6 +99,8 @@ public class TaskExecutor
 
     private final Ticker ticker;
 
+    private final ScheduledExecutorService splitMonitorExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("TaskExecutor"));
+    private String currentMaxActiveSplit = null;
     private final SortedSet<RunningSplitInfo> runningSplitInfos = new ConcurrentSkipListSet<>();
 
     @GuardedBy("this")
@@ -183,6 +191,7 @@ public class TaskExecutor
         for (int i = 0; i < runnerThreads; i++) {
             addRunnerThread();
         }
+        splitMonitorExecutor.scheduleWithFixedDelay(this::monitorActiveSplits, 1, 1, TimeUnit.MINUTES);
     }
 
     @PreDestroy
@@ -190,6 +199,7 @@ public class TaskExecutor
     {
         closed = true;
         executor.shutdownNow();
+        splitMonitorExecutor.shutdownNow();
     }
 
     @Override
@@ -387,6 +397,25 @@ public class TaskExecutor
             }
         }
         return null;
+    }
+
+    private void monitorActiveSplits()
+    {
+        for (RunningSplitInfo splitInfo : runningSplitInfos) {
+            Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
+            if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) < 0) {
+                return;
+            }
+            if (splitInfo.isPrinted()) {
+                continue;
+            }
+            splitInfo.setPrinted();
+
+            currentMaxActiveSplit = splitInfo.getThreadId();
+            Exception exception = new Exception("Long running split");
+            exception.setStackTrace(splitInfo.getThread().getStackTrace());
+            log.warn(exception, "Split thread %s has been running longer than %s", currentMaxActiveSplit, duration);
+        }
     }
 
     @ThreadSafe
@@ -767,7 +796,7 @@ public class TaskExecutor
 
                     String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
                     try (SetThreadName splitName = new SetThreadName(threadId)) {
-                        RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId);
+                        RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread());
                         runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);
 
@@ -832,11 +861,15 @@ public class TaskExecutor
     {
         private final long startTime;
         private final String threadId;
+        private final Thread thread;
+        private boolean printed;
 
-        public RunningSplitInfo(long startTime, String threadId)
+        public RunningSplitInfo(long startTime, String threadId, Thread thread)
         {
             this.startTime = startTime;
             this.threadId = threadId;
+            this.thread = thread;
+            this.printed = false;
         }
 
         public long getStartTime()
@@ -847,6 +880,21 @@ public class TaskExecutor
         public String getThreadId()
         {
             return threadId;
+        }
+
+        public Thread getThread()
+        {
+            return thread;
+        }
+
+        public boolean isPrinted()
+        {
+            return printed;
+        }
+
+        public void setPrinted()
+        {
+            printed = true;
         }
 
         @Override
