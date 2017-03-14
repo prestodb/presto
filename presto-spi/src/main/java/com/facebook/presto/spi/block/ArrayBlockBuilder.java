@@ -235,6 +235,13 @@ public class ArrayBlockBuilder
     }
 
     @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    {
+        int newSize = calculateBlockResetSize(getPositionCount());
+        return new ArrayBlockBuilder(blockBuilderStatus, values.newBlockBuilderLike(blockBuilderStatus), new int[newSize + 1], new boolean[newSize]);
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("ArrayBlockBuilder{");

@@ -275,6 +275,13 @@ public class VariableWidthBlockBuilder
         updateArraysDataSize();
     }
 
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    {
+        int expectedBytesPerEntry = positions == 0 ? positions : (getOffset(positions) - getOffset(0)) / positions;
+        return new VariableWidthBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positions), expectedBytesPerEntry);
+    }
+
     private int getOffset(int position)
     {
         return offsets[position];

@@ -102,6 +102,12 @@ public class IntArrayBlockBuilder
         updateDataSize();
     }
 
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    {
+        return new IntArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
+    }
+
     private void growCapacity()
     {
         int newSize = BlockUtil.calculateNewArraySize(values.length);
