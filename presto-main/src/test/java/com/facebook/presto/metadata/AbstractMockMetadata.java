@@ -395,6 +395,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
         throw new UnsupportedOperationException();

@@ -295,6 +295,11 @@ public interface Metadata
     Set<String> listRoles(Session session, String catalog);
 
     /**
+     * List roles grants in the specified catalog for a given principal, not recursively.
+     */
+    Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal);
+
+    /**
      * Grants the specified roles to the specified grantees in the specified catalog
      *
      * @param grantor represents the principal specified by GRANTED BY statement

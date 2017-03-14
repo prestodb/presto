@@ -845,6 +845,19 @@ public class MetadataManager
     }
 
     @Override
+    public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
+    {
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (!catalogMetadata.isPresent()) {
+            return ImmutableSet.of();
+        }
+        ConnectorId connectorId = catalogMetadata.get().getConnectorId();
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+        return metadata.listRoleGrants(connectorSession, principal);
+    }
+
+    @Override
     public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
