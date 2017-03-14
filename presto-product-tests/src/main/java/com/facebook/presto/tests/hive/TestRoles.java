@@ -562,6 +562,31 @@ public class TestRoles
                         row("role2"));
     }
 
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testShowRoleGrants()
+            throws Exception
+    {
+        QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLE GRANTS"))
+                .containsOnly(
+                        row("public"),
+                        row("admin"));
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW ROLE GRANTS"))
+                .containsOnly(
+                        row("public"));
+        onPresto().executeQuery("CREATE ROLE role1");
+        onPresto().executeQuery("CREATE ROLE role2");
+        onPresto().executeQuery("GRANT role1 TO alice");
+        onPresto().executeQuery("GRANT role2 TO role1");
+        QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLE GRANTS"))
+                .containsOnly(
+                        row("public"),
+                        row("admin"));
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW ROLE GRANTS"))
+                .containsOnly(
+                        row("public"),
+                        row("role1"));
+    }
+
     private static QueryExecutor onPrestoAlice()
     {
         return connectToPresto("alice@presto");
