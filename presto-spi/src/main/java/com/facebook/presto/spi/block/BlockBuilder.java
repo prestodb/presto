@@ -94,4 +94,9 @@ public interface BlockBuilder
      * Resets the block builder, clearing all of the data.
      */
     void reset(BlockBuilderStatus blockBuilderStatus);
+
+    /**
+     * Creates a new block builder of the same type based on the current usage statistics of this block builder.
+     */
+    BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus);
 }

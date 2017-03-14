@@ -270,6 +270,16 @@ public class InterleavedBlockBuilder
     }
 
     @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    {
+        BlockBuilder[] newBlockBuilders = new BlockBuilder[blockBuilders.length];
+        for (int i = 0; i < blockBuilders.length; i++) {
+            newBlockBuilders[i] = blockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
+        }
+        return new InterleavedBlockBuilder(newBlockBuilders);
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("InterleavedBlock{");

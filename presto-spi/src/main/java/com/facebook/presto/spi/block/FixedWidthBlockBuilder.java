@@ -233,6 +233,12 @@ public class FixedWidthBlockBuilder
     }
 
     @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    {
+        return new FixedWidthBlockBuilder(fixedSize, blockBuilderStatus, calculateBlockResetSize(positionCount));
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("FixedWidthBlockBuilder{");

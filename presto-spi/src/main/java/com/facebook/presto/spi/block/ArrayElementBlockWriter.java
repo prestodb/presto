@@ -139,6 +139,12 @@ public class ArrayElementBlockWriter
     }
 
     @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("ArrayElementBlockWriter{");

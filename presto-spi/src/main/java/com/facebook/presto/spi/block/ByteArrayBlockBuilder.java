@@ -102,6 +102,12 @@ public class ByteArrayBlockBuilder
         updateDataSize();
     }
 
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    {
+        return new ByteArrayBlockBuilder(blockBuilderStatus, positionCount);
+    }
+
     private void growCapacity()
     {
         int newSize = BlockUtil.calculateNewArraySize(values.length);
