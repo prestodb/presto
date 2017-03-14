@@ -17,18 +17,28 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
+import org.apache.cassandra.service.CassandraDaemon;
 
 import javax.management.ObjectName;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
+import static com.datastax.driver.core.ProtocolVersion.V3;
+import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.Files.write;
+import static com.google.common.io.Resources.getResource;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
@@ -36,6 +46,9 @@ import static org.testng.Assert.assertEquals;
 public final class EmbeddedCassandra
 {
     private static Logger log = Logger.get(EmbeddedCassandra.class);
+
+    private static final String HOST = "127.0.0.1";
+    private static final int PORT = 9142;
 
     private static CassandraSession session;
     private static boolean initialized;
@@ -48,14 +61,21 @@ public final class EmbeddedCassandra
         if (initialized) {
             return;
         }
-        
-        EmbeddedCassandraServerHelper.startEmbeddedCassandra();
+
+        log.info("Starting cassandra...");
+
+        System.setProperty("cassandra.config", "file:" + prepareCassandraYaml());
+        System.setProperty("cassandra-foreground", "true");
+        System.setProperty("cassandra.native.epoll.enabled", "false");
+
+        CassandraDaemon cassandraDaemon = new CassandraDaemon();
+        cassandraDaemon.activate();
+
         Cluster cluster = Cluster.builder()
+                .withProtocolVersion(V3)
                 .withClusterName("TestCluster")
                 .addContactPointsWithPorts(ImmutableList.of(
-                        new InetSocketAddress(
-                                EmbeddedCassandraServerHelper.getHost(),
-                                EmbeddedCassandraServerHelper.getNativeTransportPort())))
+                        new InetSocketAddress(HOST, PORT)))
                 .build();
 
         CassandraSession session = new NativeCassandraSession(
@@ -69,11 +89,31 @@ public final class EmbeddedCassandra
         }
         catch (RuntimeException e) {
             cluster.close();
+            cassandraDaemon.deactivate();
             throw e;
         }
 
         EmbeddedCassandra.session = session;
         initialized = true;
+    }
+
+    private static String prepareCassandraYaml()
+            throws IOException
+    {
+        String original = Resources.toString(getResource("cu-cassandra.yaml"), UTF_8);
+
+        File tempDirFile = createTempDir();
+        tempDirFile.deleteOnExit();
+        Path tmpDirPath = tempDirFile.toPath();
+        Path dataDir = tmpDirPath.resolve("data");
+        Files.createDirectory(dataDir);
+
+        String modified = original.replaceAll("\\$\\{data_directory\\}", dataDir.toAbsolutePath().toString());
+
+        Path yamlLocation = tmpDirPath.resolve("cu-cassandra.yaml");
+        write(modified, yamlLocation.toFile(), UTF_8);
+
+        return yamlLocation.toAbsolutePath().toString();
     }
 
     public static synchronized CassandraSession getSession()
@@ -85,13 +125,13 @@ public final class EmbeddedCassandra
     public static synchronized String getHost()
     {
         checkIsInitialized();
-        return EmbeddedCassandraServerHelper.getHost();
+        return HOST;
     }
 
     public static synchronized int getPort()
     {
         checkIsInitialized();
-        return EmbeddedCassandraServerHelper.getNativeTransportPort();
+        return PORT;
     }
 
     private static void checkIsInitialized()
