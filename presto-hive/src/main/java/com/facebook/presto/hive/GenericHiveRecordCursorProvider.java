@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
@@ -25,10 +26,12 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class GenericHiveRecordCursorProvider
@@ -56,6 +59,14 @@ public class GenericHiveRecordCursorProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
+        // make sure the FileSystem is created with the proper Configuration object
+        try {
+            this.hdfsEnvironment.getFileSystem(session.getUser(), path);
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
+        }
+
         RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
                 () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
 

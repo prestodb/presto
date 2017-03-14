@@ -28,6 +28,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -37,6 +38,7 @@ import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hive.common.util.ReflectionUtil;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,7 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
@@ -154,11 +157,11 @@ public class HiveWriterFactory
         this.partitionColumnTypes = partitionColumnTypes.build();
         this.dataColumns = dataColumns.build();
 
+        Path writePath;
         if (isCreateTable) {
             this.table = null;
-            Optional<Path> writePath = locationService.writePathRoot(locationHandle);
-            checkArgument(writePath.isPresent(), "CREATE TABLE must have a write path");
-            conf = new JobConf(hdfsEnvironment.getConfiguration(writePath.get()));
+            writePath = locationService.writePathRoot(locationHandle)
+                    .orElseThrow(() -> new IllegalArgumentException("CREATE TABLE must have a write path"));
         }
         else {
             Optional<Table> table = pageSinkMetadataProvider.getTable();
@@ -166,8 +169,8 @@ public class HiveWriterFactory
                 throw new PrestoException(HIVE_INVALID_METADATA, format("Table %s.%s was dropped during insert", schemaName, tableName));
             }
             this.table = table.get();
-            Path hdfsEnvironmentPath = locationService.writePathRoot(locationHandle).orElseGet(() -> locationService.targetPathRoot(locationHandle));
-            conf = new JobConf(hdfsEnvironment.getConfiguration(hdfsEnvironmentPath));
+            writePath = locationService.writePathRoot(locationHandle)
+                    .orElseGet(() -> locationService.targetPathRoot(locationHandle));
         }
 
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
@@ -176,6 +179,17 @@ public class HiveWriterFactory
         }
 
         this.session = requireNonNull(session, "session is null");
+
+        Configuration conf = hdfsEnvironment.getConfiguration(writePath);
+        this.conf = new JobConf(conf);
+
+        // make sure the FileSystem is created with the correct Configuration object
+        try {
+            hdfsEnvironment.getFileSystem(session.getUser(), writePath, conf);
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + writePath, e);
+        }
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
