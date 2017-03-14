@@ -400,6 +400,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * List role grants for a given principal, not recursively.
+     */
+    default Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+    }
+
+    /**
      * Grants the specified roles to the specified grantees
      *
      * @param grantor represents the principal specified by GRANTED BY statement
