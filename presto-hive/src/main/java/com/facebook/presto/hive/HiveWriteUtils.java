@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -96,6 +97,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.getHiveExternalTableWritable;
 import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
@@ -330,10 +332,10 @@ public final class HiveWriteUtils
         throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
-    public static void checkTableIsWritable(Table table)
+    public static void checkTableIsWritable(Table table, ConnectorSession session)
     {
-        if (!table.getTableType().equals(MANAGED_TABLE.toString())) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
+        if (!getHiveExternalTableWritable(session) && !table.getTableType().equals(MANAGED_TABLE.toString())) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot write to Hive external table");
         }
 
         checkWritable(

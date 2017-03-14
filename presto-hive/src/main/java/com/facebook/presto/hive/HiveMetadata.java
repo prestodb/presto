@@ -764,7 +764,7 @@ public class HiveMetadata
             throw new TableNotFoundException(tableName);
         }
 
-        checkTableIsWritable(table.get());
+        checkTableIsWritable(table.get(), session);
 
         for (Column column : table.get().getDataColumns()) {
             if (!isWritableType(column.getType())) {
