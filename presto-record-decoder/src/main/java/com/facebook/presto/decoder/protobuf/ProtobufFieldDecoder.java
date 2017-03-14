@@ -29,7 +29,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Default field decoder for raw (byte) columns.
+ * Default field decoder for protobuf object.
  */
 public class ProtobufFieldDecoder
         implements FieldDecoder<Object>

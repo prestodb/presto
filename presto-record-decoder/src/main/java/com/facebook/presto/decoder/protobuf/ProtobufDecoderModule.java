@@ -20,7 +20,7 @@ import static com.facebook.presto.decoder.DecoderModule.bindFieldDecoder;
 import static com.facebook.presto.decoder.DecoderModule.bindRowDecoder;
 
 /**
- * Raw decoder guice module.
+ * Protobuf decoder guice module.
  */
 public class ProtobufDecoderModule
         implements Module

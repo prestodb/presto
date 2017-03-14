@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Decoder for raw (direct byte) rows. All field decoders map bytes directly to Presto columns.
+ * Decoder for protobuf object.
  */
 public class ProtobufRowDecoder
         implements RowDecoder
