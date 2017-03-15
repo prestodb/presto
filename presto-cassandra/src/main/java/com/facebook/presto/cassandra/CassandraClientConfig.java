@@ -41,7 +41,7 @@ public class CassandraClientConfig
 
     private Duration schemaCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration schemaRefreshInterval = new Duration(2, TimeUnit.MINUTES);
-    private int maxSchemaRefreshThreads = 10;
+    private int maxSchemaRefreshThreads = 1;
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
