@@ -32,7 +32,7 @@ public class TestCassandraClientConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(CassandraClientConfig.class)
-                .setMaxSchemaRefreshThreads(10)
+                .setMaxSchemaRefreshThreads(1)
                 .setSchemaCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setSchemaRefreshInterval(new Duration(2, TimeUnit.MINUTES))
                 .setFetchSize(5_000)
