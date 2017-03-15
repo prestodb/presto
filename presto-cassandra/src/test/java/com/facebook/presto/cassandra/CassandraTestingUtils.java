@@ -44,7 +44,7 @@ public class CassandraTestingUtils
     public static void createTestTables(Cluster cluster, String keyspace, Date date)
     {
         try (Session session = cluster.connect()) {
-            createOrReplaceKeyspace(session, keyspace);
+            createKeyspace(session, keyspace);
         }
         try (Session session = cluster.connect(keyspace)) {
             createTableAllTypes(session, keyspace, TABLE_ALL_TYPES, date);
@@ -55,10 +55,9 @@ public class CassandraTestingUtils
         }
     }
 
-    public static void createOrReplaceKeyspace(Session session, String keyspaceName)
+    public static void createKeyspace(Session session, String keyspaceName)
     {
-        session.execute("DROP KEYSPACE IF EXISTS " + keyspaceName);
-        session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor':1}");
+        session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
     }
 
     public static void createTableClusteringKeys(Session session, String keyspace, String table, int rowsCount)

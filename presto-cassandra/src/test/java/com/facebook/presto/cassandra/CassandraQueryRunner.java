@@ -21,7 +21,7 @@ import io.airlift.tpch.TpchTable;
 
 import java.util.List;
 
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -52,7 +52,7 @@ public final class CassandraQueryRunner
 
         if (!tpchLoaded) {
             try (com.datastax.driver.core.Session session = EmbeddedCassandra.getCluster().connect()) {
-                createOrReplaceKeyspace(session, "tpch");
+                createKeyspace(session, "tpch");
             }
             List<TpchTable<?>> tables = TpchTable.getTables();
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
