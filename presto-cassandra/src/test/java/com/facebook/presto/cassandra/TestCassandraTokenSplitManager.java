@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -54,7 +54,7 @@ public class TestCassandraTokenSplitManager
             throws Exception
     {
         session.executeWithSession(session -> {
-            createOrReplaceKeyspace(session, KEYSPACE);
+            createKeyspace(session, KEYSPACE);
             return null;
         });
 
