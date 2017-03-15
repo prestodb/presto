@@ -560,8 +560,8 @@ public final class ExpressionFormatter
             if (!node.getPartitionBy().isEmpty()) {
                 parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
             }
-            if (!node.getOrderBy().isEmpty()) {
-                parts.add("ORDER BY " + formatSortItems(node.getOrderBy(), parameters));
+            if (node.getOrderBy().isPresent()) {
+                parts.add("ORDER BY " + formatSortItems(node.getOrderBy().get().getSortItems(), parameters));
             }
             if (node.getFrame().isPresent()) {
                 parts.add(process(node.getFrame().get(), context));

@@ -1268,10 +1268,15 @@ class AstBuilder
     @Override
     public Node visitOver(SqlBaseParser.OverContext context)
     {
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        }
+
         return new Window(
                 getLocation(context),
                 visit(context.partition, Expression.class),
-                visit(context.sortItem(), SortItem.class),
+                orderBy,
                 visitIfPresent(context.windowFrame(), WindowFrame.class));
     }
 
