@@ -40,7 +40,9 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowCurrentRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowGrants;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTables;
@@ -336,5 +338,23 @@ public interface SystemAccessControl
     default Set<String> filterRoles(Identity identity, String catalogName, Set<String> roles)
     {
         return Collections.emptySet();
+    }
+
+    /**
+     * Check if identity is allowed to show current roles on the specified catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowCurrentRoles(Identity identity, String catalogName)
+    {
+        denyShowCurrentRoles(catalogName);
+    }
+
+    /**
+     * Check if identity is allowed to show its own role grants on the specified catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoleGrants(Identity identity, String catalogName)
+    {
+        denyShowRoleGrants(catalogName);
     }
 }

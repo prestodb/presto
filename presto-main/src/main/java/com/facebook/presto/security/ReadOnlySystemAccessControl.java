@@ -125,4 +125,14 @@ public class ReadOnlySystemAccessControl
     {
         return roles;
     }
+
+    @Override
+    public void checkCanShowCurrentRoles(Identity identity, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(Identity identity, String catalogName)
+    {
+    }
 }
