@@ -118,30 +118,6 @@ public class TestCachingCassandraSchemaProvider
     }
 
     @Test
-    public void testGetPartitions()
-            throws Exception
-    {
-        CassandraTableHandle tableHandle = new CassandraTableHandle(CONNECTOR_ID, TEST_SCHEMA, TEST_TABLE);
-        assertEquals(mockSession.getAccessCount(), 0);
-
-        CassandraTable table = schemaProvider.getTable(tableHandle);
-        assertNotNull(table);
-
-        String expectedList = "[column1 = 'testpartition1', column1 = 'testpartition2']";
-
-        assertEquals(mockSession.getAccessCount(), 1);
-        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
-        assertEquals(mockSession.getAccessCount(), 2);
-        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
-        assertEquals(mockSession.getAccessCount(), 2);
-
-        schemaProvider.flushCache();
-
-        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
-        assertEquals(mockSession.getAccessCount(), 3);
-    }
-
-    @Test
     public void testNoCacheExceptions()
             throws Exception
     {
