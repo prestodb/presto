@@ -254,6 +254,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show roles from catalog %s", catalogName));
     }
 
+    public static void denyShowCurrentRoles(String catalogName)
+    {
+        throw new AccessDeniedException(format("Cannot show current roles from catalog %s", catalogName));
+    }
+
+    public static void denyShowRoleGrants(String catalogName)
+    {
+        throw new AccessDeniedException(format("Cannot show role grants from catalog %s", catalogName));
+    }
+
     public static void denySetSystemSessionProperty(String propertyName)
     {
         denySetSystemSessionProperty(propertyName, null);
