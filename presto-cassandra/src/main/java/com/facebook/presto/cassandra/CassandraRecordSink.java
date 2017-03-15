@@ -45,7 +45,6 @@ public class CassandraRecordSink
     private final CassandraSession cassandraSession;
     private final String insertQuery;
     private final List<Object> values;
-    private final String schemaName;
     private final List<Type> columnTypes;
     private int field = -1;
 
@@ -55,7 +54,7 @@ public class CassandraRecordSink
         this.fieldCount = requireNonNull(handle, "handle is null").getColumnNames().size();
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
 
-        schemaName = handle.getSchemaName();
+        String schemaName = handle.getSchemaName();
         StringBuilder queryBuilder = new StringBuilder(String.format("INSERT INTO \"%s\".\"%s\"(", schemaName, handle.getTableName()));
         queryBuilder.append("id");
 
@@ -91,7 +90,7 @@ public class CassandraRecordSink
         checkState(field != -1, "not in record");
         checkState(field == fieldCount, "not all fields set");
         field = -1;
-        cassandraSession.execute(schemaName, insertQuery, values.toArray());
+        cassandraSession.execute(insertQuery, values.toArray());
     }
 
     @Override
