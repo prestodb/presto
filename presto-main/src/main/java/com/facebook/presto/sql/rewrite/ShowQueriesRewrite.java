@@ -272,6 +272,7 @@ final class ShowQueriesRewrite
             String catalog = node.getCatalog().orElseGet(() -> session.getCatalog().get());
 
             if (node.isCurrent()) {
+                accessControl.checkCanShowCurrentRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
                 return simpleQuery(
                         selectList(aliasedName("role_name", "Role")),
                         from(catalog, TABLE_ENABLED_ROLES));
@@ -294,6 +295,7 @@ final class ShowQueriesRewrite
             String catalog = node.getCatalog().orElseGet(() -> session.getCatalog().get());
             PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
 
+            accessControl.checkCanShowRoleGrants(session.getRequiredTransactionId(), session.getIdentity(), catalog);
             List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()
                     .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
                     .collect(toList());
