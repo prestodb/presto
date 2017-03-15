@@ -33,6 +33,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static java.lang.String.format;
 
 public class TestStringFunctions
         extends AbstractTestFunctions
@@ -208,8 +209,8 @@ public class TestStringFunctions
         string = (string == null) ? "NULL" : ("'" + string + "'");
         substring = (substring == null) ? "NULL" : ("'" + substring + "'");
 
-        assertFunction(String.format("STRPOS(%s, %s)", string, substring), BIGINT, expected);
-        assertFunction(String.format("POSITION(%s in %s)", substring, string), BIGINT, expected);
+        assertFunction(format("STRPOS(%s, %s)", string, substring), BIGINT, expected);
+        assertFunction(format("POSITION(%s in %s)", substring, string), BIGINT, expected);
     }
 
     @Test
