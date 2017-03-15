@@ -65,7 +65,7 @@ public class TestCassandraTokenSplitManager
             return null;
         });
 
-        session.executeWithSession(KEYSPACE, session -> {
+        session.executeWithSession(session -> {
             String createTable = format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, TABLE);
             session.execute(createTable);
             return null;
@@ -79,7 +79,7 @@ public class TestCassandraTokenSplitManager
 
         for (int i = 0; i < PARTITION_COUNT; i++) {
             String insertInto = format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, TABLE, "value" + i);
-            session.executeWithSession(KEYSPACE, session -> session.execute(insertInto));
+            session.executeWithSession(session -> session.execute(insertInto));
         }
         EmbeddedCassandra.flush(KEYSPACE, TABLE);
         EmbeddedCassandra.refreshSizeEstimates();

@@ -151,7 +151,7 @@ public class MockCassandraSession
     }
 
     @Override
-    public ResultSet executeQuery(String schemaName, String cql)
+    public ResultSet executeQuery(String cql)
     {
         throw new IllegalStateException("unexpected CQL query: " + cql);
     }

@@ -94,35 +94,35 @@ public class CassandraSession
                 });
     }
 
-    public Set<Host> getReplicas(final String schemaName, final ByteBuffer partitionKey)
+    public Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey)
     {
-        return executeWithSession(schemaName, session -> session.getCluster().getMetadata().getReplicas(schemaName, partitionKey));
+        return executeWithSession(session -> session.getCluster().getMetadata().getReplicas(schemaName, partitionKey));
     }
 
-    private Session getSession(String schemaName)
+    private Session getSession()
     {
         try {
-            return sessionBySchema.get(schemaName);
+            return sessionBySchema.get("");
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throw Throwables.propagate(e.getCause());
         }
     }
 
-    public ResultSet executeQuery(String schemaName, final String cql)
+    public ResultSet executeQuery(String cql)
     {
-        return executeWithSession(schemaName, session -> session.execute(cql));
+        return executeWithSession(session -> session.execute(cql));
     }
 
-    public ResultSet execute(String schemaName, final String cql, final Object... values)
+    public ResultSet execute(String cql, final Object... values)
     {
-        return executeWithSession(schemaName, session -> session.execute(cql, values));
+        return executeWithSession(session -> session.execute(cql, values));
     }
 
     public List<String> getAllSchemas()
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        List<KeyspaceMetadata> keyspaces = executeWithSession("", session -> session.getCluster().getMetadata().getKeyspaces());
+        List<KeyspaceMetadata> keyspaces = executeWithSession(session -> session.getCluster().getMetadata().getKeyspaces());
         for (KeyspaceMetadata meta : keyspaces) {
             builder.add(meta.getName());
         }
@@ -140,10 +140,10 @@ public class CassandraSession
         return builder.build();
     }
 
-    private KeyspaceMetadata getCheckedKeyspaceMetadata(final String schema)
+    private KeyspaceMetadata getCheckedKeyspaceMetadata(String schema)
             throws SchemaNotFoundException
     {
-        KeyspaceMetadata keyspaceMetadata = executeWithSession(schema, session -> session.getCluster().getMetadata().getKeyspace(schema));
+        KeyspaceMetadata keyspaceMetadata = executeWithSession(session -> session.getCluster().getMetadata().getKeyspace(schema));
         if (keyspaceMetadata == null) {
             throw new SchemaNotFoundException(schema);
         }
@@ -325,7 +325,6 @@ public class CassandraSession
     protected Iterable<Row> queryPartitionKeys(CassandraTable table, List<Object> filterPrefix)
     {
         CassandraTableHandle tableHandle = table.getTableHandle();
-        String schemaName = tableHandle.getSchemaName();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         if (filterPrefix.size() != partitionKeyColumns.size()) {
@@ -334,19 +333,14 @@ public class CassandraSession
 
         Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
         addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
-        return executeWithSession(schemaName, session -> session.execute(partitionKeys)).all();
+        return executeWithSession(session -> session.execute(partitionKeys)).all();
     }
 
     public <T> T executeWithSession(SessionCallable<T> sessionCallable)
     {
-        return executeWithSession("", sessionCallable);
-    }
-
-    public <T> T executeWithSession(String schemaName, SessionCallable<T> sessionCallable)
-    {
         NoHostAvailableException lastException = null;
         for (int i = 0; i <= noHostAvailableRetryCount; i++) {
-            Session session = getSession(schemaName);
+            Session session = getSession();
             try {
                 return sessionCallable.executeWithSession(session);
             }
@@ -355,7 +349,7 @@ public class CassandraSession
 
                 // Something happened with our client connection.  We need to
                 // re-establish the connection using our contact points.
-                sessionBySchema.asMap().remove(schemaName, session);
+                sessionBySchema.invalidateAll();
             }
         }
         throw lastException;
