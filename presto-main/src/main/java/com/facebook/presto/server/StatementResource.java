@@ -629,6 +629,7 @@ public class StatementResource
                     .setUserTimeMillis(queryStats.getTotalUserTime().toMillis())
                     .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
                     .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
+                    .setPeakMemoryReservation(queryStats.getPeakMemoryReservation().toBytes())
                     .setProcessedRows(queryStats.getRawInputPositions())
                     .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
                     .setRootStage(toStageStats(outputStage))

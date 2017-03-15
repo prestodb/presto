@@ -37,6 +37,7 @@ public class StatementStats
     private final long userTimeMillis;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
+    private final long peakMemoryReservation;
     private final long processedRows;
     private final long processedBytes;
     private final StageStats rootStage;
@@ -54,6 +55,7 @@ public class StatementStats
             @JsonProperty("userTimeMillis") long userTimeMillis,
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
             @JsonProperty("wallTimeMillis") long wallTimeMillis,
+            @JsonProperty("peakMemoryReservation") long peakMemoryReservation,
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("rootStage") StageStats rootStage)
@@ -69,6 +71,7 @@ public class StatementStats
         this.userTimeMillis = userTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
+        this.peakMemoryReservation = peakMemoryReservation;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.rootStage = rootStage;
@@ -142,6 +145,12 @@ public class StatementStats
     }
 
     @JsonProperty
+    public long getPeakMemoryReservation()
+    {
+        return peakMemoryReservation;
+    }
+
+    @JsonProperty
     public long getProcessedRows()
     {
         return processedRows;
@@ -199,6 +208,7 @@ public class StatementStats
         private long userTimeMillis;
         private long cpuTimeMillis;
         private long wallTimeMillis;
+        private long peakMemoryReservation;
         private long processedRows;
         private long processedBytes;
         private StageStats rootStage;
@@ -271,6 +281,12 @@ public class StatementStats
             return this;
         }
 
+        public Builder setPeakMemoryReservation(long peakMemoryReservation)
+        {
+            this.peakMemoryReservation = peakMemoryReservation;
+            return this;
+        }
+
         public Builder setProcessedRows(long processedRows)
         {
             this.processedRows = processedRows;
@@ -303,6 +319,7 @@ public class StatementStats
                     userTimeMillis,
                     cpuTimeMillis,
                     wallTimeMillis,
+                    peakMemoryReservation,
                     processedRows,
                     processedBytes,
                     rootStage);
