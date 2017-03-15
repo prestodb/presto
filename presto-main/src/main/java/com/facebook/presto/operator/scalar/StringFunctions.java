@@ -636,6 +636,11 @@ public final class StringFunctions
             return leftCodePoints.length;
         }
 
+        checkCondition(
+                (leftCodePoints.length * (rightCodePoints.length - 1)) <= 1_000_000,
+                INVALID_FUNCTION_ARGUMENT,
+                "The combined inputs for Levenshtein distance are too large");
+
         int[] distances = new int[rightCodePoints.length];
         for (int i = 0; i < rightCodePoints.length; i++) {
             distances[i] = i + 1;
