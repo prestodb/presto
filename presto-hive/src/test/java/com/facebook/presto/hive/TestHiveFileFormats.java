@@ -32,6 +32,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import io.airlift.compress.lzo.LzoCodec;
+import io.airlift.compress.lzo.LzopCodec;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
@@ -637,11 +639,13 @@ public class TestHiveFileFormats
                 .map(input -> new HivePartitionKey(input.getName(), HiveType.valueOf(input.getObjectInspector().getTypeName()), (String) input.getWriteValue()))
                 .collect(toList());
 
+        Configuration configuration = new Configuration();
+        configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(cursorProvider),
                 ImmutableSet.of(),
                 "test",
-                new Configuration(),
+                configuration,
                 SESSION,
                 split.getPath(),
                 OptionalInt.empty(),
@@ -853,7 +857,18 @@ public class TestHiveFileFormats
             assertNotNull(session, "session must be specified");
             assertTrue(rowsCount >= 0, "rowsCount must be greater than zero");
 
-            File file = File.createTempFile("presto_test", formatName);
+            String compressionSuffix = compressionCodec.getCodec()
+                    .map(codec -> {
+                        try {
+                            return codec.getConstructor().newInstance().getDefaultExtension();
+                        }
+                        catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .orElse("");
+
+            File file = File.createTempFile("presto_test", formatName + compressionSuffix);
             file.delete();
             try {
                 FileSplit split;
