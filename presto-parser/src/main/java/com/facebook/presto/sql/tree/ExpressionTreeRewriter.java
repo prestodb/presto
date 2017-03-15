@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 
 public final class ExpressionTreeRewriter<C>
@@ -495,16 +496,9 @@ public final class ExpressionTreeRewriter<C>
                     partitionBy.add(rewrite(expression, context.get()));
                 }
 
-                // Since SortItem is not an Expression, but contains Expressions, just process the default rewrite inline with FunctionCall
-                ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
-                for (SortItem sortItem : window.getOrderBy()) {
-                    Expression sortKey = rewrite(sortItem.getSortKey(), context.get());
-                    if (sortItem.getSortKey() != sortKey) {
-                        orderBy.add(new SortItem(sortKey, sortItem.getOrdering(), sortItem.getNullOrdering()));
-                    }
-                    else {
-                        orderBy.add(sortItem);
-                    }
+                Optional<OrderBy> orderBy = Optional.empty();
+                if (window.getOrderBy().isPresent()) {
+                    orderBy = Optional.of(rewriteOrderBy(window.getOrderBy().get(), context));
                 }
 
                 Optional<WindowFrame> rewrittenFrame = window.getFrame();
@@ -537,9 +531,9 @@ public final class ExpressionTreeRewriter<C>
                 }
 
                 if (!sameElements(window.getPartitionBy(), partitionBy.build()) ||
-                        !sameElements(window.getOrderBy(), orderBy.build()) ||
+                        !sameElements(window.getOrderBy(), orderBy) ||
                         !sameElements(window.getFrame(), rewrittenFrame)) {
-                    rewrittenWindow = Optional.of(new Window(partitionBy.build(), orderBy.build(), rewrittenFrame));
+                    rewrittenWindow = Optional.of(new Window(partitionBy.build(), orderBy, rewrittenFrame));
                 }
             }
 
@@ -553,6 +547,27 @@ public final class ExpressionTreeRewriter<C>
                 return new FunctionCall(node.getName(), rewrittenWindow, filter, node.isDistinct(), arguments.build());
             }
             return node;
+        }
+
+        // Since OrderBy contains list of SortItems, we want to process each SortItem's key, which is an expression
+        private OrderBy rewriteOrderBy(OrderBy orderBy, Context<C> context)
+        {
+            ImmutableList.Builder<SortItem> sortItems = ImmutableList.builder();
+            for (SortItem sortItem : orderBy.getSortItems()) {
+                Expression sortKey = rewrite(sortItem.getSortKey(), context.get());
+                if (sortItem.getSortKey() != sortKey) {
+                    sortItems.add(new SortItem(sortKey, sortItem.getOrdering(), sortItem.getNullOrdering()));
+                }
+                else {
+                    sortItems.add(sortItem);
+                }
+            }
+            List<SortItem> rewrittenSortItems = sortItems.build();
+            if (sameElements(orderBy.getSortItems(), rewrittenSortItems)) {
+                return orderBy;
+            }
+
+            return new OrderBy(rewrittenSortItems);
         }
 
         @Override

@@ -191,8 +191,8 @@ public abstract class DefaultTraversalVisitor<R, C>
             process(expression, context);
         }
 
-        for (SortItem sortItem : node.getOrderBy()) {
-            process(sortItem.getSortKey(), context);
+        if (node.getOrderBy().isPresent()) {
+            process(node.getOrderBy().get(), context);
         }
 
         if (node.getFrame().isPresent()) {

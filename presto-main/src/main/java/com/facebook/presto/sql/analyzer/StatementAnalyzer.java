@@ -1104,8 +1104,8 @@ class StatementAnalyzer
                     nestedExtractor.process(expression, null);
                 }
 
-                for (SortItem sortItem : window.getOrderBy()) {
-                    nestedExtractor.process(sortItem.getSortKey(), null);
+                if (window.getOrderBy().isPresent()) {
+                    nestedExtractor.process(window.getOrderBy().get(), null);
                 }
 
                 if (window.getFrame().isPresent()) {
