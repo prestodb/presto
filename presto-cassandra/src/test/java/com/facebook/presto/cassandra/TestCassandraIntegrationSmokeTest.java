@@ -73,7 +73,7 @@ public class TestCassandraIntegrationSmokeTest
     public void setUp()
             throws Exception
     {
-        createTestTables(KEYSPACE, DATE_LOCAL);
+        createTestTables(EmbeddedCassandra.getCluster(), KEYSPACE, DATE_LOCAL);
     }
 
     @Test

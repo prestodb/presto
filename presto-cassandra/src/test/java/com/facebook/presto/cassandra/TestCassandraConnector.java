@@ -88,7 +88,7 @@ public class TestCassandraConnector
         EmbeddedCassandra.start();
 
         String keyspace = "test_connector";
-        createTestTables(keyspace, DATE);
+        createTestTables(EmbeddedCassandra.getCluster(), keyspace, DATE);
 
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(

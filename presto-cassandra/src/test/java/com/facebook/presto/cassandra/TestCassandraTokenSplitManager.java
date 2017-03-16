@@ -13,17 +13,13 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
 import com.facebook.presto.cassandra.CassandraTokenSplitManager.TokenSplit;
-import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.cassandra.CassandraTestingUtils.HOSTNAME;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.PORT;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -45,13 +41,10 @@ public class TestCassandraTokenSplitManager
             throws Exception
     {
         EmbeddedCassandra.start();
-        Cluster.Builder cluster = Cluster.builder()
-                .withPort(PORT);
         session = new NativeCassandraSession(
                 CONNECTOR_ID,
-                ImmutableList.of(HOSTNAME),
-                cluster,
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
+                EmbeddedCassandra.getCluster(),
                 DOES_NOT_MATTER);
         splitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE);
     }

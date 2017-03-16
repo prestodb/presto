@@ -25,9 +25,7 @@ import com.google.common.primitives.Ints;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.UUID;
 
@@ -42,31 +40,20 @@ public class CassandraTestingUtils
     public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
     public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
     public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
-    private static final String CLUSTER_NAME = "TestCluster";
 
     private CassandraTestingUtils() {}
 
-    public static Cluster getCluster()
+    public static void createTestTables(Cluster cluster, String keyspace, Date date)
     {
-        return Cluster.builder()
-                .withClusterName(CLUSTER_NAME)
-                .addContactPointsWithPorts(Arrays.asList(new InetSocketAddress(HOSTNAME, PORT)))
-                .build();
-    }
-
-    public static void createTestTables(String keyspace, Date date)
-    {
-        try (Cluster cluster = getCluster()) {
-            try (Session session = cluster.connect()) {
-                createOrReplaceKeyspace(session, keyspace);
-            }
-            try (Session session = cluster.connect(keyspace)) {
-                createTableAllTypes(session, keyspace, TABLE_ALL_TYPES, date);
-                createTableAllTypesPartitionKey(session, keyspace, TABLE_ALL_TYPES_PARTITION_KEY, date);
-                createTableClusteringKeys(session, keyspace, TABLE_CLUSTERING_KEYS, 9);
-                createTableClusteringKeys(session, keyspace, TABLE_CLUSTERING_KEYS_LARGE, 1000);
-                createTableMultiPartitionClusteringKeys(session, keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS);
-            }
+        try (Session session = cluster.connect()) {
+            createOrReplaceKeyspace(session, keyspace);
+        }
+        try (Session session = cluster.connect(keyspace)) {
+            createTableAllTypes(session, keyspace, TABLE_ALL_TYPES, date);
+            createTableAllTypesPartitionKey(session, keyspace, TABLE_ALL_TYPES_PARTITION_KEY, date);
+            createTableClusteringKeys(session, keyspace, TABLE_CLUSTERING_KEYS, 9);
+            createTableClusteringKeys(session, keyspace, TABLE_CLUSTERING_KEYS_LARGE, 1000);
+            createTableMultiPartitionClusteringKeys(session, keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS);
         }
     }
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -52,8 +51,7 @@ public final class CassandraQueryRunner
                 "cassandra.allow-drop-table", "true"));
 
         if (!tpchLoaded) {
-            try (Cluster cluster = CassandraTestingUtils.getCluster();
-                    com.datastax.driver.core.Session session = cluster.connect()) {
+            try (com.datastax.driver.core.Session session = EmbeddedCassandra.getCluster().connect()) {
                 createOrReplaceKeyspace(session, "tpch");
             }
             List<TpchTable<?>> tables = TpchTable.getTables();
