@@ -252,7 +252,7 @@ public class CassandraMetadata
         String schemaName = cassandraTableHandle.getSchemaName();
         String tableName = cassandraTableHandle.getTableName();
 
-        cassandraSession.executeQuery(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName));
+        cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName));
         schemaProvider.flushTable(cassandraTableHandle.getSchemaTableName());
     }
 
@@ -297,7 +297,7 @@ public class CassandraMetadata
         queryBuilder.append("WITH comment='").append(CassandraSession.PRESTO_COMMENT_METADATA).append(" ").append(columnMetadata).append("'");
 
         // We need create Cassandra table before commit because record need to be written to the table .
-        cassandraSession.executeQuery(queryBuilder.toString());
+        cassandraSession.execute(queryBuilder.toString());
         return new CassandraOutputTableHandle(
                 connectorId,
                 schemaName,

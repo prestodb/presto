@@ -109,11 +109,6 @@ public class CassandraSession
         }
     }
 
-    public ResultSet executeQuery(String cql)
-    {
-        return executeWithSession(session -> session.execute(cql));
-    }
-
     public ResultSet execute(String cql, final Object... values)
     {
         return executeWithSession(session -> session.execute(cql, values));
