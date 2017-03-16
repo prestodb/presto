@@ -47,7 +47,7 @@ public class TestCassandraTokenSplitManager
         EmbeddedCassandra.start();
         Cluster.Builder cluster = Cluster.builder()
                 .withPort(PORT);
-        session = new CassandraSession(
+        session = new NativeCassandraSession(
                 CONNECTOR_ID,
                 ImmutableList.of(HOSTNAME),
                 cluster,

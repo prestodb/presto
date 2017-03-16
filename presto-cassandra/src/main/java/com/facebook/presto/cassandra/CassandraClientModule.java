@@ -161,7 +161,7 @@ public class CassandraClientModule
             ));
         }
 
-        return new CassandraSession(
+        return new NativeCassandraSession(
                 connectorId.toString(),
                 contactPoints,
                 clusterBuilder,
