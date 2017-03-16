@@ -33,8 +33,6 @@ import static org.testng.Assert.assertEquals;
 
 public class CassandraTestingUtils
 {
-    public static final String HOSTNAME = "localhost";
-    public static final int PORT = 9142;
     public static final String TABLE_ALL_TYPES = "table_all_types";
     public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
     public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
