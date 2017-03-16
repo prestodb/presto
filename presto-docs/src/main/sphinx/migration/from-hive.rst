@@ -109,26 +109,3 @@ Presto query::
     SELECT student, score
     FROM tests
     CROSS JOIN UNNEST(scores) AS t (score);
-
-Outer Join Differences
-----------------------
-
-Adhering to the ANSI SQL spec, Presto respects the abstract concept that the *whole* ``ON`` clause is evaluated to determine whether or not a row from the left table will be joined with a right table row. In a ``LEFT JOIN``, all the rows of the left table are always returned out of the join, vice versa for a ``RIGHT JOIN``. In contrast, Hive will *first* apply any constant filters in the ``ON`` clause *then* perform the join. This can produce very different results when ``ON`` clause predicates refer to the outer table.
-
-When you want to convert a Hive ``OUTER JOIN`` query to Presto, remember that Hive treats the ``ON`` clause predicates as if it were part of the ``WHERE`` clause. So to get the equivalent behavior in Presto, you need to move your ``ON`` clause predicates into the ``WHERE`` clause.
-
-Hive query::
-
-    SELECT a.id, b.userid
-    FROM a
-    LEFT JOIN b
-    ON a.id = b.id AND a.ds = '2013-11-11'
-
-Presto query::
-
-    SELECT a.id, b.userid
-    FROM a
-    LEFT JOIN b
-    ON a.id = b.id
-    WHERE a.ds = '2013-11-11'
-
