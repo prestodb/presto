@@ -20,6 +20,7 @@ import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
 import com.facebook.presto.hive.parquet.ParquetEncoding;
 import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.hive.parquet.dictionary.ParquetDictionary;
+import com.facebook.presto.hive.parquet.reader.ParquetReader.IsNull;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -147,7 +148,7 @@ public abstract class ParquetColumnReader
         return columnDescriptor;
     }
 
-    public Block readPrimitive(Type type, IntList positions)
+    public Block readPrimitive(Type type, IntList positions, IsNull isNull)
             throws IOException
     {
         seek();
@@ -156,11 +157,11 @@ public abstract class ParquetColumnReader
         while (valueCount < nextBatchSize) {
             if (page == null) {
                 readNextPage();
+                repetitionLevel = repetitionReader.readLevel();
             }
             int numValues = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
-            readValues(blockBuilder, numValues, type, positions);
+            readValues(blockBuilder, numValues, type, positions, isNull);
             valueCount += numValues;
-            updatePosition(numValues);
         }
         checkArgument(valueCount == nextBatchSize, "valueCount " + valueCount + " not equals to batchSize " + nextBatchSize);
 
@@ -169,33 +170,37 @@ public abstract class ParquetColumnReader
         return blockBuilder.build();
     }
 
-    private void readValues(BlockBuilder blockBuilder, int numValues, Type type, IntList positions)
+    private void readValues(BlockBuilder blockBuilder, int numValues, Type type, IntList positions, IsNull isNull)
+            throws IOException
     {
-        definitionLevel = definitionReader.readLevel();
-        repetitionLevel = repetitionReader.readLevel();
+        boolean elementNull;
         int valueCount = 0;
-        for (int i = 0; i < numValues; i++) {
-            do {
+        int rowCount = 0;
+        while (rowCount < numValues) {
+            valueCount++;
+            definitionLevel = definitionReader.readLevel();
+            repetitionLevel = repetitionReader.readLevel();
+            elementNull = (definitionLevel == 0);
+
+            if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
                 readValue(blockBuilder, type);
-                try {
-                    valueCount++;
-                    repetitionLevel = repetitionReader.readLevel();
-                    if (repetitionLevel == 0) {
-                        positions.add(valueCount);
-                        valueCount = 0;
-                        if (i == numValues - 1) {
-                            return;
-                        }
-                    }
-                    definitionLevel = definitionReader.readLevel();
-                }
-                catch (IllegalArgumentException expected) {
-                    // Reading past repetition stream, RunLengthBitPackingHybridDecoder throws IllegalArgumentException
-                    positions.add(valueCount);
+            }
+            else {
+                blockBuilder.appendNull();
+            }
+
+            if (repetitionLevel == 0) {
+                positions.add(valueCount);
+                isNull.add(elementNull);
+                rowCount++;
+                if (rowCount == numValues) {
+                    updatePosition(rowCount);
                     return;
                 }
-            } while (repetitionLevel != 0);
+                valueCount = 0;
+            }
         }
+        updatePosition(rowCount);
     }
 
     private void skipValues(int offset)

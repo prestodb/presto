@@ -163,7 +163,7 @@ public class ArrayBlockBuilder
     public SingleArrayBlockWriter beginBlockEntry()
     {
         if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was closed");
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
         return new SingleArrayBlockWriter(values, values.getPositionCount());

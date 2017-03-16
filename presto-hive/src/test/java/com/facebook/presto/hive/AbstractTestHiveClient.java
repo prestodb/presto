@@ -128,7 +128,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
-import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.JSON;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -182,7 +181,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static com.google.common.collect.Sets.difference;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -313,7 +311,7 @@ public abstract class AbstractTestHiveClient
                     .row(6L, "bye", (byte) 46, (short) 346, 345, 456L, -754.2008f, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), ImmutableList.of("false", 0L, false), "2015-07-04")
                     .build();
 
-    protected Set<HiveStorageFormat> createTableFormats = difference(ImmutableSet.copyOf(HiveStorageFormat.values()), ImmutableSet.of(AVRO));
+    protected Set<HiveStorageFormat> createTableFormats = ImmutableSet.of(HiveStorageFormat.PARQUET);
 
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
 
@@ -854,13 +852,13 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
-                            ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
-                                    .build(),
-                            ImmutableMultimap.of());
+                    ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                            .build(),
+                    ImmutableMultimap.of());
             Table oldTable = transaction.getMetastore(schemaName).getTable(schemaName, tableName).get();
             HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()

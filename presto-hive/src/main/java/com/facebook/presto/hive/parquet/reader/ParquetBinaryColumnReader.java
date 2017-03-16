@@ -37,26 +37,21 @@ public class ParquetBinaryColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            Slice value;
-            if (binary.length() == 0) {
-                value = EMPTY_SLICE;
-            }
-            else {
-                value = wrappedBuffer(binary.getBytes());
-            }
-            if (isVarcharType(type)) {
-                value = truncateToLength(value, type);
-            }
-            if (isCharType(type)) {
-                value = trimSpacesAndTruncateToLength(value, type);
-            }
-            type.writeSlice(blockBuilder, value);
+        Binary binary = valuesReader.readBytes();
+        Slice value;
+        if (binary.length() == 0) {
+            value = EMPTY_SLICE;
         }
         else {
-            blockBuilder.appendNull();
+            value = wrappedBuffer(binary.getBytes());
         }
+        if (isVarcharType(type)) {
+            value = truncateToLength(value, type);
+        }
+        if (isCharType(type)) {
+            value = trimSpacesAndTruncateToLength(value, type);
+        }
+        type.writeSlice(blockBuilder, value);
     }
 
     @Override

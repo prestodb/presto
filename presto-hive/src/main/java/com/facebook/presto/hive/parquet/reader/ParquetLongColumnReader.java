@@ -28,12 +28,7 @@ public class ParquetLongColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeLong(blockBuilder, valuesReader.readLong());
-        }
-        else {
-            blockBuilder.appendNull();
-        }
+        type.writeLong(blockBuilder, valuesReader.readLong());
     }
 
     @Override

@@ -27,6 +27,8 @@ import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
+import it.unimi.dsi.fastutil.booleans.BooleanList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import parquet.column.ColumnDescriptor;
@@ -50,6 +52,7 @@ import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -151,17 +154,18 @@ public class ParquetReader
     public Block readArray(Type type, List<String> path)
             throws IOException
     {
-        return readArray(type, path, new IntArrayList());
+        return readArray(type, path, new IntArrayList(), new IsNull());
     }
 
-    private Block readArray(Type type, List<String> path, IntList elementOffsets)
+    private Block readArray(Type type, List<String> path, IntList elementOffsets, IsNull isNull)
             throws IOException
     {
         List<Type> parameters = type.getTypeParameters();
         checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %d", parameters.size());
         path.add(ARRAY_TYPE_NAME);
         Type elementType = parameters.get(0);
-        Block block = readBlock(ARRAY_ELEMENT_NAME, elementType, path, elementOffsets);
+        IsNull arrayIsNull = new IsNull();
+        Block block = readBlock(ARRAY_ELEMENT_NAME, elementType, path, elementOffsets, arrayIsNull);
         path.remove(ARRAY_TYPE_NAME);
 
         if (elementOffsets.isEmpty()) {
@@ -171,20 +175,23 @@ public class ParquetReader
             return RunLengthEncodedBlock.create(elementType, null, batchSize);
         }
 
+        boolean[] isNullVector = arrayIsNull.isNull();
         int[] offsets = new int[batchSize + 1];
         for (int i = 1; i < offsets.length; i++) {
             offsets[i] = offsets[i - 1] + elementOffsets.getInt(i - 1);
         }
-        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, block);
+
+        isNull.addAll(isNullVector);
+        return new ArrayBlock(batchSize, isNullVector, offsets, block);
     }
 
     public Block readMap(Type type, List<String> path)
             throws IOException
     {
-        return readMap(type, path, new IntArrayList());
+        return readMap(type, path, new IntArrayList(), new IsNull());
     }
 
-    private Block readMap(Type type, List<String> path, IntList elementOffsets)
+    private Block readMap(Type type, List<String> path, IntList elementOffsets, IsNull isNull)
             throws IOException
     {
         List<Type> parameters = type.getTypeParameters();
@@ -194,8 +201,10 @@ public class ParquetReader
         IntList keyOffsets = new IntArrayList();
         IntList valueOffsets = new IntArrayList();
         path.add(MAP_TYPE_NAME);
-        blocks[0] = readBlock(MAP_KEY_NAME, parameters.get(0), path, keyOffsets);
-        blocks[1] = readBlock(MAP_VALUE_NAME, parameters.get(1), path, valueOffsets);
+        IsNull keyIsNull = new IsNull();
+        IsNull valueIsNull = new IsNull();
+        blocks[0] = readBlock(MAP_KEY_NAME, parameters.get(0), path, keyOffsets, keyIsNull);
+        blocks[1] = readBlock(MAP_VALUE_NAME, parameters.get(1), path, valueOffsets, valueIsNull);
         path.remove(MAP_TYPE_NAME);
 
         if (blocks[0].getPositionCount() == 0) {
@@ -210,44 +219,75 @@ public class ParquetReader
             elementOffsets.add(elementPositionCount * 2);
             offsets[i] = offsets[i - 1] + elementPositionCount;
         }
-        return ((MapType) type).createBlockFromKeyValue(new boolean[batchSize], offsets, blocks[0], blocks[1]);
+
+        verify(keyIsNull.size() == valueIsNull.size(), "key and value is null sizes must be the same");
+        for (int i = 0; i < keyIsNull.size(); i++) {
+            if (keyIsNull.elementAt(i) && valueIsNull.elementAt(i)) {
+                isNull.add(true);
+            }
+            else {
+                isNull.add(false);
+            }
+        }
+        return ((MapType) type).createBlockFromKeyValue(isNull.isNull(), offsets, blocks[0], blocks[1]);
     }
 
     public Block readStruct(Type type, List<String> path)
             throws IOException
     {
-        return readStruct(type, path, new IntArrayList());
+        return readStruct(type, path, new IntArrayList(), new IsNull());
     }
 
-    private Block readStruct(Type type, List<String> path, IntList elementOffsets)
+    private Block readStruct(Type type, List<String> path, IntList elementOffsets, IsNull isNull)
             throws IOException
     {
         List<TypeSignatureParameter> parameters = type.getTypeSignature().getParameters();
         Block[] blocks = new Block[parameters.size()];
+        IsNull[] fieldsNull = new IsNull[parameters.size()];
+        IntArrayList fieldOffsets = new IntArrayList();
         for (int i = 0; i < parameters.size(); i++) {
+            fieldsNull[i] = new IsNull();
             NamedTypeSignature namedTypeSignature = parameters.get(i).getNamedTypeSignature();
             Type fieldType = typeManager.getType(namedTypeSignature.getTypeSignature());
             String name = namedTypeSignature.getName();
-            blocks[i] = readBlock(name, fieldType, path, new IntArrayList());
+            blocks[i] = readBlock(name, fieldType, path, fieldOffsets, fieldsNull[i]);
         }
 
         InterleavedBlock interleavedBlock = new InterleavedBlock(blocks);
-        int blockSize = blocks[0].getPositionCount();
+        int blockSize = fieldsNull[0].size();
+        IsNull structIsNull = new IsNull();
+        for (int i = 0; i < blockSize; i++) {
+            boolean isStructNull = true;
+            for (int j = 0; j < parameters.size(); j++) {
+                boolean isFieldNull = fieldsNull[j].elementAt(i);
+                structIsNull.add(isFieldNull);
+                if (!isFieldNull) {
+                    isStructNull = false;
+                }
+            }
+            isNull.add(isStructNull);
+            if (isStructNull) {
+                elementOffsets.add(1);
+            }
+            else {
+                elementOffsets.add(parameters.size());
+            }
+        }
+        blockSize *= parameters.size();
         int[] offsets = new int[blockSize + 1];
         for (int i = 1; i < offsets.length; i++) {
-            elementOffsets.add(parameters.size());
-            offsets[i] = i * parameters.size();
+            offsets[i] = offsets[i - 1] + parameters.size();
         }
-        return new ArrayBlock(blockSize, new boolean[blockSize], offsets, interleavedBlock);
+        return new ArrayBlock(blockSize, structIsNull.isNull(), offsets, interleavedBlock);
     }
 
     public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)
             throws IOException
     {
-        return readPrimitive(columnDescriptor, type, new IntArrayList());
+        return readPrimitive(columnDescriptor, type, new IntArrayList(), new IsNull());
     }
 
-    private Block readPrimitive(ColumnDescriptor columnDescriptor, Type type, IntList offsets)
+    private Block readPrimitive(ColumnDescriptor columnDescriptor, Type type, IntList offsets, IsNull isNull)
             throws IOException
     {
         ParquetColumnReader columnReader = columnReadersMap.get(columnDescriptor);
@@ -262,7 +302,7 @@ public class ParquetReader
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
-        return columnReader.readPrimitive(type, offsets);
+        return columnReader.readPrimitive(type, offsets, isNull);
     }
 
     private byte[] allocateBlock(int length)
@@ -293,7 +333,7 @@ public class ParquetReader
         }
     }
 
-    private Block readBlock(String name, Type type, List<String> path, IntList offsets)
+    private Block readBlock(String name, Type type, List<String> path, IntList offsets, IsNull isNull)
             throws IOException
     {
         path.add(name);
@@ -305,18 +345,56 @@ public class ParquetReader
 
         Block block;
         if (ROW.equals(type.getTypeSignature().getBase())) {
-            block = readStruct(type, path, offsets);
+            block = readStruct(type, path, offsets, isNull);
         }
         else if (MAP.equals(type.getTypeSignature().getBase())) {
-            block = readMap(type, path, offsets);
+            block = readMap(type, path, offsets, isNull);
         }
         else if (ARRAY.equals(type.getTypeSignature().getBase())) {
-            block = readArray(type, path, offsets);
+            block = readArray(type, path, offsets, isNull);
         }
         else {
-            block = readPrimitive(descriptor.get(), type, offsets);
+            block = readPrimitive(descriptor.get(), type, offsets, isNull);
         }
         path.remove(name);
         return block;
+    }
+
+    //used as out parameter to detect null elements
+    static class IsNull
+    {
+        private BooleanList isNull = new BooleanArrayList();
+
+        public void add(boolean isNull)
+        {
+            this.isNull.add(isNull);
+        }
+
+        public void addAll(boolean[] isNull)
+        {
+            for (boolean value : isNull) {
+                this.isNull.add(value);
+            }
+        }
+
+        public void addAll(IsNull isNull)
+        {
+            this.isNull.addAll(isNull.isNull);
+        }
+
+        public boolean[] isNull()
+        {
+            return isNull.toBooleanArray();
+        }
+
+        public int size()
+        {
+            return isNull.size();
+        }
+
+        public boolean elementAt(int i)
+        {
+            return isNull.getBoolean(i);
+        }
     }
 }

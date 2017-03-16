@@ -32,13 +32,8 @@ public class ParquetLongDecimalColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary value = valuesReader.readBytes();
-            type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(new BigInteger(value.getBytes())));
-        }
-        else {
-            blockBuilder.appendNull();
-        }
+        Binary value = valuesReader.readBytes();
+        type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(new BigInteger(value.getBytes())));
     }
 
     @Override

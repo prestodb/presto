@@ -31,13 +31,8 @@ public class ParquetTimestampColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            type.writeLong(blockBuilder, getTimestampMillis(binary));
-        }
-        else {
-            blockBuilder.appendNull();
-        }
+        Binary binary = valuesReader.readBytes();
+        type.writeLong(blockBuilder, getTimestampMillis(binary));
     }
 
     @Override

@@ -30,12 +30,7 @@ public class ParquetFloatColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
-        }
-        else {
-            blockBuilder.appendNull();
-        }
+        type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
     }
 
     @Override

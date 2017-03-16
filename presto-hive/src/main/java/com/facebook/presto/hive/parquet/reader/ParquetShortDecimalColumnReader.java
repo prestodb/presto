@@ -32,23 +32,18 @@ public class ParquetShortDecimalColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long decimalValue;
-            // When decimals are encoded with primitive types Parquet stores unscaled values
-            if (columnDescriptor.getType().equals(INT32)) {
-                decimalValue = valuesReader.readInteger();
-            }
-            else if (columnDescriptor.getType().equals(INT64)) {
-                decimalValue = valuesReader.readLong();
-            }
-            else {
-                decimalValue = getShortDecimalValue(valuesReader.readBytes().getBytes());
-            }
-            type.writeLong(blockBuilder, decimalValue);
+        long decimalValue;
+        // When decimals are encoded with primitive types Parquet stores unscaled values
+        if (columnDescriptor.getType().equals(INT32)) {
+            decimalValue = valuesReader.readInteger();
+        }
+        else if (columnDescriptor.getType().equals(INT64)) {
+            decimalValue = valuesReader.readLong();
         }
         else {
-            blockBuilder.appendNull();
+            decimalValue = getShortDecimalValue(valuesReader.readBytes().getBytes());
         }
+        type.writeLong(blockBuilder, decimalValue);
     }
 
     @Override
