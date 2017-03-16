@@ -61,29 +61,45 @@ contents:
    access-control.name=file
    security.config-file=etc/rules.json
 
-The config file consists of a list of access control rules in JSON format. The
+The config file consists of access control rules in JSON format. The
 rules are matched in the order specified in the file. All
 regular expressions default to ``.*`` if not specified.
 
-This plugin currently only supports catalog access control rules. If you want
-to limit access on a system level in any other way, you must implement a custom
-SystemAccessControl plugin (see :doc:`/develop/system-access-control`).
+This plugin currently supports catalog access control rules and a Kerberos principal
+rule. If you want to limit access on a system level in any other way,
+you must implement a custom SystemAccessControl plugin (see :doc:`/develop/system-access-control`).
 
 Catalog Rules
 -------------
 
-These rules govern the catalogs particular users can access. The user is
+This list of rules governs the catalogs particular users can access. The user is
 granted access to a catalog based on the first matching rule. If no rule
 matches, access is denied. Each rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name.
 * ``catalog`` (optional): regex to match against catalog name.
-* ``allowed`` (required): boolean indicating whether a user has access to the catalog
+* ``allowed`` (required): boolean indicating whether a user has access to the catalog.
 
 .. note::
 
     By default, all users have access to the ``system`` catalog. You can
     override this behavior by adding a rule.
+
+Kerberos Principal Rule
+-----------------------
+This optional rule governs whether a given Kerberos principal can be used to set a given user.
+Thus, it is possible to ensure that principal ``bob@REALM`` is only used by user ``bob``.
+The rule is composed of a single field:
+
+* ``exactMatch`` (required): boolean indicating whether the user must exactly match the Kerberos
+  principal with ``@REALM`` trimmed off.
+
+.. note::
+  If a principal has a host field specified (e.g. ``presto/localhost@REALM``), the Presto user
+  must be ``presto/localhost`` if ``exactMatch`` is ``true``
+
+.. note::
+    If no ``kerberosPrincipals`` rule is specified, ``exactMatch`` defaults to ``false``.
 
 For example, if you want to allow only the user ``admin`` to access the
 ``mysql`` and the ``system`` catalog, allow all users to access the ``hive``
@@ -106,6 +122,10 @@ catalog, and deny all other access, you can use the following rules:
           "catalog": "system",
           "allow": false
         }
-      ]
+      ],
+      "kerberosPrincipals":
+       {
+          "exactMatch": "true"
+       }
     }
 
