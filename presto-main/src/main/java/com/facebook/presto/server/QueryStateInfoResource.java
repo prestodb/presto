@@ -37,7 +37,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
-@Path("/v1/query_state")
+@Path("/v1/queryState")
 public class QueryStateInfoResource
 {
     private final QueryManager queryManager;
