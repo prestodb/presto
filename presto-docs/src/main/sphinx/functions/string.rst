@@ -32,6 +32,10 @@ String Functions
 
     Returns the Unicode code point ``n`` as a single character string.
 
+.. function:: codepoint(string) -> integer
+
+    Returns the Unicode code point of the only character of ``string``.
+
 .. function:: concat(string1, ..., stringN) -> varchar
 
     Returns the concatenation of ``string1``, ``string2``, ``...``, ``stringN``.
