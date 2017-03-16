@@ -29,10 +29,12 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
 
@@ -70,6 +72,21 @@ public class TestStringFunctions
         assertInvalidFunction("CHR(-1)", "Not a valid Unicode code point: -1");
         assertInvalidFunction("CHR(1234567)", "Not a valid Unicode code point: 1234567");
         assertInvalidFunction("CHR(8589934592)", "Not a valid Unicode code point: 8589934592");
+    }
+
+    @Test
+    public void testCodepoint()
+    {
+        assertFunction("CODEPOINT('x')", INTEGER, 0x78);
+        assertFunction("CODEPOINT('\u840C')", INTEGER, 0x840C);
+
+        assertFunction("CODEPOINT(CHR(128077))", INTEGER, 128077);
+        assertFunction("CODEPOINT(CHR(33804))", INTEGER, 33804);
+
+        assertInvalidFunction("CODEPOINT('hello')", FUNCTION_NOT_FOUND);
+        assertInvalidFunction("CODEPOINT('\u666E\u5217\u65AF\u6258')", FUNCTION_NOT_FOUND);
+
+        assertInvalidFunction("CODEPOINT('')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

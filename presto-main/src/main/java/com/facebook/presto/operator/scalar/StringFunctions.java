@@ -79,6 +79,16 @@ public final class StringFunctions
         }
     }
 
+    @Description("returns Unicode code point of a single character string")
+    @ScalarFunction("codepoint")
+    @SqlType(StandardTypes.INTEGER)
+    public static long codepoint(@SqlType("varchar(1)") Slice slice)
+    {
+        checkCondition(countCodePoints(slice) == 1, INVALID_FUNCTION_ARGUMENT, "Input string must be a single character string");
+
+        return getCodePointAt(slice, 0);
+    }
+
     @Description("count of code points of the given string")
     @ScalarFunction
     @LiteralParameters("x")
