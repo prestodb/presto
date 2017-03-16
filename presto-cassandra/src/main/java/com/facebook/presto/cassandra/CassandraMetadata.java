@@ -296,7 +296,7 @@ public class CassandraMetadata
         String columnMetadata = extraColumnMetadataCodec.toJson(columnExtra.build());
         queryBuilder.append("WITH comment='").append(CassandraSession.PRESTO_COMMENT_METADATA).append(" ").append(columnMetadata).append("'");
 
-        // We need create Cassandra table before commit because record need to be written to the table .
+        // We need to create the Cassandra table before commit because the record needs to be written to the table.
         cassandraSession.execute(queryBuilder.toString());
         return new CassandraOutputTableHandle(
                 connectorId,
