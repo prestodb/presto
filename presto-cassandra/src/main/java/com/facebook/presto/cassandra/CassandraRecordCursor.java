@@ -37,7 +37,7 @@ public class CassandraRecordCursor
     public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
     {
         this.fullCassandraTypes = fullCassandraTypes;
-        rs = cassandraSession.executeQuery(cql);
+        rs = cassandraSession.execute(cql);
         currentRow = null;
         atLeastCount = rs.getAvailableWithoutFetching();
     }
