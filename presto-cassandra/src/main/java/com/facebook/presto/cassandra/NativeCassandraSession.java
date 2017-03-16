@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster.Builder;
+import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Host;
@@ -33,15 +33,11 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 
 import java.nio.ByteBuffer;
@@ -50,11 +46,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
 import static com.datastax.driver.core.querybuilder.Select.Where;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Comparator.comparing;
@@ -67,46 +63,24 @@ public class NativeCassandraSession
     private final String connectorId;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
     private final int noHostAvailableRetryCount;
+    private final Supplier<Session> session;
 
-    private LoadingCache<String, Session> sessionBySchema;
-
-    public NativeCassandraSession(String connectorId,
-            final List<String> contactPoints,
-            final Builder clusterBuilder,
+    public NativeCassandraSession(
+            String connectorId,
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
+            Cluster cluster,
             int noHostAvailableRetryCount)
     {
         this.connectorId = connectorId;
         this.extraColumnMetadataCodec = extraColumnMetadataCodec;
         this.noHostAvailableRetryCount = noHostAvailableRetryCount;
-
-        sessionBySchema = CacheBuilder.newBuilder()
-                .build(new CacheLoader<String, Session>()
-                {
-                    @Override
-                    public Session load(String key)
-                            throws Exception
-                    {
-                        clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
-                        return clusterBuilder.build().connect();
-                    }
-                });
+        session = memoize(cluster::connect);
     }
 
     @Override
     public Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey)
     {
         return executeWithSession(session -> session.getCluster().getMetadata().getReplicas(schemaName, partitionKey));
-    }
-
-    private Session getSession()
-    {
-        try {
-            return sessionBySchema.get("");
-        }
-        catch (ExecutionException | UncheckedExecutionException e) {
-            throw Throwables.propagate(e.getCause());
-        }
     }
 
     @Override
@@ -336,16 +310,11 @@ public class NativeCassandraSession
     {
         NoHostAvailableException lastException = null;
         for (int i = 0; i <= noHostAvailableRetryCount; i++) {
-            Session session = getSession();
             try {
-                return sessionCallable.executeWithSession(session);
+                return sessionCallable.executeWithSession(session.get());
             }
             catch (NoHostAvailableException e) {
                 lastException = e;
-
-                // Something happened with our client connection.  We need to
-                // re-establish the connection using our contact points.
-                sessionBySchema.invalidateAll();
             }
         }
         throw lastException;

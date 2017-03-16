@@ -13,20 +13,78 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Session;
+import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 
 import javax.management.ObjectName;
 
 import java.lang.management.ManagementFactory;
+import java.net.InetSocketAddress;
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
 
 public final class EmbeddedCassandra
 {
+    private static Logger log = Logger.get(EmbeddedCassandra.class);
+
+    private static Cluster cluster;
+    private static boolean initialized;
+
     private EmbeddedCassandra() {}
 
     public static synchronized void start()
             throws Exception
     {
+        if (initialized) {
+            return;
+        }
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
+        Cluster cluster = Cluster.builder()
+                .withClusterName("TestCluster")
+                .addContactPointsWithPorts(ImmutableList.of(
+                        new InetSocketAddress(
+                                EmbeddedCassandraServerHelper.getHost(),
+                                EmbeddedCassandraServerHelper.getNativeTransportPort())))
+                .build();
+        try {
+            checkConnectivity(cluster);
+        }
+        catch (RuntimeException e) {
+            cluster.close();
+            throw e;
+        }
+        EmbeddedCassandra.cluster = cluster;
+        initialized = true;
+    }
+
+    public static synchronized Cluster getCluster()
+    {
+        checkIsInitialized();
+        return requireNonNull(cluster, "cluster is null");
+    }
+
+    private static void checkIsInitialized()
+    {
+        checkState(initialized, "EmbeddedCassandra must be started with #start() method before retrieving the cluster retrieval");
+    }
+
+    private static void checkConnectivity(Cluster cluster)
+    {
+        try (Session session = cluster.connect()) {
+            ResultSet result = session.execute("SELECT release_version FROM system.local");
+            List<Row> rows = result.all();
+            assertEquals(rows.size(), 1);
+            String version = rows.get(0).getString(0);
+            log.info("Cassandra version: %s", version);
+        }
     }
 
     public static void flush(String keyspace, String table)
