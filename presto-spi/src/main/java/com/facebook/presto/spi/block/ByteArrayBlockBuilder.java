@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 public class ByteArrayBlockBuilder
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
 
     private BlockBuilderStatus blockBuilderStatus;
 
