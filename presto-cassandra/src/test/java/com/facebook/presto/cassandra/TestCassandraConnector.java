@@ -45,8 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.cassandra.CassandraTestingUtils.HOSTNAME;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.PORT;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -96,8 +94,8 @@ public class TestCassandraConnector
         );
 
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
-                "cassandra.contact-points", HOSTNAME,
-                "cassandra.native-protocol-port", Integer.toString(PORT)),
+                "cassandra.contact-points", EmbeddedCassandra.getHost(),
+                "cassandra.native-protocol-port", Integer.toString(EmbeddedCassandra.getPort())),
                 new TestingConnectorContext());
 
         metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);

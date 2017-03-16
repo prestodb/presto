@@ -71,6 +71,18 @@ public final class EmbeddedCassandra
         return requireNonNull(cluster, "cluster is null");
     }
 
+    public static synchronized String getHost()
+    {
+        checkIsInitialized();
+        return EmbeddedCassandraServerHelper.getHost();
+    }
+
+    public static synchronized int getPort()
+    {
+        checkIsInitialized();
+        return EmbeddedCassandraServerHelper.getNativeTransportPort();
+    }
+
     private static void checkIsInitialized()
     {
         checkState(initialized, "EmbeddedCassandra must be started with #start() method before retrieving the cluster retrieval");

@@ -46,8 +46,8 @@ public final class CassandraQueryRunner
 
         queryRunner.installPlugin(new CassandraPlugin());
         queryRunner.createCatalog("cassandra", "cassandra", ImmutableMap.of(
-                "cassandra.contact-points", "localhost",
-                "cassandra.native-protocol-port", "9142",
+                "cassandra.contact-points", EmbeddedCassandra.getHost(),
+                "cassandra.native-protocol-port", Integer.toString(EmbeddedCassandra.getPort()),
                 "cassandra.allow-drop-table", "true"));
 
         if (!tpchLoaded) {
