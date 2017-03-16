@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestCassandraClientConfig
@@ -56,7 +57,7 @@ public class TestCassandraClientConfig
                 .setTokenAwareShuffleReplicas(false)
                 .setUseWhiteList(false)
                 .setWhiteListAddresses("")
-                .setNoHostAvailableRetryCount(1)
+                .setNoHostAvailableRetryTimeout(new Duration(1, MINUTES))
                 .setSpeculativeExecutionLimit(1)
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS)));
     }
@@ -89,7 +90,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.load-policy.token-aware.shuffle-replicas", "true")
                 .put("cassandra.load-policy.use-white-list", "true")
                 .put("cassandra.load-policy.white-list.addresses", "host1")
-                .put("cassandra.no-host-available-retry-count", "10")
+                .put("cassandra.no-host-available-retry-timeout", "3m")
                 .put("cassandra.speculative-execution.limit", "10")
                 .put("cassandra.speculative-execution.delay", "101s")
                 .build();
@@ -119,7 +120,7 @@ public class TestCassandraClientConfig
                 .setTokenAwareShuffleReplicas(true)
                 .setUseWhiteList(true)
                 .setWhiteListAddresses("host1")
-                .setNoHostAvailableRetryCount(10)
+                .setNoHostAvailableRetryTimeout(new Duration(3, MINUTES))
                 .setSpeculativeExecutionLimit(10)
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS));
 

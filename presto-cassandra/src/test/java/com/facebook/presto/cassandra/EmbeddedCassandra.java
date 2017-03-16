@@ -19,6 +19,7 @@ import com.datastax.driver.core.Row;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 
 import javax.management.ObjectName;
@@ -29,6 +30,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
 public final class EmbeddedCassandra
@@ -60,7 +62,7 @@ public final class EmbeddedCassandra
                 "EmbeddedCassandra",
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
                 cluster,
-                1);
+                new Duration(1, MINUTES));
 
         try {
             checkConnectivity(session);

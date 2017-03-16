@@ -23,6 +23,8 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
+import com.datastax.driver.core.policies.ReconnectionPolicy;
+import com.datastax.driver.core.policies.ReconnectionPolicy.ReconnectionSchedule;
 import com.datastax.driver.core.querybuilder.Clause;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.datastax.driver.core.querybuilder.Select;
@@ -39,6 +41,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -54,27 +58,29 @@ import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 // TODO: Refactor this class to make it be "single responsibility"
 public class NativeCassandraSession
         implements CassandraSession
 {
-    private final String connectorId;
-    private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
-    private final int noHostAvailableRetryCount;
-    private final Supplier<Session> session;
+    private static final Logger log = Logger.get(NativeCassandraSession.class);
 
-    public NativeCassandraSession(
-            String connectorId,
-            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
-            Cluster cluster,
-            int noHostAvailableRetryCount)
+    static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
+    protected final String connectorId;
+    private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
+    private final Cluster cluster;
+    private final Supplier<Session> session;
+    private final Duration noHostAvailableRetryTimeout;
+
+    public NativeCassandraSession(String connectorId, JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, Cluster cluster, Duration noHostAvailableRetryTimeout)
     {
-        this.connectorId = connectorId;
-        this.extraColumnMetadataCodec = extraColumnMetadataCodec;
-        this.noHostAvailableRetryCount = noHostAvailableRetryCount;
-        session = memoize(cluster::connect);
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
+        this.cluster = requireNonNull(cluster, "cluster is null");
+        this.noHostAvailableRetryTimeout = requireNonNull(noHostAvailableRetryTimeout, "noHostAvailableRetryTimeout is null");
+        this.session = memoize(cluster::connect);
     }
 
     @Override
@@ -308,16 +314,32 @@ public class NativeCassandraSession
     @Override
     public <T> T executeWithSession(SessionCallable<T> sessionCallable)
     {
-        NoHostAvailableException lastException = null;
-        for (int i = 0; i <= noHostAvailableRetryCount; i++) {
+        ReconnectionPolicy reconnectionPolicy = cluster.getConfiguration().getPolicies().getReconnectionPolicy();
+        ReconnectionSchedule schedule = reconnectionPolicy.newSchedule();
+        long deadline = System.currentTimeMillis() + noHostAvailableRetryTimeout.toMillis();
+        while (true) {
             try {
                 return sessionCallable.executeWithSession(session.get());
             }
             catch (NoHostAvailableException e) {
-                lastException = e;
+                long timeLeft = deadline - System.currentTimeMillis();
+                if (timeLeft <= 0) {
+                    throw e;
+                }
+                else {
+                    long delay = Math.min(schedule.nextDelayMs(), timeLeft);
+                    log.warn(e.getCustomMessage(10, true, true));
+                    log.warn("Reconnecting in %dms", delay);
+                    try {
+                        Thread.sleep(delay);
+                    }
+                    catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("interrupted", interrupted);
+                    }
+                }
             }
         }
-        throw lastException;
     }
 
     private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
