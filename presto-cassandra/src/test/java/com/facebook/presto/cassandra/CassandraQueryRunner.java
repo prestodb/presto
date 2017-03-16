@@ -51,9 +51,7 @@ public final class CassandraQueryRunner
                 "cassandra.allow-drop-table", "true"));
 
         if (!tpchLoaded) {
-            try (com.datastax.driver.core.Session session = EmbeddedCassandra.getCluster().connect()) {
-                createKeyspace(session, "tpch");
-            }
+            createKeyspace(EmbeddedCassandra.getSession(), "tpch");
             List<TpchTable<?>> tables = TpchTable.getTables();
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
             for (TpchTable table : tables) {

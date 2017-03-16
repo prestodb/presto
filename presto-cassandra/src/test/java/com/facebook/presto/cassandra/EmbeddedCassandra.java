@@ -16,8 +16,8 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Session;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 
@@ -35,7 +35,7 @@ public final class EmbeddedCassandra
 {
     private static Logger log = Logger.get(EmbeddedCassandra.class);
 
-    private static Cluster cluster;
+    private static CassandraSession session;
     private static boolean initialized;
 
     private EmbeddedCassandra() {}
@@ -46,6 +46,7 @@ public final class EmbeddedCassandra
         if (initialized) {
             return;
         }
+        
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
         Cluster cluster = Cluster.builder()
                 .withClusterName("TestCluster")
@@ -54,21 +55,29 @@ public final class EmbeddedCassandra
                                 EmbeddedCassandraServerHelper.getHost(),
                                 EmbeddedCassandraServerHelper.getNativeTransportPort())))
                 .build();
+
+        CassandraSession session = new NativeCassandraSession(
+                "EmbeddedCassandra",
+                JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
+                cluster,
+                1);
+
         try {
-            checkConnectivity(cluster);
+            checkConnectivity(session);
         }
         catch (RuntimeException e) {
             cluster.close();
             throw e;
         }
-        EmbeddedCassandra.cluster = cluster;
+
+        EmbeddedCassandra.session = session;
         initialized = true;
     }
 
-    public static synchronized Cluster getCluster()
+    public static synchronized CassandraSession getSession()
     {
         checkIsInitialized();
-        return requireNonNull(cluster, "cluster is null");
+        return requireNonNull(session, "cluster is null");
     }
 
     public static synchronized String getHost()
@@ -88,15 +97,13 @@ public final class EmbeddedCassandra
         checkState(initialized, "EmbeddedCassandra must be started with #start() method before retrieving the cluster retrieval");
     }
 
-    private static void checkConnectivity(Cluster cluster)
+    private static void checkConnectivity(CassandraSession session)
     {
-        try (Session session = cluster.connect()) {
-            ResultSet result = session.execute("SELECT release_version FROM system.local");
-            List<Row> rows = result.all();
-            assertEquals(rows.size(), 1);
-            String version = rows.get(0).getString(0);
-            log.info("Cassandra version: %s", version);
-        }
+        ResultSet result = session.execute("SELECT release_version FROM system.local");
+        List<Row> rows = result.all();
+        assertEquals(rows.size(), 1);
+        String version = rows.get(0).getString(0);
+        log.info("Cassandra version: %s", version);
     }
 
     public static void flush(String keyspace, String table)
