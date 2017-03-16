@@ -21,9 +21,17 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.sun.security.auth.LdapPrincipal;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.security.auth.kerberos.KerberosPrincipal;
+
+import java.security.Principal;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.Privilege.SELECT;
@@ -34,15 +42,69 @@ import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedSystemAccessControl
 {
-    private static final Identity alice = new Identity("alice", Optional.empty());
-    private static final Identity bob = new Identity("bob", Optional.empty());
-    private static final Identity admin = new Identity("admin", Optional.empty());
-    private static final Identity nonAsciiUser = new Identity("\u0194\u0194\u0194", Optional.empty());
+    private static final String JAVA_KDC_PROPERTY = "java.security.krb5.kdc";
+    private static final String JAVA_REALM_PROPERTY = "java.security.krb5.realm";
+    private static final String DEFAULT_CONFIG = "catalog.json";
+    private static final Principal TESTING_PRINCIPAL = new TestingPrincipal("principal");
+    private static final Identity alice = new Identity("alice", Optional.of(TESTING_PRINCIPAL));
+    private static final Identity bob = new Identity("bob", Optional.of(TESTING_PRINCIPAL));
+    private static final Identity admin = new Identity("admin", Optional.of(TESTING_PRINCIPAL));
+    private static final Identity nonAsciiUser = new Identity("\u0194\u0194\u0194", Optional.of(TESTING_PRINCIPAL));
     private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "allowed-absent", "\u0200\u0200\u0200");
     private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
     private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
     private TransactionManager transactionManager;
+    private Principal ldapPrincipal;
+    private Principal kerberosHostRealm;
+    private Principal kerberosIpRealm;
+    private Principal kerberosRealm;
+    private Principal kerberosHost;
+    private Principal kerberosSimple;
+    private Properties oldSessionProperties;
+
+    @BeforeClass
+    public void setUp()
+            throws Exception
+    {
+        oldSessionProperties = setKerberosSessionProperties();
+        ldapPrincipal = new LdapPrincipal("CN=principal");
+        kerberosHostRealm = new KerberosPrincipal("principal/hostname@REALM");
+        kerberosIpRealm = new KerberosPrincipal("principal/192.1.1.1@REALM");
+        kerberosRealm = new KerberosPrincipal("principal@REALM");
+        kerberosHost = new KerberosPrincipal("principal/hostname");
+        kerberosSimple = new KerberosPrincipal("principal");
+
+        transactionManager = createTestTransactionManager();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        if (oldSessionProperties != null) {
+            for (Map.Entry<Object, Object> property : oldSessionProperties.entrySet()) {
+                System.setProperty((String) property.getKey(), (String) property.getValue());
+            }
+        }
+    }
+
+    private Properties setKerberosSessionProperties()
+    {
+        Properties properties = new Properties();
+        String oldKdc = System.getProperty(JAVA_KDC_PROPERTY);
+        System.setProperty(JAVA_KDC_PROPERTY, "localhost");
+        if (oldKdc != null) {
+            properties.setProperty(JAVA_KDC_PROPERTY, oldKdc);
+        }
+
+        String oldRealm = System.getProperty(JAVA_REALM_PROPERTY);
+        System.setProperty(JAVA_REALM_PROPERTY, "REALM");
+        if (oldRealm != null) {
+            properties.setProperty(JAVA_REALM_PROPERTY, oldRealm);
+        }
+
+        return properties;
+    }
 
     @Test
     public void testCatalogOperations()
@@ -128,13 +190,98 @@ public class TestFileBasedSystemAccessControl
         }));
     }
 
+    @Test
+    public void testKerberosPrincipalNoExactMatchSpecified()
+    {
+        AccessControlManager accessControlManager = newAccessControlManager();
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    checkCanSetWithAllPrincipals(accessControlManager, "alice");
+                    checkCanSetWithAllPrincipals(accessControlManager, "principal");
+                });
+    }
+
+    @Test
+    public void testKerberosPrincipalExactMatchFalse()
+    {
+        AccessControlManager accessControlManager = newAccessControlManager("kerbExactMatchFalse.json");
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    checkCanSetWithAllPrincipals(accessControlManager, "alice");
+                    checkCanSetWithAllPrincipals(accessControlManager, "principal");
+                });
+    }
+
+    @Test
+    public void testKerberosPrincipalExactMatchTrue()
+    {
+        AccessControlManager accessControlManager = newAccessControlManager("kerbExactMatchTrue.json");
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSetUser(kerberosRealm, "principal");
+                    accessControlManager.checkCanSetUser(kerberosSimple, "principal");
+                    accessControlManager.checkCanSetUser(null, "principal");
+                    accessControlManager.checkCanSetUser(ldapPrincipal, "principal");
+                    accessControlManager.checkCanSetUser(null, "alice");
+                    accessControlManager.checkCanSetUser(ldapPrincipal, "alice");
+                });
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+                    accessControlManager.checkCanSetUser(kerberosHostRealm, "principal");
+                }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+                    accessControlManager.checkCanSetUser(kerberosIpRealm, "principal");
+                }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+                    accessControlManager.checkCanSetUser(kerberosHost, "principal");
+                }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+                    accessControlManager.checkCanSetUser(kerberosHostRealm, "alice");
+                }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+                    accessControlManager.checkCanSetUser(kerberosIpRealm, "alice");
+                }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+                    accessControlManager.checkCanSetUser(kerberosRealm, "alice");
+                }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+                    accessControlManager.checkCanSetUser(kerberosHost, "alice");
+                }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+                    accessControlManager.checkCanSetUser(kerberosSimple, "alice");
+                }));
+    }
+
+    private void checkCanSetWithAllPrincipals(AccessControlManager accessControlManager, String user)
+    {
+        accessControlManager.checkCanSetUser(kerberosHostRealm, user);
+        accessControlManager.checkCanSetUser(kerberosIpRealm, user);
+        accessControlManager.checkCanSetUser(kerberosRealm, user);
+        accessControlManager.checkCanSetUser(kerberosHost, user);
+        accessControlManager.checkCanSetUser(kerberosSimple, user);
+        accessControlManager.checkCanSetUser(null, user);
+        accessControlManager.checkCanSetUser(ldapPrincipal, user);
+    }
+
     private AccessControlManager newAccessControlManager()
     {
-        transactionManager = createTestTransactionManager();
+        return newAccessControlManager(DEFAULT_CONFIG);
+    }
+
+    private AccessControlManager newAccessControlManager(String configFile)
+    {
         AccessControlManager accessControlManager =  new AccessControlManager(transactionManager);
 
-        String path = this.getClass().getClassLoader().getResource("catalog.json").getPath();
-        accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", path));
+        String path = this.getClass().getClassLoader().getResource(configFile).getPath();
+        accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of(
+                "security.config-file", path));
 
         return accessControlManager;
     }

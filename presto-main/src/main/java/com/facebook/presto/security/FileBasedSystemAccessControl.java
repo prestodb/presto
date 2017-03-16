@@ -23,6 +23,8 @@ import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import javax.security.auth.kerberos.KerberosPrincipal;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -36,7 +38,9 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
 
@@ -46,10 +50,12 @@ public class FileBasedSystemAccessControl
     public static final String NAME = "file";
 
     private final List<CatalogAccessControlRule> catalogRules;
+    private final KerberosPrincipalAccessControlRule kerberosPrincipalRule;
 
-    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules)
+    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules, KerberosPrincipalAccessControlRule kerberosPrincipalRule)
     {
         this.catalogRules = catalogRules;
+        this.kerberosPrincipalRule = kerberosPrincipalRule;
     }
 
     public static class Factory
@@ -78,21 +84,22 @@ public class FileBasedSystemAccessControl
                 if (!path.isAbsolute()) {
                     path = path.toAbsolutePath();
                 }
+
                 path.toFile().canRead();
 
+                FileBasedSystemAccessControlRules rules = jsonCodec(FileBasedSystemAccessControlRules.class).fromJson(Files.readAllBytes(path));
                 ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
-                catalogRulesBuilder.addAll(jsonCodec(FileBasedSystemAccessControlRules.class)
-                                .fromJson(Files.readAllBytes(path))
-                                .getCatalogRules());
+                catalogRulesBuilder.addAll(rules.getCatalogRules());
 
-                // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
-                // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
+                // Allow all users to access the "system" catalog to facilitate debugging via
+                // "select * from system.runtime.nodes", etc.
+                // TODO: change userRegex from ".*" to admin, maybe
                 catalogRulesBuilder.add(new CatalogAccessControlRule(
                         true,
                         Optional.of(Pattern.compile(".*")),
                         Optional.of(Pattern.compile("system"))));
 
-                return new FileBasedSystemAccessControl(catalogRulesBuilder.build());
+                return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getKerberosPrincipalRule());
             }
             catch (SecurityException | IOException | InvalidPathException e) {
                 throw new RuntimeException(e);
@@ -103,6 +110,30 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetUser(Principal principal, String userName)
     {
+        // Allow unauthenticated access.
+        if (principal == null) {
+            return;
+        }
+
+        if (!(principal instanceof KerberosPrincipal)) {
+            return;
+        }
+
+        String kerberosUserName = getKerberosUserName((KerberosPrincipal) principal);
+        if (!kerberosPrincipalRule.match(userName, kerberosUserName)) {
+            denySetUser(principal, userName);
+        }
+    }
+
+    private String getKerberosUserName(KerberosPrincipal principal)
+    {
+        String realmName = principal.getRealm();
+        String kerberosUserName = principal.getName();
+
+        if (!isNullOrEmpty(realmName)) {
+            kerberosUserName = kerberosUserName.substring(0, kerberosUserName.length() - realmName.length() - 1);
+        }
+        return kerberosUserName;
     }
 
     @Override
