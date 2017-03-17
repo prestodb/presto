@@ -172,10 +172,10 @@ public class PlanOptimizers
                         ImmutableList.of(new RemoveUnreferencedScalarInputApplyNodes()),
                         ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarInputApplyNodes())
                 ),
-                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                 new IterativeOptimizer(stats,
-                        ImmutableList.of(new TransformUncorrelatedScalarToJoin()),
-                        ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedScalarToJoin())
+                        ImmutableList.of(new TransformUncorrelatedInPredicateSubqueryToSemiJoin(), new TransformUncorrelatedScalarToJoin()),
+                        ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                                new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedScalarToJoin())
                 ),
                 new TransformCorrelatedScalarAggregationToJoin(metadata),
                 new PredicatePushDown(metadata, sqlParser),
