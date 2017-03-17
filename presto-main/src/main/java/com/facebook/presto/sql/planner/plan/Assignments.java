@@ -78,18 +78,16 @@ public class Assignments
     }
 
     private final Map<Symbol, Expression> assignments;
-    private final List<Symbol> outputs;
 
     @JsonCreator
     public Assignments(@JsonProperty("assignments") Map<Symbol, Expression> assignments)
     {
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        this.outputs = ImmutableList.copyOf(assignments.keySet());
     }
 
     public List<Symbol> getOutputs()
     {
-        return outputs;
+        return ImmutableList.copyOf(assignments.keySet());
     }
 
     @JsonProperty("assignments")
