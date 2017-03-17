@@ -20,6 +20,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -251,15 +252,14 @@ public class ShardCleaner
 
     private void scheduleLocalCleanup()
     {
+        Set<UUID> local = getLocalShards();
+        scheduler.submit(() -> {
+            waitJitterTime();
+            runLocalCleanupImmediately(local);
+        });
+
         scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                // jitter to avoid overloading database
-                long interval = this.localCleanerInterval.roundTo(SECONDS);
-                SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, interval));
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            waitJitterTime();
             runLocalCleanup();
         }, 0, localCleanerInterval.toMillis(), MILLISECONDS);
     }
@@ -272,6 +272,29 @@ public class ShardCleaner
         catch (Throwable t) {
             log.error(t, "Error cleaning backup shards");
             backupJobErrors.update(1);
+        }
+    }
+
+    private void waitJitterTime()
+    {
+        try {
+            // jitter to avoid overloading database
+            long interval = this.localCleanerInterval.roundTo(SECONDS);
+            SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, interval));
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private synchronized void runLocalCleanupImmediately(Set<UUID> local)
+    {
+        try {
+            cleanLocalShardsImmediately(local);
+        }
+        catch (Throwable t) {
+            log.error(t, "Error cleaning local shards");
+            localJobErrors.update(1);
         }
     }
 
@@ -296,6 +319,14 @@ public class ShardCleaner
     public void startLocalCleanup()
     {
         scheduler.submit(this::runLocalCleanup);
+    }
+
+    @Managed
+    public void startLocalCleanupImmediately()
+    {
+        scheduler.submit(() -> {
+            runLocalCleanupImmediately(getLocalShards());
+        });
     }
 
     @VisibleForTesting
@@ -330,10 +361,35 @@ public class ShardCleaner
     }
 
     @VisibleForTesting
+    synchronized Set<UUID> getLocalShards()
+    {
+        return storageService.getStorageShards();
+    }
+
+    @VisibleForTesting
+    synchronized void cleanLocalShardsImmediately(Set<UUID> local)
+    {
+        // get shards assigned to the local node
+        Set<UUID> assigned = dao.getNodeShards(currentNode, null).stream()
+                .map(ShardMetadata::getShardUuid)
+                .collect(toSet());
+
+        // only delete local files that are not assigned
+        Set<UUID> deletions = Sets.difference(local, assigned);
+
+        for (UUID uuid : deletions) {
+            deleteFile(storageService.getStorageFile(uuid));
+        }
+
+        localShardsCleaned.update(deletions.size());
+        log.info("Cleaned %s local shards immediately", deletions.size());
+    }
+
+    @VisibleForTesting
     synchronized void cleanLocalShards()
     {
         // find all files on the local node
-        Set<UUID> local = storageService.getStorageShards();
+        Set<UUID> local = getLocalShards();
 
         // get shards assigned to the local node
         Set<UUID> assigned = dao.getNodeShards(currentNode, null).stream()
