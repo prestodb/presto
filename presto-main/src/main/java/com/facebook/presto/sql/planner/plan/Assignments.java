@@ -164,6 +164,27 @@ public class Assignments
         return assignments.size();
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Assignments that = (Assignments) o;
+
+        return assignments.equals(that.assignments);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return assignments.hashCode();
+    }
+
     public static class Builder
     {
         private final Map<Symbol, Expression> assignments = new LinkedHashMap<>();
