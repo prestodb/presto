@@ -23,54 +23,56 @@ public class TestFormatFunctions
     @Test
     public void testFormatCount()
     {
-        assertFunction("format_count(TINYINT -1)", VARCHAR, "-1");
-        assertFunction("format_count(TINYINT 123)", VARCHAR, "123");
+        assertFunction("formatCount(TINYINT '-1')", VARCHAR, "-1");
+        assertFunction("formatCount(TINYINT '123')", VARCHAR, "123");
 
-        assertFunction("format_count(SMALLINT -1)", VARCHAR, "-1");
-        assertFunction("format_count(SMALLINT 123)", VARCHAR, "123");
-        assertFunction("format_count(SMALLINT 1234)", VARCHAR, "1.23K");
-        assertFunction("format_count(SMALLINT 12345)", VARCHAR, "12.3K");
+        assertFunction("formatCount(SMALLINT '-1')", VARCHAR, "-1");
+        assertFunction("formatCount(SMALLINT '123')", VARCHAR, "123");
+        assertFunction("formatCount(SMALLINT '1234')", VARCHAR, "1.23K");
+        assertFunction("formatCount(SMALLINT '12345')", VARCHAR, "12.3K");
 
-        assertFunction("format_count(-1)", VARCHAR, "-1");
+        assertFunction("formatCount(-1)", VARCHAR, "-1");
+        assertFunction("formatCount(123)", VARCHAR, "123");
+        assertFunction("formatCount(1234)", VARCHAR, "1.23K");
+        assertFunction("formatCount(12345)", VARCHAR, "12.3K");
+        assertFunction("formatCount(123456)", VARCHAR, "123K");
+        assertFunction("formatCount(1234567)", VARCHAR, "1.23M");
+        assertFunction("formatCount(12345678)", VARCHAR, "12.3M");
+        assertFunction("formatCount(123456789)", VARCHAR, "123M");
+        assertFunction("formatCount(1234567890)", VARCHAR, "1.23B");
 
-        assertFunction("format_count(-1)", VARCHAR, "-1");
-        assertFunction("format_count(123)", VARCHAR, "123");
-        assertFunction("format_count(1234)", VARCHAR, "1.23K");
-        assertFunction("format_count(12345)", VARCHAR, "12.3K");
-        assertFunction("format_count(123456)", VARCHAR, "123K");
-        assertFunction("format_count(1234567)", VARCHAR, "1.23M");
-        assertFunction("format_count(12345678)", VARCHAR, "12.3M");
-        assertFunction("format_count(123456789)", VARCHAR, "123M");
-        assertFunction("format_count(1234567890)", VARCHAR, "1.23B");
+        assertFunction("formatCount(BIGINT '-1')", VARCHAR, "-1");
+        assertFunction("formatCount(BIGINT '123')", VARCHAR, "123");
+        assertFunction("formatCount(BIGINT '78900')", VARCHAR, "78.9K");
+        assertFunction("formatCount(BIGINT '12345678901')", VARCHAR, "12.3B");
+        assertFunction("formatCount(BIGINT '123456789012')", VARCHAR, "123B");
+        assertFunction("formatCount(BIGINT '1234567890123')", VARCHAR, "1.23T");
+        assertFunction("formatCount(BIGINT '1234567890123456')", VARCHAR, "1.23Q");
+        assertFunction("formatCount(BIGINT '1234567890123456789')", VARCHAR, "1235Q");
 
-        assertFunction("format_count(BIGINT -1)", VARCHAR, "-1");
-        assertFunction("format_count(BIGINT 123)", VARCHAR, "123");
-        assertFunction("format_count(BIGINT 78900)", VARCHAR, "78.9K");
-        assertFunction("format_count(BIGINT 12345678901)", VARCHAR, "12.3B");
-        assertFunction("format_count(BIGINT 123456789012)", VARCHAR, "123B");
-        assertFunction("format_count(BIGINT 1234567890123)", VARCHAR, "1.23T");
-        assertFunction("format_count(BIGINT 1234567890123456)", VARCHAR, "1.23Q");
-        assertFunction("format_count(BIGINT 1234567890123456789)", VARCHAR, "1235Q");
+        assertFunction("formatCount(12300000)", VARCHAR, "12.3M");
+        assertFunction("formatCount(12300000000)", VARCHAR, "12.3B");
 
-        assertFunction("format_count(12300000)", VARCHAR, "12.3M");
-        assertFunction("format_count(12300000000)", VARCHAR, "12.3B");
+        assertFunction("formatCount(DOUBLE '123.0')", VARCHAR, "123");
+        assertFunction("formatCount(DOUBLE '12345.0')", VARCHAR, "12.3K");
+        assertFunction("formatCount(DOUBLE '1234567.0')", VARCHAR, "1.23M");
 
-        assertFunction("format_count(DOUBLE 123.0)", VARCHAR, "123");
-        assertFunction("format_count(DOUBLE 12345.0)", VARCHAR, "12.3K");
-        assertFunction("format_count(DOUBLE 1234567.0)", VARCHAR, "1.23M");
+        assertFunction("formatCount(REAL '123.0')", VARCHAR, "123");
+        assertFunction("formatCount(REAL '12345.0')", VARCHAR, "12.3K");
+        assertFunction("formatCount(REAL '1234567.0')", VARCHAR, "1.23M");
 
-        assertFunction("format_count(REAL 123.0)", VARCHAR, "123");
-        assertFunction("format_count(REAL 12345.0)", VARCHAR, "12.3K");
-        assertFunction("format_count(REAL 1234567.0)", VARCHAR, "1.23M");
+        assertFunction("formatCount(DECIMAL '123.0')", VARCHAR, "123");
+        assertFunction("formatCount(DECIMAL '12345.0')", VARCHAR, "12.3K");
+        assertFunction("formatCount(DECIMAL '1234567.0')", VARCHAR, "1.23M");
 
-        assertFunction("format_count(DECIMAL 123.0)", VARCHAR, "123");
-        assertFunction("format_count(DECIMAL 12345.0)", VARCHAR, "12.3K");
-        assertFunction("format_count(DECIMAL 1234567.0)", VARCHAR, "1.23M");
-
-        assertFunction("format_count(CAST(NULL AS TINYINT))", VARCHAR, null);
-        assertFunction("format_count(CAST(NULL AS SMALLINT))", VARCHAR, null);
-        assertFunction("format_count(CAST(NULL AS INTEGER))", VARCHAR, null);
-        assertFunction("format_count(CAST(NULL AS DOUBLE))", VARCHAR, null);
-        assertFunction("format_count(CAST(NULL AS REAL))", VARCHAR, null);
+        assertFunction("formatCount(CAST(NULL AS TINYINT))", VARCHAR, null);
+        assertFunction("formatCount(CAST(NULL AS SMALLINT))", VARCHAR, null);
+        assertFunction("formatCount(CAST(NULL AS INTEGER))", VARCHAR, null);
+        assertFunction("formatCount(CAST(NULL AS DOUBLE))", VARCHAR, null);
+        assertFunction("formatCount(CAST(NULL AS REAL))", VARCHAR, null);
     }
+
+// TODO: test  ARRAY[1, 2, 3]
+//    https://reviewable.io/reviews/prestodb/presto/6437#-KXyDY9RJQ5VpXEJezqD-r1-68
+//    https://prestodb.io/docs/current/language/types.html
 }

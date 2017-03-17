@@ -32,16 +32,16 @@ public final class FormatFunctions
     private FormatFunctions() {}
 
     @Description("format to human readable count value")
-    @ScalarFunction("format_count")
+    @ScalarFunction("formatCount")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice formatCount(@SqlType(StandardTypes.BIGINT) long num)
     {
-        checkCondition(num != Long.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -9223372036854775808 is out of range for abs(bigint)");
+        checkCondition(num != Long.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -9223372036854775808 is out of range for formatCount(bigint)");
         return Slices.utf8Slice(fmtCount((double) num));
     }
 
     @Description("format to human readable count value")
-    @ScalarFunction("format_count")
+    @ScalarFunction("formatCount")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice formatCountDouble(@SqlType(StandardTypes.DOUBLE) double num)
     {
