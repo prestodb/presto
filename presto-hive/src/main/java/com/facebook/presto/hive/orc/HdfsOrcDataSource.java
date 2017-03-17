@@ -54,7 +54,7 @@ public class HdfsOrcDataSource
             throw e;
         }
         catch (Exception e) {
-            String message = format("HDFS error reading from %s at position %s", this, position);
+            String message = format("Error reading from %s at position %s", this, position);
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
