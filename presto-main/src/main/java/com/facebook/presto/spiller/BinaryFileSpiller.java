@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
-import io.airlift.slice.RuntimeIOException;
 import io.airlift.slice.SliceOutput;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -33,6 +32,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -95,7 +95,7 @@ public class BinaryFileSpiller
         try (SliceOutput output = new OutputStreamSliceOutput(new BufferedOutputStream(new FileOutputStream(spillPath.toFile())))) {
             totalSpilledDataSize.addAndGet(PagesSerdeUtil.writePages(serde, output, pageIterator));
         }
-        catch (RuntimeIOException | IOException e) {
+        catch (UncheckedIOException | IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
         }
     }

@@ -18,12 +18,12 @@ import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
 import io.airlift.slice.ChunkedSliceInput.SliceLoader;
 import io.airlift.slice.FixedLengthSliceInput;
-import io.airlift.slice.RuntimeIOException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -209,7 +209,7 @@ public abstract class AbstractOrcDataSource
                 readFully(diskRange.getOffset() + position, bufferReference.getBuffer(), 0, length);
             }
             catch (IOException e) {
-                throw new RuntimeIOException(e);
+                throw new UncheckedIOException(e);
             }
         }
 

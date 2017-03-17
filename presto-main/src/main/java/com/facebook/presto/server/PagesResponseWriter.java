@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Page;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
-import io.airlift.slice.RuntimeIOException;
 import io.airlift.slice.SliceOutput;
 
 import javax.ws.rs.Produces;
@@ -31,6 +30,7 @@ import javax.ws.rs.ext.Provider;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -85,7 +85,7 @@ public class PagesResponseWriter
             // We use flush instead of close, because the underlying stream would be closed and that is not allowed.
             sliceOutput.flush();
         }
-        catch (RuntimeIOException e) {
+        catch (UncheckedIOException e) {
             // EOF exception occurs when the client disconnects while writing data
             // This is not a "server" problem so we don't want to log this
             if (!(e.getCause() instanceof EOFException)) {

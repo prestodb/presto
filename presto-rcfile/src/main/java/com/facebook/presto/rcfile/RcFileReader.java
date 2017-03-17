@@ -25,7 +25,6 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
 import io.airlift.slice.ChunkedSliceInput.SliceLoader;
-import io.airlift.slice.RuntimeIOException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -34,6 +33,7 @@ import io.airlift.units.DataSize.Unit;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -707,7 +707,7 @@ public class RcFileReader
                 dataSource.readFully(position, bufferReference.getByteBuffer(), 0, length);
             }
             catch (IOException e) {
-                throw new RuntimeIOException(e);
+                throw new UncheckedIOException(e);
             }
         }
 
@@ -718,7 +718,7 @@ public class RcFileReader
                 dataSource.close();
             }
             catch (IOException e) {
-                throw new RuntimeIOException(e);
+                throw new UncheckedIOException(e);
             }
         }
     }
