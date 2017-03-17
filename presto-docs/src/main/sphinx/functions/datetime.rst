@@ -171,7 +171,7 @@ Specifier Description
 ``%c``    Month, numeric (``1`` .. ``12`` [#u]_)
 ``%D``    Day of the month with English suffix (``0th``, ``1st``, ``2nd``, ``3rd``, ...)
 ``%d``    Day of the month, numeric (``01`` .. ``31`` [#u]_)
-``%e``    Day of the month, numeric (``0`` .. ``31`` [#u]_)
+``%e``    Day of the month, numeric (``1`` .. ``31`` [#u]_)
 ``%f``    Fraction of second (6 digits for printing: ``000000`` .. ``999000``; 1 - 9 digits for parsing: ``0`` .. ``999999999`` [#f]_)
 ``%H``    Hour (``00`` .. ``23``)
 ``%h``    Hour (``01`` .. ``12``)
