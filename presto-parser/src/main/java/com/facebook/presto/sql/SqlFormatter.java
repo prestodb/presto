@@ -99,6 +99,7 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
+import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -280,7 +281,7 @@ public final class SqlFormatter
         @Override
         protected Void visitOrderBy(OrderBy node, Integer indent)
         {
-            append(indent, "ORDER BY " + formatSortItems(node.getSortItems(), parameters))
+            append(indent, formatOrderBy(node, parameters))
                     .append('\n');
             return null;
         }
