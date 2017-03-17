@@ -32,14 +32,17 @@ import static java.util.Objects.requireNonNull;
 public class HDFSConnectorFactory
 implements ConnectorFactory
 {
-    public HDFSConnectorFactory()
+    private final String name;
+
+    public HDFSConnectorFactory(String name)
     {
+        this.name = name;
     }
 
     @Override
     public String getName()
     {
-        return "hdfs";
+        return name;
     }
 
     @Override
@@ -61,7 +64,7 @@ implements ConnectorFactory
 
             // TODO restore strictConfig, which leads to config kvs not used error
             Injector injector = app
-//                    .strictConfig()
+                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

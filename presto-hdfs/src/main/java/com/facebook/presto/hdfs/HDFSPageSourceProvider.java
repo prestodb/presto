@@ -69,7 +69,7 @@ implements ConnectorPageSourceProvider
                                                 ConnectorSplit split, List<ColumnHandle> columns)
     {
         List<HDFSColumnHandle> hdfsColumns = columns.stream()
-                .map(HDFSColumnHandle::toHDFSColumnHandle)
+                .map(col -> (HDFSColumnHandle) col)
                 .collect(Collectors.toList());
         HDFSSplit hdfsSplit = checkType(split, HDFSSplit.class, "hdfs split");
         Path path = hdfsSplit.getPath();
@@ -93,7 +93,7 @@ implements ConnectorPageSourceProvider
     {
         Optional<FileSystem> fileSystemOptional = FSFactory.getFS(path);
         FileSystem fileSystem;
-        ParquetDataSource dataSource = null;
+        ParquetDataSource dataSource;
         if (fileSystemOptional.isPresent()) {
             fileSystem = fileSystemOptional.get();
         }

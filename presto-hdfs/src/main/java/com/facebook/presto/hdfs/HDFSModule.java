@@ -22,6 +22,7 @@ import com.google.inject.Scopes;
 
 import java.util.Map;
 
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -42,11 +43,11 @@ implements Module
     {
         this.connectorId = requireNonNull(connectorId);
         this.typeManager = requireNonNull(typeManager);
-        HDFSConfig.setJdbcDriver(config.get("hdfs.metaserver.driver"));
-        HDFSConfig.setMetaserverUri(config.get("hdfs.metaserver.uri"));
-        HDFSConfig.setMetaserverUser(config.get("hdfs.metaserver.user"));
-        HDFSConfig.setMetaserverPass(config.get("hdfs.metaserver.pass"));
-        HDFSConfig.setMetaserverStore(config.get("hdfs.metaserver.store"));
+//        HDFSConfig.setJdbcDriver(config.get("hdfs.metaserver.driver"));
+//        HDFSConfig.setMetaserverUri(config.get("hdfs.metaserver.uri"));
+//        HDFSConfig.setMetaserverUser(config.get("hdfs.metaserver.user"));
+//        HDFSConfig.setMetaserverPass(config.get("hdfs.metaserver.pass"));
+//        HDFSConfig.setMetaserverStore(config.get("hdfs.metaserver.store"));
     }
 
     /**
@@ -68,5 +69,7 @@ implements Module
         binder.bind(HDFSPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(HDFSTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ClassLoader.class).toInstance(HDFSPlugin.getClassLoader());
+
+        configBinder(binder).bindConfig(HDFSConfig.class);
     }
 }

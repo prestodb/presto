@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNull;
  */
 public class HDFSMetadataFactory
 {
-//    private static final Logger logger = Logger.get(HDFSMetadataFactory.class);
     private final String connectorId;
     private final MetaServer metaServer;
 

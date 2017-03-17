@@ -31,6 +31,8 @@ public final class HDFSConfig
     private static String metaserverUser;
     private static String metaserverPass;
     private static String metaserverStore;
+    private static String metaserverType;
+    private static String connectorName;
 
     private HDFSConfig()
     {
@@ -66,6 +68,18 @@ public final class HDFSConfig
         return metaserverStore;
     }
 
+    @NotNull
+    public static String getMetaserverType()
+    {
+        return metaserverType;
+    }
+
+    @NotNull
+    public static String getConnectorName()
+    {
+        return connectorName;
+    }
+
     @Config("hdfs.metaserver.driver")
     @ConfigDescription("HDFS metaserver jdbc driver")
     public static void setJdbcDriver(String jdbcDriver)
@@ -99,5 +113,19 @@ public final class HDFSConfig
     public static void setMetaserverStore(String metaserverStore)
     {
         HDFSConfig.metaserverStore = requireNonNull(metaserverStore);
+    }
+
+    @Config("hdfs.metaserver.type")
+    @ConfigDescription("HDFS metaserver type: jdbc/in-memory")
+    public static void setMetaserverType(String metaserverType)
+    {
+        HDFSConfig.metaserverType = requireNonNull(metaserverType);
+    }
+
+    @Config("connector.name")
+    @ConfigDescription("Connector name")
+    public static void setConnectorName(String connectorName)
+    {
+        HDFSConfig.connectorName = requireNonNull(connectorName);
     }
 }
