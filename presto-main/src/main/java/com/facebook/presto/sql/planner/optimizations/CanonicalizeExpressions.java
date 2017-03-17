@@ -46,6 +46,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class CanonicalizeExpressions
         implements PlanOptimizer
 {
