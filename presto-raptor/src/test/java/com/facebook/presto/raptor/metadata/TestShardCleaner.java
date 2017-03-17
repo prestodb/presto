@@ -191,6 +191,51 @@ public class TestShardCleaner
     }
 
     @Test
+    public void testCleanLocalShardsImmediately()
+            throws Exception
+    {
+        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 0);
+        TestingShardDao shardDao = dbi.onDemand(TestingShardDao.class);
+        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
+
+        long tableId = metadataDao.insertTable("test", "test", false, false, null, 0);
+
+        UUID shard1 = randomUUID();
+        UUID shard2 = randomUUID();
+        UUID shard3 = randomUUID();
+
+        Set<UUID> shards = ImmutableSet.of(shard1, shard2, shard3);
+
+        for (UUID shard : shards) {
+            shardDao.insertShard(shard, tableId, null, 0, 0, 0);
+            createShardFile(shard);
+            assertTrue(shardFileExists(shard));
+        }
+
+        int node1 = shardDao.insertNode("node1");
+        int node2 = shardDao.insertNode("node2");
+
+        // shard 1: referenced by this node
+        // shard 2: not referenced
+        // shard 3: referenced by other node
+
+        shardDao.insertShardNode(shard1, node1);
+        shardDao.insertShardNode(shard3, node2);
+
+        // clean shards immediately
+        Set<UUID> local = cleaner.getLocalShards();
+        cleaner.cleanLocalShardsImmediately(local);
+
+        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 2);
+
+        // shards 2 and 3 should be deleted
+        // shard 1 is referenced by this node
+        assertTrue(shardFileExists(shard1));
+        assertFalse(shardFileExists(shard2));
+        assertFalse(shardFileExists(shard3));
+    }
+
+    @Test
     public void testCleanLocalShards()
             throws Exception
     {
