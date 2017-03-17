@@ -56,6 +56,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
@@ -561,7 +562,7 @@ public final class ExpressionFormatter
                 parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
             }
             if (node.getOrderBy().isPresent()) {
-                parts.add("ORDER BY " + formatSortItems(node.getOrderBy().get().getSortItems(), parameters));
+                parts.add(formatOrderBy(node.getOrderBy().get(), parameters));
             }
             if (node.getFrame().isPresent()) {
                 parts.add(process(node.getFrame().get(), context));
@@ -644,6 +645,11 @@ public final class ExpressionFormatter
     static String formatStringLiteral(String s)
     {
         return "'" + s.replace("'", "''") + "'";
+    }
+
+    static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
+    {
+        return "ORDER BY " + formatSortItems(orderBy.getSortItems(), parameters);
     }
 
     static String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
