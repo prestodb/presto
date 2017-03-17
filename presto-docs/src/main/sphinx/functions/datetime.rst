@@ -181,7 +181,7 @@ Specifier Description
 ``%k``    Hour (``0`` .. ``23``)
 ``%l``    Hour (``1`` .. ``12``)
 ``%M``    Month name (``January`` .. ``December``)
-``%m``    Month, numeric (``01`` .. ``12``)
+``%m``    Month, numeric (``01`` .. ``12`` [#u]_)
 ``%p``    ``AM`` or ``PM``
 ``%r``    Time, 12-hour (``hh:mm:ss`` followed by ``AM`` or ``PM``)
 ``%S``    Seconds (``00`` .. ``59``)
