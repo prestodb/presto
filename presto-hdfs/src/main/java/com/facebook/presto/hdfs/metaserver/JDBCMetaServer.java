@@ -124,6 +124,7 @@ implements MetaServer
         DatabaseMetaData dbmeta = jdbcDriver.getDbMetaData();
         if (dbmeta == null) {
             log.error("database meta is null");
+            // TODO create database meta
         }
         for (String tbl : sqlTable.keySet()) {
             assert dbmeta != null;
@@ -136,6 +137,10 @@ implements MetaServer
             } catch (SQLException e) {
                 log.error(e, "jdbc meta getTables error");
             }
+        }
+        // some tables exist, while some missing
+        if (initFlag < 4 && initFlag > 0) {
+            // TODO meta db has been disrupted, tables are not complete
         }
         // if no table exists, init all
         if (initFlag == 0) {
