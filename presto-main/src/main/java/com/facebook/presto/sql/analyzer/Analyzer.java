@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getAggregateExtractorFunction;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
 import static java.util.Objects.requireNonNull;
 
@@ -71,13 +72,19 @@ public class Analyzer
 
     static void verifyNoAggregatesOrWindowFunctions(FunctionRegistry functionRegistry, Expression predicate, String clause)
     {
-        AggregateExtractor extractor = new AggregateExtractor(functionRegistry);
-        extractor.process(predicate, null);
+        List<FunctionCall> aggregates = ExpressionTreeUtils.extractExpressionsOfTypeUsingPredicate(
+                ImmutableList.of(predicate),
+                FunctionCall.class,
+                getAggregateExtractorFunction(functionRegistry));
 
-        WindowFunctionExtractor windowExtractor = new WindowFunctionExtractor();
-        windowExtractor.process(predicate, null);
+        List<FunctionCall> windowExpressions = ExpressionTreeUtils.extractExpressionsOfTypeUsingPredicate(
+                ImmutableList.of(predicate),
+                FunctionCall.class,
+                ExpressionTreeUtils::isWindowFunction);
 
-        List<FunctionCall> found = ImmutableList.copyOf(Iterables.concat(extractor.getAggregates(), windowExtractor.getWindowFunctions()));
+        List<Expression> found = ImmutableList.copyOf(Iterables.concat(
+                aggregates,
+                windowExpressions));
 
         if (!found.isEmpty()) {
             throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, predicate, "%s cannot contain aggregations or window functions: %s", clause, found);
