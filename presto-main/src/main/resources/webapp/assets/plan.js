@@ -239,7 +239,6 @@ let LivePlan = React.createClass({
         return null;
     },
     render: function() {
-        this.updateD3Graph();
         const query = this.state.query;
 
         if (query == null || this.state.initialized == false) {
@@ -254,12 +253,26 @@ let LivePlan = React.createClass({
             );
         }
 
-        const selectedStage = this.findStage(this.state.selectedStageId, this.state.query.outputStage);
-        if (selectedStage) {
-            ReactDOM.render(
-                <StagePerformance key= { 0 } stage={ selectedStage }/>,
-                document.getElementById('stage-performance')
-            );
+        let livePlanGraph = null;
+        if (!this.state.query.outputStage) {
+            livePlanGraph = (
+                <div className="row error-message">
+                    <div className="col-xs-12">
+                        <h4>Live plan graph will appear automatically when query starts running.</h4>
+                        <div className="loader">Loading...</div>
+                    </div>
+                </div>
+            )
+        }
+        else {
+            this.updateD3Graph();
+            const selectedStage = this.findStage(this.state.selectedStageId, this.state.query.outputStage);
+            if (selectedStage) {
+                ReactDOM.render(
+                    <StagePerformance key= { 0 } stage={ selectedStage }/>,
+                    document.getElementById('stage-performance')
+                );
+            }
         }
 
         return (
@@ -297,6 +310,12 @@ let LivePlan = React.createClass({
                 <div className="row">
                     <div className="col-xs-12">
                         { this.renderProgressBar() }
+                    </div>
+                </div>
+                <hr className="h3-hr"/>
+                <div className="row">
+                    <div className="col-xs-12">
+                        { livePlanGraph }
                     </div>
                 </div>
             </div>
