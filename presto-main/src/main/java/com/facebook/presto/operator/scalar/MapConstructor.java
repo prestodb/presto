@@ -19,11 +19,11 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -32,12 +32,14 @@ import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class MapConstructor
@@ -45,7 +47,7 @@ public final class MapConstructor
 {
     public static final MapConstructor MAP_CONSTRUCTOR = new MapConstructor();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConstructor.class, "createMap", MapType.class, Block.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConstructor.class, "createMap", MapType.class, MethodHandle.class, MethodHandle.class, State.class, Block.class, Block.class);
     private static final String DESCRIPTION = "Constructs a map from the given key/value arrays";
 
     public MapConstructor()
@@ -85,14 +87,22 @@ public final class MapConstructor
         Type valueType = boundVariables.getTypeVariable("V");
 
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(mapType), isDeterministic());
+        MethodHandle keyHashCode = functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
+        MethodHandle keyEqual = functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
+        MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), ImmutableList.of(false, false), METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode), Optional.of(instanceFactory), isDeterministic());
     }
 
     @UsedByGeneratedCode
-    public static Block createMap(MapType mapType, Block keyBlock, Block valueBlock)
+    public static Block createMap(MapType mapType, MethodHandle keyEqual, MethodHandle keyHashCode, State state, Block keyBlock, Block valueBlock)
     {
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(mapType.getTypeParameters(), new BlockBuilderStatus(), keyBlock.getPositionCount() * 2);
+        PageBuilder pageBuilder = state.getPageBuilder();
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
 
+        BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
         for (int i = 0; i < keyBlock.getPositionCount(); i++) {
             if (keyBlock.isNull(i)) {
@@ -101,7 +111,24 @@ public final class MapConstructor
             mapType.getKeyType().appendTo(keyBlock, i, blockBuilder);
             mapType.getValueType().appendTo(valueBlock, i, blockBuilder);
         }
+        mapBlockBuilder.closeEntry();
+        pageBuilder.declarePosition();
 
-        return blockBuilder.build();
+        return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+    }
+
+    public static final class State
+    {
+        private final PageBuilder pageBuilder;
+
+        public State(MapType mapType)
+        {
+            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+        }
+
+        public PageBuilder getPageBuilder()
+        {
+            return pageBuilder;
+        }
     }
 }

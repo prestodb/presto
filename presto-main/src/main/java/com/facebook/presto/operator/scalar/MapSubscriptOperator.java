@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
@@ -108,6 +109,18 @@ public class MapSubscriptOperator
     @UsedByGeneratedCode
     public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, boolean key)
     {
+        if (map instanceof SingleMapBlock) {
+            SingleMapBlock mapBlock = (SingleMapBlock) map;
+            int valuePosition = mapBlock.seekKeyExact(key);
+            if (valuePosition == -1) {
+                if (legacyMissingKey) {
+                    return null;
+                }
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
+            return readNativeValue(valueType, mapBlock, valuePosition);
+        }
+        // TODO: assume that map is always instanceof SingleMapBlock once all map producing code is updated.
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getBoolean(map, position), key)) {
@@ -129,6 +142,18 @@ public class MapSubscriptOperator
     @UsedByGeneratedCode
     public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, long key)
     {
+        if (map instanceof SingleMapBlock) {
+            SingleMapBlock mapBlock = (SingleMapBlock) map;
+            int valuePosition = mapBlock.seekKeyExact(key);
+            if (valuePosition == -1) {
+                if (legacyMissingKey) {
+                    return null;
+                }
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
+            return readNativeValue(valueType, mapBlock, valuePosition);
+        }
+        // TODO: assume that map is always instanceof SingleMapBlock once all map producing code is updated.
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getLong(map, position), key)) {
@@ -150,6 +175,18 @@ public class MapSubscriptOperator
     @UsedByGeneratedCode
     public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, double key)
     {
+        if (map instanceof SingleMapBlock) {
+            SingleMapBlock mapBlock = (SingleMapBlock) map;
+            int valuePosition = mapBlock.seekKeyExact(key);
+            if (valuePosition == -1) {
+                if (legacyMissingKey) {
+                    return null;
+                }
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
+            return readNativeValue(valueType, mapBlock, valuePosition);
+        }
+        // TODO: assume that map is always instanceof SingleMapBlock once all map producing code is updated.
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getDouble(map, position), key)) {
@@ -171,6 +208,18 @@ public class MapSubscriptOperator
     @UsedByGeneratedCode
     public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, Slice key)
     {
+        if (map instanceof SingleMapBlock) {
+            SingleMapBlock mapBlock = (SingleMapBlock) map;
+            int valuePosition = mapBlock.seekKeyExact(key);
+            if (valuePosition == -1) {
+                if (legacyMissingKey) {
+                    return null;
+                }
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
+            return readNativeValue(valueType, mapBlock, valuePosition);
+        }
+        // TODO: assume that map is always instanceof SingleMapBlock once all map producing code is updated.
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getSlice(map, position), key)) {
@@ -192,6 +241,18 @@ public class MapSubscriptOperator
     @UsedByGeneratedCode
     public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
     {
+        if (map instanceof SingleMapBlock) {
+            SingleMapBlock mapBlock = (SingleMapBlock) map;
+            int valuePosition = mapBlock.seekKeyExact((Block) key);
+            if (valuePosition == -1) {
+                if (legacyMissingKey) {
+                    return null;
+                }
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
+            return readNativeValue(valueType, mapBlock, valuePosition);
+        }
+        // TODO: assume that map is always instanceof SingleMapBlock once all map producing code is updated.
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invoke(keyType.getObject(map, position), key)) {

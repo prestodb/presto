@@ -15,6 +15,8 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -99,5 +101,41 @@ public final class MethodHandleUtil
         catch (IllegalAccessException | NoSuchMethodException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
         }
+    }
+
+    public static MethodHandle nativeValueGetter(Type type)
+    {
+        Class<?> javaType = type.getJavaType();
+
+        MethodHandle methodHandle;
+        if (javaType == long.class) {
+            methodHandle = methodHandle(Type.class, "getLong", Block.class, int.class);
+        }
+        else if (javaType == double.class) {
+            methodHandle = methodHandle(Type.class, "getDouble", Block.class, int.class);
+        }
+        else if (javaType == boolean.class) {
+            methodHandle = methodHandle(Type.class, "getBoolean", Block.class, int.class);
+        }
+        else if (javaType == Slice.class) {
+            methodHandle = methodHandle(Type.class, "getSlice", Block.class, int.class);
+        }
+        else if (javaType == Block.class) {
+            MethodHandle getObjectMethodHandle = methodHandle(Type.class, "getObject", Block.class, int.class);
+            methodHandle = getObjectMethodHandle.asType(getObjectMethodHandle.type().changeReturnType(Block.class));
+        }
+        else if (javaType == void.class) {
+            methodHandle = methodHandle(MethodHandleUtil.class, "unknownGetter", Type.class, Block.class, int.class);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);
+        }
+
+        return methodHandle.bindTo(type);
+    }
+
+    public static Void unknownGetter(Type type, Block block, int position)
+    {
+        throw new IllegalArgumentException("For UNKNOWN type, getter should never be invoked on Block");
     }
 }

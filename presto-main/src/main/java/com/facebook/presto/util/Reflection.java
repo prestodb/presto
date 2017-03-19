@@ -67,6 +67,11 @@ public final class Reflection
         }
     }
 
+    public static MethodHandle constructorMethodHandle(Class<?> clazz, Class<?>... parameterTypes)
+    {
+        return constructorMethodHandle(GENERIC_INTERNAL_ERROR, clazz, parameterTypes);
+    }
+
     public static MethodHandle constructorMethodHandle(StandardErrorCode errorCode, Class<?> clazz, Class<?>... parameterTypes)
     {
         try {

@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.ParametricType;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -546,5 +548,12 @@ public final class TypeRegistry
     public static boolean isCovariantTypeBase(String typeBase)
     {
         return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
+    }
+
+    @Override
+    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    {
+        requireNonNull(functionRegistry, "functionRegistry is null");
+        return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
     }
 }
