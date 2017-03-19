@@ -305,7 +305,7 @@ public class TestSerDeUtils
     {
         // This function is strictly for testing use only
         SliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        BlockSerdeUtil.writeBlock(sliceOutput, block.copyRegion(0, block.getPositionCount()));
+        BlockSerdeUtil.writeBlock(sliceOutput, block);
         return sliceOutput.slice();
     }
 
