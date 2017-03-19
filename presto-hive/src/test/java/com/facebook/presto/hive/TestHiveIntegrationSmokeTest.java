@@ -23,13 +23,11 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
@@ -58,6 +56,7 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -93,7 +92,6 @@ public class TestHiveIntegrationSmokeTest
 {
     private final String catalog;
     private final Session bucketedSession;
-    private final TypeManager typeManager;
     private final TypeTranslator typeTranslator;
 
     @SuppressWarnings("unused")
@@ -108,8 +106,6 @@ public class TestHiveIntegrationSmokeTest
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
-
-        this.typeManager = new TypeRegistry();
     }
 
     protected List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
@@ -1826,13 +1822,13 @@ public class TestHiveIntegrationSmokeTest
     private Type canonicalizeType(Type type)
     {
         HiveType hiveType = HiveType.toHiveType(typeTranslator, type);
-        return typeManager.getType(hiveType.getTypeSignature());
+        return TYPE_MANAGER.getType(hiveType.getTypeSignature());
     }
 
     private String canonicalizeTypeName(String type)
     {
         TypeSignature typeSignature = TypeSignature.parseTypeSignature(type);
-        return canonicalizeType(typeManager.getType(typeSignature)).toString();
+        return canonicalizeType(TYPE_MANAGER.getType(typeSignature)).toString();
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)

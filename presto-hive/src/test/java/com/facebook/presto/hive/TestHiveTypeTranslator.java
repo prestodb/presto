@@ -14,21 +14,19 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveTypeTranslator
 {
-    private final TypeManager typeManager;
     private final TypeTranslator typeTranslator;
 
     private final Map<String, HiveType> typeTranslationMap;
@@ -40,7 +38,6 @@ public class TestHiveTypeTranslator
 
     protected TestHiveTypeTranslator(TypeTranslator typeTranslator, Map<String, HiveType> overwriteTranslation)
     {
-        this.typeManager = new TypeRegistry();
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
 
         ImmutableMap<String, HiveType> hiveTypeTranslationMap = ImmutableMap.<String, HiveType>builder()
@@ -75,7 +72,7 @@ public class TestHiveTypeTranslator
 
     private void assertTypeTranslation(String typeName, HiveType hiveType)
     {
-        Type type = typeManager.getType(parseTypeSignature(typeName));
+        Type type = TYPE_MANAGER.getType(parseTypeSignature(typeName));
         assertEquals(HiveType.toHiveType(typeTranslator, type), hiveType);
     }
 }

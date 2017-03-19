@@ -45,8 +45,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
@@ -65,6 +63,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HdfsConfigurationUpdater.configureCompression;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static java.util.stream.Collectors.joining;
@@ -325,7 +324,6 @@ public enum FileFormat
             HiveCompressionCodec compressionCodec)
             throws IOException;
 
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
     private static final JobConf conf;
 
     static {
@@ -405,7 +403,6 @@ public enum FileFormat
     private static class RecordFormatWriter
             implements FormatWriter
     {
-        private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
         private final RecordFileWriter recordWriter;
 
         public RecordFormatWriter(File targetFile,
