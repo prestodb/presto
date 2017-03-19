@@ -14,7 +14,10 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.SqlFormatter;
+import com.facebook.presto.sql.tree.CreateTableWithFiber;
+import com.facebook.presto.sql.tree.LoadWithDelimited;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.TableElement;
 import com.google.common.io.Resources;
 import org.testng.annotations.Test;
 
@@ -30,6 +33,37 @@ import static org.testng.Assert.assertFalse;
 public class TestStatementBuilder
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+
+    @Test
+    public void testCreateWithFiber()
+    {
+        String sql = "create table Tsst (a boolean, b bigint, c double, d varchar, e timestamp) fiber partition by (a) using function abc timestamp by (a)";
+        CreateTableWithFiber statement = (CreateTableWithFiber) SQL_PARSER.createStatement(sql);
+        System.out.println(statement.getTableName());
+        System.out.println(statement.getFunctionName());
+        System.out.println(statement.getPartitionName());
+        System.out.println(statement.getTimeStamp());
+        for (TableElement tableElement : statement.getElements()) {
+            System.out.println(tableElement);
+        }
+        printStatement("create table tEST (a boolean, b bigint, c double, d varchar, e timestamp) fiber partition by (a) using function abc timestamp by (a)");
+    }
+
+    @Test
+    public void testCreateFunction()
+    {
+        printStatement("create function test");
+    }
+
+    @Test
+    public void testLoadWithDelimited()
+    {
+        printStatement("load from hdfs://abc/ as table test delimited by '|'");
+        String sql = "load from hdfs://CVbc/ as table test delimited by '|'";
+        LoadWithDelimited statement = (LoadWithDelimited) SQL_PARSER.createStatement(sql);
+        System.out.println(statement.getHdfsPath());
+        System.out.println(statement.getLocation());
+    }
 
     @Test
     public void testStatementBuilder()

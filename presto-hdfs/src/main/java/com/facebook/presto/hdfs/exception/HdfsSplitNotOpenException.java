@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hdfs.exception;
 
-import com.facebook.presto.hdfs.HDFSSplit;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
 
