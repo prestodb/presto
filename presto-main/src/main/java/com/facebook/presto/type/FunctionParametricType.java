@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeParameter;
 
 import java.util.List;
@@ -40,7 +41,7 @@ public final class FunctionParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() >= 1, "Function type must have at least one parameter, got %s", parameters);
         checkArgument(

@@ -167,7 +167,7 @@ public final class TypeRegistry
         }
 
         try {
-            Type instantiatedType = parametricType.createType(parameters);
+            Type instantiatedType = parametricType.createType(this, parameters);
 
             // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
             //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);

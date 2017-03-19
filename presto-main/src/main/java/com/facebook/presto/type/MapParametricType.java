@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeParameter;
 
 import java.util.List;
@@ -39,7 +40,7 @@ public final class MapParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 2, "Expected two parameters, got %s", parameters);
         TypeParameter firstParameter = parameters.get(0);
