@@ -85,7 +85,7 @@ public class TestMapUnionAggregation
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), mapType.getTypeSignature()));
 
-        Map<Object, Object> expected = mapOf(23.0, "aaa", 33.0, null, 43.0, "ccc", 53.0, "ddd", null, "eee");
+        Map<Object, Object> expected = mapOf(23.0, "aaa", 33.0, null, 43.0, "ccc", 53.0, "ddd");
 
         assertAggregation(
                 aggFunc,
@@ -94,7 +94,7 @@ public class TestMapUnionAggregation
                         mapType,
                         mapBlockOf(DOUBLE, VARCHAR, mapOf(23.0, "aaa", 33.0, null, 53.0, "ddd")),
                         null,
-                        mapBlockOf(DOUBLE, VARCHAR, mapOf(43.0, "ccc", 53.0, "ddd", null, "eee"))));
+                        mapBlockOf(DOUBLE, VARCHAR, mapOf(43.0, "ccc", 53.0, "ddd"))));
     }
 
     @Test
