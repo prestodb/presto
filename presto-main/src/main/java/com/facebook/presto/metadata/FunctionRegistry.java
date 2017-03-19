@@ -150,6 +150,7 @@ import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
@@ -584,6 +585,10 @@ public class FunctionRegistry
         }
 
         addFunctions(builder.getFunctions());
+
+        if (typeManager instanceof TypeRegistry) {
+            ((TypeRegistry) typeManager).setFunctionRegistry(this);
+        }
     }
 
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)

@@ -14,7 +14,9 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.RowPageBuilder;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
@@ -34,6 +36,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +61,10 @@ public class TestLearnAggregations
         typeRegistry.addParametricType(new ClassifierParametricType());
         typeRegistry.addType(ModelType.MODEL);
         typeRegistry.addType(RegressorType.REGRESSOR);
+
+        // associate typeRegistry with a function registry
+        new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+
         typeManager = typeRegistry;
     }
 

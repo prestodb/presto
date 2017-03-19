@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.ParametricType;
@@ -82,6 +83,8 @@ public final class TypeRegistry
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
+    private FunctionRegistry functionRegistry;
+
     public TypeRegistry()
     {
         this(ImmutableSet.of());
@@ -131,6 +134,12 @@ public final class TypeRegistry
         for (Type type : types) {
             addType(type);
         }
+    }
+
+    public void setFunctionRegistry(FunctionRegistry functionRegistry)
+    {
+        checkState(this.functionRegistry == null, "TypeRegistry can only be associated with a single FunctionRegistry");
+        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
     }
 
     @Override
