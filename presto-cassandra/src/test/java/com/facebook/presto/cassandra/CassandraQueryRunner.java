@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -22,7 +21,7 @@ import io.airlift.tpch.TpchTable;
 
 import java.util.List;
 
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -47,15 +46,12 @@ public final class CassandraQueryRunner
 
         queryRunner.installPlugin(new CassandraPlugin());
         queryRunner.createCatalog("cassandra", "cassandra", ImmutableMap.of(
-                "cassandra.contact-points", "localhost",
-                "cassandra.native-protocol-port", "9142",
+                "cassandra.contact-points", EmbeddedCassandra.getHost(),
+                "cassandra.native-protocol-port", Integer.toString(EmbeddedCassandra.getPort()),
                 "cassandra.allow-drop-table", "true"));
 
         if (!tpchLoaded) {
-            try (Cluster cluster = CassandraTestingUtils.getCluster();
-                    com.datastax.driver.core.Session session = cluster.connect()) {
-                createOrReplaceKeyspace(session, "tpch");
-            }
+            createKeyspace(EmbeddedCassandra.getSession(), "tpch");
             List<TpchTable<?>> tables = TpchTable.getTables();
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
             for (TpchTable table : tables) {

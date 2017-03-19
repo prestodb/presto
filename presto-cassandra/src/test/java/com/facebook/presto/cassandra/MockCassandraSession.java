@@ -14,8 +14,6 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -26,32 +24,24 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.datastax.driver.core.RowUtil.createSingleStringRow;
-import static io.airlift.json.JsonCodec.listJsonCodec;
+import static java.util.Objects.requireNonNull;
 
 public class MockCassandraSession
-        extends CassandraSession
+        implements CassandraSession
 {
     static final String TEST_SCHEMA = "testkeyspace";
     static final String BAD_SCHEMA = "badkeyspace";
     static final String TEST_TABLE = "testtbl";
     static final String TEST_COLUMN1 = "column1";
     static final String TEST_COLUMN2 = "column2";
-    static final String TEST_PARTITION_KEY1 = "testpartition1";
-    static final String TEST_PARTITION_KEY2 = "testpartition2";
 
     private final AtomicInteger accessCount = new AtomicInteger();
     private boolean throwException;
+    private final String connectorId;
 
-    public MockCassandraSession(String connectorId, CassandraClientConfig config)
+    public MockCassandraSession(String connectorId)
     {
-        super(connectorId,
-                ImmutableList.of(),
-                null,
-                config.getFetchSizeForPartitionKeySelect(),
-                config.getLimitForPartitionKeySelect(),
-                listJsonCodec(ExtraColumnMetadata.class),
-                config.getNoHostAvailableRetryCount());
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     public void setThrowException(boolean throwException)
@@ -126,35 +116,18 @@ public class MockCassandraSession
     @Override
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix)
     {
-        accessCount.incrementAndGet();
-        if (throwException) {
-            throw new IllegalStateException();
-        }
-
-        return super.getPartitions(table, filterPrefix);
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    protected List<Row> queryPartitionKeys(CassandraTable table, List<Object> filterPrefix)
+    public <T> T executeWithSession(SessionCallable<T> sessionCallable)
     {
-        CassandraTableHandle tableHandle = table.getTableHandle();
-        if (tableHandle.getSchemaName().equals(TEST_SCHEMA) && tableHandle.getTableName().equals(TEST_TABLE)) {
-            return ImmutableList.of(
-                    createSingleStringRow(TEST_PARTITION_KEY1, 2),
-                    createSingleStringRow(TEST_PARTITION_KEY2, 2));
-        }
-        throw new IllegalStateException();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey)
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ResultSet executeQuery(String schemaName, String cql)
-    {
-        throw new IllegalStateException("unexpected CQL query: " + cql);
     }
 }

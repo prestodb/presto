@@ -86,7 +86,7 @@ public class HdfsParquetDataSource
             throw e;
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("HDFS error reading from %s at position %s", name, position), e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error reading from %s at position %s", name, position), e);
         }
     }
 

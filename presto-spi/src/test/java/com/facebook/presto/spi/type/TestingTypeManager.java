@@ -15,6 +15,7 @@ package com.facebook.presto.spi.type;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,6 +53,12 @@ public class TestingTypeManager
     public List<Type> getTypes()
     {
         return ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG);
+    }
+
+    @Override
+    public Collection<ParametricType> getParametricTypes()
+    {
+        return ImmutableList.of();
     }
 
     @Override

@@ -28,9 +28,11 @@ import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertContains;
@@ -71,7 +73,7 @@ public class TestPrestoDatabaseMetaData
     public void tearDown()
             throws SQLException
     {
-        connection.close();
+        closeQuietly(connection);
     }
 
     @Test
@@ -92,6 +94,64 @@ public class TestPrestoDatabaseMetaData
         String query = getOnlyElement(queries);
 
         assertContains(query, "_t' ESCAPE '", "Metadata query does not contain ESCAPE");
+    }
+
+    @Test
+    public void testGetTypeInfo()
+            throws Exception
+    {
+        DatabaseMetaData metaData = connection.getMetaData();
+        ResultSet typeInfo = metaData.getTypeInfo();
+        while (typeInfo.next()) {
+            int jdbcType = typeInfo.getInt("DATA_TYPE");
+            switch (jdbcType) {
+                case Types.BIGINT:
+                    assertColumnSpec(typeInfo, Types.BIGINT, 19L, 10L, "bigint");
+                    break;
+                case Types.BOOLEAN:
+                    assertColumnSpec(typeInfo, Types.BOOLEAN, null, null, "boolean");
+                    break;
+                case Types.INTEGER:
+                    assertColumnSpec(typeInfo, Types.INTEGER, 10L, 10L, "integer");
+                    break;
+                case Types.DECIMAL:
+                    assertColumnSpec(typeInfo, Types.DECIMAL, 38L, 10L, "decimal");
+                    break;
+                case Types.VARCHAR:
+                    assertColumnSpec(typeInfo, Types.VARCHAR, null, null, "varchar");
+                    break;
+                case Types.TIMESTAMP:
+                    assertColumnSpec(typeInfo, Types.TIMESTAMP, 23L, null, "timestamp");
+                    break;
+                case Types.DOUBLE:
+                    assertColumnSpec(typeInfo, Types.DOUBLE, 53L, 2L, "double");
+                    break;
+            }
+        }
+    }
+
+    private static void assertColumnSpec(ResultSet rs, int dataType, Long precision, Long numPrecRadix, String typeName)
+            throws SQLException
+    {
+        String message = " of " + typeName + ": ";
+        assertEquals(rs.getObject("TYPE_NAME"), typeName, "TYPE_NAME" + message);
+        assertEquals(rs.getObject("DATA_TYPE"), (long) dataType, "DATA_TYPE" + message);
+        assertEquals(rs.getObject("PRECISION"), precision, "PRECISION" + message);
+        assertEquals(rs.getObject("LITERAL_PREFIX"), null, "LITERAL_PREFIX" + message);
+        assertEquals(rs.getObject("LITERAL_SUFFIX"), null, "LITERAL_SUFFIX" + message);
+        assertEquals(rs.getObject("CREATE_PARAMS"), null, "CREATE_PARAMS" + message);
+        assertEquals(rs.getObject("NULLABLE"), (long) DatabaseMetaData.typeNullable, "NULLABLE" + message);
+        assertEquals(rs.getObject("CASE_SENSITIVE"), false, "CASE_SENSITIVE" + message);
+        assertEquals(rs.getObject("SEARCHABLE"), (long) DatabaseMetaData.typeSearchable, "SEARCHABLE" + message);
+        assertEquals(rs.getObject("UNSIGNED_ATTRIBUTE"), null, "UNSIGNED_ATTRIBUTE" + message);
+        assertEquals(rs.getObject("FIXED_PREC_SCALE"), false, "FIXED_PREC_SCALE" + message);
+        assertEquals(rs.getObject("AUTO_INCREMENT"), null, "AUTO_INCREMENT" + message);
+        assertEquals(rs.getObject("LOCAL_TYPE_NAME"), null, "LOCAL_TYPE_NAME" + message);
+        assertEquals(rs.getObject("MINIMUM_SCALE"), 0L, "MINIMUM_SCALE" + message);
+        assertEquals(rs.getObject("MAXIMUM_SCALE"), 0L, "MAXIMUM_SCALE" + message);
+        assertEquals(rs.getObject("SQL_DATA_TYPE"), null, "SQL_DATA_TYPE" + message);
+        assertEquals(rs.getObject("SQL_DATETIME_SUB"), null, "SQL_DATETIME_SUB" + message);
+        assertEquals(rs.getObject("NUM_PREC_RADIX"), numPrecRadix, "NUM_PREC_RADIX" + message);
     }
 
     private Set<String> captureQueries(Callable<?> action)

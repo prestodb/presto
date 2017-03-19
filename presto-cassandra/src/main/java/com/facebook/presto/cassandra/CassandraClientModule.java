@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
@@ -96,11 +97,12 @@ public class CassandraClientModule
         requireNonNull(config, "config is null");
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
 
-        Cluster.Builder clusterBuilder = Cluster.builder();
+        Cluster.Builder clusterBuilder = Cluster.builder()
+                .withProtocolVersion(ProtocolVersion.V3);
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
-
+        contactPoints.forEach(clusterBuilder::addContactPoint);
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
@@ -159,13 +161,6 @@ public class CassandraClientModule
             ));
         }
 
-        return new CassandraSession(
-                connectorId.toString(),
-                contactPoints,
-                clusterBuilder,
-                config.getFetchSizeForPartitionKeySelect(),
-                config.getLimitForPartitionKeySelect(),
-                extraColumnMetadataCodec,
-                config.getNoHostAvailableRetryCount());
+        return new NativeCassandraSession(connectorId.toString(), extraColumnMetadataCodec, clusterBuilder.build(), config.getNoHostAvailableRetryTimeout());
     }
 }

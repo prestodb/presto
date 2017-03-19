@@ -33,17 +33,17 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options"})
+@DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
+                "cassandra.no-host-available-retry-count"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private Duration schemaCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration schemaRefreshInterval = new Duration(2, TimeUnit.MINUTES);
-    private int maxSchemaRefreshThreads = 10;
-    private int limitForPartitionKeySelect = 200;
-    private int fetchSizeForPartitionKeySelect = 20_000;
+    private int maxSchemaRefreshThreads = 1;
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
@@ -65,22 +65,9 @@ public class CassandraClientConfig
     private boolean tokenAwareShuffleReplicas;
     private boolean useWhiteList;
     private List<String> whiteListAddresses = ImmutableList.of();
-    private int noHostAvailableRetryCount = 1;
+    private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
-
-    @Min(0)
-    public int getLimitForPartitionKeySelect()
-    {
-        return limitForPartitionKeySelect;
-    }
-
-    @Config("cassandra.limit-for-partition-key-select")
-    public CassandraClientConfig setLimitForPartitionKeySelect(int limitForPartitionKeySelect)
-    {
-        this.limitForPartitionKeySelect = limitForPartitionKeySelect;
-        return this;
-    }
 
     @Min(1)
     public int getMaxSchemaRefreshThreads()
@@ -177,19 +164,6 @@ public class CassandraClientConfig
     public CassandraClientConfig setFetchSize(int fetchSize)
     {
         this.fetchSize = fetchSize;
-        return this;
-    }
-
-    @Min(1)
-    public int getFetchSizeForPartitionKeySelect()
-    {
-        return fetchSizeForPartitionKeySelect;
-    }
-
-    @Config("cassandra.fetch-size-for-partition-key-select")
-    public CassandraClientConfig setFetchSizeForPartitionKeySelect(int fetchSizeForPartitionKeySelect)
-    {
-        this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
         return this;
     }
 
@@ -407,16 +381,16 @@ public class CassandraClientConfig
         return this;
     }
 
-    @Min(1)
-    public int getNoHostAvailableRetryCount()
+    @NotNull
+    public Duration getNoHostAvailableRetryTimeout()
     {
-        return noHostAvailableRetryCount;
+        return noHostAvailableRetryTimeout;
     }
 
-    @Config("cassandra.no-host-available-retry-count")
-    public CassandraClientConfig setNoHostAvailableRetryCount(int noHostAvailableRetryCount)
+    @Config("cassandra.no-host-available-retry-timeout")
+    public CassandraClientConfig setNoHostAvailableRetryTimeout(Duration noHostAvailableRetryTimeout)
     {
-        this.noHostAvailableRetryCount = noHostAvailableRetryCount;
+        this.noHostAvailableRetryTimeout = noHostAvailableRetryTimeout;
         return this;
     }
 

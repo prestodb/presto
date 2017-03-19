@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
 import com.datastax.driver.core.querybuilder.Insert;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,9 +24,7 @@ import com.google.common.primitives.Ints;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.UUID;
 
@@ -35,48 +32,30 @@ import static org.testng.Assert.assertEquals;
 
 public class CassandraTestingUtils
 {
-    public static final String HOSTNAME = "localhost";
-    public static final int PORT = 9142;
     public static final String TABLE_ALL_TYPES = "table_all_types";
     public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
     public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
     public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
     public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
-    private static final String CLUSTER_NAME = "TestCluster";
 
     private CassandraTestingUtils() {}
 
-    public static Cluster getCluster()
+    public static void createTestTables(CassandraSession cassandraSession, String keyspace, Date date)
     {
-        return Cluster.builder()
-                .withClusterName(CLUSTER_NAME)
-                .addContactPointsWithPorts(Arrays.asList(new InetSocketAddress(HOSTNAME, PORT)))
-                .build();
+        createKeyspace(cassandraSession, keyspace);
+        createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES), date);
+        createTableAllTypesPartitionKey(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_PARTITION_KEY), date);
+        createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS), 9);
+        createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_LARGE), 1000);
+        createTableMultiPartitionClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS));
     }
 
-    public static void createTestTables(String keyspace, Date date)
+    public static void createKeyspace(CassandraSession session, String keyspaceName)
     {
-        try (Cluster cluster = getCluster()) {
-            try (Session session = cluster.connect()) {
-                createOrReplaceKeyspace(session, keyspace);
-            }
-            try (Session session = cluster.connect(keyspace)) {
-                createTableAllTypes(session, keyspace, TABLE_ALL_TYPES, date);
-                createTableAllTypesPartitionKey(session, keyspace, TABLE_ALL_TYPES_PARTITION_KEY, date);
-                createTableClusteringKeys(session, keyspace, TABLE_CLUSTERING_KEYS, 9);
-                createTableClusteringKeys(session, keyspace, TABLE_CLUSTERING_KEYS_LARGE, 1000);
-                createTableMultiPartitionClusteringKeys(session, keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS);
-            }
-        }
+        session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
     }
 
-    public static void createOrReplaceKeyspace(Session session, String keyspaceName)
-    {
-        session.execute("DROP KEYSPACE IF EXISTS " + keyspaceName);
-        session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor':1}");
-    }
-
-    public static void createTableClusteringKeys(Session session, String keyspace, String table, int rowsCount)
+    public static void createTableClusteringKeys(CassandraSession session, SchemaTableName table, int rowsCount)
     {
         session.execute("DROP TABLE IF EXISTS " + table);
         session.execute("CREATE TABLE " + table + " (" +
@@ -87,23 +66,23 @@ public class CassandraTestingUtils
                 "data text, " +
                 "PRIMARY KEY((key), clust_one, clust_two, clust_three) " +
                 ")");
-        insertIntoTableClusteringKeys(session, keyspace, table, rowsCount);
+        insertIntoTableClusteringKeys(session, table, rowsCount);
     }
 
-    public static void insertIntoTableClusteringKeys(Session session, String keyspace, String table, int rowsCount)
+    public static void insertIntoTableClusteringKeys(CassandraSession session, SchemaTableName table, int rowsCount)
     {
         for (Integer rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
-            Insert insert = QueryBuilder.insertInto(keyspace, table)
+            Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
                     .value("key", "key_" + rowNumber.toString())
                     .value("clust_one", "clust_one")
                     .value("clust_two", "clust_two_" + rowNumber.toString())
                     .value("clust_three", "clust_three_" + rowNumber.toString());
-            session.execute(insert);
+            session.executeWithSession(s -> s.execute(insert));
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
     }
 
-    public static void createTableMultiPartitionClusteringKeys(Session session, String keyspace, String table)
+    public static void createTableMultiPartitionClusteringKeys(CassandraSession session, SchemaTableName table)
     {
         session.execute("DROP TABLE IF EXISTS " + table);
         session.execute("CREATE TABLE " + table + " (" +
@@ -115,27 +94,27 @@ public class CassandraTestingUtils
                 "data text, " +
                 "PRIMARY KEY((partition_one, partition_two), clust_one, clust_two, clust_three) " +
                 ")");
-        insertIntoTableMultiPartitionClusteringKeys(session, keyspace, table);
+        insertIntoTableMultiPartitionClusteringKeys(session, table);
     }
 
-    public static void insertIntoTableMultiPartitionClusteringKeys(Session session, String keyspace, String table)
+    public static void insertIntoTableMultiPartitionClusteringKeys(CassandraSession session, SchemaTableName table)
     {
         for (Integer rowNumber = 1; rowNumber < 10; rowNumber++) {
-            Insert insert = QueryBuilder.insertInto(keyspace, table)
+            Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
                     .value("partition_one", "partition_one_" + rowNumber.toString())
                     .value("partition_two", "partition_two_" + rowNumber.toString())
                     .value("clust_one", "clust_one")
                     .value("clust_two", "clust_two_" + rowNumber.toString())
                     .value("clust_three", "clust_three_" + rowNumber.toString());
-            session.execute(insert);
+            session.executeWithSession(s -> s.execute(insert));
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
     }
 
-    public static void createTableAllTypes(Session session, String keyspace, String tableName, Date date)
+    public static void createTableAllTypes(CassandraSession session, SchemaTableName table, Date date)
     {
-        session.execute("DROP TABLE IF EXISTS " + tableName);
-        session.execute("CREATE TABLE " + tableName + " (" +
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (" +
                 " key text PRIMARY KEY, " +
                 " typeuuid uuid, " +
                 " typeinteger int, " +
@@ -155,14 +134,14 @@ public class CassandraTestingUtils
                 " typemap map<int, bigint>, " +
                 " typeset set<boolean>, " +
                 ")");
-        insertTestData(session, keyspace, tableName, date);
+        insertTestData(session, table, date);
     }
 
-    public static void createTableAllTypesPartitionKey(Session session, String keyspace, String tableName, Date date)
+    public static void createTableAllTypesPartitionKey(CassandraSession session, SchemaTableName table, Date date)
     {
-        session.execute("DROP TABLE IF EXISTS " + tableName);
+        session.execute("DROP TABLE IF EXISTS " + table);
 
-        session.execute("CREATE TABLE " + tableName + " (" +
+        session.execute("CREATE TABLE " + table + " (" +
                 " key text, " +
                 " typeuuid uuid, " +
                 " typeinteger int, " +
@@ -207,13 +186,13 @@ public class CassandraTestingUtils
                 " ))" +
                 ")");
 
-        insertTestData(session, keyspace, tableName, date);
+        insertTestData(session, table, date);
     }
 
-    private static void insertTestData(Session session, String keyspace, String table, Date date)
+    private static void insertTestData(CassandraSession session, SchemaTableName table, Date date)
     {
         for (Integer rowNumber = 1; rowNumber < 10; rowNumber++) {
-            Insert insert = QueryBuilder.insertInto(keyspace, table)
+            Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
                     .value("key", "key " + rowNumber.toString())
                     .value("typeuuid", UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)))
                     .value("typeinteger", rowNumber)
@@ -233,7 +212,7 @@ public class CassandraTestingUtils
                     .value("typemap", ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L))
                     .value("typeset", ImmutableSet.of(false, true));
 
-            session.execute(insert);
+            session.executeWithSession(s -> s.execute(insert));
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
     }

@@ -13,25 +13,18 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
 import com.facebook.presto.cassandra.CassandraTokenSplitManager.TokenSplit;
-import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.cassandra.CassandraTestingUtils.HOSTNAME;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.PORT;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraTokenSplitManager
 {
-    private static final int DOES_NOT_MATTER = 1;
-    private static final String CONNECTOR_ID = "integration_test";
     private static final int SPLIT_SIZE = 100;
     private static final String KEYSPACE = "test_cassandra_token_split_manager_keyspace";
     private static final String TABLE = "test_cassandra_token_split_manager_table";
@@ -45,16 +38,7 @@ public class TestCassandraTokenSplitManager
             throws Exception
     {
         EmbeddedCassandra.start();
-        Cluster.Builder cluster = Cluster.builder()
-                .withPort(PORT);
-        session = new CassandraSession(
-                CONNECTOR_ID,
-                ImmutableList.of(HOSTNAME),
-                cluster,
-                DOES_NOT_MATTER,
-                DOES_NOT_MATTER,
-                JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
-                DOES_NOT_MATTER);
+        session = EmbeddedCassandra.getSession();
         splitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE);
     }
 
@@ -62,16 +46,9 @@ public class TestCassandraTokenSplitManager
     public void testCassandraTokenSplitManager()
             throws Exception
     {
-        session.executeWithSession(session -> {
-            createOrReplaceKeyspace(session, KEYSPACE);
-            return null;
-        });
+        createKeyspace(session, KEYSPACE);
+        session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, TABLE));
 
-        session.executeWithSession(KEYSPACE, session -> {
-            String createTable = format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, TABLE);
-            session.execute(createTable);
-            return null;
-        });
         EmbeddedCassandra.flush(KEYSPACE, TABLE);
         EmbeddedCassandra.refreshSizeEstimates();
 
@@ -80,8 +57,7 @@ public class TestCassandraTokenSplitManager
         assertEquals(splits.size(), 1);
 
         for (int i = 0; i < PARTITION_COUNT; i++) {
-            String insertInto = format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, TABLE, "value" + i);
-            session.executeWithSession(KEYSPACE, session -> session.execute(insertInto));
+            session.execute(format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, TABLE, "value" + i));
         }
         EmbeddedCassandra.flush(KEYSPACE, TABLE);
         EmbeddedCassandra.refreshSizeEstimates();

@@ -100,6 +100,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.http.HttpStatus.SC_BAD_REQUEST;
 import static org.apache.http.HttpStatus.SC_FORBIDDEN;
 import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
@@ -558,6 +559,7 @@ public class PrestoS3FileSystem
                                     case SC_NOT_FOUND:
                                         return null;
                                     case SC_FORBIDDEN:
+                                    case SC_BAD_REQUEST:
                                         throw new UnrecoverableS3OperationException(path, e);
                                 }
                             }
@@ -896,6 +898,7 @@ public class PrestoS3FileSystem
                                             return new ByteArrayInputStream(new byte[0]);
                                         case SC_FORBIDDEN:
                                         case SC_NOT_FOUND:
+                                        case SC_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
