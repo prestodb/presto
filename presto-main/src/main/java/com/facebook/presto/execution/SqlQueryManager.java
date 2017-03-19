@@ -286,11 +286,11 @@ public class SqlQueryManager
         requireNonNull(queryId, "queryId is null");
 
         QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            throw new NoSuchElementException();
+        if (query != null) {
+            return query.getResourceGroup();
         }
 
-        return query.getResourceGroup();
+        return Optional.empty();
     }
 
     @Override
