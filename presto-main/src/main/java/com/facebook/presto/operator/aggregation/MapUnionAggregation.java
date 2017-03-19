@@ -22,8 +22,10 @@ import com.facebook.presto.operator.aggregation.state.KeyValuePairsState;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsStateFactory;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 
@@ -65,15 +67,17 @@ public class MapUnionAggregation
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-        return generateAggregation(keyType, valueType);
+        MapType outputType = (MapType) typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(valueType.getTypeSignature())));
+        return generateAggregation(keyType, valueType, outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type keyType, Type valueType)
+    private static InternalAggregationFunction generateAggregation(Type keyType, Type valueType, MapType outputType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(MapUnionAggregation.class.getClassLoader());
-        Type outputType = new MapType(keyType, valueType);
         List<Type> inputTypes = ImmutableList.of(outputType);
-        KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(keyType, valueType);
+        KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(outputType);
         Type intermediateType = stateSerializer.getSerializedType();
 
         AggregationMetadata metadata = new AggregationMetadata(

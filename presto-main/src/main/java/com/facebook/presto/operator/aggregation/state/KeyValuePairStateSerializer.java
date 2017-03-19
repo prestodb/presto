@@ -25,9 +25,9 @@ public class KeyValuePairStateSerializer
 {
     private final MapType mapType;
 
-    public KeyValuePairStateSerializer(Type keyType, Type valueType)
+    public KeyValuePairStateSerializer(MapType mapType)
     {
-        this.mapType = new MapType(keyType, valueType);
+        this.mapType = mapType;
     }
 
     @Override

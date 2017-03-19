@@ -26,7 +26,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.airlift.tpch.OrderColumn;
@@ -62,6 +61,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -282,7 +282,7 @@ public class HiveFileFormatBenchmark
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = new MapType(createUnboundedVarcharType(), DOUBLE);
+                Type type = mapType(createUnboundedVarcharType(), DOUBLE);
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -321,7 +321,7 @@ public class HiveFileFormatBenchmark
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = new MapType(createUnboundedVarcharType(), DOUBLE);
+                Type type = mapType(createUnboundedVarcharType(), DOUBLE);
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -356,7 +356,7 @@ public class HiveFileFormatBenchmark
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = new MapType(INTEGER, DOUBLE);
+                Type type = mapType(INTEGER, DOUBLE);
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -395,7 +395,7 @@ public class HiveFileFormatBenchmark
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = new MapType(INTEGER, DOUBLE);
+                Type type = mapType(INTEGER, DOUBLE);
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));

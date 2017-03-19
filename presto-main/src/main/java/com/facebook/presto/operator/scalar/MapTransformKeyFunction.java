@@ -35,11 +35,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
@@ -115,17 +116,19 @@ public final class MapTransformKeyFunction
         Type keyType = boundVariables.getTypeVariable("K1");
         Type transformedKeyType = boundVariables.getTypeVariable("K2");
         Type valueType = boundVariables.getTypeVariable("V");
+        Type resultMapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(transformedKeyType.getTypeSignature()),
+                TypeSignatureParameter.of(valueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(false, false),
-                generateTransformKey(keyType, transformedKeyType, valueType),
+                generateTransformKey(keyType, transformedKeyType, valueType, resultMapType),
                 isDeterministic());
     }
 
-    private static MethodHandle generateTransformKey(Type keyType, Type transformedKeyType, Type valueType)
+    private static MethodHandle generateTransformKey(Type keyType, Type transformedKeyType, Type valueType, Type resultMapType)
     {
         CallSiteBinder binder = new CallSiteBinder();
-        MapType mapType = new MapType(transformedKeyType, valueType);
         Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
         Class<?> transformedKeyJavaType = Primitives.wrap(transformedKeyType.getJavaType());
         Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
@@ -161,7 +164,7 @@ public final class MapTransformKeyFunction
         // create the interleaved block builder
         body.append(blockBuilder.set(newInstance(
                 InterleavedBlockBuilder.class,
-                constantType(binder, mapType).invoke("getTypeParameters", List.class),
+                constantType(binder, resultMapType).invoke("getTypeParameters", List.class),
                 newInstance(BlockBuilderStatus.class),
                 positionCount)));
 

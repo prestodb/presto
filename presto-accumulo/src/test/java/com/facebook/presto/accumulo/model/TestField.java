@@ -14,10 +14,16 @@
 package com.facebook.presto.accumulo.model;
 
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -172,7 +178,13 @@ public class TestField
     public void testMap()
             throws Exception
     {
-        Type type = new MapType(VARCHAR, BIGINT);
+        TypeManager typeManager = new TypeRegistry();
+        // associate typeManager with a function registry
+        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+
+        Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(VARCHAR.getTypeSignature()),
+                TypeSignatureParameter.of(BIGINT.getTypeSignature())));
         Block expected = AccumuloRowSerializer.getBlockFromMap(type, ImmutableMap.of("a", 1L, "b", 2L, "c", 3L));
         Field f1 = new Field(expected, type);
         assertEquals(f1.getMap(), expected);

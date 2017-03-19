@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 
@@ -121,15 +122,15 @@ public class BenchmarkMapSubscript
             Block valueBlock;
             switch (name) {
                 case "fix-width":
-                    mapType = new MapType(createUnboundedVarcharType(), DOUBLE);
+                    mapType = mapType(createUnboundedVarcharType(), DOUBLE);
                     valueBlock = createFixWidthValueBlock(POSITIONS, mapSize);
                     break;
                 case "var-width":
-                    mapType = new MapType(createUnboundedVarcharType(), createUnboundedVarcharType());
+                    mapType = mapType(createUnboundedVarcharType(), createUnboundedVarcharType());
                     valueBlock = createVarWidthValueBlock(POSITIONS, mapSize);
                     break;
                 case "dictionary":
-                    mapType = new MapType(createUnboundedVarcharType(), createUnboundedVarcharType());
+                    mapType = mapType(createUnboundedVarcharType(), createUnboundedVarcharType());
                     valueBlock = createDictionaryValueBlock(POSITIONS, mapSize);
                     break;
                 default:

@@ -59,7 +59,8 @@ import static org.testng.Assert.fail;
 
 public class TestTypeRegistry
 {
-    private final TypeRegistry typeRegistry = new TypeRegistry();
+    private final TypeManager typeRegistry = new TypeRegistry();
+    private final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
 
     @Test
     public void testNonexistentType()
@@ -273,8 +274,6 @@ public class TestTypeRegistry
     @Test
     public void testCastOperatorsExistForCoercions()
     {
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-
         Set<Type> types = getStandardPrimitiveTypes();
         for (Type sourceType : types) {
             for (Type resultType : types) {

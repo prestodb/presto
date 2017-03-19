@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -201,7 +201,7 @@ public class TestSerDeUtils
         holder.map.put("fifteen", new InnerStruct(16, 17L));
 
         com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
-        com.facebook.presto.spi.type.Type mapOfVarcharRowType = new RowType(ImmutableList.of(new MapType(createUnboundedVarcharType(), rowType)), Optional.empty());
+        com.facebook.presto.spi.type.Type mapOfVarcharRowType = new RowType(ImmutableList.of(mapType(createUnboundedVarcharType(), rowType)), Optional.empty());
         Block actual = toBinaryBlock(mapOfVarcharRowType, holder, getInspector(MapHolder.class));
 
         BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(createUnboundedVarcharType(), rowType), new BlockBuilderStatus(), 1024);
@@ -209,7 +209,7 @@ public class TestSerDeUtils
         rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 16, 17L));
         createUnboundedVarcharType().writeString(blockBuilder, "twelve");
         rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 13, 14L));
-        Block expected = rowBlockOf(ImmutableList.of(new MapType(createUnboundedVarcharType(), rowType)), blockBuilder);
+        Block expected = rowBlockOf(ImmutableList.of(mapType(createUnboundedVarcharType(), rowType)), blockBuilder);
 
         assertBlockEquals(actual, expected);
     }
@@ -248,7 +248,7 @@ public class TestSerDeUtils
 
         com.facebook.presto.spi.type.Type innerRowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
         com.facebook.presto.spi.type.Type arrayOfInnerRowType = new ArrayType(innerRowType);
-        com.facebook.presto.spi.type.Type mapOfInnerRowType = new MapType(createUnboundedVarcharType(), innerRowType);
+        com.facebook.presto.spi.type.Type mapOfInnerRowType = mapType(createUnboundedVarcharType(), innerRowType);
         List<com.facebook.presto.spi.type.Type> outerRowParameterTypes = ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, createUnboundedVarcharType(), createUnboundedVarcharType(), arrayOfInnerRowType, mapOfInnerRowType, innerRowType);
         com.facebook.presto.spi.type.Type outerRowType = new RowType(outerRowParameterTypes, Optional.empty());
 
@@ -290,7 +290,7 @@ public class TestSerDeUtils
         Type type = new TypeToken<Map<BytesWritable, Long>>() {}.getType();
         ObjectInspector inspector = getInspector(type);
 
-        Block actual = getBlockObject(new MapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector);
+        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector);
         Block expected = mapBlockOf(createUnboundedVarcharType(), BIGINT, "bye", 0L);
 
         assertBlockEquals(actual, expected);

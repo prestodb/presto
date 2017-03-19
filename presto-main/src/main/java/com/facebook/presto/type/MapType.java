@@ -43,7 +43,7 @@ public class MapType
     private static final String MAP_NULL_ELEMENT_MSG = "MAP comparison not supported for null value elements";
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
-    public MapType(Type keyType, Type valueType)
+    MapType(Type keyType, Type valueType)
     {
         super(new TypeSignature(StandardTypes.MAP,
                 TypeSignatureParameter.of(keyType.getTypeSignature()),

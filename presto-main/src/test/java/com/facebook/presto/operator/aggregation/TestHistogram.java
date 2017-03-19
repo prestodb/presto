@@ -50,6 +50,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 
 public class TestHistogram
 {
@@ -61,7 +62,7 @@ public class TestHistogram
     public void testSimpleHistograms()
             throws Exception
     {
-        MapType mapType = new MapType(VARCHAR, BIGINT);
+        MapType mapType = mapType(VARCHAR, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -72,7 +73,7 @@ public class TestHistogram
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
                 createStringsBlock("a", "b", "c"));
 
-        mapType = new MapType(BIGINT, BIGINT);
+        mapType = mapType(BIGINT, BIGINT);
         aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -83,7 +84,7 @@ public class TestHistogram
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
-        mapType = new MapType(DOUBLE, BIGINT);
+        mapType = mapType(DOUBLE, BIGINT);
         aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -94,7 +95,7 @@ public class TestHistogram
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
-        mapType = new MapType(BOOLEAN, BIGINT);
+        mapType = mapType(BOOLEAN, BIGINT);
         aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -110,7 +111,7 @@ public class TestHistogram
     public void testDuplicateKeysValues()
             throws Exception
     {
-        MapType mapType = new MapType(VARCHAR, BIGINT);
+        MapType mapType = mapType(VARCHAR, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -121,7 +122,7 @@ public class TestHistogram
                 ImmutableMap.of("a", 2L, "b", 1L),
                 createStringsBlock("a", "b", "a"));
 
-        mapType = new MapType(TIMESTAMP_WITH_TIME_ZONE, BIGINT);
+        mapType = mapType(TIMESTAMP_WITH_TIME_ZONE, BIGINT);
         aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -139,7 +140,7 @@ public class TestHistogram
     public void testWithNulls()
             throws Exception
     {
-        MapType mapType = new MapType(BIGINT, BIGINT);
+        MapType mapType = mapType(BIGINT, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -150,7 +151,7 @@ public class TestHistogram
                 ImmutableMap.of(1L, 1L, 2L, 1L),
                 createLongsBlock(2L, null, 1L));
 
-        mapType = new MapType(BIGINT, BIGINT);
+        mapType = mapType(BIGINT, BIGINT);
         aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -167,7 +168,7 @@ public class TestHistogram
             throws Exception
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
-        MapType mapType = new MapType(arrayType, BIGINT);
+        MapType mapType = mapType(arrayType, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -184,8 +185,8 @@ public class TestHistogram
     public void testMapHistograms()
             throws Exception
     {
-        MapType innerMapType = new MapType(VARCHAR, VARCHAR);
-        MapType mapType = new MapType(innerMapType, BIGINT);
+        MapType innerMapType = mapType(VARCHAR, VARCHAR);
+        MapType mapType = mapType(innerMapType, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -208,7 +209,7 @@ public class TestHistogram
             throws Exception
     {
         RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
-        MapType mapType = new MapType(innerRowType, BIGINT);
+        MapType mapType = mapType(innerRowType, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
@@ -230,7 +231,7 @@ public class TestHistogram
     public void testLargerHistograms()
             throws Exception
     {
-        MapType mapType = new MapType(VARCHAR, BIGINT);
+        MapType mapType = mapType(VARCHAR, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,

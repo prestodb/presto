@@ -39,6 +39,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -127,7 +128,7 @@ public class TestRealHistogramAggregation
     private static Map<Float, Float> extractSingleValue(Block block)
             throws IOException
     {
-        MapType mapType = new MapType(REAL, REAL);
+        MapType mapType = mapType(REAL, REAL);
         return (Map<Float, Float>) mapType.getObjectValue(null, block, 0);
     }
 

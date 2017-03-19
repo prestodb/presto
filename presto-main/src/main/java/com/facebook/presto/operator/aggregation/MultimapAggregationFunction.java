@@ -24,10 +24,11 @@ import com.facebook.presto.operator.aggregation.state.MultiKeyValuePairsStateFac
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -76,14 +77,16 @@ public class MultimapAggregationFunction
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-        return generateAggregation(keyType, valueType);
+        Type outputType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(new ArrayType(valueType).getTypeSignature())));
+        return generateAggregation(keyType, valueType, outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type keyType, Type valueType)
+    private static InternalAggregationFunction generateAggregation(Type keyType, Type valueType, Type outputType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(MultimapAggregationFunction.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(keyType, valueType);
-        Type outputType = new MapType(keyType, new ArrayType(valueType));
         MultiKeyValuePairStateSerializer stateSerializer = new MultiKeyValuePairStateSerializer(keyType, valueType);
         Type intermediateType = stateSerializer.getSerializedType();
 

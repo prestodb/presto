@@ -13,11 +13,19 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
@@ -26,6 +34,12 @@ import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 
 public final class StructuralTestUtil
 {
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    static {
+        // associate TYPE_MANAGER with a function registry
+        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    }
+
     private StructuralTestUtil() {}
 
     public static Block arrayBlockOf(Type elementType, Object... values)
@@ -45,5 +59,12 @@ public final class StructuralTestUtil
             appendToBlockBuilder(valueType, entry.getValue(), blockBuilder);
         }
         return blockBuilder.build();
+    }
+
+    public static MapType mapType(Type keyType, Type valueType)
+    {
+        return (MapType) TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(valueType.getTypeSignature())));
     }
 }

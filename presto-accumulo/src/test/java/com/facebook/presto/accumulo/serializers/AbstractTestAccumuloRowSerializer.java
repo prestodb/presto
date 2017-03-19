@@ -13,9 +13,15 @@
  */
 package com.facebook.presto.accumulo.serializers;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.accumulo.core.data.Key;
@@ -182,8 +188,14 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testMap()
             throws Exception
     {
+        TypeManager typeManager = new TypeRegistry();
+        // associate typeManager with a function registry
+        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
-        Type type = new MapType(VARCHAR, BIGINT);
+        Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(VARCHAR.getTypeSignature()),
+                TypeSignatureParameter.of(BIGINT.getTypeSignature())));
         Map<Object, Object> expected = ImmutableMap.of("a", 1L, "b", 2L, "3", 3L);
         byte[] data = serializer.encode(type, AccumuloRowSerializer.getBlockFromMap(type, expected));
         Map<Object, Object> actual = serializer.decode(type, data);

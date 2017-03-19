@@ -58,6 +58,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -120,7 +121,7 @@ public class BenchmarkMapConcat
                     throw new UnsupportedOperationException();
             }
 
-            MapType mapType = new MapType(createUnboundedVarcharType(), DOUBLE);
+            MapType mapType = mapType(createUnboundedVarcharType(), DOUBLE);
 
             Block leftKeyBlock = createKeyBlock(POSITIONS, leftKeys);
             Block leftValueBlock = createValueBlock(POSITIONS, leftKeys.size());

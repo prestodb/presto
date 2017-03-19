@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -50,7 +53,11 @@ import static org.testng.Assert.fail;
 
 public class TestSignatureBinder
 {
-    private final TypeRegistry typeRegistry = new TypeRegistry();
+    private final TypeManager typeRegistry = new TypeRegistry();
+    {
+        // associate typeRegistry with a function registry
+        new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+    }
 
     @Test
     public void testBindLiteralForDecimal()

@@ -22,16 +22,16 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 
 public class TestSmallintVarcharMapType
         extends AbstractTestType
 {
     public TestSmallintVarcharMapType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("map(smallint,varchar)")), Map.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("map(smallint,varchar)"))));
+        super(mapType(SMALLINT, VARCHAR), Map.class, createTestBlock(mapType(SMALLINT, VARCHAR)));
     }
 
     public static Block createTestBlock(Type mapType)

@@ -17,9 +17,7 @@ import com.facebook.presto.operator.aggregation.TypedHistogram;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.MapType;
 
 import static com.facebook.presto.operator.aggregation.Histogram.EXPECTED_SIZE_FOR_HASHING;
 
@@ -29,10 +27,10 @@ public class HistogramStateSerializer
     private final Type type;
     private final Type serializedType;
 
-    public HistogramStateSerializer(Type type)
+    public HistogramStateSerializer(Type type, Type serializedType)
     {
         this.type = type;
-        this.serializedType = new MapType(type, BigintType.BIGINT);
+        this.serializedType = serializedType;
     }
 
     @Override

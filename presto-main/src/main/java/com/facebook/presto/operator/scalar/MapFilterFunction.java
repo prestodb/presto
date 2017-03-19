@@ -31,11 +31,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
@@ -105,17 +106,19 @@ public final class MapFilterFunction
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
+        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(valueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(false, false),
-                generateFilter(keyType, valueType),
+                generateFilter(keyType, valueType, mapType),
                 isDeterministic());
     }
 
-    private static MethodHandle generateFilter(Type keyType, Type valueType)
+    private static MethodHandle generateFilter(Type keyType, Type valueType, Type mapType)
     {
         CallSiteBinder binder = new CallSiteBinder();
-        MapType mapType = new MapType(keyType, valueType);
         Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
         Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
 

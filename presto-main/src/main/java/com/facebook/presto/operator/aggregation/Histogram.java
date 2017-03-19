@@ -24,10 +24,10 @@ import com.facebook.presto.operator.aggregation.state.HistogramStateSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.MapType;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -40,6 +40,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -75,16 +76,17 @@ public class Histogram
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = BigintType.BIGINT;
-        return generateAggregation(keyType, valueType);
+        Type outputType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(BIGINT.getTypeSignature())));
+        return generateAggregation(keyType, outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type keyType, Type valueType)
+    private static InternalAggregationFunction generateAggregation(Type keyType, Type outputType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(Histogram.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(keyType);
-        Type outputType = new MapType(keyType, valueType);
-        HistogramStateSerializer stateSerializer = new HistogramStateSerializer(keyType);
+        HistogramStateSerializer stateSerializer = new HistogramStateSerializer(keyType, outputType);
         Type intermediateType = stateSerializer.getSerializedType();
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(keyType);
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(outputType);

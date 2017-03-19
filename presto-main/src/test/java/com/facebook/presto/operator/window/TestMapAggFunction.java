@@ -14,13 +14,13 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 
 public class TestMapAggFunction
         extends AbstractTestWindowFunction
@@ -29,7 +29,7 @@ public class TestMapAggFunction
     public void testMapAgg()
     {
         assertWindowQuery("map_agg(orderkey, orderstatus) OVER(PARTITION BY orderdate)",
-                resultBuilder(TEST_SESSION, BIGINT, VarcharType.createVarcharType(1), new MapType(BIGINT, VarcharType.createVarcharType(1)))
+                resultBuilder(TEST_SESSION, BIGINT, VarcharType.createVarcharType(1), mapType(BIGINT, VarcharType.createVarcharType(1)))
                         .row(1, "O", ImmutableMap.of(1, "O"))
                         .row(2, "O", ImmutableMap.of(2, "O"))
                         .row(3, "F", ImmutableMap.of(3, "F"))

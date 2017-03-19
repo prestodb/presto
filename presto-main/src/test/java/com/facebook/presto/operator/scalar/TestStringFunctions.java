@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
 
@@ -375,7 +376,7 @@ public class TestStringFunctions
     @Test
     public void testSplitToMap()
     {
-        MapType expectedType = new MapType(VARCHAR, VARCHAR);
+        MapType expectedType = mapType(VARCHAR, VARCHAR);
 
         assertFunction("SPLIT_TO_MAP('', ',', '=')", expectedType, ImmutableMap.of());
         assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')", expectedType, ImmutableMap.of("a", "123", "b", ".4", "c", "", "", "d"));
