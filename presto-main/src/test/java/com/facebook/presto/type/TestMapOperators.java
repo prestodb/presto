@@ -59,6 +59,7 @@ import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -252,6 +253,11 @@ public class TestMapOperators
                 "CAST(MAP(ARRAY[1, 2, 3, 5, 8, 13, 21, 34], ARRAY[JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', null]) AS JSON)",
                 JSON,
                 "{\"1\":123,\"13\":{\"a\":1,\"b\":\"str\",\"c\":null},\"2\":3.14,\"21\":null,\"3\":false,\"34\":null,\"5\":\"abc\",\"8\":[1,\"a\",null]}");
+
+        assertFunction(
+                "CAST(MAP(ARRAY[1, 2], ARRAY[from_unixtime(1), null]) AS JSON)",
+                JSON,
+                format("{\"1\":\"%s\",\"2\":null}", sqlTimestamp(1000).toString()));
 
         assertFunction(
                 "cast(MAP(ARRAY[1, 2, 3, 5, 8], ARRAY[ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], null]) AS JSON)",
@@ -600,5 +606,10 @@ public class TestMapOperators
         long hashResult = mapType.hash(mapArrayBuilder.build(), 0);
 
         assertOperator(HASH_CODE, inputString, BIGINT, hashResult);
+    }
+
+    private static SqlTimestamp sqlTimestamp(long millisUtc)
+    {
+        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 }

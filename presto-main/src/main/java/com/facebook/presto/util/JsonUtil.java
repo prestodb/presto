@@ -45,7 +45,9 @@ import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -79,7 +81,8 @@ public final class JsonUtil
                 baseType.equals(StandardTypes.DOUBLE) ||
                 baseType.equals(StandardTypes.DECIMAL) ||
                 baseType.equals(StandardTypes.VARCHAR) ||
-                baseType.equals(StandardTypes.JSON)) {
+                baseType.equals(StandardTypes.JSON) ||
+                baseType.equals(StandardTypes.TIMESTAMP)) {
             return true;
         }
         if (type instanceof ArrayType) {
@@ -184,6 +187,8 @@ public final class JsonUtil
                     return new VarcharJsonGeneratorWriter(type);
                 case StandardTypes.JSON:
                     return new JsonJsonGeneratorWriter();
+                case StandardTypes.TIMESTAMP:
+                    return new TimestampJsonGeneratorWriter();
                 case StandardTypes.ARRAY:
                     ArrayType arrayType = (ArrayType) type;
                     return new ArrayJsonGeneratorWriter(
@@ -381,6 +386,23 @@ public final class JsonUtil
             else {
                 Slice value = JSON.getSlice(block, position);
                 jsonGenerator.writeRawValue(value.toStringUtf8());
+            }
+        }
+    }
+
+    private static class TimestampJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position, ConnectorSession session)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                long value = TIMESTAMP.getLong(block, position);
+                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
             }
         }
     }

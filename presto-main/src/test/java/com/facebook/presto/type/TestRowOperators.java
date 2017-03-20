@@ -88,6 +88,11 @@ public class TestRowOperators
                 "[\"a\",\"bb\",null,123,3.14,false,\"abc\",[1,\"a\",null],{\"a\":1,\"b\":\"str\",\"c\":null},null,null]");
 
         assertFunction(
+                "CAST(ROW(from_unixtime(1), cast(null as TIMESTAMP)) AS JSON)",
+                JSON,
+                format("[\"%s\",null]", sqlTimestamp(1000).toString()));
+
+        assertFunction(
                 "cast(ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null AS ARRAY<BIGINT>)) AS JSON)",
                 JSON,
                 "[[1,2],[3,null],[],[null,null],null]");
@@ -253,5 +258,10 @@ public class TestRowOperators
             assertFunction(base + operator + greater, BOOLEAN, lessOrInequalityOperators.contains(operator));
             assertFunction(greater + operator + base, BOOLEAN, greaterOrInequalityOperators.contains(operator));
         }
+    }
+
+    private static SqlTimestamp sqlTimestamp(long millisUtc)
+    {
+        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 }

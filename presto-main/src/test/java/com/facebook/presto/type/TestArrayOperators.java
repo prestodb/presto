@@ -62,6 +62,7 @@ import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
@@ -156,6 +157,11 @@ public class TestArrayOperators
                 "cast(ARRAY[JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', null] AS JSON)",
                 JSON,
                 "[123,3.14,false,\"abc\",[1,\"a\",null],{\"a\":1,\"b\":\"str\",\"c\":null},null,null]");
+
+        assertFunction(
+                "CAST(ARRAY[from_unixtime(1), null] AS JSON)",
+                JSON,
+                format("[\"%s\",null]", sqlTimestamp(1000).toString()));
 
         assertFunction(
                 "cast(ARRAY[ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], null] AS JSON)",

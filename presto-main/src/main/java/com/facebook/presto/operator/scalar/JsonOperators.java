@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -43,7 +44,9 @@ import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
+import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
@@ -333,6 +336,23 @@ public final class JsonOperators
             SliceOutput output = new DynamicSliceOutput(5);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeBoolean(value);
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(JSON)
+    public static Slice castFromTimestamp(ConnectorSession session, @SqlType(TIMESTAMP) long value)
+            throws IOException
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(25);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
             }
             return output.slice();
         }
