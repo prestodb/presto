@@ -296,9 +296,9 @@ public class PlanBuilder
         List<Symbol> outputSymbols = ImmutableList.copyOf(mapping.keySet());
         List<List<Symbol>> inputs = IntStream.range(0, sources.length)
                 .mapToObj(i -> outputSymbols.stream()
-                    .map(mapping::get)
-                    .map(columnValues -> columnValues.get(i))
-                    .collect(toImmutableList()))
+                        .map(mapping::get)
+                        .map(columnValues -> columnValues.get(i))
+                        .collect(toImmutableList()))
                 .collect(toImmutableList());
 
         return new ExchangeNode(
