@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
-import com.facebook.presto.orc.metadata.CompressionKind;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
@@ -32,9 +31,9 @@ public final class ByteStreamCheckpoint
         this.inputStreamCheckpoint = inputStreamCheckpoint;
     }
 
-    public ByteStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
+    public ByteStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {
-        inputStreamCheckpoint = createInputStreamCheckpoint(compressionKind, positionsList);
+        inputStreamCheckpoint = createInputStreamCheckpoint(compressed, positionsList);
         offset = positionsList.nextPosition();
     }
 

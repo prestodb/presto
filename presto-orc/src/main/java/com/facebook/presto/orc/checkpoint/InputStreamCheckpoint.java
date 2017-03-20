@@ -14,9 +14,7 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
-import com.facebook.presto.orc.metadata.CompressionKind;
 
-import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 /**
@@ -28,9 +26,9 @@ public final class InputStreamCheckpoint
     {
     }
 
-    public static long createInputStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
+    public static long createInputStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {
-        if (compressionKind == UNCOMPRESSED) {
+        if (!compressed) {
             return createInputStreamCheckpoint(0, positionsList.nextPosition());
         }
         else {

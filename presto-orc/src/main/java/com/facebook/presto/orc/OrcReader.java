@@ -15,7 +15,6 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
-import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
@@ -34,6 +33,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.lang.Math.min;
@@ -55,11 +55,11 @@ public class OrcReader
     private final MetadataReader metadataReader;
     private final DataSize maxMergeDistance;
     private final DataSize maxReadSize;
-    private final CompressionKind compressionKind;
     private final HiveWriterVersion hiveWriterVersion;
     private final int bufferSize;
     private final Footer footer;
     private final Metadata metadata;
+    private Optional<OrcDecompressor> decompressor = Optional.empty();
 
     // This is based on the Apache Hive ORC code
     public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, DataSize maxMergeDistance, DataSize maxReadSize)
@@ -103,11 +103,23 @@ public class OrcReader
         // verify this is a supported version
         checkOrcVersion(orcDataSource, postScript.getVersion());
 
+        this.bufferSize = toIntExact(postScript.getCompressionBlockSize());
+
         // check compression codec is supported
-        this.compressionKind = postScript.getCompression();
+        switch (postScript.getCompression()) {
+            case UNCOMPRESSED:
+                break;
+            case ZLIB:
+                decompressor = Optional.of(new OrcZlibDecompressor(bufferSize));
+                break;
+            case SNAPPY:
+                decompressor = Optional.of(new OrcSnappyDecompressor(bufferSize));
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported compression type: " + postScript.getCompression());
+        }
 
         this.hiveWriterVersion = postScript.getHiveWriterVersion();
-        this.bufferSize = toIntExact(postScript.getCompressionBlockSize());
 
         int footerSize = toIntExact(postScript.getFooterLength());
         int metadataSize = toIntExact(postScript.getMetadataLength());
@@ -133,13 +145,13 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
     }
@@ -157,11 +169,6 @@ public class OrcReader
     public Metadata getMetadata()
     {
         return metadata;
-    }
-
-    public CompressionKind getCompressionKind()
-    {
-        return compressionKind;
     }
 
     public int getBufferSize()
@@ -195,8 +202,7 @@ public class OrcReader
                 offset,
                 length,
                 footer.getTypes(),
-                compressionKind,
-                bufferSize,
+                decompressor,
                 footer.getRowsInRowGroup(),
                 requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
                 hiveWriterVersion,
