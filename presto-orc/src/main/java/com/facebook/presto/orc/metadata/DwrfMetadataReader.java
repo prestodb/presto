@@ -40,6 +40,7 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
@@ -355,6 +356,8 @@ public class DwrfMetadataReader
                 return ZLIB;
             case SNAPPY:
                 return SNAPPY;
+            case ZSTD:
+                return ZSTD;
             default:
                 throw new IllegalArgumentException(compression + " compression not implemented yet");
         }
