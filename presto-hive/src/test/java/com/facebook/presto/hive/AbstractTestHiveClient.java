@@ -331,12 +331,6 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tablePartitionSchemaChange;
     protected SchemaTableName tablePartitionSchemaChangeNonCanonical;
 
-    protected SchemaTableName temporaryCreateRollbackTable;
-    protected SchemaTableName temporaryInsertUnsupportedWriteType;
-    protected SchemaTableName temporaryRenameTableOld;
-    protected SchemaTableName temporaryRenameTableNew;
-    protected SchemaTableName temporaryCreateView;
-
     protected String invalidClientId;
     protected ConnectorTableHandle invalidTableHandle;
 
@@ -398,12 +392,6 @@ public abstract class AbstractTestHiveClient
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
         tablePartitionSchemaChange = new SchemaTableName(database, "presto_test_partition_schema_change");
         tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
-
-        temporaryCreateRollbackTable = temporaryTable("create_rollback");
-        temporaryInsertUnsupportedWriteType = temporaryTable("insert_unsupported_type");
-        temporaryRenameTableOld = temporaryTable("rename_old");
-        temporaryRenameTableNew = temporaryTable("rename_new");
-        temporaryCreateView = temporaryTable("create_view");
 
         invalidClientId = "hive";
         invalidTableHandle = new HiveTableHandle(invalidClientId, database, INVALID_TABLE);
@@ -1648,6 +1636,8 @@ public abstract class AbstractTestHiveClient
     @Test
     public void testRenameTable()
     {
+        SchemaTableName temporaryRenameTableOld = temporaryTable("rename_old");
+        SchemaTableName temporaryRenameTableNew = temporaryTable("rename_new");
         try {
             createDummyTable(temporaryRenameTableOld);
 
@@ -1692,6 +1682,7 @@ public abstract class AbstractTestHiveClient
     public void testTableCreationRollback()
             throws Exception
     {
+        SchemaTableName temporaryCreateRollbackTable = temporaryTable("create_rollback");
         try {
             Path stagingPathRoot;
             try (Transaction transaction = newTransaction()) {
@@ -1780,6 +1771,7 @@ public abstract class AbstractTestHiveClient
     public void testInsertUnsupportedWriteType()
             throws Exception
     {
+        SchemaTableName temporaryInsertUnsupportedWriteType = temporaryTable("insert_unsupported_type");
         try {
             doInsertUnsupportedWriteType(ORC, temporaryInsertUnsupportedWriteType);
         }
@@ -1821,8 +1813,9 @@ public abstract class AbstractTestHiveClient
     @Test
     public void testViewCreation()
     {
+        SchemaTableName temporaryCreateView = temporaryTable("create_view");
         try {
-            verifyViewCreation();
+            verifyViewCreation(temporaryCreateView);
         }
         finally {
             try (Transaction transaction = newTransaction()) {
@@ -1869,7 +1862,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void verifyViewCreation()
+    private void verifyViewCreation(SchemaTableName temporaryCreateView)
     {
         // replace works for new view
         doCreateView(temporaryCreateView, true);
