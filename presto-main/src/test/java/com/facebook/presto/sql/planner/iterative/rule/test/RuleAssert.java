@@ -18,12 +18,12 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
@@ -79,12 +79,13 @@ public class RuleAssert
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
         Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator);
+        Map<Symbol, Type> types = symbolAllocator.getTypes();
 
         if (!result.isPresent()) {
             fail(String.format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
-                    PlanPrinter.textLogicalPlan(plan, symbolAllocator.getTypes(), metadata, session, 2)));
+                    PlanPrinter.textLogicalPlan(plan, types, metadata, session, 2)));
         }
 
         PlanNode actual = result.get();
@@ -93,7 +94,7 @@ public class RuleAssert
             fail(String.format(
                     "%s: rule fired but return the original plan:\n%s",
                     rule.getClass().getName(),
-                    PlanPrinter.textLogicalPlan(plan, symbolAllocator.getTypes(), metadata, session, 2)));
+                    PlanPrinter.textLogicalPlan(plan, types, metadata, session, 2)));
         }
 
         if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
@@ -106,6 +107,6 @@ public class RuleAssert
                     actual.getOutputSymbols()));
         }
 
-        assertPlan(session, metadata, new Plan(actual, symbolAllocator), pattern);
+        assertPlan(session, metadata, new Plan(actual, types), pattern);
     }
 }

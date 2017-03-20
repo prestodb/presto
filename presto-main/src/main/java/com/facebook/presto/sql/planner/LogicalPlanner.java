@@ -127,7 +127,7 @@ public class LogicalPlanner
             PlanSanityChecker.validate(root, session, metadata, sqlParser, symbolAllocator.getTypes());
         }
 
-        return new Plan(root, symbolAllocator);
+        return new Plan(root, symbolAllocator.getTypes());
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)
