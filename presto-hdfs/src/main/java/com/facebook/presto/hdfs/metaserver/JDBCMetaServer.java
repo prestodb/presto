@@ -18,6 +18,7 @@ import com.facebook.presto.hdfs.HDFSConfig;
 import com.facebook.presto.hdfs.HDFSDatabase;
 import com.facebook.presto.hdfs.HDFSTableHandle;
 import com.facebook.presto.hdfs.HDFSTableLayoutHandle;
+import com.facebook.presto.hdfs.exception.MetaServerCorruptionException;
 import com.facebook.presto.hdfs.exception.RecordMoreLessException;
 import com.facebook.presto.hdfs.exception.TypeUnknownException;
 import com.facebook.presto.hdfs.fs.FSFactory;
@@ -98,18 +99,16 @@ implements MetaServer
             + HDFSConfig.getMetaserverStore());
 
         sqlTable.putIfAbsent("dbs",
-                "CREATE TABLE DBS(DB_ID BIGSERIAL PRIMARY KEY, DB_DESC varchar(4000), DB_NAME varchar(128) UNIQUE, DB_LOCATION_URI varchar(4000), DB_OWNER varchar(128));");
-        // TBL_NAME: db_name.tbl_name
+                "CREATE TABLE DBS(ID BIGSERIAL PRIMARY KEY, NAME varchar(128) UNIQUE, LOCATION varchar(1000));");
         sqlTable.putIfAbsent("tbls",
-                "CREATE TABLE TBLS(TBL_ID BIGSERIAL PRIMARY KEY, DB_NAME varchar(128), TBL_NAME varchar(256) UNIQUE, TBL_LOCATION_URI varchar(4000));");
-        sqlTable.putIfAbsent("tbl_params",
-                "CREATE TABLE TBL_PARAMS(TBL_PARAM_ID BIGSERIAL PRIMARY KEY, TBL_NAME varchar(128), FIBER_COL varchar(384), TIME_COL varchar(384), FIBER_FUNC varchar(4000));");
+                "CREATE TABLE TBLS(ID BIGSERIAL PRIMARY KEY, DB_ID BIGINT, NAME varchar(128), DB_NAME varchar(128), LOCATION varchar(1000), STORAGE INT, FIB_FUNC INT, FIB_K BIGINT, TIME_K BIGINT); CREATE UNIQUE INDEX tableunique ON TBLS(NAME, DB_ID);");
         // COL_NAME: TBL_NAME.col_name;  COL_TYPE: FIBER_COL|TIME_COL|REGULAR;   TYPE:INT|DECIMAL|STRING|... refer to spi.StandardTypes
         sqlTable.putIfAbsent("cols",
-                "CREATE TABLE COLS(COL_ID BIGSERIAL PRIMARY KEY, TBL_NAME varchar(256), COL_NAME varchar(384) UNIQUE, COL_TYPE varchar(10), TYPE varchar(20));");
+                "CREATE TABLE COLS(ID BIGSERIAL PRIMARY KEY, NAME varchar(128), TBL_ID BIGINT, TBL_NAME varchar(128), DB_NAME varchar(128), DATA_TYPE INT, COL_TYPE INT); CREATE UNIQUE INDEX colunique ON COLS(NAME, TBL_ID);");
         sqlTable.putIfAbsent("fibers",
-                "CREATE TABLE FIBERS(INDEX_ID BIGSERIAL PRIMARY KEY, TBL_NAME varchar(256), FIBER bigint, TIME_BEGIN timestamp, TIME_END timestamp);");
-
+                "CREATE TABLE FIBERS(ID BIGSERIAL PRIMARY KEY, TBL_ID BIGINT, FIBER_V bigint); CREATE UNIQUE INDEX fibersunique ON FIBERS(TBL_ID, FIBER_V);");
+        sqlTable.putIfAbsent("fiberfiles",
+                "CREATE TABLE FIBERFILES(ID BIGSERIAL PRIMARY KEY, FIBER_ID BIGINT, TIME_B timestamp, TIME_E timestamp, PATH varchar(1024) UNIQUE);");
         fileSystem = FSFactory.getFS().get();
 
         // initialise meta tables
@@ -138,10 +137,6 @@ implements MetaServer
                 log.error(e, "jdbc meta getTables error");
             }
         }
-        // some tables exist, while some missing
-        if (initFlag < 4 && initFlag > 0) {
-            // TODO meta db has been disrupted, tables are not complete
-        }
         // if no table exists, init all
         if (initFlag == 0) {
             sqlTable.keySet().forEach(
@@ -158,10 +153,9 @@ implements MetaServer
             createDatabase(defaultDB);
         }
         // if not all tables exist, throw an error and break
-        else if (initFlag != 5) {
+        else if (initFlag != sqlTable.keySet().size()) {
             log.error("Tables not complete!");
-            // TODO do not break brutally
-            System.exit(1);
+            throw new MetaServerCorruptionException("Tables are corrupted");
         }
     }
 
@@ -171,8 +165,8 @@ implements MetaServer
         log.debug("Get all databases");
         List<JDBCRecord> records;
         List<String> resultL = new ArrayList<>();
-        String sql = "SELECT db_name FROM dbs;";
-        String[] fields = {"db_name"};
+        String sql = "SELECT name FROM dbs;";
+        String[] fields = {"name"};
         records = jdbcDriver.executreQuery(sql, fields);
         records.forEach(record -> resultL.add(record.getString(fields[0])));
         return resultL;
@@ -229,18 +223,18 @@ implements MetaServer
         log.debug("listTables dbPrefix: " + dbPrefix);
         String tblPrefix = prefix.getTableName();
         log.debug("listTables tblPrefix: " + tblPrefix);
-        StringBuilder baseSql = new StringBuilder("SELECT tbl_name FROM tbls");
+        StringBuilder baseSql = new StringBuilder("SELECT name FROM tbls");
         // if dbPrefix not mean to match all
         if (dbPrefix != null) {
             baseSql.append(" WHERE db_name='").append(dbPrefix).append("'");
             // if tblPrefix not mean to match all
             if (tblPrefix != null) {
-                baseSql.append(" AND tbl_name='").append(Utils.formName(dbPrefix, tblPrefix)).append("'");
+                baseSql.append(" AND tbl_name='").append(tblPrefix).append("'");
             }
         }
         baseSql.append(";");
         String tableName;
-        String[] fields = {"tbl_name"};
+        String[] fields = {"name"};
         records = jdbcDriver.executreQuery(baseSql.toString(), fields);
         if (records.size() == 0) {
             return tables;
@@ -299,22 +293,25 @@ implements MetaServer
         log.debug("Get table handle " + Utils.formName(databaseName, tableName));
         HDFSTableHandle table;
         List<JDBCRecord> records;
-        String sql = "SELECT tbl_name, tbl_location_uri FROM tbls WHERE tbl_name='"
-                + Utils.formName(databaseName, tableName)
+        String sql = "SELECT name, location FROM tbls WHERE db_name='"
+                + databaseName
+                + "' AND name='"
+                + tableName
                 + "';";
-        String[] fields = {"tbl_name", "tbl_location_uri"};
+        String[] fields = {"name", "db_name", "location"};
         records = jdbcDriver.executreQuery(sql, fields);
         if (records.size() != 1) {
             log.error("Match more/less than one table");
             return Optional.empty();
         }
         JDBCRecord record = records.get(0);
-        String schema = record.getString(fields[0]);
-        String location = record.getString(fields[1]);
+        String name = record.getString(fields[0]);
+        String schema = record.getString(fields[1]);
+        String location = record.getString(fields[2]);
         table = new HDFSTableHandle(
                 requireNonNull(connectorId, "connectorId is null"),
-                requireNonNull(Utils.getDatabaseName(schema), "database name is null"),
-                requireNonNull(Utils.getTableName(schema), "table name is null"),
+                requireNonNull(schema, "database name is null"),
+                requireNonNull(name, "table name is null"),
                 requireNonNull(new Path(location), "location uri is null"));
         return Optional.of(table);
     }

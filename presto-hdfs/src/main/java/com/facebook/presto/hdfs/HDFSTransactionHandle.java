@@ -21,5 +21,5 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 public enum  HDFSTransactionHandle
 implements ConnectorTransactionHandle
 {
-    INSTANCE;
+    INSTANCE
 }

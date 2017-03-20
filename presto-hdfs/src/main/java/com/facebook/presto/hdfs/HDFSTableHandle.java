@@ -93,6 +93,6 @@ public class HDFSTableHandle
     public String toString()
     {
         // TODO toString
-        return "Table " + tableName + ": " + schemaName;
+        return "Table[" + schemaName + "." + tableName + "]";
     }
 }

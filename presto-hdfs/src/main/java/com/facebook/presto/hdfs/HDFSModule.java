@@ -67,7 +67,6 @@ implements Module
         binder.bind(HDFSConnector.class).in(Scopes.SINGLETON);
         binder.bind(HDFSSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(HDFSPageSourceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(HDFSTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ClassLoader.class).toInstance(HDFSPlugin.getClassLoader());
 
         configBinder(binder).bindConfig(HDFSConfig.class);

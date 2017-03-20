@@ -92,7 +92,7 @@ Methods in detail:
 #### MetaServer
 Table:
 
-+ DB
++ DBS
 
 | field    | description   |     example        |          type         |
 |----------|---------------|--------------------|-----------------------|
@@ -100,7 +100,7 @@ Table:
 | NAME     | database name | default            | varchar(128) UNIQUE   |
 | LOCATION | database path | hdfs://u/db        | varchar(4000)         |
 
-+ TBL
++ TBLS
 
 | field    | description   |     example      |
 |----------|---------------|------------------|
@@ -114,7 +114,7 @@ Table:
 | FIB_FUNC | fiber function| function0        |
 | TIME_K   | time key col  | col1             |
 
-+ COL
++ COLS
 
 | field    | description   |     example      |
 |----------|---------------|------------------|
@@ -123,11 +123,10 @@ Table:
 | TBL_ID   | table id      | 1                |
 | TBL_NAME | table name    | test             |
 | DB_NAME  | database name | default          |
-| TYPE     | column type   | INT              |
-| FIB_K    | fiber key?    | Y/N              |
-| TIME_K   | timestamp key?| Y/N              |
+| DATA_TYPE| column type   | INT              |
+| COL_TYPE | fiber|time|.  | 0                |
 
-+ FIBER
++ FIBERS
 
 | field    | description   |     example      |
 |----------|---------------|------------------|

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hdfs;
 
+import com.facebook.presto.hdfs.function.Function;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,38 +27,42 @@ import static java.util.Objects.requireNonNull;
 public class HDFSTableLayoutHandle
 implements ConnectorTableLayoutHandle
 {
-    private final SchemaTableName tableName;                // schema.table
+    private final HDFSTableHandle table;
     private final HDFSColumnHandle fiberColumn;
     private final HDFSColumnHandle timestampColumn;
-    private final String fiberFunc;
+    private final Function fiberFunction;
+    private final StorageFormat storageFormat;
 
     @JsonCreator
     public HDFSTableLayoutHandle(
-            @JsonProperty("tableName") SchemaTableName tableName)
+            @JsonProperty("table") HDFSTableHandle table)
     {
-        this.tableName = tableName;
+        this.table = table;
         this.fiberColumn = null;
         this.timestampColumn = null;
-        this.fiberFunc = null;
+        this.fiberFunction = null;
+        this.storageFormat = StorageFormat.PARQUET;
     }
 
     @JsonCreator
     public HDFSTableLayoutHandle(
-            @JsonProperty("tableName") SchemaTableName tableName,
+            @JsonProperty("table") HDFSTableHandle table,
             @JsonProperty("fiberColumn") HDFSColumnHandle fiberColumn,
             @JsonProperty("timestampColumn") HDFSColumnHandle timestampColumn,
-            @JsonProperty("fiberFunc") String fiberFunc)
+            @JsonProperty("fiberFunction") Function fiberFunction,
+            @JsonProperty("storageFormat") StorageFormat storageFormat)
     {
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.table = requireNonNull(table, "tableName is null");
         this.fiberColumn = requireNonNull(fiberColumn, "fiberColumn is null");
         this.timestampColumn = requireNonNull(timestampColumn, "timestampColumn is null");
-        this.fiberFunc = requireNonNull(fiberFunc, "fiberFunc is null");
+        this.fiberFunction = requireNonNull(fiberFunction, "fiberFunc is null");
+        this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
     }
 
     @JsonProperty
     public SchemaTableName getTableName()
     {
-        return tableName;
+        return new SchemaTableName(table.getSchemaName(), table.getTableName());
     }
 
     @JsonProperty
@@ -73,9 +78,15 @@ implements ConnectorTableLayoutHandle
     }
 
     @JsonProperty
-    public String getFiberFunc()
+    public Function getFiberFunc()
     {
-        return fiberFunc;
+        return fiberFunction;
+    }
+
+    @JsonProperty
+    public StorageFormat getStorageFormat()
+    {
+        return storageFormat;
     }
 
     // TODO Override toString(), hashCode(), and equals()
