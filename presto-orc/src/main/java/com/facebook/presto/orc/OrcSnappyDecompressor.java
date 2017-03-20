@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.orc;
 
-import org.iq80.snappy.Snappy;
+import io.airlift.compress.snappy.SnappyDecompressor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 class OrcSnappyDecompressor
     implements OrcDecompressor
 {
     private final int maxBufferSize;
+    private final SnappyDecompressor decompressor = new SnappyDecompressor();
 
     public OrcSnappyDecompressor(int maxBufferSize)
     {
@@ -31,11 +33,13 @@ class OrcSnappyDecompressor
     public int decompress(byte[] input, int offset, int length, OutputBuffer output)
             throws OrcCorruptionException
     {
-        int uncompressedLength = Snappy.getUncompressedLength(input, offset);
+        int uncompressedLength = SnappyDecompressor.getUncompressedLength(input, offset);
         checkArgument(uncompressedLength <= maxBufferSize, "Snappy requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
-        byte[] buffer = output.initialize(uncompressedLength);
 
-        return Snappy.uncompress(input, offset, length, buffer, 0);
+        // Snappy decompressor is more if there's at least a long's worth of extra space
+        // in the output buffer
+        byte[] buffer = output.initialize(uncompressedLength + SIZE_OF_LONG);
+        return decompressor.decompress(input, offset, length, buffer, 0, buffer.length);
     }
 
     @Override
