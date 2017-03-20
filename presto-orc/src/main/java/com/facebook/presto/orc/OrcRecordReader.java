@@ -16,7 +16,6 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -101,8 +100,7 @@ public class OrcRecordReader
             long splitOffset,
             long splitLength,
             List<OrcType> types,
-            CompressionKind compressionKind,
-            int bufferSize,
+            Optional<OrcDecompressor> decompressor,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             HiveWriterVersion hiveWriterVersion,
@@ -119,7 +117,7 @@ public class OrcRecordReader
         requireNonNull(stripeStats, "stripeStats is null");
         requireNonNull(orcDataSource, "orcDataSource is null");
         requireNonNull(types, "types is null");
-        requireNonNull(compressionKind, "compressionKind is null");
+        requireNonNull(decompressor, "decompressor is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
 
@@ -188,9 +186,8 @@ public class OrcRecordReader
 
         stripeReader = new StripeReader(
                 orcDataSource,
-                compressionKind,
+                decompressor,
                 types,
-                bufferSize,
                 this.presentColumns,
                 rowsInRowGroup,
                 predicate,
