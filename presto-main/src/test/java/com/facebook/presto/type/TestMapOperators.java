@@ -171,7 +171,6 @@ public class TestMapOperators
         assertFunction("CAST(MAP(ARRAY['puppies'], ARRAY['kittens']) AS JSON)", JSON, "{\"puppies\":\"kittens\"}");
         assertFunction("CAST(MAP(ARRAY[TRUE], ARRAY[2]) AS JSON)", JSON, "{\"true\":2}");
         assertFunction("CAST(MAP(ARRAY['1'], ARRAY[from_unixtime(1)]) AS JSON)", JSON, "{\"1\":\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()) + "\"}");
-        assertFunction("CAST(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0]) AS JSON)", JSON, "{\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()) + "\":1.0}");
     }
 
     @Test
