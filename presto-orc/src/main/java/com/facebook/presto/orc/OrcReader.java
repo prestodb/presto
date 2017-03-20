@@ -115,6 +115,9 @@ public class OrcReader
             case SNAPPY:
                 decompressor = Optional.of(new OrcSnappyDecompressor(bufferSize));
                 break;
+            case ZSTD:
+                decompressor = Optional.of(new OrcZstdDecompressor(bufferSize));
+                break;
             default:
                 throw new UnsupportedOperationException("Unsupported compression type: " + postScript.getCompression());
         }
