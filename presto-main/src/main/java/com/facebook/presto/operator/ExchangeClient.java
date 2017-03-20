@@ -45,7 +45,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
@@ -394,7 +393,6 @@ public class ExchangeClient
         {
             requireNonNull(client, "client is null");
             requireNonNull(pages, "pages is null");
-            checkArgument(!pages.isEmpty(), "pages is empty");
             return ExchangeClient.this.addPages(pages);
         }
 
