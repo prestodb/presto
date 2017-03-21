@@ -5720,6 +5720,18 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * FROM (VALUES (2, 2)) UNION SELECT * FROM (VALUES (1, 1.0))");
         assertQuery("SELECT * FROM (VALUES (NULL, NULL)) UNION SELECT * FROM (VALUES (1, 1.0))");
         assertQuery("SELECT * FROM (VALUES (NULL, NULL)) UNION ALL SELECT * FROM (VALUES (NULL, 1.0))");
+
+        // Test for https://github.com/prestodb/presto/issues/7496
+        // Cast varchar(1) -> varchar(4) for orderstatus in first source of union was not added. It was not done for type-only coercions.
+        // Then as a result of predicate pushdown orderstatus (without cast) was compared with cast('aaa' as varchar(4)) which trigger checkArgument that
+        // both types of comparison should be equal in DomainTranslator.
+        assertQuery("SELECT a FROM " +
+                "(" +
+                "  (SELECT orderstatus as a FROM orders LIMIT 1) " +
+                "UNION ALL " +
+                "  SELECT 'aaaa' as a" +
+                ") " +
+                "WHERE  a = 'aaa'");
     }
 
     @Test
