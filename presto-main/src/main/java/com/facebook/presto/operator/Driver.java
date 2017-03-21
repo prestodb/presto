@@ -17,6 +17,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
@@ -44,6 +45,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Boolean.TRUE;
@@ -129,14 +131,7 @@ public class Driver
             return;
         }
 
-        // there is a benign race condition here were the lock holder
-        // can be change between attempting to get lock and grabbing
-        // the synchronized lock here, but in either case we want to
-        // interrupt the lock holder thread
-        Thread lockOwner = exclusiveLock.getOwner();
-        if (lockOwner != null) {
-            lockOwner.interrupt();
-        }
+        exclusiveLock.interruptCurrentOwner();
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
         tryWithLock(() -> TRUE);
@@ -359,8 +354,20 @@ public class Driver
             return NOT_BLOCKED;
         }
         catch (Throwable t) {
-            driverContext.failed(t);
-            throw t;
+            List<StackTraceElement> interrupterStack = exclusiveLock.getInterrupterStack();
+            if (interrupterStack == null) {
+                driverContext.failed(t);
+                throw t;
+            }
+
+            // Driver thread was interrupted which should only happen if the task is already finished.
+            // If this becomes the actual cause of a failed query there is a bug in the task state machine.
+            Exception exception = new Exception("Interrupted By");
+            exception.setStackTrace(interrupterStack.stream().toArray(StackTraceElement[]::new));
+            PrestoException newException = new PrestoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted", exception);
+            newException.addSuppressed(t);
+            driverContext.failed(newException);
+            throw newException;
         }
     }
 
@@ -563,12 +570,77 @@ public class Driver
     }
 
     private static class DriverLock
-            extends ReentrantLock
     {
-        @Override
-        public Thread getOwner()
+        private final ReentrantLock lock = new ReentrantLock();
+
+        @GuardedBy("this")
+        private Thread currentOwner;
+
+        @GuardedBy("this")
+        private List<StackTraceElement> interrupterStack;
+
+        public boolean isHeldByCurrentThread()
         {
-            return super.getOwner();
+            return lock.isHeldByCurrentThread();
+        }
+
+        public boolean tryLock()
+        {
+            checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
+            boolean acquired = lock.tryLock();
+            if (acquired) {
+                setOwner();
+            }
+            return acquired;
+        }
+
+        public boolean tryLock(long timeout, TimeUnit unit)
+                throws InterruptedException
+        {
+            checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
+            boolean acquired = lock.tryLock(timeout, unit);
+            if (acquired) {
+                setOwner();
+            }
+            return acquired;
+        }
+
+        private synchronized void setOwner()
+        {
+            checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
+            currentOwner = Thread.currentThread();
+            // NOTE: We do not use interrupted stack information to know that another
+            // thread has attempted to interrupt the driver, and interrupt this new lock
+            // owner.  The interrupted stack information is for debugging purposes only.
+            // In the case of interruption, the caller should (and does) have a separate
+            // state to prevent further processing in the Driver.
+        }
+
+        public synchronized void unlock()
+        {
+            checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
+            currentOwner = null;
+            lock.unlock();
+        }
+
+        public synchronized List<StackTraceElement> getInterrupterStack()
+        {
+            return interrupterStack;
+        }
+
+        public synchronized void interruptCurrentOwner()
+        {
+            // there is a benign race condition here were the lock holder
+            // can be change between attempting to get lock and grabbing
+            // the synchronized lock here, but in either case we want to
+            // interrupt the lock holder thread
+            if (interrupterStack == null) {
+                interrupterStack = ImmutableList.copyOf(Thread.currentThread().getStackTrace());
+            }
+
+            if (currentOwner != null) {
+                currentOwner.interrupt();
+            }
         }
     }
 }
