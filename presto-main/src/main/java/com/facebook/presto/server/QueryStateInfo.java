@@ -22,6 +22,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +37,7 @@ public class QueryStateInfo
     private final QueryId queryId;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final String query;
+    private final DateTime createTime;
     private final String user;
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -47,6 +49,7 @@ public class QueryStateInfo
             @JsonProperty("queryState") QueryState queryState,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("query") String query,
+            @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("user") String user,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
@@ -56,6 +59,7 @@ public class QueryStateInfo
         this.queryState = requireNonNull(queryState, "queryState is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.query = requireNonNull(query, "query text is null");
+        this.createTime = requireNonNull(createTime, "createTime is null");
         this.user = requireNonNull(user, "user is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -94,6 +98,7 @@ public class QueryStateInfo
                 queryInfo.getState(),
                 resourceGroupId,
                 queryInfo.getQuery(),
+                queryInfo.getQueryStats().getCreateTime(),
                 queryInfo.getSession().getUser(),
                 queryInfo.getSession().getCatalog(),
                 queryInfo.getSession().getSchema(),
@@ -146,5 +151,11 @@ public class QueryStateInfo
     public List<ResourceGroupInfo> getResourceGroupChain()
     {
         return resourceGroupChain;
+    }
+
+    @JsonProperty
+    public DateTime getCreateTime()
+    {
+        return createTime;
     }
 }
