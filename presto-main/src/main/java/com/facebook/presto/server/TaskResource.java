@@ -199,8 +199,8 @@ public class TaskResource
                 waitTime,
                 timeoutExecutor);
 
-        // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
-        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
+        // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
+        Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
     }
@@ -272,8 +272,8 @@ public class TaskResource
                     .build();
         });
 
-        // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
-        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
+        // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
+        Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
                 .withTimeout(timeout,
                         Response.status(Status.NO_CONTENT)
