@@ -853,7 +853,7 @@ let QueryDetail = React.createClass({
 
         for (let catalog in query.session.catalogProperties) {
             if (query.session.catalogProperties.hasOwnProperty(catalog)) {
-                for (property in query.session.catalogProperties[catalog]) {
+                for (let property in query.session.catalogProperties[catalog]) {
                     if (query.session.catalogProperties[catalog].hasOwnProperty(property)) {
                         properties.push(
                             <span>- { catalog + "." + property + "=" + query.session.catalogProperties[catalog][property] } </span>
