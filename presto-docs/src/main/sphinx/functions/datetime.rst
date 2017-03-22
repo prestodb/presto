@@ -192,7 +192,7 @@ Specifier Description
 ``%V``    Week (``01`` .. ``53``), where Sunday is the first day of the week; used with ``%X``
 ``%v``    Week (``01`` .. ``53``), where Monday is the first day of the week; used with ``%x``
 ``%W``    Weekday name (``Sunday`` .. ``Saturday``)
-``%w``    Day of the week (``1`` .. ``7``), where Sunday is the first day of the week [#u]_
+``%w``    Day of the week (``0`` .. ``6``), where Sunday is the first day of the week [#v]_
 ``%X``    Year for the week where Sunday is the first day of the week, numeric, four digits; used with ``%V``
 ``%x``    Year for the week, where Monday is the first day of the week, numeric, four digits; used with ``%v``
 ``%Y``    Year, numeric, four digits
@@ -204,6 +204,7 @@ Specifier Description
 .. [#f] Timestamp is truncated to milliseconds.
 .. [#y] When parsing, two-digit year format assumes range ``1970`` .. ``2069``, so "70" will result in year ``1970`` but "69" will produce ``2069``.
 .. [#u] The function not behave the same as MySQL.
+.. [#v] The function not supported yet, consider using `DAY_OF_WEEK` which using `1-7` values (in MySQL using `0-6` values).
 
 .. warning:: The following specifiers are not currently supported: ``%D %U %u %V %w %X``
 
