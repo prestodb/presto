@@ -238,6 +238,9 @@ public class TestingPrestoClient
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
         }
+        else if (type.getTypeSignature().getBase().equals("ObjectId")) {
+            return value;
+        }
         else {
             throw new AssertionError("unhandled type: " + type);
         }

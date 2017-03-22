@@ -270,6 +270,7 @@ public class MongoSession
     private static Document buildPredicate(MongoColumnHandle column, Domain domain)
     {
         String name = column.getName();
+        Type type = column.getType();
         if (domain.getValues().isNone() && domain.isNullAllowed()) {
             return documentOf(name, isNullPredicate());
         }
@@ -321,11 +322,11 @@ public class MongoSession
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(documentOf(EQ_OP, translateValue(singleValues.get(0))));
+            disjuncts.add(documentOf(EQ_OP, translateValue(singleValues.get(0), type)));
         }
         else if (singleValues.size() > 1) {
             disjuncts.add(documentOf(IN_OP, singleValues.stream()
-                    .map(MongoSession::translateValue)
+                    .map(value -> translateValue(value, type))
                     .collect(toList())));
         }
 
@@ -338,10 +339,15 @@ public class MongoSession
                 .collect(toList()));
     }
 
-    private static Object translateValue(Object source)
+    private static Object translateValue(Object source, Type type)
     {
         if (source instanceof Slice) {
-            return ((Slice) source).toStringUtf8();
+            if (type instanceof ObjectIdType) {
+                return new ObjectId(((Slice) source).getBytes());
+            }
+            else {
+                return ((Slice) source).toStringUtf8();
+            }
         }
 
         return source;

@@ -70,7 +70,8 @@ public class TestMongoIntegrationSmokeTest
                 ", 3.14 _double" +
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
-                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp";
+                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
+                ", ObjectId('ffffffffffffffffffffffff') _objectid";
 
         assertUpdate(query, 1);
 
@@ -159,6 +160,14 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("CREATE TABLE \"tmp.dot1\" AS SELECT 'foo' _varchar", 1);
         assertQuery("SELECT _varchar FROM \"tmp.dot1\"", "SELECT 'foo'");
         assertUpdate("DROP TABLE \"tmp.dot1\"");
+    }
+
+    @Test
+    public void testObjectIds()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE tmp_objectid AS SELECT ObjectId('ffffffffffffffffffffffff') AS id", 1);
+        assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");
     }
 
     private void assertOneNotNullResult(String query)
