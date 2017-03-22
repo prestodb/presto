@@ -156,7 +156,7 @@ public class PartialAggregationPushDown
                 }
 
                 SymbolMapper symbolMapper = mappingsBuilder.build();
-                AggregationNode mappedPartial = symbolMapper.map(partial, source);
+                AggregationNode mappedPartial = symbolMapper.map(partial, source, idAllocator);
 
                 Assignments.Builder assignments = Assignments.builder();
 

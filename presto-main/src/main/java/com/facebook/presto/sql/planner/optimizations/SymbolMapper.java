@@ -14,9 +14,11 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -66,6 +68,16 @@ public class SymbolMapper
 
     public AggregationNode map(AggregationNode node, PlanNode source)
     {
+        return map(node, source, node.getId());
+    }
+
+    public AggregationNode map(AggregationNode node, PlanNode source, PlanNodeIdAllocator idAllocator)
+    {
+        return map(node, source, idAllocator.getNextId());
+    }
+
+    private AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
+    {
         ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
@@ -85,7 +97,7 @@ public class SymbolMapper
                 .collect(toImmutableList());
 
         return new AggregationNode(
-                node.getId(),
+                newNodeId,
                 source,
                 functionCalls.build(),
                 functionInfos.build(),
