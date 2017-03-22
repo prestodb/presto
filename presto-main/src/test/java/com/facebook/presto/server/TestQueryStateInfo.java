@@ -31,15 +31,18 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestQueryStateInfo
 {
@@ -120,16 +123,17 @@ public class TestQueryStateInfo
         assertEquals(infoForQueryQueuedOnRootAY.getQuery(), "SELECT 1");
         assertEquals(infoForQueryQueuedOnRootAY.getQueryId().toString(), "query_root_a_y");
         assertEquals(infoForQueryQueuedOnRootAY.getQueryState(), QUEUED);
+        assertEquals(infoForQueryQueuedOnRootAY.getProgress(), Optional.empty());
 
-        assertEquals(infoForQueryQueuedOnRootAY.getResourceGroupChain().size(), 3);
-
-        List<ResourceGroupInfo> rootAYResourceGroupChainInfo = infoForQueryQueuedOnRootAY.getResourceGroupChain();
+        Optional<List<ResourceGroupInfo>> optionalRootAYResourceGroupChainInfo = infoForQueryQueuedOnRootAY.getResourceGroupChain();
+        assertTrue(optionalRootAYResourceGroupChainInfo.isPresent());
+        List<ResourceGroupInfo> rootAYResourceGroupChainInfo = optionalRootAYResourceGroupChainInfo.isPresent() ? optionalRootAYResourceGroupChainInfo.get() : ImmutableList.of();
+        assertEquals(rootAYResourceGroupChainInfo.size(), 3);
         ResourceGroupInfo actualRootAYInfo = rootAYResourceGroupChainInfo.get(0);
         assertEquals(actualRootAYInfo.getId().toString(), groupRootAY.toString());
         assertEquals(actualRootAYInfo.getState(), rootAYInfo.getState());
         assertEquals(actualRootAYInfo.getNumAggregatedRunningQueries(), rootAYInfo.getNumAggregatedRunningQueries());
         assertEquals(actualRootAYInfo.getNumAggregatedQueuedQueries(), rootAYInfo.getNumAggregatedQueuedQueries());
-
         ResourceGroupInfo actualRootAInfo = rootAYResourceGroupChainInfo.get(1);
         assertEquals(actualRootAInfo.getId().toString(), groupRootA.toString());
         assertEquals(actualRootAInfo.getState(), rootAInfo.getState());
@@ -150,10 +154,13 @@ public class TestQueryStateInfo
         assertEquals(infoForQueryQueuedOnRootB.getQuery(), "SELECT count(*) FROM t");
         assertEquals(infoForQueryQueuedOnRootB.getQueryId().toString(), "query_root_b");
         assertEquals(infoForQueryQueuedOnRootB.getQueryState(), QUEUED);
+        assertEquals(infoForQueryQueuedOnRootB.getProgress(), Optional.empty());
 
-        assertEquals(infoForQueryQueuedOnRootB.getResourceGroupChain().size(), 2);
+        Optional<List<ResourceGroupInfo>> optionalRootBResourceGroupChainInfo = infoForQueryQueuedOnRootB.getResourceGroupChain();
+        assertTrue(optionalRootBResourceGroupChainInfo.isPresent());
+        List<ResourceGroupInfo> rootBResourceGroupChainInfo = optionalRootBResourceGroupChainInfo.isPresent() ? optionalRootBResourceGroupChainInfo.get() : ImmutableList.of();
+        assertEquals(rootBResourceGroupChainInfo.size(), 2);
 
-        List<ResourceGroupInfo> rootBResourceGroupChainInfo = infoForQueryQueuedOnRootB.getResourceGroupChain();
         ResourceGroupInfo actualRootBInfo = rootBResourceGroupChainInfo.get(0);
         assertEquals(actualRootBInfo.getId().toString(), groupRootB.toString());
         assertEquals(actualRootBInfo.getState(), rootBInfo.getState());
@@ -165,6 +172,30 @@ public class TestQueryStateInfo
         assertEquals(actualRootInfo.getState(), rootInfo.getState());
         assertEquals(actualRootInfo.getNumAggregatedRunningQueries(), rootInfo.getNumAggregatedRunningQueries());
         assertEquals(actualRootInfo.getNumAggregatedQueuedQueries(), rootInfo.getNumAggregatedQueuedQueries());
+
+        // Verify QueryStateInfo for query running on resource group root.a.x
+        QueryStateInfo infoForQueryRunningOnRootAX = createQueryStateInfo(
+                createQueryInfo("query_root_a_x", RUNNING, "SELECT sum(a) FROM t"),
+                Optional.of(groupRootAX),
+                Optional.of(rootInfo));
+
+        assertEquals(infoForQueryRunningOnRootAX.getQuery(), "SELECT sum(a) FROM t");
+        assertEquals(infoForQueryRunningOnRootAX.getQueryId().toString(), "query_root_a_x");
+        assertEquals(infoForQueryRunningOnRootAX.getQueryState(), RUNNING);
+        assertEquals(infoForQueryRunningOnRootAX.getResourceGroupChain(), Optional.empty());
+
+        QueryProgressStats progress = infoForQueryRunningOnRootAX.getProgress().get();
+        assertTrue(progress.isBlocked());
+        assertEquals(progress.getProgressPercentage(), OptionalDouble.of(19));
+        assertEquals(progress.getExecutionStartTime(), DateTime.parse("1991-09-06T05:01-05:30"));
+        assertEquals(progress.getElapsedTimeMillis(), Duration.valueOf("8m").toMillis());
+        assertEquals(progress.getQueuedTimeMillis(), Duration.valueOf("7m").toMillis());
+        assertEquals(progress.getCpuTimeMillis(), Duration.valueOf("24m").toMillis());
+        assertEquals(progress.getScheduledTimeMillis(), Duration.valueOf("23m").toMillis());
+        assertEquals(progress.getBlockedTimeMillis(), Duration.valueOf("26m").toMillis());
+        assertEquals(progress.getPeakMemoryBytes(), DataSize.valueOf("22GB").toBytes());
+        assertEquals(progress.getInputRows(), 28);
+        assertEquals(progress.getInputBytes(), DataSize.valueOf("27GB").toBytes());
     }
 
     private QueryInfo createQueryInfo(String queryId, QueryState state, String query)
@@ -174,7 +205,7 @@ public class TestQueryStateInfo
                 TEST_SESSION.toSessionRepresentation(),
                 state,
                 new MemoryPoolId("reserved"),
-                false,
+                true,
                 URI.create("1"),
                 ImmutableList.of("2", "3"),
                 query,
@@ -192,7 +223,7 @@ public class TestQueryStateInfo
                         13,
                         14,
                         15,
-                        16,
+                        100,
                         17,
                         18,
                         19,
