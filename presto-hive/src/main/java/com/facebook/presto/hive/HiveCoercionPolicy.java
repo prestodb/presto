@@ -28,7 +28,6 @@ import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static java.util.Objects.requireNonNull;
 
 public class HiveCoercionPolicy
-        implements CoercionPolicy
 {
     private final TypeManager typeManager;
 
@@ -38,7 +37,6 @@ public class HiveCoercionPolicy
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    @Override
     public boolean canCoerce(HiveType fromHiveType, HiveType toHiveType)
     {
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
