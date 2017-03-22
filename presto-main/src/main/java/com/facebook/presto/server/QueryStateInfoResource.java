@@ -60,6 +60,7 @@ public class QueryStateInfoResource
         }
         List<QueryInfo> userQueries = queryManager.getAllQueryInfo().stream()
                 .filter(queryInfo -> Pattern.matches(user, queryInfo.getSession().getUser()))
+                .filter(queryInfo -> !queryInfo.getState().isDone())
                 .collect(toImmutableList());
 
         Map<ResourceGroupId, ResourceGroupInfo> rootResourceGroupInfos = userQueries.stream()
