@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.coercions.HiveCoercionPolicy;
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Column;
@@ -141,6 +142,7 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTestUtils.HIVE_COERCION_POLICY;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
@@ -559,7 +561,7 @@ public abstract class AbstractTestHiveClient
                 new HiveClientConfig(),
                 locationService,
                 partitionUpdateCodec);
-        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
+        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER, HIVE_COERCION_POLICY);
     }
 
     protected ConnectorSession newSession()
@@ -1544,7 +1546,8 @@ public abstract class AbstractTestHiveClient
                     hdfsEnvironment,
                     ImmutableSet.of(new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment)),
                     ImmutableSet.of(),
-                    TYPE_MANAGER);
+                    TYPE_MANAGER,
+                    HIVE_COERCION_POLICY);
 
             ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
             assertGetRecords(RCTEXT, tableMetadata, hiveSplit, pageSource, columnHandles);
@@ -1580,7 +1583,8 @@ public abstract class AbstractTestHiveClient
                     hdfsEnvironment,
                     ImmutableSet.of(new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment)),
                     ImmutableSet.of(),
-                    TYPE_MANAGER);
+                    TYPE_MANAGER,
+                    HIVE_COERCION_POLICY);
 
             ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
             assertGetRecords(RCBINARY, tableMetadata, hiveSplit, pageSource, columnHandles);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.coercions.HiveCoercionPolicy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -55,6 +56,7 @@ public class HivePageSourceProvider
     private final HdfsEnvironment hdfsEnvironment;
     private final Set<HiveRecordCursorProvider> cursorProviders;
     private final TypeManager typeManager;
+    private final HiveCoercionPolicy coercionPolicy;
 
     private final Set<HivePageSourceFactory> pageSourceFactories;
 
@@ -64,7 +66,8 @@ public class HivePageSourceProvider
             HdfsEnvironment hdfsEnvironment,
             Set<HiveRecordCursorProvider> cursorProviders,
             Set<HivePageSourceFactory> pageSourceFactories,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            HiveCoercionPolicy coercionPolicy)
     {
         requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         this.hiveStorageTimeZone = hiveClientConfig.getDateTimeZone();
@@ -72,6 +75,7 @@ public class HivePageSourceProvider
         this.cursorProviders = ImmutableSet.copyOf(requireNonNull(cursorProviders, "cursorProviders is null"));
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.coercionPolicy = requireNonNull(coercionPolicy, "coercionPolicy is null");
     }
 
     @Override
@@ -100,6 +104,7 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
                 typeManager,
+                coercionPolicy,
                 hiveSplit.getColumnCoercions());
         if (pageSource.isPresent()) {
             return pageSource.get();
@@ -123,6 +128,7 @@ public class HivePageSourceProvider
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
+            HiveCoercionPolicy coercionPolicy,
             Map<Integer, HiveType> columnCoercions)
     {
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(partitionKeys, hiveColumns, columnCoercions, path, bucketNumber);
@@ -146,6 +152,7 @@ public class HivePageSourceProvider
                                 columnMappings,
                                 hiveStorageTimeZone,
                                 typeManager,
+                                coercionPolicy,
                                 pageSource.get()));
             }
         }

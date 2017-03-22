@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.coercions.HiveCoercionPolicy;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -42,6 +43,8 @@ public final class HiveTestUtils
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());
+
+    public static final HiveCoercionPolicy HIVE_COERCION_POLICY = new HiveCoercionPolicy(TYPE_MANAGER);
 
     public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
     {
