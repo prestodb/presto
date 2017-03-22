@@ -36,7 +36,6 @@ import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
-import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
@@ -120,7 +119,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, SMOKE, QUARANTINE})
+    @Test(groups = {HIVE_CONNECTOR, SMOKE})
     public void testSelectAllDatatypesTextFile()
             throws SQLException
     {
@@ -152,7 +151,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
+    @Test(groups = {HIVE_CONNECTOR})
     public void testSelectAllDatatypesOrc()
             throws SQLException
     {
@@ -184,7 +183,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(RcfileRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
+    @Test(groups = {HIVE_CONNECTOR})
     public void testSelectAllDatatypesRcfile()
             throws SQLException
     {
@@ -283,7 +282,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1, QUARANTINE})
+    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
     public void testSelectAllDatatypesParquetFile()
             throws SQLException
     {
