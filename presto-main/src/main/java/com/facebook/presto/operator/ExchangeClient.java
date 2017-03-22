@@ -318,8 +318,10 @@ public class ExchangeClient
 
         pageBuffer.addAll(pages);
 
-        // notify all blocked callers
-        notifyBlockedCallers();
+        if (!pages.isEmpty()) {
+            // notify all blocked callers
+            notifyBlockedCallers();
+        }
 
         long memorySize = pages.stream()
                 .mapToLong(SerializedPage::getRetainedSizeInBytes)
