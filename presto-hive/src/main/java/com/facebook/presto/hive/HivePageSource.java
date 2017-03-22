@@ -61,7 +61,6 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
-import static java.lang.String.valueOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -104,7 +103,7 @@ public class HivePageSource
             types[columnIndex] = type;
 
             if (columnMapping.getCoercionFrom().isPresent()) {
-                coercers[columnIndex] = coercionPolicy.createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
+                coercers[columnIndex] = coercionPolicy.createCoercer(columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
 
             if (columnMapping.isPrefilled()) {
