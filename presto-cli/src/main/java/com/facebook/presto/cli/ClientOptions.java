@@ -18,10 +18,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
-import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.units.Duration;
 
-import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.CharsetEncoder;
@@ -144,22 +142,6 @@ public class ClientOptions
                 null,
                 debug,
                 clientRequestTimeout);
-    }
-
-    public KerberosConfig toKerberosConfig()
-    {
-        KerberosConfig config = new KerberosConfig();
-        if (krb5ConfigPath != null) {
-            config.setConfig(new File(krb5ConfigPath));
-        }
-        if (krb5KeytabPath != null) {
-            config.setKeytab(new File(krb5KeytabPath));
-        }
-        if (krb5CredentialCachePath != null) {
-            config.setCredentialCache(new File(krb5CredentialCachePath));
-        }
-        config.setUseCanonicalHostname(!krb5DisableRemoteServiceHostnameCanonicalization);
-        return config;
     }
 
     public static URI parseServer(String server)

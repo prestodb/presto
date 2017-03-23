@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.VerifyException;
 import com.google.common.net.HostAndPort;
 
 import java.net.URI;
@@ -24,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -123,11 +123,12 @@ final class PrestoDriverUri
     private URI buildHttpUri()
     {
         String scheme = (address.getPort() == 443 || useSecureConnection) ? "https" : "http";
-
-        return uriBuilder()
-                .scheme(scheme)
-                .host(address.getHostText()).port(address.getPort())
-                .build();
+        try {
+            return new URI(scheme, null, address.getHost(), address.getPort(), null, null, null);
+        }
+        catch (URISyntaxException e) {
+            throw new VerifyException(e);
+        }
     }
 
     private void initCatalogAndSchema()
