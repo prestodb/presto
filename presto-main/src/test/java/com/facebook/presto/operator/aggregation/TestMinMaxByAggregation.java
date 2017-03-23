@@ -20,10 +20,12 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
@@ -34,6 +36,8 @@ import static com.facebook.presto.block.BlockAssertions.createShortDecimalsBlock
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -68,6 +72,7 @@ public class TestMinMaxByAggregation
                 .addAll(simpleTypes)
                 .add(VARCHAR)
                 .add(DecimalType.createDecimalType(1))
+                .add(new RowType(ImmutableList.of(BIGINT, VARCHAR, DOUBLE), Optional.empty()))
                 .build();
     }
 
@@ -194,6 +199,42 @@ public class TestMinMaxByAggregation
                 ImmutableList.of(2L),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(8L, 9L), ImmutableList.of(6L, 7L), ImmutableList.of(2L, 3L), ImmutableList.of(2L))),
                 createLongsBlock(0L, 1L, 2L, -1L));
+    }
+
+    @Test
+    public void testMinLongArrayLong()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature("array(bigint)")));
+        assertAggregation(
+                function,
+                3L,
+                createLongsBlock(1L, 2L, 2L, 3L),
+                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(8L, 9L), ImmutableList.of(1L, 2L), ImmutableList.of(6L, 7L), ImmutableList.of(1L, 1L))));
+
+        assertAggregation(
+                function,
+                -1L,
+                createLongsBlock(0L, 1L, 2L, -1L),
+                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(8L, 9L), ImmutableList.of(6L, 7L), ImmutableList.of(-1L, -3L), ImmutableList.of(-1L))));
+    }
+
+    @Test
+    public void testMaxLongArrayLong()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature("array(bigint)")));
+        assertAggregation(
+                function,
+                1L,
+                createLongsBlock(1L, 2L, 2L, 3L),
+                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(8L, 9L), ImmutableList.of(1L, 2L), ImmutableList.of(6L, 7L), ImmutableList.of(1L, 1L))));
+
+        assertAggregation(
+                function,
+                2L,
+                createLongsBlock(0L, 1L, 2L, -1L),
+                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(-8L, 9L), ImmutableList.of(-6L, 7L), ImmutableList.of(-1L, -3L), ImmutableList.of(-1L))));
     }
 
     @Test
