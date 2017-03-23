@@ -51,6 +51,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.29</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
+        <dep.okhttp.version>3.8.1</dep.okhttp.version>
         <dep.tempto.version>1.31</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.nifty.version>0.15.1</dep.nifty.version>
@@ -629,6 +630,18 @@
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi</artifactId>
                 <version>2.78</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${dep.okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <version>${dep.okhttp.version}</version>
             </dependency>
 
             <dependency>

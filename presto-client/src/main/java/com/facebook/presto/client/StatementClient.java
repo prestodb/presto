@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.client.OkHttpUtil.NullCallback;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.Splitter;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.airlift.http.client.FullJsonResponseHandler;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpClient.HttpResponseFuture;
-import io.airlift.http.client.HttpStatus;
-import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
-import io.airlift.units.Duration;
+import okhttp3.Headers;
+import okhttp3.HttpUrl;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -37,35 +37,36 @@ import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
-import static io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
-import static io.airlift.http.client.HttpStatus.Family;
-import static io.airlift.http.client.HttpStatus.familyForStatusCode;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.Request.Builder.prepareDelete;
-import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
-import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -74,13 +75,15 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class StatementClient
         implements Closeable
 {
+    private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+
     private static final Splitter SESSION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClient.class.getSimpleName() +
             "/" +
             firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
 
-    private final HttpClient httpClient;
-    private final FullJsonResponseHandler<QueryResults> responseHandler;
+    private final OkHttpClient httpClient;
     private final boolean debug;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
@@ -97,15 +100,13 @@ public class StatementClient
     private final long requestTimeoutNanos;
     private final String user;
 
-    public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
+    public StatementClient(OkHttpClient httpClient, ClientSession session, String query)
     {
         requireNonNull(httpClient, "httpClient is null");
-        requireNonNull(queryResultsCodec, "queryResultsCodec is null");
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
 
         this.httpClient = httpClient;
-        this.responseHandler = createFullJsonResponseHandler(queryResultsCodec);
         this.debug = session.isDebug();
         this.timeZone = session.getTimeZone();
         this.query = query;
@@ -113,48 +114,54 @@ public class StatementClient
         this.user = session.getUser();
 
         Request request = buildQueryRequest(session, query);
-        JsonResponse<QueryResults> response = httpClient.execute(request, responseHandler);
 
-        if (response.getStatusCode() != HttpStatus.OK.code() || !response.hasValue()) {
+        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request);
+        if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
             throw requestFailedException("starting query", request, response);
         }
 
-        processResponse(response);
+        processResponse(response.getHeaders(), response.getValue());
     }
 
     private Request buildQueryRequest(ClientSession session, String query)
     {
-        Request.Builder builder = prepareRequest(preparePost(), uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
-                .setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
+        HttpUrl url = HttpUrl.get(session.getServer());
+        if (url == null) {
+            throw new ClientException("Invalid server URL: " + session.getServer());
+        }
+        url = url.newBuilder().encodedPath("/v1/statement").build();
+
+        Request.Builder builder = prepareRequest(url)
+                .post(RequestBody.create(MEDIA_TYPE_JSON, query));
 
         if (session.getSource() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_SOURCE, session.getSource());
+            builder.addHeader(PRESTO_SOURCE, session.getSource());
         }
         if (session.getClientInfo() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_CLIENT_INFO, session.getClientInfo());
+            builder.addHeader(PRESTO_CLIENT_INFO, session.getClientInfo());
         }
         if (session.getCatalog() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_CATALOG, session.getCatalog());
+            builder.addHeader(PRESTO_CATALOG, session.getCatalog());
         }
         if (session.getSchema() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
+            builder.addHeader(PRESTO_SCHEMA, session.getSchema());
         }
-        builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZone().getId());
+        builder.addHeader(PRESTO_TIME_ZONE, session.getTimeZone().getId());
         if (session.getLocale() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
+            builder.addHeader(PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
         }
 
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
-            builder.addHeader(PrestoHeaders.PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
+            builder.addHeader(PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
         }
 
         Map<String, String> statements = session.getPreparedStatements();
         for (Entry<String, String> entry : statements.entrySet()) {
-            builder.addHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
+            builder.addHeader(PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
-        builder.setHeader(PrestoHeaders.PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
+        builder.addHeader(PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
 
         return builder.build();
     }
@@ -241,13 +248,12 @@ public class StatementClient
         return valid.get() && (!isGone()) && (!isClosed());
     }
 
-    private Request.Builder prepareRequest(Request.Builder builder, URI nextUri)
+    private Request.Builder prepareRequest(HttpUrl url)
     {
-        builder.setHeader(PrestoHeaders.PRESTO_USER, user);
-        builder.setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(nextUri);
-
-        return builder;
+        return new Request.Builder()
+                .addHeader(PRESTO_USER, user)
+                .addHeader(USER_AGENT, USER_AGENT_VALUE)
+                .url(url);
     }
 
     public boolean advance()
@@ -258,7 +264,7 @@ public class StatementClient
             return false;
         }
 
-        Request request = prepareRequest(prepareGet(), nextUri).build();
+        Request request = prepareRequest(HttpUrl.get(nextUri)).build();
 
         Exception cause = null;
         long start = System.nanoTime();
@@ -284,19 +290,19 @@ public class StatementClient
 
             JsonResponse<QueryResults> response;
             try {
-                response = httpClient.execute(request, responseHandler);
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request);
             }
             catch (RuntimeException e) {
                 cause = e;
                 continue;
             }
 
-            if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
-                processResponse(response);
+            if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
+                processResponse(response.getHeaders(), response.getValue());
                 return true;
             }
 
-            if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
+            if (response.getStatusCode() != HTTP_UNAVAILABLE) {
                 throw requestFailedException("fetching next", request, response);
             }
         }
@@ -306,77 +312,65 @@ public class StatementClient
         throw new RuntimeException("Error fetching next", cause);
     }
 
-    private void processResponse(JsonResponse<QueryResults> response)
+    private void processResponse(Headers headers, QueryResults results)
     {
-        for (String setSession : response.getHeaders(PRESTO_SET_SESSION)) {
+        for (String setSession : headers.values(PRESTO_SET_SESSION)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {
                 continue;
             }
             setSessionProperties.put(keyValue.get(0), keyValue.size() > 1 ? keyValue.get(1) : "");
         }
-        for (String clearSession : response.getHeaders(PRESTO_CLEAR_SESSION)) {
+        for (String clearSession : headers.values(PRESTO_CLEAR_SESSION)) {
             resetSessionProperties.add(clearSession);
         }
 
-        for (String entry : response.getHeaders(PRESTO_ADDED_PREPARE)) {
+        for (String entry : headers.values(PRESTO_ADDED_PREPARE)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
             if (keyValue.size() != 2) {
                 continue;
             }
             addedPreparedStatements.put(urlDecode(keyValue.get(0)), urlDecode(keyValue.get(1)));
         }
-        for (String entry : response.getHeaders(PRESTO_DEALLOCATED_PREPARE)) {
+        for (String entry : headers.values(PRESTO_DEALLOCATED_PREPARE)) {
             deallocatedPreparedStatements.add(urlDecode(entry));
         }
 
-        String startedTransactionId = response.getHeader(PRESTO_STARTED_TRANSACTION_ID);
+        String startedTransactionId = headers.get(PRESTO_STARTED_TRANSACTION_ID);
         if (startedTransactionId != null) {
             this.startedtransactionId.set(startedTransactionId);
         }
-        if (response.getHeader(PRESTO_CLEAR_TRANSACTION_ID) != null) {
+        if (headers.values(PRESTO_CLEAR_TRANSACTION_ID) != null) {
             clearTransactionId.set(true);
         }
 
-        currentResults.set(response.getValue());
+        currentResults.set(results);
     }
 
     private RuntimeException requestFailedException(String task, Request request, JsonResponse<QueryResults> response)
     {
         gone.set(true);
         if (!response.hasValue()) {
+            if (response.getStatusCode() == HTTP_UNAUTHORIZED) {
+                return new ClientException("Authentication failed" +
+                        Optional.ofNullable(response.getStatusMessage())
+                                .map(message -> ": " + message)
+                                .orElse(""));
+            }
             return new RuntimeException(
-                    format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.getUri(), response, response.getResponseBody()),
+                    format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.url(), response, response.getResponseBody()),
                     response.getException());
         }
-        return new RuntimeException(format("Error %s at %s returned %s: %s", task, request.getUri(), response.getStatusCode(), response.getStatusMessage()));
+        return new RuntimeException(format("Error %s at %s returned HTTP %s", task, request.url(), response.getStatusCode()));
     }
 
-    public boolean cancelLeafStage(Duration timeout)
+    public void cancelLeafStage()
     {
         checkState(!isClosed(), "client is closed");
 
         URI uri = current().getPartialCancelUri();
-        if (uri == null) {
-            return false;
-        }
-
-        Request request = prepareRequest(prepareDelete(), uri).build();
-
-        HttpResponseFuture<StatusResponse> response = httpClient.executeAsync(request, createStatusResponseHandler());
-        try {
-            StatusResponse status = response.get(timeout.toMillis(), MILLISECONDS);
-            return familyForStatusCode(status.getStatusCode()) == Family.SUCCESSFUL;
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
-        }
-        catch (ExecutionException e) {
-            throw Throwables.propagate(e.getCause());
-        }
-        catch (TimeoutException e) {
-            return false;
+        if (uri != null) {
+            httpDelete(uri);
         }
     }
 
@@ -386,10 +380,17 @@ public class StatementClient
         if (!closed.getAndSet(true)) {
             URI uri = currentResults.get().getNextUri();
             if (uri != null) {
-                Request request = prepareRequest(prepareDelete(), uri).build();
-                httpClient.executeAsync(request, createStatusResponseHandler());
+                httpDelete(uri);
             }
         }
+    }
+
+    private void httpDelete(URI uri)
+    {
+        Request request = prepareRequest(HttpUrl.get(uri))
+                .delete()
+                .build();
+        httpClient.newCall(request).enqueue(new NullCallback());
     }
 
     private static String urlEncode(String value)
