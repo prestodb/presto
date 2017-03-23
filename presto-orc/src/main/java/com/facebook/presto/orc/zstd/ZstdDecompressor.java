@@ -106,6 +106,7 @@ public class ZstdDecompressor
 
     public static long getDecompressedSize(byte[] input, int offset, int length)
     {
-        return ZstdFrameDecompressor.getDecompressedSize(input, ARRAY_BYTE_BASE_OFFSET, ARRAY_BYTE_BASE_OFFSET + length);
+        int baseAddress = ARRAY_BYTE_BASE_OFFSET + offset;
+        return ZstdFrameDecompressor.getDecompressedSize(input, baseAddress, baseAddress + length);
     }
 }
