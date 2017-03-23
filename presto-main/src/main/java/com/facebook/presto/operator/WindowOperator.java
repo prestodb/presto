@@ -29,6 +29,7 @@ import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
@@ -188,6 +189,7 @@ public class WindowOperator
     private final PageBuilder pageBuilder;
 
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
+    private AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
 
     private State state = State.NEEDS_INPUT;
 
@@ -266,7 +268,7 @@ public class WindowOperator
 
     private OperatorInfo getWindowInfo()
     {
-        return new WindowInfo(ImmutableList.of(windowInfo.build()));
+        return new WindowInfo(driverWindowInfo.get().map(ImmutableList::of).orElse(ImmutableList.of()));
     }
 
     @Override
@@ -533,5 +535,12 @@ public class WindowOperator
 
         // the input is sorted, but the algorithm has still failed
         throw new IllegalArgumentException("failed to find a group ending");
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        driverWindowInfo.set(Optional.of(windowInfo.build()));
     }
 }
