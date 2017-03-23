@@ -3748,23 +3748,23 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
-                "sum(discount) OVER(PARTITION BY suppkey ORDER BY receiptdate)," +
-                "lag(quantity, 1) OVER(PARTITION BY suppkey ORDER BY orderkey)" +
-                "FROM lineitem " +
+                "sum(size) OVER(PARTITION BY type ORDER BY brand)," +
+                "lag(partkey, 1) OVER(PARTITION BY type ORDER BY name)" +
+                "FROM part " +
                 "ORDER BY 1, 2 " +
                 "LIMIT 10");
 
-        MaterializedResult expected = resultBuilder(getSession(), DOUBLE, DOUBLE)
-                .row(0.0, 8.0)
-                .row(0.0, 13.0)
-                .row(0.0, 17.0)
-                .row(0.0, 33.0)
-                .row(0.0, 33.0)
-                .row(0.0, 40.0)
-                .row(0.0, 42.0)
-                .row(0.01, 6.0)
-                .row(0.01, 8.0)
-                .row(0.01, 18.0)
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1L, 315L)
+                .row(1L, 881L)
+                .row(1L, 1009L)
+                .row(3L, 1087L)
+                .row(3L, 1187L)
+                .row(3L, 1529L)
+                .row(4L, 969L)
+                .row(5L, 151L)
+                .row(5L, 505L)
+                .row(5L, 872L)
                 .build();
 
         assertEquals(actual, expected);
