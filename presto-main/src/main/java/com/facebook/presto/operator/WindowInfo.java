@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,13 +50,12 @@ public class WindowInfo
         return new WindowInfo(ImmutableList.copyOf(concat(this.windowInfos, other.windowInfos)));
     }
 
-    @ThreadSafe
     static class DriverWindowInfoBuilder
     {
         private ImmutableList.Builder<IndexInfo> indexInfosBuilder = ImmutableList.builder();
         private IndexInfoBuilder currentIndexInfoBuilder = null;
 
-        public synchronized void addIndex(PagesIndex index)
+        public void addIndex(PagesIndex index)
         {
             if (currentIndexInfoBuilder != null) {
                 Optional<IndexInfo> indexInfo = currentIndexInfoBuilder.build();
@@ -66,13 +64,13 @@ public class WindowInfo
             currentIndexInfoBuilder = new IndexInfoBuilder(index.getPositionCount(), index.getEstimatedSize().toBytes());
         }
 
-        public synchronized void addPartition(WindowPartition partition)
+        public void addPartition(WindowPartition partition)
         {
             checkState(currentIndexInfoBuilder != null, "addIndex must be called before addPartition");
             currentIndexInfoBuilder.addPartition(partition);
         }
 
-        public synchronized DriverWindowInfo build()
+        public DriverWindowInfo build()
         {
             if (currentIndexInfoBuilder != null) {
                 Optional<IndexInfo> indexInfo = currentIndexInfoBuilder.build();
@@ -178,7 +176,6 @@ public class WindowInfo
         }
     }
 
-    @ThreadSafe
     private static class IndexInfoBuilder
     {
         private final long rowsNumber;
@@ -191,12 +188,12 @@ public class WindowInfo
             this.sizeInBytes = sizeInBytes;
         }
 
-        public synchronized void addPartition(WindowPartition partition)
+        public void addPartition(WindowPartition partition)
         {
             partitionsSizes.add(partition.getPartitionEnd() - partition.getPartitionStart());
         }
 
-        public synchronized Optional<IndexInfo> build()
+        public Optional<IndexInfo> build()
         {
             List<Integer> partitions = partitionsSizes.build();
             if (partitions.size() == 0) {
