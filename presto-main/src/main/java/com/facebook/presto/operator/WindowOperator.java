@@ -146,18 +146,18 @@ public class WindowOperator
         public OperatorFactory duplicate()
         {
             return new WindowOperatorFactory(
-                operatorId,
-                planNodeId,
-                sourceTypes,
-                outputChannels,
-                windowFunctionDefinitions,
-                partitionChannels,
-                preGroupedChannels,
-                sortChannels,
-                sortOrder,
-                preSortedChannelPrefix,
-                expectedPositions,
-                pagesIndexFactory);
+                    operatorId,
+                    planNodeId,
+                    sourceTypes,
+                    outputChannels,
+                    windowFunctionDefinitions,
+                    partitionChannels,
+                    preGroupedChannels,
+                    sortChannels,
+                    sortOrder,
+                    preSortedChannelPrefix,
+                    expectedPositions,
+                    pagesIndexFactory);
         }
     }
 
