@@ -63,7 +63,7 @@ statement
         ON TABLE? qualifiedName FROM grantee=identifier                #revoke
     | SHOW GRANTS
         (ON TABLE? qualifiedName)?                                     #showGrants
-    | EXPLAIN ANALYZE?
+    | EXPLAIN ANALYZE? VERBOSE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
@@ -467,7 +467,7 @@ nonReserved
     | SHOW | SMALLINT | SOME | START | STATS | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TINYINT | TO | TRANSACTION | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | USE
-    | VALIDATE | VIEW
+    | VALIDATE | VERBOSE | VIEW
     | WORK | WRITE
     | YEAR
     | ZONE
@@ -644,6 +644,7 @@ USE: 'USE';
 USING: 'USING';
 VALIDATE: 'VALIDATE';
 VALUES: 'VALUES';
+VERBOSE: 'VERBOSE';
 VIEW: 'VIEW';
 WHEN: 'WHEN';
 WHERE: 'WHERE';

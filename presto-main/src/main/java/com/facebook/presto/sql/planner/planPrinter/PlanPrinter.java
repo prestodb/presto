@@ -194,6 +194,11 @@ public class PlanPrinter
 
     public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, CostCalculator costCalculator, Session session)
     {
+        return textDistributedPlan(outputStageInfo, metadata, costCalculator, session, false);
+    }
+
+    public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, CostCalculator costCalculator, Session session, boolean verbose)
+    {
         StringBuilder builder = new StringBuilder();
         List<StageInfo> allStages = outputStageInfo.getSubStages().stream()
                 .flatMap(stage -> getAllStages(Optional.of(stage)).stream())
