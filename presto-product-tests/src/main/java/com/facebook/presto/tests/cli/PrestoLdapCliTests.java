@@ -202,7 +202,7 @@ public class PrestoLdapCliTests
                 "--truststore-password", ldapTruststorePassword,
                 "--user", ldapUserName,
                 "--execute", "select * from hive.default.nation;");
-        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("statusMessage=Unauthorized")));
+        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("Authentication failed: Unauthorized")));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)

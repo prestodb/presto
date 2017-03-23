@@ -14,37 +14,61 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ServerInfo;
-import com.google.common.collect.ImmutableListMultimap;
-import io.airlift.http.client.testing.TestingHttpClient;
-import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.net.URI;
+import java.io.IOException;
 import java.util.Optional;
 
 import static com.facebook.presto.client.NodeVersion.UNKNOWN;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestQueryExecutor
 {
     private static final JsonCodec<ServerInfo> SERVER_INFO_CODEC = jsonCodec(ServerInfo.class);
+
+    private MockWebServer server;
+
+    @BeforeMethod
+    public void setup()
+            throws IOException
+    {
+        server = new MockWebServer();
+        server.start();
+    }
+
+    @AfterMethod
+    public void teardown()
+            throws IOException
+    {
+        server.close();
+    }
 
     @Test
     public void testGetServerInfo()
             throws Exception
     {
-        ServerInfo serverInfo = new ServerInfo(UNKNOWN, "test", true, Optional.of(Duration.valueOf("2m")));
+        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, Optional.of(Duration.valueOf("2m")));
 
-        QueryExecutor executor = QueryExecutor.create(new TestingHttpClient(input -> new TestingResponse(
-                        OK,
-                        ImmutableListMultimap.of(CONTENT_TYPE, "application/json"),
-                        SERVER_INFO_CODEC.toJsonBytes(serverInfo))));
+        server.enqueue(new MockResponse()
+                .addHeader(CONTENT_TYPE, "application/json")
+                .setBody(SERVER_INFO_CODEC.toJson(expected)));
 
-        assertEquals(executor.getServerInfo(new URI("http://example.com")).getUptime().get(), Duration.valueOf("2m"));
+        QueryExecutor executor = QueryExecutor.create("test");
+
+        ServerInfo actual = executor.getServerInfo(server.url("/v1/info").uri());
+        assertEquals(actual.getEnvironment(), "test");
+        assertEquals(actual.getUptime(), Optional.of(Duration.valueOf("2m")));
+
+        assertEquals(server.getRequestCount(), 1);
+        assertEquals(server.takeRequest().getPath(), "/v1/info");
     }
 }

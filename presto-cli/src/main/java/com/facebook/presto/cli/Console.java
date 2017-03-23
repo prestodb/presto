@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
-import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
@@ -94,7 +93,6 @@ public class Console
     public void run()
     {
         ClientSession session = clientOptions.toClientSession();
-        KerberosConfig kerberosConfig = clientOptions.toKerberosConfig();
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
         boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
 
@@ -125,7 +123,7 @@ public class Console
         AtomicBoolean exiting = new AtomicBoolean();
         interruptThreadOnExit(Thread.currentThread(), exiting);
 
-        try (QueryRunner queryRunner = QueryRunner.create(
+        try (QueryRunner queryRunner = new QueryRunner(
                 session,
                 Optional.ofNullable(clientOptions.socksProxy),
                 Optional.ofNullable(clientOptions.keystorePath),
@@ -136,8 +134,11 @@ public class Console
                 clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
                 Optional.ofNullable(clientOptions.krb5Principal),
                 Optional.ofNullable(clientOptions.krb5RemoteServiceName),
-                clientOptions.authenticationEnabled,
-                kerberosConfig)) {
+                Optional.ofNullable(clientOptions.krb5ConfigPath),
+                Optional.ofNullable(clientOptions.krb5KeytabPath),
+                Optional.ofNullable(clientOptions.krb5CredentialCachePath),
+                !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
+                clientOptions.authenticationEnabled)) {
             if (hasQuery) {
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }

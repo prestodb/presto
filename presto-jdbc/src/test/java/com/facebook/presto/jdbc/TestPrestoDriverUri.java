@@ -25,6 +25,13 @@ public class TestPrestoDriverUri
 {
     private static final String SERVER = "127.0.0.1:60429";
 
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "No port number specified: .*")
+    public void testBadUrlMissingPort()
+            throws Exception
+    {
+        new PrestoDriverUri("jdbc:presto://127.0.0.1/");
+    }
+
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Invalid path segments in URL: .*")
     public void testBadUrlExtraPathSegments()
             throws Exception
