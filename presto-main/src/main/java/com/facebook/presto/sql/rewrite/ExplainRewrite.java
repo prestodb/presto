@@ -80,7 +80,7 @@ final class ExplainRewrite
         {
             if (node.isAnalyze()) {
                 Statement statement = (Statement) process(node.getStatement(), context);
-                return new Explain(statement, node.isAnalyze(), node.getOptions());
+                return new Explain(statement, node.isAnalyze(), node.isVerbose(), node.getOptions());
             }
 
             ExplainType.Type planType = LOGICAL;

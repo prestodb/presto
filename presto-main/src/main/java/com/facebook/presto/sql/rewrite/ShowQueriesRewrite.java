@@ -181,6 +181,7 @@ final class ShowQueriesRewrite
             return new Explain(
                     node.getLocation().get(),
                     node.isAnalyze(),
+                    node.isVerbose(),
                     statement,
                     node.getOptions());
         }

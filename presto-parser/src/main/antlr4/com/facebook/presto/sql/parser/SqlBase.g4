@@ -80,7 +80,7 @@ statement
         ON TABLE? qualifiedName FROM grantee=principal                #revoke
     | SHOW GRANTS
         (ON TABLE? qualifiedName)?                                     #showGrants
-    | EXPLAIN ANALYZE?
+    | EXPLAIN ANALYZE? VERBOSE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
@@ -491,7 +491,7 @@ nonReserved
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
     | TINYINT | SMALLINT | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
-    | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED | VALIDATE
+    | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED | VALIDATE | VERBOSE
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
     | SET | RESET
     | VIEW | REPLACE
@@ -667,6 +667,7 @@ START: 'START';
 TRANSACTION: 'TRANSACTION';
 COMMIT: 'COMMIT';
 ROLLBACK: 'ROLLBACK';
+VERBOSE: 'VERBOSE';
 WORK: 'WORK';
 ISOLATION: 'ISOLATION';
 LEVEL: 'LEVEL';
