@@ -42,7 +42,7 @@ public class HiveS3Config
     private String s3EncryptionMaterialsProvider;
     private String s3KmsKeyId;
     private String s3SseKmsKeyId;
-    private int s3MaxClientRetries = 3;
+    private int s3MaxClientRetries = 5;
     private int s3MaxErrorRetries = 10;
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3MaxRetryTime = new Duration(10, TimeUnit.MINUTES);

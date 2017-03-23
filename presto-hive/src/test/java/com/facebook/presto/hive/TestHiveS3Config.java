@@ -45,7 +45,7 @@ public class TestHiveS3Config
                 .setS3SseKmsKeyId(null)
                 .setS3KmsKeyId(null)
                 .setS3EncryptionMaterialsProvider(null)
-                .setS3MaxClientRetries(3)
+                .setS3MaxClientRetries(5)
                 .setS3MaxErrorRetries(10)
                 .setS3MaxBackoffTime(new Duration(10, TimeUnit.MINUTES))
                 .setS3MaxRetryTime(new Duration(10, TimeUnit.MINUTES))
