@@ -1647,6 +1647,14 @@ public class TestSqlParser
     }
 
     @Test
+    public void testExplainAnalyzeTypeDistributed()
+            throws Exception
+    {
+        assertStatement("EXPLAIN ANALYZE (type DISTRIBUTED) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
+    }
+
+    @Test
     public void testJoinPrecedence()
     {
         assertStatement("SELECT * FROM a CROSS JOIN b LEFT JOIN c ON true",
