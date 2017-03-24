@@ -146,12 +146,47 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages(), metadata, operatorContext.getSession());
+        String plan = textDistributedPlan(ImmutableList.of(queryInfo.getOutputStage().get()), metadata, operatorContext.getSession());
+        String printPlan = removeExplainAnalyzeFragment(plan);
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
-        VARCHAR.writeString(builder, plan);
+        VARCHAR.writeString(builder, printPlan);
 
         outputConsumed = true;
         return new Page(builder.build());
+    }
+
+    private String removeExplainAnalyzeFragment(String plan)
+    {
+        int startPos = plan.indexOf("Fragment 1");
+        String fragment0 = plan.substring(0, startPos);
+        String output = "";
+        for (String line : fragment0.split("\n")) {
+            if (line.trim().startsWith("- RemoteSource")) {
+                output = line.split("=>")[1].trim();
+                break;
+            }
+        }
+        String subFragments = plan.substring(startPos);
+        StringBuilder printPlan = new StringBuilder();
+        int fragmentId = 0;
+        boolean outputInserted = false;
+        for (String line : subFragments.split("\n")) {
+            if (line.startsWith("Fragment")) {
+                printPlan.append(line.replaceFirst(String.valueOf(fragmentId + 1), String.valueOf(fragmentId++))).append("\n");
+                continue;
+            }
+            if (fragmentId == 1) {
+                if (line.trim().startsWith("-") && !outputInserted) {
+                    printPlan.append("    ").append("- Output[] => ").append(output).append("\n");
+                    outputInserted = true;
+                }
+                if (outputInserted) {
+                    printPlan.append("    ");
+                }
+            }
+            printPlan.append(line).append("\n");
+        }
+        return printPlan.toString();
     }
 
     private boolean hasFinalStageInfo(StageInfo stageInfo)
