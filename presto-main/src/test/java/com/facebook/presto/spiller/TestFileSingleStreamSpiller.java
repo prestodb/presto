@@ -17,6 +17,8 @@ package com.facebook.presto.spiller;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -66,13 +68,18 @@ public class TestFileSingleStreamSpiller
         PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(TYPES))), false);
         PagesSerde serde = serdeFactory.createPagesSerde();
         SpillerStats spillerStats = new SpillerStats();
-        FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, bytes -> {});
+        LocalMemoryContext memoryContext = new AggregatedMemoryContext().newLocalMemoryContext();
+        FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, bytes -> { }, memoryContext);
 
         Page page = buildPage();
 
+        assertEquals(memoryContext.getBytes(), 0);
         spiller.spill(page).get();
         spiller.spill(Iterators.forArray(page, page, page)).get();
         assertEquals(1, FileUtils.listFiles(spillPath).size());
+
+        // for spilling memory should be accounted only during spill() method is executing
+        assertEquals(memoryContext.getBytes(), 0);
 
         ImmutableList<Page> spilledPages = ImmutableList.copyOf(spiller.getSpilledPages());
 
@@ -81,8 +88,10 @@ public class TestFileSingleStreamSpiller
             PageAssertions.assertPageEquals(TYPES, page, spilledPages.get(i));
         }
 
+        assertEquals(memoryContext.getBytes(), FileSingleStreamSpiller.BUFFER_SIZE);
         spiller.close();
         assertEquals(0, FileUtils.listFiles(spillPath).size());
+        assertEquals(memoryContext.getBytes(), 0);
     }
 
     private Page buildPage()

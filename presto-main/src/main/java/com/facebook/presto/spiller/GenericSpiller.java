@@ -14,6 +14,7 @@
 
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -38,6 +39,7 @@ public class GenericSpiller
 {
     private final List<Type> types;
     private final SpillContext spillContext;
+    private final AggregatedMemoryContext memoryContext;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final Closer closer = Closer.create();
     private ListenableFuture<?> previousSpill = Futures.immediateFuture(null);
@@ -46,10 +48,12 @@ public class GenericSpiller
     public GenericSpiller(
             List<Type> types,
             SpillContext spillContext,
+            AggregatedMemoryContext memoryContext,
             SingleStreamSpillerFactory singleStreamSpillerFactory)
     {
         this.types = requireNonNull(types, "types can not be null");
         this.spillContext = requireNonNull(spillContext, "spillContext can not be null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null");
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory can not be null");
     }
 
@@ -57,7 +61,7 @@ public class GenericSpiller
     public ListenableFuture<?> spill(Iterator<Page> pageIterator)
     {
         checkNoSpillInProgress();
-        SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext);
+        SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext());
         closer.register(singleStreamSpiller);
         singleStreamSpillers.add(singleStreamSpiller);
         previousSpill = singleStreamSpiller.spill(pageIterator);
