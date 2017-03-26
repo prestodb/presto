@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Explain;
@@ -319,6 +320,9 @@ public class PrestoVerifier
             return READ;
         }
         if (statement instanceof RenameColumn) {
+            return MODIFY;
+        }
+        if (statement instanceof DropColumn) {
             return MODIFY;
         }
         if (statement instanceof RenameTable) {
