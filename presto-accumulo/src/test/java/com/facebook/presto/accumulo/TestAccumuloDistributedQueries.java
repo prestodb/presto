@@ -50,6 +50,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    public void testDropColumn()
+    {
+        // Adding columns via SQL are not supported until adding columns with comments are supported
+    }
+
+    @Override
     public void testCreateTableAsSelect()
     {
         // This test is overridden due to Function "UUID" not found errors

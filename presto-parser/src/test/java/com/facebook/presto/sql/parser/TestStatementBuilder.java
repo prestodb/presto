@@ -176,6 +176,8 @@ public class TestStatementBuilder
 
         printStatement("alter table a.b.c add column x bigint");
 
+        printStatement("alter table a.b.c drop column x");
+
         printStatement("create schema test");
         printStatement("create schema if not exists test");
         printStatement("create schema test with (a = 'apple', b = 123)");

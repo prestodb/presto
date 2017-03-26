@@ -472,6 +472,16 @@ public class RaptorMetadata
     }
 
     @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, String column)
+    {
+        RaptorTableHandle table = (RaptorTableHandle) tableHandle;
+        daoTransaction(dbi, MetadataDao.class, dao -> {
+            dao.dropColumn(table.getTableId(), column);
+            dao.updateTableVersion(table.getTableId(), session.getStartTime());
+        });
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         Optional<RaptorPartitioningHandle> partitioning = layout
