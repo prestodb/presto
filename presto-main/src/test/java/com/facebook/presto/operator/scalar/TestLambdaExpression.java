@@ -36,15 +36,15 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
-public class TestApplyFunction
+public class TestLambdaExpression
         extends AbstractTestFunctions
 {
-    public TestApplyFunction()
+    public TestLambdaExpression()
     {
         this(testSessionBuilder().setTimeZoneKey(getTimeZoneKey("Pacific/Kiritimati")).build());
     }
 
-    private TestApplyFunction(Session session)
+    private TestLambdaExpression(Session session)
     {
         super(session);
         functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
