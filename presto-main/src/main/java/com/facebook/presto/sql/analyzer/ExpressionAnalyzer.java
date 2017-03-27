@@ -145,6 +145,7 @@ import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
@@ -783,16 +784,8 @@ public class ExpressionAnalyzer
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
                 if (expression instanceof LambdaExpression) {
-                    LambdaExpression lambdaExpression = (LambdaExpression) expression;
-                    verifyNoAggregatesOrWindowFunctions(functionRegistry, lambdaExpression.getBody(), "Lambda expression");
-
-                    // captures are not supported for now, use empty tuple descriptor
-                    Expression lambdaBody = lambdaExpression.getBody();
-                    List<LambdaArgumentDeclaration> lambdaArguments = lambdaExpression.getArguments();
-
                     argumentTypesBuilder.add(new TypeSignatureProvider(
                             types -> {
-                                checkArgument(lambdaArguments.size() == types.size());
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
                                         functionRegistry,
                                         typeManager,
@@ -801,13 +794,7 @@ public class ExpressionAnalyzer
                                         symbolTypes,
                                         parameters,
                                         isDescribe);
-                                Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap = new HashMap<>();
-                                for (int i = 0; i < lambdaArguments.size(); i++) {
-                                    LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
-                                    nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName(), lambdaArgument);
-                                    innerExpressionAnalyzer.getExpressionTypes().put(lambdaArgument, types.get(i));
-                                }
-                                return new FunctionType(types, innerExpressionAnalyzer.analyze(lambdaBody, scope, Context.inLambda(nameToLambdaArgumentDeclarationMap))).getTypeSignature();
+                                return innerExpressionAnalyzer.analyze(expression, scope, context.getContext().expectingLambda(types)).getTypeSignature();
                             }));
                 }
                 else {
@@ -838,21 +825,8 @@ public class ExpressionAnalyzer
                     throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
                 if (argumentTypes.get(i).hasDependency()) {
-                    FunctionType functionType = (FunctionType) expectedType;
-                    LambdaExpression lambdaExpression = (LambdaExpression) expression;
-                    List<LambdaArgumentDeclaration> lambdaArguments = lambdaExpression.getArguments();
-
-                    Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap = new HashMap<>();
-                    for (int j = 0; j < lambdaArguments.size(); j++) {
-                        LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(j);
-                        nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName(), lambdaArgument);
-                        expressionTypes.put(lambdaArgument, functionType.getArgumentTypes().get(j));
-                    }
-                    Type actualType = process(lambdaExpression.getBody(), new StackableAstVisitorContext<>(Context.inLambda(nameToLambdaArgumentDeclarationMap)));
-
-                    coerceType(lambdaExpression.getBody(), actualType, functionType.getReturnType(), format("Function %s argument %d", function, i));
-                    expressionTypes.put(lambdaExpression.getBody(), functionType.getReturnType());
-                    expressionTypes.put(lambdaExpression, functionType);
+                    FunctionType expectedFunctionType = (FunctionType) expectedType;
+                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
                 }
                 else {
                     Type actualType = typeManager.getType(argumentTypes.get(i).getTypeSignature());
@@ -1100,9 +1074,25 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLambdaExpression(LambdaExpression node, StackableAstVisitorContext<Context> context)
         {
-            // visitFunctionCall looks through LambdaExpression if any function argument is a LambdaExpression,
-            // and handles the analysis of the LambdaExpression itself.
-            throw new SemanticException(STANDALONE_LAMBDA, node, "lambda expression should always be used inside a function");
+            verifyNoAggregatesOrWindowFunctions(functionRegistry, node.getBody(), "Lambda expression");
+            if (!context.getContext().isExpectingLambda()) {
+                throw new SemanticException(STANDALONE_LAMBDA, node, "Lambda expression should always be used inside a function");
+            }
+
+            List<Type> types = context.getContext().getFunctionInputTypes();
+            List<LambdaArgumentDeclaration> lambdaArguments = node.getArguments();
+            verify(types.size() == lambdaArguments.size());
+
+            Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap = new HashMap<>();
+            for (int i = 0; i < lambdaArguments.size(); i++) {
+                LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
+                nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName(), lambdaArgument);
+                expressionTypes.put(lambdaArgument, types.get(i));
+            }
+            Type returnType = process(node.getBody(), new StackableAstVisitorContext<Context>(Context.inLambda(nameToLambdaArgumentDeclarationMap)));
+            FunctionType functionType = new FunctionType(types, returnType);
+            expressionTypes.put(node, functionType);
+            return functionType;
         }
 
         @Override
@@ -1235,21 +1225,36 @@ public class ExpressionAnalyzer
 
     private static class Context
     {
+        // functionInputTypes and nameToLambdaDeclarationMap can be null or non-null independently. All 4 combinations are possible.
+
+        // The list of types when expecting a lambda (i.e. processing lambda parameters of a function); null otherwise.
+        // Empty list represents expecting a lambda with no arguments.
+        private final List<Type> functionInputTypes;
+        // The mapping from names to corresponding lambda argument declarations when inside a lambda; null otherwise.
+        // Empty map means that the all lambda expressions surrounding the current node has no arguments.
         private final Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap;
 
-        private Context(Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
+        private Context(
+                List<Type> functionInputTypes,
+                Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
         {
+            this.functionInputTypes = functionInputTypes;
             this.nameToLambdaArgumentDeclarationMap = nameToLambdaArgumentDeclarationMap;
         }
 
         public static Context notInLambda()
         {
-            return new Context(null);
+            return new Context(null, null);
         }
 
         public static Context inLambda(Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
         {
-            return new Context(requireNonNull(nameToLambdaArgumentDeclarationMap, "nameToLambdaArgumentDeclarationMap is null"));
+            return new Context(null, requireNonNull(nameToLambdaArgumentDeclarationMap, "nameToLambdaArgumentDeclarationMap is null"));
+        }
+
+        public Context expectingLambda(List<Type> functionInputTypes)
+        {
+            return new Context(requireNonNull(functionInputTypes, "functionInputTypes is null"), this.nameToLambdaArgumentDeclarationMap);
         }
 
         public boolean isInLambda()
@@ -1257,10 +1262,21 @@ public class ExpressionAnalyzer
             return nameToLambdaArgumentDeclarationMap != null;
         }
 
+        public boolean isExpectingLambda()
+        {
+            return functionInputTypes != null;
+        }
+
         public Map<String, LambdaArgumentDeclaration> getNameToLambdaArgumentDeclarationMap()
         {
             checkState(isInLambda());
             return nameToLambdaArgumentDeclarationMap;
+        }
+
+        public List<Type> getFunctionInputTypes()
+        {
+            checkState(isExpectingLambda());
+            return functionInputTypes;
         }
     }
 
