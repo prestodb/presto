@@ -83,6 +83,9 @@ public class BenchmarkHashBuildAndJoinOperators
         @Param({"false", "true"})
         protected boolean buildHashEnabled;
 
+        @Param({"1", "5"})
+        protected int buildRowsRepetition;
+
         protected ExecutorService executor;
         protected List<Page> buildPages;
         protected Optional<Integer> hashChannel;
@@ -139,10 +142,11 @@ public class BenchmarkHashBuildAndJoinOperators
         {
             RowPagesBuilder buildPagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
 
+            int maxValue = BUILD_ROWS_NUMBER / buildRowsRepetition + 40;
             int rows = 0;
             while (rows < BUILD_ROWS_NUMBER) {
                 int newRows = Math.min(BUILD_ROWS_NUMBER - rows, ROWS_PER_PAGE);
-                buildPagesBuilder.addSequencePage(newRows, rows + 20, rows + 30, rows + 40);
+                buildPagesBuilder.addSequencePage(newRows, (rows + 20) % maxValue, (rows + 30) % maxValue, (rows + 40) % maxValue);
                 buildPagesBuilder.pageBreak();
                 rows += newRows;
             }
