@@ -92,6 +92,7 @@ public class TestTransformExistsApplyToScalarApply
                                 p.values(),
                                 p.values(p.symbol("a", BIGINT)))
                 )
+                .isFiredOnlyOnceAndThen()
                 .matches(apply(
                         ImmutableList.of(),
                         ImmutableMap.of("b", PlanMatchPattern.expression("\"b\"")),

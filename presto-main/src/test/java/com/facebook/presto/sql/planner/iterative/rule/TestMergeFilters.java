@@ -32,6 +32,7 @@ public class TestMergeFilters
                         p.filter(expression("b > 44"),
                                 p.filter(expression("a < 42"),
                                         p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))))
+                .isFiredOnlyOnceAndThen()
                 .matches(filter("(a < 42) AND (b > 44)", values(ImmutableMap.of("a", 0, "b", 1))));
     }
 }

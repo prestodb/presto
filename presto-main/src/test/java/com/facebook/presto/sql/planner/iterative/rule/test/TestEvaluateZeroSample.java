@@ -57,6 +57,7 @@ public class TestEvaluateZeroSample
                                                 ImmutableList.of(
                                                         expressions("1", "10"),
                                                         expressions("2", "11"))))))
+                .isFiredOnlyOnceAndThen()
                 // TODO: verify contents
                 .matches(values(ImmutableMap.of()));
     }

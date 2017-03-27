@@ -58,6 +58,7 @@ public class TestRemoveFullSample
                                                 ImmutableList.of(
                                                         expressions("1", "10"),
                                                         expressions("2", "11"))))))
+                .isFiredOnlyOnceAndThen()
                 // TODO: verify contents
                 .matches(filter("b > 5", values(ImmutableMap.of("a", 0, "b", 1))));
     }
