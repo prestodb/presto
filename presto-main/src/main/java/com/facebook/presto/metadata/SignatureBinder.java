@@ -717,12 +717,15 @@ public class SignatureBinder
             TypeSignature actualLambdaTypeSignature;
             if (!typeSignatureProvider.hasDependency()) {
                 actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature();
-                if (!getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
+                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
             }
             else {
                 actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature(lambdaArgumentTypes.get());
+                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase())) {
+                    return SolverReturnStatus.UNSOLVABLE;
+                }
                 verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get())));
             }
 

@@ -997,6 +997,9 @@ public class TestSignatureBinder
                 .build();
 
         assertThat(simple)
+                .boundTo("integer")
+                .fails();
+        assertThat(simple)
                 .boundTo("function(integer,integer)")
                 .succeeds();
         // TODO: This should eventually be supported
@@ -1014,6 +1017,9 @@ public class TestSignatureBinder
                 .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T,U)"), parseTypeSignature("function(U,V)"))
                 .typeVariableConstraints(typeVariable("T"), typeVariable("U"), typeVariable("V"))
                 .build();
+        assertThat(applyTwice)
+                .boundTo("integer", "integer", "integer")
+                .fails();
         assertThat(applyTwice)
                 .boundTo("integer", "function(integer,varchar)", "function(varchar,double)")
                 .produces(BoundVariables.builder()
