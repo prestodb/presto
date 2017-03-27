@@ -24,7 +24,6 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ExpressionSymbolInliner
-        extends ExpressionRewriter<Void>
 {
     private final Map<Symbol, ? extends Expression> mappings;
 
@@ -33,18 +32,27 @@ public class ExpressionSymbolInliner
         this.mappings = mappings;
     }
 
-    @Override
-    public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+    public Expression rewrite(Expression expression)
     {
-        Expression expression = mappings.get(Symbol.from(node));
-        checkState(expression != null, "Cannot resolve symbol %s", node.getName());
-        return expression;
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
     }
 
-    @Override
-    public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+    private class Visitor
+            extends ExpressionRewriter<Void>
     {
-        // Lambda does not support capture yet. As a result, relation/columns can not exist in lambda.
-        return node;
+        @Override
+        public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            Expression expression = mappings.get(Symbol.from(node));
+            checkState(expression != null, "Cannot resolve symbol %s", node.getName());
+            return expression;
+        }
+
+        @Override
+        public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            // Lambda does not support capture yet. As a result, relation/columns can not exist in lambda.
+            return node;
+        }
     }
 }

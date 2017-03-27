@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -188,6 +187,6 @@ public class ProjectionPushDown
 
     private static Expression translateExpression(Expression inputExpression, Map<Symbol, SymbolReference> symbolMapping)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(symbolMapping), inputExpression);
+        return new ExpressionSymbolInliner(symbolMapping).rewrite(inputExpression);
     }
 }

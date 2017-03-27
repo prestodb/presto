@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
@@ -66,8 +65,7 @@ public class MergeProjections
                 if (isDeterministic(sourceProject) && !containsTry(node)) {
                     Assignments.Builder projections = Assignments.builder();
                     for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
-                        Expression inlined = ExpressionTreeRewriter.rewriteWith(
-                                new ExpressionSymbolInliner(sourceProject.getAssignments().getMap()), projection.getValue());
+                        Expression inlined = new ExpressionSymbolInliner(sourceProject.getAssignments().getMap()).rewrite(projection.getValue());
                         projections.put(projection.getKey(), inlined);
                     }
 
