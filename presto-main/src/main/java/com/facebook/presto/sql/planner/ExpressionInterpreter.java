@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -102,6 +103,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -988,6 +990,21 @@ public class ExpressionInterpreter
                             .collect(toImmutableList()),
                     argumentNames,
                     map -> process(body, new LambdaSymbolResolver(map)));
+        }
+
+        @Override
+        protected Object visitBindExpression(BindExpression node, Object context)
+        {
+            Object value = process(node.getValue(), context);
+            Object function = process(node.getFunction(), context);
+
+            if (hasUnresolvedValue(value, function)) {
+                return new BindExpression(
+                        toExpression(value, expressionTypes.get(node.getValue())),
+                        toExpression(function, expressionTypes.get(node.getFunction())));
+            }
+
+            return MethodHandles.insertArguments((MethodHandle) function, 0, value);
         }
 
         @Override

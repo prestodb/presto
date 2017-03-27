@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
+import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
@@ -783,7 +784,7 @@ public class ExpressionAnalyzer
 
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
-                if (expression instanceof LambdaExpression) {
+                if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
                     argumentTypesBuilder.add(new TypeSignatureProvider(
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
@@ -1096,6 +1097,27 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitBindExpression(BindExpression node, StackableAstVisitorContext<Context> context)
+        {
+            verify(context.getContext().isExpectingLambda(), "bind expression found when lambda is not expected");
+
+            List<Type> functionInputTypes = ImmutableList.<Type>builder()
+                    .add(process(node.getValue(), new StackableAstVisitorContext<>(context.getContext().notExpectingLambda())))
+                    .addAll(context.getContext().getFunctionInputTypes())
+                    .build();
+
+            FunctionType functionType = (FunctionType) process(node.getFunction(), new StackableAstVisitorContext<>(context.getContext().expectingLambda(functionInputTypes)));
+
+            List<Type> argumentTypes = functionType.getArgumentTypes();
+            verify(argumentTypes.size() == functionInputTypes.size());
+            verify(functionInputTypes.get(0) == argumentTypes.get(0));
+
+            FunctionType result = new FunctionType(argumentTypes.subList(1, argumentTypes.size()), functionType.getReturnType());
+            expressionTypes.put(node, result);
+            return result;
+        }
+
+        @Override
         protected Type visitExpression(Expression node, StackableAstVisitorContext<Context> context)
         {
             throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
@@ -1255,6 +1277,11 @@ public class ExpressionAnalyzer
         public Context expectingLambda(List<Type> functionInputTypes)
         {
             return new Context(requireNonNull(functionInputTypes, "functionInputTypes is null"), this.nameToLambdaArgumentDeclarationMap);
+        }
+
+        public Context notExpectingLambda()
+        {
+            return new Context(null, this.nameToLambdaArgumentDeclarationMap);
         }
 
         public boolean isInLambda()

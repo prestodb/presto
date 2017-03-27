@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
+import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
@@ -95,6 +96,7 @@ import static com.facebook.presto.sql.relational.Signatures.arithmeticExpression
 import static com.facebook.presto.sql.relational.Signatures.arithmeticNegationSignature;
 import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
 import static com.facebook.presto.sql.relational.Signatures.betweenSignature;
+import static com.facebook.presto.sql.relational.Signatures.bindSignature;
 import static com.facebook.presto.sql.relational.Signatures.castSignature;
 import static com.facebook.presto.sql.relational.Signatures.coalesceSignature;
 import static com.facebook.presto.sql.relational.Signatures.comparisonExpressionSignature;
@@ -339,6 +341,19 @@ public final class SqlToRowExpressionTranslator
                     .collect(toImmutableList());
 
             return new LambdaDefinitionExpression(argumentTypes, argumentNames, body);
+        }
+
+        @Override
+        protected RowExpression visitBindExpression(BindExpression node, Void context)
+        {
+            RowExpression value = process(node.getValue(), context);
+            RowExpression function = process(node.getFunction(), context);
+
+            return call(
+                    bindSignature(types.get(node), value.getType(), function.getType()),
+                    types.get(node),
+                    value,
+                    function);
         }
 
         @Override

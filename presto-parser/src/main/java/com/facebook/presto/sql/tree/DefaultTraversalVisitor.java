@@ -276,6 +276,15 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitBindExpression(BindExpression node, C context)
+    {
+        process(node.getValue(), context);
+        process(node.getFunction(), context);
+
+        return null;
+    }
+
+    @Override
     protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
     {
         return process(node.getValue(), context);

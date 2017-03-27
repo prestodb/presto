@@ -51,6 +51,7 @@ public final class Signatures
     public static final String TRY = "TRY";
     public static final String DEREFERENCE = "DEREFERENCE";
     public static final String ROW_CONSTRUCTOR = "ROW_CONSTRUCTOR";
+    public static final String BIND = "$INTERNAL$BIND";
 
     private Signatures()
     {
@@ -152,6 +153,11 @@ public final class Signatures
     public static Signature trySignature(Type returnType)
     {
         return new Signature(TRY, SCALAR, returnType.getTypeSignature());
+    }
+
+    public static Signature bindSignature(Type returnType, Type valueType, Type functionType)
+    {
+        return new Signature(BIND, SCALAR, returnType.getTypeSignature(), valueType.getTypeSignature(), functionType.getTypeSignature());
     }
 
     // **************** functions that require varargs and/or complex types (e.g., lists) ****************

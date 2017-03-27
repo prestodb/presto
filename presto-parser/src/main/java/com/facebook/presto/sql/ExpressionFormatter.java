@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
+import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
@@ -360,6 +361,14 @@ public final class ExpressionFormatter
             builder.append(") -> ");
             builder.append(process(node.getBody(), context));
             return builder.toString();
+        }
+
+        @Override
+        protected String visitBindExpression(BindExpression node, Void context)
+        {
+            return "\"$INTERNAL$BIND\"(" +
+                    process(node.getValue(), context) + ", " +
+                    process(node.getFunction(), context) + ")";
         }
 
         @Override

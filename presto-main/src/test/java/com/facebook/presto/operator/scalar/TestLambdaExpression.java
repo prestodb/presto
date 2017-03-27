@@ -117,6 +117,26 @@ public class TestLambdaExpression
     }
 
     @Test
+    public void testBind()
+            throws Exception
+    {
+        assertFunction("apply(90, \"$internal$bind\"(9, (x, y) -> x + y))", INTEGER, 99);
+        assertFunction("invoke(\"$internal$bind\"(8, x -> x + 1))", INTEGER, 9);
+        assertFunction("apply(900, \"$internal$bind\"(90, \"$internal$bind\"(9, (x, y, z) -> x + y + z)))", INTEGER, 999);
+        assertFunction("invoke(\"$internal$bind\"(90, \"$internal$bind\"(9, (x, y) -> x + y)))", INTEGER, 99);
+    }
+
+    @Test
+    public void testCoercion()
+            throws Exception
+    {
+        assertFunction("apply(90, x -> x + 9.0)", DOUBLE, 99.0);
+
+        assertFunction("apply(90, \"$internal$bind\"(9.0, (x, y) -> x + y))", DOUBLE, 99.0);
+        assertFunction("invoke(\"$internal$bind\"(8, x -> x + 1.0))", DOUBLE, 9.0);
+    }
+
+    @Test
     public void testTypeCombinations()
             throws Exception
     {

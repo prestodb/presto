@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.Parameter;
+import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -332,6 +333,12 @@ class AggregationAnalyzer
         {
             // Lambda does not support capture yet
             return true;
+        }
+
+        @Override
+        protected Boolean visitBindExpression(BindExpression node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getFunction(), context);
         }
 
         @Override

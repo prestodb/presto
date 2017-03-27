@@ -26,6 +26,7 @@ import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.lang.invoke.MethodHandle;
@@ -36,6 +37,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
+import static com.facebook.presto.sql.relational.Signatures.BIND;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
 import static com.facebook.presto.sql.relational.Signatures.DEREFERENCE;
@@ -125,6 +127,17 @@ public class ExpressionOptimizer
                                 .map(argument -> argument.accept(this, null))
                                 .collect(toImmutableList());
                         return call(signature, call.getType(), arguments);
+                    }
+                    case BIND: {
+                        checkState(call.getArguments().size() == 2, BIND + " function should have 2 arguments. Got " + call.getArguments().size());
+                        RowExpression optimizedValue = call.getArguments().get(0).accept(this, context);
+                        RowExpression optimizedFunction = call.getArguments().get(1).accept(this, context);
+                        if (optimizedValue instanceof ConstantExpression && optimizedFunction instanceof ConstantExpression) {
+                            // Here, optimizedValue and optimizedFunction should be merged together into a new ConstantExpression.
+                            // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
+                            throw new UnsupportedOperationException();
+                        }
+                        return call(signature, call.getType(), ImmutableList.of(optimizedValue, optimizedFunction));
                     }
                     case NULL_IF:
                     case SWITCH:

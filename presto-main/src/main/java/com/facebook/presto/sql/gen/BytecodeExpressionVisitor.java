@@ -35,6 +35,7 @@ import static com.facebook.presto.bytecode.instruction.Constant.loadInt;
 import static com.facebook.presto.bytecode.instruction.Constant.loadLong;
 import static com.facebook.presto.bytecode.instruction.Constant.loadString;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.sql.relational.Signatures.BIND;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
 import static com.facebook.presto.sql.relational.Signatures.DEREFERENCE;
@@ -117,6 +118,9 @@ public class BytecodeExpressionVisitor
                     break;
                 case ROW_CONSTRUCTOR:
                     generator = new RowConstructorCodeGenerator();
+                    break;
+                case BIND:
+                    generator = new BindCodeGenerator();
                     break;
                 default:
                     generator = new FunctionCallCodeGenerator();
