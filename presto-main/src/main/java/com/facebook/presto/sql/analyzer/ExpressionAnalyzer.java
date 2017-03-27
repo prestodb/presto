@@ -329,6 +329,7 @@ public class ExpressionAnalyzer
                 LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getNameToLambdaArgumentDeclarationMap().get(node.getName());
                 if (lambdaArgumentDeclaration != null) {
                     Type result = expressionTypes.get(lambdaArgumentDeclaration);
+                    checkArgument(result != null, "No type for lambda argument %s", lambdaArgumentDeclaration);
                     expressionTypes.put(node, result);
                     return result;
                 }
@@ -795,6 +796,11 @@ public class ExpressionAnalyzer
                                         symbolTypes,
                                         parameters,
                                         isDescribe);
+                                if (context.getContext().isInLambda()) {
+                                    for (LambdaArgumentDeclaration argument : context.getContext().getNameToLambdaArgumentDeclarationMap().values()) {
+                                        innerExpressionAnalyzer.expressionTypes.put(argument, expressionTypes.get(argument));
+                                    }
+                                }
                                 return innerExpressionAnalyzer.analyze(expression, scope, context.getContext().expectingLambda(types)).getTypeSignature();
                             }));
                 }
@@ -987,6 +993,9 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<Context> context)
         {
+            if (context.getContext().isInLambda()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
+            }
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             Scope subqueryScope = Scope.builder()
                     .withParent(scope)
@@ -1085,6 +1094,9 @@ public class ExpressionAnalyzer
             verify(types.size() == lambdaArguments.size());
 
             Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap = new HashMap<>();
+            if (context.getContext().isInLambda()) {
+                nameToLambdaArgumentDeclarationMap.putAll(context.getContext().getNameToLambdaArgumentDeclarationMap());
+            }
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
                 nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName(), lambdaArgument);

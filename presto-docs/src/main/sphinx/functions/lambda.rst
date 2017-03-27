@@ -17,12 +17,9 @@ Lambda expressions are written with ``->``::
 
 Most SQL expressions can be used in a lambda body, with a few exceptions:
 
-* Subqueries are not supported.
+* Subqueries are not supported. ``x -> 2 + (SELECT 3)``
+* Aggregations are not supported. ``x -> max(y)``
 * The ``TRY`` function is not supported yet. (:func:`try_cast` is supported.)
-* Capture is not supported yet:
-
-  * Columns or relations cannot be referenced.
-  * Only lambda variables from the inner-most lambda expression can be referenced.
 
 Lambda Functions
 ----------------

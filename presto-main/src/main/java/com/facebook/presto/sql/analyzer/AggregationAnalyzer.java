@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
@@ -46,7 +48,6 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.Parameter;
-import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -58,6 +59,7 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -90,12 +92,20 @@ class AggregationAnalyzer
 
     private final Metadata metadata;
     private final Set<Expression> columnReferences;
+    private final IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences;
     private final List<Expression> parameters;
     private final boolean isDescribe;
 
     private final Scope scope;
 
-    public AggregationAnalyzer(List<Expression> groupByExpressions, Metadata metadata, Scope scope, Set<Expression> columnReferences, List<Expression> parameters, boolean isDescribe)
+    public AggregationAnalyzer(
+            List<Expression> groupByExpressions,
+            Metadata metadata,
+            Scope scope,
+            Set<Expression> columnReferences,
+            IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences,
+            List<Expression> parameters,
+            boolean isDescribe)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(metadata, "metadata is null");
@@ -106,6 +116,7 @@ class AggregationAnalyzer
         this.scope = scope;
         this.metadata = metadata;
         this.columnReferences = ImmutableSet.copyOf(columnReferences);
+        this.lambdaArgumentReferences = lambdaArgumentReferences;
         this.parameters = parameters;
         this.isDescribe = isDescribe;
         this.expressions = groupByExpressions.stream()
@@ -331,8 +342,7 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitLambdaExpression(LambdaExpression node, Void context)
         {
-            // Lambda does not support capture yet
-            return true;
+            return process(node.getBody(), context);
         }
 
         @Override
@@ -392,6 +402,9 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitIdentifier(Identifier node, Void context)
         {
+            if (lambdaArgumentReferences.containsKey(node)) {
+                return true;
+            }
             return isField(QualifiedName.of(node.getName()));
         }
 

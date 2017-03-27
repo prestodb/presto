@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DesugaringRewriter;
+import com.facebook.presto.sql.planner.LambdaCaptureDesugaringRewriter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -56,8 +57,9 @@ public class DesugaringOptimizer
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, sqlParser, session, types), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, sqlParser, session, types, symbolAllocator), plan);
     }
 
     private static class Rewriter
@@ -67,13 +69,15 @@ public class DesugaringOptimizer
         private final SqlParser sqlParser;
         private final Session session;
         private final Map<Symbol, Type> types;
+        private final SymbolAllocator symbolAllocator;
 
-        public Rewriter(Metadata metadata, SqlParser sqlParser, Session session, Map<Symbol, Type> types)
+        public Rewriter(Metadata metadata, SqlParser sqlParser, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator)
         {
             this.metadata = metadata;
             this.sqlParser = sqlParser;
             this.session = session;
             this.types = types;
+            this.symbolAllocator = symbolAllocator;
         }
 
         @Override
@@ -115,7 +119,10 @@ public class DesugaringOptimizer
                 return expression;
             }
             IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression, emptyList() /* parameters already replaced */);
-            return ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(expressionTypes), expression);
+
+            expression = new LambdaCaptureDesugaringRewriter(types, symbolAllocator).rewrite(expression);
+            expression = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(expressionTypes), expression);
+            return expression;
         }
     }
 }

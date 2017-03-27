@@ -212,7 +212,7 @@ public class Analysis
         return lambdaArgumentReferences.get(identifier);
     }
 
-    public Map<Identifier, LambdaArgumentDeclaration> getLambdaArgumentReferences()
+    public IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> getLambdaArgumentReferences()
     {
         return lambdaArgumentReferences;
     }
