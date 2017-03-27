@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -63,6 +66,14 @@ public class ExpressionExtractor
         }
 
         @Override
+        public Void visitAggregation(AggregationNode node, ImmutableList.Builder<Expression> context)
+        {
+            node.getAssignments().values()
+                    .forEach(aggregation -> context.add(aggregation.getCall()));
+            return super.visitAggregation(node, context);
+        }
+
+        @Override
         public Void visitFilter(FilterNode node, ImmutableList.Builder<Expression> context)
         {
             context.add(node.getPredicate());
@@ -86,10 +97,24 @@ public class ExpressionExtractor
         }
 
         @Override
+        public Void visitJoin(JoinNode node, ImmutableList.Builder<Expression> context)
+        {
+            node.getFilter().ifPresent(context::add);
+            return super.visitJoin(node, context);
+        }
+
+        @Override
         public Void visitValues(ValuesNode node, ImmutableList.Builder<Expression> context)
         {
             node.getRows().forEach(context::addAll);
             return super.visitValues(node, context);
+        }
+
+        @Override
+        public Void visitApply(ApplyNode node, ImmutableList.Builder<Expression> context)
+        {
+            context.addAll(node.getSubqueryAssignments().getExpressions());
+            return super.visitApply(node, context);
         }
     }
 }
