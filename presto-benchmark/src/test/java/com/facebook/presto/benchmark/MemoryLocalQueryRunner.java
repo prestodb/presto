@@ -36,7 +36,6 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class MemoryLocalQueryRunner
 {
@@ -48,11 +47,11 @@ public class MemoryLocalQueryRunner
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .build();
         ExecutorService executor = localQueryRunner.getExecutor();
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(2, GIGABYTE));
+        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(2, GIGABYTE));
 
-        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor, new DataSize(1, GIGABYTE), spillSpaceTracker)
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(1, GIGABYTE), memoryPool, systemMemoryPool, executor, new DataSize(4, GIGABYTE), spillSpaceTracker)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), executor),
                         session,
                         false,
@@ -84,8 +83,11 @@ public class MemoryLocalQueryRunner
         LocalQueryRunner localQueryRunner = LocalQueryRunner.queryRunnerWithInitialTransaction(session);
 
         // add tpch
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
-        localQueryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        localQueryRunner.createCatalog(
+                "memory",
+                new MemoryConnectorFactory(),
+                ImmutableMap.of("memory.max-data-per-node", "4GB"));
 
         return localQueryRunner;
     }
