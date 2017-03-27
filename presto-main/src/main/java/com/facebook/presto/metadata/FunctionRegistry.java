@@ -28,6 +28,7 @@ import com.facebook.presto.operator.aggregation.BitwiseAndAggregation;
 import com.facebook.presto.operator.aggregation.BitwiseOrAggregation;
 import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
 import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
+import com.facebook.presto.operator.aggregation.CentralMomentsAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.DoubleCorrelationAggregation;
@@ -401,6 +402,7 @@ public class FunctionRegistry
                 .window(LeadFunction.class)
                 .aggregate(CountAggregation.class)
                 .aggregate(VarianceAggregation.class)
+                .aggregate(CentralMomentsAggregation.class)
                 .aggregate(ApproximateLongPercentileAggregations.class)
                 .aggregate(ApproximateLongPercentileArrayAggregations.class)
                 .aggregate(ApproximateDoublePercentileAggregations.class)

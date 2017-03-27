@@ -228,6 +228,15 @@ Statistical Aggregate Functions
 
     Returns the sample covariance of input values.
 
+.. function:: kurtosis(x) -> double
+
+    Returns the excess kurtosis of all input values. Unbiased estimate using
+    the following expression:
+
+    .. code-block:: none
+
+        kurtosis(x) = n(n+1)/((n-1)(n-2)(n-3))sum[(x_i-mean)^4]/stddev(x)^4-3(n-1)^2/((n-2)(n-3))
+
 .. function:: regr_intercept(y, x) -> double
 
     Returns linear regression intercept of input values. ``y`` is the dependent
@@ -237,6 +246,10 @@ Statistical Aggregate Functions
 
     Returns linear regression slope of input values. ``y`` is the dependent
     value. ``x`` is the independent value.
+
+.. function:: skewness(x) -> double
+
+    Returns the skewness of all input values.
 
 .. function:: stddev(x) -> double
 
