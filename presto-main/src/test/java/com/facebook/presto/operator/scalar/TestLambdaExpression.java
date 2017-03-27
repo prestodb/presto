@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -47,7 +48,7 @@ public class TestLambdaExpression
     private TestLambdaExpression(Session session)
     {
         super(session);
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION, INVOKE_FUNCTION));
     }
 
     @Test
