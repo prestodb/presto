@@ -28,8 +28,6 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
@@ -62,6 +60,8 @@ import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.utf8Slice;
 
@@ -141,11 +141,11 @@ public class BenchmarkArraySubscript
                 projectionsBuilder.add(new CallExpression(
                         signature,
                         arrayType.getElementType(),
-                        ImmutableList.of(new InputReferenceExpression(0, arrayType), new ConstantExpression((long) i + 1, BIGINT))));
+                        ImmutableList.of(field(0, arrayType), constant((long) i + 1, BIGINT))));
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections).get();
+            pageProcessor = compiler.compilePageProcessor(constant(true, BooleanType.BOOLEAN), projections).get();
             types = projections.stream()
                     .map(RowExpression::getType)
                     .collect(Collectors.toList());

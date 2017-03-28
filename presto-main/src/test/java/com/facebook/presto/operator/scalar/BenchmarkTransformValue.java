@@ -25,9 +25,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
@@ -64,6 +61,9 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 
@@ -137,18 +137,18 @@ public class BenchmarkTransformValue
                     BOOLEAN.getTypeSignature(),
                     elementType.getTypeSignature(),
                     elementType.getTypeSignature());
-            projectionsBuilder.add(new CallExpression(signature, returnType, ImmutableList.of(
-                    new InputReferenceExpression(0, mapType),
+            projectionsBuilder.add(call(signature, returnType, ImmutableList.of(
+                    field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
-                            new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(
+                            call(greaterThan, BOOLEAN, ImmutableList.of(
                                     new VariableReferenceExpression("y", elementType),
-                                    new ConstantExpression(compareValue, elementType)))))));
+                                    constant(compareValue, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BOOLEAN), projections).get();
+            pageProcessor = compiler.compilePageProcessor(constant(true, BOOLEAN), projections).get();
             types = projections.stream().map(RowExpression::getType).collect(Collectors.toList());
             page = new Page(block);
         }

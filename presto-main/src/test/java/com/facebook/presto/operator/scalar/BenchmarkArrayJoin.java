@@ -25,8 +25,6 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +50,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -88,11 +88,11 @@ public class BenchmarkArrayJoin
 
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression(signature, VARCHAR, ImmutableList.of(
-                            new InputReferenceExpression(0, new ArrayType(BIGINT)),
-                            new ConstantExpression(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
+                            field(0, new ArrayType(BIGINT)),
+                            constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
 
             pageProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager())
-                    .compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections)
+                    .compilePageProcessor(constant(true, BooleanType.BOOLEAN), projections)
                     .get();
 
             page = new Page(createChannel(POSITIONS, ARRAY_SIZE));

@@ -25,6 +25,8 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -44,13 +46,13 @@ public class TestDeterminismEvaluator
                         parseTypeSignature(StandardTypes.BIGINT),
                         parseTypeSignature(StandardTypes.BIGINT)),
                 BIGINT,
-                singletonList(new ConstantExpression(10L, BIGINT)));
+                singletonList(constant(10L, BIGINT)));
         assertFalse(determinismEvaluator.isDeterministic(random));
 
-        InputReferenceExpression col0 = new InputReferenceExpression(0, BIGINT);
+        InputReferenceExpression col0 = field(0, BIGINT);
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
 
-        CallExpression lessThanExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, new ConstantExpression(10L, BIGINT)));
+        CallExpression lessThanExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, constant(10L, BIGINT)));
         assertTrue(determinismEvaluator.isDeterministic(lessThanExpression));
 
         CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
