@@ -134,24 +134,17 @@ function getHumanReadableState(query)
     return query.state;
 }
 
-function isProgressMeaningful(query)
-{
-    return query.scheduled && query.state == "RUNNING" && query.queryStats.totalDrivers > 0 && query.queryStats.completedDrivers > 0;
-}
-
 function getProgressBarPercentage(query)
 {
-    if (isProgressMeaningful(query)) {
-        return Math.round((query.queryStats.completedDrivers * 100.0) / query.queryStats.totalDrivers);
-    }
+    var progress = query.queryStats.progressPercentage;
 
     // progress bars should appear 'full' when query progress is not meaningful
-    return 100;
+    return !progress ? 100 : Math.round(progress);
 }
 
 function getProgressBarTitle(query)
 {
-    if (isProgressMeaningful(query)) {
+    if (!query.queryStats.progressPercentage) {
         return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
     }
 

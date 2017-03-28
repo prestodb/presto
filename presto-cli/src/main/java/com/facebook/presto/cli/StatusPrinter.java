@@ -171,7 +171,7 @@ Parallelism: 2.5
         String splitsSummary = String.format("Splits: %,d total, %,d done (%.2f%%)",
                 stats.getTotalSplits(),
                 stats.getCompletedSplits(),
-                percentage(stats.getCompletedSplits(), stats.getTotalSplits()));
+                stats.getProgressPercentage().orElse(0.0));
         out.println(splitsSummary);
 
         if (debug) {
@@ -216,7 +216,7 @@ Parallelism: 2.5
         Duration wallTime = nanosSince(start);
 
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
-        int progressPercentage = (int) min(99, percentage(stats.getCompletedSplits(), stats.getTotalSplits()));
+        int progressPercentage = (int) min(99, stats.getProgressPercentage().orElse(0.0));
 
         if (console.isRealTerminal()) {
             // blank line
