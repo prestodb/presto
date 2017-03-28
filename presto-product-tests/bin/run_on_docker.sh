@@ -80,6 +80,9 @@ function stop_application_runner_containers() {
     docker stop ${CONTAINER_NAME}
     echo "Container stopped: ${CONTAINER_NAME}"
   done
+  echo "Removing dead application-runner containers"
+  docker ps -aq --no-trunc --filter status=dead --filter status=exited --filter name=common_application-runner \
+  | xargs docker rm -v || true
 }
 
 function stop_all_containers() {
