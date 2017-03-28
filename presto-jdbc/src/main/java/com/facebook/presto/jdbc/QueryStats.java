@@ -16,7 +16,9 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.StatementStats;
 
 import java.util.Optional;
+import java.util.OptionalDouble;
 
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public final class QueryStats
@@ -164,5 +166,13 @@ public final class QueryStats
     public Optional<StageStats> getRootStage()
     {
         return rootStage;
+    }
+
+    public OptionalDouble getProgressPercentage()
+    {
+        if (!scheduled || totalSplits == 0) {
+            return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(min(100, (completedSplits * 100.0) / totalSplits));
     }
 }
