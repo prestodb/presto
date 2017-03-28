@@ -544,7 +544,7 @@ public class BenchmarkDecimalOperators
 
     private Object execute(BaseState state)
     {
-        return state.getProcessor().processColumnar(SESSION, state.getInputPage(), ImmutableList.of(state.getOutputType()));
+        return state.getProcessor().process(SESSION, state.getInputPage(), ImmutableList.of(state.getOutputType()));
     }
 
     private static class BaseState

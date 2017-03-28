@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -36,33 +35,21 @@ public class TestGenericPageProcessor
     private final List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
     private final PageProcessor processor = new GenericPageProcessor(TRUE_FUNCTION, ImmutableList.of(singleColumn(types.get(0), 0), singleColumn(types.get(1), 1)));
 
-    private final PageBuilder pageBuilder = new PageBuilder(types);
-
     @Test
     public void testProcess()
             throws Exception
     {
         Page page = createPage(types, false);
-        processor.process(SESSION, page, 0, page.getPositionCount(), pageBuilder);
-        Page outputPage = pageBuilder.build();
+        Page outputPage = processor.process(SESSION, page, types);
         assertPageEquals(types, outputPage, page);
     }
 
     @Test
-    public void testProcessColumnar()
-            throws Exception
-    {
-        Page page = createPage(types, false);
-        Page outputPage = processor.processColumnar(SESSION, page, types);
-        assertPageEquals(types, outputPage, page);
-    }
-
-    @Test
-    public void testProcessColumnarDictionary()
+    public void testProcessWithDictionary()
             throws Exception
     {
         Page page = createPage(types, true);
-        Page outputPage = processor.processColumnarDictionary(SESSION, page, types);
+        Page outputPage = processor.process(SESSION, page, types);
         assertPageEquals(types, outputPage, page);
     }
 

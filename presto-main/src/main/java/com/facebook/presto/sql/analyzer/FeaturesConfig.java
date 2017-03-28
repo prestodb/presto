@@ -34,19 +34,11 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @DefunctConfig({
         "resource-group-manager",
         "experimental-syntax-enabled",
-        "analyzer.experimental-syntax-enabled"
+        "analyzer.experimental-syntax-enabled",
+        "optimizer.processing-optimization"
 })
 public class FeaturesConfig
 {
-    public static class ProcessingOptimization
-    {
-        public static final String DISABLED = "disabled";
-        public static final String COLUMNAR = "columnar";
-        public static final String COLUMNAR_DICTIONARY = "columnar_dictionary";
-
-        public static final List<String> AVAILABLE_OPTIONS = ImmutableList.of(DISABLED, COLUMNAR, COLUMNAR_DICTIONARY);
-    }
-
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
@@ -64,7 +56,6 @@ public class FeaturesConfig
     private boolean legacyMapSubscript;
     private boolean optimizeMixedDistinctAggregations;
 
-    private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
 
@@ -248,21 +239,6 @@ public class FeaturesConfig
     public FeaturesConfig setPushTableWriteThroughUnion(boolean pushTableWriteThroughUnion)
     {
         this.pushTableWriteThroughUnion = pushTableWriteThroughUnion;
-        return this;
-    }
-
-    public String getProcessingOptimization()
-    {
-        return processingOptimization;
-    }
-
-    @Config("optimizer.processing-optimization")
-    public FeaturesConfig setProcessingOptimization(String processingOptimization)
-    {
-        if (!ProcessingOptimization.AVAILABLE_OPTIONS.contains(processingOptimization)) {
-            throw new IllegalStateException(String.format("Value %s is not valid for processingOptimization.", processingOptimization));
-        }
-        this.processingOptimization = processingOptimization;
         return this;
     }
 

@@ -64,7 +64,11 @@ public class HandTpchQuery6
         //    and quantity < 24;
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(1, new PlanNodeId("test"), () -> new TpchQuery6Processor(), ImmutableList.of(DOUBLE));
+        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                1,
+                new PlanNodeId("test"),
+                TpchQuery6Processor::new,
+                ImmutableList.of(DOUBLE));
 
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,
@@ -84,11 +88,11 @@ public class HandTpchQuery6
         private static final int MAX_SHIP_DATE = DateTimeUtils.parseDate("1995-01-01");
 
         @Override
-        public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
+        public Page process(ConnectorSession session, Page page, List<? extends Type> types)
         {
+            PageBuilder pageBuilder = new PageBuilder(page.getPositionCount(), ImmutableList.of(DOUBLE));
             Block discountBlock = page.getBlock(1);
-            int position = start;
-            for (; position < end; position++) {
+            for (int position = 0; position < page.getPositionCount(); position++) {
                 // where shipdate >= '1994-01-01'
                 //    and shipdate < '1995-01-01'
                 //    and discount >= 0.05
@@ -98,19 +102,7 @@ public class HandTpchQuery6
                     project(position, pageBuilder, page.getBlock(0), discountBlock);
                 }
             }
-            return position;
-        }
-
-        @Override
-        public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types)
-        {
-            throw new UnsupportedOperationException();
+            return pageBuilder.build();
         }
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)

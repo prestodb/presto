@@ -60,48 +60,7 @@ public class GenericPageProcessor
     }
 
     @Override
-    public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
-    {
-        int position = start;
-        Block[] inputBlocks = page.getBlocks();
-
-        for (; position < end && !pageBuilder.isFull(); position++) {
-            if (filterFunction.filter(position, inputBlocks)) {
-                pageBuilder.declarePosition();
-                for (int i = 0; i < projections.size(); i++) {
-                    // todo: if the projection function increases the size of the data significantly, this could cause the servers to OOM
-                    projections.get(i).project(position, inputBlocks, pageBuilder.getBlockBuilder(i));
-                }
-            }
-        }
-        return position;
-    }
-
-    @Override
-    public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
-    {
-        int[] selectedPositions = filterPage(page);
-        if (selectedPositions.length == 0) {
-            return null;
-        }
-
-        if (projections.isEmpty()) {
-            return new Page(selectedPositions.length);
-        }
-
-        PageBuilder pageBuilder = new PageBuilder(types);
-        Block[] inputBlocks = page.getBlocks();
-
-        for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-            ProjectionFunction projection = projections.get(projectionIndex);
-            projectColumnar(selectedPositions, pageBuilder.getBlockBuilder(projectionIndex), inputBlocks, projection);
-        }
-        pageBuilder.declarePositions(selectedPositions.length);
-        return pageBuilder.build();
-    }
-
-    @Override
-    public Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types)
+    public Page process(ConnectorSession session, Page page, List<? extends Type> types)
     {
         Page inputPage = getNonLazyPage(page);
         int[] selectedPositions = filterPage(inputPage);

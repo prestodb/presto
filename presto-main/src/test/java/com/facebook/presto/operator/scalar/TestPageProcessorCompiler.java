@@ -80,7 +80,7 @@ public class TestPageProcessorCompiler
 
         Slice varcharValue = Slices.utf8Slice("hello");
         Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 123L, 100), RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100));
-        Page outputPage = processor.processColumnarDictionary(null, page, ImmutableList.of(BIGINT, VARCHAR));
+        Page outputPage = processor.process(null, page, ImmutableList.of(BIGINT, VARCHAR));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof RunLengthEncodedBlock);
@@ -106,7 +106,7 @@ public class TestPageProcessorCompiler
                 .compilePageProcessor(filter, ImmutableList.of(new InputReferenceExpression(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
-        Page outputPage = processor.processColumnarDictionary(null, page, ImmutableList.of(VARCHAR));
+        Page outputPage = processor.process(null, page, ImmutableList.of(VARCHAR));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof DictionaryBlock);
@@ -115,7 +115,7 @@ public class TestPageProcessorCompiler
         assertEquals(dictionaryBlock.getDictionary().getPositionCount(), 10);
 
         // test filter caching
-        Page outputPage2 = processor.processColumnarDictionary(null, page, ImmutableList.of(VARCHAR));
+        Page outputPage2 = processor.process(null, page, ImmutableList.of(VARCHAR));
         assertEquals(outputPage2.getPositionCount(), 100);
         assertTrue(outputPage2.getBlock(0) instanceof DictionaryBlock);
 
@@ -135,7 +135,7 @@ public class TestPageProcessorCompiler
                 .compilePageProcessor(filter, ImmutableList.of(new InputReferenceExpression(0, BIGINT))).get();
 
         Page page = new Page(createRLEBlock(5L, 100));
-        Page outputPage = processor.processColumnarDictionary(null, page, ImmutableList.of(BIGINT));
+        Page outputPage = processor.process(null, page, ImmutableList.of(BIGINT));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof RunLengthEncodedBlock);
@@ -152,7 +152,7 @@ public class TestPageProcessorCompiler
                 .compilePageProcessor(new ConstantExpression(TRUE, BOOLEAN), ImmutableList.of(new InputReferenceExpression(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
-        Page outputPage = processor.processColumnarDictionary(null, page, ImmutableList.of(VARCHAR));
+        Page outputPage = processor.process(null, page, ImmutableList.of(VARCHAR));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof DictionaryBlock);
@@ -177,7 +177,7 @@ public class TestPageProcessorCompiler
         assertFalse(new DeterminismEvaluator(METADATA_MANAGER.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
 
         Page page = new Page(createLongDictionaryBlock(1, 100));
-        Page outputPage = processor.processColumnarDictionary(null, page, ImmutableList.of(BOOLEAN));
+        Page outputPage = processor.process(null, page, ImmutableList.of(BOOLEAN));
         assertFalse(outputPage.getBlock(0) instanceof DictionaryBlock);
     }
 

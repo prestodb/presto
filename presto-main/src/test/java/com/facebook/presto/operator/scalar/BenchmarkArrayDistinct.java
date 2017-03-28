@@ -83,7 +83,7 @@ public class BenchmarkArrayDistinct
     public Object arrayDistinct(BenchmarkData data)
             throws Throwable
     {
-        return data.getPageProcessor().processColumnar(SESSION, data.getPage(), TYPES);
+        return data.getPageProcessor().process(SESSION, data.getPage(), TYPES);
     }
 
     @SuppressWarnings("FieldMayBeFinal")

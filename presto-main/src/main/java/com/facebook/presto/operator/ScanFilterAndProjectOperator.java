@@ -37,10 +37,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.getProcessingOptimization;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.DISABLED;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -61,14 +57,12 @@ public class ScanFilterAndProjectOperator
     private final LocalMemoryContext pageSourceMemoryContext;
     private final LocalMemoryContext pageBuilderMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
-    private final String processingOptimization;
 
     private RecordCursor cursor;
     private ConnectorPageSource pageSource;
 
     private Split split;
     private Page currentPage;
-    private int currentPosition;
 
     private boolean finishing;
 
@@ -93,7 +87,6 @@ public class ScanFilterAndProjectOperator
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.pageSourceMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
         this.pageBuilderMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
-        this.processingOptimization = getProcessingOptimization(operatorContext.getSession());
 
         this.pageBuilder = new PageBuilder(getTypes());
     }
@@ -255,35 +248,12 @@ public class ScanFilterAndProjectOperator
                         completedBytes = endCompletedBytes;
                         readTimeNanos = endReadTimeNanos;
                     }
-
-                    currentPosition = 0;
                 }
 
                 if (currentPage != null) {
-                    switch (processingOptimization) {
-                        case COLUMNAR: {
-                            Page page = pageProcessor.processColumnar(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
-                            currentPage = null;
-                            currentPosition = 0;
-                            return page;
-                        }
-                        case COLUMNAR_DICTIONARY: {
-                            Page page = pageProcessor.processColumnarDictionary(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
-                            currentPage = null;
-                            currentPosition = 0;
-                            return page;
-                        }
-                        case DISABLED: {
-                            currentPosition = pageProcessor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
-                            if (currentPosition == currentPage.getPositionCount()) {
-                                currentPage = null;
-                                currentPosition = 0;
-                            }
-                            break;
-                        }
-                        default:
-                            throw new IllegalStateException(String.format("Found unexpected value %s for processingOptimization", processingOptimization));
-                    }
+                    Page page = pageProcessor.process(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
+                    currentPage = null;
+                    return page;
                 }
 
                 pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());

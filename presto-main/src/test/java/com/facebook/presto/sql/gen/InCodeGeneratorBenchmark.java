@@ -134,7 +134,7 @@ public class InCodeGeneratorBenchmark
     @Benchmark
     public Page benchmark()
     {
-        return processor.processColumnar(SESSION, inputPage, ImmutableList.of(prestoType));
+        return processor.process(SESSION, inputPage, ImmutableList.of(prestoType));
     }
 
     public static void main(String[] args)

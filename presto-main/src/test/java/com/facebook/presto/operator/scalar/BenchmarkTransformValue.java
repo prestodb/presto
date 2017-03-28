@@ -84,7 +84,7 @@ public class BenchmarkTransformValue
     public Object benchmark(BenchmarkData data)
             throws Throwable
     {
-        return data.getPageProcessor().processColumnar(SESSION, data.getPage(), data.getTypes());
+        return data.getPageProcessor().process(SESSION, data.getPage(), data.getTypes());
     }
 
     @SuppressWarnings("FieldMayBeFinal")

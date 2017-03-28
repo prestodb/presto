@@ -24,7 +24,6 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.ConnectorSession;
@@ -66,7 +65,6 @@ import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
@@ -76,18 +74,15 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invoke
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
-import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
-import static java.util.stream.Collectors.toList;
 
 public class PageProcessorCompiler
         implements BodyCompiler<PageProcessor>
@@ -119,14 +114,10 @@ public class PageProcessorCompiler
             projectDictionaryMethods.add(projectDictionary);
         }
 
-        List<MethodDefinition> projectMethodDefinitions = projectMethods.build();
-        List<MethodDefinition> projectColumnarMethodDefinitions = projectColumnarMethods.build();
         List<MethodDefinition> projectDictionaryMethodDefinitions = projectDictionaryMethods.build();
 
-        generateProcessMethod(classDefinition, filter, projections, projectMethodDefinitions);
         generateGetNonLazyPageMethod(classDefinition, filter, projections);
-        generateProcessColumnarMethod(classDefinition, projections, projectColumnarMethodDefinitions);
-        generateProcessColumnarDictionaryMethod(classDefinition, projections, projectDictionaryMethodDefinitions);
+        generateProcessMethod(classDefinition, projections, projectDictionaryMethodDefinitions);
 
         generateFilterPageMethod(classDefinition, filter);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
@@ -157,106 +148,6 @@ public class PageProcessorCompiler
 
         cachedInstanceBinder.generateInitializations(thisVariable, body);
         body.ret();
-    }
-
-    private static void generateProcessMethod(ClassDefinition classDefinition, RowExpression filter, List<RowExpression> projections, List<MethodDefinition> projectionMethods)
-    {
-        Parameter session = arg("session", ConnectorSession.class);
-        Parameter page = arg("page", Page.class);
-        Parameter start = arg("start", int.class);
-        Parameter end = arg("end", int.class);
-        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, page, start, end, pageBuilder);
-
-        Scope scope = method.getScope();
-        BytecodeBlock body = method.getBody();
-        Variable thisVariable = method.getThis();
-
-        // extract blocks
-        List<Integer> allInputChannels = getInputChannels(concat(projections, ImmutableList.of(filter)));
-        ImmutableMap.Builder<Integer, Variable> builder = ImmutableMap.builder();
-        for (int channel : allInputChannels) {
-            Variable blockVariable = scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
-            builder.put(channel, blockVariable);
-        }
-        Map<Integer, Variable> channelBlocks = builder.build();
-        Map<RowExpression, List<Variable>> expressionInputBlocks = getExpressionInputBlocks(projections, filter, channelBlocks);
-
-        // projection body
-        Variable position = scope.declareVariable(int.class, "position");
-
-        BytecodeBlock project = new BytecodeBlock()
-                .append(pageBuilder.invoke("declarePosition", void.class));
-
-        for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-            RowExpression projection = projections.get(projectionIndex);
-            project.append(invokeProject(thisVariable, session, expressionInputBlocks.get(projection), position, pageBuilder, constantInt(projectionIndex), projectionMethods.get(projectionIndex)));
-        }
-        LabelNode done = new LabelNode("done");
-
-        // for loop loop body
-        ForLoop loop = new ForLoop()
-                .initialize(position.set(start))
-                .condition(lessThan(position, end))
-                .update(position.set(add(position, constantInt(1))))
-                .body(new BytecodeBlock()
-                        .append(new IfStatement()
-                                .condition(pageBuilder.invoke("isFull", boolean.class))
-                                .ifTrue(jump(done)))
-                        .append(new IfStatement()
-                                .condition(invokeFilter(thisVariable, session, expressionInputBlocks.get(filter), position))
-                                .ifTrue(project)));
-
-        body
-                .append(loop)
-                .visitLabel(done)
-                .append(position.ret());
-    }
-
-    private static void generateProcessColumnarMethod(
-            ClassDefinition classDefinition,
-            List<RowExpression> projections,
-            List<MethodDefinition> projectColumnarMethods)
-    {
-        Parameter session = arg("session", ConnectorSession.class);
-        Parameter page = arg("page", Page.class);
-        Parameter types = arg("types", List.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "processColumnar", type(Page.class), session, page, types);
-
-        Scope scope = method.getScope();
-        BytecodeBlock body = method.getBody();
-        Variable thisVariable = method.getThis();
-
-        Variable selectedPositions = scope.declareVariable("selectedPositions", body, thisVariable.invoke("filterPage", int[].class, session, page));
-        Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
-
-        body.comment("if no rows selected return null")
-                .append(new IfStatement()
-                        .condition(equal(cardinality, constantInt(0)))
-                        .ifTrue(constantNull(Page.class).ret()));
-
-        if (projections.isEmpty()) {
-            // if no projections, return new page with selected rows
-            body.append(newInstance(Page.class, cardinality, newArray(type(Block[].class), 0)).ret());
-            return;
-        }
-
-        Variable pageBuilder = scope.declareVariable("pageBuilder", body, newInstance(PageBuilder.class, cardinality, types));
-        Variable outputBlocks = scope.declareVariable("outputBlocks", body, newArray(type(Block[].class), projections.size()));
-
-        for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-            List<BytecodeExpression> params = ImmutableList.<BytecodeExpression>builder()
-                    .add(session)
-                    .add(page)
-                    .add(selectedPositions)
-                    .add(pageBuilder)
-                    .add(constantInt(projectionIndex))
-                    .build();
-            body.append(outputBlocks.setElement(projectionIndex, thisVariable.invoke(projectColumnarMethods.get(projectionIndex), params)));
-        }
-
-        // create new page from outputBlocks
-        body.append(newInstance(Page.class, cardinality, outputBlocks).ret());
     }
 
     private static MethodDefinition generateProjectColumnarMethod(
@@ -513,7 +404,7 @@ public class PageProcessorCompiler
         return method;
     }
 
-    private static void generateProcessColumnarDictionaryMethod(
+    private static void generateProcessMethod(
             ClassDefinition classDefinition,
             List<RowExpression> projections,
             List<MethodDefinition> projectDictionaryMethods)
@@ -521,7 +412,7 @@ public class PageProcessorCompiler
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
         Parameter types = arg("types", List.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "processColumnarDictionary", type(Page.class), session, page, types);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(Page.class), session, page, types);
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
@@ -876,7 +767,7 @@ public class PageProcessorCompiler
                 preGeneratedExpressions);
 
         body.getVariable(output)
-                .comment("evaluate projection: " + projection.toString())
+                .comment("evaluate projection: " + projection)
                 .append(projection.accept(visitor, scope))
                 .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
@@ -928,30 +819,6 @@ public class PageProcessorCompiler
                 (scope, field) -> scope.getVariable("block_" + field),
                 (scope, field) -> scope.getVariable("position"),
                 callSiteBinder);
-    }
-
-    private static Map<RowExpression, List<Variable>> getExpressionInputBlocks(List<RowExpression> projections, RowExpression filter, Map<Integer, Variable> channelBlock)
-    {
-        Map<RowExpression, List<Variable>> inputBlocksBuilder = new HashMap<>();
-
-        for (RowExpression projection : projections) {
-            List<Variable> inputBlocks = getInputChannels(projection).stream()
-                    .map(channelBlock::get)
-                    .collect(toList());
-
-            List<Variable> existingVariables = inputBlocksBuilder.get(projection);
-            // Constant expressions or expressions that are reused, should reference the same input blocks
-            checkState(existingVariables == null || existingVariables.equals(inputBlocks), "malformed RowExpression");
-            inputBlocksBuilder.put(projection, inputBlocks);
-        }
-
-        List<Variable> filterBlocks = getInputChannels(filter).stream()
-                .map(channelBlock::get)
-                .collect(toList());
-
-        inputBlocksBuilder.put(filter, filterBlocks);
-
-        return inputBlocksBuilder;
     }
 
     private static BytecodeExpression invokeFilter(BytecodeExpression objRef, BytecodeExpression session, List<? extends BytecodeExpression> blockVariables, BytecodeExpression position)

@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
@@ -24,13 +23,9 @@ import java.util.List;
 
 public interface PageProcessor
 {
-    int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder);
-
     /**
      * @return filtered and projected page, null if all positions are filtered
      */
     @Nullable
-    Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types);
-
-    Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types);
+    Page process(ConnectorSession session, Page page, List<? extends Type> types);
 }

@@ -18,7 +18,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
@@ -58,7 +57,6 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpre
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static com.google.common.base.Verify.verify;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
@@ -113,24 +111,9 @@ public class PageProcessorBenchmark
     }
 
     @Benchmark
-    public Page rowOriented()
-    {
-        PageBuilder pageBuilder = new PageBuilder(types);
-        int end = processor.process(null, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
-        verify(end == inputPage.getPositionCount());
-        return pageBuilder.build();
-    }
-
-    @Benchmark
     public Page columnOriented()
     {
-        return processor.processColumnar(null, inputPage, types);
-    }
-
-    @Benchmark
-    public Page columnOrientedDictionary()
-    {
-        return processor.processColumnarDictionary(null, inputPage, types);
+        return processor.process(null, inputPage, types);
     }
 
     private RowExpression getFilter(Type type)

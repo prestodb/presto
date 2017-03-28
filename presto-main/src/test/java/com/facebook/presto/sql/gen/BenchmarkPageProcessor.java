@@ -16,13 +16,11 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.PageProcessor;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -43,7 +41,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -56,6 +53,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 
 @State(Scope.Thread)
@@ -74,7 +72,6 @@ public class BenchmarkPageProcessor
     private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
 
     private Page inputPage;
-    private PageProcessor handCodedProcessor;
     private PageProcessor compiledProcessor;
 
     @Setup
@@ -82,21 +79,22 @@ public class BenchmarkPageProcessor
     {
         inputPage = createInputPage();
 
-        handCodedProcessor = new Tpch1FilterAndProject();
-
         compiledProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT)).get();
     }
 
     @Benchmark
     public Page handCoded()
     {
-        return execute(inputPage, handCodedProcessor);
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE));
+        int count = Tpch1FilterAndProject.process(inputPage, 0, inputPage.getPositionCount(), pageBuilder);
+        checkState(count == inputPage.getPositionCount());
+        return pageBuilder.build();
     }
 
     @Benchmark
     public Page compiled()
     {
-        return execute(inputPage, compiledProcessor);
+        return compiledProcessor.process(null, inputPage, ImmutableList.of(DOUBLE));
     }
 
     public static void main(String[] args)
@@ -110,11 +108,6 @@ public class BenchmarkPageProcessor
                 .build();
 
         new Runner(options).run();
-    }
-
-    public static Page execute(Page inputPage, PageProcessor processor)
-    {
-        return processor.processColumnar(null, inputPage, ImmutableList.of(DOUBLE));
     }
 
     private static Page createInputPage()
@@ -135,10 +128,8 @@ public class BenchmarkPageProcessor
     }
 
     private static final class Tpch1FilterAndProject
-            implements PageProcessor
     {
-        @Override
-        public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
+        public static int process(Page page, int start, int end, PageBuilder pageBuilder)
         {
             Block discountBlock = page.getBlock(DISCOUNT);
             int position = start;
@@ -154,18 +145,6 @@ public class BenchmarkPageProcessor
             }
 
             return position;
-        }
-
-        @Override
-        public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types)
-        {
-            throw new UnsupportedOperationException();
         }
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)

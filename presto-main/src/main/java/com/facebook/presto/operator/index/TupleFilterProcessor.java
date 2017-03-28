@@ -53,26 +53,7 @@ public class TupleFilterProcessor
     }
 
     @Override
-    public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
-    {
-        // TODO: generate bytecode for this in the future
-        for (int position = start; position < end; position++) {
-            if (matches(position, page)) {
-                pageBuilder.declarePosition();
-                for (int i = 0; i < outputTypes.size(); i++) {
-                    Type type = outputTypes.get(i);
-                    Block block = page.getBlock(i);
-                    BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-                    type.appendTo(block, position, blockBuilder);
-                }
-            }
-        }
-
-        return end;
-    }
-
-    @Override
-    public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
+    public Page process(ConnectorSession session, Page page, List<? extends Type> types)
     {
         PageBuilder pageBuilder = new PageBuilder(types);
         int positionCount = page.getPositionCount();
@@ -95,12 +76,6 @@ public class TupleFilterProcessor
         }
         pageBuilder.declarePositions(selectedCount);
         return pageBuilder.build();
-    }
-
-    @Override
-    public Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types)
-    {
-        return processColumnar(session, page, types);
     }
 
     private boolean matches(int position, Page page)
