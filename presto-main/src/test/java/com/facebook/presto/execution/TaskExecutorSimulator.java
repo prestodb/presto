@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.TaskExecutor.TaskHandle;
+import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.execution.executor.TaskHandle;
 import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ArrayListMultimap;

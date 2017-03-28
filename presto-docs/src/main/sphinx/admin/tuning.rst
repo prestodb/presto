@@ -14,7 +14,7 @@ These configuration options may require tuning in specific situations:
   Sets the number of threads used by workers to process splits. Increasing this number
   can improve throughput if worker CPU utilization is low and all the threads are in use,
   but will cause increased heap space usage. The number of active threads is available via
-  the ``com.facebook.presto.execution.TaskExecutor.RunningSplits`` JMX stat.
+  the ``com.facebook.presto.execution.executor.TaskExecutor.RunningSplits`` JMX stat.
 
 * ``distributed-joins-enabled``:
   Use hash distributed joins instead of broadcast joins. Distributed joins
