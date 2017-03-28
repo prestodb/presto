@@ -18,6 +18,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
+import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -28,13 +29,18 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public final class TestQueryRunnerUtil
+public final class QueryRunnerUtil
 {
-    private TestQueryRunnerUtil() {}
+    private QueryRunnerUtil() {}
 
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
         return queryRunner.getCoordinator().getQueryManager().createQuery(new TestingSessionFactory(session), sql).getQueryId();
+    }
+
+    public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, TransactionId txnId, String sql)
+    {
+        return queryRunner.getCoordinator().getQueryManager().createQuery(new TestingSessionFactory(session, txnId), sql).getQueryId();
     }
 
     public static void cancelQuery(DistributedQueryRunner queryRunner, QueryId queryId)

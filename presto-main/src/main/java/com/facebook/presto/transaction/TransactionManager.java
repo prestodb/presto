@@ -53,6 +53,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CONCURRENT_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.READ_ONLY_VIOLATION;
@@ -320,7 +321,12 @@ public class TransactionManager
 
         public void setActive()
         {
-            idleStartTime.set(null);
+            idleStartTime.getAndUpdate(value -> {
+                if (value == null) {
+                    throw new PrestoException(INVALID_CONCURRENT_QUERY, "Concurrent queries within a single transaction are not allowed");
+                }
+                return null;
+            });
         }
 
         public void setInActive()

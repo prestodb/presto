@@ -68,6 +68,10 @@ public class TestRollbackTask
         Session session = sessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
+
+        // simulate the START TRANSACTION task and set the transaction as inactive
+        transactionManager.trySetInactive(session.getRequiredTransactionId());
+
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "ROLLBACK", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
