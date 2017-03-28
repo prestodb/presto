@@ -19,6 +19,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 
 import static java.util.Objects.requireNonNull;
@@ -27,10 +28,18 @@ public class TestingSessionFactory
         implements SessionSupplier
 {
     private final Session session;
+    private final TransactionId transactionId;
 
     public TestingSessionFactory(Session session)
     {
         this.session = requireNonNull(session, "session is null");
+        this.transactionId = null;
+    }
+
+    public TestingSessionFactory(Session session, TransactionId transactionId)
+    {
+        this.session = requireNonNull(session, "session is null");
+        this.transactionId = requireNonNull(transactionId, "transactionId is null");
     }
 
     @Override
@@ -42,6 +51,10 @@ public class TestingSessionFactory
     @Override
     public Session createSession(QueryId queryId, TransactionManager transactionManager, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
     {
+        if (transactionId != null) {
+            // Create a new session with transaction id
+            return session.beginTransactionId(transactionId, transactionManager, accessControl);
+        }
         return session;
     }
 }

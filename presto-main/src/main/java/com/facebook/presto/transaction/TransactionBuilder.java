@@ -133,8 +133,11 @@ public class TransactionBuilder
 
         Session transactionSession;
         if (managedTransaction) {
+            // Simulate a START TRANSACTION task
             TransactionId transactionId = transactionManager.beginTransaction(isolationLevel, readOnly, singleStatement);
             transactionSession = session.beginTransactionId(transactionId, transactionManager, accessControl);
+            // Mark the transaction as inactive because we have no running query yet
+            transactionManager.trySetInactive(transactionId);
         }
         else {
             // Check if we can merge with the existing transaction
