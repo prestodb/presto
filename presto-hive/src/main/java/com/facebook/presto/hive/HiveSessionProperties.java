@@ -40,6 +40,7 @@ public final class HiveSessionProperties
     private static final String RCFILE_OPTIMIZED_READER_ENABLED = "rcfile_optimized_reader_enabled";
     private static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
+    private static final String HIVE_EXTERNAL_TABLE_WRITABLE = "hive_external_table_writable";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -111,6 +112,11 @@ public final class HiveSessionProperties
                         RCFILE_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: RCFile: Validate writer files",
                         true,
+                        false),
+                booleanSessionProperty(
+                        HIVE_EXTERNAL_TABLE_WRITABLE,
+                        "Enable writable Hive external tables",
+                        config.getHiveExternalTableWritable(),                       
                         false));
     }
 
@@ -184,6 +190,11 @@ public final class HiveSessionProperties
         return session.getProperty(RCFILE_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
     }
 
+    public static boolean getHiveExternalTableWritable(ConnectorSession session)
+    {
+        return session.getProperty(HIVE_EXTERNAL_TABLE_WRITABLE, Boolean.class);
+    }
+    
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(

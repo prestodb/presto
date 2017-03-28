@@ -56,6 +56,7 @@ public class HiveClientConfig
     private int domainCompactionThreshold = 100;
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
+    private boolean hiveExternalTableWritable;
 
     private int maxConcurrentFileRenames = 20;
 
@@ -189,10 +190,21 @@ public class HiveClientConfig
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         return this;
     }
+    @Config("hive.external-table-writable")
+    public HiveClientConfig setHiveExternalTableWritable(boolean hiveExternalTableWritable)
+    {
+        this.hiveExternalTableWritable = hiveExternalTableWritable;
+        return this;
+    }
 
     public boolean getRecursiveDirWalkerEnabled()
     {
         return recursiveDirWalkerEnabled;
+    }
+        
+    public boolean getHiveExternalTableWritable()
+    {
+        return hiveExternalTableWritable;
     }
 
     public DateTimeZone getDateTimeZone()
