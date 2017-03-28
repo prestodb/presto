@@ -61,7 +61,8 @@ public class IterativeOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        if (!SystemSessionProperties.isNewOptimizerEnabled(session)) {
+        // only disable new rules if we have legacy rules to fall back to
+        if (!SystemSessionProperties.isNewOptimizerEnabled(session) && !legacyRules.isEmpty()) {
             for (PlanOptimizer optimizer : legacyRules) {
                 plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
             }

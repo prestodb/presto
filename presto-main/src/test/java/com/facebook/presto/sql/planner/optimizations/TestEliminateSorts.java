@@ -16,14 +16,18 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -33,7 +37,6 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -75,9 +78,9 @@ public class TestEliminateSorts
         PlanMatchPattern pattern =
                 anyTree(
                         sort(
-                                project(window(windowSpec,
+                                window(windowSpec,
                                         ImmutableList.of(functionCall("row_number", Optional.empty(), ImmutableList.of())),
-                                        anyTree(LINEITEM_TABLESCAN_Q)))));
+                                        anyTree(LINEITEM_TABLESCAN_Q))));
 
         assertUnitPlan(sql, pattern);
     }
@@ -89,7 +92,7 @@ public class TestEliminateSorts
                 new UnaliasSymbolReferences(),
                 new AddExchanges(queryRunner.getMetadata(), new SqlParser()),
                 new PruneUnreferencedOutputs(),
-                new PruneIdentityProjections()
+                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections()))
         );
 
         queryRunner.inTransaction(transactionSession -> {
