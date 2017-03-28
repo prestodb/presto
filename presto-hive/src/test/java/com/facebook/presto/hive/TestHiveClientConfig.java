@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
+import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -78,14 +80,9 @@ public class TestHiveClientConfig
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
                 .setRcfileOptimizedWriterEnabled(false)
-                .setHiveMetastoreAuthenticationType(HiveClientConfig.HiveMetastoreAuthenticationType.NONE)
-                .setHiveMetastoreServicePrincipal(null)
-                .setHiveMetastoreClientPrincipal(null)
-                .setHiveMetastoreClientKeytab(null)
-                .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.NONE)
+                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
+                .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
-                .setHdfsPrestoPrincipal(null)
-                .setHdfsPrestoKeytab(null)
                 .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
                 .setBucketWritingEnabled(true)
@@ -142,13 +139,8 @@ public class TestHiveClientConfig
                 .put("hive.orc.stream-buffer-size", "55kB")
                 .put("hive.rcfile-optimized-writer.enabled", "true")
                 .put("hive.metastore.authentication.type", "KERBEROS")
-                .put("hive.metastore.service.principal", "hive/_HOST@EXAMPLE.COM")
-                .put("hive.metastore.client.principal", "metastore@EXAMPLE.COM")
-                .put("hive.metastore.client.keytab", "/tmp/metastore.keytab")
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
-                .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
-                .put("hive.hdfs.presto.keytab", "/tmp/presto.keytab")
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
@@ -201,14 +193,9 @@ public class TestHiveClientConfig
                 .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
                 .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
                 .setRcfileOptimizedWriterEnabled(true)
-                .setHiveMetastoreAuthenticationType(HiveClientConfig.HiveMetastoreAuthenticationType.KERBEROS)
-                .setHiveMetastoreServicePrincipal("hive/_HOST@EXAMPLE.COM")
-                .setHiveMetastoreClientPrincipal("metastore@EXAMPLE.COM")
-                .setHiveMetastoreClientKeytab("/tmp/metastore.keytab")
-                .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.KERBEROS)
+                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
+                .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)
-                .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
-                .setHdfsPrestoKeytab("/tmp/presto.keytab")
                 .setSkipDeletionForAlter(true)
                 .setBucketExecutionEnabled(false)
                 .setBucketWritingEnabled(false)
