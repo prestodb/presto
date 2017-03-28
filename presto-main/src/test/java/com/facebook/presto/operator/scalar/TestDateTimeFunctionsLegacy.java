@@ -41,7 +41,7 @@ public class TestDateTimeFunctionsLegacy
     }
 
     @Test
-    public void toIso8601ExistsForTimestamp()
+    public void toIso8601ReturnsTimezoneForTimestampWithoutTimeZone()
     {
         assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING);
     }

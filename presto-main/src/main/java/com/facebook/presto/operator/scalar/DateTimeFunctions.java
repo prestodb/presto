@@ -200,9 +200,16 @@ public final class DateTimeFunctions
     // the maximum year represented by 64bits timestamp is ~584944387 it may require up to 35 characters.
     public static Slice toISO8601FromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
-                .withChronology(getChronology(session.getTimeZoneKey()));
-        return utf8Slice(formatter.print(timestamp));
+        if (session.isLegacyTimestamp()) {
+            DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
+                    .withChronology(getChronology(session.getTimeZoneKey()));
+            return utf8Slice(formatter.print(timestamp));
+        }
+        else {
+            DateTimeFormatter formatter = ISODateTimeFormat.dateHourMinuteSecondMillis()
+                    .withChronology(UTC_CHRONOLOGY);
+            return utf8Slice(formatter.print(timestamp));
+        }
     }
 
     @ScalarFunction("to_iso8601")
