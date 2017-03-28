@@ -371,6 +371,8 @@ public class QueryStateMachine
             outputPositions += outputStageStats.getOutputPositions();
         }
 
+        boolean isScheduled = isScheduled(rootStage);
+
         QueryStats queryStats = new QueryStats(
                 createTime,
                 executionStartTime.get(),
@@ -396,6 +398,9 @@ public class QueryStateMachine
                 cumulativeMemory,
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakMemoryReservation),
+
+                isScheduled,
+
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -415,7 +420,7 @@ public class QueryStateMachine
                 session.toSessionRepresentation(),
                 state,
                 memoryPool.get().getId(),
-                isScheduled(rootStage),
+                isScheduled,
                 self,
                 outputFieldNames.get(),
                 query,

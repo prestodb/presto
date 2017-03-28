@@ -25,10 +25,12 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.succinctNanos;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -60,6 +62,7 @@ public class QueryStats
     private final DataSize totalMemoryReservation;
     private final DataSize peakMemoryReservation;
 
+    private final boolean scheduled;
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
     private final Duration totalUserTime;
@@ -101,6 +104,7 @@ public class QueryStats
         this.cumulativeMemory = 0.0;
         this.totalMemoryReservation = null;
         this.peakMemoryReservation = null;
+        this.scheduled = false;
         this.totalScheduledTime = null;
         this.totalCpuTime = null;
         this.totalUserTime = null;
@@ -143,6 +147,7 @@ public class QueryStats
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
 
+            @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalUserTime") Duration totalUserTime,
@@ -192,6 +197,7 @@ public class QueryStats
         this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
+        this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
@@ -344,6 +350,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public boolean isScheduled()
+    {
+        return scheduled;
+    }
+
+    @JsonProperty
     public Duration getTotalScheduledTime()
     {
         return totalScheduledTime;
@@ -419,5 +431,14 @@ public class QueryStats
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    @JsonProperty
+    public OptionalDouble getProgressPercentage()
+    {
+        if (!scheduled || totalDrivers == 0) {
+             return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
     }
 }
