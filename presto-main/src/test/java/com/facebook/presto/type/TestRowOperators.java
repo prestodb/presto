@@ -86,6 +86,10 @@ public class TestRowOperators
                 "CAST(ROW('a', 'bb', CAST(null as VARCHAR), JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', CAST(null AS JSON)) AS JSON)",
                 JSON,
                 "[\"a\",\"bb\",null,123,3.14,false,\"abc\",[1,\"a\",null],{\"a\":1,\"b\":\"str\",\"c\":null},null,null]");
+        assertFunction(
+                "CAST(ROW(DATE '2001-08-22', DATE '2001-08-23', null) AS JSON)",
+                JSON,
+                "[\"2001-08-22\",\"2001-08-23\",null]");
 
         assertFunction(
                 "CAST(ROW(from_unixtime(1), cast(null as TIMESTAMP)) AS JSON)",

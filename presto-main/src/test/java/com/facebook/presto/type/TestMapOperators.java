@@ -258,6 +258,10 @@ public class TestMapOperators
                 "CAST(MAP(ARRAY[1, 2], ARRAY[from_unixtime(1), null]) AS JSON)",
                 JSON,
                 format("{\"1\":\"%s\",\"2\":null}", sqlTimestamp(1000).toString()));
+        assertFunction(
+                "CAST(MAP(ARRAY[2, 5, 3], ARRAY[DATE '2001-08-22', DATE '2001-08-23', null]) AS JSON)",
+                JSON,
+                "{\"2\":\"2001-08-22\",\"3\":null,\"5\":\"2001-08-23\"}");
 
         assertFunction(
                 "cast(MAP(ARRAY[1, 2, 3, 5, 8], ARRAY[ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], null]) AS JSON)",

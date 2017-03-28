@@ -41,12 +41,14 @@ import java.util.TreeMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static java.lang.Float.intBitsToFloat;
@@ -82,7 +84,8 @@ public final class JsonUtil
                 baseType.equals(StandardTypes.DECIMAL) ||
                 baseType.equals(StandardTypes.VARCHAR) ||
                 baseType.equals(StandardTypes.JSON) ||
-                baseType.equals(StandardTypes.TIMESTAMP)) {
+                baseType.equals(StandardTypes.TIMESTAMP) ||
+                baseType.equals(StandardTypes.DATE)) {
             return true;
         }
         if (type instanceof ArrayType) {
@@ -189,6 +192,8 @@ public final class JsonUtil
                     return new JsonJsonGeneratorWriter();
                 case StandardTypes.TIMESTAMP:
                     return new TimestampJsonGeneratorWriter();
+                case StandardTypes.DATE:
+                    return new DateGeneratorWriter();
                 case StandardTypes.ARRAY:
                     ArrayType arrayType = (ArrayType) type;
                     return new ArrayJsonGeneratorWriter(
@@ -403,6 +408,23 @@ public final class JsonUtil
             else {
                 long value = TIMESTAMP.getLong(block, position);
                 jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+            }
+        }
+    }
+
+    private static class DateGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position, ConnectorSession session)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                long value = DATE.getLong(block, position);
+                jsonGenerator.writeString(printDate((int) value));
             }
         }
     }

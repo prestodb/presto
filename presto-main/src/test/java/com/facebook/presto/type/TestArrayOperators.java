@@ -162,6 +162,10 @@ public class TestArrayOperators
                 "CAST(ARRAY[from_unixtime(1), null] AS JSON)",
                 JSON,
                 format("[\"%s\",null]", sqlTimestamp(1000).toString()));
+        assertFunction(
+                "CAST(ARRAY[DATE '2001-08-22', DATE '2001-08-23', null] AS JSON)",
+                JSON,
+                "[\"2001-08-22\",\"2001-08-23\",null]");
 
         assertFunction(
                 "cast(ARRAY[ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], null] AS JSON)",
