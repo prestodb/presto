@@ -145,11 +145,11 @@ public class TestTaskExecutor
 
             // force enqueue a split
             taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1));
-            assertEquals(taskHandle.getRunningSplits(), 0);
+            assertEquals(taskHandle.getRunningLeafSplits(), 0);
 
             // normal enqueue a split
             taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver2));
-            assertEquals(taskHandle.getRunningSplits(), 1);
+            assertEquals(taskHandle.getRunningLeafSplits(), 1);
 
             // let the split continue to run
             beginPhase.arriveAndDeregister();

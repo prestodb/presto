@@ -56,11 +56,12 @@ class PrioritizedSplitRunner
     private final AtomicBoolean destroyed = new AtomicBoolean();
 
     private final AtomicInteger priorityLevel = new AtomicInteger();
-    private final AtomicLong threadUsageNanos = new AtomicLong();
-    private final AtomicLong splitThreadUsageNanos = new AtomicLong();
+    private final AtomicLong taskScheduledNanos = new AtomicLong();
+
     private final AtomicLong lastRun = new AtomicLong();
     private final AtomicLong start = new AtomicLong();
 
+    private final AtomicLong scheduledNanos = new AtomicLong();
     private final AtomicLong cpuTimeNanos = new AtomicLong();
     private final AtomicLong processCalls = new AtomicLong();
 
@@ -130,9 +131,9 @@ class PrioritizedSplitRunner
         return finished || destroyed.get() || taskHandle.isDestroyed();
     }
 
-    public long getSplitThreadUsageNanos()
+    public long getScheduledNanos()
     {
-        return splitThreadUsageNanos.get();
+        return scheduledNanos.get();
     }
 
     public ListenableFuture<?> process()
@@ -140,7 +141,6 @@ class PrioritizedSplitRunner
     {
         try {
             start.compareAndSet(0, ticker.read());
-
             processCalls.incrementAndGet();
 
             CpuTimer timer = new CpuTimer();
@@ -148,13 +148,13 @@ class PrioritizedSplitRunner
             CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
             // update priority level base on total thread usage of task
-            long quantaWallNanos = elapsed.getWall().roundTo(NANOSECONDS);
-            splitThreadUsageNanos.addAndGet(quantaWallNanos);
+            long quantaScheduledNanos = elapsed.getWall().roundTo(NANOSECONDS);
+            scheduledNanos.addAndGet(quantaScheduledNanos);
 
-            long taskWallNanos = taskHandle.addThreadUsageNanos(quantaWallNanos);
-            threadUsageNanos.set(taskWallNanos);
+            long taskScheduledTimeNanos = taskHandle.addThreadUsageNanos(quantaScheduledNanos);
+            taskScheduledNanos.set(taskScheduledTimeNanos);
 
-            priorityLevel.set(calculatePriorityLevel(taskWallNanos));
+            priorityLevel.set(calculatePriorityLevel(taskScheduledTimeNanos));
 
             // record last run for prioritization within a level
             lastRun.set(ticker.read());
@@ -188,7 +188,7 @@ class PrioritizedSplitRunner
         }
 
         // update thread usage while if level changed
-        threadUsageNanos.set(taskHandle.getThreadUsageNanos());
+        taskScheduledNanos.set(taskHandle.getThreadUsageNanos());
         return true;
     }
 
@@ -203,7 +203,7 @@ class PrioritizedSplitRunner
         }
 
         if (level < 4) {
-            result = Long.compare(threadUsageNanos.get(), o.threadUsageNanos.get());
+            result = Long.compare(taskScheduledNanos.get(), o.taskScheduledNanos.get());
         }
         else {
             result = Long.compare(lastRun.get(), o.lastRun.get());

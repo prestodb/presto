@@ -40,11 +40,11 @@ public class TaskHandle
     private final DoubleSupplier utilizationSupplier;
 
     @GuardedBy("this")
-    private final Queue<PrioritizedSplitRunner> queuedSplits = new ArrayDeque<>(10);
+    private final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
     @GuardedBy("this")
-    private final List<PrioritizedSplitRunner> runningSplits = new ArrayList<>(10);
+    private final List<PrioritizedSplitRunner> runningLeafSplits = new ArrayList<>(10);
     @GuardedBy("this")
-    private final List<PrioritizedSplitRunner> forcedRunningSplits = new ArrayList<>(10);
+    private final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
     @GuardedBy("this")
     private long taskThreadUsageNanos;
     @GuardedBy("this")
@@ -52,23 +52,29 @@ public class TaskHandle
     @GuardedBy("this")
     private final SplitConcurrencyController concurrencyController;
 
-    private final TimeDistribution normalSplitScheduledTime;
-    private final TimeDistribution forcedSplitScheduledTime;
+    private final TimeDistribution leafSplitScheduledTime;
+    private final TimeDistribution intermediateSplitScheduledTime;
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
-    public TaskHandle(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency, TimeDistribution normalSplitScheduledTime, TimeDistribution forcedSplitScheduledTime)
+    public TaskHandle(
+            TaskId taskId,
+            DoubleSupplier utilizationSupplier,
+            int initialSplitConcurrency,
+            Duration splitConcurrencyAdjustFrequency,
+            TimeDistribution leafSplitScheduledTime,
+            TimeDistribution intermediateSplitScheduledTime)
     {
         this.taskId = taskId;
         this.utilizationSupplier = utilizationSupplier;
         this.concurrencyController = new SplitConcurrencyController(initialSplitConcurrency, splitConcurrencyAdjustFrequency);
-        this.normalSplitScheduledTime = normalSplitScheduledTime;
-        this.forcedSplitScheduledTime = forcedSplitScheduledTime;
+        this.leafSplitScheduledTime = leafSplitScheduledTime;
+        this.intermediateSplitScheduledTime = intermediateSplitScheduledTime;
     }
 
     public synchronized long addThreadUsageNanos(long durationNanos)
     {
-        concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningSplits.size());
+        concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
         taskThreadUsageNanos += durationNanos;
         return taskThreadUsageNanos;
     }
@@ -89,31 +95,31 @@ public class TaskHandle
         destroyed = true;
 
         ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builder();
-        builder.addAll(forcedRunningSplits);
-        builder.addAll(runningSplits);
-        builder.addAll(queuedSplits);
-        forcedRunningSplits.clear();
-        runningSplits.clear();
-        queuedSplits.clear();
+        builder.addAll(runningIntermediateSplits);
+        builder.addAll(runningLeafSplits);
+        builder.addAll(queuedLeafSplits);
+        runningIntermediateSplits.clear();
+        runningLeafSplits.clear();
+        queuedLeafSplits.clear();
         return builder.build();
     }
 
     public synchronized void enqueueSplit(PrioritizedSplitRunner split)
     {
         checkState(!destroyed, "Cannot add split to destroyed task handle");
-        queuedSplits.add(split);
+        queuedLeafSplits.add(split);
     }
 
-    public synchronized void recordForcedRunningSplit(PrioritizedSplitRunner split)
+    public synchronized void recordIntermediateSplit(PrioritizedSplitRunner split)
     {
         checkState(!destroyed, "Cannot add split to destroyed task handle");
-        forcedRunningSplits.add(split);
+        runningIntermediateSplits.add(split);
     }
 
     @VisibleForTesting
-    public synchronized int getRunningSplits()
+    public synchronized int getRunningLeafSplits()
     {
-        return runningSplits.size();
+        return runningLeafSplits.size();
     }
 
     public synchronized long getThreadUsageNanos()
@@ -127,25 +133,25 @@ public class TaskHandle
             return null;
         }
 
-        if (runningSplits.size() >= concurrencyController.getTargetConcurrency()) {
+        if (runningLeafSplits.size() >= concurrencyController.getTargetConcurrency()) {
             return null;
         }
 
-        PrioritizedSplitRunner split = queuedSplits.poll();
+        PrioritizedSplitRunner split = queuedLeafSplits.poll();
         if (split != null) {
-            runningSplits.add(split);
+            runningLeafSplits.add(split);
         }
         return split;
     }
 
     public synchronized void splitComplete(PrioritizedSplitRunner split)
     {
-        concurrencyController.splitFinished(split.getSplitThreadUsageNanos(), utilizationSupplier.getAsDouble(), runningSplits.size());
-        if (forcedRunningSplits.remove(split)) {
-            forcedSplitScheduledTime.add(split.getSplitThreadUsageNanos());
+        concurrencyController.splitFinished(split.getScheduledNanos(), utilizationSupplier.getAsDouble(), runningLeafSplits.size());
+        if (runningIntermediateSplits.remove(split)) {
+            intermediateSplitScheduledTime.add(split.getScheduledNanos());
         }
-        if (runningSplits.remove(split)) {
-            normalSplitScheduledTime.add(split.getSplitThreadUsageNanos());
+        if (runningLeafSplits.remove(split)) {
+            leafSplitScheduledTime.add(split.getScheduledNanos());
         }
     }
 

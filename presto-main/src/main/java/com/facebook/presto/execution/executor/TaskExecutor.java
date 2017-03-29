@@ -105,15 +105,15 @@ public class TaskExecutor
     private final Set<PrioritizedSplitRunner> allSplits = new HashSet<>();
 
     /**
-     * Splits that were force started.
+     * Intermediate splits (i.e. splits that should not be queued).
      */
     @GuardedBy("this")
-    private final Set<PrioritizedSplitRunner> forcedRunningSplits = new HashSet<>();
+    private final Set<PrioritizedSplitRunner> intermediateSplits = new HashSet<>();
 
     /**
      * Splits waiting for a runner thread.
      */
-    private final PriorityBlockingQueue<PrioritizedSplitRunner> pendingSplits;
+    private final PriorityBlockingQueue<PrioritizedSplitRunner> waitingSplits;
 
     /**
      * Splits running on a thread.
@@ -131,8 +131,8 @@ public class TaskExecutor
     private final TimeStat splitQueuedTime = new TimeStat(NANOSECONDS);
     private final TimeStat splitWallTime = new TimeStat(NANOSECONDS);
 
-    private final TimeDistribution normalSplitWallTime = new TimeDistribution(MICROSECONDS);
-    private final TimeDistribution forcedSplitWallTime = new TimeDistribution(MICROSECONDS);
+    private final TimeDistribution leafSplitWallTime = new TimeDistribution(MICROSECONDS);
+    private final TimeDistribution intermediateSplitWallTime = new TimeDistribution(MICROSECONDS);
 
     // shared between SplitRunners
     private final CounterStat globalCpuTimeMicros = new CounterStat();
@@ -142,8 +142,8 @@ public class TaskExecutor
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
 
     // shared between TaskHandles
-    private final TimeDistribution normalSplitScheduledTime = new TimeDistribution(MICROSECONDS);
-    private final TimeDistribution forcedSplitScheduledTime = new TimeDistribution(MICROSECONDS);
+    private final TimeDistribution leafSplitScheduledTime = new TimeDistribution(MICROSECONDS);
+    private final TimeDistribution intermediateSplitScheduledTime = new TimeDistribution(MICROSECONDS);
 
     private volatile boolean closed;
 
@@ -171,7 +171,7 @@ public class TaskExecutor
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         this.minimumNumberOfDrivers = minDrivers;
-        this.pendingSplits = new PriorityBlockingQueue<>(Runtime.getRuntime().availableProcessors() * 10);
+        this.waitingSplits = new PriorityBlockingQueue<>(Runtime.getRuntime().availableProcessors() * 10);
         this.tasks = new LinkedList<>();
     }
 
@@ -199,8 +199,8 @@ public class TaskExecutor
         return toStringHelper(this)
                 .add("runnerThreads", runnerThreads)
                 .add("allSplits", allSplits.size())
-                .add("forcedRunningSplits", forcedRunningSplits.size())
-                .add("pendingSplits", pendingSplits.size())
+                .add("intermediateSplits", intermediateSplits.size())
+                .add("waitingSplits", waitingSplits.size())
                 .add("runningSplits", runningSplits.size())
                 .add("blockedSplits", blockedSplits.size())
                 .toString();
@@ -219,7 +219,7 @@ public class TaskExecutor
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
-        TaskHandle taskHandle = new TaskHandle(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, normalSplitScheduledTime, forcedSplitScheduledTime);
+        TaskHandle taskHandle = new TaskHandle(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, leafSplitScheduledTime, intermediateSplitScheduledTime);
         tasks.add(taskHandle);
         return taskHandle;
     }
@@ -233,9 +233,9 @@ public class TaskExecutor
 
             // stop tracking splits (especially blocked splits which may never unblock)
             allSplits.removeAll(splits);
-            forcedRunningSplits.removeAll(splits);
+            intermediateSplits.removeAll(splits);
             blockedSplits.keySet().removeAll(splits);
-            pendingSplits.removeAll(splits);
+            waitingSplits.removeAll(splits);
         }
 
         // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
@@ -252,7 +252,7 @@ public class TaskExecutor
         addNewEntrants();
     }
 
-    public List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean forceStart, List<? extends SplitRunner> taskSplits)
+    public List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
     {
         List<PrioritizedSplitRunner> splitsToDestroy = new ArrayList<>();
         List<ListenableFuture<?>> finishedFutures = new ArrayList<>(taskSplits.size());
@@ -271,11 +271,11 @@ public class TaskExecutor
                     // If the handle is destroyed, we destroy the task splits to complete the future
                     splitsToDestroy.add(prioritizedSplitRunner);
                 }
-                else if (forceStart) {
-                    // Note: we do not record queued time for forced splits
-                    forceStartSplit(prioritizedSplitRunner);
+                else if (intermediate) {
+                    // Note: we do not record queued time for intermediate splits
+                    startIntermediateSplit(prioritizedSplitRunner);
                     // add the runner to the handle so it can be destroyed if the task is canceled
-                    taskHandle.recordForcedRunningSplit(prioritizedSplitRunner);
+                    taskHandle.recordIntermediateSplit(prioritizedSplitRunner);
                 }
                 else {
                     // add this to the work queue for the task
@@ -303,11 +303,11 @@ public class TaskExecutor
 
             long wallNanos = System.nanoTime() - split.getCreatedNanos();
             splitWallTime.add(Duration.succinctNanos(wallNanos));
-            if (forcedRunningSplits.remove(split)) {
-                forcedSplitWallTime.add(wallNanos);
+            if (intermediateSplits.remove(split)) {
+                intermediateSplitWallTime.add(wallNanos);
             }
             else {
-                normalSplitWallTime.add(wallNanos);
+                leafSplitWallTime.add(wallNanos);
             }
 
             TaskHandle taskHandle = split.getTaskHandle();
@@ -327,7 +327,7 @@ public class TaskExecutor
         // immediately schedule a new split for this task.  This assures
         // that a task gets its fair amount of consideration (you have to
         // have splits to be considered for running on a thread).
-        if (taskHandle.getRunningSplits() < GUARANTEED_SPLITS_PER_TASK) {
+        if (taskHandle.getRunningLeafSplits() < GUARANTEED_SPLITS_PER_TASK) {
             PrioritizedSplitRunner split = taskHandle.pollNextSplit();
             if (split != null) {
                 startSplit(split);
@@ -338,13 +338,13 @@ public class TaskExecutor
 
     private synchronized void addNewEntrants()
     {
-        // For determinism ignore forced running splits when checking minimumNumberOfDrivers.
-        // Otherwise with (for example) minimumNumberOfDrivers = 100, 200 "forceStart" splits
-        // and 100 "normal" splits, depending on order of appearing splits, number of
-        // simultaneously running splits may vary. If normal splits start first, there will
-        // be 300 running splits. If "forceStart" splits start first, there will be only
+        // Ignore intermediate splits when checking minimumNumberOfDrivers.
+        // Otherwise with (for example) minimumNumberOfDrivers = 100, 200 intermediate splits
+        // and 100 leaf splits, depending on order of appearing splits, number of
+        // simultaneously running splits may vary. If leaf splits start first, there will
+        // be 300 running splits. If intermediate splits start first, there will be only
         // 200 running splits.
-        int running = allSplits.size() - forcedRunningSplits.size();
+        int running = allSplits.size() - intermediateSplits.size();
         for (int i = 0; i < minimumNumberOfDrivers - running; i++) {
             PrioritizedSplitRunner split = pollNextSplitWorker();
             if (split == null) {
@@ -356,16 +356,16 @@ public class TaskExecutor
         }
     }
 
-    private synchronized void forceStartSplit(PrioritizedSplitRunner split)
+    private synchronized void startIntermediateSplit(PrioritizedSplitRunner split)
     {
         startSplit(split);
-        forcedRunningSplits.add(split);
+        intermediateSplits.add(split);
     }
 
     private synchronized void startSplit(PrioritizedSplitRunner split)
     {
         allSplits.add(split);
-        pendingSplits.put(split);
+        waitingSplits.put(split);
     }
 
     private synchronized PrioritizedSplitRunner pollNextSplitWorker()
@@ -421,10 +421,10 @@ public class TaskExecutor
                     // select next worker
                     final PrioritizedSplitRunner split;
                     try {
-                        split = pendingSplits.take();
+                        split = waitingSplits.take();
                         if (split.updatePriorityLevel()) {
                             // priority level changed, return split to queue for re-prioritization
-                            pendingSplits.put(split);
+                            waitingSplits.put(split);
                             continue;
                         }
                     }
@@ -454,14 +454,14 @@ public class TaskExecutor
                         }
                         else {
                             if (blocked.isDone()) {
-                                pendingSplits.put(split);
+                                waitingSplits.put(split);
                             }
                             else {
                                 blockedSplits.put(split, blocked);
                                 blocked.addListener(() -> {
                                     blockedSplits.remove(split);
                                     split.updatePriorityLevel();
-                                    pendingSplits.put(split);
+                                    waitingSplits.put(split);
                                 }, executor);
                             }
                         }
@@ -519,15 +519,15 @@ public class TaskExecutor
     }
 
     @Managed
-    public synchronized int getForcedRunningSplits()
+    public synchronized int getIntermediateSplits()
     {
-        return forcedRunningSplits.size();
+        return intermediateSplits.size();
     }
 
     @Managed
-    public int getPendingSplits()
+    public int getWaitingSplits()
     {
-        return pendingSplits.size();
+        return waitingSplits.size();
     }
 
     @Managed
@@ -662,30 +662,30 @@ public class TaskExecutor
 
     @Managed
     @Nested
-    public TimeDistribution getNormalSplitScheduledTime()
+    public TimeDistribution getLeafSplitScheduledTime()
     {
-        return normalSplitScheduledTime;
+        return leafSplitScheduledTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getForcedSplitScheduledTime()
+    public TimeDistribution getIntermediateSplitScheduledTime()
     {
-        return forcedSplitScheduledTime;
+        return intermediateSplitScheduledTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getNormalSplitWallTime()
+    public TimeDistribution getLeafSplitWallTime()
     {
-        return normalSplitWallTime;
+        return leafSplitWallTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getForcedSplitWallTime()
+    public TimeDistribution getIntermediateSplitWallTime()
     {
-        return forcedSplitWallTime;
+        return intermediateSplitWallTime;
     }
 
     @Managed
