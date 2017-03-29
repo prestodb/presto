@@ -20,48 +20,28 @@ import java.sql.SQLException;
 
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.fail;
 
 public class TestPrestoDriverUri
 {
-    private static final String SERVER = "127.0.0.1:60429";
-
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "No port number specified: .*")
-    public void testBadUrlMissingPort()
-            throws Exception
+    @Test
+    public void testInvalidUrls()
     {
-        new PrestoDriverUri("jdbc:presto://127.0.0.1/");
-    }
+        // missing port
+        assertInvalid("jdbc:presto://localhost/", "No port number specified:");
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Invalid path segments in URL: .*")
-    public void testBadUrlExtraPathSegments()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s/hive/default/bad_string", SERVER);
-        new PrestoDriverUri(url);
-    }
+        // extra path segments
+        assertInvalid("jdbc:presto://localhost:8080/hive/default/abc", "Invalid path segments in URL:");
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
-    public void testBadUrlMissingCatalog()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s//default", SERVER);
-        new PrestoDriverUri(url);
-    }
+        // extra slash
+        assertInvalid("jdbc:presto://localhost:8080//", "Catalog name is empty:");
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
-    public void testBadUrlEndsInSlashes()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s//", SERVER);
-        new PrestoDriverUri(url);
-    }
+        // has schema but is missing catalog
+        assertInvalid("jdbc:presto://localhost:8080//default", "Catalog name is empty:");
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Schema name is empty: .*")
-    public void testBadUrlMissingSchema()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s/a//", SERVER);
-        new PrestoDriverUri(url);
+        // has catalog but schema is missing
+        assertInvalid("jdbc:presto://localhost:8080/a//", "Schema name is empty:");
     }
 
     @Test
@@ -106,5 +86,19 @@ public class TestPrestoDriverUri
         URI uri = parameters.getHttpUri();
         assertEquals(uri.getPort(), 8080);
         assertEquals(uri.getScheme(), "http");
+    }
+
+    private static void assertInvalid(String url, String prefix)
+    {
+        try {
+            new PrestoDriverUri(url);
+            fail("expected exception");
+        }
+        catch (SQLException e) {
+            assertNotNull(e.getMessage());
+            if (!e.getMessage().startsWith(prefix)) {
+                fail(format("expected:<%s> to start with <%s>", e.getMessage(), prefix));
+            }
+        }
     }
 }
