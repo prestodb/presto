@@ -13,38 +13,20 @@
  */
 package com.facebook.presto.hive.coercions;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 
-import java.util.function.Function;
-
-import static java.util.Objects.requireNonNull;
-
 public class IntegerNumberUpscaleCoercer
-        implements Function<Block, Block>
+        extends AbstractCoercer
 {
-    private final Type fromType;
-    private final Type toType;
-
     public IntegerNumberUpscaleCoercer(Type fromType, Type toType)
     {
-        this.fromType = requireNonNull(fromType, "fromType is null");
-        this.toType = requireNonNull(toType, "toType is null");
+        super(fromType, toType);
     }
 
     @Override
-    public Block apply(Block block)
+    protected void appendCoercedLong(BlockBuilder blockBuilder, long aLong)
     {
-        BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (block.isNull(i)) {
-                blockBuilder.appendNull();
-                continue;
-            }
-            toType.writeLong(blockBuilder, fromType.getLong(block, i));
-        }
-        return blockBuilder.build();
+        toType.writeLong(blockBuilder, aLong);
     }
 }

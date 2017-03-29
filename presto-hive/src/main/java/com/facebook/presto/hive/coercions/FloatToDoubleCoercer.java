@@ -13,30 +13,23 @@
  */
 package com.facebook.presto.hive.coercions;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-
-import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 
 public class FloatToDoubleCoercer
-        implements Function<Block, Block>
+        extends AbstractCoercer
 {
-    @Override
-    public Block apply(Block block)
+    protected FloatToDoubleCoercer()
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (block.isNull(i)) {
-                blockBuilder.appendNull();
-                continue;
-            }
-            DOUBLE.writeDouble(blockBuilder, intBitsToFloat((int) REAL.getLong(block, i)));
-        }
-        return blockBuilder.build();
+        super(REAL, DOUBLE);
+    }
+
+    @Override
+    protected void appendCoercedLong(BlockBuilder blockBuilder, long aLong)
+    {
+        DOUBLE.writeDouble(blockBuilder, intBitsToFloat((int) aLong));
     }
 }
