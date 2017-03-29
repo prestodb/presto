@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.controller.TaskExectorController;
+import com.facebook.presto.execution.controller.TaskExecutorStatistics;
+import com.facebook.presto.execution.controller.TaskExecutorStatisticsFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -43,6 +46,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.SortedSet;
@@ -52,6 +56,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -60,15 +65,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
 
+import static com.facebook.presto.execution.controller.TaskExectorControllerFactory.createTaskExecutorController;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -87,8 +94,9 @@ public class TaskExecutor
 
     private final ExecutorService executor;
     private final ThreadPoolExecutorMBean executorMBean;
+    private final ScheduledExecutorService runnerThreadsAdjustmentExecutor = newSingleThreadScheduledExecutor(threadsNamed("runner-threads-adjustment-%s"));
+    private final TaskExecutorStatisticsFactory taskExecutorStatisticsFactory = new TaskExecutorStatisticsFactory();
 
-    private final int runnerThreads;
     private final int minimumNumberOfDrivers;
 
     private final Ticker ticker;
@@ -146,28 +154,44 @@ public class TaskExecutor
     private final TimeDistribution normalSplitScheduledTime = new TimeDistribution(MICROSECONDS);
     private final TimeDistribution forcedSplitScheduledTime = new TimeDistribution(MICROSECONDS);
 
+    private final TaskExectorController taskExectorController;
+    private final Duration runnerThreadsAdjustmentInterval;
+
+    @GuardedBy("this")
+    private int targetRunnerThreads;
+    @GuardedBy("this")
+    private int runnerThreads;
+
     private volatile boolean closed;
 
     @Inject
     public TaskExecutor(TaskManagerConfig config)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers());
+        this(
+                createTaskExecutorController(requireNonNull(config, "config is null")),
+                config.getWorkerThreadsAdjustmentInterval(),
+                config.getMinDrivers());
     }
 
-    public TaskExecutor(int runnerThreads, int minDrivers)
+    public TaskExecutor(TaskExectorController controller, Duration workerThreadsAdjustmentInterval, int minDrivers)
     {
-        this(runnerThreads, minDrivers, Ticker.systemTicker());
+        this(controller, workerThreadsAdjustmentInterval, minDrivers, Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
+    public TaskExecutor(TaskExectorController controller, Duration workerThreadsAdjustmentInterval, int minDrivers, Ticker ticker)
     {
-        checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
+        requireNonNull(controller, "controller is null");
+        requireNonNull(workerThreadsAdjustmentInterval, "workerThreadsAdjustmentInterval is null");
 
         // we manages thread pool size directly, so create an unlimited pool
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
-        this.runnerThreads = runnerThreads;
+
+        this.taskExectorController = controller;
+        this.targetRunnerThreads = 0;
+        this.runnerThreads = 0;
+        this.runnerThreadsAdjustmentInterval = workerThreadsAdjustmentInterval;
 
         this.ticker = requireNonNull(ticker, "ticker is null");
 
@@ -180,9 +204,7 @@ public class TaskExecutor
     public synchronized void start()
     {
         checkState(!closed, "TaskExecutor is closed");
-        for (int i = 0; i < runnerThreads; i++) {
-            addRunnerThread();
-        }
+        startRunnerThreadsAdjustment();
     }
 
     @PreDestroy
@@ -190,6 +212,7 @@ public class TaskExecutor
     {
         closed = true;
         executor.shutdownNow();
+        runnerThreadsAdjustmentExecutor.shutdownNow();
     }
 
     @Override
@@ -205,13 +228,40 @@ public class TaskExecutor
                 .toString();
     }
 
-    private synchronized void addRunnerThread()
+    private synchronized void addRunnerThreadsIfNeeded(int targetRunnerThreadsCount)
+    {
+        targetRunnerThreads = targetRunnerThreadsCount;
+
+        for (int i = 0; i < targetRunnerThreadsCount - runnerThreads; i++) {
+            addRunnerThreadInternal();
+            runnerThreads++;
+        }
+    }
+
+    private synchronized boolean tryStopRunner()
+    {
+        if (runnerThreads > targetRunnerThreads) {
+            runnerThreads--;
+            return true;
+        }
+        return false;
+    }
+
+    private synchronized void addRunnerThreadInternal()
     {
         try {
             executor.execute(new Runner());
         }
         catch (RejectedExecutionException ignored) {
         }
+    }
+
+    private synchronized void startRunnerThreadsAdjustment()
+    {
+        runnerThreadsAdjustmentExecutor.scheduleWithFixedDelay(() -> {
+            Optional<TaskExecutorStatistics> stat = taskExecutorStatisticsFactory.createTaskExectorStatistics(runnerThreads, allSplits.size());
+            addRunnerThreadsIfNeeded(taskExectorController.getNextRunnerThreads(stat));
+        }, 0, runnerThreadsAdjustmentInterval.toMillis(), MILLISECONDS);
     }
 
     public synchronized TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
@@ -748,8 +798,15 @@ public class TaskExecutor
         @Override
         public void run()
         {
+            boolean stopped = false;
             try (SetThreadName runnerName = new SetThreadName("SplitRunner-%s", runnerId)) {
-                while (!closed && !Thread.currentThread().isInterrupted()) {
+                while (true) {
+                    // check if the current thread need to be stopped
+                    stopped = tryStopRunner();
+                    if (closed || stopped || Thread.currentThread().isInterrupted()) {
+                        break;
+                    }
+
                     // select next worker
                     final PrioritizedSplitRunner split;
                     try {
@@ -820,8 +877,8 @@ public class TaskExecutor
             }
             finally {
                 // unless we have been closed, we need to replace this thread
-                if (!closed) {
-                    addRunnerThread();
+                if (!closed && !stopped) {
+                    addRunnerThreadInternal();
                 }
             }
         }

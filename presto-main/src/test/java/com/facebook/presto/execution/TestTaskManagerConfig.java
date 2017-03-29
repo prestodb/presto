@@ -39,6 +39,7 @@ public class TestTaskManagerConfig
                 .setVerboseStats(false)
                 .setTaskCpuTimerEnabled(true)
                 .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 2)
+                .setMinWorkerThreads(Runtime.getRuntime().availableProcessors() * 2)
                 .setMinDrivers(Runtime.getRuntime().availableProcessors() * 2 * 2)
                 .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(2, TimeUnit.MINUTES))
@@ -51,7 +52,9 @@ public class TestTaskManagerConfig
                 .setTaskConcurrency(16)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
-                .setTaskNotificationThreads(5));
+                .setTaskNotificationThreads(5)
+                .setTargetCpuUtilization(0.8)
+                .setWorkerThreadsAdjustmentInterval(new Duration(1, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -68,6 +71,7 @@ public class TestTaskManagerConfig
                 .put("task.share-index-loading", "true")
                 .put("task.max-partial-aggregation-memory", "32MB")
                 .put("task.max-worker-threads", "3")
+                .put("task.min-worker-threads", "1")
                 .put("task.min-drivers", "2")
                 .put("task.info.max-age", "22m")
                 .put("task.client.timeout", "10s")
@@ -78,6 +82,8 @@ public class TestTaskManagerConfig
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
+                .put("task.worker-threads-adjustment-interval", "2s")
+                .put("task.target-cpu-utilization", "0.45")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -91,6 +97,7 @@ public class TestTaskManagerConfig
                 .setShareIndexLoading(true)
                 .setMaxPartialAggregationMemoryUsage(new DataSize(32, Unit.MEGABYTE))
                 .setMaxWorkerThreads(3)
+                .setMinWorkerThreads(1)
                 .setMinDrivers(2)
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
@@ -100,7 +107,9 @@ public class TestTaskManagerConfig
                 .setTaskConcurrency(8)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)
-                .setTaskNotificationThreads(13);
+                .setTaskNotificationThreads(13)
+                .setTargetCpuUtilization(0.45)
+                .setWorkerThreadsAdjustmentInterval(new Duration(2, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
     }
