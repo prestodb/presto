@@ -106,6 +106,7 @@ implements Connector
     public void shutdown()
     {
         try {
+            hdfsMetadataFactory.shutdown();
             lifeCycleManager.stop();
         }
         catch (Exception e) {

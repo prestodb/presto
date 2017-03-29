@@ -43,13 +43,15 @@ public interface MetaServer
 
     Optional<HDFSTableHandle> getTableHandle(String connectorId, String databaseName, String tableName);
 
-    Optional<HDFSTableLayoutHandle> getTableLayout(String databaseName, String tableName);
+    Optional<HDFSTableLayoutHandle> getTableLayout(String connectorId, String databaseName, String tableName);
 
-    Optional<List<ColumnMetadata>> getTableColMetadata(String databaseName, String tableName);
+    Optional<List<ColumnMetadata>> getTableColMetadata(String connectorId, String databaseName, String tableName);
 
     Optional<List<HDFSColumnHandle>> getTableColumnHandle(String connectorId, String databaseName, String tableName);
 
     void createDatabase(ConnectorSession session, HDFSDatabase database);
 
     void createTable(ConnectorSession session, ConnectorTableMetadata table);
+
+    void shutdown();
 }

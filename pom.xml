@@ -36,6 +36,7 @@
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
+
         <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.skip-license>false</air.check.skip-license>
 
@@ -889,7 +890,7 @@
                                         <goals>
                                             <goal>copy</goal>
                                             <goal>analyze-dep-mgt</goal>
-                                            <goal>analyze-duplicate</goal>
+                                            <!--<goal>analyze-duplicate</goal>-->
                                             <goal>analyze-only</goal>
                                         </goals>
                                     </pluginExecutionFilter>
@@ -923,19 +924,19 @@
                                         <ignore />
                                     </action>
                                 </pluginExecution>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>com.ning.maven.plugins</groupId>
-                                        <artifactId>maven-duplicate-finder-plugin</artifactId>
-                                        <versionRange>[1.0.4,)</versionRange>
-                                        <goals>
-                                            <goal>check</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
+                                <!--<pluginExecution>-->
+                                    <!--<pluginExecutionFilter>-->
+                                        <!--<groupId>com.ning.maven.plugins</groupId>-->
+                                        <!--<artifactId>maven-duplicate-finder-plugin</artifactId>-->
+                                        <!--<versionRange>[1.0.4,)</versionRange>-->
+                                        <!--<goals>-->
+                                            <!--<goal>check</goal>-->
+                                        <!--</goals>-->
+                                    <!--</pluginExecutionFilter>-->
+                                    <!--<action>-->
+                                        <!--<ignore />-->
+                                    <!--</action>-->
+                                <!--</pluginExecution>-->
                                 <pluginExecution>
                                     <pluginExecutionFilter>
                                         <groupId>org.apache.maven.plugins</groupId>

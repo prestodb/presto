@@ -49,9 +49,9 @@ implements ConnectorMetadata
     private final MetaServer metaServer;
 
     @Inject
-    public HDFSMetadata(MetaServer metaServer, String connectorId)
+    public HDFSMetadata(MetaServer metaServer, HDFSConnectorId connectorId)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId.toString(), "connectorId is null");
         this.metaServer = requireNonNull(metaServer, "metaServer is null");
     }
 
@@ -97,7 +97,7 @@ implements ConnectorMetadata
         HDFSTableHandle hdfsTable = checkType(table, HDFSTableHandle.class, "table");
         SchemaTableName tableName = hdfsTable.getSchemaTableName();
         // create HDFSTableLayoutHandle
-        HDFSTableLayoutHandle tableLayout = metaServer.getTableLayout(tableName.getSchemaName(), tableName.getTableName()).orElse(null);
+        HDFSTableLayoutHandle tableLayout = metaServer.getTableLayout(connectorId, tableName.getSchemaName(), tableName.getTableName()).orElse(null);
         // ConnectorTableLayout layout = new ConnectorTableLayout(HDFSTableLayoutHandle)
         ConnectorTableLayout layout = getTableLayout(session, tableLayout);
 
@@ -128,7 +128,7 @@ implements ConnectorMetadata
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
-        List<ColumnMetadata> columns = metaServer.getTableColMetadata(tableName.getSchemaName(),
+        List<ColumnMetadata> columns = metaServer.getTableColMetadata(connectorId, tableName.getSchemaName(),
                 tableName.getTableName()).orElse(new ArrayList<>());
         return new ConnectorTableMetadata(tableName, columns);
     }
@@ -195,7 +195,7 @@ implements ConnectorMetadata
         Map<SchemaTableName, List<ColumnMetadata>> tableColumns = new HashMap<>();
         List<SchemaTableName> tableNames = metaServer.listTables(prefix);
         for (SchemaTableName table : tableNames) {
-            List<ColumnMetadata> columnMetadatas = metaServer.getTableColMetadata(table.getSchemaName(),
+            List<ColumnMetadata> columnMetadatas = metaServer.getTableColMetadata(connectorId, table.getSchemaName(),
                     table.getTableName()).orElse(new ArrayList<>());
             tableColumns.putIfAbsent(table, columnMetadatas);
         }

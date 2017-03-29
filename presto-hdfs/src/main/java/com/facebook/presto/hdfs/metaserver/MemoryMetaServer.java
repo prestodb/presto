@@ -51,13 +51,13 @@ public class MemoryMetaServer
     }
 
     @Override
-    public Optional<HDFSTableLayoutHandle> getTableLayout(String databaseName, String tableName)
+    public Optional<HDFSTableLayoutHandle> getTableLayout(String connectorId, String databaseName, String tableName)
     {
         return null;
     }
 
     @Override
-    public Optional<List<ColumnMetadata>> getTableColMetadata(String databaseName, String tableName)
+    public Optional<List<ColumnMetadata>> getTableColMetadata(String connectorId, String databaseName, String tableName)
     {
         return null;
     }
@@ -75,6 +75,11 @@ public class MemoryMetaServer
 
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata table)
+    {
+    }
+
+    @Override
+    public void shutdown()
     {
     }
 }

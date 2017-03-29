@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hdfs;
 
-import com.facebook.presto.hdfs.util.Utils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -26,8 +25,8 @@ public class HDFSDatabase
 {
     private final String name;
     private final String comment;
-    private final String location;
     private final String owner;
+    private String location;
 
     @JsonCreator
     public HDFSDatabase(
@@ -35,7 +34,7 @@ public class HDFSDatabase
     {
         this.name = requireNonNull(name, "name is null");
         this.comment = "db " + name;
-        this.location = Utils.formPath(name).toString();
+        this.location = "";
         this.owner = "default";
     }
 
@@ -49,6 +48,11 @@ public class HDFSDatabase
     public String getComment()
     {
         return comment;
+    }
+
+    public void setLocation(String location)
+    {
+        this.location = location;
     }
 
     @JsonProperty

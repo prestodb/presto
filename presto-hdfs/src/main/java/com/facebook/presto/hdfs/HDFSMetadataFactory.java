@@ -24,11 +24,11 @@ import static java.util.Objects.requireNonNull;
  */
 public class HDFSMetadataFactory
 {
-    private final String connectorId;
+    private final HDFSConnectorId connectorId;
     private final MetaServer metaServer;
 
     @Inject
-    public HDFSMetadataFactory(String connectorId, MetaServer metaServer)
+    public HDFSMetadataFactory(HDFSConnectorId connectorId, MetaServer metaServer)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.metaServer = requireNonNull(metaServer, "metaServer is null");
@@ -37,5 +37,10 @@ public class HDFSMetadataFactory
     public HDFSMetadata create()
     {
         return new HDFSMetadata(metaServer, connectorId);
+    }
+
+    public void shutdown()
+    {
+        metaServer.shutdown();
     }
 }

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.airlift.log.Logger;
 
 import java.util.Map;
 import static java.util.Objects.requireNonNull;
@@ -32,11 +33,17 @@ import static java.util.Objects.requireNonNull;
 public class HDFSConnectorFactory
 implements ConnectorFactory
 {
-    private final String name;
+    private final String name = "hdfs";
 
-    public HDFSConnectorFactory(String name)
+//    public HDFSConnectorFactory(String name)
+//    {
+//        logger.info("Connector " + name + " initialized.");
+//    }
+
+    public HDFSConnectorFactory()
     {
-        this.name = name;
+        Logger logger = Logger.get(HDFSConnectorFactory.class);
+        logger.info("Connector " + name + " initialized.");
     }
 
     @Override
@@ -59,10 +66,9 @@ implements ConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new HDFSModule(connectorId, config, context.getTypeManager())
+                    new HDFSModule(connectorId, context.getTypeManager())
             );
 
-            // TODO restore strictConfig, which leads to config kvs not used error
             Injector injector = app
                     .strictConfig()
                     .doNotInitializeLogging()

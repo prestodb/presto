@@ -151,4 +151,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/hdfs">
+        <artifact id="${project.groupId}:presto-hdfs:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

@@ -30,7 +30,7 @@ implements Plugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new HDFSConnectorFactory(HDFSConfig.getConnectorName()));
+        return ImmutableList.of(new HDFSConnectorFactory());
     }
 
     public static ClassLoader getClassLoader()

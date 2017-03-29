@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.hdfs;
 
+import com.facebook.presto.hdfs.fs.FSFactory;
 import com.facebook.presto.hdfs.metaserver.JDBCMetaServer;
 import com.facebook.presto.hdfs.metaserver.MetaServer;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-
-import java.util.Map;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
@@ -39,21 +38,16 @@ implements Module
     private final String connectorId;
     private final TypeManager typeManager;
 
-    public HDFSModule(String connectorId, Map<String, String> config, TypeManager typeManager)
+    public HDFSModule(String connectorId, TypeManager typeManager)
     {
         this.connectorId = requireNonNull(connectorId);
         this.typeManager = requireNonNull(typeManager);
-//        HDFSConfig.setJdbcDriver(config.get("hdfs.metaserver.driver"));
-//        HDFSConfig.setMetaserverUri(config.get("hdfs.metaserver.uri"));
-//        HDFSConfig.setMetaserverUser(config.get("hdfs.metaserver.user"));
-//        HDFSConfig.setMetaserverPass(config.get("hdfs.metaserver.pass"));
-//        HDFSConfig.setMetaserverStore(config.get("hdfs.metaserver.store"));
     }
 
     /**
      * Contributes bindings and other configurations for this module to {@code binder}.
      *
-     * @param binder
+     * @param binder binder
      */
     @Override
     public void configure(Binder binder)
@@ -61,14 +55,15 @@ implements Module
         binder.bind(HDFSConnectorId.class).toInstance(new HDFSConnectorId(connectorId));
         binder.bind(TypeManager.class).toInstance(typeManager);
 
+        configBinder(binder).bindConfig(HDFSConfig.class);
+
+        binder.bind(MetaServer.class).to(JDBCMetaServer.class).in(Scopes.SINGLETON);
         binder.bind(HDFSMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(MetaServer.class).toInstance(new JDBCMetaServer());
         binder.bind(HDFSMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(FSFactory.class).in(Scopes.SINGLETON);
         binder.bind(HDFSConnector.class).in(Scopes.SINGLETON);
         binder.bind(HDFSSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(HDFSPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ClassLoader.class).toInstance(HDFSPlugin.getClassLoader());
-
-        configBinder(binder).bindConfig(HDFSConfig.class);
     }
 }

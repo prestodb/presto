@@ -68,7 +68,7 @@ public class JDBCDriver
         }
     }
 
-    private void shutdown()
+    public void shutdown()
     {
         try {
             connection.close();
@@ -120,6 +120,9 @@ public class JDBCDriver
         }
         catch (SQLException e) {
             log.error(e, "get metadata error");
+        }
+        finally {
+            shutdown();
         }
         return null;
     }

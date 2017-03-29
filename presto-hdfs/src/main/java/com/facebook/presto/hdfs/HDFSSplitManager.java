@@ -41,14 +41,17 @@ implements ConnectorSplitManager
 {
     private final HDFSConnectorId connectorId;
     private final MetaServer metaServer;
+    private final FSFactory fsFactory;
 
     @Inject
     public HDFSSplitManager(
             HDFSConnectorId connectorId,
-            MetaServer metaServer)
+            MetaServer metaServer,
+            FSFactory fsFactory)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.metaServer = requireNonNull(metaServer, "metaServer is null");
+        this.fsFactory = requireNonNull(fsFactory, "fsFactory is null");
     }
 
     @Override
@@ -62,11 +65,11 @@ implements ConnectorSplitManager
         Path tablePath = tableHandle.get().getPath();
 
         List<ConnectorSplit> splits = new ArrayList<>();
-        List<Path> files = FSFactory.listFiles(tablePath);
+        List<Path> files = fsFactory.listFiles(tablePath);
         files.forEach(file -> splits.add(new HDFSSplit(connectorId,
                         tableHandle.get().getSchemaTableName(),
                         tablePath, -1, -1,
-                        FSFactory.getBlockLocations(file, 0, Long.MAX_VALUE))));
+                        fsFactory.getBlockLocations(file, 0, Long.MAX_VALUE))));
         Collections.shuffle(splits);
 
         return new FixedSplitSource(splits);

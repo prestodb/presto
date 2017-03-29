@@ -15,7 +15,6 @@ package com.facebook.presto.hdfs;
 
 import com.facebook.presto.hdfs.exception.HdfsSplitNotOpenException;
 import com.facebook.presto.hdfs.fs.FSFactory;
-import com.facebook.presto.hdfs.util.Utils;
 import com.facebook.presto.hive.parquet.HdfsParquetDataSource;
 import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
@@ -55,11 +54,13 @@ public class HDFSPageSourceProvider
 implements ConnectorPageSourceProvider
 {
     private final TypeManager typeManager;
+    private final FSFactory fsFactory;
 
     @Inject
-    public HDFSPageSourceProvider(TypeManager typeManager)
+    public HDFSPageSourceProvider(TypeManager typeManager, FSFactory fsFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.fsFactory = requireNonNull(fsFactory, "fsFactory is null");
     }
 
     private Logger log = Logger.get(HDFSPageSourceProvider.class.getName());
@@ -91,7 +92,7 @@ implements ConnectorPageSourceProvider
             long length,
             List<HDFSColumnHandle> columns)
     {
-        Optional<FileSystem> fileSystemOptional = FSFactory.getFS(path);
+        Optional<FileSystem> fileSystemOptional = fsFactory.getFS(path);
         FileSystem fileSystem;
         ParquetDataSource dataSource;
         if (fileSystemOptional.isPresent()) {
@@ -108,7 +109,7 @@ implements ConnectorPageSourceProvider
 
             List<Type> fields = columns.stream()
                     .filter(column -> column.getColType() != HDFSColumnHandle.ColumnType.NOTVALID)
-                    .map(column -> Utils.getParquetType(column, fileSchema))
+                    .map(column -> getParquetType(column, fileSchema))
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
             MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
@@ -152,5 +153,19 @@ implements ConnectorPageSourceProvider
         catch (IOException e) {
             throw new HdfsSplitNotOpenException(path);
         }
+    }
+
+    private Type getParquetType(HDFSColumnHandle column, MessageType messageType)
+    {
+        if (messageType.containsField(column.getName())) {
+            return messageType.getType(column.getName());
+        }
+        // parquet is case-insensitive, all hdfs-columns get converted to lowercase
+        for (Type type : messageType.getFields()) {
+            if (type.getName().equalsIgnoreCase(column.getName())) {
+                return type;
+            }
+        }
+        return null;
     }
 }

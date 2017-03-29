@@ -14,7 +14,6 @@
 package com.facebook.presto.hdfs;
 
 import com.facebook.presto.hdfs.exception.HdfsCursorException;
-import com.facebook.presto.hdfs.util.Utils;
 import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.hive.parquet.ParquetTypeUtils;
 import com.facebook.presto.hive.parquet.RichColumnDescriptor;
@@ -32,6 +31,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import parquet.column.ColumnDescriptor;
+import parquet.io.InvalidRecordException;
 import parquet.schema.MessageType;
 
 import java.io.IOException;
@@ -96,7 +96,7 @@ implements ConnectorPageSource
             namesBuilder.add(name);
             typesBuilder.add(type);
 
-            if (Utils.getParquetType(column, fileSchema) == null) {
+            if (getParquetType(column, fileSchema) == null) {
                 constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_VECTOR_LENGTH);
             }
         }
@@ -169,7 +169,7 @@ implements ConnectorPageSource
                 }
                 else {
                     Type type = types.get(fieldId);
-                    int fieldIndex = Utils.getFieldIndex(fileSchema, columnNames.get(fieldId));
+                    int fieldIndex = getFieldIndex(fileSchema, columnNames.get(fieldId));
                     if (fieldIndex == -1) {
                         blocks[fieldId] = RunLengthEncodedBlock.create(type, null, batchSize);
                         continue;
@@ -240,6 +240,35 @@ implements ConnectorPageSource
             if (e != throwable) {
                 throwable.addSuppressed(e);
             }
+        }
+    }
+
+    private parquet.schema.Type getParquetType(HDFSColumnHandle column, MessageType messageType)
+    {
+        if (messageType.containsField(column.getName())) {
+            return messageType.getType(column.getName());
+        }
+        // parquet is case-insensitive, all hdfs-columns get converted to lowercase
+        for (parquet.schema.Type type : messageType.getFields()) {
+            if (type.getName().equalsIgnoreCase(column.getName())) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    public int getFieldIndex(MessageType fileSchema, String name)
+    {
+        try {
+            return fileSchema.getFieldIndex(name);
+        }
+        catch (InvalidRecordException e) {
+            for (parquet.schema.Type type : fileSchema.getFields()) {
+                if (type.getName().equalsIgnoreCase(name)) {
+                    return fileSchema.getFieldIndex(type.getName());
+                }
+            }
+            return -1;
         }
     }
 

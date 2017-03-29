@@ -14,9 +14,9 @@
 package com.facebook.presto.hdfs.fs;
 
 import com.facebook.presto.hdfs.HDFSConfig;
-import com.facebook.presto.hdfs.util.Utils;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -39,25 +39,28 @@ import java.util.Set;
  */
 public final class FSFactory
 {
-    private static Configuration conf = new Configuration();
-    private static Logger log = Logger.get(FSFactory.class.getName());
+    private Configuration conf = new Configuration();
+    private final HDFSConfig config;
+    private final Logger log = Logger.get(FSFactory.class.getName());
 
-    private FSFactory()
+    @Inject
+    public FSFactory(HDFSConfig config)
     {
+        this.config = config;
     }
 
-    public static Optional<FileSystem> getFS()
+    public Optional<FileSystem> getFS()
     {
-        return getFS(HDFSConfig.getMetaserverStore());
+        return getFS(config.getMetaserverStore());
     }
 
-    public static Optional<FileSystem> getFS(String path)
+    public Optional<FileSystem> getFS(String path)
     {
         conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
         conf.set("fs.file.impl", LocalFileSystem.class.getName());
         if (path.isEmpty()) {
             try {
-                return Optional.of(new Path(HDFSConfig.getMetaserverStore()).getFileSystem(conf));
+                return Optional.of(new Path(config.getMetaserverStore()).getFileSystem(conf));
             }
             catch (IOException e) {
                 log.error(e);
@@ -65,7 +68,7 @@ public final class FSFactory
             }
         }
         try {
-            return Optional.of(Utils.formPath(path).getFileSystem(conf));
+            return Optional.of(formPath(path).getFileSystem(conf));
         }
         catch (IOException e) {
             log.error(e);
@@ -73,7 +76,7 @@ public final class FSFactory
         }
     }
 
-    public static Optional<FileSystem> getFS(Path path)
+    public Optional<FileSystem> getFS(Path path)
     {
         conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
         conf.set("fs.file.impl", LocalFileSystem.class.getName());
@@ -86,7 +89,7 @@ public final class FSFactory
         }
     }
 
-    public static List<Path> listFiles(Path dirPath)
+    public List<Path> listFiles(Path dirPath)
     {
         List<Path> files = new ArrayList<>();
         if (!getFS().isPresent()) {
@@ -108,7 +111,7 @@ public final class FSFactory
     }
 
     // assume that a file contains only a block
-    public static List<HostAddress> getBlockLocations(Path file, long start, long len)
+    public List<HostAddress> getBlockLocations(Path file, long start, long len)
     {
         Set<HostAddress> addresses = new HashSet<>();
         if (!getFS().isPresent()) {
@@ -133,12 +136,26 @@ public final class FSFactory
         return new ArrayList<>(addresses);
     }
 
-    private static List<HostAddress> toHostAddress(String[] hosts)
+    private List<HostAddress> toHostAddress(String[] hosts)
     {
         ImmutableList.Builder<HostAddress> builder = ImmutableList.builder();
         for (String host : hosts) {
             builder.add(HostAddress.fromString(host));
         }
         return builder.build();
+    }
+
+    // add path after base path (HDFSConfig.getMetaserverStore)
+    private Path formPath(String dirOrFile)
+    {
+        String base = config.getMetaserverStore();
+        String path = dirOrFile;
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 2);
+        }
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        return Path.mergePaths(new Path(base), new Path(path));
     }
 }
