@@ -22,7 +22,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.JsonPathType;
@@ -441,9 +440,6 @@ public final class JsonFunctions
     public static Object getJsonObjectValue(Type valueType, ConnectorSession session, Block block, int position)
     {
         Object objectValue = valueType.getObjectValue(session, block, position);
-        if (objectValue instanceof SqlDecimal) {
-            objectValue = ((SqlDecimal) objectValue).toBigDecimal();
-        }
         return objectValue;
     }
 }
