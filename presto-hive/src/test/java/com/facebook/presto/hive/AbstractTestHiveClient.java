@@ -854,13 +854,13 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
-                            ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
-                                    .build(),
-                            ImmutableMultimap.of());
+                    ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                            .build(),
+                    ImmutableMultimap.of());
             Table oldTable = transaction.getMetastore(schemaName).getTable(schemaName, tableName).get();
             HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()
@@ -2901,15 +2901,22 @@ public abstract class AbstractTestHiveClient
         return ((HivePartition) partition).getPartitionId();
     }
 
-    protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
+    private static Optional<HiveRecordCursor> getRecordCursor(ConnectorPageSource pageSource)
     {
         if (pageSource instanceof RecordPageSource) {
-            RecordCursor hiveRecordCursor = ((RecordPageSource) pageSource).getCursor();
-            hiveRecordCursor = ((HiveRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
-            if (hiveRecordCursor instanceof HiveCoercionRecordCursor) {
-                hiveRecordCursor = ((HiveCoercionRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
-            }
-            assertInstanceOf(hiveRecordCursor, recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
+            return Optional.of((HiveRecordCursor) ((RecordPageSource) pageSource).getCursor());
+        }
+        else if (((HivePageSource) pageSource).getPageSource() instanceof RecordPageSource) {
+            return Optional.of((HiveRecordCursor) ((RecordPageSource) ((HivePageSource) pageSource).getPageSource()).getCursor());
+        }
+        return Optional.empty();
+    }
+
+    protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
+    {
+        Optional<HiveRecordCursor> recordCursor = getRecordCursor(pageSource);
+        if (recordCursor.isPresent()) {
+            assertInstanceOf(recordCursor.get().getRegularColumnRecordCursor(), recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
         }
         else {
             assertInstanceOf(((HivePageSource) pageSource).getPageSource(), pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
