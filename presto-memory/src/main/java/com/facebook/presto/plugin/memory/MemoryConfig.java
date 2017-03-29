@@ -29,7 +29,7 @@ public class MemoryConfig
         return splitsPerNode;
     }
 
-    @Config("splits-per-node")
+    @Config("memory.splits-per-node")
     public MemoryConfig setSplitsPerNode(int splitsPerNode)
     {
         this.splitsPerNode = splitsPerNode;
@@ -42,7 +42,7 @@ public class MemoryConfig
         return maxDataPerNode;
     }
 
-    @Config("max-data-per-node")
+    @Config("memory.max-data-per-node")
     public MemoryConfig setMaxDataPerNode(DataSize maxDataPerNode)
     {
         this.maxDataPerNode = maxDataPerNode;
