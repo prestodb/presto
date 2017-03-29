@@ -134,7 +134,7 @@ public class TestJsonOperators
             throws Exception
     {
         assertFunction("cast(cast(null as decimal(5,2)) as JSON)", JSON, null);
-        assertFunction("cast(3.14 as JSON)", JSON, "3.14");
+        assertFunction("cast(DECIMAL '3.14' as JSON)", JSON, "3.14");
         assertFunction("cast(DECIMAL '12345678901234567890.123456789012345678' as JSON)", JSON, "12345678901234567890.123456789012345678");
     }
 
