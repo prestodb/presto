@@ -53,5 +53,7 @@ public interface MetaServer
 
     void createTable(ConnectorSession session, ConnectorTableMetadata table);
 
+    void createTableWithFiber(ConnectorSession session, ConnectorTableMetadata tableMetadata, String fiberKey, String function, String timeKey);
+
     void shutdown();
 }

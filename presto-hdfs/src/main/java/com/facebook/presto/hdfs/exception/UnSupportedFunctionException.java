@@ -22,8 +22,8 @@ import com.facebook.presto.spi.PrestoException;
  */
 public class UnSupportedFunctionException extends PrestoException
 {
-    public UnSupportedFunctionException(String msg)
+    public UnSupportedFunctionException(String function)
     {
-        super(HDFSErrorCode.FUNCTION_UNSUPPORTED, msg);
+        super(HDFSErrorCode.FUNCTION_UNSUPPORTED, "Function " + function + " not exists.");
     }
 }

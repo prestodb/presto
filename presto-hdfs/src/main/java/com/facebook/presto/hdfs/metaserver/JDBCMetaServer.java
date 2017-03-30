@@ -20,9 +20,11 @@ import com.facebook.presto.hdfs.HDFSTableHandle;
 import com.facebook.presto.hdfs.HDFSTableLayoutHandle;
 import com.facebook.presto.hdfs.StorageFormat;
 import com.facebook.presto.hdfs.exception.ColTypeNonValidException;
+import com.facebook.presto.hdfs.exception.ColumnNotFoundException;
 import com.facebook.presto.hdfs.exception.MetaServerCorruptionException;
 import com.facebook.presto.hdfs.exception.RecordMoreLessException;
 import com.facebook.presto.hdfs.exception.TypeUnknownException;
+import com.facebook.presto.hdfs.exception.UnSupportedFunctionException;
 import com.facebook.presto.hdfs.fs.FSFactory;
 import com.facebook.presto.hdfs.function.Function;
 import com.facebook.presto.hdfs.function.Function0;
@@ -65,6 +67,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -555,35 +558,69 @@ implements MetaServer
 
         // get some more properties
         String location = formPath(schemaName, tableName).toString();
-//        HDFSColumnHandle fiberCol = (HDFSColumnHandle) tableMetadata.getProperties().getOrDefault("fiber_col", "");
-//        HDFSColumnHandle timeCol = (HDFSColumnHandle) tableMetadata.getProperties().getOrDefault("time_col", "");
         String fiberCol = "";
         String timeCol = "";
-//        String fiberFunc = (String) tableMetadata.getProperties().getOrDefault("fiber_func", "");
         String fiberFunc = "function0";
 
+        createTable(columns, dbId, tableName, schemaName, location, "parquet", fiberCol, fiberFunc, timeCol);
+    }
+
+    @Override
+    public void createTableWithFiber(ConnectorSession session, ConnectorTableMetadata tableMetadata, String fiberKey, String function, String timeKey)
+    {
+        log.debug("Create table with fiber " + tableMetadata.getTable().getTableName());
+        // check fiberKey, function and timeKey
+        List<ColumnMetadata> columns = tableMetadata.getColumns();
+        List<String> columnNames = columns.stream()
+                .map(ColumnMetadata::getName)
+                .collect(Collectors.toList());
+        if (!columnNames.contains(fiberKey) || !columnNames.contains(timeKey)) {
+            log.error("Fiber key or timestamp key not exist in table columns");
+            throw new ColumnNotFoundException("");
+        }
+        if (parseFunction(function) == null) {
+            log.error("Function not exists");
+            throw new UnSupportedFunctionException(function);
+        }
+
+        String tableName = tableMetadata.getTable().getTableName();
+        String schemaName = tableMetadata.getTable().getSchemaName();
+        String dbId = getDatabaseId(schemaName);
+        if (dbId == null) {
+            log.debug("No database with name " + schemaName + " found during creating table.");
+            // TODO throw exception
+            return;
+        }
+
+        String location = formPath(schemaName, tableName).toString();
+        // createTable
+        createTable(columns, dbId, tableName, schemaName, location, "parquet", fiberKey, function, timeKey);
+    }
+
+    private void createTable(List<ColumnMetadata> columns, String dbId, String name, String dbName, String location, String storage, String fiberKey, String function, String timeKey)
+    {
         StringBuilder sql = new StringBuilder();
         sql.append("INSERT INTO tbls(db_id, name, db_name, location, storage, fib_k, fib_func, time_k) VALUES('")
                 .append(dbId)
                 .append("', '")
-                .append(tableName)
+                .append(name)
                 .append("', '")
-                .append(schemaName)
+                .append(dbName)
                 .append("', '")
                 .append(location)
                 .append("', '")
-                .append("parquet")
+                .append(storage)
                 .append("', '")
-                .append(fiberCol)
+                .append(fiberKey)
                 .append("', '")
-                .append(fiberFunc)
+                .append(function)
                 .append("', '")
-                .append(timeCol)
+                .append(timeKey)
                 .append("');");
         if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
             try {
-                log.debug("Create hdfs dir for " + formName(schemaName, tableName));
-                fileSystem.mkdirs(formPath(schemaName, tableName));
+                log.debug("Create hdfs dir for " + formName(dbName, name));
+                fileSystem.mkdirs(formPath(dbName, name));
             }
             catch (IOException e) {
                 log.debug("Error sql: " + sql.toString());
@@ -592,18 +629,18 @@ implements MetaServer
             }
         }
         else {
-            log.error("Create table " + formName(schemaName, tableName) + " failed!");
+            log.error("Create table " + formName(dbName, name) + " failed!");
         }
 
-        String tableId = getTableId(schemaName, tableName);
+        String tableId = getTableId(dbName, name);
 
         // add cols information
         for (ColumnMetadata col : columns) {
             String colType = "regular";
-            if (Objects.equals(col.getName(), fiberCol)) {
+            if (Objects.equals(col.getName(), fiberKey)) {
                 colType = "fiber";
             }
-            if (Objects.equals(col.getName(), timeCol)) {
+            if (Objects.equals(col.getName(), timeKey)) {
                 colType = "time";
             }
             sql.delete(0, sql.length() - 1);
@@ -612,9 +649,9 @@ implements MetaServer
                     .append("', '")
                     .append(tableId)
                     .append("', '")
-                    .append(tableName)
+                    .append(name)
                     .append("', '")
-                    .append(schemaName)
+                    .append(dbName)
                     .append("', '")
                     .append(col.getType())
                     .append("', '")
@@ -622,7 +659,7 @@ implements MetaServer
                     .append("');");
             if (jdbcDriver.executeUpdate(sql.toString()) == 0) {
                 log.debug("Error sql: " + sql.toString());
-                log.error("Create cols for table " + formName(schemaName, tableName) + " failed!");
+                log.error("Create cols for table " + formName(dbName, name) + " failed!");
                 // TODO exit ?
             }
         }
@@ -643,6 +680,7 @@ implements MetaServer
     private Type getType(String typeName)
     {
         log.debug("Get type " + typeName);
+        typeName = typeName.toLowerCase();
         // check if type is varchar(xx)
         Pattern vcpattern = Pattern.compile("varchar\\(\\s*(\\d+)\\s*\\)");
         Matcher vcmatcher = vcpattern.matcher(typeName);
@@ -677,21 +715,17 @@ implements MetaServer
             }
             return DecimalType.createDecimalType(Integer.parseInt(dprecision), Integer.parseInt(dscale));
         }
-        // TODO add parameter info to types like decimal, etc.
-        switch (typeName.toLowerCase()) {
+        switch (typeName) {
             case "boolean": return BooleanType.BOOLEAN;
-            case "char": return CharType.createCharType(CharType.MAX_LENGTH);
             case "tinyint": return TinyintType.TINYINT;
             case "smallint": return SmallintType.SMALLINT;
             case "integer": return IntegerType.INTEGER;
             case "bigint": return BigintType.BIGINT;
             case "real": return RealType.REAL;
-            case "decimal": return DecimalType.createDecimalType();
             case "double": return DoubleType.DOUBLE;
             case "date": return DateType.DATE;
             case "time": return TimeType.TIME;
             case "timestamp": return TimestampType.TIMESTAMP;
-            case "varchar": return VarcharType.VARCHAR;
             default: return UnknownType.UNKNOWN;
         }
     }
@@ -709,12 +743,6 @@ implements MetaServer
     {
         return database + "." + table;
     }
-
-    // from concatenated name from database and table and col
-//    private String formName(String database, String table, String col)
-//    {
-//        return database + "." + table + "." + col;
-//    }
 
     private Path formPath(String dirOrFile1, String dirOrFile2)
     {

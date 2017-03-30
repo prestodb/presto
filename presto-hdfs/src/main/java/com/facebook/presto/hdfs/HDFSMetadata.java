@@ -227,4 +227,13 @@ implements ConnectorMetadata
     {
         metaServer.createTable(session, tableMetadata);
     }
+
+    /**
+     * Creates a table with fiber
+     * */
+    @Override
+    public void createTableWithFiber(ConnectorSession session, ConnectorTableMetadata tableMetadata, String fiberKey, String function, String timeKey)
+    {
+        metaServer.createTableWithFiber(session, tableMetadata, fiberKey, function, timeKey);
+    }
 }

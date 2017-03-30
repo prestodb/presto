@@ -159,6 +159,11 @@ public interface ConnectorMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
+    default void createTableWithFiber(ConnectorSession session, ConnectorTableMetadata tableMetadata, String fiberKey, String function, String timeKey)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables with fiber");
+    }
+
     /**
      * Drops the specified table
      *

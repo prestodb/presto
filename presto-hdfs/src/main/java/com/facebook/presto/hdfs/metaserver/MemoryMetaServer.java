@@ -79,6 +79,11 @@ public class MemoryMetaServer
     }
 
     @Override
+    public void createTableWithFiber(ConnectorSession session, ConnectorTableMetadata tableMetadata, String fiberKey, String function, String timeKey)
+    {
+    }
+
+    @Override
     public void shutdown()
     {
     }

@@ -485,6 +485,15 @@ public class MetadataManager
     }
 
     @Override
+    public void createTableWithFiber(Session session, String catalogName, ConnectorTableMetadata tableMetadata, String fiberKey, String function, String timeKey)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        metadata.createTableWithFiber(session.toConnectorSession(connectorId), tableMetadata, fiberKey, function, timeKey);
+    }
+
+    @Override
     public void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName)
     {
         String catalogName = newTableName.getCatalogName();

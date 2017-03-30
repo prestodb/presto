@@ -116,6 +116,8 @@ public interface Metadata
      */
     void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
+    void createTableWithFiber(Session session, String catalogName, ConnectorTableMetadata tableMetadata, String fiberKey, String function, String timeKey);
+
     /**
      * Rename the specified table.
      */
