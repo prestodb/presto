@@ -73,6 +73,7 @@ public class HiveClientConfig
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
+    private int dfsClientMaxRetries = 10;
     private boolean verifyChecksum = true;
     private String domainSocketPath;
 
@@ -471,6 +472,19 @@ public class HiveClientConfig
     public HiveClientConfig setDfsConnectMaxRetries(int dfsConnectMaxRetries)
     {
         this.dfsConnectMaxRetries = dfsConnectMaxRetries;
+        return this;
+    }
+
+    @Min(0)
+    public int getDfsClientMaxRetries()
+    {
+        return dfsClientMaxRetries;
+    }
+
+    @Config("hive.dfs.client.max-retries")
+    public HiveClientConfig setDfsClientMaxRetries(int dfsClientMaxRetries)
+    {
+        this.dfsClientMaxRetries = dfsClientMaxRetries;
         return this;
     }
 
