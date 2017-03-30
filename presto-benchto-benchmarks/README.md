@@ -62,11 +62,25 @@ macros:
       
 ```
 
+### Configuring overrides file
+
+It is possible to override benchmark variables with benchto-driver overrides feature.
+This is useful for instance when one wants to use different number of benchmark
+runs or different underlying schemas. Create a simple `overrides.yaml` file:
+
+```yaml
+runs:10
+tpch_medium: tpcds_10gb_txt
+```
+
 ### Running benchto-driver
 
 With the scene set up as in the previous section, the benchmark can be run with:
 ```bash
 ./mvnw clean package -pl presto-benchto-benchmarks
 java -Xmx1g -jar presto-benchto-benchmarks/target/presto-benchto-benchmarks-*-executable.jar \
-    --activeBenchmarks=presto/tpch --profile=presto-devenv
+    --sql presto-benchto-benchmarks/src/main/resources/sql \
+    --benchmarks presto-benchto-benchmarks/src/main/resources/benchmarks \
+    --activeBenchmarks=presto/tpch --profile=presto-devenv \
+    --overrides overrides.yaml
 ```
