@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Throwables;
+import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -27,6 +28,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.client.OkHttpUtil.userAgent;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.Integer.parseInt;
@@ -46,7 +48,9 @@ public class PrestoDriver
 
     private static final String USER_PROPERTY = "user";
 
-    private final QueryExecutor queryExecutor;
+    private final OkHttpClient httpClient = new OkHttpClient().newBuilder()
+            .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION))
+            .build();
 
     static {
         String version = nullToEmpty(PrestoDriver.class.getPackage().getImplementationVersion());
@@ -70,15 +74,11 @@ public class PrestoDriver
         }
     }
 
-    public PrestoDriver()
-    {
-        this.queryExecutor = QueryExecutor.create(DRIVER_NAME + "/" + DRIVER_VERSION);
-    }
-
     @Override
     public void close()
     {
-        queryExecutor.close();
+        httpClient.dispatcher().executorService().shutdown();
+        httpClient.connectionPool().evictAll();
     }
 
     @Override
@@ -94,7 +94,13 @@ public class PrestoDriver
             throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
         }
 
-        return new PrestoConnection(new PrestoDriverUri(url), user, queryExecutor);
+        PrestoDriverUri uri = new PrestoDriverUri(url);
+
+        OkHttpClient.Builder builder = httpClient.newBuilder();
+        uri.setupClient(builder);
+        QueryExecutor executor = new QueryExecutor(builder.build());
+
+        return new PrestoConnection(uri, user, executor);
     }
 
     @Override

@@ -23,24 +23,19 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
-import java.io.Closeable;
 import java.net.URI;
-import java.util.Optional;
 
-import static com.facebook.presto.client.OkHttpUtil.setupSsl;
-import static com.facebook.presto.client.OkHttpUtil.userAgent;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class QueryExecutor
-        implements Closeable
 {
     private static final JsonCodec<ServerInfo> SERVER_INFO_CODEC = jsonCodec(ServerInfo.class);
 
     private final OkHttpClient httpClient;
 
-    private QueryExecutor(OkHttpClient httpClient)
+    public QueryExecutor(OkHttpClient httpClient)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
@@ -48,13 +43,6 @@ class QueryExecutor
     public StatementClient startQuery(ClientSession session, String query)
     {
         return new StatementClient(httpClient, session, query);
-    }
-
-    @Override
-    public void close()
-    {
-        httpClient.dispatcher().executorService().shutdown();
-        httpClient.connectionPool().evictAll();
     }
 
     public ServerInfo getServerInfo(URI server)
@@ -72,17 +60,5 @@ class QueryExecutor
             throw new RuntimeException(format("Request to %s failed: %s [Error: %s]", server, response, response.getResponseBody()));
         }
         return response.getValue();
-    }
-
-    static QueryExecutor create(String userAgent)
-    {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder()
-                .addInterceptor(userAgent(userAgent));
-        setupSsl(builder,
-                Optional.ofNullable(System.getProperty("javax.net.ssl.keyStore")),
-                Optional.ofNullable(System.getProperty("javax.net.ssl.keyStorePassword")),
-                Optional.ofNullable(System.getProperty("javax.net.ssl.trustStore")),
-                Optional.ofNullable(System.getProperty("javax.net.ssl.trustStorePassword")));
-        return new QueryExecutor(builder.build());
     }
 }
