@@ -21,12 +21,14 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.NullOutputOperator;
+import com.facebook.presto.testing.PageConsumerOperator;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
@@ -41,7 +43,7 @@ public class MemoryLocalQueryRunner
 {
     protected LocalQueryRunner localQueryRunner = createMemoryLocalQueryRunner();
 
-    public void execute(@Language("SQL") String query)
+    public List<Page> execute(@Language("SQL") String query)
     {
         Session session = testSessionBuilder()
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
@@ -58,7 +60,11 @@ public class MemoryLocalQueryRunner
                         false);
 
         // Use NullOutputFactory to avoid coping out results to avoid affecting benchmark results
-        List<Driver> drivers = localQueryRunner.createDrivers(query, new NullOutputOperator.NullOutputFactory(), taskContext);
+        ImmutableList.Builder<Page> output = ImmutableList.builder();
+        List<Driver> drivers = localQueryRunner.createDrivers(
+                query,
+                new PageConsumerOperator.PageConsumerOutputFactory(types -> output::add),
+                taskContext);
 
         boolean done = false;
         while (!done) {
@@ -71,6 +77,8 @@ public class MemoryLocalQueryRunner
             }
             done = !processed;
         }
+
+        return output.build();
     }
 
     private static LocalQueryRunner createMemoryLocalQueryRunner()

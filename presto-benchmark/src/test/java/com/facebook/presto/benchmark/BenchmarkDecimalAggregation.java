@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.spi.Page;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -27,6 +28,8 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+
+import java.util.List;
 
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -55,6 +58,11 @@ public class BenchmarkDecimalAggregation
 
         private final MemoryLocalQueryRunner queryRunner = new MemoryLocalQueryRunner();
 
+        public final MemoryLocalQueryRunner getQueryRunner()
+        {
+            return queryRunner;
+        }
+
         @Setup
         public void setUp()
         {
@@ -62,17 +70,13 @@ public class BenchmarkDecimalAggregation
                     "CREATE TABLE memory.default.orders AS SELECT orderstatus, cast(totalprice as %s) totalprice FROM tpch.sf1.orders",
                     type));
         }
-
-        public void run()
-        {
-            queryRunner.execute(format("SELECT %s FROM orders GROUP BY orderstatus", project));
-        }
     }
 
     @Benchmark
-    public void benchmarkBuildHash(AggregationContext context)
+    public List<Page> benchmarkBuildHash(AggregationContext context)
     {
-        context.run();
+        return context.getQueryRunner()
+                .execute(String.format("SELECT %s FROM orders GROUP BY orderstatus", context.project));
     }
 
     public static void main(String[] args)
