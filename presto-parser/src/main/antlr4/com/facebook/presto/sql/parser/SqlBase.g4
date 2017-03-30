@@ -40,6 +40,11 @@ statement
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         '(' tableElement (',' tableElement)* ')'
         (WITH tableProperties)?                                        #createTable
+    | CREATE TABLE table=qualifiedName
+        '(' tableElement (',' tableElement)* ')'
+        FIBER PARTITION BY '(' fib_k=identifier ')'
+        USING FUNCTION function=qualifiedName
+        TIMESTAMP BY '(' time_k=identifier ')'                         #createTableWithFiber
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
@@ -625,6 +630,9 @@ RESTRICT: 'RESTRICT';
 INCLUDING: 'INCLUDING';
 EXCLUDING: 'EXCLUDING';
 PROPERTIES: 'PROPERTIES';
+
+FIBER: 'FIBER';
+FUNCTION: 'FUNCTION';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';

@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateTableWithFiber;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -229,6 +230,12 @@ class AstBuilder
     public Node visitCreateTable(SqlBaseParser.CreateTableContext context)
     {
         return new CreateTable(getLocation(context), getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class), context.EXISTS() != null, processTableProperties(context.tableProperties()));
+    }
+
+    @Override
+    public Node visitCreateTableWithFiber(SqlBaseParser.CreateTableWithFiberContext context)
+    {
+        return new CreateTableWithFiber(getLocation(context), getQualifiedName(context.table), visit(context.tableElement(), TableElement.class), context.fib_k.getText(), getQualifiedName(context.function), context.time_k.getText());
     }
 
     private Map<String, Expression> processTableProperties(TablePropertiesContext tablePropertiesContext)

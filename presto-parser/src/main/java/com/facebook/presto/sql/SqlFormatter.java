@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateTableWithFiber;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
@@ -77,6 +78,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
@@ -760,34 +762,61 @@ public final class SqlFormatter
             String tableName = formatName(node.getName());
             builder.append(tableName).append(" (\n");
 
-            String elementIndent = indentString(indent + 1);
-            String columnList = node.getElements().stream()
+            appendTableElements(builder, node.getElements(), indent);
+
+            appendTableProperties(builder, node.getProperties());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateTableWithFiber(CreateTableWithFiber node, Integer indent)
+        {
+            builder.append("CREATE TABLE ");
+            String tableName = formatName(node.getName());
+            builder.append(tableName).append(" (\n");
+
+            appendTableElements(builder, node.getElements(), indent);
+
+            builder.append("\nFIBER PARTITION BY (");
+            builder.append(node.getFibK());
+            builder.append(") USING FUNCTION ");
+            builder.append(node.getFunction());
+
+            builder.append("\nTIMESTAMP BY (");
+            builder.append(node.getTimeK());
+            builder.append(")");
+
+            return null;
+        }
+
+        private void appendTableElements(StringBuilder builder, List<TableElement> elements, Integer indent)
+        {
+            String elementIdent = indentString(indent + 1);
+
+            String columnList = elements.stream()
                     .map(element -> {
                         if (element instanceof ColumnDefinition) {
-                            ColumnDefinition column = (ColumnDefinition) element;
-                            return elementIndent + formatName(column.getName()) + " " + column.getType();
+                            ColumnDefinition columnDefinition = (ColumnDefinition) element;
+                            return elementIdent + formatName(columnDefinition.getName()) + " " + columnDefinition.getType();
                         }
                         if (element instanceof LikeClause) {
                             LikeClause likeClause = (LikeClause) element;
-                            StringBuilder builder = new StringBuilder(elementIndent);
-                            builder.append("LIKE ")
+                            StringBuilder strBuilder = new StringBuilder(elementIdent);
+                            strBuilder.append("LIKE ")
                                     .append(formatName(likeClause.getTableName()));
                             if (likeClause.getPropertiesOption().isPresent()) {
-                                builder.append(" ")
+                                strBuilder.append(" ")
                                         .append(likeClause.getPropertiesOption().get().name())
                                         .append(" PROPERTIES");
                             }
-                            return builder.toString();
+                            return strBuilder.toString();
                         }
                         throw new UnsupportedOperationException("unknown table element: " + element);
                     })
                     .collect(joining(",\n"));
             builder.append(columnList);
             builder.append("\n").append(")");
-
-            appendTableProperties(builder, node.getProperties());
-
-            return null;
         }
 
         private void appendTableProperties(StringBuilder builder, Map<String, Expression> properties)
