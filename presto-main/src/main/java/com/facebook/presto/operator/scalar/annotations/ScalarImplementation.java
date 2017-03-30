@@ -32,6 +32,7 @@ import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
@@ -389,6 +390,12 @@ public class ScalarImplementation
 
             this.specializedTypeParameters = getDeclaredSpecializedTypeParameters(method);
 
+            for (TypeParameter typeParameter : typeParameters) {
+                checkArgument(
+                        typeParameter.value().matches("[A-Z][A-Z0-9]*"),
+                        "Expected type parameter to only contain A-Z and 0-9 (starting with A-Z), but got %s on method [%s]", typeParameter.value(), method);
+            }
+
             parseArguments(method);
 
             this.constructorMethodHandle = getConstructor(method, constructors);
@@ -413,7 +420,7 @@ public class ScalarImplementation
                     checkArgument(argumentTypes.isEmpty(), "Meta parameter must come before parameters [%s]", method);
                     Annotation annotation = annotations[0];
                     if (annotation instanceof TypeParameter) {
-                        checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the method [%s]", method);
+                        checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), method, typeParameterNames);
                     }
                     if (annotation instanceof LiteralParameter) {
                         checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", method);
@@ -469,6 +476,22 @@ public class ScalarImplementation
                     }
                     nullableArguments.add(nullableArgument);
                     nullFlags.add(hasNullFlag);
+                }
+            }
+        }
+
+        private void checkTypeParameters(TypeSignature typeSignature, Method method, Set<String> typeParameterNames)
+        {
+            // Check recursively if `typeSignature` contains something like `T<bigint>`
+            if (typeParameterNames.contains(typeSignature.getBase())) {
+                checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got %s on method [%s]", typeSignature.getBase(), method);
+                return;
+            }
+
+            for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
+                Optional<TypeSignature> childTypeSignature = parameter.getTypeSignatureOrNamedTypeSignature();
+                if (childTypeSignature.isPresent()) {
+                    checkTypeParameters(childTypeSignature.get(), method, typeParameterNames);
                 }
             }
         }
