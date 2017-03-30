@@ -15,6 +15,7 @@ package com.facebook.presto.jdbc;
 
 import com.google.common.base.Splitter;
 import com.google.common.net.HostAndPort;
+import okhttp3.OkHttpClient;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -22,7 +23,9 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
@@ -80,6 +83,16 @@ final class PrestoDriverUri
     public URI getHttpUri()
     {
         return buildHttpUri();
+    }
+
+    public void setupClient(OkHttpClient.Builder builder)
+            throws SQLException
+    {
+        setupSsl(builder,
+                Optional.ofNullable(System.getProperty("javax.net.ssl.keyStore")),
+                Optional.ofNullable(System.getProperty("javax.net.ssl.keyStorePassword")),
+                Optional.ofNullable(System.getProperty("javax.net.ssl.trustStore")),
+                Optional.ofNullable(System.getProperty("javax.net.ssl.trustStorePassword")));
     }
 
     private static Map<String, String> parseParameters(String query)

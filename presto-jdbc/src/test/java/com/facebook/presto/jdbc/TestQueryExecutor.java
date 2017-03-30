@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ServerInfo;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
@@ -62,7 +63,7 @@ public class TestQueryExecutor
                 .addHeader(CONTENT_TYPE, "application/json")
                 .setBody(SERVER_INFO_CODEC.toJson(expected)));
 
-        QueryExecutor executor = QueryExecutor.create("test");
+        QueryExecutor executor = new QueryExecutor(new OkHttpClient());
 
         ServerInfo actual = executor.getServerInfo(server.url("/v1/info").uri());
         assertEquals(actual.getEnvironment(), "test");
