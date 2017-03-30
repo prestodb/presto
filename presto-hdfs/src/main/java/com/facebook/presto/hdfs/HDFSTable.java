@@ -18,7 +18,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -68,5 +70,37 @@ public class HDFSTable
         return columnMetadatas;
     }
 
-    // TODO toString, hash, equal
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(table, tableLayout, columns, columnMetadatas);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        HDFSTable other = (HDFSTable) obj;
+        return Objects.equals(table, other.table) &&
+                Objects.equals(tableLayout, other.tableLayout) &&
+                Objects.equals(columns, other.columns) &&
+                Objects.equals(columnMetadatas, other.columnMetadatas);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("table", table)
+                .add("table layout", tableLayout)
+                .add("columns", columns)
+                .add("column metadatas", columnMetadatas)
+                .toString();
+    }
 }

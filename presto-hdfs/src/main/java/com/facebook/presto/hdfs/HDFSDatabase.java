@@ -16,6 +16,9 @@ package com.facebook.presto.hdfs;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -61,5 +64,33 @@ public class HDFSDatabase
     public String getId()
     {
         return id;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        HDFSDatabase other = (HDFSDatabase) obj;
+        return Objects.equals(name, other.name);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("name", name)
+                .toString();
     }
 }

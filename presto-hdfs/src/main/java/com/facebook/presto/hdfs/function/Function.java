@@ -23,4 +23,13 @@ public interface Function
     long apply(String v);
     long apply(int v);
     long apply(long v);
+
+    @Override
+    int hashCode();
+
+    @Override
+    boolean equals(Object obj);
+
+    @Override
+    String toString();
 }

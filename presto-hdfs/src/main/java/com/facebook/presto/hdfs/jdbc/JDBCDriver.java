@@ -57,12 +57,12 @@ public class JDBCDriver
     private void setup()
     {
         try {
-            Class.forName(jdbcDriver);
+//            Class.forName(jdbcDriver);
             connection = DriverManager.getConnection(dbUrl, user, pass);
         }
-        catch (ClassNotFoundException e) {
-            log.error(e, "JDBC driver class not found");
-        }
+//        catch (ClassNotFoundException e) {
+//            log.error(e, "JDBC driver class not found");
+//        }
         catch (SQLException e) {
             log.error(e, "JDBC driver connection error");
         }
@@ -78,7 +78,7 @@ public class JDBCDriver
         }
     }
 
-    public List<JDBCRecord> executreQuery(String sql, String[] fields)
+    public List<JDBCRecord> executeQuery(String sql, String[] fields)
     {
         List<JDBCRecord> recordList = new ArrayList<>();
         try (

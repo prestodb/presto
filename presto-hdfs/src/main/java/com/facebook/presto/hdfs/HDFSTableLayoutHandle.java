@@ -19,6 +19,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -89,5 +92,39 @@ implements ConnectorTableLayoutHandle
         return storageFormat;
     }
 
-    // TODO Override toString(), hashCode(), and equals()
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(table, fiberColumn, timestampColumn, fiberFunction, storageFormat);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        HDFSTableLayoutHandle other = (HDFSTableLayoutHandle) obj;
+        return Objects.equals(table, other.table) &&
+                Objects.equals(fiberColumn, other.fiberColumn) &&
+                Objects.equals(timestampColumn, other.timestampColumn) &&
+                Objects.equals(fiberFunction, other.fiberFunction) &&
+                Objects.equals(storageFormat, other.storageFormat);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("table", table)
+                .add("fiber column", fiberColumn)
+                .add("timestamp column", timestampColumn)
+                .add("fiber function", fiberFunction)
+                .add("storage format", storageFormat)
+                .toString();
+    }
 }

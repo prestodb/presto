@@ -19,6 +19,7 @@ import com.google.common.hash.Hashing;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.nio.charset.Charset;
+import java.util.Objects;
 
 /**
  * presto-root
@@ -60,5 +61,31 @@ public final class Function0 extends com.facebook.presto.hdfs.function.HashFunct
     public long apply(long v)
     {
         return hasher.hashLong(v).asLong();
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return 0;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        Function0 other = (Function0) obj;
+        return Objects.equals(hashCode(), other.hashCode());
+    }
+
+    @Override
+    public String toString()
+    {
+        return "function0";
     }
 }

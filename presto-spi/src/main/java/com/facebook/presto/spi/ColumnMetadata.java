@@ -28,7 +28,7 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, null, false);
+        this(name, type, "", false);
     }
 
     public ColumnMetadata(String name, Type type, String comment, boolean hidden)

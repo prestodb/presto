@@ -23,7 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 
 import java.util.List;
+import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -108,5 +110,43 @@ implements ConnectorSplit
                 .put("path", path)
                 .put("addresses", addresses)
                 .build();
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(connectorId, table, path, start, len, addresses);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        HDFSSplit other = (HDFSSplit) obj;
+        return Objects.equals(connectorId, other.connectorId) &&
+                Objects.equals(table, other.table) &&
+                Objects.equals(path, other.path) &&
+                Objects.equals(start, other.start) &&
+                Objects.equals(len, other.len) &&
+                Objects.equals(addresses, other.addresses);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("connector id", connectorId)
+                .add("table", table)
+                .add("path", path)
+                .add("start", start)
+                .add("len", len)
+                .add("addresses", addresses)
+                .toString();
     }
 }

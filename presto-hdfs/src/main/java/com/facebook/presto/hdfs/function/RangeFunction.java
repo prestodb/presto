@@ -44,4 +44,13 @@ public abstract class RangeFunction implements Function
 
     @Override
     public abstract long apply(long v);
+
+    @Override
+    public abstract int hashCode();
+
+    @Override
+    public abstract boolean equals(Object obj);
+
+    @Override
+    public abstract String toString();
 }

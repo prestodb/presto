@@ -176,7 +176,7 @@ implements MetaServer
         List<String> resultL = new ArrayList<>();
         String sql = "SELECT name FROM dbs;";
         String[] fields = {"name"};
-        records = jdbcDriver.executreQuery(sql, fields);
+        records = jdbcDriver.executeQuery(sql, fields);
         records.forEach(record -> resultL.add(record.getString(fields[0])));
         return resultL;
     }
@@ -187,7 +187,7 @@ implements MetaServer
 
         String sql = "SELECT id FROM dbs WHERE name='" + db + "';";
         String[] fields = {"id"};
-        List<JDBCRecord> records = jdbcDriver.executreQuery(sql, fields);
+        List<JDBCRecord> records = jdbcDriver.executeQuery(sql, fields);
 
         if (records.isEmpty()) {
             log.debug("Find no database with name " + db);
@@ -200,7 +200,7 @@ implements MetaServer
     @Override
     public List<SchemaTableName> listTables(SchemaTablePrefix prefix)
     {
-        log.debug("List all tables with prefix " + prefix.toString());
+        log.info("List all tables with prefix " + prefix.toString());
         List<JDBCRecord> records;
         List<SchemaTableName> tables = new ArrayList<>();
         String dbPrefix = prefix.getSchemaName();
@@ -219,8 +219,8 @@ implements MetaServer
         baseSql.append(";");
         String tableName;
         String dbName;
-        String[] fields = {"name, db_name"};
-        records = jdbcDriver.executreQuery(baseSql.toString(), fields);
+        String[] fields = {"name", "db_name"};
+        records = jdbcDriver.executeQuery(baseSql.toString(), fields);
         log.info("record size: " + records.size());
         if (records.size() == 0) {
             return tables;
@@ -238,7 +238,7 @@ implements MetaServer
     {
         String sql = "SELECT id FROM tbls WHERE name='" + tableName + "' AND db_name='" + databaseName + "';";
         String[] fields = {"id"};
-        List<JDBCRecord> records = jdbcDriver.executreQuery(sql, fields);
+        List<JDBCRecord> records = jdbcDriver.executeQuery(sql, fields);
         if (records.isEmpty()) {
             return null;
         }
@@ -291,13 +291,13 @@ implements MetaServer
         log.debug("Get table handle " + formName(databaseName, tableName));
         HDFSTableHandle table;
         List<JDBCRecord> records;
-        String sql = "SELECT name, location FROM tbls WHERE db_name='"
+        String sql = "SELECT name, db_name, location FROM tbls WHERE db_name='"
                 + databaseName
                 + "' AND name='"
                 + tableName
                 + "';";
         String[] fields = {"name", "db_name", "location"};
-        records = jdbcDriver.executreQuery(sql, fields);
+        records = jdbcDriver.executeQuery(sql, fields);
         if (records.size() != 1) {
             log.error("Match more/less than one table");
             return Optional.empty();
@@ -326,7 +326,7 @@ implements MetaServer
                 + databaseName
                 + "';";
         String[] fields = {"fib_k", "time_k", "fib_func"};
-        records = jdbcDriver.executreQuery(sql, fields);
+        records = jdbcDriver.executeQuery(sql, fields);
         if (records.size() != 1) {
             log.error("Match more/less than one table");
             return Optional.empty();
@@ -350,8 +350,8 @@ implements MetaServer
         }
 
         // construct ColumnHandle
-        HDFSColumnHandle fiberCol = getColumnHandle(connectorId, databaseName, tableName, fiberColName);
-        HDFSColumnHandle timeCol = getColumnHandle(connectorId, databaseName, tableName, timeColName);
+        HDFSColumnHandle fiberCol = getColumnHandle(connectorId, fiberColName, tableName, databaseName);
+        HDFSColumnHandle timeCol = getColumnHandle(connectorId, timeColName, tableName, databaseName);
 
         tableLayout = new HDFSTableLayoutHandle(tableHandle, fiberCol, timeCol, function, StorageFormat.PARQUET);
         return Optional.of(tableLayout);
@@ -374,8 +374,8 @@ implements MetaServer
                 + "' AND db_name='"
                 + databaseName
                 + "';";
-        String[] colFields = {"name, col_type, data_type"};
-        records = jdbcDriver.executreQuery(sql, colFields);
+        String[] colFields = {"name", "col_type", "data_type"};
+        records = jdbcDriver.executeQuery(sql, colFields);
         if (records.size() == 0) {
             log.warn("No col matches!");
             return Optional.empty();
@@ -420,9 +420,9 @@ implements MetaServer
                 + dbName
                 + "';";
         String[] colFields = {"col_type", "data_type"};
-        records = jdbcDriver.executreQuery(sql, colFields);
+        records = jdbcDriver.executeQuery(sql, colFields);
         if (records.size() != 1) {
-            log.error("Match more/less than one table");
+            log.error("Match more/less than one column");
             throw new RecordMoreLessException();
         }
         JDBCRecord fiberColRecord = records.get(0);
@@ -454,8 +454,8 @@ implements MetaServer
                 + "' AND db_name='"
                 + databaseName
                 + "';";
-        String[] colFields = {"name, data_type, tbl_name, db_name"};
-        records = jdbcDriver.executreQuery(sql, colFields);
+        String[] colFields = {"name", "data_type", "tbl_name", "db_name"};
+        records = jdbcDriver.executeQuery(sql, colFields);
         if (records.size() == 0) {
             log.warn("No col matches!");
             return Optional.empty();

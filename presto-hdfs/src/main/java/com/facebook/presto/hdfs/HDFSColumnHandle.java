@@ -18,6 +18,9 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -83,5 +86,41 @@ implements ColumnHandle
     public String getConnectorId()
     {
         return connectorId;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, type, comment, colType, connectorId);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        HDFSColumnHandle other = (HDFSColumnHandle) obj;
+        return Objects.equals(name, other.name) &&
+                Objects.equals(type, other.type) &&
+                Objects.equals(comment, other.comment) &&
+                Objects.equals(colType, other.colType) &&
+                Objects.equals(connectorId, other.connectorId);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("name", name)
+                .add("type", type)
+                .add("comment", comment)
+                .add("column type", colType)
+                .add("connector id", connectorId)
+                .toString();
     }
 }

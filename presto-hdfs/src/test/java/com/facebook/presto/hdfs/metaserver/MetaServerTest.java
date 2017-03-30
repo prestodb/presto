@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.facebook.presto.hdfs.metaserver;
 
 import com.facebook.presto.hdfs.HDFSColumnHandle;
@@ -124,16 +137,34 @@ public class MetaServerTest
     {
         // list tables whose database name is "test"
         List<SchemaTableName> namesWithDB = metaServer.listTables(new SchemaTablePrefix("test"));
+        List<SchemaTableName> expectedDB = new ArrayList<>();
+        SchemaTableName employee = new SchemaTableName("test", "employee");
+        SchemaTableName student = new SchemaTableName("test", "student");
+        expectedDB.add(employee);
+        expectedDB.add(student);
+
+        assertEqualsNoOrder(namesWithDB.toArray(), expectedDB.toArray());
         namesWithDB.stream().forEach(System.out::println);
+
         // list tables whose database name is "test" and table name is "student"
         List<SchemaTableName> namesWithTable = metaServer.listTables(new SchemaTablePrefix("test", "student"));
+        List<SchemaTableName> expectedTbl = new ArrayList<>();
+        expectedTbl.add(student);
+
+        assertEqualsNoOrder(namesWithTable.toArray(), expectedTbl.toArray());
         namesWithTable.stream().forEach(System.out::println);
     }
 
+    // DONE
     @Test
     public void testShowAllDatabases()
     {
         List<String> names = metaServer.getAllDatabases();
+        List<String> result = new ArrayList<>();
+        result.add("default");
+        result.add("test");
+
+        assertEqualsNoOrder(names.toArray(), result.toArray());
         names.stream().forEach(System.out::println);
     }
 
@@ -145,7 +176,9 @@ public class MetaServerTest
             fail("Get no table handle for table test.student");
         }
         HDFSTableHandle result = new HDFSTableHandle(connectorId, "test", "student", new Path("hdfs://127.0.0.1:9000/warehouse/test/student"));
+
         assertEquals(tableHandle, result);
+        System.out.println(tableHandle);
     }
 
     @Test
@@ -162,6 +195,7 @@ public class MetaServerTest
         HDFSTableLayoutHandle result = new HDFSTableLayoutHandle(handle, name, time, function, StorageFormat.PARQUET);
 
         assertEquals(tableLayoutHandle, result);
+        System.out.println(tableLayoutHandle);
     }
 
     @Test
@@ -184,6 +218,7 @@ public class MetaServerTest
         result.add(comment);
 
         assertEqualsNoOrder(metadatas.toArray(), result.toArray());
+        metadatas.stream().forEach(System.out::println);
     }
 
     @Test
@@ -199,7 +234,7 @@ public class MetaServerTest
         HDFSColumnHandle age = new HDFSColumnHandle("age", IntegerType.INTEGER, "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
         HDFSColumnHandle salary = new HDFSColumnHandle("salary", DoubleType.DOUBLE, "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
         HDFSColumnHandle time = new HDFSColumnHandle("time", TimestampType.TIMESTAMP, "", HDFSColumnHandle.ColumnType.TIME_COL, connectorId);
-        HDFSColumnHandle comment = new HDFSColumnHandle("comment", CharType.createCharType(10), "", HDFSColumnHandle.ColumnType.TIME_COL, connectorId);
+        HDFSColumnHandle comment = new HDFSColumnHandle("comment", CharType.createCharType(10), "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
         result.add(name);
         result.add(age);
         result.add(salary);
@@ -207,6 +242,7 @@ public class MetaServerTest
         result.add(comment);
 
         assertEqualsNoOrder(columns.toArray(), result.toArray());
+        columns.stream().forEach(System.out::println);
     }
 
     private class TestConnectorSession implements ConnectorSession
