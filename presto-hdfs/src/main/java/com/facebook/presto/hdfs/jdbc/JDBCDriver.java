@@ -120,8 +120,6 @@ public class JDBCDriver
         }
         catch (SQLException e) {
             log.error(e, "get metadata error");
-        }
-        finally {
             shutdown();
         }
         return null;

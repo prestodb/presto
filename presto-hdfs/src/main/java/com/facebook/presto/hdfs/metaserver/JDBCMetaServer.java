@@ -19,7 +19,7 @@ import com.facebook.presto.hdfs.HDFSDatabase;
 import com.facebook.presto.hdfs.HDFSTableHandle;
 import com.facebook.presto.hdfs.HDFSTableLayoutHandle;
 import com.facebook.presto.hdfs.StorageFormat;
-import com.facebook.presto.hdfs.exception.ArrayLengthNotMatchException;
+import com.facebook.presto.hdfs.exception.ColTypeNonValidException;
 import com.facebook.presto.hdfs.exception.MetaServerCorruptionException;
 import com.facebook.presto.hdfs.exception.RecordMoreLessException;
 import com.facebook.presto.hdfs.exception.TypeUnknownException;
@@ -61,6 +61,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -106,13 +107,13 @@ implements MetaServer
         sqlTable.putIfAbsent("dbs",
                 "CREATE TABLE DBS(ID BIGSERIAL PRIMARY KEY, NAME varchar(128) UNIQUE, LOCATION varchar(1000));");
         sqlTable.putIfAbsent("tbls",
-                "CREATE TABLE TBLS(ID BIGSERIAL PRIMARY KEY, DB_ID BIGINT, NAME varchar(128), DB_NAME varchar(128), LOCATION varchar(1000), STORAGE INT, FIB_FUNC INT, FIB_K BIGINT, TIME_K BIGINT); CREATE UNIQUE INDEX tableunique ON TBLS(NAME, DB_ID);");
+                "CREATE TABLE TBLS(ID BIGSERIAL PRIMARY KEY, DB_ID BIGINT, NAME varchar(128), DB_NAME varchar(128), LOCATION varchar(1000), STORAGE INT, FIB_K varchar(128), FIB_FUNC varchar(20), TIME_K varchar(128)); CREATE UNIQUE INDEX tableunique ON TBLS(NAME, DB_ID);");
         // COL_NAME: TBL_NAME.col_name;  COL_TYPE: FIBER_COL|TIME_COL|REGULAR;   TYPE:INT|DECIMAL|STRING|... refer to spi.StandardTypes
         sqlTable.putIfAbsent("cols",
-                "CREATE TABLE COLS(ID BIGSERIAL PRIMARY KEY, NAME varchar(128), TBL_ID BIGINT, TBL_NAME varchar(128), DB_NAME varchar(128), DATA_TYPE INT, COL_TYPE INT); CREATE UNIQUE INDEX colunique ON COLS(NAME, TBL_ID);");
+                "CREATE TABLE COLS(ID BIGSERIAL PRIMARY KEY, NAME varchar(128), TBL_ID BIGINT, TBL_NAME varchar(128), DB_NAME varchar(128), DATA_TYPE varchar(128), COL_TYPE varchar(128)); CREATE UNIQUE INDEX colunique ON COLS(NAME, TBL_ID);");
         sqlTable.putIfAbsent("fibers",
                 "CREATE TABLE FIBERS(ID BIGSERIAL PRIMARY KEY, TBL_ID BIGINT, FIBER_V bigint); CREATE UNIQUE INDEX fibersunique ON FIBERS(TBL_ID, FIBER_V);");
-        sqlTable.putIfAbsent("fiberfiles",
+        sqlTable.putIfAbsent("fiber_time",
                 "CREATE TABLE FIBERFILES(ID BIGSERIAL PRIMARY KEY, FIBER_ID BIGINT, TIME_B timestamp, TIME_E timestamp, PATH varchar(1024) UNIQUE);");
         fileSystem = fsFactory.getFS().get();
 
@@ -177,6 +178,22 @@ implements MetaServer
         return resultL;
     }
 
+    private String getDatabaseId(String db)
+    {
+        log.debug("Get database " + db);
+
+        String sql = "SELECT id FROM dbs WHERE name='" + db + "';";
+        String[] fields = {"id"};
+        List<JDBCRecord> records = jdbcDriver.executreQuery(sql, fields);
+
+        if (records.isEmpty()) {
+            log.debug("Find no database with name " + db);
+            return null;
+        }
+
+        return records.get(0).getString("id");
+    }
+
     @Override
     public List<SchemaTableName> listTables(SchemaTablePrefix prefix)
     {
@@ -187,28 +204,41 @@ implements MetaServer
         log.debug("listTables dbPrefix: " + dbPrefix);
         String tblPrefix = prefix.getTableName();
         log.debug("listTables tblPrefix: " + tblPrefix);
-        StringBuilder baseSql = new StringBuilder("SELECT name FROM tbls");
+        StringBuilder baseSql = new StringBuilder("SELECT name, db_name FROM tbls");
         // if dbPrefix not mean to match all
         if (dbPrefix != null) {
             baseSql.append(" WHERE db_name='").append(dbPrefix).append("'");
             // if tblPrefix not mean to match all
             if (tblPrefix != null) {
-                baseSql.append(" AND tbl_name='").append(tblPrefix).append("'");
+                baseSql.append(" AND name='").append(tblPrefix).append("'");
             }
         }
         baseSql.append(";");
         String tableName;
-        String[] fields = {"name"};
+        String dbName;
+        String[] fields = {"name, db_name"};
         records = jdbcDriver.executreQuery(baseSql.toString(), fields);
         if (records.size() == 0) {
             return tables;
         }
         for (JDBCRecord record : records) {
             tableName = record.getString(fields[0]);
-            log.debug("listTables tableName: " + tableName);
-            tables.add(new SchemaTableName(getDatabaseName(tableName), getTableName(tableName)));
+            dbName = record.getString(fields[1]);
+            log.debug("listTables tableName: " + formName(dbName, tableName));
+            tables.add(new SchemaTableName(dbName, tableName));
         }
         return tables;
+    }
+
+    private String getTableId(String databaseName, String tableName)
+    {
+        String sql = "SELECT id FROM tbls WHERE name='" + tableName + "' AND db_name='" + databaseName + "';";
+        String[] fields = {"id"};
+        List<JDBCRecord> records = jdbcDriver.executreQuery(sql, fields);
+        if (records.isEmpty()) {
+            return null;
+        }
+        return records.get(0).getString("id");
     }
 
 //    private Optional<HDFSTable> getTable(String databaseName, String tableName)
@@ -287,10 +317,12 @@ implements MetaServer
         log.debug("Get table layout " + formName(databaseName, tableName));
         HDFSTableLayoutHandle tableLayout;
         List<JDBCRecord> records;
-        String sql = "SELECT fiber_col, time_col, fiber_func FROM tbl_params WHERE tbl_name='"
-                + formName(databaseName, tableName)
+        String sql = "SELECT fib_k, time_k, fib_func FROM tbls WHERE name='"
+                + tableName
+                + "' AND db_name='"
+                + databaseName
                 + "';";
-        String[] fields = {"fiber_col", "time_col", "fiber_func"};
+        String[] fields = {"fib_k", "time_k", "fib_func"};
         records = jdbcDriver.executreQuery(sql, fields);
         if (records.size() != 1) {
             log.error("Match more/less than one table");
@@ -315,8 +347,8 @@ implements MetaServer
         }
 
         // construct ColumnHandle
-        HDFSColumnHandle fiberCol = getColumnHandle(connectorId, fiberColName);
-        HDFSColumnHandle timeCol = getColumnHandle(connectorId, timeColName);
+        HDFSColumnHandle fiberCol = getColumnHandle(connectorId, databaseName, tableName, fiberColName);
+        HDFSColumnHandle timeCol = getColumnHandle(connectorId, databaseName, tableName, timeColName);
 
         tableLayout = new HDFSTableLayoutHandle(tableHandle, fiberCol, timeCol, function, StorageFormat.PARQUET);
         return Optional.of(tableLayout);
@@ -332,11 +364,14 @@ implements MetaServer
         List<HDFSColumnHandle> columnHandles = new ArrayList<>();
         List<JDBCRecord> records;
         String colName;
-        String databaseTableName = formName(databaseName, tableName);
-        String sql = "SELECT col_name FROM cols WHERE tbl_name='"
-                + databaseTableName
+        String colTypeName;
+        String dataTypeName;
+        String sql = "SELECT name, col_type, data_type FROM cols WHERE tbl_name='"
+                + tableName
+                + "' AND db_name='"
+                + databaseName
                 + "';";
-        String[] colFields = {"col_name"};
+        String[] colFields = {"name, col_type, data_type"};
         records = jdbcDriver.executreQuery(sql, colFields);
         if (records.size() == 0) {
             log.warn("No col matches!");
@@ -344,7 +379,23 @@ implements MetaServer
         }
         for (JDBCRecord record : records) {
             colName = record.getString(colFields[0]);
-            columnHandles.add(getColumnHandle(connectorId, colName));
+            colTypeName = record.getString(colFields[1]);
+            dataTypeName = record.getString(colFields[2]);
+
+            // Deal with col type
+            HDFSColumnHandle.ColumnType colType = getColType(colTypeName);
+            if (colType == HDFSColumnHandle.ColumnType.NOTVALID) {
+                log.error("Col type non valid!");
+                throw new ColTypeNonValidException();
+            }
+            // Deal with data type
+            Type type = getType(dataTypeName);
+            if (type == UnknownType.UNKNOWN) {
+                log.error("Type unknown!");
+                throw new TypeUnknownException();
+            }
+
+            columnHandles.add(new HDFSColumnHandle(colName, type, "", colType, connectorId));
         }
         return Optional.of(columnHandles);
     }
@@ -355,44 +406,39 @@ implements MetaServer
         jdbcDriver.shutdown();
     }
 
-    private HDFSColumnHandle getColumnHandle(String connectorId, String databaseTableColName)
-    {
-        log.debug("Get handle of column " + databaseTableColName);
-        String databaseName = getDatabaseName(databaseTableColName);
-        String tableName = getTableName(databaseTableColName);
-        String colName = getColName(databaseTableColName);
-        return getColumnHandle(connectorId, colName, formName(databaseName, tableName, colName));
-    }
-
-    private HDFSColumnHandle getColumnHandle(String connectorId, String colName, String databaseTableColName)
+    private HDFSColumnHandle getColumnHandle(String connectorId, String colName, String tableName, String dbName)
     {
         List<JDBCRecord> records;
-        String sql = "SELECT col_type, type FROM cols WHERE col_name='"
-                + databaseTableColName
+        String sql = "SELECT col_type, data_type FROM cols WHERE name='"
+                + colName
+                + "' AND tbl_name='"
+                + tableName
+                + "' AND db_name='"
+                + dbName
                 + "';";
-        String[] colFields = {"col_type", "type"};
+        String[] colFields = {"col_type", "data_type"};
         records = jdbcDriver.executreQuery(sql, colFields);
         if (records.size() != 1) {
             log.error("Match more/less than one table");
             throw new RecordMoreLessException();
         }
         JDBCRecord fiberColRecord = records.get(0);
-//        String colTypeName = fiberColRecord.getString(colFields[0]);
+        String colTypeName = fiberColRecord.getString(colFields[0]);
         String typeName = fiberColRecord.getString(colFields[1]);
         records.clear();
-        // TODO Deal with colType
-//        HDFSColumnHandle.ColumnType colType = getColType(colTypeName);
-//        if (colType == HDFSColumnHandle.ColumnType.NOTVALID) {
-//            log.error("Col type non valid!");
-//            throw new ColTypeNonValidException();
-//        }
+        // Deal with colType
+        HDFSColumnHandle.ColumnType colType = getColType(colTypeName);
+        if (colType == HDFSColumnHandle.ColumnType.NOTVALID) {
+            log.error("Col type non valid!");
+            throw new ColTypeNonValidException();
+        }
         // Deal with type
         Type type = getType(typeName);
         if (type == UnknownType.UNKNOWN) {
             log.error("Type unknown!");
             throw new TypeUnknownException();
         }
-        return new HDFSColumnHandle(colName, type, "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
+        return new HDFSColumnHandle(colName, type, "", colType, connectorId);
     }
 
     public Optional<List<ColumnMetadata>> getTableColMetadata(String connectorId, String databaseName, String tableName)
@@ -400,55 +446,199 @@ implements MetaServer
         log.debug("Get list of column metadata of table " + formName(databaseName, tableName));
         List<ColumnMetadata> colMetadatas = new ArrayList<>();
         List<JDBCRecord> records;
-        String tblName = formName(databaseName, tableName);
-        String sql = "SELECT name FROM cols WHERE tbl_name='"
-                + tblName
+        String sql = "SELECT name, type, tbl_name, db_name FROM cols WHERE tbl_name='"
+                + tableName
+                + "' AND db_name='"
+                + databaseName
                 + "';";
-        String[] colFields = {"name"};
+        String[] colFields = {"name, type, tbl_name, db_name"};
         records = jdbcDriver.executreQuery(sql, colFields);
         if (records.size() == 0) {
             log.warn("No col matches!");
             return Optional.empty();
         }
-        records.forEach(record -> colMetadatas.add(getColMetadata(record.getString(colFields[0]))));
+        records.forEach(record -> {
+            String typeName = record.getString(colFields[1]);
+            Type type = getType(typeName);
+            if (type == UnknownType.UNKNOWN) {
+                log.error("Type unknown!");
+                throw new TypeUnknownException();
+            }
+            ColumnMetadata metadata = new ColumnMetadata(
+                    record.getString(colFields[0]),
+                    type,
+                    "",
+                    false);
+            colMetadatas.add(metadata);
+        });
         return Optional.of(colMetadatas);
     }
 
-    private ColumnMetadata getColMetadata(String databaseTableColName)
+//    private ColumnMetadata getColMetadata(String colName, String tblName, String dbName)
+//    {
+//        log.debug("Get metadata of col " + formName(dbName, tblName, colName));
+//        List<JDBCRecord> records;
+//        String sql = "SELECT type FROM cols WHERE name='"
+//                + colName
+//                + "' AND tbl_name='"
+//                + tblName
+//                + " AND db_name='"
+//                + dbName
+//                + "';";
+//        String[] colFields = {"type"};
+//        records = jdbcDriver.executreQuery(sql, colFields);
+//        if (records.size() != 1) {
+//            log.error("Match more/less than one table");
+//            throw new RecordMoreLessException();
+//        }
+//        JDBCRecord colRecord = records.get(0);
+//        String typeName = colRecord.getString(colFields[0]);
+//        Type type = getType(typeName);
+//        if (type == UnknownType.UNKNOWN) {
+//            log.error("Type unknown!");
+//            throw new TypeUnknownException();
+//        }
+//        return new ColumnMetadata(colName, type, "", false);
+//    }
+
+    @Override
+    public void createDatabase(ConnectorSession session, HDFSDatabase database)
     {
-        log.debug("Get metadata of col " + databaseTableColName);
-        String colName = getColName(databaseTableColName);
-        List<JDBCRecord> records;
-        String sql = "SELECT type FROM cols WHERE col_name='"
-                + databaseTableColName
-                + "';";
-        String[] colFields = {"type"};
-        records = jdbcDriver.executreQuery(sql, colFields);
-        if (records.size() != 1) {
-            log.error("Match more/less than one table");
-            throw new RecordMoreLessException();
-        }
-        JDBCRecord colRecord = records.get(0);
-        String typeName = colRecord.getString(colFields[0]);
-        Type type = getType(typeName);
-        if (type == UnknownType.UNKNOWN) {
-            log.error("Type unknown!");
-            throw new TypeUnknownException();
-        }
-        return new ColumnMetadata(colName, type, "", false);
+        createDatabase(database);
     }
 
-//    private HDFSColumnHandle.ColumnType getColType(String typeName)
-//    {
-//        log.debug("Get col type " + typeName);
-//        switch (typeName.toUpperCase()) {
-//            case "FIBER_COL": return HDFSColumnHandle.ColumnType.FIBER_COL;
-//            case "TIME_COL": return HDFSColumnHandle.ColumnType.TIME_COL;
-//            case "REGULAR": return HDFSColumnHandle.ColumnType.REGULAR;
-//            default : log.error("No match col type!");
-//                return HDFSColumnHandle.ColumnType.NOTVALID;
-//        }
-//    }
+    private void createDatabase(HDFSDatabase database)
+    {
+        database.setLocation(formPath(database.getName()).toString());
+        log.debug("Create database " + database.getName());
+        createDatabase(database.getName(),
+                database.getLocation());
+    }
+
+    private void createDatabase(String dbName, String dbPath)
+    {
+        StringBuilder sql = new StringBuilder();
+        sql.append("INSERT INTO dbs(name, location) VALUES('")
+                .append(dbName)
+                .append("', '")
+                .append(dbPath)
+                .append("');");
+        if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
+            // create hdfs dir
+            try {
+                log.debug("Sql: " + sql.toString());
+                log.debug("Create hdfs dir at " + dbPath);
+                fileSystem.mkdirs(new Path(dbPath));
+            }
+            catch (IOException e) {
+                log.error(e);
+            }
+        }
+        else {
+            log.error("Create database" + dbName + " failed!");
+        }
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        log.debug("Create table " + tableMetadata.getTable().getTableName());
+        String tableName = tableMetadata.getTable().getTableName();
+        String schemaName = tableMetadata.getTable().getSchemaName();
+        List<ColumnMetadata> columns = tableMetadata.getColumns();
+        String dbId = getDatabaseId(schemaName);
+
+        if (dbId == null) {
+            log.debug("No database with name " + schemaName + " found during creating table.");
+            return;
+        }
+
+        // get some more properties
+        String location = formPath(schemaName, tableName).toString();
+//        HDFSColumnHandle fiberCol = (HDFSColumnHandle) tableMetadata.getProperties().getOrDefault("fiber_col", "");
+//        HDFSColumnHandle timeCol = (HDFSColumnHandle) tableMetadata.getProperties().getOrDefault("time_col", "");
+        String fiberCol = "";
+        String timeCol = "";
+//        String fiberFunc = (String) tableMetadata.getProperties().getOrDefault("fiber_func", "");
+        String fiberFunc = "function0";
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("INSERT INTO tbls(db_id, name, db_name, location, storage, fib_k, fib_func, time_k) VALUES('")
+                .append(dbId)
+                .append("', '")
+                .append(tableName)
+                .append("', '")
+                .append(schemaName)
+                .append("', '")
+                .append(location)
+                .append("', '")
+                .append("parquet")
+                .append("', '")
+                .append(fiberCol)
+                .append("', '")
+                .append(fiberFunc)
+                .append("', '")
+                .append(timeCol)
+                .append("');");
+        if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
+            try {
+                log.debug("Create hdfs dir for " + formName(schemaName, tableName));
+                fileSystem.mkdirs(formPath(schemaName, tableName));
+            }
+            catch (IOException e) {
+                log.debug("Error sql: " + sql.toString());
+                log.error(e);
+                // TODO exit ?
+            }
+        }
+        else {
+            log.error("Create table " + formName(schemaName, tableName) + " failed!");
+        }
+
+        String tableId = getTableId(schemaName, tableName);
+
+        // add cols information
+        for (ColumnMetadata col : columns) {
+            String colType = "regular";
+            if (Objects.equals(col.getName(), fiberCol)) {
+                colType = "fiber";
+            }
+            if (Objects.equals(col.getName(), timeCol)) {
+                colType = "time";
+            }
+            sql.delete(0, sql.length() - 1);
+            sql.append("INSERT INTO cols(name, tbl_id, tbl_name, db_name, data_type, col_type) VALUES('")
+                    .append(col.getName())
+                    .append("', '")
+                    .append(tableId)
+                    .append("', '")
+                    .append(tableName)
+                    .append("', '")
+                    .append(schemaName)
+                    .append("', '")
+                    .append(col.getType())
+                    .append("', '")
+                    .append(colType)
+                    .append("');");
+            if (jdbcDriver.executeUpdate(sql.toString()) == 0) {
+                log.debug("Error sql: " + sql.toString());
+                log.error("Create cols for table " + formName(schemaName, tableName) + " failed!");
+                // TODO exit ?
+            }
+        }
+    }
+
+    private HDFSColumnHandle.ColumnType getColType(String typeName)
+    {
+        log.debug("Get col type " + typeName);
+        switch (typeName.toUpperCase()) {
+            case "FIBER_COL": return HDFSColumnHandle.ColumnType.FIBER_COL;
+            case "TIME_COL": return HDFSColumnHandle.ColumnType.TIME_COL;
+            case "REGULAR": return HDFSColumnHandle.ColumnType.REGULAR;
+            default : log.error("No match col type!");
+                return HDFSColumnHandle.ColumnType.NOTVALID;
+        }
+    }
 
     private Type getType(String typeName)
     {
@@ -506,116 +696,6 @@ implements MetaServer
         }
     }
 
-    @Override
-    public void createDatabase(ConnectorSession session, HDFSDatabase database)
-    {
-        createDatabase(database);
-    }
-
-    private void createDatabase(HDFSDatabase database)
-    {
-        database.setLocation(formPath(database.getName()).toString());
-        log.debug("Create database " + database.getName());
-        createDatabase(database.getName(),
-                database.getComment(),
-                database.getLocation(),
-                database.getOwner());
-    }
-
-    private void createDatabase(String dbName, String dbDesc, String dbPath, String owner)
-    {
-        StringBuilder sql = new StringBuilder();
-        sql.append("INSERT INTO dbs(db_name, db_desc, db_location_uri, db_owner) VALUES('")
-                .append(dbName)
-                .append("', '")
-                .append(dbDesc)
-                .append("', '")
-                .append(dbPath)
-                .append("', '")
-                .append(owner)
-                .append("');");
-        if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
-            // create hdfs dir
-            try {
-                log.debug("Sql: " + sql.toString());
-                log.debug("Create hdfs dir at " + dbPath);
-                fileSystem.mkdirs(new Path(dbPath));
-            }
-            catch (IOException e) {
-                log.error(e);
-            }
-        }
-        else {
-            log.error("Create database" + dbName + " failed!");
-        }
-    }
-
-    @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        log.debug("Create table " + tableMetadata.getTable().getTableName());
-        String tableName = tableMetadata.getTable().getTableName();
-        String schemaName = tableMetadata.getTable().getSchemaName();
-        List<ColumnMetadata> colums = tableMetadata.getColumns();
-
-        // get some more properties
-        String location = formPath(schemaName, tableName).toString();
-//        HDFSColumnHandle fiberCol = (HDFSColumnHandle) tableMetadata.getProperties().getOrDefault("fiber_col", "");
-//        HDFSColumnHandle timeCol = (HDFSColumnHandle) tableMetadata.getProperties().getOrDefault("time_col", "");
-        String fiberCol = "";
-        String timeCol = "";
-        String fiberFunc = (String) tableMetadata.getProperties().getOrDefault("fiber_func", "");
-
-        StringBuilder sql = new StringBuilder();
-        sql.append("INSERT INTO tbls(db_name, tbl_name, tbl_location_uri) VALUES('")
-                .append(schemaName)
-                .append("', '")
-                .append(formName(schemaName, tableName))
-                .append("', '")
-                .append(location)
-                .append("');")
-                .append("INSERT INTO tbl_params(tbl_name, fiber_col, time_col, fiber_func) VALUES('")
-                .append(formName(schemaName, tableName))
-                .append("', '")
-                .append(fiberCol)
-                .append("', '")
-                .append(timeCol)
-                .append("', '")
-                .append(fiberFunc)
-                .append("');");
-        if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
-            try {
-                log.debug("Create hdfs dir for " + formName(schemaName, tableName));
-                fileSystem.mkdirs(formPath(schemaName, tableName));
-            }
-            catch (IOException e) {
-                log.debug("Error sql: " + sql.toString());
-                log.error(e);
-                // TODO exit ?
-            }
-        }
-        else {
-            log.error("Create table " + formName(schemaName, tableName) + " failed!");
-        }
-
-        // add cols information
-        for (ColumnMetadata col : colums) {
-            sql.delete(0, sql.length() - 1);
-            sql.append("INSERT INTO cols(tbl_name, col_name, type) VALUES('")
-                    .append(formName(schemaName, tableName))
-                    .append("', '")
-                    .append(formName(schemaName, tableName, col.getName()))
-                    .append("', '")
-                    .append(col.getType())
-                    .append("');");
-            if (jdbcDriver.executeUpdate(sql.toString()) == 0) {
-                log.debug("Error sql: " + sql.toString());
-                log.error("Create cols for table " + formName(schemaName, tableName) + " failed!");
-                // TODO exit ?
-            }
-        }
-    }
-
     private Function parseFunction(String function)
     {
         switch (function) {
@@ -631,10 +711,10 @@ implements MetaServer
     }
 
     // from concatenated name from database and table and col
-    private String formName(String database, String table, String col)
-    {
-        return database + "." + table + "." + col;
-    }
+//    private String formName(String database, String table, String col)
+//    {
+//        return database + "." + table + "." + col;
+//    }
 
     private Path formPath(String dirOrFile1, String dirOrFile2)
     {
@@ -666,35 +746,5 @@ implements MetaServer
             dirOrFile = "/" + dirOrFile;
         }
         return Path.mergePaths(new Path(base), new Path(dirOrFile));
-    }
-
-    // get col name from database.table.col
-    private String getColName(String databaseTableColName)
-    {
-        String[] names = databaseTableColName.split("\\.");
-        if (names.length < 3) {
-            throw new ArrayLengthNotMatchException();
-        }
-        return names[2];
-    }
-
-    // get database name from database.table[.col]
-    private String getDatabaseName(String databaseTableColName)
-    {
-        String[] names = databaseTableColName.split("\\.");
-        if (names.length < 1) {
-            throw new ArrayLengthNotMatchException();
-        }
-        return names[0];
-    }
-
-    // get table name from database.table[.col]
-    private String getTableName(String databaseTableColName)
-    {
-        String[] names = databaseTableColName.split("\\.");
-        if (names.length < 2) {
-            throw new ArrayLengthNotMatchException();
-        }
-        return names[1];
     }
 }

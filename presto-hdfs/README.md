@@ -124,7 +124,7 @@ Table:
 | TBL_NAME | table name    | test             |
 | DB_NAME  | database name | default          |
 | DATA_TYPE| column type   | INT              |
-| COL_TYPE | fiber|time|.  | 0                |
+| COL_TYPE | fiber/time/.  | 0                |
 
 + FIBERS
 
@@ -138,6 +138,7 @@ Table:
 
 | field    | description   |        example          |
 |----------|---------------|-------------------------|
+| ID       | sequence id   | 0                       |
 | FIBER_ID | fiber id      | default                 |
 | TIME_B   | time begin val| "2012-01-01 12:00:00.00"|
 | TIME_E   | time end val  | "2012-01-01 12:03:33.00"|

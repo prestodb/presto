@@ -27,6 +27,7 @@ public class HDFSDatabase
     private final String comment;
     private final String owner;
     private String location;
+    private String id;
 
     @JsonCreator
     public HDFSDatabase(
@@ -61,9 +62,14 @@ public class HDFSDatabase
         return location;
     }
 
-    @JsonProperty
-    public String getOwner()
+    public void setId(String id)
     {
-        return owner;
+        this.id = id;
+    }
+
+    @JsonProperty
+    public String getId()
+    {
+        return id;
     }
 }
