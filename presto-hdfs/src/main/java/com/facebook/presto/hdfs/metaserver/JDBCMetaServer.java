@@ -110,13 +110,13 @@ implements MetaServer
         sqlTable.putIfAbsent("dbs",
                 "CREATE TABLE DBS(ID BIGSERIAL PRIMARY KEY, NAME varchar(128) UNIQUE, LOCATION varchar(1000));");
         sqlTable.putIfAbsent("tbls",
-                "CREATE TABLE TBLS(ID BIGSERIAL PRIMARY KEY, DB_ID BIGINT, NAME varchar(128), DB_NAME varchar(128), LOCATION varchar(1000), STORAGE INT, FIB_K varchar(128), FIB_FUNC varchar(20), TIME_K varchar(128)); CREATE UNIQUE INDEX tableunique ON TBLS(NAME, DB_ID);");
-        // COL_NAME: TBL_NAME.col_name;  COL_TYPE: FIBER_COL|TIME_COL|REGULAR;   TYPE:INT|DECIMAL|STRING|... refer to spi.StandardTypes
+                "CREATE TABLE TBLS(ID BIGSERIAL PRIMARY KEY, DB_ID BIGINT, NAME varchar(128), DB_NAME varchar(128), LOCATION varchar(1000), STORAGE varchar(20), FIB_K varchar(128), FIB_FUNC varchar(20), TIME_K varchar(128)); CREATE UNIQUE INDEX tableunique ON TBLS(NAME, DB_ID);");
+        // COL_NAME: TBL_NAME.col_name;  COL_TYPE: FIBER|TIME|REGULAR;   TYPE:INT|DECIMAL|STRING|... refer to spi.StandardTypes
         sqlTable.putIfAbsent("cols",
                 "CREATE TABLE COLS(ID BIGSERIAL PRIMARY KEY, NAME varchar(128), TBL_ID BIGINT, TBL_NAME varchar(128), DB_NAME varchar(128), DATA_TYPE varchar(128), COL_TYPE varchar(128)); CREATE UNIQUE INDEX colunique ON COLS(NAME, TBL_ID);");
         sqlTable.putIfAbsent("fibers",
                 "CREATE TABLE FIBERS(ID BIGSERIAL PRIMARY KEY, TBL_ID BIGINT, FIBER_V bigint); CREATE UNIQUE INDEX fibersunique ON FIBERS(TBL_ID, FIBER_V);");
-        sqlTable.putIfAbsent("fiber_time",
+        sqlTable.putIfAbsent("fiberfiles",
                 "CREATE TABLE FIBERFILES(ID BIGSERIAL PRIMARY KEY, FIBER_ID BIGINT, TIME_B timestamp, TIME_E timestamp, PATH varchar(1024) UNIQUE);");
         fileSystem = fsFactory.getFS().get();
 
@@ -221,6 +221,7 @@ implements MetaServer
         String dbName;
         String[] fields = {"name, db_name"};
         records = jdbcDriver.executreQuery(baseSql.toString(), fields);
+        log.info("record size: " + records.size());
         if (records.size() == 0) {
             return tables;
         }
@@ -316,7 +317,6 @@ implements MetaServer
     @Override
     public Optional<HDFSTableLayoutHandle> getTableLayout(String connectorId, String databaseName, String tableName)
     {
-        // TODO add fiberCol, timeCol, fiberFunc
         log.debug("Get table layout " + formName(databaseName, tableName));
         HDFSTableLayoutHandle tableLayout;
         List<JDBCRecord> records;
@@ -449,12 +449,12 @@ implements MetaServer
         log.debug("Get list of column metadata of table " + formName(databaseName, tableName));
         List<ColumnMetadata> colMetadatas = new ArrayList<>();
         List<JDBCRecord> records;
-        String sql = "SELECT name, type, tbl_name, db_name FROM cols WHERE tbl_name='"
+        String sql = "SELECT name, data_type, tbl_name, db_name FROM cols WHERE tbl_name='"
                 + tableName
                 + "' AND db_name='"
                 + databaseName
                 + "';";
-        String[] colFields = {"name, type, tbl_name, db_name"};
+        String[] colFields = {"name, data_type, tbl_name, db_name"};
         records = jdbcDriver.executreQuery(sql, colFields);
         if (records.size() == 0) {
             log.warn("No col matches!");
@@ -669,8 +669,8 @@ implements MetaServer
     {
         log.debug("Get col type " + typeName);
         switch (typeName.toUpperCase()) {
-            case "FIBER_COL": return HDFSColumnHandle.ColumnType.FIBER_COL;
-            case "TIME_COL": return HDFSColumnHandle.ColumnType.TIME_COL;
+            case "FIBER": return HDFSColumnHandle.ColumnType.FIBER_COL;
+            case "TIME": return HDFSColumnHandle.ColumnType.TIME_COL;
             case "REGULAR": return HDFSColumnHandle.ColumnType.REGULAR;
             default : log.error("No match col type!");
                 return HDFSColumnHandle.ColumnType.NOTVALID;

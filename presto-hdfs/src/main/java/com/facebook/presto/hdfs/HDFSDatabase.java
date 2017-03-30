@@ -24,8 +24,6 @@ import static java.util.Objects.requireNonNull;
 public class HDFSDatabase
 {
     private final String name;
-    private final String comment;
-    private final String owner;
     private String location;
     private String id;
 
@@ -34,21 +32,13 @@ public class HDFSDatabase
             @JsonProperty("name") String name)
     {
         this.name = requireNonNull(name, "name is null");
-        this.comment = "db " + name;
         this.location = "";
-        this.owner = "default";
     }
 
     @JsonProperty
     public String getName()
     {
         return name;
-    }
-
-    @JsonProperty
-    public String getComment()
-    {
-        return comment;
     }
 
     public void setLocation(String location)

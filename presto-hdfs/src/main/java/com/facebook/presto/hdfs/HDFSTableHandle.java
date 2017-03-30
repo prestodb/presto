@@ -19,6 +19,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.hadoop.fs.Path;
 
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -78,21 +80,29 @@ public class HDFSTableHandle
     @Override
     public int hashCode()
     {
-        // TODO hashCode
-        return 1;
+        return Objects.hash(connectorId, schemaName, tableName, path);
     }
 
     @Override
     public boolean equals(Object obj)
     {
-        // TODO equals
-        return true;
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        HDFSTableHandle other = (HDFSTableHandle) obj;
+        return Objects.equals(connectorId, other.connectorId) &&
+                Objects.equals(schemaName, other.schemaName) &&
+                Objects.equals(tableName, other.tableName) &&
+                Objects.equals(path, other.path);
     }
 
     @Override
     public String toString()
     {
-        // TODO toString
         return "Table[" + schemaName + "." + tableName + "]";
     }
 }
