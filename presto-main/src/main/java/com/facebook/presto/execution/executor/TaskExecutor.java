@@ -134,16 +134,18 @@ public class TaskExecutor
     private final TimeDistribution leafSplitWallTime = new TimeDistribution(MICROSECONDS);
     private final TimeDistribution intermediateSplitWallTime = new TimeDistribution(MICROSECONDS);
 
+    private final TimeDistribution leafSplitScheduledTime = new TimeDistribution(MICROSECONDS);
+    private final TimeDistribution intermediateSplitScheduledTime = new TimeDistribution(MICROSECONDS);
+
+    private final TimeDistribution leafSplitWaitTime = new TimeDistribution(MICROSECONDS);
+    private final TimeDistribution intermediateSplitWaitTime = new TimeDistribution(MICROSECONDS);
+
     // shared between SplitRunners
     private final CounterStat globalCpuTimeMicros = new CounterStat();
     private final CounterStat globalScheduledTimeMicros = new CounterStat();
 
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
-
-    // shared between TaskHandles
-    private final TimeDistribution leafSplitScheduledTime = new TimeDistribution(MICROSECONDS);
-    private final TimeDistribution intermediateSplitScheduledTime = new TimeDistribution(MICROSECONDS);
 
     private volatile boolean closed;
 
@@ -219,7 +221,7 @@ public class TaskExecutor
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
-        TaskHandle taskHandle = new TaskHandle(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, leafSplitScheduledTime, intermediateSplitScheduledTime);
+        TaskHandle taskHandle = new TaskHandle(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
         tasks.add(taskHandle);
         return taskHandle;
     }
@@ -303,11 +305,16 @@ public class TaskExecutor
 
             long wallNanos = System.nanoTime() - split.getCreatedNanos();
             splitWallTime.add(Duration.succinctNanos(wallNanos));
+
             if (intermediateSplits.remove(split)) {
                 intermediateSplitWallTime.add(wallNanos);
+                intermediateSplitScheduledTime.add(split.getScheduledNanos());
+                intermediateSplitWaitTime.add(split.getWaitNanos());
             }
             else {
                 leafSplitWallTime.add(wallNanos);
+                leafSplitScheduledTime.add(split.getScheduledNanos());
+                leafSplitWaitTime.add(split.getWaitNanos());
             }
 
             TaskHandle taskHandle = split.getTaskHandle();
@@ -461,6 +468,7 @@ public class TaskExecutor
                                 blocked.addListener(() -> {
                                     blockedSplits.remove(split);
                                     split.updatePriorityLevel();
+                                    split.setReady();
                                     waitingSplits.put(split);
                                 }, executor);
                             }

@@ -17,7 +17,6 @@ import com.facebook.presto.execution.SplitConcurrencyController;
 import com.facebook.presto.execution.TaskId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.stats.TimeDistribution;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -52,24 +51,13 @@ public class TaskHandle
     @GuardedBy("this")
     private final SplitConcurrencyController concurrencyController;
 
-    private final TimeDistribution leafSplitScheduledTime;
-    private final TimeDistribution intermediateSplitScheduledTime;
-
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
-    public TaskHandle(
-            TaskId taskId,
-            DoubleSupplier utilizationSupplier,
-            int initialSplitConcurrency,
-            Duration splitConcurrencyAdjustFrequency,
-            TimeDistribution leafSplitScheduledTime,
-            TimeDistribution intermediateSplitScheduledTime)
+    public TaskHandle(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
     {
         this.taskId = taskId;
         this.utilizationSupplier = utilizationSupplier;
         this.concurrencyController = new SplitConcurrencyController(initialSplitConcurrency, splitConcurrencyAdjustFrequency);
-        this.leafSplitScheduledTime = leafSplitScheduledTime;
-        this.intermediateSplitScheduledTime = intermediateSplitScheduledTime;
     }
 
     public synchronized long addThreadUsageNanos(long durationNanos)
@@ -147,12 +135,8 @@ public class TaskHandle
     public synchronized void splitComplete(PrioritizedSplitRunner split)
     {
         concurrencyController.splitFinished(split.getScheduledNanos(), utilizationSupplier.getAsDouble(), runningLeafSplits.size());
-        if (runningIntermediateSplits.remove(split)) {
-            intermediateSplitScheduledTime.add(split.getScheduledNanos());
-        }
-        if (runningLeafSplits.remove(split)) {
-            leafSplitScheduledTime.add(split.getScheduledNanos());
-        }
+        runningIntermediateSplits.remove(split);
+        runningLeafSplits.remove(split);
     }
 
     public int getNextSplitId()

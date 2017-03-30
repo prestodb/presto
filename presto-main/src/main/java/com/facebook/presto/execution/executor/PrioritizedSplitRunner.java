@@ -29,7 +29,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 class PrioritizedSplitRunner
@@ -59,9 +58,11 @@ class PrioritizedSplitRunner
     private final AtomicLong taskScheduledNanos = new AtomicLong();
 
     private final AtomicLong lastRun = new AtomicLong();
+    private final AtomicLong lastReady = new AtomicLong();
     private final AtomicLong start = new AtomicLong();
 
     private final AtomicLong scheduledNanos = new AtomicLong();
+    private final AtomicLong waitNanos = new AtomicLong();
     private final AtomicLong cpuTimeNanos = new AtomicLong();
     private final AtomicLong processCalls = new AtomicLong();
 
@@ -136,12 +137,26 @@ class PrioritizedSplitRunner
         return scheduledNanos.get();
     }
 
+    public long getCpuTimeNanos()
+    {
+        return cpuTimeNanos.get();
+    }
+
+    public long getWaitNanos()
+    {
+        return waitNanos.get();
+    }
+
     public ListenableFuture<?> process()
             throws Exception
     {
         try {
-            start.compareAndSet(0, ticker.read());
+            long startNanos = ticker.read();
+            start.compareAndSet(0, startNanos);
+            lastReady.compareAndSet(0, startNanos);
             processCalls.incrementAndGet();
+
+            waitNanos.getAndAdd(startNanos - lastReady.get());
 
             CpuTimer timer = new CpuTimer();
             ListenableFuture<?> blocked = split.processFor(SPLIT_RUN_QUANTA);
@@ -161,6 +176,7 @@ class PrioritizedSplitRunner
 
             if (blocked == NOT_BLOCKED) {
                 unblockedQuantaWallTime.add(elapsed.getWall());
+                setReady();
             }
             else {
                 blockedQuantaWallTime.add(elapsed.getWall());
@@ -170,7 +186,7 @@ class PrioritizedSplitRunner
             cpuTimeNanos.addAndGet(quantaCpuNanos);
 
             globalCpuTimeMicros.update(quantaCpuNanos / 1000);
-            globalScheduledTimeMicros.update(quantaWallNanos / 1000);
+            globalScheduledTimeMicros.update(quantaScheduledNanos / 1000);
 
             return blocked;
         }
@@ -220,6 +236,11 @@ class PrioritizedSplitRunner
         return splitId;
     }
 
+    public void setReady()
+    {
+        lastReady.set(ticker.read());
+    }
+
     public AtomicInteger getPriorityLevel()
     {
         return priorityLevel;
@@ -250,13 +271,14 @@ class PrioritizedSplitRunner
 
     public String getInfo()
     {
-        return String.format("Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, calls = %s)",
+        return String.format("Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",
                 taskHandle.getTaskId(),
                 splitId,
                 split.getInfo(),
                 start.get() / 1.0e6,
                 (int) ((ticker.read() - start.get()) / 1.0e6),
                 (int) (cpuTimeNanos.get() / 1.0e6),
+                (int) (waitNanos.get() / 1.0e6),
                 processCalls.get());
     }
 
