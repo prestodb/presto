@@ -31,24 +31,26 @@ public class CreateTable
     private final List<TableElement> elements;
     private final boolean notExists;
     private final Map<String, Expression> properties;
+    private final Optional<String> comment;
 
-    public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties, Optional<String> comment)
     {
-        this(Optional.empty(), name, elements, notExists, properties);
+        this(Optional.empty(), name, elements, notExists, properties, comment);
     }
 
-    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties, Optional<String> comment)
     {
-        this(Optional.of(location), name, elements, notExists, properties);
+        this(Optional.of(location), name, elements, notExists, properties, comment);
     }
 
-    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "table is null");
         this.elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
         this.notExists = notExists;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public QualifiedName getName()
@@ -71,6 +73,11 @@ public class CreateTable
         return properties;
     }
 
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -89,7 +96,7 @@ public class CreateTable
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, elements, notExists, properties);
+        return Objects.hash(name, elements, notExists, properties, comment);
     }
 
     @Override
@@ -105,7 +112,8 @@ public class CreateTable
         return Objects.equals(name, o.name) &&
                 Objects.equals(elements, o.elements) &&
                 Objects.equals(notExists, o.notExists) &&
-                Objects.equals(properties, o.properties);
+                Objects.equals(properties, o.properties) &&
+                Objects.equals(comment, o.comment);
     }
 
     @Override
@@ -116,6 +124,7 @@ public class CreateTable
                 .add("elements", elements)
                 .add("notExists", notExists)
                 .add("properties", properties)
+                .add("comment", comment)
                 .toString();
     }
 }

@@ -431,7 +431,12 @@ final class ShowQueriesRewrite
                     sqlProperties.put(propertyName, sqlExpression);
                 }
 
-                CreateTable createTable = new CreateTable(QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()), columns, false, sqlProperties);
+                CreateTable createTable = new CreateTable(
+                        QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
+                        columns,
+                        false,
+                        sqlProperties,
+                        Optional.empty());
                 return singleValueQuery("Create Table", formatSql(createTable, Optional.of(parameters)).trim());
             }
 

@@ -13,6 +13,7 @@ Synopsis
       | LIKE existing_table_name [ { INCLUDING | EXCLUDING } PROPERTIES ] }
       [, ...]
     )
+    [ COMMENT table_comment ]
     [ WITH ( property_name = expression [, ...] ) ]
 
 
@@ -54,7 +55,8 @@ Create a new table ``orders``::
     )
     WITH (format = 'ORC')
 
-Create the table ``orders`` if it does not already exist, adding a comment::
+Create the table ``orders`` if it does not already exist, adding a table comment
+and a column comment::
 
     CREATE TABLE IF NOT EXISTS orders (
       orderkey bigint,
@@ -62,6 +64,7 @@ Create the table ``orders`` if it does not already exist, adding a comment::
       totalprice double COMMENT 'Price in cents.',
       orderdate date
     )
+    COMMENT 'A table to keep track of orders.'
 
 Create the table ``bigger_orders`` using the columns from ``orders``
 plus additional columns at the start and end::

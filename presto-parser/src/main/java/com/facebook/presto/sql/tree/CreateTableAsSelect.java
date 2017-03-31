@@ -32,18 +32,19 @@ public class CreateTableAsSelect
     private final boolean notExists;
     private final Map<String, Expression> properties;
     private final boolean withData;
+    private final Optional<String> comment;
 
-    public CreateTableAsSelect(QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData)
+    public CreateTableAsSelect(QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<String> comment)
     {
-        this(Optional.empty(), name, query, notExists, properties, withData);
+        this(Optional.empty(), name, query, notExists, properties, withData, comment);
     }
 
-    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData)
+    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<String> comment)
     {
-        this(Optional.of(location), name, query, notExists, properties, withData);
+        this(Optional.of(location), name, query, notExists, properties, withData, comment);
     }
 
-    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData)
+    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -51,6 +52,7 @@ public class CreateTableAsSelect
         this.notExists = notExists;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.withData = withData;
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public QualifiedName getName()
@@ -78,6 +80,11 @@ public class CreateTableAsSelect
         return withData;
     }
 
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -96,7 +103,7 @@ public class CreateTableAsSelect
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, properties, withData);
+        return Objects.hash(name, query, properties, withData, comment);
     }
 
     @Override
@@ -113,7 +120,8 @@ public class CreateTableAsSelect
                 && Objects.equals(query, o.query)
                 && Objects.equals(notExists, o.notExists)
                 && Objects.equals(properties, o.properties)
-                && Objects.equals(withData, o.withData);
+                && Objects.equals(withData, o.withData)
+                && Objects.equals(comment, o.comment);
     }
 
     @Override
@@ -125,6 +133,7 @@ public class CreateTableAsSelect
                 .add("notExists", notExists)
                 .add("properties", properties)
                 .add("withData", withData)
+                .add("comment", comment)
                 .toString();
     }
 }
