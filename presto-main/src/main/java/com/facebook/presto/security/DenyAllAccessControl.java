@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySetCata
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTables;
 
 public class DenyAllAccessControl
         implements AccessControl
@@ -100,7 +101,7 @@ public class DenyAllAccessControl
     @Override
     public void checkCanShowTables(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
     {
-        denyShowSchemas(schema.toString());
+        denyShowTables(schema.toString());
     }
 
     @Override
