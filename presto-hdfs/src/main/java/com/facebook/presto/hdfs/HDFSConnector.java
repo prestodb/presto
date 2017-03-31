@@ -23,8 +23,12 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -40,6 +44,8 @@ implements Connector
     private final HDFSSplitManager hdfsSplitManager;
     private final HDFSPageSourceProvider hdfsPageSourceProvider;
 //    private final ConnectorNodePartitioningProvider nodePartitioningProvider;
+
+    private final ConcurrentMap<ConnectorTransactionHandle, HDFSMetadata> transactions = new ConcurrentHashMap<>();
 
     @Inject
     public HDFSConnector(
@@ -59,7 +65,9 @@ implements Connector
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
-        return HDFSTransactionHandle.INSTANCE;
+        HDFSTransactionHandle transaction = new HDFSTransactionHandle();
+        transactions.putIfAbsent(transaction, hdfsMetadataFactory.create());
+        return transaction;
     }
 
     /**
@@ -71,6 +79,8 @@ implements Connector
     @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
+        HDFSMetadata metadata = transactions.get(transactionHandle);
+        checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
         return hdfsMetadataFactory.create();
     }
 
@@ -84,6 +94,12 @@ implements Connector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return hdfsPageSourceProvider;
+    }
+
+    @Override
+    public void commit(ConnectorTransactionHandle transaction)
+    {
+        checkArgument(transactions.remove(transaction) != null, "no such transaction: %s", transaction);
     }
 
     /**

@@ -35,7 +35,7 @@
 //public class ParquetUtils
 //{
 //    private Configuration conf = new Configuration();
-//    private final String path = "hdfs://127.0.0.1:9000/presto/parquettest/student/student.parquet";
+//    private final String path = "hdfs://127.0.0.1:9000/warehouse/default/book/book01.parquet";
 //    private final int blockSize = 256 * 1024 * 1024;
 //    private final int pageSize = 6 * 1024;
 //    private final int dictionaryPageSize = 512;
@@ -43,10 +43,10 @@
 //    private final boolean validating = false;
 //    private final CompressionCodecName compressionCodecName = CompressionCodecName.UNCOMPRESSED;
 //    private final ParquetProperties.WriterVersion writerVersion = ParquetProperties.WriterVersion.PARQUET_2_0;
-//    private final MessageType schema = MessageTypeParser.parseMessageType("message student {" +
-//            "required int32 id; " +
-//            "required int32 age; " +
-//            "required int32 grade; " +
+//    private final MessageType schema = MessageTypeParser.parseMessageType("message book {" +
+//            "required binary name; " +
+//            "required double price; " +
+//            "required int64 publishtime; " +
 //            "}");
 //    private GroupWriteSupport groupWriteSupport = new GroupWriteSupport();
 //    private SimpleGroupFactory simpleGroupFactory = new SimpleGroupFactory(schema);
@@ -70,12 +70,12 @@
 //                    writerVersion,
 //                    conf
 //            );
-//            for (int i = 0; i < 100000; i++) {
+//            for (int i = 0; i < 10; i++) {
 //                parquetWriter.write(
 //                        simpleGroupFactory.newGroup()
-//                        .append("id", i)
-//                        .append("age", i)
-//                        .append("grade", i)
+//                        .append("name", "harry potter")
+//                        .append("price", 10.0)
+//                        .append("publishtime", System.currentTimeMillis())
 //                );
 //            }
 //            parquetWriter.close();
@@ -83,5 +83,10 @@
 //        catch (IOException e) {
 //            e.printStackTrace();
 //        }
+//    }
+//
+//    @Test
+//    public void read()
+//    {
 //    }
 //}
