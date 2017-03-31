@@ -47,6 +47,7 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingConnectorSession;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -205,7 +206,10 @@ public abstract class AbstractTestHiveClientS3
                 TYPE_MANAGER,
                 new HiveClientConfig(),
                 locationService,
-                partitionUpdateCodec);
+                partitionUpdateCodec,
+                new TestingNodeManager("fake-environment"),
+                new HiveEventClient(),
+                new HiveSessionProperties(hiveClientConfig));
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
 

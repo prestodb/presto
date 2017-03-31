@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingConnectorSession;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -237,7 +238,10 @@ public class TestHivePageSink
                 TYPE_MANAGER,
                 config,
                 new HiveLocationService(hdfsEnvironment),
-                partitionUpdateCodec);
+                partitionUpdateCodec,
+                new TestingNodeManager("fake-environment"),
+                new HiveEventClient(),
+                new HiveSessionProperties(config));
         return provider.createPageSink(transaction, getSession(config), handle);
     }
 
