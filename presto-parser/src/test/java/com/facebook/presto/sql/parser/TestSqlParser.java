@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -42,6 +43,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -54,6 +56,8 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.GrantRoles;
+import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
@@ -77,6 +81,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
+import com.facebook.presto.sql.tree.PrincipalSpecification;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
@@ -86,12 +91,17 @@ import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
+import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowRoleGrants;
+import com.facebook.presto.sql.tree.ShowRoles;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
@@ -114,6 +124,7 @@ import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
@@ -1325,13 +1336,32 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("GRANT INSERT, DELETE ON t TO u",
-                new Grant(Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), "u", false));
-        assertStatement("GRANT SELECT ON t TO PUBLIC WITH GRANT OPTION",
-                new Grant(Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), "PUBLIC", true));
-        assertStatement("GRANT ALL PRIVILEGES ON t TO u",
-                new Grant(Optional.empty(), false, QualifiedName.of("t"), "u", false));
-        assertStatement("GRANT taco ON t TO PUBLIC WITH GRANT OPTION",
-                new Grant(Optional.of(ImmutableList.of("taco")), false, QualifiedName.of("t"), "PUBLIC", true));
+                new Grant(
+                        Optional.of(ImmutableList.of("INSERT", "DELETE")),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "u"),
+                        false));
+        assertStatement("GRANT SELECT ON t TO ROLE PUBLIC WITH GRANT OPTION",
+                new Grant(
+                        Optional.of(ImmutableList.of("SELECT")),
+                        false, QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "PUBLIC"),
+                        true));
+        assertStatement("GRANT ALL PRIVILEGES ON t TO USER u",
+                new Grant(
+                        Optional.empty(),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, "u"),
+                        false));
+        assertStatement("GRANT taco ON t TO ROLE public WITH GRANT OPTION",
+                new Grant(
+                        Optional.of(ImmutableList.of("taco")),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "public"),
+                        true));
     }
 
     @Test
@@ -1339,13 +1369,74 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("REVOKE INSERT, DELETE ON t FROM u",
-                new Revoke(false, Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), "u"));
-        assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM PUBLIC",
-                new Revoke(true, Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), "PUBLIC"));
-        assertStatement("REVOKE ALL PRIVILEGES ON TABLE t FROM u",
-                new Revoke(false, Optional.empty(), true, QualifiedName.of("t"), "u"));
+                new Revoke(
+                        false,
+                        Optional.of(ImmutableList.of("INSERT", "DELETE")),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "u")));
+        assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM ROLE PUBLIC",
+                new Revoke(
+                        true,
+                        Optional.of(ImmutableList.of("SELECT")),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "PUBLIC")));
+        assertStatement("REVOKE ALL PRIVILEGES ON TABLE t FROM USER u",
+                new Revoke(
+                        false,
+                        Optional.empty(),
+                        true,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, "u")));
         assertStatement("REVOKE taco ON TABLE t FROM u",
-                new Revoke(false, Optional.of(ImmutableList.of("taco")), true, QualifiedName.of("t"), "u"));
+                new Revoke(
+                        false,
+                        Optional.of(ImmutableList.of("taco")),
+                        true,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "u")));
+    }
+
+    @Test
+    public void testShowGrants()
+            throws Exception
+    {
+        assertStatement("SHOW GRANTS ON TABLE t",
+                new ShowGrants(true, Optional.of(QualifiedName.of("t")), false));
+        assertStatement("SHOW GRANTS ON t",
+                new ShowGrants(false, Optional.of(QualifiedName.of("t")), false));
+        assertStatement("SHOW GRANTS ON ALL",
+                new ShowGrants(false, Optional.empty(), true));
+    }
+
+    @Test
+    public void testShowRoles()
+            throws Exception
+    {
+        assertStatement("SHOW ROLES",
+                new ShowRoles(Optional.empty(), false));
+        assertStatement("SHOW ROLES FROM foo",
+                new ShowRoles(Optional.of("foo"), false));
+        assertStatement("SHOW ROLES IN foo",
+                new ShowRoles(Optional.of("foo"), false));
+
+        assertStatement("SHOW CURRENT ROLES",
+                new ShowRoles(Optional.empty(), true));
+        assertStatement("SHOW CURRENT ROLES FROM foo",
+                new ShowRoles(Optional.of("foo"), true));
+        assertStatement("SHOW CURRENT ROLES IN foo",
+                new ShowRoles(Optional.of("foo"), true));
+    }
+
+    @Test
+    public void testShowRoleGrants()
+            throws Exception
+    {
+        assertStatement("SHOW ROLE GRANTS",
+                new ShowRoleGrants(Optional.empty(), Optional.empty()));
+        assertStatement("SHOW ROLE GRANTS FROM catalog",
+                new ShowRoleGrants(Optional.of("catalog")));
     }
 
     @Test
@@ -1744,6 +1835,240 @@ public class TestSqlParser
                         identifier("col1"),
                         new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))
                 ));
+    }
+
+    @Test
+    public void testCreateRole()
+            throws Exception
+    {
+        assertStatement("CREATE ROLE role", new CreateRole("role", Optional.empty(), Optional.empty()));
+        assertStatement("CREATE ROLE role1 WITH ADMIN admin",
+                new CreateRole(
+                        "role1",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "admin")))),
+                        Optional.empty()));
+        assertStatement("CREATE ROLE role2 WITH ADMIN admin1 IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "admin1")))),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE role3 IN catalog1",
+                new CreateRole(
+                        "role3",
+                        Optional.empty(),
+                        Optional.of("catalog1")));
+        assertStatement("CREATE ROLE \"role\" WITH ADMIN \"admin\" IN \"catalog\"",
+                new CreateRole(
+                        "role",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "admin")))),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE \"ro le\" WITH ADMIN \"ad min\" IN \"ca talog\"",
+                new CreateRole(
+                        "ro le",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "ad min")))),
+                        Optional.of("ca talog")));
+        assertStatement("CREATE ROLE \"!@#$%^&*'\" WITH ADMIN \"ад\"\"мін\" IN \"カタログ\"",
+                new CreateRole(
+                        "!@#$%^&*'",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "ад\"\"мін")))),
+                        Optional.of("カタログ")));
+        assertStatement("CREATE ROLE role2 WITH ADMIN USER admin1 IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, "admin1")))),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE role2 WITH ADMIN ROLE role1 IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role1")))),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE role2 WITH ADMIN CURRENT_USER IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.CURRENT_USER,
+                                Optional.empty())),
+                        Optional.of("catalog")));
+        assertStatement("CREATE ROLE role2 WITH ADMIN CURRENT_ROLE IN catalog",
+                new CreateRole(
+                        "role2",
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.CURRENT_ROLE,
+                                Optional.empty())),
+                        Optional.of("catalog")));
+    }
+
+    @Test
+    public void testDropRole()
+            throws Exception
+    {
+        assertStatement("DROP ROLE role", new DropRole("role", Optional.empty()));
+        assertStatement("DROP ROLE role1 IN catalog", new DropRole("role1", Optional.of("catalog")));
+        assertStatement("DROP ROLE \"role\" IN \"catalog\"", new DropRole("role", Optional.of("catalog")));
+        assertStatement("DROP ROLE \"ro le\" IN \"ca talog\"", new DropRole("ro le", Optional.of("ca talog")));
+        assertStatement("DROP ROLE \"!@#$%^&*'ад\"\"мін\" IN \"カタログ\"", new DropRole("!@#$%^&*'ад\"\"мін", Optional.of("カタログ")));
+    }
+
+    @Test
+    public void testGrantRoles()
+            throws Exception
+    {
+        assertStatement("GRANT role1 TO user1",
+                new GrantRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "user1")),
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+        assertStatement("GRANT role1, role2, role3 TO user1, USER user2, ROLE role4 WITH ADMIN OPTION",
+                new GrantRoles(
+                        ImmutableSet.of("role1", "role2", "role3"),
+                        ImmutableSet.of(
+                                new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "user1"),
+                                new PrincipalSpecification(PrincipalSpecification.Type.USER, "user2"),
+                                new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role4")),
+                        true,
+                        Optional.empty(),
+                        Optional.empty()));
+        assertStatement("GRANT role1 TO user1 WITH ADMIN OPTION GRANTED BY admin",
+                new GrantRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "user1")),
+                        true,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "admin")))),
+                        Optional.empty()));
+        assertStatement("GRANT role1 TO USER user1 WITH ADMIN OPTION GRANTED BY USER admin",
+                new GrantRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, "user1")),
+                        true,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, "admin")))),
+                        Optional.empty()));
+        assertStatement("GRANT role1 TO ROLE role2 WITH ADMIN OPTION GRANTED BY ROLE admin",
+                new GrantRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role2")),
+                        true,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "admin")))),
+                        Optional.empty()));
+        assertStatement("GRANT role1 TO ROLE role2 WITH ADMIN OPTION GRANTED BY ROLE admin IN catalog",
+                new GrantRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role2")),
+                        true,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "admin")))),
+                        Optional.of("catalog")));
+        assertStatement("GRANT role1 TO ROLE role2 GRANTED BY ROLE admin",
+                new GrantRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role2")),
+                        false,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "admin")))),
+                        Optional.empty()));
+        assertStatement("GRANT role1 TO ROLE role2 GRANTED BY ROLE admin IN catalog",
+                new GrantRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role2")),
+                        false,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "admin")))),
+                        Optional.of("catalog")));
+    }
+
+    @Test
+    public void testRevokeRoles()
+            throws Exception
+    {
+        assertStatement("REVOKE role1 FROM user1",
+                new RevokeRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "user1")),
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+        assertStatement("REVOKE ADMIN OPTION FOR role1, role2, role3 FROM user1, USER user2, ROLE role4",
+                new RevokeRoles(
+                        ImmutableSet.of("role1", "role2", "role3"),
+                        ImmutableSet.of(
+                                new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "user1"),
+                                new PrincipalSpecification(PrincipalSpecification.Type.USER, "user2"),
+                                new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role4")),
+                        true,
+                        Optional.empty(),
+                        Optional.empty()));
+        assertStatement("REVOKE ADMIN OPTION FOR role1 FROM user1 GRANTED BY admin",
+                new RevokeRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "user1")),
+                        true,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, "admin")))),
+                        Optional.empty()));
+        assertStatement("REVOKE ADMIN OPTION FOR role1 FROM USER user1 GRANTED BY USER admin",
+                new RevokeRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, "user1")),
+                        true,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, "admin")))),
+                        Optional.empty()));
+        assertStatement("REVOKE role1 FROM ROLE role2 GRANTED BY ROLE admin",
+                new RevokeRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role2")),
+                        false,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "admin")))),
+                        Optional.empty()));
+        assertStatement("REVOKE role1 FROM ROLE role2 GRANTED BY ROLE admin IN catalog",
+                new RevokeRoles(
+                        ImmutableSet.of("role1"),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "role2")),
+                        false,
+                        Optional.of(new GrantorSpecification(
+                                GrantorSpecification.Type.PRINCIPAL,
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, "admin")))),
+                        Optional.of("catalog")));
+    }
+
+    @Test
+    public void testSetRole()
+            throws Exception
+    {
+        assertStatement("SET ROLE ALL", new SetRole(SetRole.Type.ALL, Optional.empty(), Optional.empty()));
+        assertStatement("SET ROLE NONE", new SetRole(SetRole.Type.NONE, Optional.empty(), Optional.empty()));
+        assertStatement("SET ROLE role", new SetRole(SetRole.Type.ROLE, Optional.of("role"), Optional.empty()));
+        assertStatement("SET ROLE ALL IN catalog", new SetRole(SetRole.Type.ALL, Optional.empty(), Optional.of("catalog")));
+        assertStatement("SET ROLE NONE IN catalog", new SetRole(SetRole.Type.NONE, Optional.empty(), Optional.of("catalog")));
+        assertStatement("SET ROLE role IN catalog", new SetRole(SetRole.Type.ROLE, Optional.of("role"), Optional.of("catalog")));
     }
 
     private static void assertCast(String type)

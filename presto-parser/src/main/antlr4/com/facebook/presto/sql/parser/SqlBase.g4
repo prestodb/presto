@@ -51,14 +51,33 @@ statement
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
+    | CREATE ROLE name=identifier
+        (WITH ADMIN grantor)?
+        (IN catalog=identifier)?                                       #createRole
+    | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
+    | GRANT
+        roles
+        TO principal (',' principal)*
+        (WITH ADMIN OPTION)?
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #grantRoles
+    | REVOKE
+        (ADMIN OPTION FOR)?
+        roles
+        FROM principal (',' principal)*
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #revokeRoles
+    | SET ROLE (ALL | NONE | role=identifier) (IN catalog=identifier)? #setRole
     | GRANT
         (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON TABLE? qualifiedName TO grantee=identifier
+        ON TABLE? qualifiedName TO grantee=principal
         (WITH GRANT OPTION)?                                           #grant
     | REVOKE
         (GRANT OPTION FOR)?
         (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON TABLE? qualifiedName FROM grantee=identifier                #revoke
+        ON TABLE? qualifiedName FROM grantee=principal                #revoke
+    | SHOW GRANTS
+        ON (ALL | TABLE? qualifiedName)                                #showGrants
     | EXPLAIN ANALYZE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
@@ -67,6 +86,8 @@ statement
     | SHOW SCHEMAS ((FROM | IN) identifier)? (LIKE pattern=STRING)?    #showSchemas
     | SHOW CATALOGS (LIKE pattern=STRING)?                             #showCatalogs
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
+    | SHOW CURRENT? ROLES ((FROM | IN) identifier)?                    #showRoles
+    | SHOW ROLE GRANTS ((FROM | IN) identifier)?                       #showRoleGrants
     | DESCRIBE qualifiedName                                           #showColumns
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS                                                   #showFunctions
@@ -413,6 +434,22 @@ qualifiedName
     : identifier ('.' identifier)*
     ;
 
+grantor
+    : principal             #specifiedPrincipal
+    | CURRENT_USER          #currentUser
+    | CURRENT_ROLE          #currentRole
+    ;
+
+principal
+    : identifier            #unspecifiedPrincipal
+    | USER identifier       #userPrincipal
+    | ROLE identifier       #rolePrincipal
+    ;
+
+roles
+    : identifier (',' identifier)*
+    ;
+
 identifier
     : IDENTIFIER             #unquotedIdentifier
     | quotedIdentifier       #quotedIdentifierAlternative
@@ -450,12 +487,13 @@ nonReserved
     | SERIALIZABLE | REPEATABLE | COMMITTED | UNCOMMITTED | READ | WRITE | ONLY
     | COMMENT
     | CALL
-    | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
+    | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION | GRANTS
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
     | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
-    | ALL | SOME | ANY
+    | NONE | ALL | SOME | ANY
+    | USER | ROLE | ADMIN | GRANTED | ROLES
     ;
 
 normalForm
@@ -561,11 +599,19 @@ DELETE: 'DELETE';
 INTO: 'INTO';
 CONSTRAINT: 'CONSTRAINT';
 DESCRIBE: 'DESCRIBE';
+USER: 'USER';
+ROLE: 'ROLE';
+CURRENT_USER: 'CURRENT_USER';
+CURRENT_ROLE: 'CURRENT_ROLE';
+ADMIN: 'ADMIN';
 GRANT: 'GRANT';
 REVOKE: 'REVOKE';
+GRANTED: 'GRANTED';
 PRIVILEGES: 'PRIVILEGES';
 PUBLIC: 'PUBLIC';
 OPTION: 'OPTION';
+GRANTS: 'GRANTS';
+ROLES: 'ROLES';
 EXPLAIN: 'EXPLAIN';
 ANALYZE: 'ANALYZE';
 FORMAT: 'FORMAT';
@@ -630,6 +676,7 @@ RESTRICT: 'RESTRICT';
 INCLUDING: 'INCLUDING';
 EXCLUDING: 'EXCLUDING';
 PROPERTIES: 'PROPERTIES';
+NONE: 'NONE';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';

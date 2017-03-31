@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -29,6 +30,7 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -40,6 +42,8 @@ import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.GrantRoles;
+import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Isolation;
@@ -52,6 +56,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Prepare;
+import com.facebook.presto.sql.tree.PrincipalSpecification;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -61,17 +66,22 @@ import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
+import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowRoleGrants;
+import com.facebook.presto.sql.tree.ShowRoles;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
@@ -821,6 +831,34 @@ public final class SqlFormatter
                     .collect(joining("."));
         }
 
+        private static String formatGrantor(GrantorSpecification grantor)
+        {
+            GrantorSpecification.Type type = grantor.getType();
+            switch (type) {
+                case CURRENT_ROLE:
+                case CURRENT_USER:
+                    return type.toString();
+                case PRINCIPAL:
+                    return formatPrincipal(grantor.getPrincipal().get());
+                default:
+                    throw new IllegalArgumentException("Unsupported principal type: " + type);
+            }
+        }
+
+        private static String formatPrincipal(PrincipalSpecification principal)
+        {
+            PrincipalSpecification.Type type = principal.getType();
+            switch (type) {
+                case UNSPECIFIED:
+                    return formatName(principal.getName());
+                case USER:
+                case ROLE:
+                    return type.toString() + " " + formatName(principal.getName());
+                default:
+                    throw new IllegalArgumentException("Unsupported principal type: " + type);
+            }
+        }
+
         @Override
         protected Void visitDropTable(DropTable node, Integer context)
         {
@@ -1001,6 +1039,113 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateRole(CreateRole node, Integer context)
+        {
+            builder.append("CREATE ROLE ").append(formatName(node.getName()));
+            if (node.getGrantor().isPresent()) {
+                builder.append(" WITH ADMIN ").append(formatGrantor(node.getGrantor().get()));
+            }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(formatName(node.getCatalog().get()));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitDropRole(DropRole node, Integer context)
+        {
+            builder.append("DROP ROLE ").append(formatName(node.getName()));
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(formatName(node.getCatalog().get()));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitGrantRoles(GrantRoles node, Integer context)
+        {
+            builder.append("GRANT ");
+            Iterator<String> roles = node.getRoles().iterator();
+            while (roles.hasNext()) {
+                builder.append(formatName(roles.next()));
+                if (roles.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            builder.append(" TO ");
+            Iterator<PrincipalSpecification> grantees = node.getGrantees().iterator();
+            while (grantees.hasNext()) {
+                builder.append(formatPrincipal(grantees.next()));
+                if (grantees.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            if (node.isWithAdminOption()) {
+                builder.append(" WITH ADMIN OPTION");
+            }
+            if (node.getGrantor().isPresent()) {
+                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+            }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(formatName(node.getCatalog().get()));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitRevokeRoles(RevokeRoles node, Integer context)
+        {
+            builder.append("REVOKE ");
+            if (node.isAdminOptionFor()) {
+                builder.append("ADMIN OPTION FOR ");
+            }
+            Iterator<String> roles = node.getRoles().iterator();
+            while (roles.hasNext()) {
+                builder.append(formatName(roles.next()));
+                if (roles.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            builder.append(" FROM ");
+            Iterator<PrincipalSpecification> grantees = node.getGrantees().iterator();
+            while (grantees.hasNext()) {
+                builder.append(formatPrincipal(grantees.next()));
+                if (grantees.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            if (node.getGrantor().isPresent()) {
+                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+            }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(formatName(node.getCatalog().get()));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitSetRole(SetRole node, Integer context)
+        {
+            builder.append("SET ROLE ");
+            SetRole.Type type = node.getType();
+            switch (type) {
+                case ALL:
+                case NONE:
+                    builder.append(type.toString());
+                    break;
+                case ROLE:
+                    builder.append(formatName(node.getRole().get()));
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + type);
+            }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(formatName(node.getCatalog().get()));
+            }
+            return null;
+        }
+
+        @Override
         public Void visitGrant(Grant node, Integer indent)
         {
             builder.append("GRANT ");
@@ -1019,7 +1164,7 @@ public final class SqlFormatter
             }
             builder.append(node.getTableName())
                     .append(" TO ")
-                    .append(node.getGrantee());
+                    .append(formatPrincipal(node.getGrantee()));
             if (node.isWithGrantOption()) {
                 builder.append(" WITH GRANT OPTION");
             }
@@ -1050,7 +1195,56 @@ public final class SqlFormatter
             }
             builder.append(node.getTableName())
                     .append(" FROM ")
-                    .append(node.getGrantee());
+                    .append(formatPrincipal(node.getGrantee()));
+
+            return null;
+        }
+
+        @Override
+        public Void visitShowGrants(ShowGrants node, Integer indent)
+        {
+            builder.append("SHOW GRANTS ");
+
+            builder.append("ON ");
+            if (node.getAll()) {
+                builder.append("ALL");
+            }
+            else {
+                if (node.getTable()) {
+                    builder.append("TABLE ");
+                }
+                builder.append(node.getTableName().get());
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowRoles(ShowRoles node, Integer context)
+        {
+            builder.append("SHOW ");
+            if (node.isCurrent()) {
+                builder.append("CURRENT ");
+            }
+            builder.append("ROLES");
+
+            if (node.getCatalog().isPresent()) {
+                builder.append(" FROM ")
+                        .append(node.getCatalog().get());
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowRoleGrants(ShowRoleGrants node, Integer context)
+        {
+            builder.append("SHOW ROLE GRANTS");
+
+            if (node.getCatalog().isPresent()) {
+                builder.append(" FROM ")
+                        .append(node.getCatalog().get());
+            }
 
             return null;
         }

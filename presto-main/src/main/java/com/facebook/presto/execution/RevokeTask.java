@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.MetadataUtil.createPrincipal;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PRIVILEGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -71,7 +72,7 @@ public class RevokeTask
             accessControl.checkCanRevokeTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), privilege, tableName);
         }
 
-        metadata.revokeTablePrivileges(session, tableName, privileges, statement.getGrantee(), statement.isGrantOptionFor());
+        metadata.revokeTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor());
         return immediateFuture(null);
     }
 

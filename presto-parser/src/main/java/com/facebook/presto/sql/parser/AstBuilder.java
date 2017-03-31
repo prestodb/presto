@@ -35,6 +35,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -48,6 +49,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -64,6 +66,8 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.GrantRoles;
+import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingSets;
@@ -96,6 +100,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
+import com.facebook.presto.sql.tree.PrincipalSpecification;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
@@ -107,6 +112,7 @@ import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
+import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
@@ -114,12 +120,16 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowRoleGrants;
+import com.facebook.presto.sql.tree.ShowRoles;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
@@ -151,6 +161,7 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
@@ -711,10 +722,59 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCreateRole(SqlBaseParser.CreateRoleContext context)
+    {
+        return new CreateRole(getLocation(context), context.name.getText(), getGrantorSpecificationIfPresent(context.grantor()), getTextIfPresent(context.catalog));
+    }
+
+    @Override
+    public Node visitDropRole(SqlBaseParser.DropRoleContext context)
+    {
+        return new DropRole(getLocation(context), context.name.getText(), getTextIfPresent(context.catalog));
+    }
+
+    @Override
+    public Node visitGrantRoles(SqlBaseParser.GrantRolesContext context)
+    {
+        return new GrantRoles(
+                getLocation(context),
+                ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
+                ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
+                context.OPTION() != null,
+                getGrantorSpecificationIfPresent(context.grantor()),
+                getTextIfPresent(context.catalog));
+    }
+
+    @Override
+    public Node visitRevokeRoles(SqlBaseParser.RevokeRolesContext context)
+    {
+        return new RevokeRoles(
+                getLocation(context),
+                ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
+                ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
+                context.OPTION() != null,
+                getGrantorSpecificationIfPresent(context.grantor()),
+                getTextIfPresent(context.catalog));
+    }
+
+    @Override
+    public Node visitSetRole(SqlBaseParser.SetRoleContext context)
+    {
+        Optional<String> catalog = getTextIfPresent(context.catalog);
+        Optional<String> role = getTextIfPresent(context.role);
+        SetRole.Type type = SetRole.Type.ROLE;
+        if (context.ALL() != null) {
+            type = SetRole.Type.ALL;
+        }
+        else if (context.NONE() != null) {
+            type = SetRole.Type.NONE;
+        }
+        return new SetRole(getLocation(context), type, role, catalog);
+    }
+
+    @Override
     public Node visitGrant(SqlBaseParser.GrantContext context)
     {
-        String grantee = context.grantee.getText();
-
         Optional<List<String>> privileges;
         if (context.ALL() != null) {
             privileges = Optional.empty();
@@ -729,7 +789,7 @@ class AstBuilder
                 privileges,
                 context.TABLE() != null,
                 getQualifiedName(context.qualifiedName()),
-                grantee,
+                getPrincipalSpecification(context.grantee),
                 context.OPTION() != null);
     }
 
@@ -751,7 +811,40 @@ class AstBuilder
                 privileges,
                 context.TABLE() != null,
                 getQualifiedName(context.qualifiedName()),
-                context.grantee.getText());
+                getPrincipalSpecification(context.grantee));
+    }
+
+    @Override
+    public Node visitShowGrants(SqlBaseParser.ShowGrantsContext context)
+    {
+        Optional<QualifiedName> tableName = Optional.empty();
+
+        if (context.ALL() == null) {
+            tableName = Optional.of(getQualifiedName(context.qualifiedName()));
+        }
+
+        return new ShowGrants(
+                getLocation(context),
+                context.TABLE() != null,
+                tableName,
+                context.ALL() != null);
+    }
+
+    @Override
+    public Node visitShowRoles(SqlBaseParser.ShowRolesContext context)
+    {
+        return new ShowRoles(
+                getLocation(context),
+                getTextIfPresent(context.identifier()),
+                context.CURRENT() != null);
+    }
+
+    @Override
+    public Node visitShowRoleGrants(SqlBaseParser.ShowRoleGrantsContext context)
+    {
+        return new ShowRoleGrants(
+                getLocation(context),
+                getTextIfPresent(context.identifier()));
     }
 
     // ***************** boolean expressions ******************
@@ -1789,6 +1882,53 @@ class AstBuilder
             return getType(typeParameter.type());
         }
         throw new IllegalArgumentException("Unsupported typeParameter: " + typeParameter.getText());
+    }
+
+    private static List<String> getIdentifiers(List<SqlBaseParser.IdentifierContext> identifiers)
+    {
+        return identifiers.stream().map(SqlBaseParser.IdentifierContext::getText).collect(toList());
+    }
+
+    private static List<PrincipalSpecification> getPrincipalSpecifications(List<SqlBaseParser.PrincipalContext> principals)
+    {
+        return principals.stream().map(AstBuilder::getPrincipalSpecification).collect(toList());
+    }
+
+    private static Optional<GrantorSpecification> getGrantorSpecificationIfPresent(SqlBaseParser.GrantorContext context)
+    {
+        return Optional.ofNullable(context).map(AstBuilder::getGrantorSpecification);
+    }
+
+    private static GrantorSpecification getGrantorSpecification(SqlBaseParser.GrantorContext context)
+    {
+        if (context instanceof SqlBaseParser.SpecifiedPrincipalContext) {
+            return new GrantorSpecification(GrantorSpecification.Type.PRINCIPAL, Optional.of(getPrincipalSpecification(((SqlBaseParser.SpecifiedPrincipalContext) context).principal())));
+        }
+        else if (context instanceof SqlBaseParser.CurrentUserContext) {
+            return new GrantorSpecification(GrantorSpecification.Type.CURRENT_USER, Optional.empty());
+        }
+        else if (context instanceof SqlBaseParser.CurrentRoleContext) {
+            return new GrantorSpecification(GrantorSpecification.Type.CURRENT_ROLE, Optional.empty());
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported grantor: " + context);
+        }
+    }
+
+    private static PrincipalSpecification getPrincipalSpecification(SqlBaseParser.PrincipalContext context)
+    {
+        if (context instanceof SqlBaseParser.UnspecifiedPrincipalContext) {
+            return new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, ((SqlBaseParser.UnspecifiedPrincipalContext) context).identifier().getText());
+        }
+        else if (context instanceof SqlBaseParser.UserPrincipalContext) {
+            return new PrincipalSpecification(PrincipalSpecification.Type.USER, ((SqlBaseParser.UserPrincipalContext) context).identifier().getText());
+        }
+        else if (context instanceof SqlBaseParser.RolePrincipalContext) {
+            return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, ((SqlBaseParser.RolePrincipalContext) context).identifier().getText());
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported principal: " + context);
+        }
     }
 
     private static void check(boolean condition, String message, ParserRuleContext context)

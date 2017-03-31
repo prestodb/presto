@@ -14,13 +14,17 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.Optional;
 import java.util.Set;
 
 public class AllowAllAccessControl
@@ -156,6 +160,63 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
+    {
+    }
+
+    @Override
+    public void checkCanShowGrants(TransactionId transactionId, Identity identity, QualifiedTablePrefix prefix)
+    {
+    }
+
+    @Override
+    public Set<GrantInfo> filterGrants(TransactionId transactionId, Identity identity, QualifiedTablePrefix prefix, Set<GrantInfo> grantInfos)
+    {
+        return grantInfos;
+    }
+
+    @Override
+    public void checkCanCreateRole(TransactionId transactionId, Identity identity, String role, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanDropRole(TransactionId transactionId, Identity identity, String role, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanGrantRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, String role, String catalog)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName)
+    {
+    }
+
+    @Override
+    public Set<String> filterRoles(TransactionId transactionId, Identity identity, String catalogName, Set<String> roles)
+    {
+        return roles;
+    }
+
+    @Override
+    public void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName)
     {
     }
 }

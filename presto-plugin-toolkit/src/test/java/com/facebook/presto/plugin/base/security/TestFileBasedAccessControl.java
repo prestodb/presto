@@ -17,7 +17,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessDeniedException;
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -127,9 +127,9 @@ public class TestFileBasedAccessControl
         }
     }
 
-    private static Identity user(String name)
+    private static ConnectorIdentity user(String name)
     {
-        return new Identity(name, Optional.empty());
+        return new ConnectorIdentity(name, Optional.empty(), Optional.empty());
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)

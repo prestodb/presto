@@ -24,6 +24,8 @@ public final class PrestoHeaders
     public static final String PRESTO_SESSION = "X-Presto-Session";
     public static final String PRESTO_SET_SESSION = "X-Presto-Set-Session";
     public static final String PRESTO_CLEAR_SESSION = "X-Presto-Clear-Session";
+    public static final String PRESTO_SET_ROLE = "X-Presto-Set-Role";
+    public static final String PRESTO_ROLE = "X-Presto-Role";
     public static final String PRESTO_PREPARED_STATEMENT = "X-Presto-Prepared-Statement";
     public static final String PRESTO_ADDED_PREPARE = "X-Presto-Added-Prepare";
     public static final String PRESTO_DEALLOCATED_PREPARE = "X-Presto-Deallocated-Prepare";
