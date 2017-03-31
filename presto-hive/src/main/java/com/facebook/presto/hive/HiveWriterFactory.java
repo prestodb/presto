@@ -19,8 +19,10 @@ import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
@@ -28,6 +30,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.event.client.EventClient;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
@@ -39,6 +42,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hive.common.util.ReflectionUtil;
 
 import java.io.IOException;
+import java.security.Principal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +50,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -60,6 +65,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -103,6 +109,10 @@ public class HiveWriterFactory
     private final ConnectorSession session;
     private final OptionalInt bucketCount;
 
+    private final NodeManager nodeManager;
+    private final EventClient eventClient;
+    private final Map<String, String> sessionProperties;
+
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
@@ -119,7 +129,10 @@ public class HiveWriterFactory
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
             boolean immutablePartitions,
-            ConnectorSession session)
+            ConnectorSession session,
+            NodeManager nodeManager,
+            EventClient eventClient,
+            HiveSessionProperties hiveSessionProperties)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -179,6 +192,13 @@ public class HiveWriterFactory
         }
 
         this.session = requireNonNull(session, "session is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.eventClient = requireNonNull(eventClient, "eventClient is null");
+
+        requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
+        this.sessionProperties = hiveSessionProperties.getSessionProperties().stream()
+                .collect(toImmutableMap(PropertyMetadata::getName,
+                                        entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
         Configuration conf = hdfsEnvironment.getConfiguration(writePath);
         this.conf = new JobConf(conf);
@@ -333,10 +353,12 @@ public class HiveWriterFactory
 
         String fileNameWithExtension = fileName + getFileExtension(conf, outputStorageFormat);
 
+        Path path = new Path(write, fileNameWithExtension);
+
         HiveFileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
             Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
-                    new Path(write, fileNameWithExtension),
+                    path,
                     dataColumns.stream()
                             .map(DataColumn::getName)
                             .collect(toList()),
@@ -352,7 +374,7 @@ public class HiveWriterFactory
 
         if (hiveFileWriter == null) {
             hiveFileWriter = new RecordFileWriter(
-                    new Path(write, fileNameWithExtension),
+                    path,
                     dataColumns.stream()
                             .map(DataColumn::getName)
                             .collect(toList()),
@@ -362,7 +384,37 @@ public class HiveWriterFactory
                     conf,
                     typeManager);
         }
-        return new HiveWriter(hiveFileWriter, partitionName, isNew, fileNameWithExtension, write.toString(), target.toString());
+
+        String writerImplementation = hiveFileWriter.getClass().getName();
+
+        Consumer<HiveWriter> onCommit = hiveWriter -> {
+            Optional<Long> size;
+            try {
+                size = Optional.of(hdfsEnvironment.getFileSystem(session.getUser(), path, conf).getFileStatus(path).getLen());
+            }
+            catch (IOException | RuntimeException e) {
+                // Do not fail the query if file system is not available
+                size = Optional.empty();
+            }
+
+            eventClient.post(new WriteCompletedEvent(
+                    session.getQueryId(),
+                    path.toString(),
+                    schemaName,
+                    tableName,
+                    partitionName.orElse(null),
+                    outputStorageFormat.getOutputFormat(),
+                    writerImplementation,
+                    nodeManager.getCurrentNode().getVersion(),
+                    nodeManager.getCurrentNode().getHttpUri().getHost(),
+                    session.getIdentity().getPrincipal().map(Principal::getName).orElse(null),
+                    nodeManager.getEnvironment(),
+                    sessionProperties,
+                    size.orElse(null),
+                    hiveWriter.getRowCount()));
+        };
+
+        return new HiveWriter(hiveFileWriter, partitionName, isNew, fileNameWithExtension, write.toString(), target.toString(), onCommit);
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)

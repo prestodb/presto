@@ -19,12 +19,14 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
@@ -50,6 +52,9 @@ public class HivePageSinkProvider
     private final LocationService locationService;
     private final ListeningExecutorService writeVerificationExecutor;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
+    private final NodeManager nodeManager;
+    private final EventClient eventClient;
+    private final HiveSessionProperties hiveSessionProperties;
 
     @Inject
     public HivePageSinkProvider(
@@ -60,7 +65,10 @@ public class HivePageSinkProvider
             TypeManager typeManager,
             HiveClientConfig config,
             LocationService locationService,
-            JsonCodec<PartitionUpdate> partitionUpdateCodec)
+            JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            NodeManager nodeManager,
+            EventClient eventClient,
+            HiveSessionProperties hiveSessionProperties)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -74,6 +82,9 @@ public class HivePageSinkProvider
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(config.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.eventClient = requireNonNull(eventClient, "eventClient is null");
+        this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
     }
 
     @Override
@@ -110,7 +121,10 @@ public class HivePageSinkProvider
                 typeManager,
                 hdfsEnvironment,
                 immutablePartitions,
-                session);
+                session,
+                nodeManager,
+                eventClient,
+                hiveSessionProperties);
 
         return new HivePageSink(
                 writerFactory,

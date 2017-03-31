@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -28,8 +29,11 @@ public class HiveWriter
     private final String fileName;
     private final String writePath;
     private final String targetPath;
+    private final Consumer<HiveWriter> onCommit;
 
-    public HiveWriter(HiveFileWriter fileWriter, Optional<String> partitionName, boolean isNew, String fileName, String writePath, String targetPath)
+    private long rowCount = 0;
+
+    public HiveWriter(HiveFileWriter fileWriter, Optional<String> partitionName, boolean isNew, String fileName, String writePath, String targetPath, Consumer<HiveWriter> onCommit)
     {
         this.fileWriter = fileWriter;
         this.partitionName = partitionName;
@@ -37,6 +41,7 @@ public class HiveWriter
         this.fileName = fileName;
         this.writePath = writePath;
         this.targetPath = targetPath;
+        this.onCommit = onCommit;
     }
 
     public long getSystemMemoryUsage()
@@ -44,14 +49,21 @@ public class HiveWriter
         return fileWriter.getSystemMemoryUsage();
     }
 
+    public long getRowCount()
+    {
+        return rowCount;
+    }
+
     public void append(Page dataPage)
     {
         fileWriter.appendRows(dataPage);
+        rowCount += dataPage.getPositionCount();
     }
 
     public void commit()
     {
         fileWriter.commit();
+        onCommit.accept(this);
     }
 
     public Optional<Runnable> getVerificationTask()
