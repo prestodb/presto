@@ -80,7 +80,7 @@ script:
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        singlenode-ldap -g ldap_cli
+        singlenode-ldap -g ldap -x simba_jdbc
     fi
 # SQL server image sporadically hangs during the startup
 # TODO: Uncomment it once issue is fixed
