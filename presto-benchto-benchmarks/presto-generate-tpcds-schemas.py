@@ -2,9 +2,9 @@
 
 schemas = [
     # (new_schema, source_schema)
-    ('tpcds_10gb_orc', 'tpch.sf10'),
-    ('tpcds_100gb_orc', 'tpch.sf100'),
-    ('tpcds_1tb_orc', 'tpch.sf1000'),
+    ('tpcds_10gb_orc', 'tpcds.sf10'),
+    ('tpcds_100gb_orc', 'tpcds.sf100'),
+    ('tpcds_1tb_orc', 'tpcds.sf1000'),
 ]
 
 tables = [
@@ -16,7 +16,7 @@ tables = [
     'customer_address',
     'customer_demographics',
     'date_dim',
-    'household_demographics ',
+    'household_demographics',
     'income_band',
     'inventory',
     'item',
