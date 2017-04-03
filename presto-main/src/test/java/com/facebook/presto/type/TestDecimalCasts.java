@@ -18,12 +18,15 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.CHAR;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestDecimalCasts
         extends AbstractTestFunctions
@@ -445,5 +448,38 @@ public class TestDecimalCasts
         assertFunction("CAST(DECIMAL '-1234567890.1234567890' AS VARCHAR)", VARCHAR, "-1234567890.1234567890");
         assertFunction("CAST(DECIMAL '1234567890.12345678900000000000' AS VARCHAR)", VARCHAR, "1234567890.12345678900000000000");
         assertFunction("CAST(DECIMAL '-1234567890.12345678900000000000' AS VARCHAR)", VARCHAR, "-1234567890.12345678900000000000");
+
+        assertFunction("CAST(DECIMAL '2.34' AS VARCHAR(4))", createVarcharType(4), "2.34");
+        assertFunction("CAST(DECIMAL '23400' AS VARCHAR(5))", createVarcharType(5), "23400");
+        assertFunction("CAST(DECIMAL '0.0034' AS VARCHAR(6))", createVarcharType(6), "0.0034");
+        assertFunction("CAST(DECIMAL '0' AS VARCHAR(1))", createVarcharType(1), "0");
+        assertFunction("CAST(DECIMAL '0.1234567890123456' AS VARCHAR(18))", createVarcharType(18), "0.1234567890123456");
+        assertFunction("CAST(DECIMAL '0.12345678901234567' AS VARCHAR(19))", createVarcharType(19), "0.12345678901234567");
+
+        assertNumericOverflow("CAST(DECIMAL '1.0' AS VARCHAR(2))", "Out of range for varchar(2): 1.0");
+        assertNumericOverflow("CAST(DECIMAL '-1.0' AS VARCHAR(2))", "Out of range for varchar(2): -1.0");
+        assertNumericOverflow("CAST(DECIMAL '2.34' AS VARCHAR(3))", "Out of range for varchar(3): 2.34");
+        assertNumericOverflow("CAST(DECIMAL '-1234567890.12345678900000000000' AS VARCHAR(4))", "Out of range for varchar(4): -1234567890.12345678900000000000");
+        assertNumericOverflow("CAST(DECIMAL '0.0034' AS VARCHAR(5))", "Out of range for varchar(5): 0.0034");
+    }
+
+    @Test
+    public void testDecimalToCharCasts()
+    {
+        assertFunction("CAST(DECIMAL '0' AS CHAR)", CHAR, "0");
+        assertFunction("CAST(DECIMAL '-10' AS CHAR(3))", createCharType(3), "-10");
+        assertFunction("CAST(DECIMAL '-1.0' AS CHAR(4))", createCharType(4), "-1.0");
+        assertFunction("CAST(DECIMAL '-1.00' AS CHAR(5))", createCharType(5), "-1.00");
+        assertFunction("CAST(DECIMAL '-1.00000' AS CHAR(8))", createCharType(8), "-1.00000");
+        assertFunction("CAST(DECIMAL '-0.1' AS CHAR(4))", createCharType(4), "-0.1");
+        assertFunction("CAST(DECIMAL '-.001' AS CHAR(6))", createCharType(6), "-0.001");
+
+        assertFunction("CAST(DECIMAL '-1234567890.1234567' AS CHAR(19))", createCharType(19), "-1234567890.1234567");
+        assertFunction("CAST(DECIMAL '1234567890.1234567890' AS CHAR(21))", createCharType(21), "1234567890.1234567890");
+        assertFunction("CAST(DECIMAL '-1234567890.12345678900000000000' AS CHAR(32))", createCharType(32), "-1234567890.12345678900000000000");
+
+        assertNumericOverflow("CAST(DECIMAL '1.0' AS CHAR(2))", "Out of range for char(2): 1.0");
+        assertNumericOverflow("CAST(DECIMAL '2.34' AS CHAR)", "Out of range for char(1): 2.34");
+        assertNumericOverflow("CAST(DECIMAL '-1234567890.12345678900000000000' AS CHAR(4))", "Out of range for char(4): -1234567890.12345678900000000000");
     }
 }

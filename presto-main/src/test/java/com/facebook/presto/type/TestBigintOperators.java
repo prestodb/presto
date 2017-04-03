@@ -18,6 +18,8 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.CHAR;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -208,6 +210,20 @@ public class TestBigintOperators
     {
         assertFunction("cast(37 as varchar)", VARCHAR, "37");
         assertFunction("cast(100000000017 as varchar)", VARCHAR, "100000000017");
+        assertNumericOverflow("cast(BIGINT'37' as varchar(1))", "Out of range for varchar(1): 37");
+        assertNumericOverflow("cast(BIGINT'100000000017' as varchar(2))", "Out of range for varchar(2): 100000000017");
+    }
+
+    @Test
+    public void testCastToChar()
+            throws Exception
+    {
+        assertFunction("cast(BIGINT'0' as char)", CHAR, "0");
+        assertFunction("cast(BIGINT'37' as char(2))", createCharType(2), "37");
+        assertFunction("cast(BIGINT'100000000017' as char(12))", createCharType(12), "100000000017");
+        assertNumericOverflow("cast(BIGINT'-1' as char(1))", "Out of range for char(1): -1");
+        assertNumericOverflow("cast(BIGINT'37' as char)", "Out of range for char(1): 37");
+        assertNumericOverflow("cast(BIGINT'100000000017' as char(2))", "Out of range for char(2): 100000000017");
     }
 
     @Test
@@ -242,6 +258,15 @@ public class TestBigintOperators
     {
         assertFunction("cast('100000000037' as bigint)", BIGINT, 100000000037L);
         assertFunction("cast('100000000017' as bigint)", BIGINT, 100000000017L);
+    }
+
+    @Test
+    public void testCastFromChar()
+            throws Exception
+    {
+        assertFunction("cast(cast('100000000037' as char(12)) as bigint)", BIGINT, 100000000037L);
+        assertFunction("cast(cast('100000000017' as char(12)) as bigint)", BIGINT, 100000000017L);
+        assertFunction("cast(cast('100000000017 ' as char(13)) as bigint)", BIGINT, 100000000017L);
     }
 
     @Test

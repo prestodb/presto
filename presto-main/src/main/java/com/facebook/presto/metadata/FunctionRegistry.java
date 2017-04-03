@@ -277,8 +277,10 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSig
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.CHAR_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_CHAR_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_INTEGER_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_JSON_CAST;
@@ -541,8 +543,8 @@ public class FunctionRegistry
                 .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript()))
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MULTIMAP_AGG, MAP_UNION)
-                .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
-                .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
+                .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_CHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
+                .functions(VARCHAR_TO_DECIMAL_CAST, CHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
                 .functions(DECIMAL_ADD_OPERATOR, DECIMAL_SUBTRACT_OPERATOR, DECIMAL_MULTIPLY_OPERATOR, DECIMAL_DIVIDE_OPERATOR, DECIMAL_MODULUS_OPERATOR)
                 .functions(DECIMAL_EQUAL_OPERATOR, DECIMAL_NOT_EQUAL_OPERATOR)

@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.type.TypeUtils.validateValueLength;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -167,9 +168,17 @@ public final class RealOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(StandardTypes.REAL) long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long size, @SqlType(StandardTypes.REAL) long value)
     {
-        return utf8Slice(String.valueOf(intBitsToFloat((int) value)));
+        return utf8Slice(validateValueLength(String.valueOf(intBitsToFloat((int) value)), StandardTypes.VARCHAR, size));
+    }
+
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice castToChar(@LiteralParameter("x") long size, @SqlType(StandardTypes.REAL) long value)
+    {
+        return utf8Slice(validateValueLength(String.valueOf(intBitsToFloat((int) value)), StandardTypes.VARCHAR, size));
     }
 
     @ScalarOperator(CAST)

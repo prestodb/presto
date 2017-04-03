@@ -18,12 +18,14 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestRealOperators
         extends AbstractTestFunctions
@@ -183,6 +185,21 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-754.2008' as VARCHAR)", VARCHAR, "-754.2008");
         assertFunction("CAST(REAL'Infinity' as VARCHAR)", VARCHAR, "Infinity");
         assertFunction("CAST(REAL'0.0' / REAL'0.0' as VARCHAR)", VARCHAR, "NaN");
+        assertFunction("CAST(REAL'1.20' as VARCHAR(3))", createVarcharType(3), "1.2");
+        assertNumericOverflow("CAST(REAL'17.1' as VARCHAR(3))", "Out of range for varchar(3): 17.1");
+        assertNumericOverflow("CAST(REAL'1.0' as VARCHAR(2))", "Out of range for varchar(2): 1.0");
+    }
+
+    @Test
+    public void testCastToChar()
+            throws Exception
+    {
+        assertFunction("CAST(REAL'754.1985' as CHAR(8))", createCharType(8), "754.1985");
+        assertFunction("CAST(REAL'-754.2008' as CHAR(9))", createCharType(9), "-754.2008");
+        assertFunction("CAST(REAL'Infinity' as CHAR(8))", createCharType(8), "Infinity");
+        assertFunction("CAST(REAL'0.0' / REAL'0.0' as CHAR(3))", createCharType(3), "NaN");
+        assertNumericOverflow("CAST(37.7 as CHAR)", "Out of range for char(1): 37.7");
+        assertNumericOverflow("CAST(1.0 as CHAR(2))", "Out of range for char(2): 1.0");
     }
 
     @Test
@@ -243,6 +260,23 @@ public class TestRealOperators
         assertFunction("CAST(REAL'754.1985' AS BOOLEAN)", BOOLEAN, true);
         assertFunction("CAST(REAL'0.0' AS BOOLEAN)", BOOLEAN, false);
         assertFunction("CAST(REAL'-0.0' AS BOOLEAN)", BOOLEAN, false);
+    }
+
+    @Test
+    public void testCastFromVarchar()
+            throws Exception
+    {
+        assertFunction("CAST('754.1985' as REAL)", REAL, (float) 754.1985);
+        assertFunction("CAST('-754.2008' as REAL)", REAL, (float) -754.2008);
+    }
+
+    @Test
+    public void testCastFromChar()
+            throws Exception
+    {
+        assertFunction("CAST(CAST('754.1985' as CHAR(8)) as REAL)", REAL, (float) 754.1985);
+        assertFunction("CAST(CAST('-754.2008' as CHAR(9)) as REAL)", REAL, (float) -754.2008);
+        assertFunction("CAST(CAST('-754.2008 ' as CHAR(10)) as REAL)", REAL, (float) -754.2008);
     }
 
     @Test

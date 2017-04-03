@@ -178,6 +178,11 @@ public final class SqlScalarFunctionBuilder
             return boundVariables.getLongVariable(name);
         }
 
+        public boolean containsLiteral(String name)
+        {
+            return boundVariables.containsLongVariable(name);
+        }
+
         public List<Type> getParameterTypes()
         {
             return parameterTypes;

@@ -31,6 +31,7 @@ public final class CharType
         extends AbstractVariableWidthType
 {
     public static final int MAX_LENGTH = 65_536;
+    public static final CharType CHAR = new CharType(1);
 
     private final int length;
 

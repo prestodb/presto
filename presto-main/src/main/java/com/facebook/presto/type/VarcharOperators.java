@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.sliceToBoolean;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
@@ -102,41 +103,7 @@ public final class VarcharOperators
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType("varchar(x)") Slice value)
     {
-        if (value.length() == 1) {
-            byte character = toUpperCase(value.getByte(0));
-            if (character == 'T' || character == '1') {
-                return true;
-            }
-            if (character == 'F' || character == '0') {
-                return false;
-            }
-        }
-        if ((value.length() == 4) &&
-                (toUpperCase(value.getByte(0)) == 'T') &&
-                (toUpperCase(value.getByte(1)) == 'R') &&
-                (toUpperCase(value.getByte(2)) == 'U') &&
-                (toUpperCase(value.getByte(3)) == 'E')) {
-            return true;
-        }
-        if ((value.length() == 5) &&
-                (toUpperCase(value.getByte(0)) == 'F') &&
-                (toUpperCase(value.getByte(1)) == 'A') &&
-                (toUpperCase(value.getByte(2)) == 'L') &&
-                (toUpperCase(value.getByte(3)) == 'S') &&
-                (toUpperCase(value.getByte(4)) == 'E')) {
-            return false;
-        }
-        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BOOLEAN", value.toStringUtf8()));
-    }
-
-    private static byte toUpperCase(byte b)
-    {
-        return isLowerCase(b) ? ((byte) (b - 32)) : b;
-    }
-
-    private static boolean isLowerCase(byte b)
-    {
-        return (b >= 'a') && (b <= 'z');
+        return sliceToBoolean(value);
     }
 
     @LiteralParameters("x")

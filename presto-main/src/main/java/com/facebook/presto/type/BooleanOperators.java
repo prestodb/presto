@@ -143,6 +143,14 @@ public final class BooleanOperators
         return value ? TRUE : FALSE;
     }
 
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice castToChar(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return value ? TRUE : FALSE;
+    }
+
     @ScalarOperator(HASH_CODE)
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.BOOLEAN) boolean value)

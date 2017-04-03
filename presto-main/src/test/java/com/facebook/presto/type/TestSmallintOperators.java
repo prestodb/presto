@@ -20,6 +20,8 @@ import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.CHAR;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -229,6 +231,19 @@ public class TestSmallintOperators
     {
         assertFunction("cast(SMALLINT'37' as varchar)", VARCHAR, "37");
         assertFunction("cast(SMALLINT'17' as varchar)", VARCHAR, "17");
+        assertNumericOverflow("cast(SMALLINT'37' as varchar(1))", "Out of range for varchar(1): 37");
+        assertNumericOverflow("cast(SMALLINT'17' as varchar(1))", "Out of range for varchar(1): 17");
+    }
+
+    @Test
+    public void testCastToChar()
+            throws Exception
+    {
+        assertFunction("cast(SMALLINT'0' as char)", CHAR, "0");
+        assertFunction("cast(SMALLINT'37' as char(2))", createCharType(2), "37");
+        assertFunction("cast(SMALLINT'17' as char(2))", createCharType(2), "17");
+        assertNumericOverflow("cast(SMALLINT'37' as char)", "Out of range for char(1): 37");
+        assertNumericOverflow("cast(SMALLINT'17' as char(1))", "Out of range for char(1): 17");
     }
 
     @Test
@@ -263,6 +278,15 @@ public class TestSmallintOperators
     {
         assertFunction("cast('37' as smallint)", SMALLINT, (short) 37);
         assertFunction("cast('17' as smallint)", SMALLINT, (short) 17);
+    }
+
+    @Test
+    public void testCastFromChar()
+            throws Exception
+    {
+        assertFunction("cast(cast('37' as char(2)) as smallint)", SMALLINT, (short) 37);
+        assertFunction("cast(cast('17' as char(2)) as smallint)", SMALLINT, (short) 17);
+        assertFunction("cast(cast('17 ' as char(3)) as smallint)", SMALLINT, (short) 17);
     }
 
     @Test

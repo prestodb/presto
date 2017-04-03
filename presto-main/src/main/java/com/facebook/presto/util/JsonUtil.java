@@ -626,7 +626,7 @@ public final class JsonUtil
                 return Slices.utf8Slice(parser.getText());
             case VALUE_NUMBER_FLOAT:
                 // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-                return DoubleOperators.castToVarchar(parser.getDoubleValue());
+                return DoubleOperators.castToVarchar(Integer.MAX_VALUE, parser.getDoubleValue());
             case VALUE_NUMBER_INT:
                 // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
                 // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.

@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.CHAR;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
@@ -130,11 +131,29 @@ public class TestBooleanOperators
     }
 
     @Test
+    public void testCastToChar()
+            throws Exception
+    {
+        assertFunction("cast(true as char)", CHAR, "true");
+        assertFunction("cast(false as char)", CHAR, "false");
+    }
+
+    @Test
     public void testCastFromVarchar()
             throws Exception
     {
         assertFunction("cast('true' as boolean)", BOOLEAN, true);
         assertFunction("cast('false' as boolean)", BOOLEAN, false);
+    }
+
+    @Test
+    public void testCastFromChar()
+            throws Exception
+    {
+        assertFunction("cast(cast('true' as char) as boolean)", BOOLEAN, true);
+        assertFunction("cast(cast('false' as char) as boolean)", BOOLEAN, false);
+        assertFunction("cast(cast('true ' as char) as boolean)", BOOLEAN, true);
+        assertFunction("cast(cast('false ' as char) as boolean)", BOOLEAN, false);
     }
 
     @Test

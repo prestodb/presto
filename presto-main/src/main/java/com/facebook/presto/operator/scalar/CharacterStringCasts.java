@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -26,6 +27,7 @@ import io.airlift.slice.Slices;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
@@ -35,6 +37,7 @@ import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
 public final class CharacterStringCasts
@@ -159,5 +162,44 @@ public final class CharacterStringCasts
         }
 
         return result;
+    }
+
+    public static boolean sliceToBoolean(Slice value)
+    {
+        if (value.length() == 1) {
+            byte character = toUpperCase(value.getByte(0));
+            if (character == 'T' || character == '1') {
+                return true;
+            }
+            if (character == 'F' || character == '0') {
+                return false;
+            }
+        }
+        if ((value.length() == 4) &&
+                (toUpperCase(value.getByte(0)) == 'T') &&
+                (toUpperCase(value.getByte(1)) == 'R') &&
+                (toUpperCase(value.getByte(2)) == 'U') &&
+                (toUpperCase(value.getByte(3)) == 'E')) {
+            return true;
+        }
+        if ((value.length() == 5) &&
+                (toUpperCase(value.getByte(0)) == 'F') &&
+                (toUpperCase(value.getByte(1)) == 'A') &&
+                (toUpperCase(value.getByte(2)) == 'L') &&
+                (toUpperCase(value.getByte(3)) == 'S') &&
+                (toUpperCase(value.getByte(4)) == 'E')) {
+            return false;
+        }
+        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BOOLEAN", value.toStringUtf8()));
+    }
+
+    private static byte toUpperCase(byte b)
+    {
+        return isLowerCase(b) ? ((byte) (b - 32)) : b;
+    }
+
+    private static boolean isLowerCase(byte b)
+    {
+        return (b >= 'a') && (b <= 'z');
     }
 }
