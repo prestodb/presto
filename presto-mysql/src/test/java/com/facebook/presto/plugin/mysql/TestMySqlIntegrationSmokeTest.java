@@ -29,9 +29,9 @@ import java.sql.Statement;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.ORDERS;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

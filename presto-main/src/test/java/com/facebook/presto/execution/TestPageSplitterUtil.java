@@ -26,9 +26,9 @@ import java.util.List;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
-import static org.testng.Assert.assertEquals;
 
 public class TestPageSplitterUtil
 {

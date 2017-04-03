@@ -65,9 +65,11 @@ import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -79,7 +81,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -1315,7 +1316,8 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (partitioned_by = ARRAY['apple', 'pineapple'])");
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
-        MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
+        Type unboundedVarchar = canonicalizeType(VARCHAR);
+        MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
                 .row("grape", canonicalizeTypeName("bigint"), "", "")
                 .row("orange", canonicalizeTypeName("bigint"), "", "")
                 .row("pear", canonicalizeTypeName("varchar(65535)"), "", "")
