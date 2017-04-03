@@ -13,11 +13,17 @@
  */
 package com.facebook.presto.hdfs.function;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 /**
  * presto-root
  *
  * @author Jelly
  */
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "className")
+@JsonSubTypes({@JsonSubTypes.Type(value = Function0.class, name = "function0")})
 public interface Function
 {
     long apply(String v);

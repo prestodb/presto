@@ -48,7 +48,7 @@ implements ColumnHandle
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
             @JsonProperty("comment") String comment,
-            @JsonProperty("columnType") ColumnType colType,
+            @JsonProperty("colType") ColumnType colType,
             @JsonProperty("connectorId") String connectorId)
     {
         this.name = requireNonNull(name, "name is null");

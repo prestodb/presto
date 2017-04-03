@@ -14,8 +14,10 @@
 package com.facebook.presto.hdfs;
 
 import com.facebook.presto.hdfs.function.Function;
+import com.facebook.presto.hdfs.function.Function0;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.IntegerType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -36,15 +38,9 @@ implements ConnectorTableLayoutHandle
     private final Function fiberFunction;
     private final StorageFormat storageFormat;
 
-    @JsonCreator
-    public HDFSTableLayoutHandle(
-            @JsonProperty("table") HDFSTableHandle table)
+    public HDFSTableLayoutHandle(HDFSTableHandle table)
     {
-        this.table = table;
-        this.fiberColumn = null;
-        this.timestampColumn = null;
-        this.fiberFunction = null;
-        this.storageFormat = StorageFormat.PARQUET;
+        this(table, new HDFSColumnHandle("null", IntegerType.INTEGER, "", HDFSColumnHandle.ColumnType.REGULAR, ""), new HDFSColumnHandle("null", IntegerType.INTEGER, "", HDFSColumnHandle.ColumnType.REGULAR, ""), new Function0(), StorageFormat.PARQUET);
     }
 
     @JsonCreator
@@ -55,7 +51,7 @@ implements ConnectorTableLayoutHandle
             @JsonProperty("fiberFunction") Function fiberFunction,
             @JsonProperty("storageFormat") StorageFormat storageFormat)
     {
-        this.table = requireNonNull(table, "tableName is null");
+        this.table = requireNonNull(table, "table is null");
         this.fiberColumn = requireNonNull(fiberColumn, "fiberColumn is null");
         this.timestampColumn = requireNonNull(timestampColumn, "timestampColumn is null");
         this.fiberFunction = requireNonNull(fiberFunction, "fiberFunc is null");
@@ -63,7 +59,13 @@ implements ConnectorTableLayoutHandle
     }
 
     @JsonProperty
-    public SchemaTableName getTableName()
+    public HDFSTableHandle getTable()
+    {
+        return table;
+    }
+
+    @JsonProperty
+    public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(table.getSchemaName(), table.getTableName());
     }
@@ -81,7 +83,7 @@ implements ConnectorTableLayoutHandle
     }
 
     @JsonProperty
-    public Function getFiberFunc()
+    public Function getFiberFunction()
     {
         return fiberFunction;
     }

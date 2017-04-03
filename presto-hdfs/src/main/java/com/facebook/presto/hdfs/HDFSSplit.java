@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 import java.util.Objects;
@@ -36,7 +35,7 @@ implements ConnectorSplit
 {
     private final HDFSConnectorId connectorId;
     private final SchemaTableName table;
-    private final Path path;
+    private final String path;
     private final long start;
     private final long len;
     private final List<HostAddress> addresses;
@@ -45,7 +44,7 @@ implements ConnectorSplit
     public HDFSSplit(
             @JsonProperty("connectorId") HDFSConnectorId connectorId,
             @JsonProperty("table") SchemaTableName table,
-            @JsonProperty("path") Path path,
+            @JsonProperty("path") String path,
             @JsonProperty("start") long start,
             @JsonProperty("len") long len,
             @JsonProperty("addresses") List<HostAddress> addresses
@@ -78,7 +77,7 @@ implements ConnectorSplit
     }
 
     @JsonProperty
-    public Path getPath()
+    public String getPath()
     {
         return path;
     }
@@ -95,6 +94,7 @@ implements ConnectorSplit
         return len;
     }
 
+    @JsonProperty
     @Override
     public List<HostAddress> getAddresses()
     {

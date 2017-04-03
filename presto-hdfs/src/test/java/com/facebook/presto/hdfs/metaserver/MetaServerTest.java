@@ -35,7 +35,6 @@ import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.VarcharType;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -175,7 +174,7 @@ public class MetaServerTest
         if (tableHandle == null) {
             fail("Get no table handle for table test.student");
         }
-        HDFSTableHandle result = new HDFSTableHandle(connectorId, "test", "student", new Path("hdfs://127.0.0.1:9000/warehouse/test/student"));
+        HDFSTableHandle result = new HDFSTableHandle(connectorId, "test", "student", "hdfs://127.0.0.1:9000/warehouse/test/student");
 
         assertEquals(tableHandle, result);
         System.out.println(tableHandle);
@@ -188,7 +187,7 @@ public class MetaServerTest
         if (tableLayoutHandle == null) {
             fail("Get no table layout handle for table test.student");
         }
-        HDFSTableHandle handle = new HDFSTableHandle(connectorId, "test", "student", new Path("hdfs://127.0.0.1:9000/warehouse/test/student"));
+        HDFSTableHandle handle = new HDFSTableHandle(connectorId, "test", "student", "hdfs://127.0.0.1:9000/warehouse/test/student");
         HDFSColumnHandle name = new HDFSColumnHandle("name", VarcharType.createVarcharType(20), "", HDFSColumnHandle.ColumnType.FIBER_COL, connectorId);
         HDFSColumnHandle time = new HDFSColumnHandle("time", TimestampType.TIMESTAMP, "", HDFSColumnHandle.ColumnType.TIME_COL, connectorId);
         Function function = new Function0();

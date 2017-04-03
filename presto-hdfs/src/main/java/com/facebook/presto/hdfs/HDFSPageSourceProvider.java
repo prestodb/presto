@@ -73,7 +73,7 @@ implements ConnectorPageSourceProvider
                 .map(col -> (HDFSColumnHandle) col)
                 .collect(Collectors.toList());
         HDFSSplit hdfsSplit = checkType(split, HDFSSplit.class, "hdfs split");
-        Path path = hdfsSplit.getPath();
+        Path path = new Path(hdfsSplit.getPath());
 
         Optional<ConnectorPageSource> pageSource = createHDFSPageSource(
                 path,
@@ -103,6 +103,8 @@ implements ConnectorPageSourceProvider
         }
         try {
             dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length);
+            // default length is file size, which means whole file is a split
+            length = dataSource.getSize();
             ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(fileSystem, path);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();

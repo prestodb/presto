@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 /**
  * Functional class to return all handle classes.
@@ -56,5 +57,11 @@ implements ConnectorHandleResolver
     public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass()
     {
         return HDFSPartitioningHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
+    {
+        return HDFSTransactionHandle.class;
     }
 }

@@ -17,10 +17,10 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.hadoop.fs.Path;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -32,14 +32,14 @@ public class HDFSTableHandle
     private final String connectorId;
     private final String tableName;
     private final String schemaName;
-    private Path path;
+    private String path;
 
     @JsonCreator
     public HDFSTableHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("location") Path path)
+            @JsonProperty("path") String path)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -72,7 +72,7 @@ public class HDFSTableHandle
     }
 
     @JsonProperty
-    public Path getPath()
+    public String getPath()
     {
         return path;
     }
@@ -103,6 +103,11 @@ public class HDFSTableHandle
     @Override
     public String toString()
     {
-        return "Table[" + schemaName + "." + tableName + "]";
+        return toStringHelper(this)
+                .add("connectorId", connectorId)
+                .add("table name", tableName)
+                .add("schema name", schemaName)
+                .add("path", path)
+                .toString();
     }
 }

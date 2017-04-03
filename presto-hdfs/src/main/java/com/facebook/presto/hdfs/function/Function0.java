@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hdfs.function;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 
@@ -28,21 +31,28 @@ import java.util.Objects;
  * @author Jelly
  */
 @ThreadSafe
-public final class Function0 extends com.facebook.presto.hdfs.function.HashFunction
+@JsonTypeName(value = "function0")
+public final class Function0 implements Function
 {
     private final int seed;
     private final HashFunction hasher;
 
-    public Function0(int seed)
+    @JsonCreator
+    public Function0(@JsonProperty("seed") int seed)
     {
         this.seed = seed;
-        hasher = Hashing.murmur3_128(seed);
+        this.hasher = Hashing.murmur3_128(seed);
     }
 
     public Function0()
     {
-        this.seed = 1318007700;
-        hasher = Hashing.murmur3_128(seed);
+        this(1318007700);
+    }
+
+    @JsonProperty
+    public int getSeed()
+    {
+        return seed;
     }
 
     @Override
@@ -66,7 +76,7 @@ public final class Function0 extends com.facebook.presto.hdfs.function.HashFunct
     @Override
     public int hashCode()
     {
-        return 0;
+        return Objects.hash(hasher, seed);
     }
 
     @Override
@@ -86,6 +96,6 @@ public final class Function0 extends com.facebook.presto.hdfs.function.HashFunct
     @Override
     public String toString()
     {
-        return "function0";
+        return "function0: murmur3_128(" + seed + ")";
     }
 }

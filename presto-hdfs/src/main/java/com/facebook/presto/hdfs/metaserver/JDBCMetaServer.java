@@ -310,7 +310,7 @@ implements MetaServer
                 requireNonNull(connectorId, "connectorId is null"),
                 requireNonNull(schema, "database name is null"),
                 requireNonNull(name, "table name is null"),
-                requireNonNull(new Path(location), "location uri is null"));
+                requireNonNull(location, "location uri is null"));
         return Optional.of(table);
     }
 

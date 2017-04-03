@@ -58,17 +58,17 @@ implements ConnectorSplitManager
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle handle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
         HDFSTableLayoutHandle layout = checkType(layoutHandle, HDFSTableLayoutHandle.class, "layoutHandle");
-        Optional<HDFSTableHandle> tableHandle = metaServer.getTableHandle(connectorId.getId(), layout.getTableName().getSchemaName(), layout.getTableName().getTableName());
+        Optional<HDFSTableHandle> tableHandle = metaServer.getTableHandle(connectorId.getConnectorId(), layout.getSchemaTableName().getSchemaName(), layout.getSchemaTableName().getTableName());
         if (!tableHandle.isPresent()) {
-            throw new TableNotFoundException(layout.getTableName().toString());
+            throw new TableNotFoundException(layout.getSchemaTableName().toString());
         }
-        Path tablePath = tableHandle.get().getPath();
+        String tablePath = tableHandle.get().getPath();
 
         List<ConnectorSplit> splits = new ArrayList<>();
-        List<Path> files = fsFactory.listFiles(tablePath);
+        List<Path> files = fsFactory.listFiles(new Path(tablePath));
         files.forEach(file -> splits.add(new HDFSSplit(connectorId,
                         tableHandle.get().getSchemaTableName(),
-                        tablePath, -1, -1,
+                        file.toString(), 0, -1,
                         fsFactory.getBlockLocations(file, 0, Long.MAX_VALUE))));
         Collections.shuffle(splits);
 
