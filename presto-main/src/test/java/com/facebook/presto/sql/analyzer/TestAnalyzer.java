@@ -1054,6 +1054,11 @@ public class TestAnalyzer
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
                 ".* must be an aggregate expression or appear in GROUP BY clause",
                 "SELECT apply(sum(x), x -> apply(x, x -> x * x)) + x FROM (VALUES 1, 2, 3, 4, 5) t(x)");
+        // x + y within lambda should not be treated as group expression
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                ".* must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT apply(1, y -> x + y) FROM (VALUES (1,2)) t(x, y) GROUP BY x+y");
     }
 
     @Test

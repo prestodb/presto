@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
+import static com.facebook.presto.sql.analyzer.LambdaReferenceExtractor.hasReferencesToLambdaArgument;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
@@ -568,7 +569,9 @@ class AggregationAnalyzer
         @Override
         public Boolean process(Node node, @Nullable Void context)
         {
-            if (expressions.stream().anyMatch(node::equals) && (!orderByScope.isPresent() || !hasOrderByReferencesToOutputColumns(node))) {
+            if (expressions.stream().anyMatch(node::equals)
+                    && (!orderByScope.isPresent() || !hasOrderByReferencesToOutputColumns(node))
+                    && !hasReferencesToLambdaArgument(node, analysis)) {
                 return true;
             }
 
