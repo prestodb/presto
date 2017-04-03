@@ -15,12 +15,8 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-
-import java.util.Map;
 
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static java.lang.String.format;
@@ -31,8 +27,7 @@ public final class PlanAssert
 
     public static void assertPlan(Session session, Metadata metadata, CostCalculator costCalculator, Plan actual, PlanMatchPattern pattern)
     {
-        Map<PlanNodeId, PlanNodeCost> planCost = costCalculator.calculateCostForPlan(session, actual.getTypes(), actual.getRoot());
-        MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, planCost), pattern);
+        MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, actual.getPlanNodeCosts()), pattern);
         if (!matches.isMatch()) {
             String logicalPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, costCalculator, session);
             throw new AssertionError(format("Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]", pattern, logicalPlan));

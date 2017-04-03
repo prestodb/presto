@@ -105,7 +105,7 @@ public final class SqlQueryExecution
     private final QueryExplainer queryExplainer;
     private final CostCalculator costCalculator;
     private final AtomicReference<SqlQueryScheduler> queryScheduler = new AtomicReference<>();
-    private final AtomicReference<QueryPlan> queryPlan = new AtomicReference<>();
+    private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
     private final List<Expression> parameters;
@@ -304,9 +304,9 @@ public final class SqlQueryExecution
 
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, costCalculator);
         Plan plan = logicalPlanner.plan(analysis);
-        queryPlan.set(createQueryPlan(plan));
+        queryPlan.set(plan);
 
         // extract inputs
         List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
@@ -340,11 +340,6 @@ public final class SqlQueryExecution
         }
 
         return connectors.build();
-    }
-
-    private QueryPlan createQueryPlan(Plan plan)
-    {
-        return new QueryPlan(plan, costCalculator.calculateCostForPlan(getSession(), plan.getTypes(), plan.getRoot()));
     }
 
     private void planDistribution(PlanRoot plan)
@@ -510,7 +505,7 @@ public final class SqlQueryExecution
         stateMachine.setResourceGroup(resourceGroupId);
     }
 
-    public QueryPlan getQueryPlan()
+    public Plan getQueryPlan()
     {
         return queryPlan.get();
     }

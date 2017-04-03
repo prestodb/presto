@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
@@ -201,7 +202,7 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public QueryPlan getQueryPlan()
+    public Plan getQueryPlan()
     {
         throw new UnsupportedOperationException();
     }
