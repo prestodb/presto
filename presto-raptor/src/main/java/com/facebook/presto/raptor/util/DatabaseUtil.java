@@ -25,13 +25,16 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_METADATA_ERROR;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.reflect.Reflection.newProxy;
+import static com.mysql.jdbc.MysqlErrorNumbers.ER_TRANS_CACHE_FULL;
 import static java.sql.Types.INTEGER;
 import static java.util.Objects.requireNonNull;
 
@@ -75,9 +78,14 @@ public final class DatabaseUtil
         });
     }
 
+    public static PrestoException metadataError(Throwable cause, String message)
+    {
+        return new PrestoException(RAPTOR_METADATA_ERROR, message, cause);
+    }
+
     public static PrestoException metadataError(Throwable cause)
     {
-        return new PrestoException(RAPTOR_METADATA_ERROR, "Failed to perform metadata operation", cause);
+        return metadataError(cause, "Failed to perform metadata operation");
     }
 
     /**
@@ -132,6 +140,32 @@ public final class DatabaseUtil
     public static boolean isSyntaxOrAccessError(Exception e)
     {
         return sqlCodeStartsWith(e, "42");
+    }
+
+    public static boolean isTransactionCacheFullError(Exception e)
+    {
+        return mySqlErrorCodeMatches(e, ER_TRANS_CACHE_FULL);
+    }
+
+    /**
+     * Check if an exception is caused by a MySQL exception of certain error code
+     */
+    private static boolean mySqlErrorCodeMatches(Exception e, int errorCode)
+    {
+        return Throwables.getCausalChain(e).stream()
+                .filter(SQLException.class::isInstance)
+                .map(SQLException.class::cast)
+                .filter(t -> t.getErrorCode() == errorCode)
+                .map(Throwable::getStackTrace)
+                .anyMatch(isMySQLException());
+    }
+
+    private static Predicate<StackTraceElement[]> isMySQLException()
+    {
+        // check if the exception is a mysql exception by matching the package name in the stack trace
+        return s -> Arrays.stream(s)
+                .map(StackTraceElement::getClassName)
+                .anyMatch(t -> t.startsWith("com.mysql.jdbc."));
     }
 
     private static boolean sqlCodeStartsWith(Exception e, String code)
