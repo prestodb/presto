@@ -20,9 +20,11 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.Assertions;
+import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -48,8 +50,13 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -714,15 +721,43 @@ public abstract class AbstractTestDistributedQueries
     {
         QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
         executeExclusively(() -> {
+            assertUntilTimeout(
+                    () -> assertEquals(
+                            queryManager.getAllQueryInfo()
+                                    .stream()
+                                    .filter(info -> !info.isFinalQueryInfo())
+                                    .collect(toList()),
+                            ImmutableList.of()),
+                    new Duration(1, MINUTES));
+
             long beforeQueryCount = queryManager.getStats().getCompletedQueries().getTotalCount();
             assertUpdate("CREATE TABLE test_query_logging_count AS SELECT 1 foo_1, 2 foo_2_4", 1);
             assertQuery("SELECT foo_1, foo_2_4 FROM test_query_logging_count", "SELECT 1, 2");
             assertUpdate("DROP TABLE test_query_logging_count");
             assertQueryFails("SELECT * FROM test_query_logging_count", ".*Table .* does not exist");
 
-            long queryCount = queryManager.getStats().getCompletedQueries().getTotalCount() - beforeQueryCount;
-            assertEquals(queryCount, 4, format("expected [%s] but found [%s]", 4, queryCount));
+            // TODO: Figure out a better way of synchronization
+            assertUntilTimeout(
+                    () -> assertEquals(queryManager.getStats().getCompletedQueries().getTotalCount() - beforeQueryCount, 4),
+                    new Duration(1, MINUTES));
         });
+    }
+
+    private static void assertUntilTimeout(Runnable assertion, Duration timeout)
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertion.run();
+                return;
+            }
+            catch (AssertionError e) {
+                if (nanosSince(start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            sleepUninterruptibly(50, MILLISECONDS);
+        }
     }
 
     @Test
