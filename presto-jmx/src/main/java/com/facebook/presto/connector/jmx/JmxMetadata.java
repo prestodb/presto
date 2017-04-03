@@ -147,17 +147,14 @@ public class JmxMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
-        if (JMX_SCHEMA_NAME.equals(schemaNameOrNull)) {
-            return listJmxTables();
+        Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        if (schemaNameOrNull == null || JMX_SCHEMA_NAME.equals(schemaNameOrNull)) {
+            tableNames.addAll(listJmxTables());
         }
-        else if (HISTORY_SCHEMA_NAME.equals(schemaNameOrNull)) {
-            return jmxHistoricalData.getTables().stream()
-                    .map(tableName -> new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName))
-                    .collect(toList());
+        if (schemaNameOrNull == null || HISTORY_SCHEMA_NAME.equals(schemaNameOrNull)) {
+            tableNames.addAll(listHistoricalTables());
         }
-        else {
-            return ImmutableList.of();
-        }
+        return tableNames.build();
     }
 
     private List<SchemaTableName> listJmxTables()
@@ -168,6 +165,13 @@ public class JmxMetadata
             tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, objectName.toString().toLowerCase(ENGLISH)));
         }
         return tableNames.build();
+    }
+
+    public List<SchemaTableName> listHistoricalTables()
+    {
+        return jmxHistoricalData.getTables().stream()
+                .map(tableName -> new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName))
+                .collect(toList());
     }
 
     @Override

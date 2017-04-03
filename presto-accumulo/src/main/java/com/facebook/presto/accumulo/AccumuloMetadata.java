@@ -51,6 +51,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -409,18 +410,9 @@ public class AccumuloMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        // List all tables if schema or table is null
-        if (prefix.getSchemaName() == null || prefix.getTableName() == null) {
-            return listTables(session, prefix.getSchemaName());
-        }
-
-        // Make sure requested table exists, returning the single table of it does
-        SchemaTableName table = new SchemaTableName(prefix.getSchemaName(), prefix.getTableName());
-        if (getTableHandle(session, table) != null) {
-            return ImmutableList.of(table);
-        }
-
-        // Else, return empty list
-        return ImmutableList.of();
+        return listTables(session, prefix.getSchemaName())
+                .stream()
+                .filter(schematablename -> prefix.matches(schematablename))
+                .collect(Collectors.toList());
     }
 }

@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +28,8 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.net.URL;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.example.MetadataUtil.CATALOG_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -35,6 +38,7 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -141,6 +145,23 @@ public class TestExampleMetadata
         // ExampleTableHandle and ExampleColumnHandle passed in.  This is on because
         // it is not possible for the Presto Metadata system to create the handles
         // directly.
+    }
+
+    @Test
+    public void testListTableColumns()
+    {
+        Map<SchemaTableName, List<ColumnMetadata>> tableColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
+        assertTrue(tableColumns.size() == 3);
+
+        tableColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("tpch"));
+        assertTrue(tableColumns.size() == 2);
+        assertTrue(tableColumns.containsKey(new SchemaTableName("tpch", "orders")));
+
+        tableColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("tpch", "orders"));
+        assertTrue(tableColumns.size() == 1);
+
+        tableColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("foo", "bar"));
+        assertTrue(tableColumns.size() == 0);
     }
 
     @Test(expectedExceptions = PrestoException.class)

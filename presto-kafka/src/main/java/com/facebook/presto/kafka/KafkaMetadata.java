@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertColumnHandle;
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertTableHandle;
@@ -171,7 +172,7 @@ public class KafkaMetadata
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
 
-        List<SchemaTableName> tableNames = prefix.getSchemaName() == null ? listTables(session, null) : ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        List<SchemaTableName> tableNames = listTables(session, prefix);
 
         for (SchemaTableName tableName : tableNames) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
@@ -181,6 +182,14 @@ public class KafkaMetadata
             }
         }
         return columns.build();
+    }
+
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return listTables(session, prefix.getSchemaName())
+                .stream()
+                .filter(schematablename -> prefix.matches(schematablename))
+                .collect(Collectors.toList());
     }
 
     @Override
