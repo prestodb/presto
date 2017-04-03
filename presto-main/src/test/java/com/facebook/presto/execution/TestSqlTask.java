@@ -26,6 +26,7 @@ import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -298,7 +299,7 @@ public class TestSqlTask
         return new SqlTask(
                 taskId,
                 location,
-                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)), taskNotificationExecutor),
+                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)), taskNotificationExecutor, new DataSize(1, MEGABYTE), new SpillSpaceTracker(new DataSize(1, GIGABYTE))),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.identity(),

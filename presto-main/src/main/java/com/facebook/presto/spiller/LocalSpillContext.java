@@ -13,19 +13,29 @@
  */
 package com.facebook.presto.spiller;
 
-import org.weakref.jmx.Managed;
+import com.facebook.presto.operator.SpillContext;
 
-import java.util.concurrent.atomic.AtomicLong;
-
-public abstract class SpillerFactoryWithStats
-        implements SpillerFactory
+public class LocalSpillContext
+    implements SpillContext
 {
-    protected final AtomicLong totalSpilledBytes = new AtomicLong();
+    private final SpillContext parentSpillContext;
+    private long spilledBytes;
+
+    public LocalSpillContext(SpillContext parentSpillContext)
+    {
+        this.parentSpillContext = parentSpillContext;
+    }
 
     @Override
-    @Managed
-    public long getTotalSpilledBytes()
+    public void updateBytes(long bytes)
     {
-        return totalSpilledBytes.get();
+        parentSpillContext.updateBytes(bytes);
+        spilledBytes += bytes;
+    }
+
+    @Override
+    public void close()
+    {
+        parentSpillContext.updateBytes(-spilledBytes);
     }
 }

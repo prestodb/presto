@@ -14,6 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +41,7 @@ public class TestMergeHashSort
         pageBuilder.addSequencePage(2, 2);
         pageBuilder.addSequencePage(2, 10);
 
-        MergeHashSort.PagePositions iterator = new MergeHashSort.SingleChannelPagePositions(pageBuilder.build().iterator());
+        MergeHashSort.PagePositions iterator = new MergeHashSort.SingleChannelPagePositions(pageBuilder.build().iterator(), aMemoryContext());
 
         assertTrue(iterator.hasNext());
         assertEquals(iterator.next().getPosition(), 0);
@@ -56,12 +58,17 @@ public class TestMergeHashSort
         assertFalse(iterator.hasNext());
     }
 
+    private LocalMemoryContext aMemoryContext()
+    {
+        return new AggregatedMemoryContext().newLocalMemoryContext();
+    }
+
     @Test
     public void testBinaryMergeIteratorOverEmptyPage()
     {
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
 
-        Iterator<Page> mergedPage = MergeHashSort.merge(
+        Iterator<Page> mergedPage = new MergeHashSort(new AggregatedMemoryContext()).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(ImmutableList.of(emptyPage).iterator()));
@@ -80,7 +87,7 @@ public class TestMergeHashSort
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
         Page page = rowPagesBuilder(BIGINT).row(42).build().get(0);
 
-        Iterator<Page> mergedPage = MergeHashSort.merge(
+        Iterator<Page> mergedPage = new MergeHashSort(new AggregatedMemoryContext()).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(ImmutableList.of(emptyPage, page).iterator()));
@@ -109,9 +116,10 @@ public class TestMergeHashSort
         pagesBuilder.row(2, 46);
 
         Iterator<Page> rewriterIterator = new MergeHashSort.PageRewriteIterator(
-                new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] { 0 }),
+                new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}),
                 types,
-                new MergeHashSort.SingleChannelPagePositions(pagesBuilder.build().iterator()));
+                new MergeHashSort.SingleChannelPagePositions(pagesBuilder.build().iterator(), aMemoryContext()),
+                aMemoryContext());
 
         List<Page> pages = Lists.newArrayList(rewriterIterator);
         assertEquals(pages.size(), 1);
@@ -125,10 +133,5 @@ public class TestMergeHashSort
                 .build();
 
         assertPageEquals(types, pages.get(0), expectedPages.get(0));
-    }
-
-    private static long readBigint(MergeHashSort.PagePosition pagePosition)
-    {
-        return BIGINT.getLong(pagePosition.getPage().getBlock(0), pagePosition.getPosition());
     }
 }

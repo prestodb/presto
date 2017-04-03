@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.Page;
@@ -57,7 +56,7 @@ public class PagesSerdeUtil
         return new Page(positionCount, blocks);
     }
 
-    private static void writeSerializedPage(SliceOutput output, SerializedPage page)
+    public static void writeSerializedPage(SliceOutput output, SerializedPage page)
     {
         output.writeInt(page.getPositionCount());
         output.writeByte(page.getCompression().getMarker());

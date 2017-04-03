@@ -27,6 +27,8 @@ import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spiller.LocalSpillManager;
+import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Preconditions;
@@ -105,7 +107,9 @@ public class SqlTaskManager
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
             TaskManagerConfig config,
-            NodeMemoryConfig nodeMemoryConfig)
+            NodeMemoryConfig nodeMemoryConfig,
+            LocalSpillManager localSpillManager,
+            NodeSpillConfig nodeSpillConfig)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -125,13 +129,22 @@ public class SqlTaskManager
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
 
+        DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
+
         queryContexts = CacheBuilder.newBuilder().weakValues().build(new CacheLoader<QueryId, QueryContext>()
         {
             @Override
             public QueryContext load(QueryId key)
                     throws Exception
             {
-                return new QueryContext(key, maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL), taskNotificationExecutor);
+                return new QueryContext(
+                        key,
+                        maxQueryMemoryPerNode,
+                        localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
+                        localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
+                        taskNotificationExecutor,
+                        maxQuerySpillPerNode,
+                        localSpillManager.getSpillSpaceTracker());
             }
         });
 

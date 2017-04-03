@@ -17,6 +17,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
@@ -49,6 +50,7 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -95,8 +97,10 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.BinarySpillerFactory;
+import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
+import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -278,7 +282,7 @@ public class LocalQueryRunner
                 featuresConfig,
                 typeRegistry,
                 blockEncodingSerde,
-                new SessionPropertyManager(),
+                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), featuresConfig)),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
@@ -356,7 +360,8 @@ public class LocalQueryRunner
                 .put(Rollback.class, new RollbackTask())
                 .build();
 
-        this.spillerFactory = new BinarySpillerFactory(blockEncodingSerde, featuresConfig);
+        SpillerStats spillerStats = new SpillerStats();
+        this.spillerFactory = new GenericSpillerFactory(new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig));
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)

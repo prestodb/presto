@@ -21,7 +21,6 @@ import com.facebook.presto.operator.aggregation.builder.SpillableHashAggregation
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -99,18 +98,8 @@ public class HashAggregationOperator
                     false,
                     new DataSize(0, MEGABYTE),
                     new DataSize(0, MEGABYTE),
-                    new SpillerFactory()
-                    {
-                        @Override
-                        public Spiller create(List<Type> types)
-                        {
-                            throw new UnsupportedOperationException();
-                        }
-
-                        public long getTotalSpilledBytes()
-                        {
-                            return 0;
-                        }
+                    (types, spillContext, memoryContext) -> {
+                        throw new UnsupportedOperationException();
                     },
                     joinCompiler);
         }
