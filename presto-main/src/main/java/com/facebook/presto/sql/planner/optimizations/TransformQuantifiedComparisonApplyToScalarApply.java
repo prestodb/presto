@@ -164,7 +164,7 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
-                    Assignments.identity(minValue, maxValue),
+                    Assignments.identity(minValue, maxValue, countAllValue, countNonNullValue),
                     node.getCorrelation());
 
             Expression valueComparedToSubquery = rewriteUsingBounds(quantifiedComparison, minValue, maxValue, countAllValue, countNonNullValue);

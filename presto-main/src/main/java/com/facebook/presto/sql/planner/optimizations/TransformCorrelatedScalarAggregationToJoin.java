@@ -57,10 +57,11 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
+import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isResolvedScalarSubquery;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.Predicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -130,7 +131,7 @@ public class TransformCorrelatedScalarAggregationToJoin
         public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
             ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
-            if (!rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.isResolvedScalarSubquery()) {
+            if (!rewrittenNode.getCorrelation().isEmpty() && isResolvedScalarSubquery(rewrittenNode)) {
                 Optional<AggregationNode> aggregation = searchFrom(rewrittenNode.getSubquery())
                         .where(AggregationNode.class::isInstance)
                         .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))

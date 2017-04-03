@@ -27,8 +27,10 @@ import com.google.common.collect.ImmutableList;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isResolvedScalarSubquery;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class TransformUncorrelatedScalarToJoin
         implements PlanOptimizer
 {
@@ -52,7 +54,7 @@ public class TransformUncorrelatedScalarToJoin
         public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
             ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
-            if (rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.isResolvedScalarSubquery()) {
+            if (rewrittenNode.getCorrelation().isEmpty() && isResolvedScalarSubquery(rewrittenNode)) {
                 return new JoinNode(
                         idAllocator.getNextId(),
                         JoinNode.Type.INNER,

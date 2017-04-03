@@ -158,9 +158,15 @@ public class PlanOptimizers
                         stats,
                         ImmutableSet.of(new TransformExistsApplyToScalarApply(metadata.getFunctionRegistry()))),
                 new TransformQuantifiedComparisonApplyToScalarApply(metadata),
-                new RemoveUnreferencedScalarInputApplyNodes(),
-                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                new TransformUncorrelatedScalarToJoin(),
+                new IterativeOptimizer(stats,
+                        ImmutableList.of(new RemoveUnreferencedScalarInputApplyNodes()),
+                        ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarInputApplyNodes())
+                ),
+                new IterativeOptimizer(stats,
+                        ImmutableList.of(new TransformUncorrelatedInPredicateSubqueryToSemiJoin(), new TransformUncorrelatedScalarToJoin()),
+                        ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                                new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedScalarToJoin())
+                ),
                 new TransformCorrelatedScalarAggregationToJoin(metadata),
                 new PredicatePushDown(metadata, sqlParser),
                 new MergeProjections(),
