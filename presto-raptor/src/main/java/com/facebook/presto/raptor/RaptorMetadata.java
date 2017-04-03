@@ -692,7 +692,9 @@ public class RaptorMetadata
         List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
         long updateTime = session.getStartTime();
 
-        shardManager.commitShards(transactionId, tableId, columns, parseFragments(fragments), externalBatchId, updateTime);
+        Collection<ShardInfo> shards = parseFragments(fragments);
+        log.info("Committing insert into tableId %s (queryId: %s, shards: %s, columns: %s)", handle.getTableId(), session.getQueryId(), shards.size(), columns.size());
+        shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId, updateTime);
 
         clearRollback();
 

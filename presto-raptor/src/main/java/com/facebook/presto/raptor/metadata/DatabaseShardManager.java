@@ -72,6 +72,7 @@ import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.DatabaseUtil.bindOptionalInt;
 import static com.facebook.presto.raptor.util.DatabaseUtil.isSyntaxOrAccessError;
+import static com.facebook.presto.raptor.util.DatabaseUtil.isTransactionCacheFullError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
@@ -365,6 +366,10 @@ public class DatabaseShardManager
                 return;
             }
             catch (DBIException e) {
+                if (isTransactionCacheFullError(e)) {
+                    throw metadataError(e, "Transaction too large");
+                }
+
                 propagateIfInstanceOf(e.getCause(), PrestoException.class);
                 if (attempt == maxAttempts) {
                     throw metadataError(e);
