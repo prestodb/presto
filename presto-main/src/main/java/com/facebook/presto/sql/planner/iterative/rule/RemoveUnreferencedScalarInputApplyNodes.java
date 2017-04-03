@@ -13,28 +13,36 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
+import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isResolvedScalarSubquery;
+import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.facebook.presto.util.Types.tryCast;
 
-public class PushLimitThroughMarkDistinct
+/**
+ * Remove resolved ApplyNodes with unreferenced scalar input, e.g: "SELECT (SELECT 1)".
+ */
+public class RemoveUnreferencedScalarInputApplyNodes
         implements Rule
 {
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode planNode, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
-        return tryCast(node, LimitNode.class)
-                .flatMap(parent -> lookup.resolve(parent.getSource(), MarkDistinctNode.class)
-                        .map(child -> transpose(parent, child)));
+        return tryCast(planNode, ApplyNode.class)
+                .filter(applyNode -> canBeReplacedBySubquery(applyNode, lookup))
+                .map(applyNode -> lookup.resolve(applyNode.getSubquery()));
+    }
+
+    public boolean canBeReplacedBySubquery(ApplyNode applyNode, Lookup lookup)
+    {
+        PlanNode input = lookup.resolve(applyNode.getInput());
+        return input.getOutputSymbols().isEmpty() && isScalar(input) && isResolvedScalarSubquery(applyNode, lookup::resolve);
     }
 }

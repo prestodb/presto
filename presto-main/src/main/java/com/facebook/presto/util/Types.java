@@ -11,27 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.iterative;
-
-import com.facebook.presto.sql.planner.plan.PlanNode;
+package com.facebook.presto.util;
 
 import java.util.Optional;
 
-import static com.facebook.presto.util.Types.tryCast;
+import static java.util.Objects.requireNonNull;
 
-public interface Lookup
+public final class Types
 {
-    /**
-     * Resolves a node by materializing GroupReference nodes
-     * representing symbolic references to other nodes.
-     *
-     * If the node is not a GroupReference, it returns the
-     * argument as is.
-     */
-    PlanNode resolve(PlanNode node);
-
-    default <T extends PlanNode> Optional<T> resolve(PlanNode node, Class<T> target)
+    private Types()
     {
-        return tryCast(resolve(node), target);
+    }
+
+    public static <T> Optional<T> tryCast(Object object, Class<T> targetType)
+    {
+        requireNonNull(object);
+        return Optional.of(object)
+                .filter(targetType::isInstance)
+                .map(targetType::cast);
     }
 }
