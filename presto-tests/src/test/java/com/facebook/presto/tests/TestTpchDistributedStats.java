@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.execution.QueryPlan;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.tests.statistics.Metric;
@@ -64,18 +64,18 @@ public class TestTpchDistributedStats
     {
         String queryId = executeQuery("SELECT * FROM NATION");
 
-        QueryPlan queryPlan = getQueryPlan(queryId);
+        Plan queryPlan = getQueryPlan(queryId);
 
         MetricComparison rootOutputRowCountComparison = getRootOutputRowCountComparison(queryId, queryPlan);
         assertEquals(rootOutputRowCountComparison.result(), MATCH);
     }
 
-    private MetricComparison getRootOutputRowCountComparison(String queryId, QueryPlan queryPlan)
+    private MetricComparison getRootOutputRowCountComparison(String queryId, Plan queryPlan)
     {
         List<MetricComparison> comparisons = new MetricComparator().getMetricComparisons(queryPlan, getOutputStageInfo(queryId));
         return comparisons.stream()
                 .filter(comparison -> comparison.getMetric().equals(Metric.OUTPUT_ROW_COUNT))
-                .filter(comparison -> comparison.getPlanNode().equals(queryPlan.getPlan().getRoot()))
+                .filter(comparison -> comparison.getPlanNode().equals(queryPlan.getRoot()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("No comparison for root node found"));
     }
@@ -105,7 +105,7 @@ public class TestTpchDistributedStats
         }
     }
 
-    private QueryPlan getQueryPlan(String queryId)
+    private Plan getQueryPlan(String queryId)
     {
         return runner.getQueryPlan(new QueryId(queryId));
     }
@@ -113,9 +113,9 @@ public class TestTpchDistributedStats
     private void summarizeQuery(int queryNumber, String query)
     {
         String queryId = executeQuery(query);
-        QueryPlan queryPlan = getQueryPlan(queryId);
+        Plan queryPlan = getQueryPlan(queryId);
 
-        List<PlanNode> allPlanNodes = new PlanNodeSearcher(queryPlan.getPlan().getRoot()).findAll();
+        List<PlanNode> allPlanNodes = new PlanNodeSearcher(queryPlan.getRoot()).findAll();
 
         System.out.println(format("Query TPCH [%s] produces [%s] plan nodes.\n", queryNumber, allPlanNodes.size()));
 

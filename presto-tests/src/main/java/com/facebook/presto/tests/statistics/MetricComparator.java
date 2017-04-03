@@ -14,9 +14,9 @@
 package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.cost.PlanNodeCost;
-import com.facebook.presto.execution.QueryPlan;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
@@ -40,7 +40,7 @@ public class MetricComparator
     private final List<Metric> metrics = asList(Metric.values());
     private final double tolerance = 0.1;
 
-    public List<MetricComparison> getMetricComparisons(QueryPlan queryPlan, StageInfo outputStageInfo)
+    public List<MetricComparison> getMetricComparisons(Plan queryPlan, StageInfo outputStageInfo)
     {
         return metrics.stream().flatMap(metric -> {
             Map<PlanNodeId, PlanNodeCost> estimates = queryPlan.getPlanNodeCosts();
@@ -55,9 +55,9 @@ public class MetricComparator
         }).collect(Collectors.toList());
     }
 
-    private PlanNode planNodeForId(QueryPlan queryPlan, PlanNodeId id)
+    private PlanNode planNodeForId(Plan queryPlan, PlanNodeId id)
     {
-        return searchFrom(queryPlan.getPlan().getRoot())
+        return searchFrom(queryPlan.getRoot())
                 .where(node -> node.getId().equals(id))
                 .findOnlyElement();
     }
