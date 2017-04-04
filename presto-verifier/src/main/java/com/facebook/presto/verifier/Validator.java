@@ -252,7 +252,10 @@ public class Validator
         for (String prequeryString : query.getPreQueries()) {
             QueryResult queryResult = executor.apply(prequeryString);
             preQueryResults.add(queryResult);
-            if (queryResult.getState() != State.SUCCESS) {
+            if (queryResult.getState() == State.TIMEOUT) {
+                return queryResult;
+            }
+            else if (queryResult.getState() != State.SUCCESS) {
                 return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.of());
             }
         }

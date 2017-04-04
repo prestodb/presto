@@ -36,6 +36,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.verifier.QueryResult.State.SUCCESS;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -201,7 +202,7 @@ public class Verifier
             if (e != null && shouldAddStackTrace(e)) {
                 errorMessage += getStackTraceAsString(e);
             }
-            else {
+            if (control.getState() == SUCCESS && test.getState() == SUCCESS) {
                 errorMessage += validator.getResultsComparison(precision).trim();
             }
         }
