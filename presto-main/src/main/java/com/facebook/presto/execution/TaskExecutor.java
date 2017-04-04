@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TimeDistribution;
 import io.airlift.stats.TimeStat;
@@ -143,8 +144,8 @@ public class TaskExecutor
     private final TimeDistribution forcedSplitWallTime = new TimeDistribution(MICROSECONDS);
 
     // shared between SplitRunners
-    private final TimeStat scheduledTime = new TimeStat(MICROSECONDS);
-    private final TimeStat cpuTime = new TimeStat(MICROSECONDS);
+    private final CounterStat scheduledTimeMicros = new CounterStat();
+    private final CounterStat cpuTimeMicros = new CounterStat();
 
     private final TimeStat overallQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
@@ -271,8 +272,8 @@ public class TaskExecutor
                         taskHandle,
                         taskSplit,
                         ticker,
-                        cpuTime,
-                        scheduledTime,
+                        cpuTimeMicros,
+                        scheduledTimeMicros,
                         overallQuantaWallTime,
                         blockedQuantaWallTime,
                         unblockedQuantaWallTime);
@@ -572,8 +573,8 @@ public class TaskExecutor
         private final AtomicLong cpuTimeNanos = new AtomicLong();
         private final AtomicLong processCalls = new AtomicLong();
 
-        private final TimeStat cpuTime;
-        private final TimeStat scheduledTime;
+        private final CounterStat cpuTimeMicros;
+        private final CounterStat scheduledTimeMicros;
 
         private final TimeStat overallQuantaWallTime;
         private final TimeStat blockedQuantaWallTime;
@@ -583,8 +584,8 @@ public class TaskExecutor
                 TaskHandle taskHandle,
                 SplitRunner split,
                 Ticker ticker,
-                TimeStat cpuTime,
-                TimeStat scheduledTime,
+                CounterStat cpuTimeMicros,
+                CounterStat scheduledTimeMicros,
                 TimeStat overallQuantaWallTime,
                 TimeStat blockedQuantaWallTime,
                 TimeStat unblockedQuantaWallTime)
@@ -594,8 +595,8 @@ public class TaskExecutor
             this.split = split;
             this.ticker = ticker;
             this.workerId = NEXT_WORKER_ID.getAndIncrement();
-            this.cpuTime = cpuTime;
-            this.scheduledTime = scheduledTime;
+            this.cpuTimeMicros = cpuTimeMicros;
+            this.scheduledTimeMicros = scheduledTimeMicros;
             this.overallQuantaWallTime = overallQuantaWallTime;
             this.blockedQuantaWallTime = blockedQuantaWallTime;
             this.unblockedQuantaWallTime = unblockedQuantaWallTime;
@@ -675,9 +676,11 @@ public class TaskExecutor
                 // record last run for prioritization within a level
                 lastRun.set(ticker.read());
 
-                cpuTimeNanos.addAndGet(elapsed.getCpu().roundTo(NANOSECONDS));
-                cpuTime.add(elapsed.getCpu());
-                scheduledTime.add(elapsed.getWall());
+                long cpuNanos = elapsed.getCpu().roundTo(NANOSECONDS);
+                cpuTimeNanos.addAndGet(cpuNanos);
+
+                cpuTimeMicros.update(cpuNanos / 1000);
+                scheduledTimeMicros.update(quantaWallNanos / 1000);
 
                 return blocked;
             }
@@ -1124,16 +1127,16 @@ public class TaskExecutor
 
     @Managed
     @Nested
-    public TimeStat getScheduledTime()
+    public CounterStat getScheduledTimeMicros()
     {
-        return scheduledTime;
+        return scheduledTimeMicros;
     }
 
     @Managed
     @Nested
-    public TimeStat getCpuTime()
+    public CounterStat getCpuTimeMicros()
     {
-        return cpuTime;
+        return cpuTimeMicros;
     }
 
     private synchronized int calculateRunningTasksForLevel(int level)
