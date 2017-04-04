@@ -250,7 +250,7 @@ public class TestingMetadata
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         columns.addAll(tableMetadata.getColumns());
         columns.add(column);
-        tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build(), tableMetadata.getProperties()));
+        tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build(), tableMetadata.getProperties(), tableMetadata.getComment()));
     }
 
     @Override
@@ -261,7 +261,7 @@ public class TestingMetadata
         ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, source);
         List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
         columns.set(columns.indexOf(columnMetadata), new ColumnMetadata(target, columnMetadata.getType(), columnMetadata.getComment(), columnMetadata.isHidden()));
-        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties()));
+        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
     }
 
     @Override

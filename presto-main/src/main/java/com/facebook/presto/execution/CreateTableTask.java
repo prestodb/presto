@@ -143,7 +143,7 @@ public class CreateTableTask
 
         Map<String, Object> finalProperties = combineProperties(statement.getProperties().keySet(), properties, inheritedProperties);
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, finalProperties);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, finalProperties, statement.getComment());
 
         metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
 

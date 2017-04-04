@@ -148,6 +148,7 @@ public class HiveMetadata
 {
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
+    public static final String TABLE_COMMENT = "comment";
 
     private final String connectorId;
     private final boolean allowCorruptWritesForTesting;
@@ -270,7 +271,9 @@ public class HiveMetadata
         }
         properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
 
-        return new ConnectorTableMetadata(tableName, columns.build(), properties.build());
+        Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
+
+        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
     }
 
     @Override
@@ -411,7 +414,9 @@ public class HiveMetadata
         }
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
+        ImmutableMap.Builder<String, String> additionalTableParameters = ImmutableMap.builder();
+        additionalTableParameters.putAll(tableParameterCodec.encode(tableMetadata.getProperties()));
+        tableMetadata.getComment().ifPresent(value -> additionalTableParameters.put(TABLE_COMMENT, value));
 
         hiveStorageFormat.validateColumns(columnHandles);
 
@@ -437,7 +442,7 @@ public class HiveMetadata
                 hiveStorageFormat,
                 partitionedBy,
                 bucketProperty,
-                additionalTableParameters,
+                additionalTableParameters.build(),
                 targetPath,
                 external,
                 prestoVersion);
@@ -495,7 +500,6 @@ public class HiveMetadata
         }
 
         ImmutableMap.Builder<String, String> tableParameters = ImmutableMap.<String, String>builder()
-                .put("comment", "Created by Presto")
                 .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, queryId)
                 .putAll(additionalTableParameters);
@@ -582,7 +586,10 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
-        Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
+
+        ImmutableMap.Builder<String, String> additionalTableParameters = ImmutableMap.builder();
+        additionalTableParameters.putAll(tableParameterCodec.encode(tableMetadata.getProperties()));
+        tableMetadata.getComment().ifPresent(value -> additionalTableParameters.put(TABLE_COMMENT, value));
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -610,7 +617,7 @@ public class HiveMetadata
                 partitionedBy,
                 bucketProperty,
                 session.getUser(),
-                additionalTableParameters);
+                additionalTableParameters.build());
 
         Path writePathRoot = locationService.writePathRoot(locationHandle).get();
         Path targetPathRoot = locationService.targetPathRoot(locationHandle);
@@ -899,7 +906,7 @@ public class HiveMetadata
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("comment", "Presto View")
+                .put(TABLE_COMMENT, "Presto View")
                 .put(PRESTO_VIEW_FLAG, "true")
                 .build();
 

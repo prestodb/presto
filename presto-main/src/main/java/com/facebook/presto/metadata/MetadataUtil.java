@@ -187,10 +187,17 @@ public final class MetadataUtil
         private final SchemaTableName tableName;
         private final ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         private final ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        private final Optional<String> comment;
 
         private TableMetadataBuilder(SchemaTableName tableName)
         {
+            this(tableName, Optional.empty());
+        }
+
+        private TableMetadataBuilder(SchemaTableName tableName, Optional<String> comment)
+        {
             this.tableName = tableName;
+            this.comment = comment;
         }
 
         public TableMetadataBuilder column(String columnName, Type type)
@@ -207,7 +214,7 @@ public final class MetadataUtil
 
         public ConnectorTableMetadata build()
         {
-            return new ConnectorTableMetadata(tableName, columns.build(), properties.build());
+            return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
         }
     }
 }

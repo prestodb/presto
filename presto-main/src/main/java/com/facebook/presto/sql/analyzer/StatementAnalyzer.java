@@ -403,6 +403,7 @@ class StatementAnalyzer
                         .analyze(expression, createScope(scope));
             }
             analysis.setCreateTableProperties(node.getProperties());
+            analysis.setCreateTableComment(node.getComment());
 
             accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
