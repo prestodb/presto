@@ -540,7 +540,7 @@ class ZstdFrameDecompressor
 
     private void copyMatchTail(Object outputBase, long fastOutputLimit, long output, long matchOutputLimit, long matchAddress)
     {
-        if (matchOutputLimit > fastOutputLimit - MIN_MATCH) {
+        if (matchOutputLimit > fastOutputLimit) {
             while (output < fastOutputLimit) {
                 UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
                 matchAddress += SIZE_OF_LONG;
@@ -552,12 +552,11 @@ class ZstdFrameDecompressor
             }
         }
         else {
-            do {
+            while (output < matchOutputLimit) {
                 UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
                 matchAddress += SIZE_OF_LONG;
                 output += SIZE_OF_LONG;
             }
-            while (output < matchOutputLimit);
         }
     }
 
