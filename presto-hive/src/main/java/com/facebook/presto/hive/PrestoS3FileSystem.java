@@ -83,8 +83,10 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -315,7 +317,7 @@ public class PrestoS3FileSystem
         }
 
         return new FileStatus(
-                getObjectSize(metadata),
+                getObjectSize(path, metadata),
                 false,
                 1,
                 BLOCK_SIZE.toBytes(),
@@ -323,9 +325,14 @@ public class PrestoS3FileSystem
                 qualifiedPath(path));
     }
 
-    private static long getObjectSize(ObjectMetadata metadata)
+    private static long getObjectSize(Path path, ObjectMetadata metadata)
+            throws IOException
     {
-        String length = metadata.getUserMetadata().get(UNENCRYPTED_CONTENT_LENGTH);
+        Map<String, String> userMetadata = metadata.getUserMetadata();
+        String length = userMetadata.get(UNENCRYPTED_CONTENT_LENGTH);
+        if (userMetadata.containsKey(SERVER_SIDE_ENCRYPTION) && length == null) {
+            throw new IOException(format("%s header is not set on an encrypted object: %s", UNENCRYPTED_CONTENT_LENGTH, path));
+        }
         return (length != null) ? Long.parseLong(length) : metadata.getContentLength();
     }
 
