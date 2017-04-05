@@ -124,10 +124,10 @@ public class ExchangeClientStatus
 
     private static long mergeAvgs(long value1, long count1, long value2, long count2)
     {
-        if (count1 < 1) {
+        if (count1 == 0) {
             return value2;
         }
-        if (count2 < 1) {
+        if (count2 == 0) {
             return value1;
         }
         // AVG_n+m = AVG_n * n / (n + m) + AVG_m * m / (n + m)
