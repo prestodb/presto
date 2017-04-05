@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -22,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -40,6 +42,7 @@ public class TypedSet
     private final IntArrayList blockPositionByHash;
     private final BlockBuilder elementBlock;
 
+    private int hashCapacity;
     private int maxFill;
     private int hashMask;
     private static final int EMPTY_SLOT = -1;
@@ -52,13 +55,13 @@ public class TypedSet
         this.elementType = requireNonNull(elementType, "elementType must not be null");
         this.elementBlock = elementType.createBlockBuilder(new BlockBuilderStatus(), expectedSize);
 
-        int hashSize = arraySize(expectedSize, FILL_RATIO);
-        this.maxFill = calculateMaxFill(hashSize);
-        this.hashMask = hashSize - 1;
+        hashCapacity = arraySize(expectedSize, FILL_RATIO);
+        this.maxFill = calculateMaxFill(hashCapacity);
+        this.hashMask = hashCapacity - 1;
 
-        blockPositionByHash = new IntArrayList(hashSize);
-        blockPositionByHash.size(hashSize);
-        for (int i = 0; i < hashSize; i++) {
+        blockPositionByHash = new IntArrayList(hashCapacity);
+        blockPositionByHash.size(hashCapacity);
+        for (int i = 0; i < hashCapacity; i++) {
             blockPositionByHash.set(i, EMPTY_SLOT);
         }
 
@@ -140,17 +143,23 @@ public class TypedSet
 
         // increase capacity, if necessary
         if (elementBlock.getPositionCount() >= maxFill) {
-            rehash(maxFill * 2);
+            rehash();
         }
     }
 
-    private void rehash(int size)
+    private void rehash()
     {
-        int newHashSize = arraySize(size + 1, FILL_RATIO);
-        hashMask = newHashSize - 1;
-        maxFill = calculateMaxFill(newHashSize);
-        blockPositionByHash.size(newHashSize);
-        for (int i = 0; i < newHashSize; i++) {
+        long newCapacityLong = hashCapacity * 2L;
+        if (newCapacityLong > Integer.MAX_VALUE) {
+            throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+        }
+        int newCapacity = (int) newCapacityLong;
+
+        hashCapacity = newCapacity;
+        hashMask = newCapacity - 1;
+        maxFill = calculateMaxFill(newCapacity);
+        blockPositionByHash.size(newCapacity);
+        for (int i = 0; i < newCapacity; i++) {
             blockPositionByHash.set(i, EMPTY_SLOT);
         }
 
@@ -166,10 +175,12 @@ public class TypedSet
 
     private static int calculateMaxFill(int hashSize)
     {
+        checkArgument(hashSize > 0, "hashSize must be greater than 0");
         int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
         if (maxFill == hashSize) {
             maxFill--;
         }
+        checkArgument(hashSize > maxFill, "hashSize must be larger than maxFill");
         return maxFill;
     }
 
