@@ -33,7 +33,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;

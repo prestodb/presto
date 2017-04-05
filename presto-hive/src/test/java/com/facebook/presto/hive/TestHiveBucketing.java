@@ -49,7 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;

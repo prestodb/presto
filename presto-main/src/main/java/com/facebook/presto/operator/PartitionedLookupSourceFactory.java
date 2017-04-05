@@ -30,8 +30,8 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
 import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Objects.requireNonNull;
 

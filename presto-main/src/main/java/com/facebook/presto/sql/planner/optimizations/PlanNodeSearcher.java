@@ -22,8 +22,8 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.planner.optimizations.Predicates.alwaysTrue;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeSearcher

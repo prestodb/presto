@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME;
 
 final class PrestoSystemRequirements

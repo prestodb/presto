@@ -40,7 +40,6 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -54,6 +53,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
 public class PlanBuilder
@@ -237,7 +237,7 @@ public class PlanBuilder
     {
         return Stream.of(expressions)
                 .map(PlanBuilder::expression)
-                .collect(ImmutableCollectors.toImmutableList());
+                .collect(toImmutableList());
     }
 
     public Map<Symbol, Type> getSymbols()

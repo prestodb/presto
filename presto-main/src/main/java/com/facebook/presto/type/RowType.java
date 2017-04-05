@@ -35,7 +35,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**

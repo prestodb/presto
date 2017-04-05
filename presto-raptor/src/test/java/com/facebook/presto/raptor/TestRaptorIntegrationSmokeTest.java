@@ -17,7 +17,6 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +40,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
@@ -48,6 +48,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
@@ -488,7 +489,7 @@ public class TestRaptorIntegrationSmokeTest
                         .build());
         Map<String, MaterializedRow> map = actualResults.getMaterializedRows().stream()
                 .filter(row -> ((String) row.getField(1)).startsWith("system_tables_test"))
-                .collect(ImmutableCollectors.toImmutableMap(row -> ((String) row.getField(1))));
+                .collect(toImmutableMap(row -> ((String) row.getField(1)), identity()));
         assertEquals(map.size(), 6);
         assertEquals(
                 map.get("system_tables_test0").getFields(),

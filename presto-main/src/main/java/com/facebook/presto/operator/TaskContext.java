@@ -19,7 +19,6 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
@@ -38,6 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
@@ -360,7 +360,7 @@ public class TaskContext
         ImmutableSet<BlockedReason> blockedReasons = pipelineStats.stream()
                 .filter(pipeline -> pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0)
                 .flatMap(pipeline -> pipeline.getBlockedReasons().stream())
-                .collect(ImmutableCollectors.toImmutableSet());
+                .collect(toImmutableSet());
         return new TaskStats(
                 taskStateMachine.getCreatedTime(),
                 executionStartTime.get(),

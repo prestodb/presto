@@ -32,7 +32,7 @@ import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.testng.Assert.assertNotNull;
 
 public class TestArbitraryAggregation

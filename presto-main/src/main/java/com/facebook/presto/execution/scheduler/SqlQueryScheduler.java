@@ -73,16 +73,17 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.function.Function.identity;
 
 public class SqlQueryScheduler
 {
@@ -144,7 +145,7 @@ public class SqlQueryScheduler
         this.rootStageId = rootStage.getStageId();
 
         this.stages = stages.stream()
-                .collect(toImmutableMap(SqlStageExecution::getStageId));
+                .collect(toImmutableMap(SqlStageExecution::getStageId, identity()));
 
         this.stageSchedulers = stageSchedulers.build();
         this.stageLinkages = stageLinkages.build();
@@ -289,7 +290,7 @@ public class SqlQueryScheduler
     {
         Map<StageId, StageInfo> stageInfos = stages.values().stream()
                 .map(SqlStageExecution::getStageInfo)
-                .collect(toImmutableMap(StageInfo::getStageId));
+                .collect(toImmutableMap(StageInfo::getStageId, identity()));
 
         return buildStageInfo(rootStageId, stageInfos);
     }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -24,8 +23,8 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class QueryTemplate
@@ -163,7 +162,7 @@ public class QueryTemplate
         {
             return Arrays.stream(values)
                     .map(this::of)
-                    .collect(ImmutableCollectors.toImmutableList());
+                    .collect(toImmutableList());
         }
     }
 }

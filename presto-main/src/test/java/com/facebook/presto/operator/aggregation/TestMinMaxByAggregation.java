@@ -40,7 +40,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertNotNull;
 

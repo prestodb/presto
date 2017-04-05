@@ -53,7 +53,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArr
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.setStatic;
 import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class LambdaBytecodeGenerator
 {

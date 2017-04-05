@@ -28,8 +28,8 @@ import java.util.Map;
 
 import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;

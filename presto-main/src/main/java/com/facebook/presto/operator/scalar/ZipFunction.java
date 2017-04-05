@@ -34,8 +34,8 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.join;
 import static java.lang.invoke.MethodType.methodType;
 

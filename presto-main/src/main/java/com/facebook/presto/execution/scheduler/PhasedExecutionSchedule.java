@@ -49,9 +49,10 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.function.Function.identity;
 
 @NotThreadSafe
 public class PhasedExecutionSchedule
@@ -64,7 +65,7 @@ public class PhasedExecutionSchedule
     {
         List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(SqlStageExecution::getFragment).collect(toImmutableList()));
 
-        Map<PlanFragmentId, SqlStageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId()));
+        Map<PlanFragmentId, SqlStageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
 
         // create a mutable list of mutable sets of stages, so we can remove completed stages
         schedulePhases = new ArrayList<>();
@@ -177,7 +178,7 @@ public class PhasedExecutionSchedule
         public Visitor(Collection<PlanFragment> fragments, DirectedGraph<PlanFragmentId, DefaultEdge> graph)
         {
             this.fragments = fragments.stream()
-                    .collect(toImmutableMap(PlanFragment::getId));
+                    .collect(toImmutableMap(PlanFragment::getId, identity()));
             this.graph = graph;
         }
 

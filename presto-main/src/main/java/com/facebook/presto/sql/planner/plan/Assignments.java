@@ -34,8 +34,8 @@ import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.StreamSupport;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 

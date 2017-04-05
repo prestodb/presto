@@ -30,8 +30,8 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public final class MetadataListing
 {

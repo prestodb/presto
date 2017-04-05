@@ -62,11 +62,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.verifier.QueryType.CREATE;
 import static com.facebook.presto.verifier.QueryType.MODIFY;
 import static com.facebook.presto.verifier.QueryType.READ;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PrestoVerifier
 {

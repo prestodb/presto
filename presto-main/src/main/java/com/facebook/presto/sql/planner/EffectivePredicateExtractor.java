@@ -36,7 +36,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -59,8 +58,8 @@ import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.in;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * Computes the effective predicate at the top of the specified PlanNode
@@ -313,7 +312,7 @@ public class EffectivePredicateExtractor
     {
         return expressions.stream()
                 .map(expression -> pullExpressionThroughSymbols(expression, symbols))
-                .collect(ImmutableCollectors.toImmutableList());
+                .collect(toImmutableList());
     }
 
     private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)

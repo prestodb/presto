@@ -41,7 +41,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,9 +56,9 @@ import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static com.facebook.presto.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -113,7 +112,7 @@ public final class PlanMatchPattern
         return tableScan(expectedTableName, columnReferences)
                 .withExactAssignedOutputs(columnReferences.values().stream()
                         .map(columnName -> columnReference(expectedTableName, columnName))
-                        .collect(ImmutableCollectors.toImmutableList()));
+                        .collect(toImmutableList()));
     }
 
     public static PlanMatchPattern constrainedTableScan(String expectedTableName, Map<String, Domain> constraint)

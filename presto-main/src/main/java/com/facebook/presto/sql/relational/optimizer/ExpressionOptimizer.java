@@ -49,9 +49,9 @@ import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
 import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ExpressionOptimizer
 {

@@ -18,7 +18,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -30,6 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -75,7 +75,7 @@ public class HashBuilderOperator
                     types,
                     outputChannels.stream()
                             .map(types::get)
-                            .collect(ImmutableCollectors.toImmutableList()),
+                            .collect(toImmutableList()),
                     hashChannels,
                     partitionCount,
                     requireNonNull(layout, "layout is null"),

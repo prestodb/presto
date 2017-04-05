@@ -38,8 +38,8 @@ import java.util.Set;
 
 import static com.facebook.presto.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;

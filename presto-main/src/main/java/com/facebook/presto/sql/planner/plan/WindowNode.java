@@ -19,7 +19,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -36,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
@@ -132,7 +132,7 @@ public class WindowNode
     {
         return windowFunctions.values().stream()
                 .map(WindowNode.Function::getFrame)
-                .collect(ImmutableCollectors.toImmutableList());
+                .collect(toImmutableList());
     }
 
     @JsonProperty

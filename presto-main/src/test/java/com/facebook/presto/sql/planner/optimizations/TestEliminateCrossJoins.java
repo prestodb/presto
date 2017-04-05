@@ -32,8 +32,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins.isOriginalOrder;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.AssertJUnit.assertFalse;
