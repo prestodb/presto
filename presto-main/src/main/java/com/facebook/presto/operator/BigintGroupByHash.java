@@ -314,12 +314,12 @@ public class BigintGroupByHash
 
     private static int calculateMaxFill(int hashSize)
     {
-        checkArgument(hashSize > 0, "hashCapacity must greater than 0");
+        checkArgument(hashSize > 0, "hashSize must be greater than 0");
         int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
         if (maxFill == hashSize) {
             maxFill--;
         }
-        checkArgument(hashSize > maxFill, "hashCapacity must be larger than maxFill");
+        checkArgument(hashSize > maxFill, "hashSize must be larger than maxFill");
         return maxFill;
     }
 }
