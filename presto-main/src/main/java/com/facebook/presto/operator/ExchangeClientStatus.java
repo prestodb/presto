@@ -113,7 +113,7 @@ public class ExchangeClientStatus
     public ExchangeClientStatus mergeWith(ExchangeClientStatus other)
     {
         return new ExchangeClientStatus(
-                (bufferedBytes + other.bufferedBytes) / 2,
+                (bufferedBytes + other.bufferedBytes) / 2, // this is correct as long as all clients have the same buffer size (capacity)
                 Math.max(maxBufferedBytes, other.maxBufferedBytes),
                 mergeAvgs(averageBytesPerRequest, successfulRequestsCount, other.averageBytesPerRequest, other.successfulRequestsCount),
                 successfulRequestsCount + other.successfulRequestsCount,
