@@ -26,7 +26,9 @@ public class ExchangeClientStatus
         implements OperatorInfo
 {
     private final long bufferedBytes;
+    private final long maxBufferedBytes;
     private final long averageBytesPerRequest;
+    private final long successfulRequestsCount;
     private final int bufferedPages;
     private final boolean noMoreLocations;
     private final List<PageBufferClientStatus> pageBufferClientStatuses;
@@ -34,13 +36,17 @@ public class ExchangeClientStatus
     @JsonCreator
     public ExchangeClientStatus(
             @JsonProperty("bufferedBytes") long bufferedBytes,
+            @JsonProperty("maxBufferedBytes") long maxBufferedBytes,
             @JsonProperty("averageBytesPerRequest") long averageBytesPerRequest,
+            @JsonProperty("successfulRequestsCount") long successFullRequestsCount,
             @JsonProperty("bufferedPages") int bufferedPages,
             @JsonProperty("noMoreLocations") boolean noMoreLocations,
             @JsonProperty("pageBufferClientStatuses") List<PageBufferClientStatus> pageBufferClientStatuses)
     {
         this.bufferedBytes = bufferedBytes;
+        this.maxBufferedBytes = maxBufferedBytes;
         this.averageBytesPerRequest = averageBytesPerRequest;
+        this.successfulRequestsCount = successFullRequestsCount;
         this.bufferedPages = bufferedPages;
         this.noMoreLocations = noMoreLocations;
         this.pageBufferClientStatuses = ImmutableList.copyOf(requireNonNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
@@ -53,9 +59,21 @@ public class ExchangeClientStatus
     }
 
     @JsonProperty
+    public long getMaxBufferedBytes()
+    {
+        return maxBufferedBytes;
+    }
+
+    @JsonProperty
     public long getAverageBytesPerRequest()
     {
         return averageBytesPerRequest;
+    }
+
+    @JsonProperty
+    public long getSuccessfulRequestsCount()
+    {
+        return successfulRequestsCount;
     }
 
     @JsonProperty
@@ -82,7 +100,9 @@ public class ExchangeClientStatus
     {
         return toStringHelper(this)
                 .add("bufferBytes", bufferedBytes)
+                .add("maxBufferBytes", maxBufferedBytes)
                 .add("averageBytesPerRequest", averageBytesPerRequest)
+                .add("successfulRequestsCount", successfulRequestsCount)
                 .add("bufferedPages", bufferedPages)
                 .add("noMoreLocations", noMoreLocations)
                 .add("pageBufferClientStatuses", pageBufferClientStatuses)

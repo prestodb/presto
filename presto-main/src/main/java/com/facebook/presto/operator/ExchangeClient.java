@@ -56,7 +56,7 @@ public class ExchangeClient
 {
     private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, UNCOMPRESSED, 0, 0);
 
-    private final long maxBufferedBytes;
+    private final long bufferCapacity;
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
     private final Duration minErrorDuration;
@@ -81,6 +81,8 @@ public class ExchangeClient
     @GuardedBy("this")
     private long bufferBytes;
     @GuardedBy("this")
+    private long maxBufferBytes;
+    @GuardedBy("this")
     private long successfulRequests;
     @GuardedBy("this")
     private long averageBytesPerRequest;
@@ -91,7 +93,7 @@ public class ExchangeClient
     private final SystemMemoryUsageListener systemMemoryUsageListener;
 
     public ExchangeClient(
-            DataSize maxBufferedBytes,
+            DataSize bufferCapacity,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration minErrorDuration,
@@ -100,7 +102,7 @@ public class ExchangeClient
             ScheduledExecutorService executor,
             SystemMemoryUsageListener systemMemoryUsageListener)
     {
-        this.maxBufferedBytes = maxBufferedBytes.toBytes();
+        this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.minErrorDuration = minErrorDuration;
@@ -108,6 +110,7 @@ public class ExchangeClient
         this.httpClient = httpClient;
         this.executor = executor;
         this.systemMemoryUsageListener = systemMemoryUsageListener;
+        this.maxBufferBytes = Long.MIN_VALUE;
     }
 
     public synchronized ExchangeClientStatus getStatus()
@@ -121,7 +124,7 @@ public class ExchangeClient
         for (HttpPageBufferClient client : allClients.values()) {
             exchangeStatus.add(client.getStatus());
         }
-        return new ExchangeClientStatus(bufferBytes, averageBytesPerRequest, bufferedPages, noMoreLocations, exchangeStatus.build());
+        return new ExchangeClientStatus(bufferBytes, maxBufferBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, exchangeStatus.build());
     }
 
     public synchronized void addLocation(URI location)
@@ -279,7 +282,7 @@ public class ExchangeClient
             return;
         }
 
-        long neededBytes = maxBufferedBytes - bufferBytes;
+        long neededBytes = bufferCapacity - bufferBytes;
         if (neededBytes <= 0) {
             return;
         }
@@ -328,6 +331,7 @@ public class ExchangeClient
                 .sum();
 
         bufferBytes += memorySize;
+        maxBufferBytes = Math.max(maxBufferBytes, bufferBytes);
         systemMemoryUsageListener.updateSystemMemoryUsage(memorySize);
         successfulRequests++;
 

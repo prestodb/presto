@@ -29,7 +29,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOperatorStats
 {
-    private static final ExchangeClientStatus NON_MERGEABLE_INFO = new ExchangeClientStatus(0, 1, 2, false, ImmutableList.of());
+    private static final ExchangeClientStatus NON_MERGEABLE_INFO = new ExchangeClientStatus(0, 0, 1, 1, 2, false, ImmutableList.of());
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
