@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -71,6 +72,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getAggregateExtractorFunction;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
@@ -292,28 +295,29 @@ class AggregationAnalyzer
         {
             if (metadata.isAggregationFunction(node.getName())) {
                 if (!node.getWindow().isPresent()) {
-                    AggregateExtractor aggregateExtractor = new AggregateExtractor(metadata.getFunctionRegistry());
-                    WindowFunctionExtractor windowExtractor = new WindowFunctionExtractor();
+                    List<FunctionCall> aggregateFunctions = ExpressionTreeUtils.extractExpressionsOfTypeUsingPredicate(
+                            node.getArguments(),
+                            FunctionCall.class,
+                            getAggregateExtractorFunction(metadata.getFunctionRegistry()));
+                    List<FunctionCall> windowFunctions = ExpressionTreeUtils.extractExpressionsOfTypeUsingPredicate(
+                            node.getArguments(),
+                            FunctionCall.class,
+                            ExpressionTreeUtils::isWindowFunction);
 
-                    for (Expression argument : node.getArguments()) {
-                        aggregateExtractor.process(argument, null);
-                        windowExtractor.process(argument, null);
-                    }
-
-                    if (!aggregateExtractor.getAggregates().isEmpty()) {
+                    if (!aggregateFunctions.isEmpty()) {
                         throw new SemanticException(NESTED_AGGREGATION,
                                 node,
                                 "Cannot nest aggregations inside aggregation '%s': %s",
                                 node.getName(),
-                                aggregateExtractor.getAggregates());
+                                aggregateFunctions);
                     }
 
-                    if (!windowExtractor.getWindowFunctions().isEmpty()) {
+                    if (!windowFunctions.isEmpty()) {
                         throw new SemanticException(NESTED_WINDOW,
                                 node,
                                 "Cannot nest window functions inside aggregation '%s': %s",
                                 node.getName(),
-                                windowExtractor.getWindowFunctions());
+                                windowFunctions);
                     }
 
                     if (node.getFilter().isPresent() && node.isDistinct()) {
@@ -537,6 +541,22 @@ class AggregationAnalyzer
             }
             checkArgument(node.getPosition() < parameters.size(), "Invalid parameter number %s, max values is %s", node.getPosition(), parameters.size() - 1);
             return process(parameters.get(node.getPosition()), context);
+        }
+
+        public Boolean visitGroupingOperation(GroupingOperation node, Void context)
+        {
+            Optional<Expression> argumentNotInGroupBy = node.getGroupingColumns().stream()
+                    .filter((argument) -> !expressions.contains(argument))
+                    .findAny();
+            if (argumentNotInGroupBy.isPresent()) {
+                throw new SemanticException(
+                        INVALID_PROCEDURE_ARGUMENTS,
+                        node,
+                        "The arguments to GROUPING() must be expressions referenced by the GROUP BY at the associated query level. Mismatch due to %s.",
+                        argumentNotInGroupBy.get()
+                );
+            }
+            return true;
         }
 
         @Override

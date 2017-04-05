@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.operator.scalar.GroupingOperationFunction.GROUPING;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -47,7 +48,8 @@ public final class DeterminismEvaluator
             // TODO: total hack to figure out if a function is deterministic. martint should fix this when he refactors the planning code
             if (node.getName().equals(QualifiedName.of("rand")) ||
                     node.getName().equals(QualifiedName.of("random")) ||
-                    node.getName().equals(QualifiedName.of("shuffle"))) {
+                    node.getName().equals(QualifiedName.of("shuffle")) ||
+                    node.getName().equals(QualifiedName.of(GROUPING))) {
                 deterministic.set(false);
             }
             return super.visitFunctionCall(node, deterministic);

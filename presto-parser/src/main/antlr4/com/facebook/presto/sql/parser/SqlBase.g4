@@ -306,6 +306,7 @@ primaryExpression
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     | '(' expression ')'                                                                  #parenthesizedExpression
+    | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
     ;
 
 timeZoneSpecifier

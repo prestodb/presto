@@ -67,6 +67,7 @@ import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
+import static com.facebook.presto.type.ListLiteralType.LIST_LITERAL;
 import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
@@ -120,6 +121,7 @@ public final class TypeRegistry
         addType(COLOR);
         addType(JSON);
         addType(CODE_POINTS);
+        addType(LIST_LITERAL);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
@@ -519,6 +521,14 @@ public final class TypeRegistry
                 switch (resultTypeBase) {
                     case StandardTypes.HYPER_LOG_LOG:
                         return Optional.of(HYPER_LOG_LOG);
+                    default:
+                        return Optional.empty();
+                }
+            }
+            case StandardTypes.ARRAY: {
+                switch (resultTypeBase) {
+                    case ListLiteralType.NAME:
+                        return Optional.of(LIST_LITERAL);
                     default:
                         return Optional.empty();
                 }

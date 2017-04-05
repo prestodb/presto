@@ -855,6 +855,19 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        public Expression visitGroupingOperation(GroupingOperation node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteGroupingOperation(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>
