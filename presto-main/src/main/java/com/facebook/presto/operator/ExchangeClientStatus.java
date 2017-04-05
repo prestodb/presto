@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeClientStatus
-        implements OperatorInfo
+        implements Mergeable<ExchangeClientStatus>, OperatorInfo
 {
     private final long bufferedBytes;
     private final long maxBufferedBytes;
@@ -107,5 +107,30 @@ public class ExchangeClientStatus
                 .add("noMoreLocations", noMoreLocations)
                 .add("pageBufferClientStatuses", pageBufferClientStatuses)
                 .toString();
+    }
+
+    @Override
+    public ExchangeClientStatus mergeWith(ExchangeClientStatus other)
+    {
+        return new ExchangeClientStatus(
+                (bufferedBytes + other.bufferedBytes) / 2, // this is correct as long as all clients have the same buffer size (capacity)
+                Math.max(maxBufferedBytes, other.maxBufferedBytes),
+                mergeAvgs(averageBytesPerRequest, successfulRequestsCount, other.averageBytesPerRequest, other.successfulRequestsCount),
+                successfulRequestsCount + other.successfulRequestsCount,
+                bufferedPages + other.bufferedPages,
+                noMoreLocations && other.noMoreLocations, // if at least one has some locations, mergee has some too
+                ImmutableList.of()); // pageBufferClientStatuses may be long, so we don't want to combine the lists
+    }
+
+    private static long mergeAvgs(long value1, long count1, long value2, long count2)
+    {
+        if (count1 == 0) {
+            return value2;
+        }
+        if (count2 == 0) {
+            return value1;
+        }
+        // AVG_n+m = AVG_n * n / (n + m) + AVG_m * m / (n + m)
+        return (value1 * count1 / (count1 + count2)) + (value2 * count2 / (count1 + count2));
     }
 }

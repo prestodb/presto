@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputInfo;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -29,7 +28,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOperatorStats
 {
-    private static final ExchangeClientStatus NON_MERGEABLE_INFO = new ExchangeClientStatus(0, 0, 1, 1, 2, false, ImmutableList.of());
+    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo("some_info");
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
@@ -143,8 +142,8 @@ public class TestOperatorStats
 
         assertEquals(actual.getMemoryReservation(), new DataSize(20, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(21, BYTE));
-        assertEquals(actual.getInfo().getClass(), ExchangeClientStatus.class);
-        assertEquals(((ExchangeClientStatus) actual.getInfo()).getAverageBytesPerRequest(), NON_MERGEABLE_INFO.getAverageBytesPerRequest());
+        assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
+        assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
     }
 
     @Test

@@ -92,6 +92,8 @@ public class ExchangeClient
 
     private final SystemMemoryUsageListener systemMemoryUsageListener;
 
+    // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
+    // Please change that method accordingly when this assumption becomes not true.
     public ExchangeClient(
             DataSize bufferCapacity,
             DataSize maxResponseSize,
