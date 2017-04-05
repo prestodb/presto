@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -26,6 +27,7 @@ import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -40,6 +42,7 @@ public class TypedHistogram
     private static final float FILL_RATIO = 0.9f;
     private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
 
+    private int hashCapacity;
     private int maxFill;
     private int mask;
 
@@ -55,15 +58,15 @@ public class TypedHistogram
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        int hashSize = arraySize(expectedSize, FILL_RATIO);
+        hashCapacity = arraySize(expectedSize, FILL_RATIO);
 
-        maxFill = calculateMaxFill(hashSize);
-        mask = hashSize - 1;
-        values = this.type.createBlockBuilder(new BlockBuilderStatus(), hashSize);
+        maxFill = calculateMaxFill(hashCapacity);
+        mask = hashCapacity - 1;
+        values = this.type.createBlockBuilder(new BlockBuilderStatus(), hashCapacity);
         hashPositions = new IntBigArray(-1);
-        hashPositions.ensureCapacity(hashSize);
+        hashPositions.ensureCapacity(hashCapacity);
         counts = new LongBigArray();
-        counts.ensureCapacity(hashSize);
+        counts.ensureCapacity(hashCapacity);
     }
 
     public TypedHistogram(Block block, Type type, int expectedSize)
@@ -143,7 +146,7 @@ public class TypedHistogram
 
         // increase capacity, if necessary
         if (values.getPositionCount() >= maxFill) {
-            rehash(maxFill * 2);
+            rehash();
         }
 
         if (getEstimatedSize() > FOUR_MEGABYTES) {
@@ -151,13 +154,17 @@ public class TypedHistogram
         }
     }
 
-    private void rehash(int size)
+    private void rehash()
     {
-        int newSize = arraySize(size + 1, FILL_RATIO);
+        long newCapacityLong = hashCapacity * 2L;
+        if (newCapacityLong > Integer.MAX_VALUE) {
+            throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+        }
+        int newCapacity = (int) newCapacityLong;
 
-        int newMask = newSize - 1;
+        int newMask = newCapacity - 1;
         IntBigArray newHashPositions = new IntBigArray(-1);
-        newHashPositions.ensureCapacity(newSize);
+        newHashPositions.ensureCapacity(newCapacity);
 
         for (int i = 0; i < values.getPositionCount(); i++) {
             // find an empty slot for the address
@@ -170,8 +177,9 @@ public class TypedHistogram
             newHashPositions.set(hashPosition, i);
         }
 
+        hashCapacity = newCapacity;
         mask = newMask;
-        maxFill = calculateMaxFill(newSize);
+        maxFill = calculateMaxFill(newCapacity);
         hashPositions = newHashPositions;
 
         this.counts.ensureCapacity(maxFill);
@@ -184,7 +192,7 @@ public class TypedHistogram
 
     private static int calculateMaxFill(int hashSize)
     {
-        checkArgument(hashSize > 0, "hashSize must greater than 0");
+        checkArgument(hashSize > 0, "hashSize must be greater than 0");
         int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
         if (maxFill == hashSize) {
             maxFill--;
