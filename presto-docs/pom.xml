@@ -17,14 +17,14 @@
     </properties>
 
     <!--
-    Genarate HTML docs quickly while developing:
+    Generate HTML docs quickly while developing:
 
     brew install python
     pip install sphinx
 
-    make -C presto-docs clean html SPHINXBUILD=/usr/local/share/python/sphinx-build
+    make -C presto-docs clean html
 
-    Find them here: presto-docs/target/html
+    open presto-docs/target/html/index.html
     -->
 
     <build>
