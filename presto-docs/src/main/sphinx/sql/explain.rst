@@ -23,18 +23,23 @@ a single or multiple Presto nodes. Fragments separation represent the data excha
 Fragment type specifies how the fragment is executed by Presto nodes and how the data is
 distributed between fragments:
 
-  * ``SINGLE``: Fragment is executed by single node.
+``SINGLE``
+    Fragment is executed on a single node.
 
-  * ``HASH``: Fragment is executed by a fixed number of Presto nodes. Fragment input data is
-              distributed among nodes with a hash function.
+``HASH``
+    Fragment is executed on a fixed number of nodes with the input data
+    distributed using a hash function.
 
-  * ``ROUND_ROBIN``: Fragment is executed by a fixed number of Presto nodes. Fragment input data
-                     is distributed among nodes with a round robin function.
+``ROUND_ROBIN``
+    Fragment is executed on a fixed number of nodes with the input data
+    distributed in a round-robin fashion.
 
-  * ``BROADCAST``: Fragment is executed by a fixed number of Presto nodes. Fragment input data
-                   is broadcasted to all nodes.
+``BROADCAST``
+    Fragment is executed on a fixed number of nodes with the input data
+    broadcasted to all nodes.
 
-  * ``SOURCE``: Fragment is executed on nodes where input splits needs to be accessed from.
+``SOURCE``
+    Fragment is executed on nodes where input splits are accessed.
 
 Examples
 --------
