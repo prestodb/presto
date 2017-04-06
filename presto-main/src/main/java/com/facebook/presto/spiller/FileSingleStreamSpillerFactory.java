@@ -156,7 +156,7 @@ public class FileSingleStreamSpillerFactory
             return fileStore.getUsableSpace() > fileStore.getTotalSpace() * (1.0 - minimumFreeSpaceThreshold);
         }
         catch (IOException e) {
-            throw new PrestoException(OUT_OF_SPILL_SPACE, "Cannot determine free space for spiell", e);
+            throw new PrestoException(OUT_OF_SPILL_SPACE, "Cannot determine free space for spill", e);
         }
     }
 }
