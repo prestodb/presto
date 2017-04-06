@@ -144,7 +144,7 @@ function getProgressBarPercentage(query)
 
 function getProgressBarTitle(query)
 {
-    if (!query.queryStats.progressPercentage) {
+    if (query.queryStats.progressPercentage && query.state === "RUNNING") {
         return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
     }
 
