@@ -69,10 +69,6 @@ public class TestCommitTask
         Session session = sessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-
-        // Simulate the START TRANSACTION statement and set the transaction as inactive
-        transactionManager.trySetInactive(session.getRequiredTransactionId());
-
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);

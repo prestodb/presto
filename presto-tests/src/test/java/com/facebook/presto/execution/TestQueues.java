@@ -23,13 +23,13 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.execution.QueryRunnerUtil.cancelQuery;
-import static com.facebook.presto.execution.QueryRunnerUtil.createQuery;
-import static com.facebook.presto.execution.QueryRunnerUtil.createQueryRunner;
-import static com.facebook.presto.execution.QueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
+import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
+import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
+import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
