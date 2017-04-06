@@ -44,6 +44,21 @@ public class TestTypeSignature
     }
 
     @Test
+    public void parseCustomTypeNamedParametersSignature()
+    {
+        assertNamedTypeSignature(
+                "foo(a bigint, b varchar, c double)",
+                customNamedTypeSignature(
+                        "foo",
+                        namedParameter("a", signature("bigint")),
+                        namedParameter("b", signature("varchar")),
+                        namedParameter("c", signature("double")))
+        );
+
+        assertSignatureFail("foo(a bigint, b varchar xxx)");
+    }
+
+    @Test
     public void parseRowSignature()
             throws Exception
     {
@@ -120,6 +135,11 @@ public class TestTypeSignature
     {
         return new TypeSignature(StandardTypes.DECIMAL, ImmutableList.of(
                 TypeSignatureParameter.of(precisionVariable), TypeSignatureParameter.of(scaleVariable)));
+    }
+
+    private static TypeSignature customNamedTypeSignature(String name, NamedTypeSignature... columns)
+    {
+        return new TypeSignature(name, transform(asList(columns), TypeSignatureParameter::of));
     }
 
     private static TypeSignature rowSignature(NamedTypeSignature... columns)
@@ -210,6 +230,19 @@ public class TestTypeSignature
         assertFalse(parseTypeSignature("map(decimal(2, 1),decimal(3, 1))").isCalculated());
         assertTrue(parseTypeSignature("row(a decimal(p1,s1),b decimal(p2,s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
         assertFalse(parseTypeSignature("row(a decimal(2,1),b decimal(3,2))").isCalculated());
+    }
+
+    private static void assertNamedTypeSignature(
+            String typeName,
+            TypeSignature expectedSignature)
+    {
+        TypeSignature signature = parseTypeSignature(typeName);
+        assertEquals(signature.getBase(), expectedSignature.getBase());
+        assertEquals(signature.getParameters().size(), expectedSignature.getParameters().size());
+        for (int i = 0; i < signature.getParameters().size(); i++) {
+            assertEquals(signature.getParameters().get(i).toString(), expectedSignature.getParameters().get(i).toString());
+        }
+        assertEquals(signature.toString(), expectedSignature.toString());
     }
 
     private static void assertRowSignature(

@@ -113,6 +113,8 @@ public class TypeSignature
 
         String baseName = null;
         List<TypeSignatureParameter> parameters = new ArrayList<>();
+        List<TypeSignature> namedParameters = new ArrayList<>();
+        List<String> namedParameterFieldNames = new ArrayList<>();
         int parameterStart = -1;
         int bracketCount = 0;
 
@@ -136,17 +138,42 @@ public class TypeSignature
                 checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
                 if (bracketCount == 0) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
-                    parameterStart = i + 1;
-                    if (i == signature.length() - 1) {
-                        return new TypeSignature(baseName, parameters);
+                    String parameterString = signature.substring(parameterStart, i).trim();
+                    if (parameterString.trim().contains(" ")) {
+                        TypeSignature namedSignature = parseNamedTypeSignatureParamater(parameterString, literalCalculationParameters);
+                        String parameterName = parseNamedTypeSignatureParamaterName(parameterString);
+                        if (namedSignature == null || parameterName == null) {
+                            throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
+                        }
+                        namedParameters.add(namedSignature);
+                        namedParameterFieldNames.add(parameterName);
+                        return new TypeSignature(baseName, createNamedTypeParameters(namedParameters, namedParameterFieldNames));
+                    }
+                    else {
+                        parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
+                        parameterStart = i + 1;
+                        if (i == signature.length() - 1) {
+                            return new TypeSignature(baseName, parameters);
+                        }
                     }
                 }
             }
             else if (c == ',') {
                 if (bracketCount == 1) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
+                    String parameterString = signature.substring(parameterStart, i).trim();
+                    if (parameterString.trim().contains(" ")) {
+                        TypeSignature namedSignature = parseNamedTypeSignatureParamater(parameterString, literalCalculationParameters);
+                        String parameterName = parseNamedTypeSignatureParamaterName(parameterString);
+                        if (namedSignature == null || parameterName == null) {
+                            throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
+                        }
+                        namedParameters.add(namedSignature);
+                        namedParameterFieldNames.add(parameterName);
+                    }
+                    else {
+                        parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
+                    }
                     parameterStart = i + 1;
                 }
             }
@@ -291,6 +318,30 @@ public class TypeSignature
             result.add(TypeSignatureParameter.of(new NamedTypeSignature(fieldName, parameters.get(i))));
         }
         return result;
+    }
+
+    private static String parseNamedTypeSignatureParamaterName(String parameterString)
+    {
+        int index = parameterString.trim().indexOf(" ");
+        if (index == -1) {
+            return null;
+        }
+
+        return parameterString.substring(0, index).trim();
+    }
+
+    private static TypeSignature parseNamedTypeSignatureParamater(String parameterString, Set<String> literalCalculationParameters)
+    {
+        int index = parameterString.trim().indexOf(" ");
+        if (index == -1) {
+            return null;
+        }
+
+        String parameterTypeName = parameterString.substring(index, parameterString.length()).trim();
+        if (parameterTypeName.contains(" ")) {
+            return null;
+        }
+        return parseTypeSignature(parameterTypeName, literalCalculationParameters);
     }
 
     private static TypeSignatureParameter parseTypeSignatureParameter(
