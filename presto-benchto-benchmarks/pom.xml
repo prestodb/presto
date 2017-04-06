@@ -17,37 +17,43 @@
         <air.check.fail-duplicate-finder>false</air.check.fail-duplicate-finder>
     </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-jdbc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.teradata.benchto</groupId>
-            <artifactId>benchto-driver</artifactId>
-            <version>0.3</version>
-        </dependency>
-    </dependencies>
-
     <build>
         <plugins>
+            <!-- Build archive files -->
             <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>1.2.5.RELEASE</version>
+                <artifactId>maven-assembly-plugin</artifactId>
                 <configuration>
-                    <classifier>executable</classifier>
-                    <mainClass>com.teradata.benchto.driver.DriverApp</mainClass>
-                    <layout>ZIP</layout>
+                    <descriptor>src/assembly/benchmarks.xml</descriptor>
+                    <finalName>presto-benchto-benchmarks-${pom.version}</finalName>
+                    <appendAssemblyId>false</appendAssemblyId>
                 </configuration>
                 <executions>
                     <execution>
+                        <phase>package</phase>
                         <goals>
-                            <goal>repackage</goal>
+                            <goal>single</goal>
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Do not build JAR files -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-jar</id>
+                        <phase/>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Do not generate a source jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <configuration>
+                    <skipSource>true</skipSource>
+                </configuration>
             </plugin>
         </plugins>
     </build>
