@@ -71,11 +71,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
@@ -108,6 +110,17 @@ class PropertyDerivations
     public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
     {
         ActualProperties output = node.accept(new Visitor(metadata, session, types, parser), inputProperties);
+
+        output.getNodePartitioning().ifPresent(partitioning ->
+                verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
+
+        verify(node.getOutputSymbols().containsAll(output.getConstants().keySet()), "Node-level constant properties contain columns not present in node's output");
+
+        Set<Symbol> localPropertyColumns = output.getLocalProperties().stream()
+                .flatMap(property -> property.getColumns().stream())
+                .collect(Collectors.toSet());
+
+        verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
 
         // TODO: ideally this logic would be somehow moved to PlanSanityChecker
         verify(node instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsReplicated) || output.isNullsReplicated(),
@@ -154,7 +167,8 @@ class PropertyDerivations
         @Override
         public ActualProperties visitOutput(OutputNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return Iterables.getOnlyElement(inputProperties)
+                    .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
         }
 
         @Override
@@ -335,25 +349,28 @@ class PropertyDerivations
         @Override
         public ActualProperties visitJoin(JoinNode node, List<ActualProperties> inputProperties)
         {
-            // TODO: include all equivalent columns in partitioning properties
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties buildProperties = inputProperties.get(1);
 
             switch (node.getType()) {
                 case INNER:
+                    probeProperties = probeProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
+                    buildProperties = buildProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
+
+                    Map<Symbol, NullableValue> constants = new HashMap<>();
+                    constants.putAll(probeProperties.getConstants());
+                    constants.putAll(buildProperties.getConstants());
+
                     return ActualProperties.builderFrom(probeProperties)
-                            .constants(ImmutableMap.<Symbol, NullableValue>builder()
-                                    .putAll(probeProperties.getConstants())
-                                    .putAll(buildProperties.getConstants())
-                                    .build())
+                            .constants(constants)
                             .build();
                 case LEFT:
-                    return ActualProperties.builderFrom(probeProperties)
-                            .constants(probeProperties.getConstants())
+                    return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                             .build();
                 case RIGHT:
-                    return ActualProperties.builderFrom(buildProperties)
-                            .constants(buildProperties.getConstants())
+                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
+
+                    return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                             .local(ImmutableList.of())
                             .build();
                 case FULL:
@@ -661,5 +678,38 @@ class PropertyDerivations
             }
             return inputToOutput;
         }
+    }
+
+    public static Optional<Symbol> filterIfMissing(Collection<Symbol> columns, Symbol column)
+    {
+        if (columns.contains(column)) {
+            return Optional.of(column);
+        }
+
+        return Optional.empty();
+    }
+
+    // Used to filter columns that are not exposed by join node
+    // Or, if they are part of the equalities, to translate them
+    // to the other symbol if that's exposed, instead.
+    public static Optional<Symbol> filterOrRewrite(Collection<Symbol> columns, Collection<JoinNode.EquiJoinClause> equalities, Symbol column)
+    {
+        // symbol is exposed directly, so no translation needed
+        if (columns.contains(column)) {
+            return Optional.of(column);
+        }
+
+        // if the column is part of the equality conditions and its counterpart
+        // is exposed, use that, instead
+        for (JoinNode.EquiJoinClause equality : equalities) {
+            if (equality.getLeft().equals(column) && columns.contains(equality.getRight())) {
+                return Optional.of(equality.getRight());
+            }
+            else if (equality.getRight().equals(column) && columns.contains(equality.getLeft())) {
+                return Optional.of(equality.getLeft());
+            }
+        }
+
+        return Optional.empty();
     }
 }
