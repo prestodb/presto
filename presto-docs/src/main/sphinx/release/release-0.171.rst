@@ -14,6 +14,7 @@ General Changes
 * Add support for ``CHAR(n)`` data type to common string functions.
 * Add :func:`codepoint`, :func:`skewness` and :func:`kurtosis` functions.
 * Improve validation of resource group configuration.
+* Fail queries when casting unsupported types to JSON; see :doc:`/functions/json` for supported types.
 
 Web UI Changes
 --------------
