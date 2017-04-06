@@ -30,8 +30,10 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
+import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
+import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
@@ -118,6 +120,7 @@ final class PrestoDriverUri
     {
         try {
             setupSocksProxy(builder, SOCKS_PROXY.getValue(properties));
+            setupHttpProxy(builder, HTTP_PROXY.getValue(properties));
 
             // TODO: fix Tempto to allow empty passwords
             String password = PASSWORD.getValue(properties).orElse("");

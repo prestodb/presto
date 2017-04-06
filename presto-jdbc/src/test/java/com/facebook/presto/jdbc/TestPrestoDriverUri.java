@@ -19,6 +19,8 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
+import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static java.lang.String.format;
@@ -59,6 +61,10 @@ public class TestPrestoDriverUri
         // property in both url and arguments
         assertInvalid("presto://localhost:8080/blackhole?user=test123", "Connection property 'user' is both in the URL and an argument");
 
+        // setting both socks and http proxy
+        assertInvalid("presto://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Connection property 'socksProxy' is not allowed");
+        assertInvalid("presto://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Connection property 'socksProxy' is not allowed");
+
         // invalid ssl flag
         assertInvalid("jdbc:presto://localhost:8080?SSL=0", "Connection property 'SSL' value is invalid: 0");
         assertInvalid("jdbc:presto://localhost:8080?SSL=1", "Connection property 'SSL' value is invalid: 1");
@@ -80,6 +86,28 @@ public class TestPrestoDriverUri
             throws Exception
     {
         new PrestoDriverUri("jdbc:presto://localhost:8080", new Properties());
+    }
+
+    @Test
+    void testUriWithSocksProxy()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?socksProxy=localhost:1234");
+        assertUriPortScheme(parameters, 8080, "http");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SOCKS_PROXY.getKey()), "localhost:1234");
+    }
+
+    @Test
+    void testUriWithHttpProxy()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?httpProxy=localhost:5678");
+        assertUriPortScheme(parameters, 8080, "http");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(HTTP_PROXY.getKey()), "localhost:5678");
     }
 
     @Test

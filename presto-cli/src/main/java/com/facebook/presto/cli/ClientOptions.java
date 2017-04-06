@@ -112,6 +112,9 @@ public class ClientOptions
     @Option(name = "--socks-proxy", title = "socks-proxy", description = "SOCKS proxy to use for server connections")
     public HostAndPort socksProxy;
 
+    @Option(name = "--http-proxy", title = "http-proxy", description = "HTTP proxy to use for server connections")
+    public HostAndPort httpProxy;
+
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, MINUTES);
 

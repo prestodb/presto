@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static java.net.Proxy.Type.HTTP;
 import static java.net.Proxy.Type.SOCKS;
 import static java.util.Objects.requireNonNull;
 
@@ -90,8 +91,18 @@ public final class OkHttpUtil
 
     public static void setupSocksProxy(OkHttpClient.Builder clientBuilder, Optional<HostAndPort> socksProxy)
     {
-        socksProxy.map(OkHttpUtil::toUnresolvedAddress)
-                .map(proxy -> new Proxy(SOCKS, proxy))
+        setupProxy(clientBuilder, socksProxy, SOCKS);
+    }
+
+    public static void setupHttpProxy(OkHttpClient.Builder clientBuilder, Optional<HostAndPort> httpProxy)
+    {
+        setupProxy(clientBuilder, httpProxy, HTTP);
+    }
+
+    public static void setupProxy(OkHttpClient.Builder clientBuilder, Optional<HostAndPort> proxy, Proxy.Type type)
+    {
+        proxy.map(OkHttpUtil::toUnresolvedAddress)
+                .map(address -> new Proxy(type, address))
                 .ifPresent(clientBuilder::proxy);
     }
 
