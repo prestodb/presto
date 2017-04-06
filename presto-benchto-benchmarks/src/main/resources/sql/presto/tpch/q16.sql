@@ -4,8 +4,8 @@ SELECT
   p.size,
   count(DISTINCT ps.suppkey) AS supplier_cnt
 FROM
-  "${database}"."${schema}"."partsupp" AS ps,
-  "${database}"."${schema}"."part" AS p
+  "${database}"."${schema}"."${prefix}partsupp" AS ps,
+  "${database}"."${schema}"."${prefix}part" AS p
 WHERE
   p.partkey = ps.partkey
   AND p.brand <> 'Brand#45'
@@ -14,7 +14,7 @@ WHERE
   AND ps.suppkey NOT IN (
     SELECT s.suppkey
     FROM
-      "${database}"."${schema}"."supplier" AS s
+      "${database}"."${schema}"."${prefix}supplier" AS s
     WHERE
       s.comment LIKE '%Customer%Complaints%'
   )

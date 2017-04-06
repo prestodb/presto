@@ -10,12 +10,12 @@ FROM (
          extract(YEAR FROM l.shipdate)      AS l_year,
          l.extendedprice * (1 - l.discount) AS volume
        FROM
-         "${database}"."${schema}"."supplier" AS s,
-         "${database}"."${schema}"."lineitem" AS l,
-         "${database}"."${schema}"."orders" AS o,
-         "${database}"."${schema}"."customer" AS c,
-         "${database}"."${schema}"."nation" AS n1,
-         "${database}"."${schema}"."nation" AS n2
+         "${database}"."${schema}"."${prefix}supplier" AS s,
+         "${database}"."${schema}"."${prefix}lineitem" AS l,
+         "${database}"."${schema}"."${prefix}orders" AS o,
+         "${database}"."${schema}"."${prefix}customer" AS c,
+         "${database}"."${schema}"."${prefix}nation" AS n1,
+         "${database}"."${schema}"."${prefix}nation" AS n2
        WHERE
          s.suppkey = l.suppkey
          AND o.orderkey = l.orderkey

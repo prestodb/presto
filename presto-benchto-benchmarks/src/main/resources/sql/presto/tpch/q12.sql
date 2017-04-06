@@ -13,8 +13,8 @@ SELECT
       ELSE 0
       END) AS low_line_count
 FROM
-  "${database}"."${schema}"."orders" AS o,
-  "${database}"."${schema}"."lineitem" AS l
+  "${database}"."${schema}"."${prefix}orders" AS o,
+  "${database}"."${schema}"."${prefix}lineitem" AS l
 WHERE
   o.orderkey = l.orderkey
   AND l.shipmode IN ('MAIL', 'SHIP')

@@ -8,12 +8,12 @@ FROM (
          extract(YEAR FROM o.orderdate)                                  AS o_year,
          l.extendedprice * (1 - l.discount) - ps.supplycost * l.quantity AS amount
        FROM
-         "${database}"."${schema}"."part" AS p,
-         "${database}"."${schema}"."supplier" AS s,
-         "${database}"."${schema}"."lineitem" AS l,
-         "${database}"."${schema}"."partsupp" AS ps,
-         "${database}"."${schema}"."orders" AS o,
-         "${database}"."${schema}"."nation" AS n
+         "${database}"."${schema}"."${prefix}part" AS p,
+         "${database}"."${schema}"."${prefix}supplier" AS s,
+         "${database}"."${schema}"."${prefix}lineitem" AS l,
+         "${database}"."${schema}"."${prefix}partsupp" AS ps,
+         "${database}"."${schema}"."${prefix}orders" AS o,
+         "${database}"."${schema}"."${prefix}nation" AS n
        WHERE
          s.suppkey = l.suppkey
          AND ps.suppkey = l.suppkey

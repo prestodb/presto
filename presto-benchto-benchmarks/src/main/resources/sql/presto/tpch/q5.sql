@@ -2,12 +2,12 @@ SELECT
   n.name,
   sum(l.extendedprice * (1 - l.discount)) AS revenue
 FROM
-  "${database}"."${schema}"."customer" AS c,
-  "${database}"."${schema}"."orders" AS o,
-  "${database}"."${schema}"."lineitem" AS l,
-  "${database}"."${schema}"."supplier" AS s,
-  "${database}"."${schema}"."nation" AS n,
-  "${database}"."${schema}"."region" AS r
+  "${database}"."${schema}"."${prefix}customer" AS c,
+  "${database}"."${schema}"."${prefix}orders" AS o,
+  "${database}"."${schema}"."${prefix}lineitem" AS l,
+  "${database}"."${schema}"."${prefix}supplier" AS s,
+  "${database}"."${schema}"."${prefix}nation" AS n,
+  "${database}"."${schema}"."${prefix}region" AS r
 WHERE
   c.custkey = o.custkey
   AND l.orderkey = o.orderkey

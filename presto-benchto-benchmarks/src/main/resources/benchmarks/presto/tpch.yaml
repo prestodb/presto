@@ -8,6 +8,7 @@ database: hive
 tpch_small: tpch_10gb_orc
 tpch_medium: tpch_100gb_orc
 tpch_large: tpch_1tb_orc
+prefix: ""
 variables:
   1:
     # queries too slow to run on 100gb without reordering

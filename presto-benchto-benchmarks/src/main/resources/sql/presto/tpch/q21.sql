@@ -2,10 +2,10 @@ SELECT
   s.name, 
   count(*) as numwait
 FROM 
-  "${database}"."${schema}"."supplier" s,
-  "${database}"."${schema}"."lineitem" l1,
-  "${database}"."${schema}"."orders" o,
-  "${database}"."${schema}"."nation" n
+  "${database}"."${schema}"."${prefix}supplier" s,
+  "${database}"."${schema}"."${prefix}lineitem" l1,
+  "${database}"."${schema}"."${prefix}orders" o,
+  "${database}"."${schema}"."${prefix}nation" n
 WHERE 
   s.suppkey = l1.suppkey 
   AND o.orderkey = l1.orderkey
@@ -15,7 +15,7 @@ WHERE
     SELECT 
       * 
     FROM 
-      "${database}"."${schema}"."lineitem" l2
+      "${database}"."${schema}"."${prefix}lineitem" l2
     WHERE 
       l2.orderkey = l1.orderkey
       AND l2.suppkey <> l1.suppkey
@@ -24,7 +24,7 @@ WHERE
     SELECT 
       * 
     FROM 
-      "${database}"."${schema}"."lineitem" l3
+      "${database}"."${schema}"."${prefix}lineitem" l3
     WHERE 
       l3.orderkey = l1.orderkey 
       AND l3.suppkey <> l1.suppkey 

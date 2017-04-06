@@ -4,8 +4,8 @@ SELECT 100.00 * sum(CASE
                     ELSE 0
                     END) / sum(l.extendedprice * (1 - l.discount)) AS promo_revenue
 FROM
-  "${database}"."${schema}"."lineitem" AS l,
-  "${database}"."${schema}"."part" AS p
+  "${database}"."${schema}"."${prefix}lineitem" AS l,
+  "${database}"."${schema}"."${prefix}part" AS p
 WHERE
   l.partkey = p.partkey
   AND l.shipdate >= DATE '1995-09-01'

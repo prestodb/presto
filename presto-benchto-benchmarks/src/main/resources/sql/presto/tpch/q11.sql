@@ -2,9 +2,9 @@ SELECT
   ps.partkey, 
   sum(ps.supplycost*ps.availqty) AS value
 FROM 
-  "${database}"."${schema}"."partsupp" ps,
-  "${database}"."${schema}"."supplier" s,
-  "${database}"."${schema}"."nation" n
+  "${database}"."${schema}"."${prefix}partsupp" ps,
+  "${database}"."${schema}"."${prefix}supplier" s,
+  "${database}"."${schema}"."${prefix}nation" n
 WHERE 
   ps.suppkey = s.suppkey 
   AND s.nationkey = n.nationkey 
@@ -16,9 +16,9 @@ HAVING
     SELECT 
       sum(ps.supplycost*ps.availqty) * 0.0001000000
     FROM 
-      "${database}"."${schema}"."partsupp" ps,
-      "${database}"."${schema}"."supplier" s,
-      "${database}"."${schema}"."nation" n
+      "${database}"."${schema}"."${prefix}partsupp" ps,
+      "${database}"."${schema}"."${prefix}supplier" s,
+      "${database}"."${schema}"."${prefix}nation" n
     WHERE 
       ps.suppkey = s.suppkey 
       AND s.nationkey = n.nationkey 
