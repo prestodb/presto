@@ -22,10 +22,10 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.util.maps.IdentityLinkedHashMap;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static com.facebook.presto.util.MoreSets.newIdentityHashSet;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionAnalysis
@@ -55,7 +55,7 @@ public class ExpressionAnalysis
         this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
         this.expressionCoercions = requireNonNull(expressionCoercions, "expressionCoercions is null");
         this.typeOnlyCoercions = requireNonNull(typeOnlyCoercions, "typeOnlyCoercions is null");
-        this.columnReferences = ImmutableSet.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
+        this.columnReferences = newIdentityHashSet(requireNonNull(columnReferences, "columnReferences is null"));
         this.subqueryInPredicates = requireNonNull(subqueryInPredicates, "subqueryInPredicates is null");
         this.scalarSubqueries = requireNonNull(scalarSubqueries, "subqueryInPredicates is null");
         this.existsSubqueries = requireNonNull(existsSubqueries, "existsSubqueries is null");
