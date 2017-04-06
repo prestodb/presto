@@ -11,14 +11,14 @@ FROM (
          l.extendedprice * (1 - l.discount) AS volume,
          n2.name                          AS nation
        FROM
-         "${database}"."${schema}"."part" AS p,
-         "${database}"."${schema}"."supplier" AS s,
-         "${database}"."${schema}"."lineitem" AS l,
-         "${database}"."${schema}"."orders" AS o,
-         "${database}"."${schema}"."customer" AS c,
-         "${database}"."${schema}"."nation" AS n1,
-         "${database}"."${schema}"."nation" AS n2,
-         "${database}"."${schema}"."region" AS r
+         "${database}"."${schema}"."${prefix}part" AS p,
+         "${database}"."${schema}"."${prefix}supplier" AS s,
+         "${database}"."${schema}"."${prefix}lineitem" AS l,
+         "${database}"."${schema}"."${prefix}orders" AS o,
+         "${database}"."${schema}"."${prefix}customer" AS c,
+         "${database}"."${schema}"."${prefix}nation" AS n1,
+         "${database}"."${schema}"."${prefix}nation" AS n2,
+         "${database}"."${schema}"."${prefix}region" AS r
        WHERE
          p.partkey = l.partkey
          AND s.suppkey = l.suppkey

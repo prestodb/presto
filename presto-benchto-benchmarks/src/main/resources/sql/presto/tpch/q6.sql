@@ -1,7 +1,7 @@
 SELECT 
   sum(l.extendedprice*l.discount) AS revenue
 FROM 
-  "${database}"."${schema}"."lineitem" l
+  "${database}"."${schema}"."${prefix}lineitem" l
 WHERE 
   l.shipdate >= DATE '1994-01-01'
   AND l.shipdate < DATE '1994-01-01' + INTERVAL '1' YEAR

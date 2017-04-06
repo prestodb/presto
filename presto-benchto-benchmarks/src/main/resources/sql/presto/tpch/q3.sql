@@ -4,9 +4,9 @@ SELECT
   o.orderdate,
   o.shippriority
 FROM
-  "${database}"."${schema}"."customer" AS c,
-  "${database}"."${schema}"."orders" AS o,
-  "${database}"."${schema}"."lineitem" AS l
+  "${database}"."${schema}"."${prefix}customer" AS c,
+  "${database}"."${schema}"."${prefix}orders" AS o,
+  "${database}"."${schema}"."${prefix}lineitem" AS l
 WHERE
   c.mktsegment = 'BUILDING'
   AND c.custkey = o.custkey

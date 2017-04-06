@@ -10,7 +10,7 @@ SELECT
   avg(l.discount)                                       AS avg_disc,
   count(*)                                              AS count_order
 FROM
-  "${database}"."${schema}"."lineitem" AS l
+  "${database}"."${schema}"."${prefix}lineitem" AS l
 WHERE
   l.shipdate <= DATE '1998-12-01' - INTERVAL '90' DAY
 GROUP BY

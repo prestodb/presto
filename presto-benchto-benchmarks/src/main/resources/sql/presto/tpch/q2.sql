@@ -8,11 +8,11 @@ SELECT
   s.phone,
   s.comment
 FROM
-  "${database}"."${schema}"."part" p,
-  "${database}"."${schema}"."supplier" s,
-  "${database}"."${schema}"."partsupp" ps,
-  "${database}"."${schema}"."nation" n,
-  "${database}"."${schema}"."region" r
+  "${database}"."${schema}"."${prefix}part" p,
+  "${database}"."${schema}"."${prefix}supplier" s,
+  "${database}"."${schema}"."${prefix}partsupp" ps,
+  "${database}"."${schema}"."${prefix}nation" n,
+  "${database}"."${schema}"."${prefix}region" r
 WHERE
   p.partkey = ps.partkey
   AND s.suppkey = ps.suppkey
@@ -25,10 +25,10 @@ WHERE
     SELECT
       min(ps.supplycost)
     FROM
-      "${database}"."${schema}"."partsupp" ps,
-      "${database}"."${schema}"."supplier" s,
-      "${database}"."${schema}"."nation" n,
-      "${database}"."${schema}"."region" r
+      "${database}"."${schema}"."${prefix}partsupp" ps,
+      "${database}"."${schema}"."${prefix}supplier" s,
+      "${database}"."${schema}"."${prefix}nation" n,
+      "${database}"."${schema}"."${prefix}region" r
     WHERE
       p.partkey = ps.partkey
       AND s.suppkey = ps.suppkey

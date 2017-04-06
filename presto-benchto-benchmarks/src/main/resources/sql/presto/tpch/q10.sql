@@ -8,10 +8,10 @@ SELECT
   c.phone,
   c.comment
 FROM
-  "${database}"."${schema}"."lineitem" AS l,
-  "${database}"."${schema}"."orders" AS o,
-  "${database}"."${schema}"."customer" AS c,
-  "${database}"."${schema}"."nation" AS n
+  "${database}"."${schema}"."${prefix}lineitem" AS l,
+  "${database}"."${schema}"."${prefix}orders" AS o,
+  "${database}"."${schema}"."${prefix}customer" AS c,
+  "${database}"."${schema}"."${prefix}nation" AS n
 WHERE
   c.custkey = o.custkey
   AND l.orderkey = o.orderkey
