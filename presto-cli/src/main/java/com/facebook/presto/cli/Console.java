@@ -126,6 +126,7 @@ public class Console
         try (QueryRunner queryRunner = new QueryRunner(
                 session,
                 Optional.ofNullable(clientOptions.socksProxy),
+                Optional.ofNullable(clientOptions.httpProxy),
                 Optional.ofNullable(clientOptions.keystorePath),
                 Optional.ofNullable(clientOptions.keystorePassword),
                 Optional.ofNullable(clientOptions.truststorePath),

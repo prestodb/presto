@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
+import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
@@ -42,6 +43,7 @@ public class QueryRunner
     public QueryRunner(
             ClientSession session,
             Optional<HostAndPort> socksProxy,
+            Optional<HostAndPort> httpProxy,
             Optional<String> keystorePath,
             Optional<String> keystorePassword,
             Optional<String> truststorePath,
@@ -62,6 +64,7 @@ public class QueryRunner
 
         setupTimeouts(builder, 5, SECONDS);
         setupSocksProxy(builder, socksProxy);
+        setupHttpProxy(builder, httpProxy);
         setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
         setupBasicAuth(builder, session, user, password);
 
