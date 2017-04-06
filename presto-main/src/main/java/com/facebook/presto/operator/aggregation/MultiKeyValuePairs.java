@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.operator.aggregation.TypedSet.ElementReference;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -22,11 +22,14 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static java.util.Objects.requireNonNull;
 
 public class MultiKeyValuePairs
@@ -98,26 +101,28 @@ public class MultiKeyValuePairs
 
         // Merge values of the same key into an array
         BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), keys.getPositionCount(), expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
-        ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
-        valueArrayBlockBuilders.ensureCapacity(keys.getPositionCount());
         TypedSet keySet = new TypedSet(keyType, keys.getPositionCount());
+        Object2ObjectLinkedOpenHashMap<ElementReference, BlockBuilder> valueArrayBlockBuilderMap = new Object2ObjectLinkedOpenHashMap(keys.getPositionCount());
         for (int keyValueIndex = 0; keyValueIndex < keys.getPositionCount(); keyValueIndex++) {
             if (!keySet.contains(keys, keyValueIndex)) {
                 keySet.add(keys, keyValueIndex);
                 keyType.appendTo(keys, keyValueIndex, distinctKeyBlockBuilder);
                 BlockBuilder valueArrayBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), 10, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
-                valueArrayBlockBuilders.set(keySet.positionOf(keys, keyValueIndex), valueArrayBuilder);
+                valueArrayBlockBuilderMap.put(ElementReference.of(keys, keyType, keyValueIndex), valueArrayBuilder);
             }
-            valueType.appendTo(values, keyValueIndex, valueArrayBlockBuilders.get(keySet.positionOf(keys, keyValueIndex)));
+            valueType.appendTo(values, keyValueIndex, valueArrayBlockBuilderMap.get(ElementReference.of(keys, keyType, keyValueIndex)));
         }
 
         // Write keys and value arrays into one Block
         Block distinctKeys = distinctKeyBlockBuilder.build();
         Type valueArrayType = new ArrayType(valueType);
         BlockBuilder multimapBlockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueArrayType), new BlockBuilderStatus(), distinctKeyBlockBuilder.getPositionCount());
-        for (int i = 0; i < distinctKeys.getPositionCount(); i++) {
+        int i = 0;
+        for (Entry<ElementReference, BlockBuilder> entry : valueArrayBlockBuilderMap.entrySet()) {
+            checkElementIndex(i, distinctKeys.getPositionCount());
             keyType.appendTo(distinctKeys, i, multimapBlockBuilder);
-            valueArrayType.writeObject(multimapBlockBuilder, valueArrayBlockBuilders.get(i).build());
+            valueArrayType.writeObject(multimapBlockBuilder, entry.getValue());
+            i++;
         }
 
         return multimapBlockBuilder.build();

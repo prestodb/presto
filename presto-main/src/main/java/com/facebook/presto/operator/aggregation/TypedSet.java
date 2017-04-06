@@ -14,167 +14,137 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.units.DataSize;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.openjdk.jol.info.ClassLayout;
+
+import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static it.unimi.dsi.fastutil.HashCommon.arraySize;
+import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.util.Objects.requireNonNull;
 
 public class TypedSet
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
-    private static final int INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();
-    private static final float FILL_RATIO = 0.75f;
-    private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
+    private static final int SET_INSTANCE_SIZE = ClassLayout.parseClass(ObjectOpenHashSet.class).instanceSize();
+    private static final int ELEMENT_REFERENCE_INSTANCE_SIZE = ClassLayout.parseClass(ElementReference.class).instanceSize();
+    private static final DataSize MAX_SET_SIZE = new DataSize(4, MEGABYTE);
 
     private final Type elementType;
-    private final IntArrayList blockPositionByHash;
-    private final BlockBuilder elementBlock;
-
-    private int maxFill;
-    private int hashMask;
-    private static final int EMPTY_SLOT = -1;
-
-    private boolean containsNullElement;
+    private final Set<ElementReference> set;
 
     public TypedSet(Type elementType, int expectedSize)
     {
-        checkArgument(expectedSize >= 0, "expectedSize must not be negative");
-        this.elementType = requireNonNull(elementType, "elementType must not be null");
-        this.elementBlock = elementType.createBlockBuilder(new BlockBuilderStatus(), expectedSize);
-
-        int hashSize = arraySize(expectedSize, FILL_RATIO);
-        this.maxFill = calculateMaxFill(hashSize);
-        this.hashMask = hashSize - 1;
-
-        blockPositionByHash = new IntArrayList(hashSize);
-        blockPositionByHash.size(hashSize);
-        for (int i = 0; i < hashSize; i++) {
-            blockPositionByHash.set(i, EMPTY_SLOT);
-        }
-
-        this.containsNullElement = false;
-    }
-
-    public long getRetainedSizeInBytes()
-    {
-        return INSTANCE_SIZE + INT_ARRAY_LIST_INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.size() * Integer.BYTES;
-    }
-
-    public boolean contains(Block block, int position)
-    {
-        requireNonNull(block, "block must not be null");
-        checkArgument(position >= 0, "position must be >= 0");
-
-        if (block.isNull(position)) {
-            return containsNullElement;
-        }
-        else {
-            return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
-        }
-    }
-
-    public void add(Block block, int position)
-    {
-        requireNonNull(block, "block must not be null");
-        checkArgument(position >= 0, "position must be >= 0");
-
-        if (block.isNull(position)) {
-            containsNullElement = true;
-        }
-        else {
-            int hashPosition = getHashPositionOfElement(block, position);
-            if (blockPositionByHash.get(hashPosition) == EMPTY_SLOT) {
-                addNewElement(hashPosition, block, position);
-            }
-        }
+        checkArgument(expectedSize >= 0, "expectedSize is negative");
+        this.elementType = requireNonNull(elementType, "elementType is null");
+        this.set = new ObjectOpenHashSet<>(expectedSize);
     }
 
     public int size()
     {
-        return elementBlock.getPositionCount() + (containsNullElement ? 1 : 0);
+        return set.size();
     }
 
-    public int positionOf(Block block, int position)
+    public long getRetainedSizeInBytes()
     {
-        return blockPositionByHash.get(getHashPositionOfElement(block, position));
+        return INSTANCE_SIZE + getRetainedSizeOfSetInBytes();
     }
 
-    /**
-     * Get slot position of element at {@code position} of {@code block}
-     */
-    private int getHashPositionOfElement(Block block, int position)
+    private long getRetainedSizeOfSetInBytes()
     {
-        int hashPosition = getMaskedHash(hashPosition(elementType, block, position));
-        while (true) {
-            int blockPosition = blockPositionByHash.get(hashPosition);
-            // Doesn't have this element
-            if (blockPosition == EMPTY_SLOT) {
-                return hashPosition;
+        return SET_INSTANCE_SIZE + set.size() * ELEMENT_REFERENCE_INSTANCE_SIZE;
+    }
+
+    public Optional<ElementReference> find(ElementReference elementReference)
+    {
+        requireNonNull(elementReference, "elementReference is null");
+        for (ElementReference existing : set) {
+            if (existing.equals(elementReference)) {
+                return Optional.of(existing);
             }
-            // Already has this element
-            else if (positionEqualsPosition(elementType, elementBlock, blockPosition, block, position)) {
-                return hashPosition;
+        }
+        return Optional.empty();
+    }
+
+    public boolean contains(Block block, int position)
+    {
+        requireNonNull(block, "block is null");
+        checkArgument(position >= 0, "position is negative");
+        return set.contains(ElementReference.of(block, elementType, position));
+    }
+
+    public void add(Block block, int position)
+    {
+        requireNonNull(block, "block is null");
+        checkArgument(position >= 0, "position is negative");
+        set.add(ElementReference.of(block, elementType, position));
+        if (getRetainedSizeOfSetInBytes() > MAX_SET_SIZE.toBytes()) {
+            throw exceededLocalLimit(MAX_SET_SIZE);
+        }
+    }
+
+    public static class ElementReference
+    {
+        private final Block block;
+        private final Type type;
+        private final int position;
+
+        public ElementReference(Block block, Type type, int position)
+        {
+            this.block = requireNonNull(block, "block is null");
+            this.type = requireNonNull(type, "type is null");
+            this.position = position;
+        }
+
+        public Block getBlock()
+        {
+            return block;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public int getPosition()
+        {
+            return position;
+        }
+
+        public static ElementReference of(Block block, Type type, int position)
+        {
+            return new ElementReference(block, type, position);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
             }
 
-            hashPosition = getMaskedHash(hashPosition + 1);
-        }
-    }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
 
-    private void addNewElement(int hashPosition, Block block, int position)
-    {
-        elementType.appendTo(block, position, elementBlock);
-        if (elementBlock.getSizeInBytes() > FOUR_MEGABYTES) {
-            throw exceededLocalLimit(new DataSize(4, MEGABYTE));
-        }
-        blockPositionByHash.set(hashPosition, elementBlock.getPositionCount() - 1);
-
-        // increase capacity, if necessary
-        if (elementBlock.getPositionCount() >= maxFill) {
-            rehash(maxFill * 2);
-        }
-    }
-
-    private void rehash(int size)
-    {
-        int newHashSize = arraySize(size + 1, FILL_RATIO);
-        hashMask = newHashSize - 1;
-        maxFill = calculateMaxFill(newHashSize);
-        blockPositionByHash.size(newHashSize);
-        for (int i = 0; i < newHashSize; i++) {
-            blockPositionByHash.set(i, EMPTY_SLOT);
+            ElementReference other = (ElementReference) o;
+            if (!other.type.equals(type)) {
+                return false;
+            }
+            return positionEqualsPosition(type, block, position, other.block, other.position);
         }
 
-        rehashBlock(elementBlock);
-    }
-
-    private void rehashBlock(Block block)
-    {
-        for (int blockPosition = 0; blockPosition < block.getPositionCount(); blockPosition++) {
-            blockPositionByHash.set(getHashPositionOfElement(block, blockPosition), blockPosition);
+        @Override
+        public int hashCode()
+        {
+            return (int) murmurHash3(hashPosition(type, block, position));
         }
-    }
-
-    private static int calculateMaxFill(int hashSize)
-    {
-        int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
-        if (maxFill == hashSize) {
-            maxFill--;
-        }
-        return maxFill;
-    }
-
-    private int getMaskedHash(long rawHash)
-    {
-        return (int) (rawHash & hashMask);
     }
 }
