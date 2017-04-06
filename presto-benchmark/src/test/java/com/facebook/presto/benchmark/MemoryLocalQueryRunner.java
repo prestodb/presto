@@ -34,6 +34,7 @@ import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -41,13 +42,27 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 
 public class MemoryLocalQueryRunner
 {
-    protected LocalQueryRunner localQueryRunner = createMemoryLocalQueryRunner();
+    protected final LocalQueryRunner localQueryRunner;
+    protected final Session session;
+
+    public MemoryLocalQueryRunner()
+    {
+        this(ImmutableMap.of());
+    }
+
+    public MemoryLocalQueryRunner(Map<String, String> properties)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
+                .setCatalog("memory")
+                .setSchema("default");
+        properties.forEach(sessionBuilder::setSystemProperty);
+
+        session = sessionBuilder.build();
+        localQueryRunner = createMemoryLocalQueryRunner(session);
+    }
 
     public List<Page> execute(@Language("SQL") String query)
     {
-        Session session = testSessionBuilder()
-                .setSystemProperty("optimizer.optimize-hash-generation", "true")
-                .build();
         ExecutorService executor = localQueryRunner.getExecutor();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(2, GIGABYTE));
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(2, GIGABYTE));
@@ -81,13 +96,8 @@ public class MemoryLocalQueryRunner
         return output.build();
     }
 
-    private static LocalQueryRunner createMemoryLocalQueryRunner()
+    private static LocalQueryRunner createMemoryLocalQueryRunner(Session session)
     {
-        Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog("memory")
-                .setSchema("default");
-
-        Session session = sessionBuilder.build();
         LocalQueryRunner localQueryRunner = LocalQueryRunner.queryRunnerWithInitialTransaction(session);
 
         // add tpch
