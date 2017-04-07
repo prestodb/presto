@@ -17,14 +17,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -33,6 +39,16 @@ import static org.testng.Assert.assertTrue;
 
 public class TestIdentityLinkedHashMap
 {
+    private final BigDecimal key;
+    private final BigDecimal equalToKey;
+
+    public TestIdentityLinkedHashMap()
+    {
+        key = new BigDecimal("3.141592");
+        equalToKey = new BigDecimal(key.toString());
+        checkState(key.equals(equalToKey));
+    }
+
     @Test
     public void testUsesIdentityAsEquivalenceForKeys()
     {
@@ -96,5 +112,62 @@ public class TestIdentityLinkedHashMap
             assertEquals(ImmutableList.copyOf(map.entrySet()::iterator).stream().map(Entry::getKey).collect(toImmutableList()), keys);
             assertEquals(map.entrySet().stream().map(Entry::getKey).collect(toImmutableList()), keys);
         });
+    }
+
+    @Test(dataProvider = "identityHashMaps")
+    public void testKeySetIsIdentityBased(Supplier<Map<BigDecimal, Object>> mapSupplier)
+    {
+        Map<BigDecimal, Object> map = mapSupplier.get();
+        map.put(key, new Object());
+        Set<?> keySet = map.keySet();
+
+        assertTrue(keySet.contains(key));
+        assertFalse(keySet.contains(equalToKey));
+        assertFalse(keySet.remove(equalToKey));
+        assertEquals(keySet.size(), 1);
+
+        assertTrue(keySet.remove(key)); // modification
+
+        assertEquals(keySet.size(), 0);
+        assertEquals(map.size(), 0);
+        assertTrue(keySet.isEmpty());
+        assertTrue(map.isEmpty());
+    }
+
+    @DataProvider
+    public Object[][] identityHashMaps()
+    {
+        // Test IdentityHashMap too to ensure IdentityLinkedHashMap is a drop-in replacement except for deterministic iteration order
+        return new Object[][] {
+                {supplierOf(IdentityHashMap.class)},
+                {supplierOf(IdentityLinkedHashMap.class)}
+        };
+    }
+
+    /**
+     * Same as {@code clazz::new} except the returned object implements {@link Object#toString()}.
+     */
+    private static <T> Supplier<T> supplierOf(Class<? extends T> clazz)
+    {
+        return new Supplier<T>()
+        {
+            @Override
+            public T get()
+            {
+                try {
+                    return clazz.getConstructor()
+                            .newInstance();
+                }
+                catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            @Override
+            public String toString()
+            {
+                return format("%s::new", clazz.getName());
+            }
+        };
     }
 }

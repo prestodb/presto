@@ -14,6 +14,8 @@
 package com.facebook.presto.util.maps;
 
 import com.google.common.base.Equivalence;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 
 import java.util.AbstractMap;
 import java.util.AbstractSet;
@@ -23,14 +25,16 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Objects.requireNonNull;
 
-public class IdentityLinkedHashMap<K, V>
+public final class IdentityLinkedHashMap<K, V>
         implements Map<K, V>
 {
+    private static final Equivalence<Object> equivalence = Equivalence.identity();
+
     private final Map<Equivalence.Wrapper<K>, V> delegate = new LinkedHashMap<>();
-    private final Equivalence<Object> equivalence = Equivalence.identity();
 
     public IdentityLinkedHashMap()
     {
@@ -99,20 +103,7 @@ public class IdentityLinkedHashMap<K, V>
     @Override
     public Set<K> keySet()
     {
-        return new AbstractSet<K>()
-        {
-            @Override
-            public Iterator<K> iterator()
-            {
-                return delegate.keySet().stream().map(Equivalence.Wrapper::get).iterator();
-            }
-
-            @Override
-            public int size()
-            {
-                return delegate.size();
-            }
-        };
+        return new KeySet();
     }
 
     @Override
@@ -141,5 +132,117 @@ public class IdentityLinkedHashMap<K, V>
                 return delegate.size();
             }
         };
+    }
+
+    private class KeySet
+            extends SetView<K>
+    {
+        @Override
+        public boolean contains(Object item)
+        {
+            return IdentityLinkedHashMap.this.containsKey(item);
+        }
+
+        @Override
+        public Iterator<K> iterator()
+        {
+            return Iterators.transform(delegate.keySet().iterator(), Equivalence.Wrapper::get);
+        }
+
+        @Override
+        public boolean remove(Object item)
+        {
+            return delegate.keySet().remove(equivalence.wrap(item));
+        }
+
+        @Override
+        public boolean retainAll(Collection<?> other)
+        {
+            return delegate.keySet().retainAll(
+                    other.stream()
+                            .map(equivalence::wrap)
+                            .collect(toImmutableSet()));
+        }
+    }
+
+    private abstract class SetView<E>
+            implements Set<E>
+    {
+        @Override
+        public final int size()
+        {
+            return IdentityLinkedHashMap.this.size();
+        }
+
+        @Override
+        public final boolean isEmpty()
+        {
+            return IdentityLinkedHashMap.this.isEmpty();
+        }
+
+        @Override
+        public final Object[] toArray()
+        {
+            return Iterators.toArray(iterator(), Object.class);
+        }
+
+        @Override
+        public final <T> T[] toArray(T[] array)
+        {
+            return ImmutableList.copyOf(iterator()).toArray(array);
+        }
+
+        @Override
+        public final boolean add(E item)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public final boolean addAll(Collection<? extends E> other)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public final boolean containsAll(Collection<?> other)
+        {
+            return other.stream()
+                    .allMatch(this::contains);
+        }
+
+        @Override
+        public final boolean removeAll(Collection<?> other)
+        {
+            boolean removed = false;
+            for (Object item : other) {
+                removed |= remove(item);
+            }
+            return removed;
+        }
+
+        @Override
+        public final void clear()
+        {
+            IdentityLinkedHashMap.this.clear();
+        }
+
+        /**
+         * Unsupported.
+         * <p>
+         * When comparing with other {@link Set}, we could compare snapshots as in {@code ImmutableSet.copyOf(this).equals(obj)},
+         * but that would mean two sets can be equal even when they have different size.
+         */
+        @Override
+        public final boolean equals(Object obj)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public final int hashCode()
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }
