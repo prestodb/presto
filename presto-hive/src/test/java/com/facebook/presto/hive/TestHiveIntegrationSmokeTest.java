@@ -1554,6 +1554,39 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableWithDelimiter()
+        throws Exception
+    {
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_with_delimiter (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   field_delimiter = ',',\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   line_delimiter = ';'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_table_with_delimiter");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+
+        assertUpdate("DROP TABLE test_table_with_delimiter");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Field delimiter is only allowed when creating textfile table")
+    public void testCreateNonTextTableWithDelimiter()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_create_non_text_table_with_delimiter\n" +
+                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
+                "WITH (field_delimiter = ',')");
+    }
+
+    @Test
     public void testPathHiddenColumn()
             throws Exception
     {

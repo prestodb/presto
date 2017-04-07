@@ -62,9 +62,11 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
+import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
@@ -98,12 +100,18 @@ import static com.facebook.presto.hive.HivePartitionManager.extractPartitionKeyV
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.DEFAULT_FIELD_DELIMITER;
+import static com.facebook.presto.hive.HiveTableProperties.DEFAULT_LINE_DELIMITER;
 import static com.facebook.presto.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.FIELD_DELIMITER_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.LINE_DELIMITER_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getExternalLocation;
+import static com.facebook.presto.hive.HiveTableProperties.getFieldDelimiterProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveTableProperties.getLineDelimiterProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
@@ -268,6 +276,19 @@ public class HiveMetadata
             properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
             properties.put(BUCKETED_BY_PROPERTY, bucketProperty.get().getBucketedBy());
         }
+        Map<String, String> serdeParameters = table.get().getStorage().getSerdeParameters();
+        if (serdeParameters.containsKey(serdeConstants.FIELD_DELIM)) {
+            String fieldDelimiter = serdeParameters.get(serdeConstants.FIELD_DELIM);
+            if (!fieldDelimiter.equals(DEFAULT_FIELD_DELIMITER)) {
+                properties.put(FIELD_DELIMITER_PROPERTY, StringEscapeUtils.escapeJava(fieldDelimiter));
+            }
+        }
+        if (serdeParameters.containsKey(serdeConstants.LINE_DELIM)) {
+            String lineDelimiter = serdeParameters.get(serdeConstants.LINE_DELIM);
+            if (!lineDelimiter.equals(DEFAULT_LINE_DELIMITER)) {
+                properties.put(LINE_DELIMITER_PROPERTY, StringEscapeUtils.escapeJava(lineDelimiter));
+            }
+        }
         properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build());
@@ -412,6 +433,7 @@ public class HiveMetadata
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
+        Map<String, String> serdeParameters = getDelimProperty(hiveStorageFormat, tableMetadata.getProperties());
 
         hiveStorageFormat.validateColumns(columnHandles);
 
@@ -438,6 +460,7 @@ public class HiveMetadata
                 partitionedBy,
                 bucketProperty,
                 additionalTableParameters,
+                serdeParameters,
                 targetPath,
                 external,
                 prestoVersion);
@@ -459,6 +482,27 @@ public class HiveMetadata
         }
     }
 
+    private Map<String, String> getDelimProperty(HiveStorageFormat storageFormat, Map<String, Object> properties)
+    {
+        ImmutableMap.Builder<String, String> serdeParametersBuilder = ImmutableMap.builder();
+        String filedDelimiter = getFieldDelimiterProperty(properties);
+        String lineDelimiter = getLineDelimiterProperty(properties);
+        if (!filedDelimiter.equals(DEFAULT_FIELD_DELIMITER)) {
+            if (storageFormat != HiveStorageFormat.TEXTFILE) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Field delimiter is only allowed when creating textfile table");
+            }
+            serdeParametersBuilder.put(serdeConstants.FIELD_DELIM, filedDelimiter);
+        }
+        if (!lineDelimiter.equals(DEFAULT_LINE_DELIMITER)) {
+            if (storageFormat != HiveStorageFormat.TEXTFILE) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Line delimiter is only allowed when creating textfile table");
+            }
+            serdeParametersBuilder.put(serdeConstants.LINE_DELIM, lineDelimiter);
+        }
+
+        return serdeParametersBuilder.build();
+    }
+
     private static Table buildTableObject(
             String queryId,
             String schemaName,
@@ -469,6 +513,7 @@ public class HiveMetadata
             List<String> partitionedBy,
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
+            Map<String, String> serdeParameters,
             Path targetPath,
             boolean external,
             String prestoVersion)
@@ -516,7 +561,8 @@ public class HiveMetadata
         tableBuilder.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))
                 .setBucketProperty(bucketProperty)
-                .setLocation(targetPath.toString());
+                .setLocation(targetPath.toString())
+                .setSerdeParameters(serdeParameters);
 
         return tableBuilder.build();
     }
@@ -583,6 +629,7 @@ public class HiveMetadata
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
+        Map<String, String> serdeParameters = getDelimProperty(tableStorageFormat, tableMetadata.getProperties());
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -610,7 +657,8 @@ public class HiveMetadata
                 partitionedBy,
                 bucketProperty,
                 session.getUser(),
-                additionalTableParameters);
+                additionalTableParameters,
+                serdeParameters);
 
         Path writePathRoot = locationService.writePathRoot(locationHandle).get();
         Path targetPathRoot = locationService.targetPathRoot(locationHandle);
@@ -643,6 +691,7 @@ public class HiveMetadata
                 handle.getPartitionedBy(),
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
+                handle.getSerdeParameters(),
                 targetPath,
                 false,
                 prestoVersion);

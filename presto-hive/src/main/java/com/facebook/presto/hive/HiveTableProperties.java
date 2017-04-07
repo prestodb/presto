@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import org.apache.commons.lang3.StringEscapeUtils;
 
 import javax.inject.Inject;
 
@@ -41,6 +42,11 @@ public class HiveTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
+    public static final String FIELD_DELIMITER_PROPERTY = "field_delimiter";
+    public static final String LINE_DELIMITER_PROPERTY = "line_delimiter";
+
+    public static final String DEFAULT_FIELD_DELIMITER = "\001";
+    public static final String DEFAULT_LINE_DELIMITER = "\n";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -84,7 +90,9 @@ public class HiveTableProperties
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(Collectors.toList())),
                         value -> value),
-                integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false));
+                integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
+                stringSessionProperty(FIELD_DELIMITER_PROPERTY, "Field delimiter", DEFAULT_FIELD_DELIMITER, false),
+                stringSessionProperty(LINE_DELIMITER_PROPERTY, "Line delimiter", DEFAULT_LINE_DELIMITER, false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -128,5 +136,15 @@ public class HiveTableProperties
     private static List<String> getBucketedBy(Map<String, Object> tableProperties)
     {
         return (List<String>) tableProperties.get(BUCKETED_BY_PROPERTY);
+    }
+
+    public static String getFieldDelimiterProperty(Map<String, Object> tableProperties)
+    {
+        return StringEscapeUtils.unescapeJava((String) tableProperties.get(FIELD_DELIMITER_PROPERTY));
+    }
+
+    public static String getLineDelimiterProperty(Map<String, Object> tableProperties)
+    {
+        return StringEscapeUtils.unescapeJava((String) tableProperties.get(LINE_DELIMITER_PROPERTY));
     }
 }
