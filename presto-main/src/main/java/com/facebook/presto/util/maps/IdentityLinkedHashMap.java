@@ -25,7 +25,6 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
-import static java.util.Collections.unmodifiableCollection;
 import static java.util.Objects.requireNonNull;
 
 public final class IdentityLinkedHashMap<K, V>
@@ -109,7 +108,7 @@ public final class IdentityLinkedHashMap<K, V>
     @Override
     public Collection<V> values()
     {
-        return unmodifiableCollection(delegate.values());
+        return new ValuesCollection();
     }
 
     @Override
@@ -190,7 +189,65 @@ public final class IdentityLinkedHashMap<K, V>
     }
 
     private abstract class SetView<E>
+            extends CollectionView<E>
             implements Set<E>
+    {
+        /**
+         * Unsupported.
+         * <p>
+         * When comparing with other {@link Set}, we could compare snapshots as in {@code ImmutableSet.copyOf(this).equals(obj)},
+         * but that would mean two sets can be equal even when they have different size.
+         */
+        @Override
+        public final boolean equals(Object obj)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public final int hashCode()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private class ValuesCollection
+            extends CollectionView<V>
+    {
+        @Override
+        public boolean contains(Object item)
+        {
+            return IdentityLinkedHashMap.this.containsValue(item);
+        }
+
+        @Override
+        public Iterator<V> iterator()
+        {
+            return delegate.values().iterator();
+        }
+
+        @Override
+        public boolean remove(Object item)
+        {
+            Iterator<V> iterator = delegate.values().iterator();
+            while (iterator.hasNext()) {
+                if (iterator.next() == item) {
+                    iterator.remove();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public boolean retainAll(Collection<?> other)
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private abstract class CollectionView<E>
+            implements Collection<E>
     {
         @Override
         public final int size()
@@ -249,24 +306,6 @@ public final class IdentityLinkedHashMap<K, V>
         public final void clear()
         {
             IdentityLinkedHashMap.this.clear();
-        }
-
-        /**
-         * Unsupported.
-         * <p>
-         * When comparing with other {@link Set}, we could compare snapshots as in {@code ImmutableSet.copyOf(this).equals(obj)},
-         * but that would mean two sets can be equal even when they have different size.
-         */
-        @Override
-        public final boolean equals(Object obj)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public final int hashCode()
-        {
-            throw new UnsupportedOperationException();
         }
     }
 }

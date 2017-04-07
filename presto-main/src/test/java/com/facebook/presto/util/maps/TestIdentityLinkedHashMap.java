@@ -21,6 +21,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -169,6 +170,23 @@ public class TestIdentityLinkedHashMap
         assertEquals(map.size(), 0);
         assertTrue(entrySet.isEmpty());
         assertTrue(map.isEmpty());
+    }
+
+    @Test(dataProvider = "identityHashMaps")
+    public void testValuesCollectionIsIdentity(Supplier<Map<BigDecimal, BigDecimal>> mapSupplier)
+    {
+        Map<BigDecimal, BigDecimal> map = mapSupplier.get();
+        map.put(key, value);
+        Collection<BigDecimal> values = map.values();
+
+        assertTrue(values.contains(value));
+        assertFalse(values.contains(equalToValue));
+        assertFalse(values.remove(equalToValue));
+        assertEquals(values.size(), 1);
+
+        assertTrue(values.remove(value));
+
+        assertEquals(values.size(), 0);
     }
 
     @Test(dataProvider = "identityHashMaps")
