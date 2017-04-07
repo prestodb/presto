@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -168,6 +169,14 @@ public final class SymbolAliases
     public SymbolAliases replaceAssignments(Assignments assignments)
     {
         return new SymbolAliases(getUpdatedAssignments(assignments));
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(map)
+                .toString();
     }
 
     public static class Builder
