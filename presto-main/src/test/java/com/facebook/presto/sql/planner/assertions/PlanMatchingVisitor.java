@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -35,11 +37,13 @@ final class PlanMatchingVisitor
 {
     private final Metadata metadata;
     private final Session session;
+    private final Lookup lookup;
 
-    PlanMatchingVisitor(Session session, Metadata metadata)
+    PlanMatchingVisitor(Session session, Metadata metadata, Lookup lookup)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
     @Override
@@ -76,6 +80,16 @@ final class PlanMatchingVisitor
         }
 
         return match(result.getAliases().replaceAssignments(node.getAssignments()));
+    }
+
+    @Override
+    public MatchResult visitGroupReference(GroupReference node, PlanMatchPattern pattern)
+    {
+        MatchResult match = lookup.resolve(node).accept(this, pattern);
+        if (match.isMatch()) {
+            return match;
+        }
+        return visitPlan(node, pattern);
     }
 
     @Override

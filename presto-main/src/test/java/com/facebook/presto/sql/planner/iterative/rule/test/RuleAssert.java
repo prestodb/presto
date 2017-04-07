@@ -21,6 +21,8 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
@@ -91,7 +93,11 @@ public class RuleAssert
     public void matches(PlanMatchPattern pattern)
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-        Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator, session);
+
+        Memo memo = new Memo(idAllocator, plan);
+        Lookup lookup = Lookup.from(memo::resolve);
+
+        Optional<PlanNode> result = rule.apply(memo.getNode(memo.getRootGroup()), lookup, idAllocator, symbolAllocator, session);
         Map<Symbol, Type> types = symbolAllocator.getTypes();
 
         if (!result.isPresent()) {
@@ -120,6 +126,6 @@ public class RuleAssert
                     actual.getOutputSymbols()));
         }
 
-        assertPlan(session, metadata, new Plan(actual, types), pattern);
+        assertPlan(session, metadata, new Plan(actual, types), lookup, pattern);
     }
 }

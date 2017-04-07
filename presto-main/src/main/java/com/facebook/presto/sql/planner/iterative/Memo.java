@@ -79,6 +79,11 @@ public class Memo
         return membership.get(group);
     }
 
+    public PlanNode resolve(GroupReference groupReference)
+    {
+        return getNode(groupReference.getGroupId());
+    }
+
     public PlanNode extract()
     {
         return extract(getNode(rootGroup));
