@@ -622,6 +622,7 @@ public final class ExpressionFormatter
         protected String visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Void context)
         {
             return new StringBuilder()
+                    .append("(")
                     .append(process(node.getValue(), context))
                     .append(' ')
                     .append(node.getComparisonType().getValue())
@@ -629,6 +630,7 @@ public final class ExpressionFormatter
                     .append(node.getQuantifier().toString())
                     .append(' ')
                     .append(process(node.getSubquery(), context))
+                    .append(")")
                     .toString();
         }
 
