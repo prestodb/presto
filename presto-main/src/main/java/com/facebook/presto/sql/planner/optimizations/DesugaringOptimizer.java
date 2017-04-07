@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -43,8 +42,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Collections.emptyList;
@@ -89,13 +86,6 @@ public class DesugaringOptimizer
             this.session = session;
             this.types = types;
             this.symbolAllocator = symbolAllocator;
-        }
-
-        @Override
-        public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
-        {
-            checkState(extractExpressionsNonRecursive(node).isEmpty(), "Unhandled plan node with expressions");
-            return super.visitPlan(node, context);
         }
 
         @Override
@@ -180,15 +170,6 @@ public class DesugaringOptimizer
                                     .map(this::desugar)
                                     .collect(toImmutableList()))
                             .collect(toImmutableList()));
-        }
-
-        @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
-        {
-            PlanNode input = context.rewrite(node.getInput());
-            PlanNode subquery = context.rewrite(node.getSubquery());
-            Assignments subqueryAssignments = node.getSubqueryAssignments().rewrite(this::desugar);
-            return new ApplyNode(node.getId(), input, subquery, subqueryAssignments, node.getCorrelation());
         }
 
         private Expression desugar(Expression expression)
