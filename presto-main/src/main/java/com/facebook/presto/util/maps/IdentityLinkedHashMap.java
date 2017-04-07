@@ -17,8 +17,6 @@ import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 
-import java.util.AbstractMap;
-import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -26,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Maps.immutableEntry;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Objects.requireNonNull;
 
@@ -115,23 +114,7 @@ public final class IdentityLinkedHashMap<K, V>
     @Override
     public Set<Entry<K, V>> entrySet()
     {
-        return new AbstractSet<Entry<K, V>>()
-        {
-            @Override
-            public Iterator<Entry<K, V>> iterator()
-            {
-                return delegate.entrySet().stream().map(e -> {
-                    K key = e.getKey().get();
-                    return (Entry<K, V>) new AbstractMap.SimpleEntry<>(key, e.getValue());
-                }).iterator();
-            }
-
-            @Override
-            public int size()
-            {
-                return delegate.size();
-            }
-        };
+        return new EntrySet();
     }
 
     private class KeySet
@@ -162,6 +145,46 @@ public final class IdentityLinkedHashMap<K, V>
                     other.stream()
                             .map(equivalence::wrap)
                             .collect(toImmutableSet()));
+        }
+    }
+
+    private class EntrySet
+            extends SetView<Entry<K, V>>
+    {
+        @Override
+        public boolean contains(Object item)
+        {
+            if (!(item instanceof Entry)) {
+                return false;
+            }
+            Entry<?, ?> entry = (Entry<?, ?>) item;
+            Equivalence.Wrapper<?> wrappedKey = equivalence.wrap(entry.getKey());
+            return delegate.get(wrappedKey) == entry.getValue()
+                    && (entry.getValue() != null || delegate.containsKey(wrappedKey));
+        }
+
+        @Override
+        public Iterator<Entry<K, V>> iterator()
+        {
+            return Iterators.transform(delegate.entrySet().iterator(),
+                    wrapperEntry -> immutableEntry(wrapperEntry.getKey().get(), wrapperEntry.getValue()));
+        }
+
+        @Override
+        public boolean remove(Object item)
+        {
+            if (!contains(item)) {
+                return false;
+            }
+            Entry<?, ?> entry = (Entry<?, ?>) item;
+            delegate.remove(equivalence.wrap(entry.getKey()));
+            return true;
+        }
+
+        @Override
+        public boolean retainAll(Collection<?> other)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 

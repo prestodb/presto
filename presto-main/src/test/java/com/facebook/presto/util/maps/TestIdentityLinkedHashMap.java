@@ -41,12 +41,18 @@ public class TestIdentityLinkedHashMap
 {
     private final BigDecimal key;
     private final BigDecimal equalToKey;
+    private final BigDecimal value;
+    private final BigDecimal equalToValue;
 
     public TestIdentityLinkedHashMap()
     {
         key = new BigDecimal("3.141592");
         equalToKey = new BigDecimal(key.toString());
         checkState(key.equals(equalToKey));
+
+        value = new BigDecimal("42");
+        equalToValue = new BigDecimal(value.toString());
+        checkState(value.equals(equalToValue));
     }
 
     @Test
@@ -131,6 +137,37 @@ public class TestIdentityLinkedHashMap
         assertEquals(keySet.size(), 0);
         assertEquals(map.size(), 0);
         assertTrue(keySet.isEmpty());
+        assertTrue(map.isEmpty());
+    }
+
+    @Test(dataProvider = "identityHashMaps")
+    public void testEntrySetIsIdentityBased(Supplier<Map<BigDecimal, BigDecimal>> mapSupplier)
+    {
+        Map<BigDecimal, BigDecimal> map = mapSupplier.get();
+        map.put(key, value);
+        Set<Entry<BigDecimal, BigDecimal>> entrySet = map.entrySet();
+
+        assertTrue(entrySet.contains(Maps.immutableEntry(key, value)));
+        assertFalse(entrySet.contains(Maps.immutableEntry(equalToKey, value)));
+
+        assertFalse(entrySet.contains(Maps.immutableEntry(key, equalToValue)));
+        assertFalse(entrySet.contains(Maps.immutableEntry(equalToKey, equalToValue)));
+
+        assertFalse(entrySet.contains(Maps.immutableEntry(key, (BigDecimal) null)));
+        assertFalse(entrySet.contains(Maps.immutableEntry(equalToKey, (BigDecimal) null)));
+
+        assertFalse(entrySet.remove(Maps.immutableEntry(equalToKey, equalToValue)));
+        assertFalse(entrySet.remove(Maps.immutableEntry(equalToKey, value)));
+        assertFalse(entrySet.remove(Maps.immutableEntry(key, equalToValue)));
+        assertFalse(entrySet.remove(Maps.immutableEntry(key, (BigDecimal) null)));
+
+        assertEquals(entrySet.size(), 1);
+
+        assertTrue(entrySet.remove(Maps.immutableEntry(key, value))); // modification
+
+        assertEquals(entrySet.size(), 0);
+        assertEquals(map.size(), 0);
+        assertTrue(entrySet.isEmpty());
         assertTrue(map.isEmpty());
     }
 
