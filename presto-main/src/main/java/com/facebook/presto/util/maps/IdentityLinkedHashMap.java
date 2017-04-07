@@ -65,7 +65,8 @@ public final class IdentityLinkedHashMap<K, V>
     @Override
     public boolean containsValue(Object value)
     {
-        return delegate.containsValue(value);
+        return delegate.values().stream()
+                .anyMatch(containedValue -> containedValue == value);
     }
 
     @Override

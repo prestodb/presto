@@ -171,6 +171,15 @@ public class TestIdentityLinkedHashMap
         assertTrue(map.isEmpty());
     }
 
+    @Test(dataProvider = "identityHashMaps")
+    public void testContainsValueIsIdentityBased(Supplier<Map<BigDecimal, BigDecimal>> mapSupplier)
+    {
+        Map<BigDecimal, BigDecimal> map = mapSupplier.get();
+        map.put(key, value);
+        assertTrue(map.containsValue(value));
+        assertFalse(map.containsValue(equalToValue));
+    }
+
     @DataProvider
     public Object[][] identityHashMaps()
     {
