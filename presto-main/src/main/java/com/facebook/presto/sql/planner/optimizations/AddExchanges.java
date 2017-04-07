@@ -800,7 +800,6 @@ public class AddExchanges
             }
             else {
                 // Broadcast Join
-
                 left = node.getLeft().accept(this, context.withPreferredProperties(PreferredProperties.any()));
                 right = node.getRight().accept(this, context.withPreferredProperties(PreferredProperties.any()));
 
