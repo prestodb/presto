@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.util.maps;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -72,17 +76,25 @@ public class TestIdentityLinkedHashMap
     @Test
     public void testStableIterationOrder()
     {
-        Set<String> keys = ImmutableSet.of("All", "your", "base", "are", "belong", "to", "us");
-        Map<String, Integer> expectedMap = Maps.asMap(keys, String::length);
+        List<String> keys = ImmutableList.of("All", "your", "base", "are", "belong", "to", "us");
+        List<Integer> expectedValues = keys.stream().map(String::length).collect(toImmutableList());
 
         range(0, 10).forEach(attempt -> {
             IdentityLinkedHashMap<String, Integer> map = new IdentityLinkedHashMap<>();
 
             keys.forEach(i -> map.put(i, i.length()));
 
-            assertEquals(map.keySet(), keys);
-            assertEquals(map.values(), expectedMap.values());
-            assertEquals(map.entrySet(), expectedMap.entrySet());
+            assertEquals(ImmutableList.copyOf(map.keySet()), keys);
+            assertEquals(ImmutableList.copyOf(map.keySet().iterator()), keys);
+            assertEquals(map.keySet().stream().collect(toImmutableList()), keys);
+
+            assertEquals(ImmutableList.copyOf(map.values()), expectedValues);
+            assertEquals(ImmutableList.copyOf(map.values().iterator()), expectedValues);
+            assertEquals(map.values().stream().collect(toImmutableList()), expectedValues);
+
+            assertEquals(ImmutableList.copyOf(map.entrySet()).stream().map(Entry::getKey).collect(toImmutableList()), keys);
+            assertEquals(ImmutableList.copyOf(map.entrySet()::iterator).stream().map(Entry::getKey).collect(toImmutableList()), keys);
+            assertEquals(map.entrySet().stream().map(Entry::getKey).collect(toImmutableList()), keys);
         });
     }
 }
