@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
@@ -145,14 +146,14 @@ public class EliminateCrossJoins
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.graph = requireNonNull(graph, "graph is null");
-            this.joinOrder = requireNonNull(joinOrder, "joinOrder is null");
+            this.joinOrder = ImmutableList.copyOf(requireNonNull(joinOrder, "joinOrder is null"));
             checkState(joinOrder.size() >= 2);
         }
 
         @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<PlanNode> context)
         {
-            if (node.getId() != graph.getRootId()) {
+            if (!Objects.equals(node.getId(), graph.getRootId())) {
                 return context.defaultRewrite(node, context.get());
             }
 
