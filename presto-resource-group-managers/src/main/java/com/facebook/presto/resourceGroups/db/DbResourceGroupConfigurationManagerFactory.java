@@ -61,7 +61,8 @@ public class DbResourceGroupConfigurationManagerFactory
             return injector.getInstance(DbResourceGroupConfigurationManager.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

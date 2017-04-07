@@ -86,7 +86,8 @@ public class TestSetFieldBytecodeExpression
             return clazz.getField(name);
         }
         catch (NoSuchFieldException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

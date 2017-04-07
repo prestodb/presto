@@ -124,7 +124,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -148,7 +149,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -188,7 +190,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -216,7 +219,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -241,7 +245,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -266,7 +271,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -291,7 +297,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -316,7 +323,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -344,7 +352,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -369,7 +378,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -398,7 +408,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -427,7 +438,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -451,7 +463,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -486,7 +499,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -511,7 +525,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -536,7 +551,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -561,7 +577,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -589,7 +606,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -615,7 +633,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -689,7 +708,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -728,7 +748,8 @@ public class ThriftHiveMetastore
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -845,6 +866,7 @@ public class ThriftHiveMetastore
         if (throwable instanceof InterruptedException) {
             Thread.currentThread().interrupt();
         }
-        throw Throwables.propagate(throwable);
+        Throwables.throwIfUnchecked(throwable);
+        throw new RuntimeException(throwable);
     }
 }

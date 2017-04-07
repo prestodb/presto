@@ -382,7 +382,8 @@ public class JoinFilterFunctionCompiler
                 isolatedJoinFilterFunctionConstructor = isolatedJoinFilterFunction.getConstructor(InternalJoinFilterFunction.class, LongArrayList.class, List.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -394,7 +395,8 @@ public class JoinFilterFunctionCompiler
                 return isolatedJoinFilterFunctionConstructor.newInstance(internalJoinFilterFunction, addresses, channels);
             }
             catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }

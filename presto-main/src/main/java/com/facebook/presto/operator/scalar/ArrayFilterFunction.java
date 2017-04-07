@@ -55,7 +55,8 @@ public final class ArrayFilterFunction
                 keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
@@ -84,7 +85,8 @@ public final class ArrayFilterFunction
                 keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
@@ -113,7 +115,8 @@ public final class ArrayFilterFunction
                 keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
@@ -142,7 +145,8 @@ public final class ArrayFilterFunction
                 keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
@@ -171,7 +175,8 @@ public final class ArrayFilterFunction
                 keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
@@ -195,7 +200,8 @@ public final class ArrayFilterFunction
                 keep = (Boolean) function.invokeExact(null);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
             if (TRUE.equals(keep)) {
                 resultBuilder.appendNull();

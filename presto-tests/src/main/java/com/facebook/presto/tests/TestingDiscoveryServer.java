@@ -87,7 +87,8 @@ public class TestingDiscoveryServer
             }
         }
         catch (Exception e) {
-            Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         finally {
             FileUtils.deleteRecursively(tempDir);

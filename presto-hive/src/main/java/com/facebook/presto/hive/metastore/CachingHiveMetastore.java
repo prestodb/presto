@@ -240,7 +240,9 @@ public class CachingHiveMetastore
             return cache.get(key);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 
@@ -250,7 +252,9 @@ public class CachingHiveMetastore
             return cache.getAll(keys);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 

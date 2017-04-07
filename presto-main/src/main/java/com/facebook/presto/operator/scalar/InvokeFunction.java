@@ -90,7 +90,8 @@ public final class InvokeFunction
             return function.invoke();
         }
         catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 }

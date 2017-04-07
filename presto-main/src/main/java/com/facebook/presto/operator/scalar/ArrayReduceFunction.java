@@ -101,14 +101,16 @@ public final class ArrayReduceFunction
                 intermediateValue = inputFunction.invoke(intermediateValue, input);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
         }
         try {
             return outputFunction.invoke(intermediateValue);
         }
         catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 }

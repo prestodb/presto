@@ -120,7 +120,8 @@ public class BindableAggregationFunction
                     outputType);
         }
         catch (IllegalAccessException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
 
         AccumulatorFactoryBinder factory = new LazyAccumulatorFactoryBinder(metadata, classLoader);

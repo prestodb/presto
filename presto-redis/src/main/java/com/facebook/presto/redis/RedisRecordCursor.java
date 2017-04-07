@@ -330,7 +330,8 @@ public class RedisRecordCursor
             }
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         return true;
     }
@@ -366,7 +367,8 @@ public class RedisRecordCursor
             }
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         return true;
     }

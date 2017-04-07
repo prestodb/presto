@@ -112,7 +112,8 @@ public final class MapTransformKeyFunction
                 transformedKey = function.invoke(key, value);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
 
             if (transformedKey == null) {

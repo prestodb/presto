@@ -563,17 +563,20 @@ public class PrestoS3FileSystem
                                         throw new UnrecoverableS3OperationException(path, e);
                                 }
                             }
-                            throw Throwables.propagate(e);
+                            Throwables.throwIfUnchecked(e);
+                            throw new RuntimeException(e);
                         }
                     });
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         catch (Exception e) {
             Throwables.propagateIfInstanceOf(e, IOException.class);
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -589,7 +592,8 @@ public class PrestoS3FileSystem
             return new LocatedFileStatus(status, fakeLocation);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -820,11 +824,13 @@ public class PrestoS3FileSystem
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
             catch (Exception e) {
                 Throwables.propagateIfInstanceOf(e, IOException.class);
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -902,17 +908,20 @@ public class PrestoS3FileSystem
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
-                                throw Throwables.propagate(e);
+                                Throwables.throwIfUnchecked(e);
+                                throw new RuntimeException(e);
                             }
                         });
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
             catch (Exception e) {
                 Throwables.propagateIfInstanceOf(e, IOException.class);
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 

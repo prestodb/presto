@@ -48,7 +48,8 @@ public class ExampleRecordSet
             byteSource = Resources.asByteSource(split.getUri().toURL());
         }
         catch (MalformedURLException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

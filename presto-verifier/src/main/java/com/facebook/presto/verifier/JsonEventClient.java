@@ -56,7 +56,8 @@ public class JsonEventClient
             out.println(buffer.toString().trim());
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

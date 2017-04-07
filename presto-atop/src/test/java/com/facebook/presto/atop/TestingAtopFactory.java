@@ -100,7 +100,8 @@ public class TestingAtopFactory
                 reader.close();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }

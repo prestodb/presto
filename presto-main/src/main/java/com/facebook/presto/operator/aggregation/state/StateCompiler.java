@@ -144,7 +144,8 @@ public class StateCompiler
                 return (AccumulatorStateSerializer<T>) metadata.stateSerializerClass().getConstructor().newInstance();
             }
             catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -169,7 +170,8 @@ public class StateCompiler
             return (AccumulatorStateSerializer<T>) serializerClass.newInstance();
         }
         catch (InstantiationException | IllegalAccessException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -311,7 +313,8 @@ public class StateCompiler
             return clazz.getMethod(field.getSetterName(), field.getType());
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -321,7 +324,8 @@ public class StateCompiler
             return clazz.getMethod(field.getGetterName());
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -343,7 +347,8 @@ public class StateCompiler
                 return (AccumulatorStateFactory<T>) metadata.stateFactoryClass().getConstructor().newInstance();
             }
             catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -391,7 +396,8 @@ public class StateCompiler
             return (AccumulatorStateFactory<T>) factoryClass.newInstance();
         }
         catch (InstantiationException | IllegalAccessException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

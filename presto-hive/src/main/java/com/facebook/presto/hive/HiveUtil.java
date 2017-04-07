@@ -275,7 +275,8 @@ public final class HiveUtil
             return (boolean) method.invoke(inputFormat, fileSystem, path);
         }
         catch (InvocationTargetException | IllegalAccessException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -292,7 +293,8 @@ public final class HiveUtil
             return (StructObjectInspector) inspector;
         }
         catch (SerDeException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

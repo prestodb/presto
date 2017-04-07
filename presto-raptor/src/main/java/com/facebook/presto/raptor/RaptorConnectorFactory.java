@@ -96,7 +96,8 @@ public class RaptorConnectorFactory
             return injector.getInstance(RaptorConnector.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

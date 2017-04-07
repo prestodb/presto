@@ -28,7 +28,8 @@ public class JsonEncoder
             return objectMapper.writeValueAsString(o);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

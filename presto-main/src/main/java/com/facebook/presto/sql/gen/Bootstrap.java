@@ -34,7 +34,8 @@ public final class Bootstrap
             BOOTSTRAP_METHOD = Bootstrap.class.getMethod("bootstrap", MethodHandles.Lookup.class, String.class, MethodType.class, long.class);
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -58,7 +59,8 @@ public final class Bootstrap
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

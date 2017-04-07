@@ -130,7 +130,8 @@ public class DataDefinitionExecution<T extends Statement>
         catch (Throwable e) {
             fail(e);
             if (!(e instanceof RuntimeException)) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }

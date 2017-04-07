@@ -96,7 +96,9 @@ public class TestRollbackTask
                 fail();
             }
             catch (CompletionException e) {
-                throw Throwables.propagate(e.getCause());
+                Throwable throwable = e.getCause();
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
         }
         catch (PrestoException e) {

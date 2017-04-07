@@ -64,7 +64,8 @@ public final class IsolatedClass
             return ByteStreams.toByteArray(stream);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

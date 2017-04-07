@@ -246,7 +246,8 @@ public class BenchmarkQueryRunner
         }
         catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(interruptedException);
+            Throwables.throwIfUnchecked(interruptedException);
+            throw new RuntimeException(interruptedException);
         }
     }
 

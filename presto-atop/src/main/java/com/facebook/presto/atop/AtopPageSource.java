@@ -111,7 +111,8 @@ public class AtopPageSource
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
             try {
                 atop = atopFactory.create(table, date);

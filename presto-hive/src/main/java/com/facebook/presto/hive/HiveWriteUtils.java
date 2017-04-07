@@ -172,7 +172,8 @@ public final class HiveWriteUtils
             return result;
         }
         catch (SerDeException | ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

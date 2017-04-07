@@ -38,7 +38,8 @@ public class RegexTemplate
             NAMED_GROUPS_METHOD.setAccessible(true);
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -62,7 +63,8 @@ public class RegexTemplate
             namedGroups = (Map<String, Integer>) NAMED_GROUPS_METHOD.invoke(pattern);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         ImmutableSortedMap<Integer, String> sortedGroups = ImmutableSortedMap.copyOf(ImmutableBiMap.copyOf(namedGroups).inverse());
         this.fieldNames = ImmutableList.copyOf(sortedGroups.values());

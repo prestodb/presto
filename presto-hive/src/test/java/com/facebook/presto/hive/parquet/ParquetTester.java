@@ -257,7 +257,8 @@ public class ParquetTester
                 file.delete();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 

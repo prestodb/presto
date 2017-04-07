@@ -434,7 +434,8 @@ public class TestPrestoS3FileSystem
             return (T) field.get(instance);
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

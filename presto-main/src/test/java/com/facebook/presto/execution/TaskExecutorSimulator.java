@@ -300,7 +300,8 @@ public class TaskExecutorSimulator
                 }
                 catch (Throwable e) {
                     future.setException(e);
-                    throw Throwables.propagate(e);
+                    Throwables.throwIfUnchecked(e);
+                    throw new RuntimeException(e);
                 }
             });
 

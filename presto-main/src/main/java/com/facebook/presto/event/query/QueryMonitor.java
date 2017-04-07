@@ -215,7 +215,8 @@ public class QueryMonitor
             logQueryTimeline(queryInfo);
         }
         catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

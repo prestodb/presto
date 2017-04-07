@@ -43,7 +43,8 @@ public class TestingHiveCluster
             return new HiveMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(host, port);
         }
         catch (TTransportException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

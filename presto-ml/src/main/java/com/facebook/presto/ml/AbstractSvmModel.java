@@ -62,7 +62,8 @@ public abstract class AbstractSvmModel
             return Files.readAllBytes(file.toPath());
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         finally {
             if (file != null) {
@@ -87,10 +88,12 @@ public abstract class AbstractSvmModel
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         finally {
             service.shutdownNow();

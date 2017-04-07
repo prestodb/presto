@@ -51,7 +51,8 @@ public class PagesResponseWriter
             LIST_GENERIC_TOKEN = List.class.getMethod("get", int.class).getGenericReturnType();
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

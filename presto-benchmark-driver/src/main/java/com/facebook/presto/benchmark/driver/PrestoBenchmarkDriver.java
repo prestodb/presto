@@ -162,7 +162,8 @@ public class PrestoBenchmarkDriver
             }
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         finally {
             System.setOut(out);

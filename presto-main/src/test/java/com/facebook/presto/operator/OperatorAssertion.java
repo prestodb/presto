@@ -84,7 +84,8 @@ public final class OperatorAssertion
             return toPages(operator, input);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -104,7 +105,8 @@ public final class OperatorAssertion
             return toPages(operator);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

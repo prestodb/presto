@@ -117,7 +117,9 @@ public class JoinProbeCompiler
             return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeOutputChannelTypes, joinType);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 
@@ -159,7 +161,8 @@ public class JoinProbeCompiler
                 joinProbeFactory = joinProbeFactoryClass.newInstance();
             }
             catch (Exception e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -477,7 +480,8 @@ public class JoinProbeCompiler
                 constructor = joinProbeClass.getConstructor(LookupSource.class, Page.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -488,7 +492,8 @@ public class JoinProbeCompiler
                 return constructor.newInstance(lookupSource, page);
             }
             catch (Exception e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }
@@ -571,7 +576,8 @@ public class JoinProbeCompiler
                 constructor = operatorFactoryClass.getConstructor(int.class, PlanNodeId.class, LookupSourceFactory.class, List.class, List.class, JoinType.class, JoinProbeFactory.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -587,7 +593,8 @@ public class JoinProbeCompiler
                 return constructor.newInstance(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeOutputTypes, joinType, joinProbeFactory);
             }
             catch (Exception e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }

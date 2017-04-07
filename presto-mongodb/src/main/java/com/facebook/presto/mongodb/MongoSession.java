@@ -233,7 +233,8 @@ public class MongoSession
         catch (ExecutionException | UncheckedExecutionException e) {
             Throwable t = e.getCause();
             Throwables.propagateIfInstanceOf(t, exceptionClass);
-            throw Throwables.propagate(t);
+            Throwables.throwIfUnchecked(t);
+            throw new RuntimeException(t);
         }
     }
 

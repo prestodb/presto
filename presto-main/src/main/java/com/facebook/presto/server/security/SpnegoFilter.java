@@ -116,7 +116,8 @@ public class SpnegoFilter
                     ACCEPT_ONLY));
         }
         catch (LoginException | UnknownHostException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -127,7 +128,8 @@ public class SpnegoFilter
             loginContext.logout();
         }
         catch (LoginException e) {
-            Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -282,7 +284,8 @@ public class SpnegoFilter
                 return action.get();
             }
             catch (GSSException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         });
     }

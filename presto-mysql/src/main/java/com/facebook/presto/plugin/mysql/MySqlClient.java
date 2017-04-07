@@ -74,7 +74,8 @@ public class MySqlClient
             return schemaNames.build();
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

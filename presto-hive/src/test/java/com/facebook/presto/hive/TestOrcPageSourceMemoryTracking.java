@@ -524,7 +524,8 @@ public class TestOrcPageSourceMemoryTracking
             flushStripe.invoke(writer);
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -556,7 +557,8 @@ public class TestOrcPageSourceMemoryTracking
             return constructor;
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

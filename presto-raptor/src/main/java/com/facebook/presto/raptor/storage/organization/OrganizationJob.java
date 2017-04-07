@@ -59,7 +59,8 @@ class OrganizationJob
             runJob(organizationSet.getTableId(), organizationSet.getBucketNumber(), organizationSet.getShards());
         }
         catch (Throwable e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

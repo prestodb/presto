@@ -199,7 +199,8 @@ public class TableScanOperator
                 source.close();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
             systemMemoryContext.setBytes(source.getSystemMemoryUsage());
         }

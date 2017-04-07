@@ -130,7 +130,8 @@ public class LocalFileRecordCursor
             return new FilesReader(table.getTimestampColumn(), fileNames.iterator(), predicate);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -171,7 +172,8 @@ public class LocalFileRecordCursor
             return fields != null;
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

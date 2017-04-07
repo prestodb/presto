@@ -132,7 +132,9 @@ public class JoinCompiler
                     joinChannels));
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 
@@ -154,7 +156,9 @@ public class JoinCompiler
                     joinChannels)));
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 
@@ -729,7 +733,8 @@ public class JoinCompiler
                 constructor = joinHashSupplierClass.getConstructor(ConnectorSession.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -745,7 +750,8 @@ public class JoinCompiler
                 return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory);
             }
             catch (Exception e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }
@@ -760,7 +766,8 @@ public class JoinCompiler
                 constructor = pagesHashStrategyClass.getConstructor(List.class, Optional.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -770,7 +777,8 @@ public class JoinCompiler
                 return constructor.newInstance(channels, hashChannel);
             }
             catch (Exception e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }

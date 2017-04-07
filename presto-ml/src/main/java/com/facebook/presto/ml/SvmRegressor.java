@@ -54,7 +54,8 @@ public class SvmRegressor
             return new SvmRegressor(model);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

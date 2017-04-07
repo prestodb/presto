@@ -64,7 +64,8 @@ public class GenericAccumulatorFactory
             return accumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -75,7 +76,8 @@ public class GenericAccumulatorFactory
             return accumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.empty());
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -86,7 +88,8 @@ public class GenericAccumulatorFactory
             return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -97,7 +100,8 @@ public class GenericAccumulatorFactory
             return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), maskChannel);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

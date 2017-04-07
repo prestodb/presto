@@ -623,7 +623,9 @@ public class DatabaseShardManager
             return bucketAssignmentsCache.getUnchecked(distributionId);
         }
         catch (UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 
@@ -672,7 +674,8 @@ public class DatabaseShardManager
             return existingShards.build();
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -728,7 +731,9 @@ public class DatabaseShardManager
             return nodeIdCache.getUnchecked(nodeIdentifier);
         }
         catch (UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 
