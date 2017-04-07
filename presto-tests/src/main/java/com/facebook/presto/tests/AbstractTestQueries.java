@@ -6068,6 +6068,12 @@ public abstract class AbstractTestQueries
         // test multi level IN subqueries
         assertQuery("SELECT 1 IN (SELECT 1), 2 IN (SELECT 1) WHERE 1 IN (SELECT 1)");
 
+         // test with subqueries on left
+        assertQuery("SELECT (select 1) IN (SELECT 1)");
+        assertQuery("SELECT (1 IN (SELECT 1)) IN (SELECT TRUE)");
+        assertQuery("SELECT (EXISTS(SELECT 1)) IN (SELECT TRUE)");
+        assertQuery("SELECT (1 = ANY(SELECT 1)) IN (SELECT TRUE)");
+
         // Throw in a bunch of IN subquery predicates
         assertQuery("" +
                 "SELECT *, o2.custkey\n" +

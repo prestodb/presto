@@ -124,10 +124,10 @@ class SubqueryPlanner
 
     private PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node, boolean correlationAllowed)
     {
-        builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node), correlationAllowed);
+        builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node), correlationAllowed, node);
         builder = appendScalarSubqueryApplyNodes(builder, collectScalarSubqueries(expression, node), correlationAllowed);
         builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node), correlationAllowed);
-        builder = appendQuantifiedComparisonApplyNodes(builder, collectQuantifiedComparisonSubqueries(expression, node), correlationAllowed);
+        builder = appendQuantifiedComparisonApplyNodes(builder, collectQuantifiedComparisonSubqueries(expression, node), correlationAllowed, node);
         return builder;
     }
 
@@ -163,20 +163,22 @@ class SubqueryPlanner
                 .collect(toImmutableSet());
     }
 
-    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates, boolean correlationAllowed)
+    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates, boolean correlationAllowed, Node node)
     {
         for (InPredicate inPredicate : inPredicates) {
-            subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed);
+            subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed, node);
         }
         return subPlan;
     }
 
-    private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate, boolean correlationAllowed)
+    private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate, boolean correlationAllowed, Node node)
     {
         if (subPlan.canTranslate(inPredicate)) {
             // given subquery is already appended
             return subPlan;
         }
+
+        subPlan = handleSubqueries(subPlan, inPredicate.getValue(), node);
 
         subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
 
@@ -282,15 +284,15 @@ class SubqueryPlanner
                 correlationAllowed);
     }
 
-    private PlanBuilder appendQuantifiedComparisonApplyNodes(PlanBuilder subPlan, Set<QuantifiedComparisonExpression> quantifiedComparisons, boolean correlationAllowed)
+    private PlanBuilder appendQuantifiedComparisonApplyNodes(PlanBuilder subPlan, Set<QuantifiedComparisonExpression> quantifiedComparisons, boolean correlationAllowed, Node node)
     {
         for (QuantifiedComparisonExpression quantifiedComparison : quantifiedComparisons) {
-            subPlan = appendQuantifiedComparisonApplyNode(subPlan, quantifiedComparison, correlationAllowed);
+            subPlan = appendQuantifiedComparisonApplyNode(subPlan, quantifiedComparison, correlationAllowed, node);
         }
         return subPlan;
     }
 
-    private PlanBuilder appendQuantifiedComparisonApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed)
+    private PlanBuilder appendQuantifiedComparisonApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed, Node node)
     {
         if (subPlan.canTranslate(quantifiedComparison)) {
             // given subquery is already appended
@@ -305,7 +307,7 @@ class SubqueryPlanner
                     case SOME:
                         // A = ANY B <=> A IN B
                         InPredicate inPredicate = new InPredicate(quantifiedComparison.getValue(), quantifiedComparison.getSubquery());
-                        subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed);
+                        subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed, node);
                         subPlan.getTranslations().put(quantifiedComparison, subPlan.translate(inPredicate));
                         return subPlan;
                 }
@@ -324,7 +326,7 @@ class SubqueryPlanner
                         // "A <> ALL B" is equivalent to "NOT (A = ANY B)" so add a rewrite for the initial quantifiedComparison to notAny
                         subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, notAny);
                         // now plan "A = ANY B" part by calling ourselves for rewrittenAny
-                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAny, correlationAllowed);
+                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAny, correlationAllowed, node);
                     case ANY:
                     case SOME:
                         // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
@@ -337,7 +339,7 @@ class SubqueryPlanner
                         // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
                         subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, notAll);
                         // now plan "A = ALL B" part by calling ourselves for rewrittenAll
-                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAll, correlationAllowed);
+                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAll, correlationAllowed, node);
                 }
                 break;
 
