@@ -87,7 +87,7 @@ public class IdentityLinkedHashMap<K, V>
     @Override
     public void putAll(Map<? extends K, ? extends V> map)
     {
-        map.entrySet().forEach(e -> delegate.put(equivalence.wrap(e.getKey()), e.getValue()));
+        map.forEach(this::put);
     }
 
     @Override
