@@ -516,15 +516,11 @@ public final class PlanMatchPattern
             builder.append("(").append(planNodeMatcher.get().getNodeClass().getSimpleName()).append(")");
         }
 
+        builder.append("\n");
+
         List<Matcher> matchersToPrint = matchers.stream()
                 .filter(matcher -> !(matcher instanceof PlanNodeMatcher))
                 .collect(toImmutableList());
-
-        builder.append("\n");
-
-        if (matchersToPrint.size() + sourcePatterns.size() == 0) {
-            return;
-        }
 
         for (Matcher matcher : matchersToPrint) {
             builder.append(indentString(indent + 1)).append(matcher.toString()).append("\n");
