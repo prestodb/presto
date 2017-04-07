@@ -250,6 +250,24 @@ public class PlanBuilder
                 .addInputsSet(child.getOutputSymbols()));
     }
 
+    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
+    {
+        return new JoinNode(idAllocator.getNextId(),
+                joinType,
+                left,
+                right,
+                ImmutableList.copyOf(criteria),
+                ImmutableList.<Symbol>builder()
+                        .addAll(left.getOutputSymbols())
+                        .addAll(right.getOutputSymbols())
+                        .build(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()
+        );
+    }
+
     public ExchangeNode exchange(Consumer<ExchangeBuilder> exchangeBuilderConsumer)
     {
         ExchangeBuilder exchangeBuilder = new ExchangeBuilder();
