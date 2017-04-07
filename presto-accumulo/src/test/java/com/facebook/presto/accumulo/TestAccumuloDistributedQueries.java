@@ -346,6 +346,22 @@ public class TestAccumuloDistributedQueries
         }
     }
 
+    @Test
+    public void testCreateTableEmptyColumns()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_create_table_empty_columns WITH (column_mapping = 'a:a:a,b::b,c:c:,d::', index_columns='a,b,c,d') AS SELECT 1 id, 2 a, 3 b, 4 c, 5 d", 1);
+            assertQuery("SELECT * FROM test_create_table_empty_columns", "SELECT 1, 2, 3, 4, 5");
+            assertQuery("SELECT * FROM test_create_table_empty_columns WHERE a = 2", "SELECT 1, 2, 3, 4, 5");
+            assertQuery("SELECT * FROM test_create_table_empty_columns WHERE b = 3", "SELECT 1, 2, 3, 4, 5");
+            assertQuery("SELECT * FROM test_create_table_empty_columns WHERE c = 4", "SELECT 1, 2, 3, 4, 5");
+            assertQuery("SELECT * FROM test_create_table_empty_columns WHERE d = 5", "SELECT 1, 2, 3, 4, 5");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_create_table_empty_columns");
+        }
+    }
+
     @Override
     public void testDescribeOutput()
     {
