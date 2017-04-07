@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static java.util.Collections.unmodifiableCollection;
+import static java.util.Objects.requireNonNull;
 
 public class IdentityLinkedHashMap<K, V>
         implements Map<K, V>
@@ -73,6 +74,7 @@ public class IdentityLinkedHashMap<K, V>
     @Override
     public V put(K key, V value)
     {
+        requireNonNull(key, "key is null");
         return delegate.put(equivalence.wrap(key), value);
     }
 
