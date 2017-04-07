@@ -406,7 +406,8 @@ public class SqlQueryScheduler
         }
         catch (Throwable t) {
             queryStateMachine.transitionToFailed(t);
-            throw Throwables.propagate(t);
+            Throwables.throwIfUnchecked(t);
+            throw new RuntimeException(t);
         }
         finally {
             RuntimeException closeError = new RuntimeException();

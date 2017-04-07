@@ -567,7 +567,8 @@ public final class HttpPageBufferClient
                     return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
                 }
                 catch (IOException e) {
-                    throw Throwables.propagate(e);
+                    Throwables.throwIfUnchecked(e);
+                    throw new RuntimeException(e);
                 }
             }
             catch (PageTransportErrorException e) {

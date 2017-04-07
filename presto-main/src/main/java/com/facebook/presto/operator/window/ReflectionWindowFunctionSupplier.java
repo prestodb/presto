@@ -50,7 +50,8 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
             }
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -66,10 +67,13 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
             }
         }
         catch (InvocationTargetException e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

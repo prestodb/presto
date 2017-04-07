@@ -156,7 +156,8 @@ public class RetryDriver
                 }
                 catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
-                    throw Throwables.propagate(ie);
+                    Throwables.throwIfUnchecked(ie);
+                    throw new RuntimeException(ie);
                 }
             }
         }

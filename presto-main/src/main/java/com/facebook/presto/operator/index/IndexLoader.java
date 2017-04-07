@@ -203,7 +203,8 @@ public class IndexLoader
                     for (UpdateRequest request : requests) {
                         request.failed(t);
                     }
-                    Throwables.propagate(t);
+                    Throwables.throwIfUnchecked(t);
+                    throw new RuntimeException(t);
                 }
 
                 // Try loading just my request

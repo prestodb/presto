@@ -86,7 +86,8 @@ public class JsonAvgBenchmarkResultWriter
             outputStream.write(json.getBytes(UTF_8));
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

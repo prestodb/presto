@@ -20,6 +20,7 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.jdbc.ColumnInfo.Nullable;
+import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -62,7 +63,6 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.google.common.base.Throwables.propagate;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
@@ -1771,7 +1771,9 @@ public class PrestoResultSet
             while (client.isValid()) {
                 if (Thread.currentThread().isInterrupted()) {
                     client.close();
-                    throw propagate(new SQLException("ResultSet thread was interrupted"));
+                    Throwable throwable = new SQLException("ResultSet thread was interrupted");
+                    Throwables.throwIfUnchecked(throwable);
+                    throw new RuntimeException(throwable);
                 }
 
                 QueryResults results = client.current();
@@ -1784,7 +1786,9 @@ public class PrestoResultSet
             }
 
             if (client.isFailed()) {
-                throw propagate(resultsException(client.finalResults()));
+                Throwable throwable = resultsException(client.finalResults());
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
 
             return endOfData();

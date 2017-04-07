@@ -194,7 +194,8 @@ public class FieldSetFilteringRecordSet
                 }
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
         }
 

@@ -78,7 +78,8 @@ public class RedisSplitManager
                 numberOfKeys = jedis.zcount(redisTableHandle.getKeyName(), "-inf", "+inf");
             }
             catch (Exception e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 

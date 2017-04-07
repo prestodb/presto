@@ -64,7 +64,8 @@ public class HadoopCompressor
                 return new CompressedSliceOutput(compressionStream, bufferedOutput, this, () -> CodecPool.returnCompressor(compressor));
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }

@@ -104,7 +104,8 @@ public final class MapTransformValueFunction
                 transformedValue = function.invoke(key, value);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
 
             keyType.appendTo(block, position, resultBuilder);

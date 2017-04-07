@@ -94,7 +94,9 @@ public class OrderingCompiler
             return pagesIndexOrderings.get(new PagesIndexComparatorCacheKey(sortTypes, sortChannels, sortOrders));
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 

@@ -254,7 +254,8 @@ public class BenchmarkArrayFilter
                     keep = (Boolean) function.invokeExact(input);
                 }
                 catch (Throwable throwable) {
-                    throw Throwables.propagate(throwable);
+                    Throwables.throwIfUnchecked(throwable);
+                    throw new RuntimeException(throwable);
                 }
                 if (TRUE.equals(keep)) {
                     block.writePositionTo(position, resultBuilder);

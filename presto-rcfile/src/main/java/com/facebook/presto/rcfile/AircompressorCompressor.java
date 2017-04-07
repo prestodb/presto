@@ -63,7 +63,8 @@ public class AircompressorCompressor
                 return new CompressedSliceOutput(compressionStream, compressedOutput, this, () -> { });
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }

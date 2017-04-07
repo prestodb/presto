@@ -276,7 +276,8 @@ public class DistributedQueryRunner
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
         log.info("Announced catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
@@ -356,7 +357,8 @@ public class DistributedQueryRunner
             closer.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

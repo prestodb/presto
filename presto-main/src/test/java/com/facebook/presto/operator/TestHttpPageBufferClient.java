@@ -505,10 +505,12 @@ public class TestHttpPageBufferClient
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
             catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }

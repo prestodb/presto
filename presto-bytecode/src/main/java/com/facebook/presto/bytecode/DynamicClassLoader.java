@@ -74,7 +74,8 @@ public class DynamicClassLoader
                 }
                 catch (ClassNotFoundException e) {
                     // this should never happen
-                    throw Throwables.propagate(e);
+                    Throwables.throwIfUnchecked(e);
+                    throw new RuntimeException(e);
                 }
             }
             return classes;

@@ -54,7 +54,8 @@ public class SvmClassifier
             return new SvmClassifier(model);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

@@ -69,7 +69,8 @@ public class QueryQueueRuleFactory
                 managerSpec = mapper.readValue(file, ManagerSpec.class);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
             Map<String, QueryQueueDefinition> definitions = new HashMap<>();
             for (Map.Entry<String, QueueSpec> queue : managerSpec.getQueues().entrySet()) {

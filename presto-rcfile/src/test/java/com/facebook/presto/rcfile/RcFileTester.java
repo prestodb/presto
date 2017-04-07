@@ -216,7 +216,8 @@ public class RcFileTester
                     return columnarSerDe;
                 }
                 catch (SerDeException e) {
-                    throw Throwables.propagate(e);
+                    Throwables.throwIfUnchecked(e);
+                    throw new RuntimeException(e);
                 }
             }
 
@@ -566,7 +567,8 @@ public class RcFileTester
             slice.setBytes(0, in, slice.length());
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
 
         List<Long> syncPositionsBruteForce = new ArrayList<>();

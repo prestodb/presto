@@ -40,7 +40,8 @@ public class OdsBenchmarkResultWriter
             jsonGenerator.writeStartArray();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -58,7 +59,8 @@ public class OdsBenchmarkResultWriter
             }
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         return this;
     }
@@ -71,7 +73,8 @@ public class OdsBenchmarkResultWriter
             jsonGenerator.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

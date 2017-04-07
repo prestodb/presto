@@ -125,7 +125,8 @@ final class PluginDiscovery
             return new ClassReader(toByteArray(in));
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

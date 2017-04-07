@@ -64,7 +64,8 @@ public class KerberosAuthentication
             return loginContext.getSubject();
         }
         catch (LoginException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -74,7 +75,8 @@ public class KerberosAuthentication
             return new KerberosPrincipal(getServerPrincipal(principal, InetAddress.getLocalHost().getCanonicalHostName()));
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

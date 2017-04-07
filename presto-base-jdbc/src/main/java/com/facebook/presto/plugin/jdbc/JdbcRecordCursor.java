@@ -256,7 +256,8 @@ public class JdbcRecordCursor
             // do nothing
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -271,6 +272,7 @@ public class JdbcRecordCursor
                 e.addSuppressed(closeException);
             }
         }
-        return Throwables.propagate(e);
+        Throwables.throwIfUnchecked(e);
+        throw new RuntimeException(e);
     }
 }

@@ -98,7 +98,8 @@ public final class ZipWithFunction
                 output = function.invoke(left, right);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
             writeNativeValue(outputElementType, resultBuilder, output);
         }

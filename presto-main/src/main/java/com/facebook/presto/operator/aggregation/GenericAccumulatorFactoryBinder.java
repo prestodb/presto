@@ -54,7 +54,8 @@ public class GenericAccumulatorFactoryBinder
                     Optional.class);
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

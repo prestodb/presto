@@ -74,7 +74,8 @@ public final class TypeJsonUtils
             return stackRepresentationToObjectHelper(session, jsonParser, type);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

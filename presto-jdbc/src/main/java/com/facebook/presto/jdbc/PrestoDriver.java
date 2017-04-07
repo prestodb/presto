@@ -66,7 +66,8 @@ public class PrestoDriver
             DriverManager.registerDriver(new PrestoDriver());
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

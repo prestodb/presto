@@ -122,7 +122,8 @@ public final class ArrayConstructor
             methodHandle = lookup().unreflect(method);
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
         return new ScalarFunctionImplementation(false, nullableParameters, methodHandle, isDeterministic());

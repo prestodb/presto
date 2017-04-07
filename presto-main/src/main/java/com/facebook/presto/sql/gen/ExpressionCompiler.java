@@ -104,7 +104,8 @@ public class ExpressionCompiler
                 return cursorProcessor.newInstance();
             }
             catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         };
     }
@@ -117,7 +118,8 @@ public class ExpressionCompiler
                 return pageProcessor.newInstance();
             }
             catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         };
     }

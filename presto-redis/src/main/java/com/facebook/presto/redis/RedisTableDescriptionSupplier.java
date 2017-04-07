@@ -97,7 +97,8 @@ public class RedisTableDescriptionSupplier
         }
         catch (IOException e) {
             log.warn(e, "Error: ");
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

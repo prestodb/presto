@@ -112,7 +112,9 @@ public abstract class AbstractTypedJacksonModule<T>
             }
             catch (ExecutionException e) {
                 propagateIfInstanceOf(e.getCause(), IOException.class);
-                throw Throwables.propagate(e.getCause());
+                Throwable throwable = e.getCause();
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
         }
 

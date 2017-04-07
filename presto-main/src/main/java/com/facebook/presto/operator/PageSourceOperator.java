@@ -63,7 +63,8 @@ public class PageSourceOperator
             pageSource.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

@@ -851,7 +851,9 @@ public class FunctionRegistry
             return specializedWindowCache.getUnchecked(getSpecializedFunctionKey(signature));
         }
         catch (UncheckedExecutionException e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 
@@ -864,7 +866,9 @@ public class FunctionRegistry
             return specializedAggregationCache.getUnchecked(getSpecializedFunctionKey(signature));
         }
         catch (UncheckedExecutionException e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 
@@ -877,7 +881,9 @@ public class FunctionRegistry
             return specializedScalarCache.getUnchecked(getSpecializedFunctionKey(signature));
         }
         catch (UncheckedExecutionException e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 
@@ -887,7 +893,9 @@ public class FunctionRegistry
             return specializedFunctionKeyCache.getUnchecked(signature);
         }
         catch (UncheckedExecutionException e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 

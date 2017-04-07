@@ -244,7 +244,8 @@ public class Verifier
             return completionService.take().get();
         }
         catch (ExecutionException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

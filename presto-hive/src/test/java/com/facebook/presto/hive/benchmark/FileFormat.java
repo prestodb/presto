@@ -334,7 +334,8 @@ public enum FileFormat
             conf.set("fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

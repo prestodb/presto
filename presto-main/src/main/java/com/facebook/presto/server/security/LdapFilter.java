@@ -123,7 +123,8 @@ public class LdapFilter
             closeContext(createDirContext(environment));
         }
         catch (NamingException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -187,7 +188,8 @@ public class LdapFilter
         catch (ExecutionException e) {
             Throwable cause = e.getCause();
             propagateIfInstanceOf(cause, AuthenticationException.class);
-            throw Throwables.propagate(cause);
+            Throwables.throwIfUnchecked(cause);
+            throw new RuntimeException(cause);
         }
     }
 

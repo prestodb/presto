@@ -51,7 +51,8 @@ public class FileResourceGroupConfigurationManager
             managerSpec = codec.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile())));
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         this.rootGroups = managerSpec.getRootGroups();
         this.cpuQuotaPeriodMillis = managerSpec.getCpuQuotaPeriod();

@@ -389,7 +389,8 @@ public class ExchangeClient
     {
         Throwable t = failure.get();
         if (t != null) {
-            throw Throwables.propagate(t);
+            Throwables.throwIfUnchecked(t);
+            throw new RuntimeException(t);
         }
     }
 

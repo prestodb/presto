@@ -190,7 +190,8 @@ public class SpillableHashAggregationBuilder
         }
         catch (InterruptedException | ExecutionException e) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

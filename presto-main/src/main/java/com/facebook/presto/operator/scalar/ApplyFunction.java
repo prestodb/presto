@@ -91,7 +91,8 @@ public final class ApplyFunction
             return function.invoke(input);
         }
         catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 }

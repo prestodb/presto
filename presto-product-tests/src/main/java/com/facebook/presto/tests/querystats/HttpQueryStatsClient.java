@@ -85,7 +85,8 @@ public class HttpQueryStatsClient
                 return Optional.of(queryStats);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
     }

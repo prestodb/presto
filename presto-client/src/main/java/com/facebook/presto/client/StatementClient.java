@@ -370,10 +370,13 @@ public class StatementClient
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         catch (ExecutionException e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
         catch (TimeoutException e) {
             return false;

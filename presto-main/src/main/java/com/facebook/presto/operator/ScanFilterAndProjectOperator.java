@@ -166,7 +166,8 @@ public class ScanFilterAndProjectOperator
                 pageSource.close();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
         else if (cursor != null) {

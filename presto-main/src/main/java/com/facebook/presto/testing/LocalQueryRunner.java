@@ -536,7 +536,8 @@ public class LocalQueryRunner
             return builder.get().build();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         finally {
             lock.readLock().unlock();

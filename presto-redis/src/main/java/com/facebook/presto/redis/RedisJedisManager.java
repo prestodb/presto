@@ -79,7 +79,9 @@ public class RedisJedisManager
             return jedisPoolCache.get(host);
         }
         catch (ExecutionException e) {
-            throw Throwables.propagate(e.getCause());
+            Throwable throwable = e.getCause();
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 

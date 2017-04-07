@@ -84,7 +84,8 @@ public class CassandraConnectorFactory
             return injector.getInstance(CassandraConnector.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

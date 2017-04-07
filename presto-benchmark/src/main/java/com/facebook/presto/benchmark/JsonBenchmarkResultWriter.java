@@ -38,7 +38,8 @@ public class JsonBenchmarkResultWriter
             jsonGenerator.writeArrayFieldStart("samples");
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -54,7 +55,8 @@ public class JsonBenchmarkResultWriter
             jsonGenerator.writeEndObject();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         return this;
     }
@@ -68,7 +70,8 @@ public class JsonBenchmarkResultWriter
             jsonGenerator.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

@@ -307,7 +307,8 @@ public class ParquetHiveRecordCursor
             recordReader.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -373,7 +374,8 @@ public class ParquetHiveRecordCursor
             Throwables.propagateIfInstanceOf(e, PrestoException.class);
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
             String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {

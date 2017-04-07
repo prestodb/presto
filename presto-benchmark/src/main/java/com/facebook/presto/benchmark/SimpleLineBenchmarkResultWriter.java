@@ -44,7 +44,8 @@ public class SimpleLineBenchmarkResultWriter
             writer.flush();
         }
         catch (IOException e) {
-            Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         return this;
     }

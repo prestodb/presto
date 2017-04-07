@@ -1350,7 +1350,8 @@ public class ExpressionInterpreter
                 if (throwable instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
                 }
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
         }
         if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
@@ -1379,7 +1380,8 @@ public class ExpressionInterpreter
             if (throwable instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            throw Throwables.propagate(throwable);
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 

@@ -169,7 +169,8 @@ public class SqlTaskExecution
             catch (Throwable e) {
                 // planning failed
                 taskStateMachine.failed(e);
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
 
             // index driver factories

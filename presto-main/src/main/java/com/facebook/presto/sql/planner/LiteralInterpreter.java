@@ -286,7 +286,8 @@ public final class LiteralInterpreter
                     return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
                 }
                 catch (Throwable throwable) {
-                    throw Throwables.propagate(throwable);
+                    Throwables.throwIfUnchecked(throwable);
+                    throw new RuntimeException(throwable);
                 }
             }
 
@@ -302,7 +303,8 @@ public final class LiteralInterpreter
                 return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
         }
 

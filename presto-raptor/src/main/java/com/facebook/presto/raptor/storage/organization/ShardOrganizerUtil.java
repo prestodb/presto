@@ -131,7 +131,8 @@ public class ShardOrganizerUtil
             }
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         return indexInfoBuilder.build();
     }

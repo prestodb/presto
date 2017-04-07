@@ -57,7 +57,8 @@ public class EvaluateClassifierPredictionsStateSerializer
             VARCHAR.writeSlice(out, Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(jsonState)));
         }
         catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -70,7 +71,8 @@ public class EvaluateClassifierPredictionsStateSerializer
             jsonState = OBJECT_MAPPER.readValue(slice.getBytes(), new TypeReference<Map<String, Map<String, Integer>>>() {});
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         state.addMemoryUsage(slice.length());
         state.getTruePositives().putAll(jsonState.getOrDefault(TRUE_POSITIVES, ImmutableMap.of()));

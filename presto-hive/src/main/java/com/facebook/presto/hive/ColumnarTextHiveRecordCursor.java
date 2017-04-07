@@ -244,7 +244,8 @@ class ColumnarTextHiveRecordCursor<K>
                 bytes = fieldData.getData();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
 
             int start = fieldData.getStart();
@@ -312,7 +313,8 @@ class ColumnarTextHiveRecordCursor<K>
                 bytes = fieldData.getData();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
 
             int start = fieldData.getStart();
@@ -378,7 +380,8 @@ class ColumnarTextHiveRecordCursor<K>
                 bytes = fieldData.getData();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
 
             int start = fieldData.getStart();
@@ -430,7 +433,8 @@ class ColumnarTextHiveRecordCursor<K>
                 bytes = fieldData.getData();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
 
             int start = fieldData.getStart();
@@ -485,7 +489,8 @@ class ColumnarTextHiveRecordCursor<K>
                 bytes = fieldData.getData();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
 
             int start = fieldData.getStart();
@@ -546,7 +551,8 @@ class ColumnarTextHiveRecordCursor<K>
                 bytes = fieldData.getData();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
 
             int start = fieldData.getStart();
@@ -651,7 +657,8 @@ class ColumnarTextHiveRecordCursor<K>
             recordReader.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

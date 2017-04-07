@@ -271,7 +271,8 @@ public class InformationSchemaPageSourceProvider
                                     value = ((Slice) methodHandles.get(columnHandle).invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
                                 }
                                 catch (Throwable throwable) {
-                                    throw Throwables.propagate(throwable);
+                                    Throwables.throwIfUnchecked(throwable);
+                                    throw new RuntimeException(throwable);
                                 }
                             }
                             else {

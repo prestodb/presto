@@ -754,7 +754,8 @@ public class OrcTester
             writer.getClass().getMethod("enterLowMemoryMode").invoke(writer);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -766,7 +767,8 @@ public class OrcTester
             return writerField.get(instance);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -778,7 +780,8 @@ public class OrcTester
             writerField.set(instance, value);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

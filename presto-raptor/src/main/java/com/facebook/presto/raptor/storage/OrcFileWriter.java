@@ -252,7 +252,8 @@ public class OrcFileWriter
             return constructor;
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

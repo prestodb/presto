@@ -108,7 +108,8 @@ public class BackupManager
             }
             catch (Throwable t) {
                 stats.incrementBackupFailure();
-                throw Throwables.propagate(t);
+                Throwables.throwIfUnchecked(t);
+                throw new RuntimeException(t);
             }
         }
     }

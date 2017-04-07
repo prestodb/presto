@@ -62,7 +62,8 @@ public class TestShardOrganizer
                     MILLISECONDS.sleep(10);
                 }
                 catch (InterruptedException e) {
-                    throw Throwables.propagate(e);
+                    Throwables.throwIfUnchecked(e);
+                    throw new RuntimeException(e);
                 }
             };
         }

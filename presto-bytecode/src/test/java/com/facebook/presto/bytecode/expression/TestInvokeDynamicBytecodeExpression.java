@@ -47,7 +47,8 @@ public class TestInvokeDynamicBytecodeExpression
             TEST_BOOTSTRAP_METHOD = TestInvokeDynamicBytecodeExpression.class.getMethod("bootstrap", MethodHandles.Lookup.class, String.class, MethodType.class, String.class);
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

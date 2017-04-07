@@ -79,7 +79,8 @@ public class KerberosHiveMetastoreAuthentication
             return new TUGIAssumingTransport(saslTransport, authentication.getUserGroupInformation());
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

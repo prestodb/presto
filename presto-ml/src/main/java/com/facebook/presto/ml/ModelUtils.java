@@ -154,7 +154,8 @@ public final class ModelUtils
             return (Model) deserialize.invoke(null, new Object[] {data});
         }
         catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 

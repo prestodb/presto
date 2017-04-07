@@ -241,10 +241,12 @@ public class TestStateMachine
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
             catch (Exception e) {
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         });
 
@@ -279,7 +281,8 @@ public class TestStateMachine
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                Throwables.throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         });
 
