@@ -41,6 +41,7 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -135,6 +136,77 @@ public class EliminateCrossJoins
                 .collect(toImmutableList());
     }
 
+    public static PlanNode buildJoinTree(List<Symbol> expectedOutputSymbols, JoinGraph graph, List<Integer> joinOrder, PlanNodeIdAllocator idAllocator)
+    {
+        requireNonNull(expectedOutputSymbols, "expectedOutputSymbols is null");
+        requireNonNull(idAllocator, "idAllocator is null");
+        requireNonNull(graph, "graph is null");
+        joinOrder = ImmutableList.copyOf(requireNonNull(joinOrder, "joinOrder is null"));
+        checkArgument(joinOrder.size() >= 2);
+
+        PlanNode result = graph.getNode(joinOrder.get(0));
+        Set<PlanNodeId> alreadyJoinedNodes = new HashSet<>();
+        alreadyJoinedNodes.add(result.getId());
+
+        for (int i = 1; i < joinOrder.size(); i++) {
+            PlanNode rightNode = graph.getNode(joinOrder.get(i));
+            alreadyJoinedNodes.add(rightNode.getId());
+
+            ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
+
+            for (JoinGraph.Edge edge : graph.getEdges(rightNode)) {
+                PlanNode targetNode = edge.getTargetNode();
+                if (alreadyJoinedNodes.contains(targetNode.getId())) {
+                    criteria.add(new JoinNode.EquiJoinClause(
+                            edge.getTargetSymbol(),
+                            edge.getSourceSymbol()));
+                }
+            }
+
+            result = new JoinNode(
+                    idAllocator.getNextId(),
+                    JoinNode.Type.INNER,
+                    result,
+                    rightNode,
+                    criteria.build(),
+                    ImmutableList.<Symbol>builder()
+                            .addAll(result.getOutputSymbols())
+                            .addAll(rightNode.getOutputSymbols())
+                            .build(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+        }
+
+        List<Expression> filters = graph.getFilters();
+
+        for (Expression filter : filters) {
+            result = new FilterNode(
+                    idAllocator.getNextId(),
+                    result,
+                    filter);
+        }
+
+        if (graph.getAssignments().isPresent()) {
+            result = new ProjectNode(
+                    idAllocator.getNextId(),
+                    result,
+                    Assignments.copyOf(graph.getAssignments().get()));
+        }
+
+        if (!result.getOutputSymbols().equals(expectedOutputSymbols)) {
+            // Introduce a projection to constrain the outputs to what was originally expected
+            // Some nodes are sensitive to what's produced (e.g., DistinctLimit node)
+            result = new ProjectNode(
+                    idAllocator.getNextId(),
+                    result,
+                    Assignments.identity(expectedOutputSymbols));
+        }
+
+        return result;
+    }
+
     private class Rewriter
             extends SimplePlanRewriter<PlanNode>
     {
@@ -157,67 +229,7 @@ public class EliminateCrossJoins
                 return context.defaultRewrite(node, context.get());
             }
 
-            PlanNode result = graph.getNode(joinOrder.get(0));
-            Set<PlanNodeId> alreadyJoinedNodes = new HashSet<>();
-            alreadyJoinedNodes.add(result.getId());
-
-            for (int i = 1; i < joinOrder.size(); i++) {
-                PlanNode rightNode = graph.getNode(joinOrder.get(i));
-                alreadyJoinedNodes.add(rightNode.getId());
-
-                ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
-
-                for (JoinGraph.Edge edge : graph.getEdges(rightNode)) {
-                    PlanNode targetNode = edge.getTargetNode();
-                    if (alreadyJoinedNodes.contains(targetNode.getId())) {
-                        criteria.add(new JoinNode.EquiJoinClause(
-                                edge.getTargetSymbol(),
-                                edge.getSourceSymbol()));
-                    }
-                }
-
-                result = new JoinNode(
-                        idAllocator.getNextId(),
-                        JoinNode.Type.INNER,
-                        result,
-                        rightNode,
-                        criteria.build(),
-                        ImmutableList.<Symbol>builder()
-                                .addAll(result.getOutputSymbols())
-                                .addAll(rightNode.getOutputSymbols())
-                                .build(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty());
-            }
-
-            List<Expression> filters = graph.getFilters();
-
-            for (Expression filter : filters) {
-                result = new FilterNode(
-                        idAllocator.getNextId(),
-                        result,
-                        filter);
-            }
-
-            if (graph.getAssignments().isPresent()) {
-                result = new ProjectNode(
-                        idAllocator.getNextId(),
-                        result,
-                        Assignments.copyOf(graph.getAssignments().get()));
-            }
-
-            if (!result.getOutputSymbols().equals(node.getOutputSymbols())) {
-                // Introduce a projection to constrain the outputs to what was originally expected
-                // Some nodes are sensitive to what's produced (e.g., DistinctLimit node)
-                result = new ProjectNode(
-                        idAllocator.getNextId(),
-                        result,
-                        Assignments.identity(node.getOutputSymbols()));
-            }
-
-            return result;
+            return buildJoinTree(node.getOutputSymbols(), graph, joinOrder, idAllocator);
         }
     }
 }
