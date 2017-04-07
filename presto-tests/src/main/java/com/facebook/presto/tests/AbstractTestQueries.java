@@ -6070,7 +6070,10 @@ public abstract class AbstractTestQueries
 
          // test with subqueries on left
         assertQuery("SELECT (select 1) IN (SELECT 1)");
+        assertQuery("SELECT (select 2) IN (1, (SELECT 2))");
+        assertQuery("SELECT (2 + (select 1)) IN (SELECT 1)");
         assertQuery("SELECT (1 IN (SELECT 1)) IN (SELECT TRUE)");
+        assertQuery("SELECT ((SELECT 1) IN (SELECT 1)) IN (SELECT TRUE)");
         assertQuery("SELECT (EXISTS(SELECT 1)) IN (SELECT TRUE)");
         assertQuery("SELECT (1 = ANY(SELECT 1)) IN (SELECT TRUE)");
 
