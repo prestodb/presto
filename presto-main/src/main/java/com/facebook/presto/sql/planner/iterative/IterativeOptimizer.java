@@ -71,14 +71,7 @@ public class IterativeOptimizer
         }
 
         Memo memo = new Memo(idAllocator, plan);
-
-        Lookup lookup = node -> {
-            if (node instanceof GroupReference) {
-                return memo.getNode(((GroupReference) node).getGroupId());
-            }
-
-            return node;
-        };
+        Lookup lookup = Lookup.from(memo::resolve);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         exploreGroup(memo.getRootGroup(), new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session));
