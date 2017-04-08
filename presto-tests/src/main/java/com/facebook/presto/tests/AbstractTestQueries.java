@@ -3907,6 +3907,36 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowFunctionWithoutParameters()
+    {
+        MaterializedResult actual = computeActual("SELECT count() over(partition by custkey) from orders where custkey < 3 order by custkey");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(9L)
+                .row(9L)
+                .row(9L)
+                .row(9L)
+                .row(9L)
+                .row(9L)
+                .row(9L)
+                .row(9L)
+                .row(9L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testHaving()
     {
         assertQuery("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus HAVING orderstatus = 'O'");
