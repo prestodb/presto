@@ -298,10 +298,10 @@ public class AccumulatorCompiler
 
         BytecodeExpression isNull = constantFalse();
         for (ParameterMetadata parameterMetadata : parameterMetadatas) {
-            BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
             switch (parameterMetadata.getParameterType()) {
                 case BLOCK_INPUT_CHANNEL:
                 case INPUT_CHANNEL:
+                    BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
                     isNull = BytecodeExpressions.or(isNull, index.invoke("isNull", boolean.class, getChannel, position));
                     inputChannel++;
                     break;
