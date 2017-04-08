@@ -174,6 +174,10 @@ public abstract class DefaultTraversalVisitor<R, C>
             process(node.getWindow().get(), context);
         }
 
+        if (node.getFilter().isPresent()) {
+            process(node.getFilter().get(), context);
+        }
+
         return null;
     }
 
