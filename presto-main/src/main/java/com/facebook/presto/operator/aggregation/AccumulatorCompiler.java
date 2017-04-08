@@ -283,18 +283,17 @@ public class AccumulatorCompiler
                         .condition(BytecodeExpressions.lessThanOrEqual(position, endPosition))
                         .update(position.increment())
                         .body(new IfStatement()
-                                .condition(anyParametersAreNull(scope, parameterMetadatas))
+                                .condition(anyParametersAreNull(parameterMetadatas, index, channels, position))
                                 .ifFalse(invokeInputFunction)))
                 .ret();
     }
 
-    private static BytecodeExpression anyParametersAreNull(Scope scope,
-            List<ParameterMetadata> parameterMetadatas)
+    private static BytecodeExpression anyParametersAreNull(
+            List<ParameterMetadata> parameterMetadatas,
+            Variable index,
+            Variable channels,
+            Variable position)
     {
-        Variable index = scope.getVariable("index");
-        Variable channels = scope.getVariable("channels");
-        Variable position = scope.getVariable("position");
-
         int inputChannel = 0;
 
         BytecodeExpression isNull = constantFalse();
