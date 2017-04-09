@@ -51,7 +51,6 @@ public class TestIdentityLinkedHashMap
         assertEquals(map, ImmutableMap.of(key, value));
         assertTrue(map.containsKey(key));
         assertFalse(map.containsKey(otherKey));
-        assertTrue(map.containsValue(value));
 
         map.put(otherKey, otherValue);
         assertEquals(map.get(key), Integer.valueOf(value));
