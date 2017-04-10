@@ -13,18 +13,28 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 public class TableParameterCodec
 {
+    private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
+    private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
     /**
      * Decode Hive table parameters into additional Presto table properties.
      */
     public Map<String, Object> decode(Map<String, String> tableParameters)
     {
-        return ImmutableMap.of();
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        if (tableParameters.containsKey(ORC_BLOOM_FILTER_COLUMNS_KEY)) {
+            String colums = tableParameters.get(ORC_BLOOM_FILTER_COLUMNS_KEY);
+            properties.put(HiveTableProperties.BLOOM_FILTER_COLUMNS, Arrays.asList(colums.split(",")));
+        }
+        return properties.build();
     }
 
     /**
@@ -32,6 +42,12 @@ public class TableParameterCodec
      */
     public Map<String, String> encode(Map<String, Object> tableProperties)
     {
-        return ImmutableMap.of();
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        List<String> colums = (List) tableProperties.get(HiveTableProperties.BLOOM_FILTER_COLUMNS);
+        if (tableProperties.containsKey(HiveTableProperties.BLOOM_FILTER_COLUMNS) && colums.size() > 0) {
+            properties.put(ORC_BLOOM_FILTER_COLUMNS_KEY, Joiner.on(",").join(colums));
+            properties.put(ORC_BLOOM_FILTER_FPP_KEY, String.valueOf(tableProperties.get(HiveTableProperties.BLOOM_FILTER_FPP)));
+        }
+        return properties.build();
     }
 }
