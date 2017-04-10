@@ -6198,6 +6198,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testAntiJoinNullHandling()
+    {
+        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
+                        "SELECT 3 FROM (VALUES 1) WHERE NULL NOT IN (SELECT * FROM empty)",
+                "VALUES 3");
+
+        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
+                        "SELECT x FROM (VALUES NULL) t(x) WHERE x NOT IN (SELECT * FROM empty)",
+                "VALUES NULL");
+    }
+
+    @Test
     public void testSemiJoinLimitPushDown()
     {
         assertQuery("" +
@@ -6215,6 +6227,10 @@ public abstract class AbstractTestQueries
     @Test
     public void testSemiJoinNullHandling()
     {
+        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
+                        "SELECT 3 FROM (VALUES 1) WHERE NULL IN (SELECT * FROM empty)",
+                "SELECT 42 WHERE 0 = 1");
+
         assertQuery("" +
                 "SELECT orderkey\n" +
                 "  IN (\n" +
