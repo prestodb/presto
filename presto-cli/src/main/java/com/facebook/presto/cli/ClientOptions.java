@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.TimeZone;
 
+import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.emptyMap;
@@ -56,7 +57,7 @@ public class ClientOptions
     public String krb5KeytabPath = "/etc/krb5.keytab";
 
     @Option(name = "--krb5-credential-cache-path", title = "krb5 credential cache path", description = "Kerberos credential cache path")
-    public String krb5CredentialCachePath = defaultCredentialCachePath();
+    public String krb5CredentialCachePath = defaultCredentialCachePath().orElse(null);
 
     @Option(name = "--krb5-principal", title = "krb5 principal", description = "Kerberos principal to be used")
     public String krb5Principal;
@@ -174,15 +175,6 @@ public class ClientOptions
             builder.put(name, sessionProperty.getValue());
         }
         return builder.build();
-    }
-
-    private static String defaultCredentialCachePath()
-    {
-        String value = System.getenv("KRB5CCNAME");
-        if (value != null && value.startsWith("FILE:")) {
-            return value.substring("FILE:".length());
-        }
-        return value;
     }
 
     public static final class ClientSessionProperty

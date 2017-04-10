@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import java.io.File;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -133,6 +134,7 @@ abstract class AbstractConnectionProperty<T>
     }
 
     protected static final Converter<String> STRING_CONVERTER = value -> value;
+    protected static final Converter<File> FILE_CONVERTER = File::new;
 
     protected static final Converter<Boolean> BOOLEAN_CONVERTER = value -> {
         switch (value.toLowerCase(ENGLISH)) {

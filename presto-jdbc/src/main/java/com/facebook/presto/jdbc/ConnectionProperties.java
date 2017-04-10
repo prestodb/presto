@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 
+import java.io.File;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.jdbc.AbstractConnectionProperty.checkedPredicate;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -36,6 +38,12 @@ final class ConnectionProperties
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
+    public static final ConnectionProperty<String> KERBEROS_REMOTE_SERICE_NAME = new KerberosRemoteServiceName();
+    public static final ConnectionProperty<Boolean> KERBEROS_USE_CANONICAL_HOSTNAME = new KerberosUseCanonicalHostname();
+    public static final ConnectionProperty<String> KERBEROS_PRINCIPAL = new KerberosPrincipal();
+    public static final ConnectionProperty<File> KERBEROS_CONFIG_PATH = new KerberosConfigPath();
+    public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
+    public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -45,6 +53,12 @@ final class ConnectionProperties
             .add(SSL)
             .add(SSL_TRUST_STORE_PATH)
             .add(SSL_TRUST_STORE_PASSWORD)
+            .add(KERBEROS_REMOTE_SERICE_NAME)
+            .add(KERBEROS_USE_CANONICAL_HOSTNAME)
+            .add(KERBEROS_PRINCIPAL)
+            .add(KERBEROS_CONFIG_PATH)
+            .add(KERBEROS_KEYTAB_PATH)
+            .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -149,6 +163,65 @@ final class ConnectionProperties
         public SslTrustStorePassword()
         {
             super("SSLTrustStorePassword", NOT_REQUIRED, IF_TRUST_STORE, STRING_CONVERTER);
+        }
+    }
+
+    private static class KerberosRemoteServiceName
+            extends AbstractConnectionProperty<String>
+    {
+        public KerberosRemoteServiceName()
+        {
+            super("KerberosRemoteServiceName", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static Predicate<Properties> isKerberosEnabled()
+    {
+        return checkedPredicate(properties -> KERBEROS_REMOTE_SERICE_NAME.getValue(properties).isPresent());
+    }
+
+    private static class KerberosPrincipal
+            extends AbstractConnectionProperty<String>
+    {
+        public KerberosPrincipal()
+        {
+            super("KerberosPrincipal", NOT_REQUIRED, isKerberosEnabled(), STRING_CONVERTER);
+        }
+    }
+
+    private static class KerberosUseCanonicalHostname
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public KerberosUseCanonicalHostname()
+        {
+            super("KerberosUseCanonicalHostname", Optional.of("true"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class KerberosConfigPath
+            extends AbstractConnectionProperty<File>
+    {
+        public KerberosConfigPath()
+        {
+            super("KerberosConfigPath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+        }
+    }
+
+    private static class KerberosKeytabPath
+            extends AbstractConnectionProperty<File>
+    {
+        public KerberosKeytabPath()
+        {
+            super("KerberosKeytabPath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+        }
+    }
+
+    private static class KerberosCredentialCachePath
+            extends AbstractConnectionProperty<File>
+    {
+        public KerberosCredentialCachePath()
+        {
+            super("KerberosCredentialCachePath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
         }
     }
 }
