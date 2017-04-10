@@ -840,6 +840,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitSemiJoin(SemiJoinNode node, Context context)
         {
+            Replication partitionedSemiJoinReplication = Replication.REPLICATE_NULLS;
             PlanWithProperties source;
             PlanWithProperties filteringSource;
 
@@ -855,22 +856,22 @@ public class AddExchanges
 
                 if (source.getProperties().isNodePartitionedOn(sourceSymbols) && !source.getProperties().isSingleNode()) {
                     Partitioning filteringPartitioning = source.getProperties().translate(createTranslator(sourceToFiltering)).getNodePartitioning().get();
-                    filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.partitionedWithReplication(filteringPartitioning, Replication.REPLICATE_NULLS)));
-                    if (!source.getProperties().withReplication(Replication.REPLICATE_NULLS).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get)) {
+                    filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.partitionedWithReplication(filteringPartitioning, partitionedSemiJoinReplication)));
+                    if (!source.getProperties().withReplication(partitionedSemiJoinReplication).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get)) {
                         filteringSource = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), new PartitioningScheme(
                                         filteringPartitioning,
                                         filteringSource.getNode().getOutputSymbols(),
                                         Optional.empty(),
-                                        Replication.REPLICATE_NULLS,
+                                        partitionedSemiJoinReplication,
                                         Optional.empty())),
                                 filteringSource.getProperties());
                     }
                 }
                 else {
-                    filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.partitionedWithReplication(ImmutableSet.copyOf(filteringSourceSymbols), Replication.REPLICATE_NULLS)));
+                    filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.partitionedWithReplication(ImmutableSet.copyOf(filteringSourceSymbols), partitionedSemiJoinReplication)));
 
-                    if (filteringSource.getProperties().isNodePartitionedOn(filteringSourceSymbols, Replication.REPLICATE_NULLS) && !filteringSource.getProperties().isSingleNode()) {
+                    if (filteringSource.getProperties().isNodePartitionedOn(filteringSourceSymbols, partitionedSemiJoinReplication) && !filteringSource.getProperties().isSingleNode()) {
                         Partitioning sourcePartitioning = filteringSource.getProperties().translate(createTranslator(filteringToSource)).getNodePartitioning().get();
                         source = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), new PartitioningScheme(sourcePartitioning, source.getNode().getOutputSymbols())),
@@ -881,12 +882,12 @@ public class AddExchanges
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), sourceSymbols, Optional.empty()),
                                 source.getProperties());
                         filteringSource = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), filteringSourceSymbols, Optional.empty(), Replication.REPLICATE_NULLS),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), filteringSourceSymbols, Optional.empty(), partitionedSemiJoinReplication),
                                 filteringSource.getProperties());
                     }
                 }
 
-                verify(source.getProperties().withReplication(Replication.REPLICATE_NULLS).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get));
+                verify(source.getProperties().withReplication(partitionedSemiJoinReplication).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get));
 
                 // if colocated joins are disabled, force redistribute when using a custom partitioning
                 if (!isColocatedJoinEnabled(session) && hasMultipleSources(source.getNode(), filteringSource.getNode())) {
@@ -896,7 +897,7 @@ public class AddExchanges
                                     filteringPartitioning,
                                     filteringSource.getNode().getOutputSymbols(),
                                     Optional.empty(),
-                                    Replication.REPLICATE_NULLS,
+                                    partitionedSemiJoinReplication,
                                     Optional.empty())),
                             filteringSource.getProperties());
                 }
