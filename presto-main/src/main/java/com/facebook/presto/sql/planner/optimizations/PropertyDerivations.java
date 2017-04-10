@@ -28,6 +28,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.PartitioningScheme.Replication;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -75,6 +76,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -94,6 +96,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -123,8 +126,15 @@ class PropertyDerivations
         verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
 
         // TODO: ideally this logic would be somehow moved to PlanSanityChecker
-        verify(node instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsReplicated) || output.isNullsReplicated(),
-                "SemiJoinNode is the only node that can strip null replication");
+        if (!(node instanceof SemiJoinNode)) {
+            Set<Replication> inputReplications = inputProperties.stream()
+                    .map(ActualProperties::getReplication)
+                    .filter(replication -> !replication.isNoReplication())
+                    .collect(toImmutableSet());
+            verify(inputReplications.size() == 0
+                            || (inputReplications.size() == 1 && Objects.equals(output.getReplication(), getOnlyElement(inputReplications))),
+                    "SemiJoinNode is the only node that can strip replication");
+        }
 
         return output;
     }
@@ -435,7 +445,9 @@ class PropertyDerivations
         @Override
         public ActualProperties visitExchange(ExchangeNode node, List<ActualProperties> inputProperties)
         {
-            checkArgument(node.getScope() != REMOTE || inputProperties.stream().noneMatch(ActualProperties::isNullsReplicated), "Null replicated inputs should not be remotely exchanged");
+            checkArgument(node.getScope() != REMOTE ||
+                            inputProperties.stream().map(ActualProperties::getReplication).allMatch(Replication::isNoReplication),
+                    "Replicated inputs should not be remotely exchanged");
 
             Set<Map.Entry<Symbol, NullableValue>> entries = null;
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
@@ -472,7 +484,7 @@ class PropertyDerivations
                             .global(partitionedOn(
                                     node.getPartitioningScheme().getPartitioning(),
                                     Optional.of(node.getPartitioningScheme().getPartitioning()))
-                                    .withReplicatedNulls(node.getPartitioningScheme().isReplicateNulls()))
+                                    .withReplication(node.getPartitioningScheme().getReplication()))
                             .constants(constants)
                             .build();
                 case REPLICATE:

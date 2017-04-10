@@ -103,6 +103,7 @@ import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme.Replication;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -348,8 +349,9 @@ public class LocalExecutionPlanner
         Set<Symbol> partitioningColumns = partitioningScheme.getPartitioning().getColumns();
 
         // partitioningColumns expected to have one column in the normal case, and zero columns when partitioning on a constant
-        checkArgument(!partitioningScheme.isReplicateNulls() || partitioningColumns.size() <= 1);
-        if (partitioningScheme.isReplicateNulls() && partitioningColumns.size() == 1) {
+        boolean isReplicateNulls = isReplicateNulls(partitioningScheme.getReplication());
+        checkArgument(!isReplicateNulls || partitioningColumns.size() <= 1);
+        if (isReplicateNulls && partitioningColumns.size() == 1) {
             nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
         }
 
@@ -359,6 +361,18 @@ public class LocalExecutionPlanner
                 outputLayout,
                 types,
                 new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, outputBuffer, maxPagePartitioningBufferSize));
+    }
+
+    private boolean isReplicateNulls(Replication replication)
+    {
+        switch (requireNonNull(replication, "replication is null")) {
+            case NONE:
+                return false;
+            case REPLICATE_NULLS:
+                return true;
+            default:
+                throw new IllegalStateException(format("Replication %s is not supported", replication));
+        }
     }
 
     public LocalExecutionPlan plan(Session session,

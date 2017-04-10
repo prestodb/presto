@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
+import com.facebook.presto.sql.planner.PartitioningScheme.Replication;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -854,22 +855,22 @@ public class AddExchanges
 
                 if (source.getProperties().isNodePartitionedOn(sourceSymbols) && !source.getProperties().isSingleNode()) {
                     Partitioning filteringPartitioning = source.getProperties().translate(createTranslator(sourceToFiltering)).getNodePartitioning().get();
-                    filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.partitionedWithNullsReplicated(filteringPartitioning)));
-                    if (!source.getProperties().withReplicatedNulls(true).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get)) {
+                    filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.partitionedWithReplication(filteringPartitioning, Replication.REPLICATE_NULLS)));
+                    if (!source.getProperties().withReplication(Replication.REPLICATE_NULLS).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get)) {
                         filteringSource = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), new PartitioningScheme(
                                         filteringPartitioning,
                                         filteringSource.getNode().getOutputSymbols(),
                                         Optional.empty(),
-                                        true,
+                                        Replication.REPLICATE_NULLS,
                                         Optional.empty())),
                                 filteringSource.getProperties());
                     }
                 }
                 else {
-                    filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.partitionedWithNullsReplicated(ImmutableSet.copyOf(filteringSourceSymbols))));
+                    filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.partitionedWithReplication(ImmutableSet.copyOf(filteringSourceSymbols), Replication.REPLICATE_NULLS)));
 
-                    if (filteringSource.getProperties().isNodePartitionedOn(filteringSourceSymbols, true) && !filteringSource.getProperties().isSingleNode()) {
+                    if (filteringSource.getProperties().isNodePartitionedOn(filteringSourceSymbols, Replication.REPLICATE_NULLS) && !filteringSource.getProperties().isSingleNode()) {
                         Partitioning sourcePartitioning = filteringSource.getProperties().translate(createTranslator(filteringToSource)).getNodePartitioning().get();
                         source = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), new PartitioningScheme(sourcePartitioning, source.getNode().getOutputSymbols())),
@@ -880,12 +881,12 @@ public class AddExchanges
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), sourceSymbols, Optional.empty()),
                                 source.getProperties());
                         filteringSource = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), filteringSourceSymbols, Optional.empty(), true),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), filteringSourceSymbols, Optional.empty(), Replication.REPLICATE_NULLS),
                                 filteringSource.getProperties());
                     }
                 }
 
-                verify(source.getProperties().withReplicatedNulls(true).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get));
+                verify(source.getProperties().withReplication(Replication.REPLICATE_NULLS).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get));
 
                 // if colocated joins are disabled, force redistribute when using a custom partitioning
                 if (!isColocatedJoinEnabled(session) && hasMultipleSources(source.getNode(), filteringSource.getNode())) {
@@ -895,7 +896,7 @@ public class AddExchanges
                                     filteringPartitioning,
                                     filteringSource.getNode().getOutputSymbols(),
                                     Optional.empty(),
-                                    true,
+                                    Replication.REPLICATE_NULLS,
                                     Optional.empty())),
                             filteringSource.getProperties());
                 }
@@ -1010,14 +1011,14 @@ public class AddExchanges
             }
 
             // Try planning the children to see if any of them naturally produce a partitioning (for now, just select the first)
-            boolean nullsReplicated = parentPreference.isNullsReplicated();
+            Replication replication = parentPreference.getReplication();
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
                 PreferredProperties.PartitioningProperties childPartitioning = parentPreference.translate(outputToInputTranslator(node, sourceIndex)).get();
                 PreferredProperties childPreferred = PreferredProperties.builder()
-                        .global(PreferredProperties.Global.distributed(childPartitioning.withNullsReplicated(nullsReplicated)))
+                        .global(PreferredProperties.Global.distributed(childPartitioning.withReplication(replication)))
                         .build();
                 PlanWithProperties child = node.getSources().get(sourceIndex).accept(this, context.withPreferredProperties(childPreferred));
-                if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), nullsReplicated)) {
+                if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), replication)) {
                     Function<Symbol, Optional<Symbol>> childToParent = createTranslator(createMapping(node.sourceOutputLayout(sourceIndex), node.getOutputSymbols()));
                     return child.getProperties().translate(childToParent).getNodePartitioning().get();
                 }
@@ -1034,7 +1035,7 @@ public class AddExchanges
             Optional<PreferredProperties.Global> parentGlobal = parentPreference.getGlobalProperties();
             if (parentGlobal.isPresent() && parentGlobal.get().isDistributed() && parentGlobal.get().getPartitioningProperties().isPresent()) {
                 PreferredProperties.PartitioningProperties parentPartitioningPreference = parentGlobal.get().getPartitioningProperties().get();
-                boolean nullsReplicated = parentPartitioningPreference.isNullsReplicated();
+                Replication replication = parentPartitioningPreference.getReplication();
                 Partitioning desiredParentPartitioning = selectUnionPartitioning(node, context, parentPartitioningPreference);
 
                 ImmutableList.Builder<PlanNode> partitionedSources = ImmutableList.builder();
@@ -1045,11 +1046,11 @@ public class AddExchanges
 
                     PreferredProperties childPreferred = PreferredProperties.builder()
                             .global(PreferredProperties.Global.distributed(PreferredProperties.PartitioningProperties.partitioned(childPartitioning)
-                                    .withNullsReplicated(nullsReplicated)))
+                                    .withReplication(replication)))
                             .build();
 
                     PlanWithProperties source = node.getSources().get(sourceIndex).accept(this, context.withPreferredProperties(childPreferred));
-                    if (!source.getProperties().isNodePartitionedOn(childPartitioning, nullsReplicated)) {
+                    if (!source.getProperties().isNodePartitionedOn(childPartitioning, replication)) {
                         source = withDerivedProperties(
                                 partitionedExchange(
                                         idAllocator.getNextId(),
@@ -1059,7 +1060,7 @@ public class AddExchanges
                                                 childPartitioning,
                                                 source.getNode().getOutputSymbols(),
                                                 Optional.empty(),
-                                                nullsReplicated,
+                                                replication,
                                                 Optional.empty())),
                                 source.getProperties());
                     }
@@ -1080,7 +1081,7 @@ public class AddExchanges
                         ActualProperties.builder()
                                 .global(partitionedOn(desiredParentPartitioning, Optional.of(desiredParentPartitioning)))
                                 .build()
-                                .withReplicatedNulls(parentPartitioningPreference.isNullsReplicated()));
+                                .withReplication(parentPartitioningPreference.getReplication()));
             }
 
             // first, classify children into partitioned and unpartitioned
