@@ -436,7 +436,7 @@ final class ShowQueriesRewrite
                         columns,
                         false,
                         sqlProperties,
-                        Optional.empty());
+                        connectorTableMetadata.getComment());
                 return singleValueQuery("Create Table", formatSql(createTable, Optional.of(parameters)).trim());
             }
 
