@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsByPartitionsOrder;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -124,13 +125,6 @@ public class TestReorderWindows
                 ImmutableList.of(QUANTITY_ALIAS),
                 ImmutableList.of(RECEIPTDATE_ALIAS),
                 ImmutableMap.of(RECEIPTDATE_ALIAS, SortOrder.ASC_NULLS_LAST));
-    }
-
-    TestReorderWindows()
-    {
-        // this won't be necessary once ReorderWindows is turned on by default back
-        // currently it's disabled because of https://github.com/prestodb/presto/issues/7247
-        super(ImmutableMap.of("reorder_windows", "true"));
     }
 
     @Test
@@ -279,8 +273,10 @@ public class TestReorderWindows
         LocalQueryRunner queryRunner = getQueryRunner();
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new ReorderWindows(),
+                new IterativeOptimizer(new StatsRecorder(),
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new SwapAdjacentWindowsByPartitionsOrder())),
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);
