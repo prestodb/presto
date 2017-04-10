@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.LongAdder;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -29,12 +30,14 @@ public class ChannelSet
 {
     private final GroupByHash hash;
     private final boolean containsNull;
+    private final long elements;
     private final int[] hashChannels;
 
-    public ChannelSet(GroupByHash hash, boolean containsNull, int[] hashChannels)
+    public ChannelSet(GroupByHash hash, boolean containsNull, long elements, int[] hashChannels)
     {
         this.hash = hash;
         this.containsNull = containsNull;
+        this.elements = elements;
         this.hashChannels = hashChannels;
     }
 
@@ -58,6 +61,11 @@ public class ChannelSet
         return containsNull;
     }
 
+    public boolean hasElements()
+    {
+        return elements > 0;
+    }
+
     public boolean contains(int position, Page page)
     {
         return hash.contains(position, page, hashChannels);
@@ -65,11 +73,12 @@ public class ChannelSet
 
     public static class ChannelSetBuilder
     {
-        private static final int[] HASH_CHANNELS = { 0 };
+        private static final int[] HASH_CHANNELS = {0};
 
         private final GroupByHash hash;
         private final OperatorContext operatorContext;
         private final Page nullBlockPage;
+        private final LongAdder elements = new LongAdder();
 
         public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler)
         {
@@ -81,7 +90,7 @@ public class ChannelSet
 
         public ChannelSet build()
         {
-            return new ChannelSet(hash, hash.contains(0, nullBlockPage, HASH_CHANNELS), HASH_CHANNELS);
+            return new ChannelSet(hash, hash.contains(0, nullBlockPage, HASH_CHANNELS), elements.longValue(), HASH_CHANNELS);
         }
 
         public long getEstimatedSize()
@@ -96,6 +105,7 @@ public class ChannelSet
 
         public void addPage(Page page)
         {
+            elements.add(page.getPositionCount());
             hash.addPage(page);
 
             if (operatorContext != null) {
