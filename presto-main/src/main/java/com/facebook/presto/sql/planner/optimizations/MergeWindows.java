@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -27,10 +26,9 @@ import com.google.common.collect.Multimap;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
+import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -141,21 +139,6 @@ public class MergeWindows
                     canonical.getHashSymbol(),
                     canonical.getPrePartitionedInputs(),
                     canonical.getPreSortedOrderPrefix());
-        }
-
-        private static boolean dependsOn(WindowNode parent, WindowNode child)
-        {
-            Set<Symbol> childOutputs = child.getCreatedSymbols();
-
-            Stream<Symbol> arguments = parent.getWindowFunctions().values().stream()
-                    .map(WindowNode.Function::getFunctionCall)
-                    .flatMap(functionCall -> functionCall.getArguments().stream())
-                    .map(DependencyExtractor::extractUnique)
-                    .flatMap(Collection::stream);
-
-            return parent.getPartitionBy().stream().anyMatch(childOutputs::contains)
-                    || parent.getOrderBy().stream().anyMatch(childOutputs::contains)
-                    || arguments.anyMatch(childOutputs::contains);
         }
     }
 }
