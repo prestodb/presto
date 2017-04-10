@@ -45,10 +45,11 @@ public class HashSemiJoinOperator
         private final SetSupplier setSupplier;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
+        private final boolean legacySemiJoin;
         private final List<Type> types;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
+        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, boolean legacySemiJoin)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -56,6 +57,7 @@ public class HashSemiJoinOperator
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
+            this.legacySemiJoin = legacySemiJoin;
 
             this.types = ImmutableList.<Type>builder()
                     .addAll(probeTypes)
@@ -74,7 +76,7 @@ public class HashSemiJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashSemiJoinOperator.class.getSimpleName());
-            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel);
+            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel, legacySemiJoin);
         }
 
         @Override
@@ -86,11 +88,12 @@ public class HashSemiJoinOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel);
+            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, legacySemiJoin);
         }
     }
 
     private final int probeJoinChannel;
+    private final boolean legacySemiJoin;
     private final List<Type> types;
     private final ListenableFuture<ChannelSet> channelSetFuture;
 
@@ -98,7 +101,7 @@ public class HashSemiJoinOperator
     private Page outputPage;
     private boolean finishing;
 
-    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel)
+    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel, boolean legacySemiJoin)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
@@ -109,6 +112,7 @@ public class HashSemiJoinOperator
 
         this.channelSetFuture = channelSetFuture.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;
+        this.legacySemiJoin = legacySemiJoin;
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)

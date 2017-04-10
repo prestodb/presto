@@ -106,7 +106,8 @@ public class TestHashSemiJoinOperator
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                false);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -162,7 +163,8 @@ public class TestHashSemiJoinOperator
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                false);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -213,7 +215,8 @@ public class TestHashSemiJoinOperator
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                false);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -265,7 +268,8 @@ public class TestHashSemiJoinOperator
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                false);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))

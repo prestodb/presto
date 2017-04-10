@@ -1691,7 +1691,13 @@ public class LocalExecutionPlanner
                     .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
                     .build();
 
-            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel);
+            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    setProvider,
+                    probeSource.getTypes(),
+                    probeChannel,
+                    node.isLegacySemiJoin());
             return new PhysicalOperation(operator, outputMappings, probeSource);
         }
 
