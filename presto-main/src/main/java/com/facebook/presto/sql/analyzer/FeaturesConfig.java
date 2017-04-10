@@ -61,6 +61,7 @@ public class FeaturesConfig
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
+    private boolean legacySemiJoin;
     private boolean optimizeMixedDistinctAggregations;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
@@ -142,6 +143,18 @@ public class FeaturesConfig
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
+    }
+
+    @Config("deprecated.legacy-semi-join")
+    public FeaturesConfig setLegacySemiJoin(boolean legacySemiJoin)
+    {
+        this.legacySemiJoin = legacySemiJoin;
+        return this;
+    }
+
+    public boolean isLegacySemiJoin()
+    {
+        return legacySemiJoin;
     }
 
     @Config("distributed-joins-enabled")

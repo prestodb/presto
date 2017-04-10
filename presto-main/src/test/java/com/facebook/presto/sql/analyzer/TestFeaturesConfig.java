@@ -62,6 +62,7 @@ public class TestFeaturesConfig
                 .setSpillMaxUsedSpaceThreshold(0.9)
                 .setOptimizeMixedDistinctAggregations(false)
                 .setLegacyOrderBy(false)
+                .setLegacySemiJoin(false)
                 .setIterativeOptimizerEnabled(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setExchangeCompressionEnabled(false));
@@ -76,6 +77,7 @@ public class TestFeaturesConfig
                 .put("experimental.iterative-optimizer-timeout", "10s")
                 .put("deprecated.legacy-array-agg", "true")
                 .put("deprecated.legacy-order-by", "true")
+                .put("deprecated.legacy-semi-join", "true")
                 .put("deprecated.legacy-map-subscript", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
@@ -106,6 +108,7 @@ public class TestFeaturesConfig
                 .put("experimental.iterative-optimizer-timeout", "10s")
                 .put("deprecated.legacy-array-agg", "true")
                 .put("deprecated.legacy-order-by", "true")
+                .put("deprecated.legacy-semi-join", "true")
                 .put("deprecated.legacy-map-subscript", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
@@ -159,6 +162,7 @@ public class TestFeaturesConfig
                 .setSpillerThreads(42)
                 .setSpillMaxUsedSpaceThreshold(0.8)
                 .setLegacyOrderBy(true)
+                .setLegacySemiJoin(true)
                 .setExchangeCompressionEnabled(true);
 
         assertFullMapping(properties, expected);

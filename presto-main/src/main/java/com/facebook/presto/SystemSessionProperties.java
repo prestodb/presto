@@ -67,6 +67,7 @@ public final class SystemSessionProperties
     public static final String OPERATOR_MEMORY_LIMIT_BEFORE_SPILL = "operator_memory_limit_before_spill";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ORDER_BY = "legacy_order_by";
+    public static final String LEGACY_SEMI_JOIN = "legacy_semi_join";
     public static final String REORDER_WINDOWS = "reorder_windows";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
@@ -284,6 +285,11 @@ public final class SystemSessionProperties
                         featuresConfig.isLegacyOrderBy(),
                         false),
                 booleanSessionProperty(
+                        LEGACY_SEMI_JOIN,
+                        "Allow aggressive optimizations of Semi Join at the cost of not supporting NULLs on left side",
+                        featuresConfig.isLegacySemiJoin(),
+                        false),
+                booleanSessionProperty(
                         REORDER_WINDOWS,
                         "Allow reordering window functions in query",
                         featuresConfig.isReorderWindows(),
@@ -461,6 +467,11 @@ public final class SystemSessionProperties
     public static boolean isLegacyOrderByEnabled(Session session)
     {
         return session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class);
+    }
+
+    public static boolean isLegacySemiJoin(Session session)
+    {
+        return session.getSystemProperty(LEGACY_SEMI_JOIN, Boolean.class);
     }
 
     public static boolean isNewOptimizerEnabled(Session session)
