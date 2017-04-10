@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -27,6 +26,7 @@ import java.util.Iterator;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
+import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
 
 public class SwapAdjacentWindowsBySpecifications
         implements Rule
@@ -51,17 +51,6 @@ public class SwapAdjacentWindowsBySpecifications
         else {
             return Optional.empty();
         }
-    }
-
-    private static boolean dependsOn(WindowNode parent, WindowNode child)
-    {
-        return parent.getPartitionBy().stream().anyMatch(child.getCreatedSymbols()::contains)
-                || parent.getOrderBy().stream().anyMatch(child.getCreatedSymbols()::contains)
-                || parent.getWindowFunctions().values().stream()
-                .map(WindowNode.Function::getFunctionCall)
-                .map(DependencyExtractor::extractUnique)
-                .flatMap(symbols -> symbols.stream())
-                .anyMatch(child.getCreatedSymbols()::contains);
     }
 
     private static int compare(WindowNode o1, WindowNode o2)
