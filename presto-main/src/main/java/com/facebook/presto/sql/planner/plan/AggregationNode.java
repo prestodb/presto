@@ -282,13 +282,6 @@ public class AggregationNode
         private final Signature signature;
         private final Optional<Symbol> mask;
 
-        public Aggregation(
-                FunctionCall call,
-                Signature signature)
-        {
-            this(call, signature, Optional.empty());
-        }
-
         @JsonCreator
         public Aggregation(
                 @JsonProperty("call") FunctionCall call,

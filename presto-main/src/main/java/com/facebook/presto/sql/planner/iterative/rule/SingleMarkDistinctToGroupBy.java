@@ -114,6 +114,7 @@ public class SingleMarkDistinctToGroupBy
         FunctionCall call = aggregation.getCall();
         return new AggregationNode.Aggregation(
                 new FunctionCall(call.getName(), call.getWindow(), false, call.getArguments()),
-                aggregation.getSignature());
+                aggregation.getSignature(),
+                Optional.empty());
     }
 }
