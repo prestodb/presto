@@ -22,8 +22,6 @@ databases:
     host: presto-master.docker.cluster
     port: 7778
     server_address: https://${databases.presto.host}:${databases.presto.port}
-    # Use the HTTP interface in JDBC, as Kerberos authentication is not yet supported in there.
-    jdbc_url: jdbc:presto://${databases.presto.host}:8080/hive/${databases.hive.schema}
 
     # jdbc_user in here should satisfy two requirements in order to pass SQL standard access control checks in Presto:
     #   1) It should belong to the "admin" role in hive
@@ -39,3 +37,13 @@ databases:
     cli_kerberos_service_name: presto-server
     cli_kerberos_use_canonical_hostname: false
     configured_hdfs_user: hdfs
+
+    jdbc_url: "jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}?\
+      SSL=true&\
+      SSLTrustStorePath=${databases.presto.https_keystore_path}&\
+      SSLTrustStorePassword=${databases.presto.https_keystore_password}&\
+      KerberosRemoteServiceName=${databases.presto.cli_kerberos_service_name}&\
+      KerberosPrincipal=${databases.presto.cli_kerberos_principal}&\
+      KerberosUseCanonicalHostname=${databases.presto.cli_kerberos_use_canonical_hostname}&\
+      KerberosConfigPath=${databases.presto.cli_kerberos_config_path}&\
+      KerberosKeytabPath=${databases.presto.cli_kerberos_keytab}"

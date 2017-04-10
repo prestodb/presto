@@ -19,6 +19,7 @@ import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
 
+import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
@@ -29,11 +30,19 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
 import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
+import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_KEYTAB_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERICE_NAME;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static com.facebook.presto.jdbc.ConnectionProperties.PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
@@ -135,6 +144,21 @@ final class PrestoDriverUri
                 Optional<String> trustStorePath = SSL_TRUST_STORE_PATH.getValue(properties);
                 Optional<String> trustStorePassword = SSL_TRUST_STORE_PASSWORD.getValue(properties);
                 setupSsl(builder, Optional.empty(), Optional.empty(), trustStorePath, trustStorePassword);
+            }
+
+            if (KERBEROS_REMOTE_SERICE_NAME.getValue(properties).isPresent()) {
+                if (!useSecureConnection) {
+                    throw new SQLException("Authentication using Kerberos requires SSL to be enabled");
+                }
+                setupKerberos(
+                        builder,
+                        KERBEROS_REMOTE_SERICE_NAME.getRequiredValue(properties),
+                        KERBEROS_USE_CANONICAL_HOSTNAME.getRequiredValue(properties),
+                        KERBEROS_PRINCIPAL.getValue(properties),
+                        KERBEROS_CONFIG_PATH.getValue(properties),
+                        KERBEROS_KEYTAB_PATH.getValue(properties),
+                        Optional.ofNullable(KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties)
+                                .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))));
             }
         }
         catch (ClientException e) {
