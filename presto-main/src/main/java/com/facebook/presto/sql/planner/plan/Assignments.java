@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Predicate;
@@ -32,10 +33,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collector;
-import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -123,6 +122,13 @@ public class Assignments
                 .collect(toAssignments());
     }
 
+    public boolean isIdentity(Symbol output)
+    {
+        Expression expression = assignments.get(output);
+
+        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
+    }
+
     private Collector<Entry<Symbol, Expression>, Builder, Assignments> toAssignments()
     {
         return Collector.of(
@@ -192,10 +198,23 @@ public class Assignments
             return this;
         }
 
+        public Builder put(Entry<Symbol, Expression> assignment)
+        {
+            put(assignment.getKey(), assignment.getValue());
+            return this;
+        }
+
         public Builder putIdentities(Iterable<Symbol> symbols)
         {
-            assignments.putAll(StreamSupport.stream(symbols.spliterator(), false)
-                    .collect(toImmutableMap(Function.identity(), Symbol::toSymbolReference)));
+            for (Symbol symbol : symbols) {
+                putIdentity(symbol);
+            }
+            return this;
+        }
+
+        public Builder putIdentity(Symbol symbol)
+        {
+            put(symbol, symbol.toSymbolReference());
             return this;
         }
 
