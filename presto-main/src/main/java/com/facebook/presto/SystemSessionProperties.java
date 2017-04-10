@@ -67,7 +67,6 @@ public final class SystemSessionProperties
     public static final String OPERATOR_MEMORY_LIMIT_BEFORE_SPILL = "operator_memory_limit_before_spill";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ORDER_BY = "legacy_order_by";
-    public static final String REORDER_WINDOWS = "reorder_windows";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
@@ -284,11 +283,6 @@ public final class SystemSessionProperties
                         featuresConfig.isLegacyOrderBy(),
                         false),
                 booleanSessionProperty(
-                        REORDER_WINDOWS,
-                        "Allow reordering window functions in query",
-                        featuresConfig.isReorderWindows(),
-                        false),
-                booleanSessionProperty(
                         ITERATIVE_OPTIMIZER,
                         "Experimental: enable iterative optimizer",
                         featuresConfig.isIterativeOptimizerEnabled(),
@@ -424,11 +418,6 @@ public final class SystemSessionProperties
         Integer priority = session.getSystemProperty(QUERY_PRIORITY, Integer.class);
         checkArgument(priority > 0, "Query priority must be positive");
         return priority;
-    }
-
-    public static boolean isReorderWindowsEnabled(Session session)
-    {
-        return session.getSystemProperty(REORDER_WINDOWS, Boolean.class);
     }
 
     public static Duration getSplitConcurrencyAdjustmentInterval(Session session)
