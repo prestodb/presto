@@ -91,7 +91,8 @@ public class DetermineJoinDistributionType
                     node.getSemiJoinOutput(),
                     node.getSourceHashSymbol(),
                     node.getFilteringSourceHashSymbol(),
-                    Optional.of(targetJoinDistributionType));
+                    Optional.of(targetJoinDistributionType),
+                    node.isLegacySemiJoin());
         }
 
         @Override

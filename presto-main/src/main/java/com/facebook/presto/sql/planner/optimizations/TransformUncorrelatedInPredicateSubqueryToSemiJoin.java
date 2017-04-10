@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -61,14 +62,14 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return rewriteWith(new InPredicateRewriter(idAllocator), plan, null);
+        return rewriteWith(new InPredicateRewriter(idAllocator), plan, session);
     }
 
     /**
      * Each ApplyNode which contains InPredicate is replaced by semi join node.
      */
     private static class InPredicateRewriter
-            extends SimplePlanRewriter<Void>
+            extends SimplePlanRewriter<Session>
     {
         private final PlanNodeIdAllocator idAllocator;
 
@@ -78,23 +79,23 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         }
 
         @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
+        public PlanNode visitApply(ApplyNode node, RewriteContext<Session> context)
         {
             if (!node.getCorrelation().isEmpty()) {
-                return context.defaultRewrite(node);
+                return visitPlan(node, context);
             }
 
             if (node.getSubqueryAssignments().size() != 1) {
-                return context.defaultRewrite(node);
+                return visitPlan(node, context);
             }
 
             Expression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
             if (!(expression instanceof InPredicate)) {
-                return context.defaultRewrite(node);
+                return visitPlan(node, context);
             }
 
-            PlanNode input = context.rewrite(node.getInput());
-            PlanNode subquery = context.rewrite(node.getSubquery());
+            PlanNode input = context.rewrite(node.getInput(), context.get());
+            PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
 
             InPredicate inPredicate = (InPredicate) expression;
             Symbol semiJoinSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
@@ -106,7 +107,8 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                     semiJoinSymbol,
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty()
+                    Optional.empty(),
+                    SystemSessionProperties.isLegacySemiJoin(context.get())
             );
         }
     }

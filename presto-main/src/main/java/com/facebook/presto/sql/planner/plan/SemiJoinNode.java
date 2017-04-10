@@ -38,6 +38,7 @@ public class SemiJoinNode
     private final Optional<Symbol> sourceHashSymbol;
     private final Optional<Symbol> filteringSourceHashSymbol;
     private final Optional<DistributionType> distributionType;
+    private final boolean legacySemiJoin;
 
     @JsonCreator
     public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
@@ -48,7 +49,8 @@ public class SemiJoinNode
             @JsonProperty("semiJoinOutput") Symbol semiJoinOutput,
             @JsonProperty("sourceHashSymbol") Optional<Symbol> sourceHashSymbol,
             @JsonProperty("filteringSourceHashSymbol") Optional<Symbol> filteringSourceHashSymbol,
-            @JsonProperty("distributionType") Optional<DistributionType> distributionType)
+            @JsonProperty("distributionType") Optional<DistributionType> distributionType,
+            @JsonProperty("legacySemiJoin") boolean legacySemiJoin)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -59,6 +61,7 @@ public class SemiJoinNode
         this.sourceHashSymbol = requireNonNull(sourceHashSymbol, "sourceHashSymbol is null");
         this.filteringSourceHashSymbol = requireNonNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
+        this.legacySemiJoin = legacySemiJoin;
 
         checkArgument(source.getOutputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
         checkArgument(filteringSource.getOutputSymbols().contains(filteringSourceJoinSymbol), "Filtering source does not contain filtering join symbol");
@@ -118,6 +121,12 @@ public class SemiJoinNode
         return distributionType;
     }
 
+    @JsonProperty("legacySemiJoin")
+    public boolean isLegacySemiJoin()
+    {
+        return legacySemiJoin;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -152,6 +161,7 @@ public class SemiJoinNode
                 semiJoinOutput,
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
-                distributionType);
+                distributionType,
+                legacySemiJoin);
     }
 }

@@ -234,7 +234,8 @@ public class LimitPushDown
                         node.getSemiJoinOutput(),
                         node.getSourceHashSymbol(),
                         node.getFilteringSourceHashSymbol(),
-                        node.getDistributionType());
+                        node.getDistributionType(),
+                        node.isLegacySemiJoin());
             }
             return node;
         }

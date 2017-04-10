@@ -731,7 +731,8 @@ public class TestEffectivePredicateExtractor
                 A, B, C,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
