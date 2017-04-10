@@ -17,8 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcModule
         implements Module
@@ -27,17 +27,16 @@ public class JdbcModule
 
     public JdbcModule(String connectorId)
     {
-        this.connectorId = checkNotNull(connectorId, "connector id is null");
+        this.connectorId = requireNonNull(connectorId, "connector id is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
         binder.bind(JdbcConnectorId.class).toInstance(new JdbcConnectorId(connectorId));
-        binder.bind(JdbcMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);

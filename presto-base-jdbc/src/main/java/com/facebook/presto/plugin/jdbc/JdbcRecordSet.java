@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSet
         implements RecordSet
@@ -32,11 +32,11 @@ public class JdbcRecordSet
 
     public JdbcRecordSet(JdbcClient jdbcClient, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
     {
-        this.jdbcClient = checkNotNull(jdbcClient, "jdbcClient is null");
-        this.split = checkNotNull(split, "split is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.split = requireNonNull(split, "split is null");
 
-        checkNotNull(split, "split is null");
-        this.columnHandles = checkNotNull(columnHandles, "column handles is null");
+        requireNonNull(split, "split is null");
+        this.columnHandles = requireNonNull(columnHandles, "column handles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (JdbcColumnHandle column : columnHandles) {
             types.add(column.getColumnType());

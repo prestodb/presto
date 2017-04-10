@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import io.airlift.dbpool.H2EmbeddedDataSource;
-import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
+import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
+
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -30,21 +33,22 @@ import static org.testng.Assert.assertNull;
 public class TestMetadataDao
 {
     private MetadataDao dao;
-    private Handle handle;
+    private Handle dummyHandle;
 
     @BeforeMethod
     public void setup()
             throws Exception
     {
-        handle = new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig().setFilename("mem:"))).open();
-        dao = handle.attach(MetadataDao.class);
-        createMetadataTablesWithRetry(dao);
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dummyHandle = dbi.open();
+        dao = dbi.onDemand(MetadataDao.class);
+        createTablesWithRetry(dbi);
     }
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
-        handle.close();
+        dummyHandle.close();
     }
 
     @Test
@@ -52,18 +56,41 @@ public class TestMetadataDao
             throws Exception
     {
         Long columnId = 1L;
-        long tableId = dao.insertTable("default", "table1");
-        dao.insertColumn(tableId, columnId, "col1", 1, "bigint");
+        long tableId = dao.insertTable("schema1", "table1", true, false, null, 0);
+        dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null, null);
         Long temporalColumnId = dao.getTemporalColumnId(tableId);
         assertNull(temporalColumnId);
 
-        dao.updateTemporalColumnId(columnId, tableId);
+        dao.updateTemporalColumnId(tableId, columnId);
         temporalColumnId = dao.getTemporalColumnId(tableId);
         assertNotNull(temporalColumnId);
         assertEquals(temporalColumnId, columnId);
 
-        long tableId2 = dao.insertTable("default", "table2");
+        long tableId2 = dao.insertTable("schema1", "table2", true, false, null, 0);
         Long columnId2 = dao.getTemporalColumnId(tableId2);
         assertNull(columnId2);
+    }
+
+    @Test
+    public void testGetTableInformation()
+    {
+        Long columnId = 1L;
+        long tableId = dao.insertTable("schema1", "table1", true, false, null, 0);
+        dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null, null);
+
+        Table info = dao.getTableInformation(tableId);
+        assertTable(info, tableId);
+
+        info = dao.getTableInformation("schema1", "table1");
+        assertTable(info, tableId);
+    }
+
+    private static void assertTable(Table info, long tableId)
+    {
+        assertEquals(info.getTableId(), tableId);
+        assertEquals(info.getDistributionId(), OptionalLong.empty());
+        assertEquals(info.getDistributionName(), Optional.empty());
+        assertEquals(info.getBucketCount(), OptionalInt.empty());
+        assertEquals(info.getTemporalColumnId(), OptionalLong.empty());
     }
 }

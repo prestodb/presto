@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
 /**
  * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
  */
@@ -24,6 +30,17 @@ public class NullIfExpression
 
     public NullIfExpression(Expression first, Expression second)
     {
+        this(Optional.empty(), first, second);
+    }
+
+    public NullIfExpression(NodeLocation location, Expression first, Expression second)
+    {
+        this(Optional.of(location), first, second);
+    }
+
+    private NullIfExpression(Optional<NodeLocation> location, Expression first, Expression second)
+    {
+        super(location);
         this.first = first;
         this.second = second;
     }
@@ -45,6 +62,12 @@ public class NullIfExpression
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(first, second);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -55,22 +78,13 @@ public class NullIfExpression
         }
 
         NullIfExpression that = (NullIfExpression) o;
-
-        if (!first.equals(that.first)) {
-            return false;
-        }
-        if (!second.equals(that.second)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(first, that.first) &&
+                Objects.equals(second, that.second);
     }
 
     @Override
     public int hashCode()
     {
-        int result = first.hashCode();
-        result = 31 * result + second.hashCode();
-        return result;
+        return Objects.hash(first, second);
     }
 }

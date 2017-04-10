@@ -13,11 +13,17 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
@@ -25,10 +31,15 @@ import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.verifier.QueryResult.State.SUCCESS;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -36,23 +47,32 @@ public class Verifier
 {
     private static final Logger log = Logger.get(Verifier.class);
 
+    private static final Set<ErrorCode> EXPECTED_ERRORS = ImmutableSet.<ErrorCode>builder()
+            .add(REMOTE_TASK_MISMATCH.toErrorCode())
+            .add(TOO_MANY_REQUESTS_FAILED.toErrorCode())
+            .add(PAGE_TRANSPORT_TIMEOUT.toErrorCode())
+            .build();
+
     private final VerifierConfig config;
     private final Set<EventClient> eventClients;
     private final int threadCount;
     private final Set<String> whitelist;
     private final Set<String> blacklist;
+    private final int precision;
 
     public Verifier(PrintStream out, VerifierConfig config, Set<EventClient> eventClients)
     {
-        checkNotNull(out, "out is null");
-        this.config = checkNotNull(config, "config is null");
-        this.eventClients = checkNotNull(eventClients, "eventClients is null");
-        this.whitelist = checkNotNull(config.getWhitelist(), "whitelist is null");
-        this.blacklist = checkNotNull(config.getBlacklist(), "blacklist is null");
+        requireNonNull(out, "out is null");
+        this.config = requireNonNull(config, "config is null");
+        this.eventClients = requireNonNull(eventClients, "eventClients is null");
+        this.whitelist = requireNonNull(config.getWhitelist(), "whitelist is null");
+        this.blacklist = requireNonNull(config.getBlacklist(), "blacklist is null");
         this.threadCount = config.getThreadCount();
+        this.precision = config.getDoublePrecision();
     }
 
-    public void run(List<QueryPair> queries)
+    // Returns number of failed queries
+    public int run(List<QueryPair> queries)
             throws InterruptedException
     {
         ExecutorService executor = newFixedThreadPool(threadCount);
@@ -76,8 +96,21 @@ public class Verifier
                         log.debug("Query %s is blacklisted", query.getName());
                         continue;
                     }
-                    Validator validator = new Validator(config, query);
-                    completionService.submit(validateTask(validator), validator);
+                    Validator validator = new Validator(
+                            config.getControlGateway(),
+                            config.getTestGateway(),
+                            config.getControlTimeout(),
+                            config.getTestTimeout(),
+                            config.getMaxRowCount(),
+                            config.isExplainOnly(),
+                            config.getDoublePrecision(),
+                            isCheckCorrectness(query),
+                            true,
+                            config.isVerboseResultsComparison(),
+                            config.getControlTeardownRetries(),
+                            config.getTestTeardownRetries(),
+                            query);
+                    completionService.submit(validator::valid, validator);
                     queriesSubmitted++;
                 }
             }
@@ -128,6 +161,32 @@ public class Verifier
         }
 
         log.info("Results: %s / %s (%s skipped)", valid, failed, skipped);
+        log.info("");
+
+        for (EventClient eventClient : eventClients) {
+            if (eventClient instanceof Closeable) {
+                try {
+                    ((Closeable) eventClient).close();
+                }
+                catch (IOException ignored) { }
+                log.info("");
+            }
+        }
+
+        return failed;
+    }
+
+    private boolean isCheckCorrectness(QueryPair query)
+    {
+        // Check if either the control query or the test query matches the regex
+        if (Pattern.matches(config.getSkipCorrectnessRegex(), query.getTest().getQuery()) ||
+                Pattern.matches(config.getSkipCorrectnessRegex(), query.getControl().getQuery())) {
+            // If so disable correctness checking
+            return false;
+        }
+        else {
+            return config.isCheckCorrectnessEnabled();
+        }
     }
 
     private VerifierQueryEvent buildEvent(Validator validator)
@@ -139,15 +198,15 @@ public class Verifier
 
         if (!validator.valid()) {
             errorMessage = format("Test state %s, Control state %s\n", test.getState(), control.getState());
-            if (test.getException() != null) {
-                errorMessage += getStackTraceAsString(test.getException());
+            Exception e = test.getException();
+            if (e != null && shouldAddStackTrace(e)) {
+                errorMessage += getStackTraceAsString(e);
             }
-            else {
-                errorMessage += validator.getResultsComparison().trim();
+            if (control.getState() == SUCCESS && test.getState() == SUCCESS) {
+                errorMessage += validator.getResultsComparison(precision).trim();
             }
         }
 
-        // TODO implement cpu time tracking
         return new VerifierQueryEvent(
                 queryPair.getSuite(),
                 config.getRunId(),
@@ -156,20 +215,26 @@ public class Verifier
                 !validator.valid(),
                 queryPair.getTest().getCatalog(),
                 queryPair.getTest().getSchema(),
+                queryPair.getTest().getPreQueries(),
                 queryPair.getTest().getQuery(),
-                null,
-                optionalDurationToSeconds(test),
+                queryPair.getTest().getPostQueries(),
+                test.getQueryId(),
+                optionalDurationToSeconds(test.getCpuTime()),
+                optionalDurationToSeconds(test.getWallTime()),
                 queryPair.getControl().getCatalog(),
                 queryPair.getControl().getSchema(),
+                queryPair.getControl().getPreQueries(),
                 queryPair.getControl().getQuery(),
-                null,
-                optionalDurationToSeconds(control),
+                queryPair.getControl().getPostQueries(),
+                control.getQueryId(),
+                optionalDurationToSeconds(control.getCpuTime()),
+                optionalDurationToSeconds(control.getWallTime()),
                 errorMessage);
     }
 
-    private static Double optionalDurationToSeconds(QueryResult test)
+    private static Double optionalDurationToSeconds(Duration duration)
     {
-        return test.getDuration() != null ? test.getDuration().convertTo(SECONDS).getValue() : null;
+        return duration != null ? duration.convertTo(SECONDS).getValue() : null;
     }
 
     private static <T> T takeUnchecked(CompletionService<T> completionService)
@@ -183,15 +248,14 @@ public class Verifier
         }
     }
 
-    private static Runnable validateTask(final Validator validator)
+    private static boolean shouldAddStackTrace(Exception e)
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                validator.valid();
+        if (e instanceof PrestoException) {
+            ErrorCode errorCode = ((PrestoException) e).getErrorCode();
+            if (EXPECTED_ERRORS.contains(errorCode)) {
+                return false;
             }
-        };
+        }
+        return true;
     }
 }

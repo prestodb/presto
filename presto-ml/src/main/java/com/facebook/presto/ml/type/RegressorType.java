@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.ml.type;
 
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import com.facebook.presto.spi.type.TypeSignature;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -26,6 +26,6 @@ public class RegressorType
 
     private RegressorType()
     {
-        super(parameterizedTypeName(NAME));
+        super(new TypeSignature(NAME));
     }
 }

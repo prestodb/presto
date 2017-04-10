@@ -14,26 +14,24 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionFactory;
+import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tpch.TpchConnectorFactory;
-import com.facebook.presto.type.ParametricType;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static java.util.Locale.ENGLISH;
 
 public class TestMLQueries
         extends AbstractTestQueryFramework
 {
     public TestMLQueries()
     {
-        super(createLocalQueryRunner());
+        super(TestMLQueries::createLocalQueryRunner);
     }
 
     @Test
@@ -54,13 +52,9 @@ public class TestMLQueries
 
     private static LocalQueryRunner createLocalQueryRunner()
     {
-        Session defaultSession = Session.builder()
-                .setUser("user")
-                .setSource("test")
+        Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
 
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
@@ -68,19 +62,18 @@ public class TestMLQueries
         // add the tpch catalog
         // local queries run directly against the generator
         localQueryRunner.createCatalog(
-                defaultSession.getCatalog(),
-                new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1),
-                ImmutableMap.<String, String>of());
+                defaultSession.getCatalog().get(),
+                new TpchConnectorFactory(1),
+                ImmutableMap.of());
 
         MLPlugin plugin = new MLPlugin();
-        plugin.setTypeManager(localQueryRunner.getTypeManager());
-        for (Type type : plugin.getServices(Type.class)) {
+        for (Type type : plugin.getTypes()) {
             localQueryRunner.getTypeManager().addType(type);
         }
-        for (ParametricType parametricType : plugin.getServices(ParametricType.class)) {
+        for (ParametricType parametricType : plugin.getParametricTypes()) {
             localQueryRunner.getTypeManager().addParametricType(parametricType);
         }
-        localQueryRunner.getMetadata().getFunctionRegistry().addFunctions(Iterables.getOnlyElement(plugin.getServices(FunctionFactory.class)).listFunctions());
+        localQueryRunner.getMetadata().addFunctions(extractFunctions(new MLPlugin().getFunctions()));
 
         return localQueryRunner;
     }

@@ -13,29 +13,48 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.metadata.BooleanStatistics;
-import com.facebook.presto.orc.metadata.ColumnStatistics;
-import com.facebook.presto.orc.metadata.RangeStatistics;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.metadata.statistics.RangeStatistics;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import org.apache.hive.common.util.BloomFilter;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
+import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
+import static com.facebook.presto.spi.type.Decimals.rescale;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Float.floatToRawIntBits;
+import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate<C>
         implements OrcPredicate
@@ -43,126 +62,201 @@ public class TupleDomainOrcPredicate<C>
     private final TupleDomain<C> effectivePredicate;
     private final List<ColumnReference<C>> columnReferences;
 
-    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences)
+    private final boolean orcBloomFiltersEnabled;
+
+    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences, boolean orcBloomFiltersEnabled)
     {
-        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
-        this.columnReferences = ImmutableList.copyOf(checkNotNull(columnReferences, "columnReferences is null"));
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        this.columnReferences = ImmutableList.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
+        this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
     }
 
     @Override
     public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
     {
-        ImmutableMap.Builder<C, Domain> domains = ImmutableMap.builder();
+        Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
+        if (!optionalEffectivePredicateDomains.isPresent()) {
+            // effective predicate is none, so skip this section
+            return false;
+        }
+        Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
 
         for (ColumnReference<C> columnReference : columnReferences) {
+            Domain predicateDomain = effectivePredicateDomains.get(columnReference.getColumn());
+            if (predicateDomain == null) {
+                // no predicate on this column, so we can't exclude this section
+                continue;
+            }
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
-
-            Domain domain;
             if (columnStatistics == null) {
-                // no stats for column
-                domain = Domain.all(fixNonComparableType(Primitives.wrap(columnReference.getType().getJavaType())));
+                // no statistics for this column, so we can't exclude this section
+                continue;
             }
-            else {
-                domain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
-            }
-            domains.put(columnReference.getColumn(), domain);
-        }
-        TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
-        return effectivePredicate.overlaps(stripeDomain);
+            if (!columnOverlaps(columnReference, predicateDomain, numberOfRows, columnStatistics)) {
+                return false;
+            }
+        }
+
+        // this section was not excluded
+        return true;
+    }
+
+    private boolean columnOverlaps(ColumnReference<C> columnReference, Domain predicateDomain, long numberOfRows, ColumnStatistics columnStatistics)
+    {
+        Domain stripeDomain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
+        if (!stripeDomain.overlaps(predicateDomain)) {
+            // there is no overlap between the predicate and this column
+            return false;
+        }
+
+        // if bloom filters are not enabled, we can not restrict the range overlap
+        if (!orcBloomFiltersEnabled) {
+            return true;
+        }
+
+        // if there an overlap in null values, the bloom filter can not eliminate the overlap
+        if (predicateDomain.isNullAllowed() && stripeDomain.isNullAllowed()) {
+            return true;
+        }
+
+        // extract the discrete values from the predicate
+        Optional<Collection<Object>> discreteValues = extractDiscreteValues(predicateDomain.getValues());
+        if (!discreteValues.isPresent()) {
+            // values are not discrete, so we can't exclude this section
+            return true;
+        }
+
+        HiveBloomFilter bloomFilter = columnStatistics.getBloomFilter();
+        if (bloomFilter == null) {
+            // no bloom filter so we can't exclude this section
+            return true;
+        }
+
+        // if none of the discrete predicate values are found in the bloom filter, there is no overlap and the section should be skipped
+        if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()))) {
+            return false;
+        }
+        return true;
+    }
+
+    @VisibleForTesting
+    public static Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
+    {
+        return valueSet.getValuesProcessor().transform(
+                ranges -> {
+                    ImmutableList.Builder<Object> discreteValues = ImmutableList.builder();
+                    for (Range range : ranges.getOrderedRanges()) {
+                        if (!range.isSingleValue()) {
+                            return Optional.empty();
+                        }
+                        discreteValues.add(range.getSingleValue());
+                    }
+                    return Optional.of(discreteValues.build());
+                },
+                discreteValues -> Optional.of(discreteValues.getValues()),
+                allOrNone -> allOrNone.isAll() ? Optional.empty() : Optional.of(ImmutableList.of()));
+    }
+
+    // checks whether a value part of the effective predicate is likely to be part of this bloom filter
+    @VisibleForTesting
+    public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
+    {
+        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == BIGINT) {
+            return bloomFilter.testLong(((Number) predicateValue).longValue());
+        }
+
+        if (sqlType == DOUBLE) {
+            return bloomFilter.testDouble((Double) predicateValue);
+        }
+
+        if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
+            return bloomFilter.test(((Slice) predicateValue).getBytes());
+        }
+
+        // todo support DECIMAL, FLOAT, DATE, TIMESTAMP, and CHAR
+        return true;
     }
 
     @VisibleForTesting
     public static Domain getDomain(Type type, long rowCount, ColumnStatistics columnStatistics)
     {
-        Class<?> boxedJavaType = Primitives.wrap(type.getJavaType());
         if (rowCount == 0) {
-            return Domain.none(fixNonComparableType(boxedJavaType));
+            return Domain.none(type);
         }
 
         if (columnStatistics == null) {
-            return Domain.all(fixNonComparableType(boxedJavaType));
+            return Domain.all(type);
         }
 
         if (columnStatistics.hasNumberOfValues() && columnStatistics.getNumberOfValues() == 0) {
-            return Domain.onlyNull(fixNonComparableType(boxedJavaType));
+            return Domain.onlyNull(type);
         }
 
         boolean hasNullValue = columnStatistics.getNumberOfValues() != rowCount;
 
-        if (boxedJavaType == Boolean.class && columnStatistics.getBooleanStatistics() != null) {
+        if (type.getJavaType() == boolean.class && columnStatistics.getBooleanStatistics() != null) {
             BooleanStatistics booleanStatistics = columnStatistics.getBooleanStatistics();
 
             boolean hasTrueValues = (booleanStatistics.getTrueValueCount() != 0);
             boolean hasFalseValues = (columnStatistics.getNumberOfValues() != booleanStatistics.getTrueValueCount());
             if (hasTrueValues && hasFalseValues) {
-                return Domain.all(Boolean.class);
+                return Domain.all(BOOLEAN);
             }
             if (hasTrueValues) {
-                return Domain.create(SortedRangeSet.singleValue(true), hasNullValue);
+                return Domain.create(ValueSet.of(BOOLEAN, true), hasNullValue);
             }
             if (hasFalseValues) {
-                return Domain.create(SortedRangeSet.singleValue(false), hasNullValue);
+                return Domain.create(ValueSet.of(BOOLEAN, false), hasNullValue);
             }
         }
+        else if (isShortDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> rescale(value, (DecimalType) type).unscaledValue().longValue());
+        }
+        else if (isLongDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(rescale(value, (DecimalType) type).unscaledValue()));
+        }
+        else if (isCharType(type) && columnStatistics.getStringStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> trimSpacesAndTruncateToLength(value, type));
+        }
+        else if (isVarcharType(type) && columnStatistics.getStringStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());
+        }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
+            return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
-        else if (boxedJavaType == Long.class && columnStatistics.getIntegerStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getIntegerStatistics());
+        else if (type.getJavaType() == long.class && columnStatistics.getIntegerStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getIntegerStatistics());
         }
-        else if (boxedJavaType == Double.class && columnStatistics.getDoubleStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDoubleStatistics());
+        else if (type.getJavaType() == double.class && columnStatistics.getDoubleStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getDoubleStatistics());
         }
-        else if (boxedJavaType == Slice.class && columnStatistics.getStringStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics());
+        else if (REAL.equals(type) && columnStatistics.getDoubleStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getDoubleStatistics(), value -> (long) floatToRawIntBits(value.floatValue()));
         }
-        return Domain.create(SortedRangeSet.all(fixNonComparableType(boxedJavaType)), hasNullValue);
+        return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
-    private static Class<?> fixNonComparableType(Class<?> clazz)
+    private static <T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<T> rangeStatistics)
     {
-        // !!! HACK ALERT !!!
-        // This is needed because SortedRangeSet.all/none requires that the argument type be self-comparable. See Marker#verifySelfComparable
-        // However, the SortedRangeSet works fine when the only value involved are lowerUnbound and upperUnbound.
-        // This hack shall be removed once TupleDomain is updated to support
-        // The same hack can also be found in DomainTranslator
-        if (clazz == Block.class) {
-            return BogusComparable.class;
-        }
-        return clazz;
+        return createDomain(type, hasNullValue, rangeStatistics, value -> value);
     }
 
-    private static class BogusComparable
-            implements Comparable<BogusComparable>
-    {
-        @Override
-        public int compareTo(BogusComparable o)
-        {
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    private static <T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, RangeStatistics<T> rangeStatistics)
-    {
-        return createDomain(boxedJavaType, hasNullValue, rangeStatistics, value -> value);
-    }
-
-    private static <F, T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> function)
+    private static <F, T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> function)
     {
         F min = rangeStatistics.getMin();
         F max = rangeStatistics.getMax();
 
         if (min != null && max != null) {
-            return Domain.create(SortedRangeSet.of(Range.range(function.apply(min), true, function.apply(max), true)), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.range(type, function.apply(min), true, function.apply(max), true)), hasNullValue);
         }
         if (max != null) {
-            return Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(function.apply(max))), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, function.apply(max))), hasNullValue);
         }
         if (min != null) {
-            return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(function.apply(min))), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, function.apply(min))), hasNullValue);
         }
-        return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
+        return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
     public static class ColumnReference<C>
@@ -173,10 +267,10 @@ public class TupleDomainOrcPredicate<C>
 
         public ColumnReference(C column, int ordinal, Type type)
         {
-            this.column = checkNotNull(column, "column is null");
+            this.column = requireNonNull(column, "column is null");
             checkArgument(ordinal >= 0, "ordinal is negative");
             this.ordinal = ordinal;
-            this.type = checkNotNull(type, "type is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
         public C getColumn()
@@ -197,7 +291,7 @@ public class TupleDomainOrcPredicate<C>
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("column", column)
                     .add("ordinal", ordinal)
                     .add("type", type)

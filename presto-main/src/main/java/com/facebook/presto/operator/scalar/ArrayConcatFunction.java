@@ -13,35 +13,51 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
+import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.util.Collections.nCopies;
 
-public class ArrayConcatFunction
-        extends ParametricScalar
+public final class ArrayConcatFunction
+        extends SqlScalarFunction
 {
     public static final ArrayConcatFunction ARRAY_CONCAT_FUNCTION = new ArrayConcatFunction();
-    private static final String FUNCTION_NAME = "concat";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "array<E>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatUtils.class, FUNCTION_NAME, Type.class, Block.class, Block.class);
 
-    @Override
-    public Signature getSignature()
+    private static final String FUNCTION_NAME = "concat";
+    private static final String DESCRIPTION = "Concatenates given arrays";
+
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatFunction.class, "concat", Type.class, Object.class, Block[].class);
+    private static final MethodHandle USER_STATE_FACTORY = methodHandle(ArrayConcatFunction.class, "createState", Type.class);
+
+    private ArrayConcatFunction()
     {
-        return SIGNATURE;
+        super(new Signature(FUNCTION_NAME,
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("E")),
+                ImmutableList.of(),
+                parseTypeSignature("array(E)"),
+                ImmutableList.of(parseTypeSignature("array(E)")),
+                true));
     }
 
     @Override
@@ -59,16 +75,73 @@ public class ArrayConcatFunction
     @Override
     public String getDescription()
     {
-        return "Concatenates given arrays";
+        return DESCRIPTION;
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type elementType = types.get("E");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(elementType);
-        TypeSignature typeSignature = parameterizedTypeName("array", elementType.getTypeSignature());
-        Signature signature = new Signature(FUNCTION_NAME, typeSignature, typeSignature, typeSignature); // return type & arg types are the same
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
+        if (arity < 2) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments to " + FUNCTION_NAME);
+        }
+
+        Type elementType = boundVariables.getTypeVariable("E");
+
+        VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
+                Block.class,
+                Block.class,
+                arity,
+                METHOD_HANDLE.bindTo(elementType),
+                USER_STATE_FACTORY.bindTo(elementType));
+
+        return new ScalarFunctionImplementation(
+                false,
+                nCopies(arity, false),
+                nCopies(arity, false),
+                methodHandleAndConstructor.getMethodHandle(),
+                Optional.of(methodHandleAndConstructor.getConstructor()),
+                isDeterministic());
+    }
+
+    @UsedByGeneratedCode
+    public static Object createState(Type elementType)
+    {
+        return new PageBuilder(ImmutableList.of(elementType));
+    }
+
+    @UsedByGeneratedCode
+    public static Block concat(Type elementType, Object state, Block[] blocks)
+    {
+        int resultPositionCount = 0;
+
+        // fast path when there is at most one non empty block
+        Block nonEmptyBlock = null;
+        for (int i = 0; i < blocks.length; i++) {
+            resultPositionCount += blocks[i].getPositionCount();
+            if (blocks[i].getPositionCount() > 0) {
+                nonEmptyBlock = blocks[i];
+            }
+        }
+        if (nonEmptyBlock == null) {
+            return blocks[0];
+        }
+        if (resultPositionCount == nonEmptyBlock.getPositionCount()) {
+            return nonEmptyBlock;
+        }
+
+        PageBuilder pageBuilder = (PageBuilder) state;
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
+
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        for (int blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+            Block block = blocks[blockIndex];
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                elementType.appendTo(block, i, blockBuilder);
+            }
+        }
+        pageBuilder.declarePositions(resultPositionCount);
+        return blockBuilder.getRegion(blockBuilder.getPositionCount() - resultPositionCount, resultPositionCount);
     }
 }

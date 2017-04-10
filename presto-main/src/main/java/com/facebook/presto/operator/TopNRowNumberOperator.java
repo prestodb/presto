@@ -18,6 +18,8 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
 import com.google.common.collect.Ordering;
@@ -33,8 +35,8 @@ import java.util.Optional;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class TopNRowNumberOperator
         implements Operator
@@ -43,6 +45,7 @@ public class TopNRowNumberOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
 
         private final List<Type> sourceTypes;
 
@@ -52,6 +55,7 @@ public class TopNRowNumberOperator
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
         private final int maxRowCountPerPartition;
+        private final boolean partial;
         private final Optional<Integer> hashChannel;
         private final int expectedPositions;
 
@@ -59,9 +63,11 @@ public class TopNRowNumberOperator
         private final List<Type> sortTypes;
         private final boolean generateRowNumber;
         private boolean closed;
+        private final JoinCompiler joinCompiler;
 
         public TopNRowNumberOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
                 List<Integer> partitionChannels,
@@ -71,21 +77,25 @@ public class TopNRowNumberOperator
                 int maxRowCountPerPartition,
                 boolean partial,
                 Optional<Integer> hashChannel,
-                int expectedPositions)
+                int expectedPositions,
+                JoinCompiler joinCompiler)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
-            this.outputChannels = ImmutableList.copyOf(checkNotNull(outputChannels, "outputChannels is null"));
-            this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
-            this.partitionTypes = ImmutableList.copyOf(checkNotNull(partitionTypes, "partitionTypes is null"));
-            this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels));
-            this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder));
-            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+            this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
+            this.partitionChannels = ImmutableList.copyOf(requireNonNull(partitionChannels, "partitionChannels is null"));
+            this.partitionTypes = ImmutableList.copyOf(requireNonNull(partitionTypes, "partitionTypes is null"));
+            this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels));
+            this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder));
+            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
+            this.partial = partial;
             checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
             this.maxRowCountPerPartition = maxRowCountPerPartition;
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
             this.generateRowNumber = !partial || !partitionChannels.isEmpty();
             this.expectedPositions = expectedPositions;
+            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
 
             this.types = toTypes(sourceTypes, outputChannels, generateRowNumber);
             ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
@@ -105,7 +115,7 @@ public class TopNRowNumberOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TopNRowNumberOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TopNRowNumberOperator.class.getSimpleName());
             return new TopNRowNumberOperator(
                     operatorContext,
                     sourceTypes,
@@ -118,13 +128,20 @@ public class TopNRowNumberOperator
                     maxRowCountPerPartition,
                     generateRowNumber,
                     hashChannel,
-                    expectedPositions);
+                    expectedPositions,
+                    joinCompiler);
         }
 
         @Override
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new TopNRowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, sortChannels, sortOrder, maxRowCountPerPartition, partial, hashChannel, expectedPositions, joinCompiler);
         }
     }
 
@@ -158,14 +175,15 @@ public class TopNRowNumberOperator
             int maxRowCountPerPartition,
             boolean generateRowNumber,
             Optional<Integer> hashChannel,
-            int expectedPositions)
+            int expectedPositions,
+            JoinCompiler joinCompiler)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.outputChannels = Ints.toArray(checkNotNull(outputChannels, "outputChannels is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
 
-        this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
-        this.sortOrders = checkNotNull(sortOrders, "sortOrders is null");
-        this.sortTypes = checkNotNull(sortTypes, "sortTypes is null");
+        this.sortChannels = requireNonNull(sortChannels, "sortChannels is null");
+        this.sortOrders = requireNonNull(sortOrders, "sortOrders is null");
+        this.sortTypes = requireNonNull(sortTypes, "sortTypes is null");
 
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
         this.maxRowCountPerPartition = maxRowCountPerPartition;
@@ -178,7 +196,7 @@ public class TopNRowNumberOperator
             this.groupByHash = Optional.empty();
         }
         else {
-            this.groupByHash = Optional.of(createGroupByHash(partitionTypes, Ints.toArray(partitionChannels), Optional.<Integer>empty(), hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions, joinCompiler));
         }
         this.flushingPartition = Optional.empty();
         this.pageBuilder = new PageBuilder(types);
@@ -218,7 +236,7 @@ public class TopNRowNumberOperator
     public void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!isFlushing(), "Cannot add input with the operator is flushing data");
         processPage(page);
     }
@@ -303,7 +321,7 @@ public class TopNRowNumberOperator
                 pageBuilder.declarePosition();
                 for (int i = 0; i < outputChannels.length; i++) {
                     int channel = outputChannels[i];
-                    Type type = types.get(channel);
+                    Type type = types.get(i);
                     type.appendTo(next[channel], 0, pageBuilder.getBlockBuilder(i));
                 }
                 if (generateRowNumber) {

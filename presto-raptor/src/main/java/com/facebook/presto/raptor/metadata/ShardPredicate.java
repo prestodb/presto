@@ -14,18 +14,13 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.Ranges;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -38,13 +33,15 @@ import java.util.StringJoiner;
 
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
+import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.facebook.presto.raptor.storage.ShardStats.truncateIndexValue;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 class ShardPredicate
 {
@@ -54,9 +51,9 @@ class ShardPredicate
 
     private ShardPredicate(String predicate, List<JDBCType> types, List<Object> values)
     {
-        this.predicate = checkNotNull(predicate, "predicate is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.values = ImmutableList.copyOf(checkNotNull(values, "values is null"));
+        this.predicate = requireNonNull(predicate, "predicate is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
         checkArgument(types.size() == values.size(), "types and values sizes do not match");
     }
 
@@ -83,13 +80,13 @@ class ShardPredicate
                 .toString();
     }
 
-    public static ShardPredicate create(TupleDomain<RaptorColumnHandle> tupleDomain)
+    public static ShardPredicate create(TupleDomain<RaptorColumnHandle> tupleDomain, boolean bucketed)
     {
         StringJoiner predicate = new StringJoiner(" AND ").setEmptyValue("true");
         ImmutableList.Builder<JDBCType> types = ImmutableList.builder();
         ImmutableList.Builder<Object> values = ImmutableList.builder();
 
-        for (Entry<RaptorColumnHandle, Domain> entry : tupleDomain.getDomains().entrySet()) {
+        for (Entry<RaptorColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             Domain domain = entry.getValue();
             if (domain.isNullAllowed() || domain.isAll()) {
                 continue;
@@ -102,12 +99,22 @@ class ShardPredicate
                 continue;
             }
 
+            if (handle.isShardUuid()) {
+                predicate.add(createShardPredicate(types, values, domain, jdbcType));
+                continue;
+            }
+
+            if (!domain.getType().isOrderable()) {
+                continue;
+            }
+
+            Ranges ranges = domain.getValues().getRanges();
+
             // TODO: support multiple ranges
-            SortedRangeSet ranges = domain.getRanges();
             if (ranges.getRangeCount() != 1) {
                 continue;
             }
-            Range range = getOnlyElement(ranges.getRanges());
+            Range range = getOnlyElement(ranges.getOrderedRanges());
 
             Object minValue = null;
             Object maxValue = null;
@@ -124,8 +131,20 @@ class ShardPredicate
                 }
             }
 
-            String min = minColumn(handle.getColumnId());
-            String max = maxColumn(handle.getColumnId());
+            String min;
+            String max;
+            if (handle.isBucketNumber()) {
+                if (!bucketed) {
+                    predicate.add("false");
+                    continue;
+                }
+                min = "bucket_number";
+                max = "bucket_number";
+            }
+            else {
+                min = minColumn(handle.getColumnId());
+                max = maxColumn(handle.getColumnId());
+            }
 
             if (minValue != null) {
                 predicate.add(format("(%s >= ? OR %s IS NULL)", max, max));
@@ -138,8 +157,50 @@ class ShardPredicate
                 values.add(maxValue);
             }
         }
-
         return new ShardPredicate(predicate.toString(), types.build(), values.build());
+    }
+
+    private static String createShardPredicate(ImmutableList.Builder<JDBCType> types, ImmutableList.Builder<Object> values, Domain domain, JDBCType jdbcType)
+    {
+        List<Range> ranges = domain.getValues().getRanges().getOrderedRanges();
+
+        // only apply predicates if all ranges are single values
+        if (ranges.isEmpty() || !ranges.stream().allMatch(Range::isSingleValue)) {
+            return "true";
+        }
+
+        ImmutableList.Builder<Object> valuesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<JDBCType> typesBuilder = ImmutableList.builder();
+
+        StringJoiner rangePredicate = new StringJoiner(" OR ");
+        for (Range range : ranges) {
+            Slice uuidText = (Slice) range.getSingleValue();
+            try {
+                Slice uuidBytes = uuidStringToBytes(uuidText);
+                typesBuilder.add(jdbcType);
+                valuesBuilder.add(uuidBytes);
+            }
+            catch (IllegalArgumentException e) {
+                return "true";
+            }
+            rangePredicate.add("shard_uuid = ?");
+        }
+
+        types.addAll(typesBuilder.build());
+        values.addAll(valuesBuilder.build());
+        return rangePredicate.toString();
+    }
+
+    @VisibleForTesting
+    protected List<JDBCType> getTypes()
+    {
+        return types;
+    }
+
+    @VisibleForTesting
+    protected List<Object> getValues()
+    {
+        return values;
     }
 
     public static void bindValue(PreparedStatement statement, JDBCType type, Object value, int index)
@@ -167,26 +228,6 @@ class ShardPredicate
                 statement.setBytes(index, truncateIndexValue((Slice) value).getBytes());
                 return;
         }
-        throw new PrestoException(INTERNAL_ERROR, "Unhandled type: " + type);
-    }
-
-    public static JDBCType jdbcType(Type type)
-    {
-        if (type.equals(BooleanType.BOOLEAN)) {
-            return JDBCType.BOOLEAN;
-        }
-        if (type.equals(BigintType.BIGINT) || type.equals(TimestampType.TIMESTAMP)) {
-            return JDBCType.BIGINT;
-        }
-        if (type.equals(DoubleType.DOUBLE)) {
-            return JDBCType.DOUBLE;
-        }
-        if (type.equals(DateType.DATE)) {
-            return JDBCType.INTEGER;
-        }
-        if (type.equals(VarcharType.VARCHAR)) {
-            return JDBCType.VARBINARY;
-        }
-        return null;
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type: " + type);
     }
 }

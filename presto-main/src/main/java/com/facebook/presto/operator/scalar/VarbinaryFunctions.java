@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 
 import java.util.Base64;
 
@@ -48,10 +51,16 @@ public final class VarbinaryFunctions
 
     @Description("decode base64 encoded binary data")
     @ScalarFunction("from_base64")
+    @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice fromBase64Varchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice fromBase64Varchar(@SqlType("varchar(x)") Slice slice)
     {
-        return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
+        try {
+            return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @Description("decode base64 encoded binary data")
@@ -59,7 +68,12 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice fromBase64Varbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
+        try {
+            return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @Description("encode binary data as base64 using the URL safe alphabet")
@@ -72,10 +86,16 @@ public final class VarbinaryFunctions
 
     @Description("decode URL safe base64 encoded binary data")
     @ScalarFunction("from_base64url")
+    @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice fromBase64UrlVarchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice fromBase64UrlVarchar(@SqlType("varchar(x)") Slice slice)
     {
-        return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
+        try {
+            return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @Description("decode URL safe base64 encoded binary data")
@@ -83,7 +103,12 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice fromBase64UrlVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
+        try {
+            return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @Description("encode binary data as hex")
@@ -96,8 +121,9 @@ public final class VarbinaryFunctions
 
     @Description("decode hex encoded binary data")
     @ScalarFunction("from_hex")
+    @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice fromHexVarchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice fromHexVarchar(@SqlType("varchar(x)") Slice slice)
     {
         if (slice.length() % 2 != 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid input length " + slice.length());
@@ -110,12 +136,57 @@ public final class VarbinaryFunctions
         return Slices.wrappedBuffer(result);
     }
 
+    @Description("encode value as a 64-bit 2's complement big endian varbinary")
+    @ScalarFunction("to_big_endian_64")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toBigEndian64(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        Slice slice = Slices.allocate(Long.BYTES);
+        slice.setLong(0, Long.reverseBytes(value));
+        return slice;
+    }
+
+    @Description("decode bigint value from a 64-bit 2's complement big endian varbinary")
+    @ScalarFunction("from_big_endian_64")
+    @SqlType(StandardTypes.BIGINT)
+    public static long fromBigEndian64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        if (slice.length() != Long.BYTES) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "expected 8-byte input, but got instead: " + slice.length());
+        }
+        return Long.reverseBytes(slice.getLong(0));
+    }
+
     @Description("compute md5 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
     public static Slice md5(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return Slices.wrappedBuffer(Hashing.md5().hashBytes(slice.getBytes()).asBytes());
+    }
+
+    @Description("compute sha1 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice sha1(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.wrappedBuffer(Hashing.sha1().hashBytes(slice.getBytes()).asBytes());
+    }
+
+    @Description("compute sha256 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice sha256(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.wrappedBuffer(Hashing.sha256().hashBytes(slice.getBytes()).asBytes());
+    }
+
+    @Description("compute sha512 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice sha512(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.wrappedBuffer(Hashing.sha512().hashBytes(slice.getBytes()).asBytes());
     }
 
     private static int hexDigitCharToInt(byte b)
@@ -130,6 +201,16 @@ public final class VarbinaryFunctions
             return b - 'A' + 10;
         }
         throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid hex character: " + (char) b);
+    }
+
+    @Description("compute xxhash64 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice xxhash64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        Slice hash = Slices.allocate(Long.BYTES);
+        hash.setLong(0, Long.reverseBytes(XxHash64.hash(slice)));
+        return hash;
     }
 
     @Description("decode hex encoded binary data")

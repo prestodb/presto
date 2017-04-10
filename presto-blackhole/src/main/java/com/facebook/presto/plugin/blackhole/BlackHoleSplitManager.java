@@ -11,22 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 public final class BlackHoleSplitManager
         implements ConnectorSplitManager
 {
     @Override
-    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
-        return new FixedSplitSource("blackhole-splitsource", ImmutableList.of());
+        BlackHoleTableLayoutHandle layout = (BlackHoleTableLayoutHandle) layoutHandle;
+
+        ImmutableList.Builder<BlackHoleSplit> builder = ImmutableList.builder();
+
+        for (int i = 0; i < layout.getSplitCount(); i++) {
+            builder.add(
+                    new BlackHoleSplit(
+                            layout.getPagesPerSplit(),
+                            layout.getRowsPerPage(),
+                            layout.getFieldsLength(),
+                            layout.getPageProcessingDelay()));
+        }
+        return new FixedSplitSource(builder.build());
     }
 }

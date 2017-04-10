@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import java.util.Objects;
+import com.google.common.collect.ImmutableList;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class SubscriptExpression
         extends Expression
@@ -25,14 +29,31 @@ public class SubscriptExpression
 
     public SubscriptExpression(Expression base, Expression index)
     {
-        this.base = checkNotNull(base, "base is null");
-        this.index = checkNotNull(index, "index is null");
+        this(Optional.empty(), base, index);
+    }
+
+    public SubscriptExpression(NodeLocation location, Expression base, Expression index)
+    {
+        this(Optional.of(location), base, index);
+    }
+
+    private SubscriptExpression(Optional<NodeLocation> location, Expression base, Expression index)
+    {
+        super(location);
+        this.base = requireNonNull(base, "base is null");
+        this.index = requireNonNull(index, "index is null");
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitSubscriptExpression(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(base, index);
     }
 
     public Expression getBase()

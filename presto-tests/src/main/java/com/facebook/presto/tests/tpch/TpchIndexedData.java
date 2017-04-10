@@ -21,9 +21,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchTableHandle;
-import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -34,7 +32,6 @@ import io.airlift.slice.Slice;
 import io.airlift.tpch.TpchTable;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,9 +40,11 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Objects.requireNonNull;
 
 class TpchIndexedData
 {
@@ -53,8 +52,8 @@ class TpchIndexedData
 
     public TpchIndexedData(String connectorId, TpchIndexSpec tpchIndexSpec)
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(tpchIndexSpec, "tpchIndexSpec is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(tpchIndexSpec, "tpchIndexSpec is null");
 
         TpchMetadata tpchMetadata = new TpchMetadata(connectorId);
         TpchRecordSetProvider tpchRecordSetProvider = new TpchRecordSetProvider();
@@ -68,9 +67,9 @@ class TpchIndexedData
             Map<String, ColumnHandle> columnHandles = new LinkedHashMap<>(tpchMetadata.getColumnHandles(null, tableHandle));
             for (Set<String> columnNames : tpchIndexSpec.getColumnIndexes(table)) {
                 List<String> keyColumnNames = ImmutableList.copyOf(columnNames); // Finalize the key order
-                Set<TpchScaledColumn> keyColumns = FluentIterable.from(keyColumnNames)
-                        .transform(TpchScaledColumn.columnFunction(table))
-                        .toSet();
+                Set<TpchScaledColumn> keyColumns = keyColumnNames.stream()
+                        .map(name -> new TpchScaledColumn(table, name))
+                        .collect(toImmutableSet());
 
                 TpchTable<?> tpchTable = TpchTable.getTable(table.getTableName());
                 RecordSet recordSet = tpchRecordSetProvider.getRecordSet(tpchTable, ImmutableList.copyOf(columnHandles.values()), table.getScaleFactor(), 0, 1);
@@ -85,39 +84,29 @@ class TpchIndexedData
     public Optional<IndexedTable> getIndexedTable(String tableName, double scaleFactor, Set<String> indexColumnNames)
     {
         TpchScaledTable table = new TpchScaledTable(tableName, scaleFactor);
-        Set<TpchScaledColumn> indexColumns = FluentIterable.from(indexColumnNames)
-                .transform(TpchScaledColumn.columnFunction(table))
-                .toSet();
+        Set<TpchScaledColumn> indexColumns = indexColumnNames.stream()
+                .map(name -> new TpchScaledColumn(table, name))
+                .collect(toImmutableSet());
         return Optional.ofNullable(indexedTables.get(indexColumns));
     }
 
     private static <T> List<T> extractPositionValues(final List<T> values, List<Integer> positions)
     {
-        return Lists.transform(positions, new Function<Integer, T>()
-        {
-            @Override
-            public T apply(Integer position)
-            {
-                checkPositionIndex(position, values.size());
-                return values.get(position);
-            }
+        return Lists.transform(positions, position -> {
+            checkPositionIndex(position, values.size());
+            return values.get(position);
         });
     }
 
     private static IndexedTable indexTable(RecordSet recordSet, final List<String> outputColumns, List<String> keyColumns)
     {
-        List<Integer> keyPositions = FluentIterable.from(keyColumns)
-                .transform(new Function<String, Integer>()
-                {
-                    @Override
-                    public Integer apply(String columnName)
-                    {
-                        int position = outputColumns.indexOf(columnName);
-                        checkState(position != -1);
-                        return position;
-                    }
+        List<Integer> keyPositions = keyColumns.stream()
+                .map(columnName -> {
+                    int position = outputColumns.indexOf(columnName);
+                    checkState(position != -1);
+                    return position;
                 })
-                .toList();
+                .collect(toImmutableList());
 
         ImmutableListMultimap.Builder<MaterializedTuple, MaterializedTuple> indexedValuesBuilder = ImmutableListMultimap.builder();
 
@@ -176,11 +165,11 @@ class TpchIndexedData
 
         private IndexedTable(List<String> keyColumnNames, List<Type> keyTypes, List<String> outputColumnNames, List<Type> outputTypes, ListMultimap<MaterializedTuple, MaterializedTuple> keyToValues)
         {
-            this.keyColumnNames = ImmutableList.copyOf(checkNotNull(keyColumnNames, "keyColumnNames is null"));
-            this.keyTypes = ImmutableList.copyOf(checkNotNull(keyTypes, "keyTypes is null"));
-            this.outputColumnNames = ImmutableList.copyOf(checkNotNull(outputColumnNames, "outputColumnNames is null"));
-            this.outputTypes = ImmutableList.copyOf(checkNotNull(outputTypes, "outputTypes is null"));
-            this.keyToValues = ImmutableListMultimap.copyOf(checkNotNull(keyToValues, "keyToValues is null"));
+            this.keyColumnNames = ImmutableList.copyOf(requireNonNull(keyColumnNames, "keyColumnNames is null"));
+            this.keyTypes = ImmutableList.copyOf(requireNonNull(keyTypes, "keyTypes is null"));
+            this.outputColumnNames = ImmutableList.copyOf(requireNonNull(outputColumnNames, "outputColumnNames is null"));
+            this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
+            this.keyToValues = ImmutableListMultimap.copyOf(requireNonNull(keyToValues, "keyToValues is null"));
         }
 
         public List<String> getKeyColumns()
@@ -197,18 +186,13 @@ class TpchIndexedData
         {
             checkArgument(recordSet.getColumnTypes().equals(keyTypes), "Input RecordSet keys do not match expected key type");
 
-            Iterable<RecordSet> outputRecordSets = Iterables.transform(tupleIterable(recordSet), new Function<MaterializedTuple, RecordSet>()
-            {
-                @Override
-                public RecordSet apply(MaterializedTuple key)
-                {
-                    for (Object value : key.getValues()) {
-                        if (value == null) {
-                            throw new IllegalArgumentException("TPCH index does not support null values");
-                        }
+            Iterable<RecordSet> outputRecordSets = Iterables.transform(tupleIterable(recordSet), key -> {
+                for (Object value : key.getValues()) {
+                    if (value == null) {
+                        throw new IllegalArgumentException("TPCH index does not support null values");
                     }
-                    return lookupKey(key);
                 }
+                return lookupKey(key);
             });
 
             return new ConcatRecordSet(outputRecordSets, outputTypes);
@@ -221,24 +205,17 @@ class TpchIndexedData
 
         private static Iterable<MaterializedTuple> tupleIterable(final RecordSet recordSet)
         {
-            return new Iterable<MaterializedTuple>()
+            return () -> new AbstractIterator<MaterializedTuple>()
             {
-                @Override
-                public Iterator<MaterializedTuple> iterator()
-                {
-                    return new AbstractIterator<MaterializedTuple>()
-                    {
-                        private final RecordCursor cursor = recordSet.cursor();
+                private final RecordCursor cursor = recordSet.cursor();
 
-                        @Override
-                        protected MaterializedTuple computeNext()
-                        {
-                            if (!cursor.advanceNextPosition()) {
-                                return endOfData();
-                            }
-                            return new MaterializedTuple(extractValues(cursor, recordSet.getColumnTypes()));
-                        }
-                    };
+                @Override
+                protected MaterializedTuple computeNext()
+                {
+                    if (!cursor.advanceNextPosition()) {
+                        return endOfData();
+                    }
+                    return new MaterializedTuple(extractValues(cursor, recordSet.getColumnTypes()));
                 }
             };
         }
@@ -251,20 +228,8 @@ class TpchIndexedData
 
         private TpchScaledColumn(TpchScaledTable table, String columnName)
         {
-            this.table = checkNotNull(table, "table is null");
-            this.columnName = checkNotNull(columnName, "columnName is null");
-        }
-
-        public static Function<String, TpchScaledColumn> columnFunction(final TpchScaledTable table)
-        {
-            return new Function<String, TpchScaledColumn>()
-            {
-                @Override
-                public TpchScaledColumn apply(String columnName)
-                {
-                    return new TpchScaledColumn(table, columnName);
-                }
-            };
+            this.table = requireNonNull(table, "table is null");
+            this.columnName = requireNonNull(columnName, "columnName is null");
         }
 
         @Override

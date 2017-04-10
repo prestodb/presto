@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.tree.NodeLocation;
 import org.antlr.v4.runtime.RecognitionException;
 
 import static java.lang.String.format;
@@ -34,6 +35,11 @@ public class ParsingException
     public ParsingException(String message)
     {
         this(message, null, 1, 0);
+    }
+
+    public ParsingException(String message, NodeLocation nodeLocation)
+    {
+        this(message, null, nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
     }
 
     public int getLineNumber()

@@ -13,7 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class IsNotNullPredicate
         extends Expression
@@ -22,7 +28,18 @@ public class IsNotNullPredicate
 
     public IsNotNullPredicate(Expression value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        this(Optional.empty(), value);
+    }
+
+    public IsNotNullPredicate(NodeLocation location, Expression value)
+    {
+        this(Optional.of(location), value);
+    }
+
+    private IsNotNullPredicate(Optional<NodeLocation> location, Expression value)
+    {
+        super(location);
+        requireNonNull(value, "value is null");
         this.value = value;
     }
 
@@ -38,6 +55,12 @@ public class IsNotNullPredicate
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(value);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -48,12 +71,7 @@ public class IsNotNullPredicate
         }
 
         IsNotNullPredicate that = (IsNotNullPredicate) o;
-
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value);
     }
 
     @Override

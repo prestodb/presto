@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.Parameter;
-import com.facebook.presto.byteCode.Scope;
-import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.byteCode.control.ForLoop;
-import com.facebook.presto.byteCode.control.IfStatement;
-import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.ForLoop;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.spi.ConnectorSession;
@@ -33,19 +34,30 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.Signatures;
+import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.util.List;
+import java.util.Set;
 
-import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.OpCode.NOP;
-import static com.facebook.presto.byteCode.Parameter.arg;
-import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.OpCode.NOP;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
+import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
+import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
+import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler
@@ -61,15 +73,25 @@ public class CursorProcessorCompiler
     @Override
     public void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
     {
+        CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
         generateProcessMethod(classDefinition, projections.size());
-        generateFilterMethod(classDefinition, callSiteBinder, filter);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
 
         for (int i = 0; i < projections.size(); i++) {
-            generateProjectMethod(classDefinition, callSiteBinder, "project_" + i, projections.get(i));
+            generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, "project_" + i, projections.get(i));
         }
+
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
+        BytecodeBlock constructorBody = constructorDefinition.getBody();
+        Variable thisVariable = constructorDefinition.getThis();
+        constructorBody.comment("super();")
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
+        cachedInstanceBinder.generateInitializations(thisVariable, constructorBody);
+        constructorBody.ret();
     }
 
-    private void generateProcessMethod(ClassDefinition classDefinition, int projections)
+    private static void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
@@ -90,25 +112,25 @@ public class CursorProcessorCompiler
         LabelNode done = new LabelNode("done");
         ForLoop forLoop = new ForLoop()
                 .initialize(NOP)
-                .condition(new Block()
+                .condition(new BytecodeBlock()
                                 .comment("completedPositions < count")
                                 .getVariable(completedPositionsVariable)
                                 .getVariable(count)
                                 .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
-                .update(new Block()
+                .update(new BytecodeBlock()
                                 .comment("completedPositions++")
                                 .incrementVariable(completedPositionsVariable, (byte) 1)
                 );
 
-        Block forLoopBody = new Block()
+        BytecodeBlock forLoopBody = new BytecodeBlock()
                 .comment("if (pageBuilder.isFull()) break;")
-                .append(new Block()
+                .append(new BytecodeBlock()
                         .getVariable(pageBuilder)
                         .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
                         .ifTrueGoto(done))
                 .comment("if (!cursor.advanceNextPosition()) break;")
-                .append(new Block()
+                .append(new BytecodeBlock()
                         .getVariable(cursor)
                         .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
                         .ifFalseGoto(done));
@@ -141,7 +163,7 @@ public class CursorProcessorCompiler
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
-            // project(block..., blockBuilder)
+            // project(block..., blockBuilder)gen
             ifStatement.ifTrue()
                     .invokeVirtual(classDefinition.getType(),
                     "project_" + projectionIndex,
@@ -160,8 +182,77 @@ public class CursorProcessorCompiler
                 .retInt();
     }
 
-    private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
+    private PreGeneratedExpressions generateMethodsForLambdaAndTry(
+            ClassDefinition containerClassDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            RowExpression projection,
+            String methodPrefix)
     {
+        Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(projection));
+
+        ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+        ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
+
+        int counter = 0;
+        for (RowExpression expression : lambdaAndTryExpressions) {
+            if (expression instanceof CallExpression) {
+                CallExpression tryExpression = (CallExpression) expression;
+                verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
+
+                Parameter session = arg("session", ConnectorSession.class);
+                Parameter cursor = arg("cursor", RecordCursor.class);
+
+                List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
+                        .add(session)
+                        .add(cursor)
+                        .build();
+
+                BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        fieldReferenceCompiler(cursor),
+                        metadata.getFunctionRegistry(),
+                        new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build()));
+
+                MethodDefinition tryMethod = defineTryMethod(
+                        innerExpressionVisitor,
+                        containerClassDefinition,
+                        methodPrefix + "_try_" + counter,
+                        inputParameters,
+                        Primitives.wrap(tryExpression.getType().getJavaType()),
+                        tryExpression,
+                        callSiteBinder);
+
+                tryMethodMap.put(tryExpression, tryMethod);
+            }
+            else if (expression instanceof LambdaDefinitionExpression) {
+                LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
+                String fieldName = methodPrefix + "_lambda_" + counter;
+                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
+                FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                        lambdaExpression,
+                        fieldName,
+                        containerClassDefinition,
+                        preGeneratedExpressions,
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        metadata.getFunctionRegistry());
+                lambdaFieldMap.put(lambdaExpression, methodHandleField);
+            }
+            else {
+                throw new VerifyException(format("unexpected expression: %s", expression.toString()));
+            }
+            counter++;
+        }
+
+        return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
+    }
+
+    private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter)
+    {
+        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
+
         Parameter session = arg("session", ConnectorSession.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "filter", type(boolean.class), session, cursor);
@@ -171,7 +262,12 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
+        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+                callSiteBinder,
+                cachedInstanceBinder,
+                fieldReferenceCompiler(cursor),
+                metadata.getFunctionRegistry(),
+                preGeneratedExpressions);
 
         LabelNode end = new LabelNode("end");
         method.getBody()
@@ -188,8 +284,10 @@ public class CursorProcessorCompiler
                 .retBoolean();
     }
 
-    private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
+    private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, String methodName, RowExpression projection)
     {
+        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, projection, methodName);
+
         Parameter session = arg("session", ConnectorSession.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
         Parameter output = arg("output", BlockBuilder.class);
@@ -200,28 +298,33 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        Block body = method.getBody()
+        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+                callSiteBinder,
+                cachedInstanceBinder,
+                fieldReferenceCompiler(cursor),
+                metadata.getFunctionRegistry(),
+                preGeneratedExpressions);
+
+        method.getBody()
                 .comment("boolean wasNull = false;")
-                .putVariable(wasNullVariable, false);
-
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
-
-        body.getVariable(output)
+                .putVariable(wasNullVariable, false)
+                .getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
                 .append(projection.accept(visitor, scope))
                 .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
     }
 
-    private RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler(final Variable cursorVariable, final Variable wasNullVariable)
+    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(Variable cursorVariable)
     {
-        return new RowExpressionVisitor<Scope, ByteCodeNode>()
+        return new RowExpressionVisitor<Scope, BytecodeNode>()
         {
             @Override
-            public ByteCodeNode visitInputReference(InputReferenceExpression node, Scope scope)
+            public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
             {
                 int field = node.getField();
                 Type type = node.getType();
+                Variable wasNullVariable = scope.getVariable("wasNull");
 
                 Class<?> javaType = type.getJavaType();
                 if (!javaType.isPrimitive() && javaType != Slice.class) {
@@ -248,15 +351,27 @@ public class CursorProcessorCompiler
             }
 
             @Override
-            public ByteCodeNode visitCall(CallExpression call, Scope scope)
+            public BytecodeNode visitCall(CallExpression call, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }
 
             @Override
-            public ByteCodeNode visitConstant(ConstantExpression literal, Scope scope)
+            public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
+            }
+
+            @Override
+            public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Scope context)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
+            {
+                throw new UnsupportedOperationException();
             }
         };
     }

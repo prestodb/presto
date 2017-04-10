@@ -14,7 +14,6 @@
 package com.facebook.presto.benchmark;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import io.airlift.json.JsonCodec;
 
@@ -23,6 +22,7 @@ import java.io.OutputStream;
 import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class JsonAvgBenchmarkResultWriter
         implements BenchmarkResultHook
@@ -41,14 +41,14 @@ public class JsonAvgBenchmarkResultWriter
 
     public JsonAvgBenchmarkResultWriter(OutputStream outputStream)
     {
-        Preconditions.checkNotNull(outputStream, "outputStream is null");
+        requireNonNull(outputStream, "outputStream is null");
         this.outputStream = outputStream;
     }
 
     @Override
     public BenchmarkResultHook addResults(Map<String, Long> results)
     {
-        Preconditions.checkNotNull(results, "results is null");
+        requireNonNull(results, "results is null");
         sampleCount++;
         totalElapsedMillis += getValue(results, "elapsed_millis");
         totalInputRows += getValue(results, "input_rows;");

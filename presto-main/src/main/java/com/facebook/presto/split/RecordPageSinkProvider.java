@@ -16,12 +16,13 @@ package com.facebook.presto.split;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordPageSink;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RecordPageSinkProvider
         implements ConnectorPageSinkProvider
@@ -30,18 +31,18 @@ public class RecordPageSinkProvider
 
     public RecordPageSinkProvider(ConnectorRecordSinkProvider recordSinkProvider)
     {
-        this.recordSinkProvider = checkNotNull(recordSinkProvider, "recordSinkProvider is null");
+        this.recordSinkProvider = requireNonNull(recordSinkProvider, "recordSinkProvider is null");
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        return new RecordPageSink(recordSinkProvider.getRecordSink(session, outputTableHandle));
+        return new RecordPageSink(recordSinkProvider.getRecordSink(transactionHandle, session, outputTableHandle));
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        return new RecordPageSink(recordSinkProvider.getRecordSink(session, insertTableHandle));
+        return new RecordPageSink(recordSinkProvider.getRecordSink(transactionHandle, session, insertTableHandle));
     }
 }

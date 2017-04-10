@@ -20,7 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ShardNodes
 {
@@ -29,8 +29,8 @@ public class ShardNodes
 
     public ShardNodes(UUID shardUuid, Set<String> nodeIdentifiers)
     {
-        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-        this.nodeIdentifiers = ImmutableSet.copyOf(checkNotNull(nodeIdentifiers, "nodeIdentifiers is null"));
+        this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.nodeIdentifiers = ImmutableSet.copyOf(requireNonNull(nodeIdentifiers, "nodeIdentifiers is null"));
     }
 
     public UUID getShardUuid()

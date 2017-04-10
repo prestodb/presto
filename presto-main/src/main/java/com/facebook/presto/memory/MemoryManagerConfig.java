@@ -14,19 +14,51 @@
 package com.facebook.presto.memory;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
+@DefunctConfig("experimental.cluster-memory-manager-enabled")
 public class MemoryManagerConfig
 {
-    public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
-
     private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
-    private DataSize maxQueryMemoryPerNode = new DataSize(1, GIGABYTE);
-    private boolean clusterMemoryManagerEnabled = true;
+    private boolean killOnOutOfMemory;
+    private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
+
+    public boolean isKillOnOutOfMemory()
+    {
+        return killOnOutOfMemory;
+    }
+
+    @Config("query.low-memory-killer.enabled")
+    @ConfigDescription("Enable low memory killer")
+    public MemoryManagerConfig setKillOnOutOfMemory(boolean killOnOutOfMemory)
+    {
+        this.killOnOutOfMemory = killOnOutOfMemory;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("5s")
+    public Duration getKillOnOutOfMemoryDelay()
+    {
+        return killOnOutOfMemoryDelay;
+    }
+
+    @Config("query.low-memory-killer.delay")
+    @ConfigDescription("Delay between cluster running low on memory and invoking killer")
+    public MemoryManagerConfig setKillOnOutOfMemoryDelay(Duration killOnOutOfMemoryDelay)
+    {
+        this.killOnOutOfMemoryDelay = killOnOutOfMemoryDelay;
+        return this;
+    }
 
     @NotNull
     public DataSize getMaxQueryMemory()
@@ -38,31 +70,6 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setMaxQueryMemory(DataSize maxQueryMemory)
     {
         this.maxQueryMemory = maxQueryMemory;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getMaxQueryMemoryPerNode()
-    {
-        return maxQueryMemoryPerNode;
-    }
-
-    @Config(QUERY_MAX_MEMORY_PER_NODE_CONFIG)
-    public MemoryManagerConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
-    {
-        this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;
-        return this;
-    }
-
-    public boolean isClusterMemoryManagerEnabled()
-    {
-        return clusterMemoryManagerEnabled;
-    }
-
-    @Config("experimental.cluster-memory-manager-enabled")
-    public MemoryManagerConfig setClusterMemoryManagerEnabled(boolean clusterMemoryManagerEnabled)
-    {
-        this.clusterMemoryManagerEnabled = clusterMemoryManagerEnabled;
         return this;
     }
 }

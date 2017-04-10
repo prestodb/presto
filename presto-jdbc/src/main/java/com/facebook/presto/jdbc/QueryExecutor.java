@@ -15,11 +15,13 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.Request;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.http.client.jetty.JettyIoPool;
 import io.airlift.http.client.jetty.JettyIoPoolConfig;
@@ -35,27 +37,24 @@ import java.net.ProxySelector;
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.util.Objects.requireNonNull;
 
 class QueryExecutor
         implements Closeable
 {
     private final JsonCodec<QueryResults> queryInfoCodec;
+    private final JsonCodec<ServerInfo> serverInfoCodec;
     private final HttpClient httpClient;
 
-    private QueryExecutor(String userAgent, JsonCodec<QueryResults> queryResultsCodec, HostAndPort socksProxy)
+    private QueryExecutor(JsonCodec<QueryResults> queryResultsCodec, JsonCodec<ServerInfo> serverInfoCodec, HttpClient httpClient)
     {
-        checkNotNull(userAgent, "userAgent is null");
-        checkNotNull(queryResultsCodec, "queryResultsCodec is null");
-
-        this.queryInfoCodec = queryResultsCodec;
-        this.httpClient = new JettyHttpClient(
-                new HttpClientConfig()
-                        .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
-                        .setSocksProxy(socksProxy),
-                new JettyIoPool("presto-jdbc", new JettyIoPoolConfig()),
-                ImmutableSet.of(new UserAgentRequestFilter(userAgent)));
+        this.queryInfoCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
+        this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
 
     public StatementClient startQuery(ClientSession session, String query)
@@ -69,6 +68,13 @@ class QueryExecutor
         httpClient.close();
     }
 
+    public ServerInfo getServerInfo(URI server)
+    {
+        URI uri = uriBuilderFrom(server).replacePath("/v1/info").build();
+        Request request = prepareGet().setUri(uri).build();
+        return httpClient.execute(request, createJsonResponseHandler(serverInfoCodec));
+    }
+
     // TODO: replace this with a phantom reference
     @SuppressWarnings("FinalizeDeclaration")
     @Override
@@ -79,7 +85,17 @@ class QueryExecutor
 
     static QueryExecutor create(String userAgent)
     {
-        return new QueryExecutor(userAgent, jsonCodec(QueryResults.class), getSystemSocksProxy());
+        return create(new JettyHttpClient(
+                new HttpClientConfig()
+                        .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
+                        .setSocksProxy(getSystemSocksProxy()),
+                new JettyIoPool("presto-jdbc", new JettyIoPoolConfig()),
+                ImmutableSet.of(new UserAgentRequestFilter(userAgent))));
+    }
+
+    static QueryExecutor create(HttpClient httpClient)
+    {
+        return new QueryExecutor(jsonCodec(QueryResults.class), jsonCodec(ServerInfo.class), httpClient);
     }
 
     @Nullable

@@ -48,14 +48,14 @@ public class TestJoinCompiler
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
     {
-        return new Object[][] { { true }, { false } };
+        return new Object[][] {{true}, {false}};
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testSingleChannel(boolean hashEnabled)
             throws Exception
     {
-        List<Type> joinTypes = ImmutableList.<Type>of(VARCHAR);
+        List<Type> joinTypes = ImmutableList.of(VARCHAR);
         List<Integer> joinChannels = Ints.asList(0);
 
         // compile a single channel hash strategy
@@ -93,15 +93,17 @@ public class TestJoinCompiler
                 assertEquals(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition), hashPosition(VARCHAR, leftBlock, leftBlockPosition));
 
                 // position must be equal to itself
-                assertTrue(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition));
+                assertTrue(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition));
 
                 // check equality of every position against every other position in the block
                 for (int rightBlockIndex = 0; rightBlockIndex < channel.size(); rightBlockIndex++) {
                     Block rightBlock = channel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, rightBlock), expected);
-                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Block[] {leftBlock}, rightBlockPosition, new Block[] {rightBlock}), expected);
+                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock)), expected);
+                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock)), expected);
+                        assertEquals(hashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock)), expected);
+                        assertEquals(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                         assertEquals(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                     }
                 }
@@ -111,8 +113,10 @@ public class TestJoinCompiler
                     Block rightBlock = channel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, rightBlock), expected);
-                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Block[] {leftBlock}, rightBlockPosition, new Block[] {rightBlock}), expected);
+                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock)), expected);
+                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock)), expected);
+                        assertEquals(hashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock)), expected);
+                        assertEquals(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                         assertEquals(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                     }
                 }
@@ -133,9 +137,11 @@ public class TestJoinCompiler
     {
         // compile a single channel hash strategy
         JoinCompiler joinCompiler = new JoinCompiler();
-        List<Type> types = ImmutableList.<Type>of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN);
-        List<Type> joinTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR);
+        List<Type> joinTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        List<Type> outputTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR);
         List<Integer> joinChannels = Ints.asList(1, 2, 3, 4);
+        List<Integer> outputChannels = Ints.asList(1, 2, 3, 4, 0);
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> extraChannel = ImmutableList.of(
@@ -158,31 +164,44 @@ public class TestJoinCompiler
                 BlockAssertions.createBooleanSequenceBlock(10, 20),
                 BlockAssertions.createBooleanSequenceBlock(20, 30),
                 BlockAssertions.createBooleanSequenceBlock(15, 25));
+        List<Block> extraUnusedChannel = ImmutableList.of(
+                BlockAssertions.createBooleanSequenceBlock(10, 20),
+                BlockAssertions.createBooleanSequenceBlock(20, 30),
+                BlockAssertions.createBooleanSequenceBlock(15, 25));
 
         Optional<Integer> hashChannel = Optional.empty();
-        ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel);
+        ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel);
         List<Block> precomputedHash = ImmutableList.of();
         if (hashEnabled) {
             ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
             for (int i = 0; i < 3; i++) {
                 hashChannelBuilder.add(TypeUtils.getHashBlock(joinTypes, varcharChannel.get(i), longChannel.get(i), doubleChannel.get(i), booleanChannel.get(i)));
             }
-            hashChannel = Optional.of(5);
+            hashChannel = Optional.of(6);
             precomputedHash = hashChannelBuilder.build();
-            channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, precomputedHash);
-            types = ImmutableList.<Type>of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT);
+            channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel, precomputedHash);
+            types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR, BIGINT);
+            outputTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR, BIGINT);
+            outputChannels = Ints.asList(1, 2, 3, 4, 0, 6);
         }
 
-        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels);
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, Optional.of(outputChannels));
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
-        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, channels, joinChannels, hashChannel);
+        // todo add tests for filter function
+        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, outputChannels, channels, joinChannels, hashChannel);
 
         // verify channel count
-        assertEquals(hashStrategy.getChannelCount(), types.size());
+        assertEquals(hashStrategy.getChannelCount(), outputChannels.size());
+        // verify size
+        long sizeInBytes = channels.stream()
+                .flatMap(List::stream)
+                .mapToLong(Block::getRetainedSizeInBytes)
+                .sum();
+        assertEquals(hashStrategy.getSizeInBytes(), sizeInBytes);
 
         // verify hashStrategy is consistent with equals and hash code from block
         for (int leftBlockIndex = 0; leftBlockIndex < varcharChannel.size(); leftBlockIndex++) {
-            PageBuilder pageBuilder = new PageBuilder(types);
+            PageBuilder pageBuilder = new PageBuilder(outputTypes);
 
             Block[] leftBlocks = new Block[4];
             leftBlocks[0] = varcharChannel.get(leftBlockIndex);
@@ -198,12 +217,16 @@ public class TestJoinCompiler
                         expectedHashStrategy.hashPosition(leftBlockIndex, leftBlockPosition));
 
                 // position must be equal to itself
+                assertTrue(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition));
                 assertTrue(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition));
 
                 // check equality of every position against every other position in the block
                 for (int rightBlockIndex = 0; rightBlockIndex < varcharChannel.size(); rightBlockIndex++) {
                     Block rightBlock = varcharChannel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
+                        assertEquals(
+                                hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition),
+                                expectedHashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition));
                         assertEquals(
                                 hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition),
                                 expectedHashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition));
@@ -220,11 +243,11 @@ public class TestJoinCompiler
 
                     int rightPositionCount = varcharChannel.get(rightBlockIndex).getPositionCount();
                     for (int rightPosition = 0; rightPosition < rightPositionCount; rightPosition++) {
-                        boolean expected = expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks);
+                        boolean expected = expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks));
 
-                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks), expected);
-                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, leftBlocks, rightPosition, rightBlocks), expected);
-                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks), expected);
+                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks)), expected);
+                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Page(leftBlocks), rightPosition, new Page(rightBlocks)), expected);
+                        assertEquals(hashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks)), expected);
                     }
                 }
 
@@ -236,21 +259,21 @@ public class TestJoinCompiler
             // verify output block matches
             Page page = pageBuilder.build();
             if (hashEnabled) {
-                assertPageEquals(types, page, new Page(
-                        extraChannel.get(leftBlockIndex),
+                assertPageEquals(outputTypes, page, new Page(
                         varcharChannel.get(leftBlockIndex),
                         longChannel.get(leftBlockIndex),
                         doubleChannel.get(leftBlockIndex),
                         booleanChannel.get(leftBlockIndex),
+                        extraChannel.get(leftBlockIndex),
                         precomputedHash.get(leftBlockIndex)));
             }
             else {
-                assertPageEquals(types, page, new Page(
-                        extraChannel.get(leftBlockIndex),
+                assertPageEquals(outputTypes, page, new Page(
                         varcharChannel.get(leftBlockIndex),
                         longChannel.get(leftBlockIndex),
                         doubleChannel.get(leftBlockIndex),
-                        booleanChannel.get(leftBlockIndex)));
+                        booleanChannel.get(leftBlockIndex),
+                        extraChannel.get(leftBlockIndex)));
             }
         }
     }

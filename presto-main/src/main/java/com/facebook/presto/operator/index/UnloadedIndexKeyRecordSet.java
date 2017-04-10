@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.spi.Page;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -36,8 +38,8 @@ import java.util.Set;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class UnloadedIndexKeyRecordSet
         implements RecordSet
@@ -45,11 +47,17 @@ public class UnloadedIndexKeyRecordSet
     private final List<Type> types;
     private final List<PageAndPositions> pageAndPositions;
 
-    public UnloadedIndexKeyRecordSet(IndexSnapshot existingSnapshot, Set<Integer> channelsForDistinct, List<Type> types, List<UpdateRequest> requests)
+    public UnloadedIndexKeyRecordSet(
+            Session session,
+            IndexSnapshot existingSnapshot,
+            Set<Integer> channelsForDistinct,
+            List<Type> types,
+            List<UpdateRequest> requests,
+            JoinCompiler joinCompiler)
     {
-        checkNotNull(existingSnapshot, "existingSnapshot is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        checkNotNull(requests, "requests is null");
+        requireNonNull(existingSnapshot, "existingSnapshot is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        requireNonNull(requests, "requests is null");
 
         int[] distinctChannels = Ints.toArray(channelsForDistinct);
         int[] normalizedDistinctChannels = new int[distinctChannels.length];
@@ -60,7 +68,7 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(distinctChannelTypes, normalizedDistinctChannels, Optional.<Integer>empty(), Optional.empty(), 10_000);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
             Block[] blocks = page.getBlocks();
@@ -133,8 +141,8 @@ public class UnloadedIndexKeyRecordSet
 
         public UnloadedIndexKeyRecordCursor(List<Type> types, List<PageAndPositions> pageAndPositions)
         {
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-            this.pageAndPositionsIterator = checkNotNull(pageAndPositions, "pageAndPositions is null").iterator();
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.pageAndPositionsIterator = requireNonNull(pageAndPositions, "pageAndPositions is null").iterator();
             this.blocks = new Block[types.size()];
         }
 
@@ -246,8 +254,8 @@ public class UnloadedIndexKeyRecordSet
 
         private PageAndPositions(UpdateRequest updateRequest, IntList positions)
         {
-            this.updateRequest = checkNotNull(updateRequest, "updateRequest is null");
-            this.positions = checkNotNull(positions, "positions is null");
+            this.updateRequest = requireNonNull(updateRequest, "updateRequest is null");
+            this.positions = requireNonNull(positions, "positions is null");
         }
 
         private UpdateRequest getUpdateRequest()

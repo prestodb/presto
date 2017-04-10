@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Values
         extends QueryBody
@@ -28,7 +29,18 @@ public final class Values
 
     public Values(List<Expression> rows)
     {
-        checkNotNull(rows, "rows is null");
+        this(Optional.empty(), rows);
+    }
+
+    public Values(NodeLocation location, List<Expression> rows)
+    {
+        this(Optional.of(location), rows);
+    }
+
+    private Values(Optional<NodeLocation> location, List<Expression> rows)
+    {
+        super(location);
+        requireNonNull(rows, "rows is null");
         this.rows = ImmutableList.copyOf(rows);
     }
 
@@ -41,6 +53,12 @@ public final class Values
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitValues(this, context);
+    }
+
+    @Override
+    public List<? extends Node> getChildren()
+    {
+        return rows;
     }
 
     @Override

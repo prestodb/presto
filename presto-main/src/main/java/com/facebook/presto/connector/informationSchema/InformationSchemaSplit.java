@@ -15,7 +15,7 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.SerializableNativeValue;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -25,25 +25,26 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaSplit
         implements ConnectorSplit
 {
     private final InformationSchemaTableHandle tableHandle;
-    private final Map<String, SerializableNativeValue> filters;
+    private final Map<String, NullableValue> filters;
     private final List<HostAddress> addresses;
 
     @JsonCreator
     public InformationSchemaSplit(
             @JsonProperty("tableHandle") InformationSchemaTableHandle tableHandle,
-            @JsonProperty("filters") Map<String, SerializableNativeValue> filters,
+            @JsonProperty("filters") Map<String, NullableValue> filters,
             @JsonProperty("addresses") List<HostAddress> addresses)
-    {
-        this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
-        this.filters = checkNotNull(filters, "filters is null");
 
-        checkNotNull(addresses, "hosts is null");
+    {
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.filters = requireNonNull(filters, "filters is null");
+
+        requireNonNull(addresses, "hosts is null");
         checkArgument(!addresses.isEmpty(), "hosts is empty");
         this.addresses = ImmutableList.copyOf(addresses);
     }
@@ -68,7 +69,7 @@ public class InformationSchemaSplit
     }
 
     @JsonProperty
-    public Map<String, SerializableNativeValue> getFilters()
+    public Map<String, NullableValue> getFilters()
     {
         return filters;
     }

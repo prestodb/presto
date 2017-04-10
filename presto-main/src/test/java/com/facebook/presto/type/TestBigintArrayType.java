@@ -17,29 +17,28 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
+import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestBigintArrayType
         extends AbstractTestType
 {
     public TestBigintArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array<bigint>")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array<bigint>"))));
+        super(new TypeRegistry().getType(parseTypeSignature("array(bigint)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(bigint)"))));
     }
 
     public static Block createTestBlock(Type arrayType)
     {
         BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 4);
-        arrayType.writeObject(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2), BIGINT));
-        arrayType.writeObject(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2, 3), BIGINT));
-        arrayType.writeObject(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2, 3), BIGINT));
-        arrayType.writeObject(blockBuilder, toStackRepresentation(ImmutableList.of(100, 200, 300), BIGINT));
+        arrayType.writeObject(blockBuilder, arrayBlockOf(BIGINT, 1, 2));
+        arrayType.writeObject(blockBuilder, arrayBlockOf(BIGINT, 1, 2, 3));
+        arrayType.writeObject(blockBuilder, arrayBlockOf(BIGINT, 1, 2, 3));
+        arrayType.writeObject(blockBuilder, arrayBlockOf(BIGINT, 100, 200, 300));
         return blockBuilder.build();
     }
 

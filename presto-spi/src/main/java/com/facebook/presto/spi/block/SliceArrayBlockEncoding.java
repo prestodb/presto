@@ -46,7 +46,7 @@ public class SliceArrayBlockEncoding
         for (int position = 0; position < positionCount; position++) {
             int length = 0;
             if (!sliceArrayBlock.isNull(position)) {
-                length = sliceArrayBlock.getLength(position);
+                length = sliceArrayBlock.getSliceLength(position);
             }
             sliceOutput.appendInt(length);
         }
@@ -58,26 +58,6 @@ public class SliceArrayBlockEncoding
                 sliceOutput.writeBytes(value);
             }
         }
-    }
-
-    @Override
-    public int getEstimatedSize(Block block)
-    {
-        int positionCount = block.getPositionCount();
-
-        int size = 4; // positionCount integer bytes
-        int totalLength = 0;
-        for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
-                totalLength += block.getLength(position);
-            }
-            size += 4; // length integer bytes
-        }
-
-        size += positionCount / 8 + 1; // one byte null bits per eight elements and possibly last null bits
-        size += totalLength;
-
-        return size;
     }
 
     @Override

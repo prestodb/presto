@@ -43,6 +43,12 @@ public interface RecordCursor
 
     boolean isNull(int field);
 
+    default long getSystemMemoryUsage()
+    {
+        // TODO: implement this method in subclasses and remove this default implementation
+        return 0;
+    }
+
     @Override
     void close();
 }

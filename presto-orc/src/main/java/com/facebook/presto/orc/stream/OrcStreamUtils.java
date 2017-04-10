@@ -18,9 +18,6 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import java.io.IOException;
 import java.io.InputStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 final class OrcStreamUtils
 {
     public static final int MIN_REPEAT_SIZE = 3;
@@ -51,16 +48,5 @@ final class OrcStreamUtils
             }
             offset += result;
         }
-    }
-
-    static <A, B extends A> B checkType(A value, Class<B> target, String name)
-    {
-        checkNotNull(value, "%s is null", name);
-        checkArgument(target.isInstance(value),
-                "%s must be of type %s, not %s",
-                name,
-                target.getName(),
-                value.getClass().getName());
-        return target.cast(value);
     }
 }

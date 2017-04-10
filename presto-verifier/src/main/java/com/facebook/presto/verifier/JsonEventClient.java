@@ -27,7 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JsonEventClient
         extends AbstractEventClient
@@ -41,7 +41,7 @@ public class JsonEventClient
     public JsonEventClient(VerifierConfig config)
             throws FileNotFoundException
     {
-        checkNotNull(config.getEventLogFile(), "event log file path is null");
+        requireNonNull(config.getEventLogFile(), "event log file path is null");
         this.out = new PrintStream(config.getEventLogFile());
     }
 

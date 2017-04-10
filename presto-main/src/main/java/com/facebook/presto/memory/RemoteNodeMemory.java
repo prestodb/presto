@@ -118,7 +118,7 @@ public class RemoteNodeMemory
                 @Override
                 public void onFailure(Throwable t)
                 {
-                    log.warn(t, "Error fetching memory info from %s", memoryInfoUri);
+                    log.warn("Error fetching memory info from %s: %s", memoryInfoUri, t.getMessage());
                     lastUpdateNanos.set(System.nanoTime());
                     future.compareAndSet(responseFuture, null);
                 }

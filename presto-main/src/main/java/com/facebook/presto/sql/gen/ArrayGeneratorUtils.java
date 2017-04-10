@@ -13,17 +13,15 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Scope;
-import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.byteCode.expression.ByteCodeExpression;
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.gen.InvokeFunctionByteCodeExpression.invokeFunction;
+import static com.facebook.presto.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 
 public final class ArrayGeneratorUtils
 {
@@ -31,38 +29,36 @@ public final class ArrayGeneratorUtils
     {
     }
 
-    public static ArrayMapByteCodeExpression map(Scope scope, CallSiteBinder binder, TypeManager typeManager, Variable array, FunctionInfo elementFunction)
+    public static ArrayMapBytecodeExpression map(Scope scope, CachedInstanceBinder cachedInstanceBinder, Type fromElementType, Type toElementType, Variable array, String elementFunctionName, ScalarFunctionImplementation elementFunction)
     {
         return map(
                 scope,
-                binder,
-                typeManager,
+                cachedInstanceBinder.getCallSiteBinder(),
+                fromElementType,
+                toElementType,
                 array,
-                elementFunction.getSignature(),
-                element -> invokeFunction(scope, binder, elementFunction, element));
+                element -> invokeFunction(scope, cachedInstanceBinder, elementFunctionName, elementFunction, element));
     }
 
-    public static ArrayMapByteCodeExpression map(
+    public static ArrayMapBytecodeExpression map(
             Scope scope,
             CallSiteBinder binder,
-            TypeManager typeManager,
-            ByteCodeExpression array,
-            Signature mapperSignature,
-            Function<ByteCodeExpression, ByteCodeExpression> mapper)
+            Type fromElementType,
+            Type toElementType,
+            BytecodeExpression array,
+            Function<BytecodeExpression, BytecodeExpression> mapper)
     {
-        Type fromElementType = typeManager.getType(mapperSignature.getArgumentTypes().get(0));
-        Type toElementType = typeManager.getType(mapperSignature.getReturnType());
         return map(scope, binder, array, fromElementType, toElementType, mapper);
     }
 
-    public static ArrayMapByteCodeExpression map(
+    public static ArrayMapBytecodeExpression map(
             Scope scope,
             CallSiteBinder binder,
-            ByteCodeExpression array,
+            BytecodeExpression array,
             Type fromElementType,
             Type toElementType,
-            Function<ByteCodeExpression, ByteCodeExpression> mapper)
+            Function<BytecodeExpression, BytecodeExpression> mapper)
     {
-        return new ArrayMapByteCodeExpression(scope, binder, array, fromElementType, toElementType, mapper);
+        return new ArrayMapBytecodeExpression(scope, binder, array, fromElementType, toElementType, mapper);
     }
 }

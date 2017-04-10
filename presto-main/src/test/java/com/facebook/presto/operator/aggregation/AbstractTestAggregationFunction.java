@@ -15,48 +15,60 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.testing.RunLengthEncodedBlock;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Lists;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected final TypeRegistry typeRegistry = new TypeRegistry();
-    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), true);
+    protected TypeRegistry typeRegistry;
+    protected FunctionRegistry functionRegistry;
+
+    @BeforeClass
+    public final void initTestAggregationFunction()
+    {
+        typeRegistry = new TypeRegistry();
+        functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroyTestAggregationFunction()
+    {
+        functionRegistry = null;
+        typeRegistry = null;
+    }
 
     public abstract Block[] getSequenceBlocks(int start, int length);
 
     protected final InternalAggregationFunction getFunction()
     {
-        return functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature), isApproximate()).getAggregationFunction();
+        List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
+        Signature signature = functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), parameterTypes);
+        return functionRegistry.getAggregateFunctionImplementation(signature);
     }
 
     protected abstract String getFunctionName();
 
     protected abstract List<String> getFunctionParameterTypes();
 
-    protected boolean isApproximate()
-    {
-        return false;
-    }
-
     public abstract Object getExpectedValue(int start, int length);
-
-    public double getConfidence()
-    {
-        return 1.0;
-    }
 
     public Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
     {
@@ -110,7 +122,7 @@ public abstract class AbstractTestAggregationFunction
             return;
         }
 
-        Block[] alternatingNullsBlocks = createAlternatingNullsBlock(parameterTypes.get(0), getSequenceBlocks(0, 10));
+        Block[] alternatingNullsBlocks = createAlternatingNullsBlock(parameterTypes, getSequenceBlocks(0, 10));
         testAggregation(getExpectedValueIncludingNulls(0, 10, 20), alternatingNullsBlocks);
     }
 
@@ -126,11 +138,12 @@ public abstract class AbstractTestAggregationFunction
         testAggregation(getExpectedValue(2, 4), getSequenceBlocks(2, 4));
     }
 
-    public Block[] createAlternatingNullsBlock(Type type, Block... sequenceBlocks)
+    public Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
     {
         Block[] alternatingNullsBlocks = new Block[sequenceBlocks.length];
         for (int i = 0; i < sequenceBlocks.length; i++) {
             int positionCount = sequenceBlocks[i].getPositionCount();
+            Type type = types.get(i);
             BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), positionCount);
             for (int position = 0; position < positionCount; position++) {
                 // append null
@@ -145,6 +158,6 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testAggregation(Object expectedValue, Block... blocks)
     {
-        assertAggregation(getFunction(), getConfidence(), expectedValue, blocks[0].getPositionCount(), blocks);
+        assertAggregation(getFunction(), expectedValue, blocks);
     }
 }

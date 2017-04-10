@@ -13,28 +13,29 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.orc.DoubleVector;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.FloatStream;
-import com.facebook.presto.orc.stream.StreamSource;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.FloatInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
-import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class FloatStreamReader
         implements StreamReader
@@ -45,20 +46,21 @@ public class FloatStreamReader
     private int nextBatchSize;
 
     @Nonnull
-    private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanStream presentStream;
+    private BooleanInputStream presentStream;
+    private boolean[] nullVector = new boolean[0];
 
     @Nonnull
-    private StreamSource<FloatStream> dataStreamSource = missingStreamSource(FloatStream.class);
+    private InputStreamSource<FloatInputStream> dataStreamSource = missingStreamSource(FloatInputStream.class);
     @Nullable
-    private FloatStream dataStream;
+    private FloatInputStream dataStream;
 
     private boolean rowGroupOpen;
 
     public FloatStreamReader(StreamDescriptor streamDescriptor)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
     @Override
@@ -69,7 +71,7 @@ public class FloatStreamReader
     }
 
     @Override
-    public void readBatch(Object vector)
+    public Block readBlock(Type type)
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -90,27 +92,35 @@ public class FloatStreamReader
             }
         }
 
-        // we could add a float vector but Presto currently doesn't support floats
-        DoubleVector floatVector = castOrcVector(vector, DoubleVector.class);
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
             }
-            Arrays.fill(floatVector.isNull, false);
-            dataStream.nextVector(nextBatchSize, floatVector.vector);
+            dataStream.nextVector(type, nextBatchSize, builder);
         }
         else {
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, floatVector.isNull);
+            if (nullVector.length < nextBatchSize) {
+                nullVector = new boolean[nextBatchSize];
+            }
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (dataStream == null) {
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
-                dataStream.nextVector(nextBatchSize, floatVector.vector, floatVector.isNull);
+                dataStream.nextVector(type, nextBatchSize, builder, nullVector);
+            }
+            else {
+                for (int i = 0; i < nextBatchSize; i++) {
+                    builder.appendNull();
+                }
             }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
+
+        return builder.build();
     }
 
     private void openRowGroup()
@@ -123,11 +133,11 @@ public class FloatStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanStream.class);
-        dataStreamSource = missingStreamSource(FloatStream.class);
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        dataStreamSource = missingStreamSource(FloatInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -139,11 +149,11 @@ public class FloatStreamReader
     }
 
     @Override
-    public void startRowGroup(StreamSources dataStreamSources)
+    public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        dataStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, FloatStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, FloatInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

@@ -13,13 +13,18 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
-import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
+//Integrations tests fail when parallel, due to a bug or configuration error in the embedded
+//cassandra instance. This problem results in either a hang in Thrift calls or broken sockets.
 @Test(singleThreaded = true)
 public class TestCassandraDistributed
         extends AbstractTestDistributedQueries
@@ -27,62 +32,128 @@ public class TestCassandraDistributed
     public TestCassandraDistributed()
             throws Exception
     {
-        super(createCassandraQueryRunner(TpchTable.getTables()), createSampledSession());
+        super(CassandraQueryRunner::createCassandraQueryRunner);
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    public void testGroupingSetMixedExpressionAndColumn()
+    {
+        // Cassandra does not support DATE
+    }
+
+    @Override
+    public void testGroupingSetMixedExpressionAndOrdinal()
+    {
+        // Cassandra does not support DATE
     }
 
     @Override
     public void testRenameTable()
-            throws Exception
     {
         // Cassandra does not support renaming tables
     }
 
     @Override
+    public void testAddColumn()
+    {
+        // Cassandra does not support adding columns
+    }
+
+    @Override
     public void testRenameColumn()
-            throws Exception
     {
         // Cassandra does not support renaming columns
     }
 
     @Override
-    public void testView()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
-    public void testViewMetadata()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
     public void testInsert()
-            throws Exception
     {
         // Cassandra connector currently does not support insert
     }
 
     @Override
     public void testCreateTable()
-            throws Exception
+    {
+        // Cassandra connector currently does not support create table
+    }
+
+    @Override
+    public void testCreateTableAsSelect()
     {
         // Cassandra connector currently does not support create table
     }
 
     @Override
     public void testDelete()
-            throws Exception
     {
         // Cassandra connector currently does not support delete
     }
 
     @Override
-    public void testDeleteSemiJoin()
-            throws Exception
+    public void testShowColumns()
     {
-        // Cassandra connector currently does not support delete
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "varchar", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar", "", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Override
+    public void testDescribeOutput()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    public void testDescribeOutputNamedAndUnnamed()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    public void testWindowFunctionsFromAggregate()
+    {
+        testWindowFunctionsFromAggregate(VARCHAR, VARCHAR, DOUBLE, BIGINT);
+    }
+
+    @Override
+    public void testFullyPartitionedAndPartiallySortedWindowFunction()
+    {
+        testFullyPartitionedAndPartiallySortedWindowFunction(BIGINT, BIGINT, VARCHAR, BIGINT);
+    }
+
+    @Override
+    public void testValueWindowFunctions()
+    {
+        testValueWindowFunctions(BIGINT, VARCHAR, BIGINT, BIGINT);
+    }
+
+    @Override
+    public void testWindowFrames()
+    {
+        testWindowFrames(BIGINT, VARCHAR, BIGINT);
+    }
+
+    @Override
+    public void testWindowFunctionsExpressions()
+    {
+        testWindowFunctionsExpressions(BIGINT, VARCHAR, BIGINT);
     }
 }

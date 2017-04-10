@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.operator.aggregation.KeyValuePairs;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.MapType;
 
@@ -42,15 +43,13 @@ public class KeyValuePairStateSerializer
             out.appendNull();
         }
         else {
-            mapType.writeObject(out, state.get().serialize());
+            state.get().serialize(out);
         }
     }
 
     @Override
     public void deserialize(Block block, int index, KeyValuePairsState state)
     {
-        if (!block.isNull(index)) {
-            state.set(new KeyValuePairs(mapType.getObject(block, index), mapType.getKeyType(), mapType.getValueType()));
-        }
+        state.set(new KeyValuePairs(mapType.getObject(block, index), state.getKeyType(), state.getValueType()));
     }
 }

@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -26,16 +27,18 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class IndexSourceNode
         extends PlanNode
 {
     private final IndexHandle indexHandle;
     private final TableHandle tableHandle;
+    private final Optional<TableLayoutHandle> tableLayout; // only necessary for event listeners
     private final Set<Symbol> lookupSymbols;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
@@ -46,18 +49,20 @@ public class IndexSourceNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("indexHandle") IndexHandle indexHandle,
             @JsonProperty("tableHandle") TableHandle tableHandle,
+            @JsonProperty("tableLayout") Optional<TableLayoutHandle> tableLayout,
             @JsonProperty("lookupSymbols") Set<Symbol> lookupSymbols,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("effectiveTupleDomain") TupleDomain<ColumnHandle> effectiveTupleDomain)
     {
         super(id);
-        this.indexHandle = checkNotNull(indexHandle, "indexHandle is null");
-        this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
-        this.lookupSymbols = ImmutableSet.copyOf(checkNotNull(lookupSymbols, "lookupSymbols is null"));
-        this.outputSymbols = ImmutableList.copyOf(checkNotNull(outputSymbols, "outputSymbols is null"));
-        this.assignments = ImmutableMap.copyOf(checkNotNull(assignments, "assignments is null"));
-        this.effectiveTupleDomain = checkNotNull(effectiveTupleDomain, "effectiveTupleDomain is null");
+        this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
+        this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
+        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
+        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        this.effectiveTupleDomain = requireNonNull(effectiveTupleDomain, "effectiveTupleDomain is null");
         checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols is empty");
         checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
         checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup symbols");
@@ -74,6 +79,12 @@ public class IndexSourceNode
     public TableHandle getTableHandle()
     {
         return tableHandle;
+    }
+
+    @JsonProperty
+    public Optional<TableLayoutHandle> getLayout()
+    {
+        return tableLayout;
     }
 
     @JsonProperty
@@ -111,5 +122,12 @@ public class IndexSourceNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitIndexSource(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.isEmpty(), "newChildren is not empty");
+        return this;
     }
 }

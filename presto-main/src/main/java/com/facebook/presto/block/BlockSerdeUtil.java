@@ -34,9 +34,20 @@ public final class BlockSerdeUtil
 
     public static Block readBlock(BlockEncodingSerde blockEncodingSerde, Slice slice)
     {
-        SliceInput input = slice.getInput();
+        return readBlock(blockEncodingSerde, slice.getInput());
+    }
+
+    public static Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input)
+    {
         BlockEncoding blockEncoding = blockEncodingSerde.readBlockEncoding(input);
         return blockEncoding.readBlock(input);
+    }
+
+    public static void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput output, Block block)
+    {
+        BlockEncoding encoding = block.getEncoding();
+        blockEncodingSerde.writeBlockEncoding(output, encoding);
+        encoding.writeBlock(output, block);
     }
 
     // This class is only used in LiteralInterpreter for magic literal. Most likely, you shouldn't use it from anywhere else.

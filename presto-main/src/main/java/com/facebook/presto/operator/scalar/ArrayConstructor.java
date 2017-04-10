@@ -13,23 +13,27 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.byteCode.Block;
-import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.Parameter;
-import com.facebook.presto.byteCode.Scope;
-import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.CompilerUtils;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.gen.ByteCodeUtils;
 import com.facebook.presto.sql.gen.CallSiteBinder;
-import com.facebook.presto.sql.gen.CompilerUtils;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -37,37 +41,43 @@ import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.byteCode.Access.FINAL;
-import static com.facebook.presto.byteCode.Access.PRIVATE;
-import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.STATIC;
-import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.Parameter.arg;
-import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
-import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
-import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.STATIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public final class ArrayConstructor
-        extends ParametricScalar
+        extends SqlScalarFunction
 {
     public static final ArrayConstructor ARRAY_CONSTRUCTOR = new ArrayConstructor();
-    private static final Signature SIGNATURE = new Signature("array_constructor", ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "E"), true, true);
 
-    @Override
-    public Signature getSignature()
+    public ArrayConstructor()
     {
-        return SIGNATURE;
+        super(new Signature("array_constructor",
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("E")),
+                ImmutableList.of(),
+                parseTypeSignature("array(E)"),
+                ImmutableList.of(parseTypeSignature("E"), parseTypeSignature("E")),
+                true));
     }
 
     @Override
@@ -86,12 +96,13 @@ public final class ArrayConstructor
     public String getDescription()
     {
         // Internal function, doesn't need a description
-        return "";
+        return null;
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
+        Map<String, Type> types = boundVariables.getTypeVariables();
         checkArgument(types.size() == 1, "Can only construct arrays from exactly matching types");
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
         Type type = types.get("E");
@@ -114,7 +125,7 @@ public final class ArrayConstructor
             throw Throwables.propagate(e);
         }
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
-        return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", type.getTypeSignature()), Collections.nCopies(arity, type.getTypeSignature())), "Constructs an array of the given elements", true, methodHandle, true, false, nullableParameters);
+        return new ScalarFunctionImplementation(false, nullableParameters, methodHandle, isDeterministic());
     }
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)
@@ -138,40 +149,32 @@ public final class ArrayConstructor
             parameters.add(arg("arg" + i, stackType));
         }
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "arrayConstructor", type(com.facebook.presto.spi.block.Block.class), parameters.build());
+        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "arrayConstructor", type(Block.class), parameters.build());
         Scope scope = method.getScope();
-        Block body = method.getBody();
+        BytecodeBlock body = method.getBody();
 
-        Variable elementTypeVariable = scope.declareVariable(Type.class, "elementTypeVariable");
+        Variable blockBuilderVariable = scope.declareVariable(BlockBuilder.class, "blockBuilder");
         CallSiteBinder binder = new CallSiteBinder();
 
-        body.comment("elementTypeVariable = elementType;")
-                .append(constantType(binder, elementType))
-                .putVariable(elementTypeVariable);
-
-        Variable valuesVariable = scope.declareVariable(List.class, "values");
-        body.comment("List<Object> values = new ArrayList();")
-                .newObject(ArrayList.class)
-                .dup()
-                .invokeConstructor(ArrayList.class)
-                .putVariable(valuesVariable);
+        BytecodeExpression createBlockBuilder = blockBuilderVariable.set(
+                constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), constantInt(stackTypes.size())));
+        body.append(createBlockBuilder);
 
         for (int i = 0; i < stackTypes.size(); i++) {
-            body.comment("values.add(arg%d);", i)
-                    .getVariable(valuesVariable)
-                    .append(scope.getVariable("arg" + i));
-            Class<?> stackType = stackTypes.get(i);
-            if (stackType.isPrimitive()) {
-                body.append(ByteCodeUtils.boxPrimitiveIfNecessary(scope, stackType));
+            if (elementType.getJavaType() == void.class) {
+                body.append(blockBuilderVariable.invoke("appendNull", BlockBuilder.class));
             }
-            body.invokeInterface(List.class, "add", boolean.class, Object.class);
+            else {
+                Variable argument = scope.getVariable("arg" + i);
+                IfStatement ifStatement = new IfStatement()
+                        .condition(equal(argument, constantNull(stackTypes.get(i))))
+                        .ifTrue(blockBuilderVariable.invoke("appendNull", BlockBuilder.class).pop())
+                        .ifFalse(constantType(binder, elementType).writeValue(blockBuilderVariable, argument.cast(elementType.getJavaType())));
+                body.append(ifStatement);
+            }
         }
 
-        body.comment("return toStackRepresentation(values, elementType);")
-                .getVariable(valuesVariable)
-                .getVariable(elementTypeVariable)
-                .invokeStatic(ArrayType.class, "toStackRepresentation", com.facebook.presto.spi.block.Block.class, List.class, Type.class)
-                .retObject();
+        body.append(blockBuilderVariable.invoke("build", Block.class).ret());
 
         return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(ArrayConstructor.class.getClassLoader()));
     }

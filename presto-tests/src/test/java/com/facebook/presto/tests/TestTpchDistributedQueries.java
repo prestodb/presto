@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.tpch.testing.SampledTpchPlugin;
+import com.facebook.presto.tests.tpch.TpchQueryRunner;
+import com.google.common.base.Strings;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Locale.ENGLISH;
+import static org.testng.Assert.assertTrue;
 
 public class TestTpchDistributedQueries
         extends AbstractTestQueries
@@ -26,35 +26,30 @@ public class TestTpchDistributedQueries
     public TestTpchDistributedQueries()
             throws Exception
     {
-        super(createQueryRunner());
+        super(TpchQueryRunner::createQueryRunner);
     }
 
-    private static DistributedQueryRunner createQueryRunner()
-            throws Exception
+    @Test
+    public void testTooLongQuery()
     {
-        Session session = Session.builder()
-                .setUser("user")
-                .setSource("test")
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
-                .build();
+        //  Generate a super-long query: SELECT x,x,x,x,x,... FROM (VALUES 1,2,3,4,5) t(x)
+        @Language("SQL") String longQuery = "SELECT x" + Strings.repeat(",x", 500_000) + " FROM (VALUES 1,2,3,4,5) t(x)";
+        assertQueryFails(longQuery, "Query text length \\(1000037\\) exceeds the maximum length \\(1000000\\)");
+    }
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4);
+    @Test
+    public void testTableSampleSystem()
+    {
+        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
 
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            queryRunner.installPlugin(new SampledTpchPlugin());
-            queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
-
-            return queryRunner;
+        boolean sampleSizeFound = false;
+        for (int i = 0; i < 100; i++) {
+            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
+            if (sampleSize > 0 && sampleSize < total) {
+                sampleSizeFound = true;
+                break;
+            }
         }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
+        assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
     }
 }

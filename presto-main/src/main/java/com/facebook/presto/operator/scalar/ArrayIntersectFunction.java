@@ -13,73 +13,42 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 
+@ScalarFunction("array_intersect")
+@Description("Intersects elements of the two given arrays")
 public final class ArrayIntersectFunction
-        extends ParametricScalar
 {
-    public static final ArrayIntersectFunction ARRAY_INTERSECT_FUNCTION = new ArrayIntersectFunction();
-    private static final String FUNCTION_NAME = "array_intersect";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>", "array<E>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayIntersectFunction.class, "intersect", Type.class, Block.class, Block.class);
+    private static final int INITIAL_SIZE = 128;
 
-    @Override
-    public Signature getSignature()
+    private int[] leftPositions = new int[INITIAL_SIZE];
+    private int[] rightPositions = new int[INITIAL_SIZE];
+    private final PageBuilder pageBuilder;
+
+    @TypeParameter("E")
+    public ArrayIntersectFunction(@TypeParameter("E") Type elementType)
     {
-        return SIGNATURE;
+        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
     }
 
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Intersects elements of the two given arrays";
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        checkArgument(types.size() == 1, format("%s expects only one argument", FUNCTION_NAME));
-        TypeSignature typeSignature = parameterizedTypeName("array", types.get("E").getTypeSignature());
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(types.get("E"));
-        Signature signature = new Signature(FUNCTION_NAME, typeSignature, typeSignature, typeSignature);
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
-    }
-
-    private static IntComparator IntBlockCompare(Type type, Block block)
+    private static IntComparator intBlockCompare(Type type, Block block)
     {
         return new AbstractIntComparator()
         {
@@ -100,13 +69,35 @@ public final class ArrayIntersectFunction
         };
     }
 
-    public static Block intersect(Type type, Block leftArray, Block rightArray)
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public Block intersect(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block leftArray,
+            @SqlType("array(E)") Block rightArray)
     {
         int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
 
-        int[] leftPositions = new int[leftPositionCount];
-        int[] rightPositions = new int[rightPositionCount];
+        if (leftPositionCount == 0) {
+            return leftArray;
+        }
+        if (rightPositionCount == 0) {
+            return rightArray;
+        }
+
+        if (leftPositions.length < leftPositionCount) {
+            leftPositions = new int[leftPositionCount];
+        }
+
+        if (rightPositions.length < rightPositionCount) {
+            rightPositions = new int[rightPositionCount];
+        }
+
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
 
         for (int i = 0; i < leftPositionCount; i++) {
             leftPositions[i] = i;
@@ -114,17 +105,16 @@ public final class ArrayIntersectFunction
         for (int i = 0; i < rightPositionCount; i++) {
             rightPositions[i] = i;
         }
-        IntArrays.quickSort(leftPositions, IntBlockCompare(type, leftArray));
-        IntArrays.quickSort(rightPositions, IntBlockCompare(type, rightArray));
+        IntArrays.quickSort(leftPositions, 0, leftPositionCount, intBlockCompare(type, leftArray));
+        IntArrays.quickSort(rightPositions, 0, rightPositionCount, intBlockCompare(type, rightArray));
 
-        BlockBuilder resultBlockBuilder = type.createBlockBuilder(
-                new BlockBuilderStatus(),
-                Math.min(leftArray.getSizeInBytes(), rightArray.getSizeInBytes()));
+        BlockBuilder resultBlockBuilder = pageBuilder.getBlockBuilder(0);
 
         int leftCurrentPosition = 0;
         int rightCurrentPosition = 0;
         int leftBasePosition;
         int rightBasePosition;
+        int totalCount = 0;
 
         while (leftCurrentPosition < leftPositionCount && rightCurrentPosition < rightPositionCount) {
             leftBasePosition = leftCurrentPosition;
@@ -140,6 +130,7 @@ public final class ArrayIntersectFunction
                 type.appendTo(leftArray, leftPositions[leftCurrentPosition], resultBlockBuilder);
                 leftCurrentPosition++;
                 rightCurrentPosition++;
+                totalCount++;
                 while (leftCurrentPosition < leftPositionCount && type.equalTo(leftArray, leftPositions[leftBasePosition], leftArray, leftPositions[leftCurrentPosition])) {
                     leftCurrentPosition++;
                 }
@@ -148,7 +139,7 @@ public final class ArrayIntersectFunction
                 }
             }
         }
-
-        return resultBlockBuilder.build();
+        pageBuilder.declarePositions(totalCount);
+        return resultBlockBuilder.getRegion(resultBlockBuilder.getPositionCount() - totalCount, totalCount);
     }
 }

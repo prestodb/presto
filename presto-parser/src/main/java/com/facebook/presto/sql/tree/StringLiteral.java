@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import java.util.Objects;
+import java.util.Optional;
+
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Objects.requireNonNull;
 
 public class StringLiteral
         extends Literal
@@ -27,9 +29,20 @@ public class StringLiteral
 
     public StringLiteral(String value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        this(Optional.empty(), value);
+    }
+
+    public StringLiteral(NodeLocation location, String value)
+    {
+        this(Optional.of(location), value);
+    }
+
+    private StringLiteral(Optional<NodeLocation> location, String value)
+    {
+        super(location);
+        requireNonNull(value, "value is null");
         this.value = value;
-        this.slice = Slices.wrappedBuffer(value.getBytes(UTF_8));
+        this.slice = utf8Slice(value);
     }
 
     public String getValue()
@@ -59,12 +72,7 @@ public class StringLiteral
         }
 
         StringLiteral that = (StringLiteral) o;
-
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value);
     }
 
     @Override

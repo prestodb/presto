@@ -20,6 +20,6 @@ public class TestHost
 {
     public TestHost(InetSocketAddress address)
     {
-        super(address, new ConvictionPolicy.Simple.Factory(), null);
+        super(address, new ConvictionPolicy.DefaultConvictionPolicy.Factory(), Cluster.builder().addContactPoints("localhost").build().manager);
     }
 }

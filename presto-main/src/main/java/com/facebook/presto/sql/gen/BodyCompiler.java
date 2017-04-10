@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ClassDefinition;
+import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.sql.relational.RowExpression;
 
 import java.util.List;

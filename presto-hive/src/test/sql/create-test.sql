@@ -228,7 +228,7 @@ DROP TABLE tmp_presto_test;
 ALTER TABLE presto_test_partition_schema_change ADD PARTITION (ds='2012-12-29');
 INSERT OVERWRITE TABLE presto_test_partition_schema_change PARTITION (ds='2012-12-29')
 SELECT '123', '456' FROM presto_test_sequence;
-ALTER TABLE presto_test_partition_schema_change REPLACE COLUMNS (t_data BIGINT);
+ALTER TABLE presto_test_partition_schema_change REPLACE COLUMNS (t_data DOUBLE);
 
 INSERT OVERWRITE TABLE presto_test_partition_schema_change_non_canonical PARTITION (t_boolean='0')
 SELECT 'test' FROM presto_test_sequence LIMIT 100;

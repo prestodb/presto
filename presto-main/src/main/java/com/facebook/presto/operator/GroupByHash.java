@@ -13,26 +13,50 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
 {
-    static GroupByHash createGroupByHash(List<? extends Type> hashTypes, int[] hashChannels, Optional<Integer> maskChannel, Optional<Integer> inputHashChannel, int expectedSize)
+    static GroupByHash createGroupByHash(
+            Session session,
+            List<? extends Type> hashTypes,
+            int[] hashChannels,
+            Optional<Integer> inputHashChannel,
+            int expectedSize,
+            JoinCompiler joinCompiler)
+    {
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler);
+    }
+
+    static GroupByHash createGroupByHash(
+            List<? extends Type> hashTypes,
+            int[] hashChannels,
+            Optional<Integer> inputHashChannel,
+            int expectedSize,
+            boolean processDictionary,
+            JoinCompiler joinCompiler)
     {
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
-            return new BigintGroupByHash(hashChannels[0], maskChannel, inputHashChannel.isPresent(), expectedSize);
+            return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize);
         }
-        return new MultiChannelGroupByHash(hashTypes, hashChannels, maskChannel, inputHashChannel, expectedSize);
+        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler);
     }
 
     long getEstimatedSize();
+
+    long getHashCollisions();
+
+    double getExpectedHashCollisions();
 
     List<Type> getTypes();
 
@@ -44,7 +68,9 @@ public interface GroupByHash
 
     GroupByIdBlock getGroupIds(Page page);
 
-    boolean contains(int position, Page page);
+    boolean contains(int position, Page page, int[] hashChannels);
 
     int putIfAbsent(int position, Page page);
+
+    long getRawHash(int groupyId);
 }

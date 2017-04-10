@@ -13,22 +13,23 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -46,49 +47,43 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
+    private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final TypeManager typeManager;
-    private final boolean enabled;
-    private final DataSize orcMaxMergeDistance;
-    private final DataSize orcMaxBufferSize;
-    private final DataSize orcStreamBufferSize;
+    private final boolean useOrcColumnNames;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
+    public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment)
     {
-        //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance(), config.getOrcMaxBufferSize(), config.getOrcStreamBufferSize());
+        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment);
     }
 
-    public OrcPageSourceFactory(TypeManager typeManager)
+    public OrcPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment)
     {
-        this(typeManager, true, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE));
-    }
-
-    public OrcPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance, DataSize orcMaxBufferSize, DataSize orcStreamBufferSize)
-    {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
-        this.enabled = enabled;
-        this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
-        this.orcMaxBufferSize = checkNotNull(orcMaxBufferSize, "orcMaxBufferSize is null");
-        this.orcStreamBufferSize = checkNotNull(orcStreamBufferSize, "orcStreamBufferSize is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.useOrcColumnNames = useOrcColumnNames;
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -100,51 +95,53 @@ public class OrcPageSourceFactory
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isOptimizedReaderEnabled(session, enabled)) {
-            return Optional.empty();
-        }
-
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
         }
 
         return Optional.of(createOrcPageSource(
                 new OrcMetadataReader(),
+                hdfsEnvironment,
+                session.getUser(),
                 configuration,
                 path,
                 start,
                 length,
                 columns,
-                partitionKeys,
+                useOrcColumnNames,
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session, orcMaxMergeDistance),
-                getOrcMaxBufferSize(session, orcMaxBufferSize),
-                getOrcStreamBufferSize(session, orcStreamBufferSize)));
+                getOrcMaxMergeDistance(session),
+                getOrcMaxBufferSize(session),
+                getOrcStreamBufferSize(session),
+                isOrcBloomFiltersEnabled(session)));
     }
 
-    public static OrcPageSource createOrcPageSource(MetadataReader metadataReader,
+    public static OrcPageSource createOrcPageSource(
+            MetadataReader metadataReader,
+            HdfsEnvironment hdfsEnvironment,
+            String sessionUser,
             Configuration configuration,
             Path path,
             long start,
             long length,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
+            boolean useOrcColumnNames,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
-            DataSize streamBufferSize)
+            DataSize streamBufferSize,
+            boolean orcBloomFiltersEnabled)
     {
         OrcDataSource orcDataSource;
         try {
-            FileSystem fileSystem = path.getFileSystem(configuration);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             long size = fileSystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = fileSystem.open(path);
             orcDataSource = new HdfsOrcDataSource(path.toString(), size, maxMergeDistance, maxBufferSize, streamBufferSize, inputStream);
@@ -157,34 +154,37 @@ public class OrcPageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
-        ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
-        for (HiveColumnHandle column : columns) {
-            if (!column.isPartitionKey()) {
-                Type type = typeManager.getType(column.getTypeSignature());
-                includedColumns.put(column.getHiveColumnIndex(), type);
-                columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
-            }
-        }
-
-        OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
-
+        AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader);
+            OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize);
+
+            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
+            ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
+            ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
+            for (HiveColumnHandle column : physicalColumns) {
+                if (column.getColumnType() == REGULAR) {
+                    Type type = typeManager.getType(column.getTypeSignature());
+                    includedColumns.put(column.getHiveColumnIndex(), type);
+                    columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
+                }
+            }
+
+            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), orcBloomFiltersEnabled);
+
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
                     predicate,
                     start,
                     length,
-                    hiveStorageTimeZone);
+                    hiveStorageTimeZone,
+                    systemMemoryUsage);
 
             return new OrcPageSource(
                     recordReader,
                     orcDataSource,
-                    partitionKeys,
-                    columns,
-                    hiveStorageTimeZone,
-                    typeManager);
+                    physicalColumns,
+                    typeManager,
+                    systemMemoryUsage);
         }
         catch (Exception e) {
             try {
@@ -206,5 +206,52 @@ public class OrcPageSourceFactory
     private static String splitError(Throwable t, Path path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
+    }
+
+    private static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, OrcReader reader, Path path)
+    {
+        if (!useOrcColumnNames) {
+            return columns;
+        }
+
+        verifyFileHasColumnNames(reader.getColumnNames(), path);
+
+        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(reader);
+        int nextMissingColumnIndex = physicalNameOrdinalMap.size();
+
+        ImmutableList.Builder<HiveColumnHandle> physicalColumns = ImmutableList.builder();
+        for (HiveColumnHandle column : columns) {
+            Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
+            if (physicalOrdinal == null) {
+                // if the column is missing from the file, assign it a column number larger
+                // than the number of columns in the file so the reader will fill it with nulls
+                physicalOrdinal = nextMissingColumnIndex;
+                nextMissingColumnIndex++;
+            }
+            physicalColumns.add(new HiveColumnHandle(column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment()));
+        }
+        return physicalColumns.build();
+    }
+
+    private static void verifyFileHasColumnNames(List<String> physicalColumnNames, Path path)
+    {
+        if (!physicalColumnNames.isEmpty() && physicalColumnNames.stream().allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
+            throw new PrestoException(
+                    HIVE_FILE_MISSING_COLUMN_NAMES,
+                    "ORC file does not contain column names in the footer: " + path);
+        }
+    }
+
+    private static Map<String, Integer> buildPhysicalNameOrdinalMap(OrcReader reader)
+    {
+        ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
+
+        int ordinal = 0;
+        for (String physicalColumnName : reader.getColumnNames()) {
+            physicalNameOrdinalMap.put(physicalColumnName, ordinal);
+            ordinal++;
+        }
+
+        return physicalNameOrdinalMap.build();
     }
 }

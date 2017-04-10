@@ -16,8 +16,8 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.testing.RunLengthEncodedBlock;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -32,7 +32,7 @@ public class TestRunLengthEncodedBlock
         }
     }
 
-    private static void assertRleBlock(int positionCount)
+    private void assertRleBlock(int positionCount)
     {
         Slice expectedValue = createExpectedValue(0);
         Block block = new RunLengthEncodedBlock(createSingleValueBlock(expectedValue), positionCount);
@@ -45,7 +45,7 @@ public class TestRunLengthEncodedBlock
 
     private static Block createSingleValueBlock(Slice expectedValue)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1, expectedValue.length());
         blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
         return blockBuilder.build();
     }

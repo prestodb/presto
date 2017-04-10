@@ -24,7 +24,7 @@
             {
                 "name": "name",
                 "mapping": "name",
-                "type": "VARCHAR"
+                "type": "VARCHAR(25)"
             },
             {
                 "name": "regionkey",
@@ -34,7 +34,7 @@
             {
                 "name": "comment",
                 "mapping": "comment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(152)"
             }
         ]
     }

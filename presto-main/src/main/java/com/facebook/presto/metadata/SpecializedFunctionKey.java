@@ -13,34 +13,31 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.type.Type;
-
-import java.util.Map;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SpecializedFunctionKey
 {
-    private final ParametricFunction function;
-    private final Map<String, Type> boundTypeParameters;
+    private final SqlFunction function;
+    private final BoundVariables boundVariables;
     private final int arity;
 
-    public SpecializedFunctionKey(ParametricFunction function, Map<String, Type> boundTypeParameters, int arity)
+    public SpecializedFunctionKey(SqlFunction function, BoundVariables boundVariables, int arity)
     {
-        this.function = checkNotNull(function, "function is null");
-        this.boundTypeParameters = checkNotNull(boundTypeParameters, "boundTypeParameters is null");
+        this.function = requireNonNull(function, "function is null");
+        this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
         this.arity = arity;
     }
 
-    public ParametricFunction getFunction()
+    public SqlFunction getFunction()
     {
         return function;
     }
 
-    public Map<String, Type> getBoundTypeParameters()
+    public BoundVariables getBoundVariables()
     {
-        return boundTypeParameters;
+        return boundVariables;
     }
 
     public int getArity()
@@ -60,14 +57,14 @@ public class SpecializedFunctionKey
 
         SpecializedFunctionKey that = (SpecializedFunctionKey) o;
 
-        return Objects.equals(arity, that.arity) &&
-                Objects.equals(boundTypeParameters, that.boundTypeParameters) &&
-                Objects.equals(function.getSignature(), that.function.getSignature());
+        return Objects.equals(boundVariables, that.boundVariables) &&
+                Objects.equals(function.getSignature(), that.function.getSignature()) &&
+                arity == that.arity;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(function.getSignature(), boundTypeParameters, arity);
+        return Objects.hash(function.getSignature(), boundVariables, arity);
     }
 }

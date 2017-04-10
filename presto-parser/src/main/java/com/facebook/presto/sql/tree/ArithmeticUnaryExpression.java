@@ -13,7 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class ArithmeticUnaryExpression
         extends Expression
@@ -29,21 +35,42 @@ public class ArithmeticUnaryExpression
 
     public ArithmeticUnaryExpression(Sign sign, Expression value)
     {
-        checkNotNull(value, "value is null");
-        checkNotNull(sign, "sign is null");
+        this(Optional.empty(), sign, value);
+    }
+
+    public ArithmeticUnaryExpression(NodeLocation location, Sign sign, Expression value)
+    {
+        this(Optional.of(location), sign, value);
+    }
+
+    private ArithmeticUnaryExpression(Optional<NodeLocation> location, Sign sign, Expression value)
+    {
+        super(location);
+        requireNonNull(value, "value is null");
+        requireNonNull(sign, "sign is null");
 
         this.value = value;
         this.sign = sign;
     }
 
+    public static ArithmeticUnaryExpression positive(NodeLocation location, Expression value)
+    {
+        return new ArithmeticUnaryExpression(Optional.of(location), Sign.PLUS, value);
+    }
+
+    public static ArithmeticUnaryExpression negative(NodeLocation location, Expression value)
+    {
+        return new ArithmeticUnaryExpression(Optional.of(location), Sign.MINUS, value);
+    }
+
     public static ArithmeticUnaryExpression positive(Expression value)
     {
-        return new ArithmeticUnaryExpression(Sign.PLUS, value);
+        return new ArithmeticUnaryExpression(Optional.empty(), Sign.PLUS, value);
     }
 
     public static ArithmeticUnaryExpression negative(Expression value)
     {
-        return new ArithmeticUnaryExpression(Sign.MINUS, value);
+        return new ArithmeticUnaryExpression(Optional.empty(), Sign.MINUS, value);
     }
 
     public Expression getValue()
@@ -63,6 +90,12 @@ public class ArithmeticUnaryExpression
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(value);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -73,22 +106,13 @@ public class ArithmeticUnaryExpression
         }
 
         ArithmeticUnaryExpression that = (ArithmeticUnaryExpression) o;
-
-        if (sign != that.sign) {
-            return false;
-        }
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value) &&
+                (sign == that.sign);
     }
 
     @Override
     public int hashCode()
     {
-        int result = value.hashCode();
-        result = 31 * result + sign.hashCode();
-        return result;
+        return Objects.hash(value, sign);
     }
 }

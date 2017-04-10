@@ -15,14 +15,14 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.plugin.jdbc.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSinkProvider
         implements ConnectorRecordSinkProvider
@@ -32,18 +32,18 @@ public class JdbcRecordSinkProvider
     @Inject
     public JdbcRecordSinkProvider(JdbcClient jdbcClient)
     {
-        this.jdbcClient = checkNotNull(jdbcClient, "jdbcClient is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
+    public RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
-        return new JdbcRecordSink(checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle"), jdbcClient);
+        return new JdbcRecordSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorSession session, ConnectorInsertTableHandle tableHandle)
+    public RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        return new JdbcRecordSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
     }
 }

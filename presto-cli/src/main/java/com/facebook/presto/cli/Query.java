@@ -41,10 +41,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class Query
         implements Closeable
@@ -54,11 +54,12 @@ public class Query
     private static final Signal SIGINT = new Signal("INT");
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
+    private final AtomicBoolean userAbortedQuery = new AtomicBoolean();
     private final StatementClient client;
 
     public Query(StatementClient client)
     {
-        this.client = checkNotNull(client, "client is null");
+        this.client = requireNonNull(client, "client is null");
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -71,6 +72,26 @@ public class Query
         return client.getResetSessionProperties();
     }
 
+    public Map<String, String> getAddedPreparedStatements()
+    {
+        return client.getAddedPreparedStatements();
+    }
+
+    public Set<String> getDeallocatedPreparedStatements()
+    {
+        return client.getDeallocatedPreparedStatements();
+    }
+
+    public String getStartedTransactionId()
+    {
+        return client.getStartedtransactionId();
+    }
+
+    public boolean isClearTransactionId()
+    {
+        return client.isClearTransactionId();
+    }
+
     public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();
@@ -78,6 +99,7 @@ public class Query
             if (ignoreUserInterrupt.get() || client.isClosed()) {
                 return;
             }
+            userAbortedQuery.set(true);
             client.close();
             clientThread.interrupt();
         });
@@ -107,7 +129,7 @@ public class Query
         if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
             if (results.getUpdateType() != null) {
-                renderUpdate(out, results);
+                renderUpdate(errorChannel, results);
             }
             else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
@@ -190,12 +212,26 @@ public class Query
     private void pageOutput(OutputFormat format, List<String> fieldNames)
             throws IOException
     {
-        // ignore the user pressing ctrl-C while in the pager
-        ignoreUserInterrupt.set(true);
-
-        try (Writer writer = createWriter(Pager.create());
+        try (Pager pager = Pager.create();
+                ThreadInterruptor clientThread = new ThreadInterruptor();
+                Writer writer = createWriter(pager);
                 OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
+            if (!pager.isNullPager()) {
+                // ignore the user pressing ctrl-C while in the pager
+                ignoreUserInterrupt.set(true);
+                pager.getFinishFuture().thenRun(() -> {
+                    userAbortedQuery.set(true);
+                    ignoreUserInterrupt.set(false);
+                    clientThread.interrupt();
+                });
+            }
             handler.processRows(client);
+        }
+        catch (RuntimeException | IOException e) {
+            if (userAbortedQuery.get() && !(e instanceof QueryAbortedException)) {
+                throw new QueryAbortedException(e);
+            }
+            throw e;
         }
     }
 
@@ -295,6 +331,26 @@ public class Query
             String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
+        }
+    }
+
+    private static class ThreadInterruptor
+            implements Closeable
+    {
+        private final Thread thread = Thread.currentThread();
+        private final AtomicBoolean processing = new AtomicBoolean(true);
+
+        public synchronized void interrupt()
+        {
+            if (processing.get()) {
+                thread.interrupt();
+            }
+        }
+
+        @Override
+        public synchronized void close()
+        {
+            processing.set(false);
         }
     }
 }

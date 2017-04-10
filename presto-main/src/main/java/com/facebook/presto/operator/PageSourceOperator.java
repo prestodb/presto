@@ -18,12 +18,15 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static java.util.Objects.requireNonNull;
 
 public class PageSourceOperator
         implements Operator, Closeable
@@ -36,9 +39,9 @@ public class PageSourceOperator
 
     public PageSourceOperator(ConnectorPageSource pageSource, List<Type> types, OperatorContext operatorContext)
     {
-        this.pageSource = checkNotNull(pageSource, "pageSource is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.pageSource = requireNonNull(pageSource, "pageSource is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
     }
 
     @Override
@@ -68,6 +71,13 @@ public class PageSourceOperator
     public boolean isFinished()
     {
         return pageSource.isFinished();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        CompletableFuture<?> pageSourceBlocked = pageSource.isBlocked();
+        return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
     }
 
     @Override

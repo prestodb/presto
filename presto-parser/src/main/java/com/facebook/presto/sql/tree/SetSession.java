@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -21,10 +25,21 @@ public class SetSession
         extends Statement
 {
     private final QualifiedName name;
-    private final String value;
+    private final Expression value;
 
-    public SetSession(QualifiedName name, String value)
+    public SetSession(QualifiedName name, Expression value)
     {
+        this(Optional.empty(), name, value);
+    }
+
+    public SetSession(NodeLocation location, QualifiedName name, Expression value)
+    {
+        this(Optional.of(location), name, value);
+    }
+
+    private SetSession(Optional<NodeLocation> location, QualifiedName name, Expression value)
+    {
+        super(location);
         this.name = name;
         this.value = value;
     }
@@ -34,7 +49,7 @@ public class SetSession
         return name;
     }
 
-    public String getValue()
+    public Expression getValue()
     {
         return value;
     }
@@ -43,6 +58,12 @@ public class SetSession
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitSetSession(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(value);
     }
 
     @Override

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class StreamDescriptor
 {
@@ -32,12 +32,12 @@ public final class StreamDescriptor
 
     public StreamDescriptor(String streamName, int streamId, String fieldName, OrcTypeKind streamType, OrcDataSource fileInput, List<StreamDescriptor> nestedStreams)
     {
-        this.streamName = checkNotNull(streamName, "streamName is null");
+        this.streamName = requireNonNull(streamName, "streamName is null");
         this.streamId = streamId;
-        this.fieldName = checkNotNull(fieldName, "fieldName is null");
-        this.streamType = checkNotNull(streamType, "type is null");
-        this.fileInput = checkNotNull(fileInput, "fileInput is null");
-        this.nestedStreams = ImmutableList.copyOf(checkNotNull(nestedStreams, "nestedStreams is null"));
+        this.fieldName = requireNonNull(fieldName, "fieldName is null");
+        this.streamType = requireNonNull(streamType, "type is null");
+        this.fileInput = requireNonNull(fileInput, "fileInput is null");
+        this.nestedStreams = ImmutableList.copyOf(requireNonNull(nestedStreams, "nestedStreams is null"));
     }
 
     public String getStreamName()

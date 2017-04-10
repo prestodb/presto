@@ -1,0 +1,6 @@
+-- delimiter: |; ignoreOrder: false; types: LONGNVARCHAR|BIGINT
+1-URGENT|93
+2-HIGH|103
+3-MEDIUM|109
+4-NOT SPECIFIED|102
+5-LOW|128

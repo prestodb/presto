@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.execution.QueryId.validateId;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Integer.parseInt;
 
 public class TaskId
 {
@@ -31,15 +33,15 @@ public class TaskId
 
     private final String fullId;
 
-    public TaskId(String queryId, String stageId, String id)
+    public TaskId(String queryId, int stageId, int id)
     {
-        validateId(id);
+        checkArgument(id >= 0, "id is negative");
         this.fullId = queryId + "." + stageId + "." + id;
     }
 
-    public TaskId(StageId stageId, String id)
+    public TaskId(StageId stageId, int id)
     {
-        validateId(id);
+        checkArgument(id >= 0, "id is negative");
         this.fullId = stageId.getQueryId().getId() + "." + stageId.getId() + "." + id;
     }
 
@@ -56,12 +58,12 @@ public class TaskId
     public StageId getStageId()
     {
         List<String> ids = QueryId.parseDottedId(fullId, 3, "taskId");
-        return new StageId(new QueryId(ids.get(0)), ids.get(1));
+        return StageId.valueOf(ids.subList(0, 2));
     }
 
-    public String getId()
+    public int getId()
     {
-        return QueryId.parseDottedId(fullId, 3, "taskId").get(2);
+        return parseInt(QueryId.parseDottedId(fullId, 3, "taskId").get(2));
     }
 
     @Override

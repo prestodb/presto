@@ -14,14 +14,18 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TaskManager
 {
@@ -41,6 +45,11 @@ public interface TaskManager
     TaskInfo getTaskInfo(TaskId taskId);
 
     /**
+     * Gets the status for the specified task.
+     */
+    TaskStatus getTaskStatus(TaskId taskId);
+
+    /**
      * Gets future info for the task after the state changes from
      * {@code current state}. If the task has not been created yet, an
      * uninitialized task is created and the future is returned.  If the task
@@ -51,13 +60,30 @@ public interface TaskManager
      */
     ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState);
 
+    /**
+     * Gets the unique instance id of a task.  This can be used to detect a task
+     * that was destroyed and recreated.
+     */
+    String getTaskInstanceId(TaskId taskId);
+
+    /**
+     * Gets future status for the task after the state changes from
+     * {@code current state}. If the task has not been created yet, an
+     * uninitialized task is created and the future is returned.  If the task
+     * is already in a final state, the status is returned immediately.
+     *
+     * NOTE: this design assumes that only tasks that will eventually exist are
+     * queried.
+     */
+    ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, TaskState currentState);
+
     void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 
     /**
      * Updates the task plan, sources and output buffers.  If the task does not
      * already exist, is is created and then updated.
      */
-    TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers);
+    TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers);
 
     /**
      * Cancels a task.  If the task does not already exist, is is created and then
@@ -79,7 +105,7 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    ListenableFuture<BufferResult> getTaskResults(TaskId taskId, TaskId outputName, long startingSequenceId, DataSize maxSize);
+    ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize);
 
     /**
      * Aborts a result buffer for a task.  If the task or buffer has not been
@@ -89,5 +115,10 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    TaskInfo abortTaskResults(TaskId taskId, TaskId outputId);
+    TaskInfo abortTaskResults(TaskId taskId, OutputBufferId bufferId);
+
+    /**
+     * Adds a state change listener to the specified task.
+     */
+    void addStateChangeListener(TaskId taskId, StateChangeListener<TaskState> stateChangeListener);
 }

@@ -7,27 +7,40 @@ that can be submitted to Presto and the quota of running queries per queue.
 The filename of the JSON config file should be specified in ``query.queue-config-file``
 config property.
 
-Rules that specify multiple queues will cause the query to enter the queues sequentially.
-Rules are processed sequentially and the first one that matches will be used.
-In the example configuration below, there are five queue templates. In the
-``user.${USER}`` queue, ``${USER}`` will be expanded to the name of the user
-that submitted the query. ``${SOURCE}`` is also supported, which expands to the
-source submitting the query.
+Rules that specify multiple queues will cause the query to acquire the queues'
+permits sequentially. The query must acquire all queues' permits before it starts
+being executed. It acquires the next queue permit only after it is accepted for
+execution by the previous queue. A slot for the query is reserved in all queues.
+The query is rejected if no slot is available in any of the queues.
 
-There are also five rules that define which queries go into which queues:
+Rules are processed sequentially and the first one that matches will be used.
+In the example configuration below, there are five queue templates.
+In the ``user.${USER}`` queue, ``${USER}`` will be expanded to the name of the
+user that submitted the query. ``${SOURCE}`` is also supported, which expands
+to the source submitting the query. The source name can be set as follows:
+
+  * CLI: use the ``--source`` option.
+
+  * JDBC: set the ``ApplicationName`` client info property on the ``Connection`` instance.
+
+Example
+-------
+
+There are three rules that define which queries go into which queues:
 
   * The first rule makes ``bob`` an admin.
 
   * The second rule states that all queries that come from a source that includes ``pipeline``
-    should first be queued in the user's personal queue, then the ``pipeline`` queue. When a
-    query enters a new queue, it doesn't leave previous queues until the query finishes execution.
+    should first be queued in the user's personal pipeline queue, then the ``pipeline`` queue.
+    When a query acquires a permit from a new queue, it doesn't release permits from previous
+    queues until the query finishes execution.
 
   * The last rule is a catch all, which puts all queries into the user's personal queue.
 
 All together these rules implement the policy that ``bob`` is an admin and
 all other users are subject to the follow limits:
 
-  * Users are allowed to have up to 5 queries running.
+  * Users are allowed to have up to 5 queries running. Additionally, they may run one pipeline.
 
   * No more than 10 ``pipeline`` queries may run at once.
 
@@ -40,6 +53,10 @@ all other users are subject to the follow limits:
         "user.${USER}": {
           "maxConcurrent": 5,
           "maxQueued": 20
+        },
+        "user_pipeline.${USER}": {
+          "maxConcurrent": 1,
+          "maxQueued": 10
         },
         "pipeline": {
           "maxConcurrent": 10,
@@ -62,7 +79,7 @@ all other users are subject to the follow limits:
         {
           "source": ".*pipeline.*",
           "queues": [
-            "user.${USER}",
+            "user_pipeline.${USER}",
             "pipeline",
             "global"
           ]

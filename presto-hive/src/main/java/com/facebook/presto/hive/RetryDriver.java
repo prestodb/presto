@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -21,10 +22,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RetryDriver
 {
@@ -103,7 +105,7 @@ public class RetryDriver
     @SafeVarargs
     public final RetryDriver stopOn(Class<? extends Exception>... classes)
     {
-        checkNotNull(classes, "classes is null");
+        requireNonNull(classes, "classes is null");
         List<Class<? extends Exception>> exceptions = ImmutableList.<Class<? extends Exception>>builder()
                 .addAll(exceptionWhiteList)
                 .addAll(Arrays.asList(classes))
@@ -120,8 +122,8 @@ public class RetryDriver
     public <V> V run(String callableName, Callable<V> callable)
             throws Exception
     {
-        checkNotNull(callableName, "callableName is null");
-        checkNotNull(callable, "callable is null");
+        requireNonNull(callableName, "callableName is null");
+        requireNonNull(callable, "callable is null");
 
         long startTime = System.nanoTime();
         int attempt = 0;
@@ -148,7 +150,14 @@ public class RetryDriver
                 log.debug("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
 
                 int delayInMs = (int) Math.min(minSleepTime.toMillis() * Math.pow(scaleFactor, attempt - 1), maxSleepTime.toMillis());
-                TimeUnit.MILLISECONDS.sleep(delayInMs);
+                int jitter = ThreadLocalRandom.current().nextInt(Math.max(1, (int) (delayInMs * 0.1)));
+                try {
+                    TimeUnit.MILLISECONDS.sleep(delayInMs + jitter);
+                }
+                catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(ie);
+                }
             }
         }
     }

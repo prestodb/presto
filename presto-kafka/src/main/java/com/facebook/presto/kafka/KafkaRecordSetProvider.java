@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.kafka.decoder.KafkaDecoderRegistry;
-import com.facebook.presto.kafka.decoder.KafkaFieldDecoder;
-import com.facebook.presto.kafka.decoder.KafkaRowDecoder;
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.DecoderRegistry;
+import com.facebook.presto.decoder.FieldDecoder;
+import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -28,7 +30,9 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.kafka.KafkaHandleResolver.convertColumnHandle;
+import static com.facebook.presto.kafka.KafkaHandleResolver.convertSplit;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Factory for Kafka specific {@link RecordSet} instances.
@@ -36,40 +40,35 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class KafkaRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final KafkaHandleResolver handleResolver;
     private final KafkaSimpleConsumerManager consumerManager;
-    private final KafkaDecoderRegistry registry;
+    private final DecoderRegistry registry;
 
     @Inject
-    public KafkaRecordSetProvider(
-            KafkaDecoderRegistry registry,
-            KafkaHandleResolver handleResolver,
-            KafkaSimpleConsumerManager consumerManager)
+    public KafkaRecordSetProvider(DecoderRegistry registry, KafkaSimpleConsumerManager consumerManager)
     {
-        this.registry = checkNotNull(registry, "registry is null");
-        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
-        this.consumerManager = checkNotNull(consumerManager, "consumerManager is null");
+        this.registry = requireNonNull(registry, "registry is null");
+        this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        KafkaSplit kafkaSplit = handleResolver.convertSplit(split);
+        KafkaSplit kafkaSplit = convertSplit(split);
 
-        ImmutableList.Builder<KafkaColumnHandle> handleBuilder = ImmutableList.builder();
-        ImmutableMap.Builder<KafkaColumnHandle, KafkaFieldDecoder<?>> keyFieldDecoderBuilder = ImmutableMap.builder();
-        ImmutableMap.Builder<KafkaColumnHandle, KafkaFieldDecoder<?>> messageFieldDecoderBuilder = ImmutableMap.builder();
+        ImmutableList.Builder<DecoderColumnHandle> handleBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoderBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<DecoderColumnHandle, FieldDecoder<?>> messageFieldDecoderBuilder = ImmutableMap.builder();
 
-        KafkaRowDecoder keyDecoder = registry.getRowDecoder(kafkaSplit.getKeyDataFormat());
-        KafkaRowDecoder messageDecoder = registry.getRowDecoder(kafkaSplit.getMessageDataFormat());
+        RowDecoder keyDecoder = registry.getRowDecoder(kafkaSplit.getKeyDataFormat());
+        RowDecoder messageDecoder = registry.getRowDecoder(kafkaSplit.getMessageDataFormat());
 
         for (ColumnHandle handle : columns) {
-            KafkaColumnHandle columnHandle = handleResolver.convertColumnHandle(handle);
+            KafkaColumnHandle columnHandle = convertColumnHandle(handle);
             handleBuilder.add(columnHandle);
 
             if (!columnHandle.isInternal()) {
                 if (columnHandle.isKeyDecoder()) {
-                    KafkaFieldDecoder<?> fieldDecoder = registry.getFieldDecoder(
+                    FieldDecoder<?> fieldDecoder = registry.getFieldDecoder(
                             kafkaSplit.getKeyDataFormat(),
                             columnHandle.getType().getJavaType(),
                             columnHandle.getDataFormat());
@@ -77,7 +76,7 @@ public class KafkaRecordSetProvider
                     keyFieldDecoderBuilder.put(columnHandle, fieldDecoder);
                 }
                 else {
-                    KafkaFieldDecoder<?> fieldDecoder = registry.getFieldDecoder(
+                    FieldDecoder<?> fieldDecoder = registry.getFieldDecoder(
                             kafkaSplit.getMessageDataFormat(),
                             columnHandle.getType().getJavaType(),
                             columnHandle.getDataFormat());
@@ -87,9 +86,9 @@ public class KafkaRecordSetProvider
             }
         }
 
-        ImmutableList<KafkaColumnHandle> handles = handleBuilder.build();
-        ImmutableMap<KafkaColumnHandle, KafkaFieldDecoder<?>> keyFieldDecoders = keyFieldDecoderBuilder.build();
-        ImmutableMap<KafkaColumnHandle, KafkaFieldDecoder<?>> messageFieldDecoders = messageFieldDecoderBuilder.build();
+        ImmutableList<DecoderColumnHandle> handles = handleBuilder.build();
+        ImmutableMap<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoders = keyFieldDecoderBuilder.build();
+        ImmutableMap<DecoderColumnHandle, FieldDecoder<?>> messageFieldDecoders = messageFieldDecoderBuilder.build();
 
         return new KafkaRecordSet(kafkaSplit, consumerManager, handles, keyDecoder, messageDecoder, keyFieldDecoders, messageFieldDecoders);
     }

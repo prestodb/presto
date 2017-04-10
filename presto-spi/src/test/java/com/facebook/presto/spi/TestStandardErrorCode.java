@@ -19,18 +19,18 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
-import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.airlift.testing.Assertions.assertLessThan;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestStandardErrorCode
 {
+    private static final int EXTERNAL_ERROR_START = 0x0100_0000;
+
     @Test
     public void testUnique()
     {
@@ -45,7 +45,7 @@ public class TestStandardErrorCode
     public void testReserved()
     {
         for (StandardErrorCode errorCode : StandardErrorCode.values()) {
-            assertLessThanOrEqual(code(errorCode), code(EXTERNAL));
+            assertLessThan(code(errorCode), EXTERNAL_ERROR_START);
         }
     }
 
@@ -62,22 +62,11 @@ public class TestStandardErrorCode
             StandardErrorCode code = iterator.next();
             int current = code(code);
             assertGreaterThan(current, previous, "Code is out of order: " + code);
-            if ((code != INTERNAL_ERROR) && (code != INSUFFICIENT_RESOURCES) && (code != EXTERNAL)) {
+            if ((code != GENERIC_INTERNAL_ERROR) && (code != GENERIC_INSUFFICIENT_RESOURCES)) {
                 assertEquals(current, previous + 1, "Code is not sequential: " + code);
             }
             previous = current;
         }
-        assertEquals(previous, code(EXTERNAL), "Last code is not EXTERNAL");
-    }
-
-    @Test
-    public void testCategoryCodes()
-            throws Exception
-    {
-        assertEquals(code(USER_ERROR), 0);
-        assertGreaterThan(code(INTERNAL_ERROR), code(USER_ERROR));
-        assertGreaterThan(code(INSUFFICIENT_RESOURCES), code(INTERNAL_ERROR));
-        assertGreaterThan(code(EXTERNAL), code(INSUFFICIENT_RESOURCES));
     }
 
     private static int code(StandardErrorCode error)

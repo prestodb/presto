@@ -13,15 +13,21 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.type.LikeFunctions.castCharToLikePattern;
+import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.like;
 import static com.facebook.presto.type.LikeFunctions.likePattern;
+import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.airlift.slice.Slices.utf8Slice;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestLikeFunctions
@@ -31,6 +37,18 @@ public class TestLikeFunctions
     {
         Regex regex = likePattern(utf8Slice("f%b__"));
         assertTrue(like(utf8Slice("foobar"), regex));
+    }
+
+    @Test
+    public void testLikeSpacesInPattern()
+    {
+        Regex regex = likePattern(utf8Slice("ala  "));
+        assertTrue(like(utf8Slice("ala  "), regex));
+        assertFalse(like(utf8Slice("ala"), regex));
+
+        regex = castCharToLikePattern(5L, utf8Slice("ala"));
+        assertTrue(like(utf8Slice("ala  "), regex));
+        assertFalse(like(utf8Slice("ala"), regex));
     }
 
     @Test
@@ -90,7 +108,40 @@ public class TestLikeFunctions
     public void testAlternateEscapedCharacters()
             throws Exception
     {
-        Regex regex = likePattern(utf8Slice("xxx%x_xabcxx"), utf8Slice("x"));
+        Regex regex = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
         assertTrue(like(utf8Slice("x%_abcx"), regex));
+    }
+
+    @Test
+    public void testInvalidLikePattern()
+    {
+        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("#"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#abc"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#"), utf8Slice("#")));
+    }
+
+    @Test
+    public void testIsLikePattern()
+    {
+        assertFalse(isLikePattern(utf8Slice("abc"), null));
+        assertFalse(isLikePattern(utf8Slice("abc#_def"), utf8Slice("#")));
+        assertFalse(isLikePattern(utf8Slice("abc##def"), utf8Slice("#")));
+        assertFalse(isLikePattern(utf8Slice("abc#%def"), utf8Slice("#")));
+        assertTrue(isLikePattern(utf8Slice("abc%def"), null));
+        assertTrue(isLikePattern(utf8Slice("abcdef_"), null));
+        assertTrue(isLikePattern(utf8Slice("abcdef##_"), utf8Slice("#")));
+        assertTrue(isLikePattern(utf8Slice("%abcdef#_"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("#"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("abc#abc"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("abc#"), utf8Slice("#")));
+    }
+
+    @Test
+    public void testUnescapeValidLikePattern()
+    {
+        assertEquals(unescapeLiteralLikePattern(utf8Slice("abc"), null), utf8Slice("abc"));
+        assertEquals(unescapeLiteralLikePattern(utf8Slice("abc#_"), utf8Slice("#")), utf8Slice("abc_"));
+        assertEquals(unescapeLiteralLikePattern(utf8Slice("a##bc#_"), utf8Slice("#")), utf8Slice("a#bc_"));
+        assertEquals(unescapeLiteralLikePattern(utf8Slice("a###_bc"), utf8Slice("#")), utf8Slice("a#_bc"));
     }
 }

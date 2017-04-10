@@ -18,17 +18,19 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class AllNodes
 {
     private final Set<Node> activeNodes;
     private final Set<Node> inactiveNodes;
+    private final Set<Node> shuttingDownNodes;
 
-    public AllNodes(Set<Node> activeNodes, Set<Node> inactiveNodes)
+    public AllNodes(Set<Node> activeNodes, Set<Node> inactiveNodes, Set<Node> shuttingDownNodes)
     {
-        this.activeNodes = ImmutableSet.copyOf(checkNotNull(activeNodes, "activeNodes is null"));
-        this.inactiveNodes = ImmutableSet.copyOf(checkNotNull(inactiveNodes, "inactiveNodes is null"));
+        this.activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
+        this.inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
+        this.shuttingDownNodes = ImmutableSet.copyOf(requireNonNull(shuttingDownNodes, "shuttingDownNodes is null"));
     }
 
     public Set<Node> getActiveNodes()
@@ -39,5 +41,10 @@ public class AllNodes
     public Set<Node> getInactiveNodes()
     {
         return inactiveNodes;
+    }
+
+    public Set<Node> getShuttingDownNodes()
+    {
+        return shuttingDownNodes;
     }
 }

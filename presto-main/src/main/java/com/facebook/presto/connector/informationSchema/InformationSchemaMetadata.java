@@ -17,33 +17,38 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
 
-import static com.facebook.presto.connector.informationSchema.InformationSchemaColumnHandle.toInformationSchemaColumnHandles;
 import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.schemaMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.Types.checkType;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.filter;
+import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public class InformationSchemaMetadata
-        extends ReadOnlyConnectorMetadata
+        implements ConnectorMetadata
 {
     public static final String INFORMATION_SCHEMA = "information_schema";
 
@@ -51,53 +56,44 @@ public class InformationSchemaMetadata
     public static final SchemaTableName TABLE_TABLES = new SchemaTableName(INFORMATION_SCHEMA, "tables");
     public static final SchemaTableName TABLE_VIEWS = new SchemaTableName(INFORMATION_SCHEMA, "views");
     public static final SchemaTableName TABLE_SCHEMATA = new SchemaTableName(INFORMATION_SCHEMA, "schemata");
-    public static final SchemaTableName TABLE_INTERNAL_FUNCTIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_functions__");
     public static final SchemaTableName TABLE_INTERNAL_PARTITIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_partitions__");
 
     public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
             .table(tableMetadataBuilder(TABLE_COLUMNS)
-                    .column("table_catalog", VARCHAR)
-                    .column("table_schema", VARCHAR)
-                    .column("table_name", VARCHAR)
-                    .column("column_name", VARCHAR)
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
+                    .column("column_name", createUnboundedVarcharType())
                     .column("ordinal_position", BIGINT)
-                    .column("column_default", VARCHAR)
-                    .column("is_nullable", VARCHAR)
-                    .column("data_type", VARCHAR)
-                    .column("is_partition_key", VARCHAR)
-                    .column("comment", VARCHAR)
+                    .column("column_default", createUnboundedVarcharType())
+                    .column("is_nullable", createUnboundedVarcharType())
+                    .column("data_type", createUnboundedVarcharType())
+                    .column("comment", createUnboundedVarcharType())
+                    .column("extra_info", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLES)
-                    .column("table_catalog", VARCHAR)
-                    .column("table_schema", VARCHAR)
-                    .column("table_name", VARCHAR)
-                    .column("table_type", VARCHAR)
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
+                    .column("table_type", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_VIEWS)
-                    .column("table_catalog", VARCHAR)
-                    .column("table_schema", VARCHAR)
-                    .column("table_name", VARCHAR)
-                    .column("view_definition", VARCHAR)
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
+                    .column("view_definition", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_SCHEMATA)
-                    .column("catalog_name", VARCHAR)
-                    .column("schema_name", VARCHAR)
-                    .build())
-            .table(tableMetadataBuilder(TABLE_INTERNAL_FUNCTIONS)
-                    .column("function_name", VARCHAR)
-                    .column("argument_types", VARCHAR)
-                    .column("return_type", VARCHAR)
-                    .column("function_type", VARCHAR)
-                    .column("deterministic", BOOLEAN)
-                    .column("description", VARCHAR)
+                    .column("catalog_name", createUnboundedVarcharType())
+                    .column("schema_name", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_INTERNAL_PARTITIONS)
-                    .column("table_catalog", VARCHAR)
-                    .column("table_schema", VARCHAR)
-                    .column("table_name", VARCHAR)
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
                     .column("partition_number", BIGINT)
-                    .column("partition_key", VARCHAR)
-                    .column("partition_value", VARCHAR)
+                    .column("partition_key", createUnboundedVarcharType())
+                    .column("partition_value", createUnboundedVarcharType())
                     .build())
             .build();
 
@@ -105,12 +101,12 @@ public class InformationSchemaMetadata
 
     public InformationSchemaMetadata(String catalogName)
     {
-        this.catalogName = catalogName;
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     private InformationSchemaTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
     {
-        InformationSchemaTableHandle handle = checkType(tableHandle, InformationSchemaTableHandle.class, "tableHandle");
+        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) tableHandle;
         checkArgument(handle.getCatalogName().equals(catalogName), "invalid table handle: expected catalog %s but got %s", catalogName, handle.getCatalogName());
         checkArgument(TABLES.containsKey(handle.getSchemaTableName()), "table %s does not exist", handle.getSchemaTableName());
         return handle;
@@ -150,18 +146,12 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return null;
-    }
-
-    @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
-        String columnName = checkType(columnHandle, InformationSchemaColumnHandle.class, "columnHandle").getColumnName();
+        String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
@@ -175,13 +165,15 @@ public class InformationSchemaMetadata
 
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
-        return toInformationSchemaColumnHandles(tableMetadata);
+        return tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toMap(identity(), InformationSchemaColumnHandle::new));
     }
 
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
         for (Entry<SchemaTableName, ConnectorTableMetadata> entry : TABLES.entrySet()) {
             if (prefix.matches(entry.getKey())) {
@@ -189,6 +181,20 @@ public class InformationSchemaMetadata
             }
         }
         return builder.build();
+    }
+
+    @Override
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) table;
+        ConnectorTableLayout layout = new ConnectorTableLayout(new InformationSchemaTableLayoutHandle(handle, constraint.getSummary()));
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+    }
+
+    @Override
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    {
+        return new ConnectorTableLayout(handle);
     }
 
     static List<ColumnMetadata> informationSchemaTableColumns(SchemaTableName tableName)

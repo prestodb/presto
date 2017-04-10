@@ -33,7 +33,11 @@ import static com.facebook.presto.cli.FormatUtils.formatDataSize;
 import static com.facebook.presto.cli.FormatUtils.formatProgressBar;
 import static com.facebook.presto.cli.FormatUtils.formatTime;
 import static com.facebook.presto.cli.FormatUtils.pluralize;
+import static com.facebook.presto.cli.KeyReader.readKey;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.Duration.nanosSince;
+import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -43,16 +47,22 @@ public class StatusPrinter
 {
     private static final Logger log = Logger.get(StatusPrinter.class);
 
+    private static final int CTRL_C = 3;
+    private static final int CTRL_P = 16;
+
     private final long start = System.nanoTime();
     private final StatementClient client;
     private final PrintStream out;
     private final ConsolePrinter console;
+
+    private boolean debug;
 
     public StatusPrinter(StatementClient client, PrintStream out)
     {
         this.client = client;
         this.out = out;
         this.console = new ConsolePrinter(out);
+        this.debug = client.isDebug();
     }
 
 /*
@@ -78,15 +88,33 @@ Parallelism: 2.5
         try {
             while (client.isValid()) {
                 try {
-                    // exit status loop if there is there is pending output
+                    // exit status loop if there is pending output
                     if (client.current().getData() != null) {
                         return;
                     }
 
-                    // update screen if enough time has passed
-                    if (Duration.nanosSince(lastPrint).getValue(SECONDS) >= 0.5) {
-                        console.repositionCursor();
-                        printQueryInfo(client.current());
+                    // check if time to update screen
+                    boolean update = nanosSince(lastPrint).getValue(SECONDS) >= 0.5;
+
+                    // check for keyboard input
+                    int key = readKey();
+                    if (key == CTRL_P) {
+                        partialCancel();
+                    }
+                    else if (key == CTRL_C) {
+                        updateScreen();
+                        update = false;
+                        client.close();
+                    }
+                    else if (toUpperCase(key) == 'D') {
+                        debug = !debug;
+                        console.resetScreen();
+                        update = true;
+                    }
+
+                    // update screen
+                    if (update) {
+                        updateScreen();
                         lastPrint = System.nanoTime();
                     }
 
@@ -95,6 +123,9 @@ Parallelism: 2.5
                 }
                 catch (RuntimeException e) {
                     log.debug(e, "error printing status");
+                    if (debug) {
+                        e.printStackTrace(out);
+                    }
                 }
             }
         }
@@ -103,9 +134,15 @@ Parallelism: 2.5
         }
     }
 
+    private void updateScreen()
+    {
+        console.repositionCursor();
+        printQueryInfo(client.current());
+    }
+
     public void printFinalInfo()
     {
-        Duration wallTime = Duration.nanosSince(start);
+        Duration wallTime = nanosSince(start);
 
         QueryResults results = client.finalResults();
         StatementStats stats = results.getStats();
@@ -126,18 +163,18 @@ Parallelism: 2.5
                 pluralize("node", nodes));
         out.println(querySummary);
 
-        if (client.isDebug()) {
-            out.println(results.getInfoUri() + "?pretty");
+        if (debug) {
+            out.println(results.getInfoUri().toString());
         }
 
         // Splits: 1000 total, 842 done (84.20%)
         String splitsSummary = String.format("Splits: %,d total, %,d done (%.2f%%)",
                 stats.getTotalSplits(),
                 stats.getCompletedSplits(),
-                percentage(stats.getCompletedSplits(), stats.getTotalSplits()));
+                stats.getProgressPercentage().orElse(0.0));
         out.println(splitsSummary);
 
-        if (client.isDebug()) {
+        if (debug) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
             Duration cpuTime = millis(stats.getCpuTimeMillis());
             String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
@@ -176,10 +213,10 @@ Parallelism: 2.5
     private void printQueryInfo(QueryResults results)
     {
         StatementStats stats = results.getStats();
-        Duration wallTime = Duration.nanosSince(start);
+        Duration wallTime = nanosSince(start);
 
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
-        int progressPercentage = (int) min(99, percentage(stats.getCompletedSplits(), stats.getTotalSplits()));
+        int progressPercentage = (int) min(99, stats.getProgressPercentage().orElse(0.0));
 
         if (console.isRealTerminal()) {
             // blank line
@@ -208,15 +245,16 @@ Parallelism: 2.5
                     stats.getTotalSplits());
             reprintLine(querySummary);
 
-            if (client.isDebug()) {
-                reprintLine(results.getInfoUri() + "?pretty");
+            String url = results.getInfoUri().toString();
+            if (debug && (url.length() < terminalWidth)) {
+                reprintLine(url);
             }
 
             if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
                 return;
             }
 
-            if (client.isDebug()) {
+            if (debug) {
                 // Splits:   620 queued, 34 running, 124 done
                 String splitsSummary = String.format("Splits:   %,d queued, %,d running, %,d done",
                         stats.getQueuedSplits(),
@@ -245,7 +283,7 @@ Parallelism: 2.5
                 reprintLine(String.format("Parallelism: %.1f", parallelism));
             }
 
-            assert terminalWidth >= 75;
+            verify(terminalWidth >= 75); // otherwise handled above
             int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
 
             if (stats.isScheduled()) {
@@ -267,7 +305,7 @@ Parallelism: 2.5
                 reprintLine(progressLine);
             }
             else {
-                String progressBar = formatProgressBar(progressWidth, Ints.saturatedCast(Duration.nanosSince(start).roundTo(SECONDS)));
+                String progressBar = formatProgressBar(progressWidth, Ints.saturatedCast(nanosSince(start).roundTo(SECONDS)));
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [    <=>                                  ]
                 String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
@@ -324,7 +362,7 @@ Parallelism: 2.5
 
     private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
     {
-        Duration elapsedTime = Duration.nanosSince(start);
+        Duration elapsedTime = nanosSince(start);
 
         // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s  QUEUED    RUN   DONE
         // 0......Q     26M   9077M  9993G    9077M   9077M  9077M  9077M
@@ -365,6 +403,16 @@ Parallelism: 2.5
 
         for (StageStats subStage : stage.getSubStages()) {
             printStageTree(subStage, indent + "  ", stageNumberCounter);
+        }
+    }
+
+    private void partialCancel()
+    {
+        try {
+            client.cancelLeafStage(new Duration(1, SECONDS));
+        }
+        catch (RuntimeException e) {
+            log.debug(e, "error canceling leaf stage");
         }
     }
 

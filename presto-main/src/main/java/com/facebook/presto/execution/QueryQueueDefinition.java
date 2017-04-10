@@ -19,7 +19,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QueryQueueDefinition
 {
@@ -31,7 +31,7 @@ public class QueryQueueDefinition
 
     public QueryQueueDefinition(String template, int maxConcurrent, int maxQueued)
     {
-        this.template = checkNotNull(template, "template is null");
+        this.template = requireNonNull(template, "template is null");
         Matcher matcher = Pattern.compile("\\$\\{(.*?)\\}").matcher(template);
         while (matcher.find()) {
             String group = matcher.group(1);

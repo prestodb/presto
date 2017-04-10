@@ -13,19 +13,15 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TupleDomain;
-import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -40,23 +36,31 @@ public interface JdbcClient
 
     List<JdbcColumnHandle> getColumns(JdbcTableHandle tableHandle);
 
-    ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> tupleDomain);
-
-    ConnectorSplitSource getPartitionSplits(JdbcPartition jdbcPartition);
+    ConnectorSplitSource getSplits(JdbcTableLayoutHandle layoutHandle);
 
     Connection getConnection(JdbcSplit split)
             throws SQLException;
 
-    String buildSql(JdbcSplit split, List<JdbcColumnHandle> columnHandles);
+    PreparedStatement buildSql(Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+            throws SQLException;
 
     JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata);
 
-    void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments);
+    void commitCreateTable(JdbcOutputTableHandle handle);
+
+    JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata);
+
+    void finishInsertTable(JdbcOutputTableHandle handle);
 
     void dropTable(JdbcTableHandle jdbcTableHandle);
+
+    void rollbackCreateTable(JdbcOutputTableHandle handle);
 
     String buildInsertSql(JdbcOutputTableHandle handle);
 
     Connection getConnection(JdbcOutputTableHandle handle)
+            throws SQLException;
+
+    PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException;
 }

@@ -20,7 +20,8 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.cli.AlignedTablePrinter.formatHexDump;
+import static java.util.Objects.requireNonNull;
 
 public class CsvPrinter
         implements OutputPrinter
@@ -32,8 +33,8 @@ public class CsvPrinter
 
     public CsvPrinter(List<String> fieldNames, Writer writer, boolean header)
     {
-        checkNotNull(fieldNames, "fieldNames is null");
-        checkNotNull(writer, "writer is null");
+        requireNonNull(fieldNames, "fieldNames is null");
+        requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.writer = new CSVWriter(writer);
         this.needHeader = header;
@@ -58,7 +59,7 @@ public class CsvPrinter
     public void finish()
             throws IOException
     {
-        printRows(ImmutableList.<List<?>>of(), true);
+        printRows(ImmutableList.of(), true);
         writer.flush();
         checkError();
     }
@@ -75,9 +76,21 @@ public class CsvPrinter
     {
         String[] array = new String[values.size()];
         for (int i = 0; i < values.size(); i++) {
-            Object value = values.get(i);
-            array[i] = (value == null) ? "" : value.toString();
+            array[i] = formatValue(values.get(i));
         }
         return array;
+    }
+
+    static String formatValue(Object o)
+    {
+        if (o == null) {
+            return "";
+        }
+
+        if (o instanceof byte[]) {
+            return formatHexDump((byte[]) o);
+        }
+
+        return o.toString();
     }
 }

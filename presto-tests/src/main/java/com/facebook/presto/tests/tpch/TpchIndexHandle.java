@@ -15,19 +15,18 @@ package com.facebook.presto.tests.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchIndexHandle
         implements ConnectorIndexHandle
 {
-    private final String connectorId;
     private final String tableName;
     private final double scaleFactor;
     private final Set<String> indexColumnNames;
@@ -35,23 +34,15 @@ public class TpchIndexHandle
 
     @JsonCreator
     public TpchIndexHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("scaleFactor") double scaleFactor,
             @JsonProperty("indexColumnNames") Set<String> indexColumnNames,
             @JsonProperty("fixedValues") TupleDomain<ColumnHandle> fixedValues)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.scaleFactor = scaleFactor;
-        this.indexColumnNames = ImmutableSet.copyOf(checkNotNull(indexColumnNames, "indexColumnNames is null"));
-        this.fixedValues = checkNotNull(fixedValues, "fixedValues is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
+        this.indexColumnNames = ImmutableSet.copyOf(requireNonNull(indexColumnNames, "indexColumnNames is null"));
+        this.fixedValues = requireNonNull(fixedValues, "fixedValues is null");
     }
 
     @JsonProperty

@@ -13,102 +13,44 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.ConnectorId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
-import io.airlift.log.Logger;
 
-import javax.inject.Inject;
+import javax.annotation.concurrent.ThreadSafe;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Maps.fromProperties;
+import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public class CatalogManager
 {
-    private static final Logger log = Logger.get(CatalogManager.class);
-    private final ConnectorManager connectorManager;
-    private final File catalogConfigurationDir;
-    private final AtomicBoolean catalogsLoading = new AtomicBoolean();
-    private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
+    private final ConcurrentMap<String, Catalog> catalogs = new ConcurrentHashMap<>();
 
-    @Inject
-    public CatalogManager(ConnectorManager connectorManager, CatalogManagerConfig config)
+    public synchronized void registerCatalog(Catalog catalog)
     {
-        this(connectorManager, config.getCatalogConfigurationDir());
+        requireNonNull(catalog, "catalog is null");
+
+        checkState(catalogs.put(catalog.getCatalogName(), catalog) == null, "Catalog '%s' is already registered", catalog.getCatalogName());
     }
 
-    public CatalogManager(ConnectorManager connectorManager, File catalogConfigurationDir)
+    public Optional<ConnectorId> removeCatalog(String catalogName)
     {
-        this.connectorManager = connectorManager;
-        this.catalogConfigurationDir = catalogConfigurationDir;
+        return Optional.ofNullable(catalogs.remove(catalogName))
+                .map(Catalog::getConnectorId);
     }
 
-    public boolean areCatalogsLoaded()
+    public List<Catalog> getCatalogs()
     {
-        return catalogsLoaded.get();
+        return ImmutableList.copyOf(catalogs.values());
     }
 
-    public void loadCatalogs()
-            throws Exception
+    public Optional<Catalog> getCatalog(String catalogName)
     {
-        if (!catalogsLoading.compareAndSet(false, true)) {
-            return;
-        }
-
-        for (File file : listFiles(catalogConfigurationDir)) {
-            if (file.isFile() && file.getName().endsWith(".properties")) {
-                loadCatalog(file);
-            }
-        }
-
-        catalogsLoaded.set(true);
-    }
-
-    private void loadCatalog(File file)
-            throws Exception
-    {
-        log.info("-- Loading catalog %s --", file);
-        Map<String, String> properties = new HashMap<>(loadProperties(file));
-
-        String connectorName = properties.remove("connector.name");
-        checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
-
-        String catalogName = Files.getNameWithoutExtension(file.getName());
-
-        connectorManager.createConnection(catalogName, connectorName, ImmutableMap.copyOf(properties));
-        log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
-    }
-
-    private static List<File> listFiles(File installedPluginsDir)
-    {
-        if (installedPluginsDir != null && installedPluginsDir.isDirectory()) {
-            File[] files = installedPluginsDir.listFiles();
-            if (files != null) {
-                return ImmutableList.copyOf(files);
-            }
-        }
-        return ImmutableList.of();
-    }
-
-    private static Map<String, String> loadProperties(File file)
-            throws Exception
-    {
-        checkNotNull(file, "file is null");
-
-        Properties properties = new Properties();
-        try (FileInputStream in = new FileInputStream(file)) {
-            properties.load(in);
-        }
-        return fromProperties(properties);
+        return Optional.ofNullable(catalogs.get(catalogName));
     }
 }

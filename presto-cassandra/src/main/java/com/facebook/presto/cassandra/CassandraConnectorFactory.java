@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -29,20 +31,18 @@ import java.lang.management.ManagementFactory;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Map<String, String> optionalConfig;
 
-    public CassandraConnectorFactory(String name, Map<String, String> optionalConfig)
+    public CassandraConnectorFactory(String name)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
     }
 
     @Override
@@ -52,9 +52,15 @@ public class CassandraConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config)
+    public ConnectorHandleResolver getHandleResolver()
     {
-        checkNotNull(config, "config is null");
+        return new CassandraHandleResolver();
+    }
+
+    @Override
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    {
+        requireNonNull(config, "config is null");
 
         try {
             Bootstrap app = new Bootstrap(
@@ -73,7 +79,7 @@ public class CassandraConnectorFactory
 
             Injector injector = app.strictConfig().doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setOptionalConfigurationProperties(optionalConfig).initialize();
+                    .initialize();
 
             return injector.getInstance(CassandraConnector.class);
         }

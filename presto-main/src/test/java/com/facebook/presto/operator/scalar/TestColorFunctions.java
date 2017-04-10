@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.scalar;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.operator.scalar.ColorFunctions.bar;
 import static com.facebook.presto.operator.scalar.ColorFunctions.color;
 import static com.facebook.presto.operator.scalar.ColorFunctions.getBlue;
 import static com.facebook.presto.operator.scalar.ColorFunctions.getGreen;
@@ -24,8 +24,8 @@ import static com.facebook.presto.operator.scalar.ColorFunctions.getRed;
 import static com.facebook.presto.operator.scalar.ColorFunctions.parseRgb;
 import static com.facebook.presto.operator.scalar.ColorFunctions.render;
 import static com.facebook.presto.operator.scalar.ColorFunctions.rgb;
-import static com.facebook.presto.operator.scalar.ColorFunctions.bar;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestColorFunctions
@@ -131,6 +131,7 @@ public class TestColorFunctions
             throws Exception
     {
         assertEquals(render(1234.5678, color(toSlice("red"))), toSlice("\u001b[38;5;1m1234.5678\u001b[0m"));
+        assertEquals(render(1234.5678f, color(toSlice("red"))), toSlice(format("\u001b[38;5;1m%s\u001b[0m", (double) 1234.5678f)));
 
         assertEquals(render(1234.5678, color(toSlice("#f00"))), toSlice("\u001b[38;5;196m1234.5678\u001b[0m"));
         assertEquals(render(1234.5678, color(toSlice("#0f0"))), toSlice("\u001b[38;5;46m1234.5678\u001b[0m"));
@@ -142,6 +143,7 @@ public class TestColorFunctions
             throws Exception
     {
         assertEquals(color(0, 0, 255, color(toSlice("#000")), color(toSlice("#fff"))), 0x00_00_00);
+        assertEquals(color(0.0f, 0.0f, 255.0f, color(toSlice("#000")), color(toSlice("#fff"))), 0x00_00_00);
         assertEquals(color(128, 0, 255, color(toSlice("#000")), color(toSlice("#fff"))), 0x80_80_80);
         assertEquals(color(255, 0, 255, color(toSlice("#000")), color(toSlice("#fff"))), 0xFF_FF_FF);
 
@@ -154,10 +156,13 @@ public class TestColorFunctions
         assertEquals(color(0.5, color(toSlice("#000")), color(toSlice("#fff"))), 0x80_80_80);
         assertEquals(color(1.0, color(toSlice("#000")), color(toSlice("#fff"))), 0xFF_FF_FF);
         assertEquals(color(42, color(toSlice("#000")), color(toSlice("#fff"))), 0xFF_FF_FF);
+        assertEquals(color(1.0f, color(toSlice("#000")), color(toSlice("#fff"))), 0xFF_FF_FF);
+        assertEquals(color(-0.0f, color(toSlice("#000")), color(toSlice("#fff"))), 0x00_00_00);
+        assertEquals(color(0.0f, color(toSlice("#000")), color(toSlice("#fff"))), 0x00_00_00);
     }
 
     private static Slice toSlice(String string)
     {
-        return Slices.copiedBuffer(string, UTF_8);
+        return utf8Slice(string);
     }
 }

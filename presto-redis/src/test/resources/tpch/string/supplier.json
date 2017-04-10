@@ -1,0 +1,54 @@
+{
+    "tableName": "supplier",
+    "schemaName": "tpch",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "redis_key",
+                "type": "VARCHAR(64)",
+                "hidden": "true"
+            }
+        ]
+    },
+    "value": {
+        "dataFormat": "json",
+        "fields": [
+            {
+                "name": "suppkey",
+                "mapping": "suppkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "name",
+                "mapping": "name",
+                "type": "VARCHAR(25)"
+            },
+            {
+                "name": "address",
+                "mapping": "address",
+                "type": "VARCHAR(40)"
+            },
+            {
+                "name": "nationkey",
+                "mapping": "nationkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "phone",
+                "mapping": "phone",
+                "type": "VARCHAR(15)"
+            },
+            {
+                "name": "acctbal",
+                "mapping": "acctbal",
+                "type": "DOUBLE"
+            },
+            {
+                "name": "comment",
+                "mapping": "comment",
+                "type": "VARCHAR(101)"
+            }
+        ]
+    }
+}

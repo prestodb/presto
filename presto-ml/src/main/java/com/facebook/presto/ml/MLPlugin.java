@@ -13,45 +13,45 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.ParametricType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
-import javax.inject.Inject;
-
-import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.ml.type.ModelType.MODEL;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MLPlugin
         implements Plugin
 {
-    private TypeManager typeManager;
-
-    @Inject
-    public void setTypeManager(TypeManager typeManager)
+    @Override
+    public Iterable<Type> getTypes()
     {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        return ImmutableList.of(MODEL, REGRESSOR);
     }
 
     @Override
-    public <T> List<T> getServices(Class<T> type)
+    public Iterable<ParametricType> getParametricTypes()
     {
-        if (type == FunctionFactory.class) {
-            return ImmutableList.of(type.cast(new MLFunctionFactory(typeManager)));
-        }
-        else if (type == Type.class) {
-            return ImmutableList.of(type.cast(MODEL), type.cast(REGRESSOR));
-        }
-        else if (type == ParametricType.class) {
-            return ImmutableList.of(type.cast(new ClassifierParametricType()));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new ClassifierParametricType());
+    }
+
+    @Override
+    public Set<Class<?>> getFunctions()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(LearnClassifierAggregation.class)
+                .add(LearnVarcharClassifierAggregation.class)
+                .add(LearnRegressorAggregation.class)
+                .add(LearnLibSvmClassifierAggregation.class)
+                .add(LearnLibSvmVarcharClassifierAggregation.class)
+                .add(LearnLibSvmRegressorAggregation.class)
+                .add(EvaluateClassifierPredictionsAggregation.class)
+                .add(MLFunctions.class)
+                .build();
     }
 }

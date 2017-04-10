@@ -14,11 +14,13 @@
 package com.facebook.presto.tests.tpch;
 
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.tests.tpch.TpchIndexedData.IndexedTable;
 import com.google.common.base.Function;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class TpchConnectorIndex
         implements ConnectorIndex
@@ -29,13 +31,13 @@ class TpchConnectorIndex
 
     public TpchConnectorIndex(Function<RecordSet, RecordSet> keyFormatter, Function<RecordSet, RecordSet> outputFormatter, IndexedTable indexedTable)
     {
-        this.keyFormatter = checkNotNull(keyFormatter, "keyFormatter is null");
-        this.outputFormatter = checkNotNull(outputFormatter, "outputFormatter is null");
-        this.indexedTable = checkNotNull(indexedTable, "indexedTable is null");
+        this.keyFormatter = requireNonNull(keyFormatter, "keyFormatter is null");
+        this.outputFormatter = requireNonNull(outputFormatter, "outputFormatter is null");
+        this.indexedTable = requireNonNull(indexedTable, "indexedTable is null");
     }
 
     @Override
-    public RecordSet lookup(RecordSet rawInputRecordSet)
+    public ConnectorPageSource lookup(RecordSet rawInputRecordSet)
     {
         // convert the input record set from the column ordering in the query to
         // match the column ordering of the index
@@ -46,6 +48,6 @@ class TpchConnectorIndex
 
         // convert the output record set of the index into the column ordering
         // expect by the query
-        return outputFormatter.apply(rawOutputRecordSet);
+        return new RecordPageSource(outputFormatter.apply(rawOutputRecordSet));
     }
 }

@@ -16,23 +16,34 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
+import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
 public class SliceArrayBlock
         extends AbstractVariableWidthBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceArrayBlock.class).instanceSize();
+    private static final int SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
+
     private final int positionCount;
     private final Slice[] values;
     private final int sizeInBytes;
     private final int retainedSizeInBytes;
 
     public SliceArrayBlock(int positionCount, Slice[] values)
+    {
+        this(positionCount, values, false);
+    }
+
+    public SliceArrayBlock(int positionCount, Slice[] values, boolean valueSlicesAreDistinct)
     {
         this.positionCount = positionCount;
 
@@ -42,10 +53,12 @@ public class SliceArrayBlock
         this.values = values;
 
         sizeInBytes = getSliceArraySizeInBytes(values);
-        retainedSizeInBytes = getSliceArrayRetainedSizeInBytes(values);
+
+        // if values are distinct, use the already computed value
+        retainedSizeInBytes = INSTANCE_SIZE + (valueSlicesAreDistinct ? sizeInBytes : getSliceArrayRetainedSizeInBytes(values));
     }
 
-    Slice[] getValues()
+    public Slice[] getValues()
     {
         return values;
     }
@@ -95,7 +108,7 @@ public class SliceArrayBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         return values[position].length();
     }
@@ -164,32 +177,49 @@ public class SliceArrayBlock
         return sb.toString();
     }
 
-    static int getSliceArraySizeInBytes(Slice[] values)
+    public static int getSliceArraySizeInBytes(Slice[] values)
     {
-        long sizeInBytes = SizeOf.sizeOf(values);
+        long sizeInBytes = values.length * (long) (ARRAY_OBJECT_INDEX_SCALE + SLICE_INSTANCE_SIZE);
         for (Slice value : values) {
             if (value != null) {
                 sizeInBytes += value.length();
             }
         }
-        if (sizeInBytes > Integer.MAX_VALUE) {
-            sizeInBytes = Integer.MAX_VALUE;
+        return intSaturatedCast(sizeInBytes);
+    }
+
+    @Override
+    public int getRegionSizeInBytes(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset == 0 && length == positionCount) {
+            // Calculation of getRegionSizeInBytes is expensive in this class.
+            // On the other hand, getSizeInBytes result is pre-computed.
+            return getSizeInBytes();
         }
-        return (int) sizeInBytes;
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        long sizeInBytes = length * (long) (ARRAY_OBJECT_INDEX_SCALE + SLICE_INSTANCE_SIZE);
+        for (int i = positionOffset; i < positionOffset + length; i++) {
+            Slice value = values[i];
+            if (value != null) {
+                sizeInBytes += value.length();
+            }
+        }
+        return intSaturatedCast(sizeInBytes);
     }
 
     static int getSliceArrayRetainedSizeInBytes(Slice[] values)
     {
         long sizeInBytes = SizeOf.sizeOf(values);
-        Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>();
+        Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>(values.length);
         for (Slice value : values) {
             if (value != null && value.getBase() != null && uniqueRetained.put(value.getBase(), true) == null) {
                 sizeInBytes += value.getRetainedSize();
             }
         }
-        if (sizeInBytes > Integer.MAX_VALUE) {
-            sizeInBytes = Integer.MAX_VALUE;
-        }
-        return (int) sizeInBytes;
+        return intSaturatedCast(sizeInBytes);
     }
 }

@@ -16,8 +16,8 @@ package com.facebook.presto.execution;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public enum StageState
 {
@@ -31,6 +31,10 @@ public enum StageState
      * Stage tasks are being scheduled on nodes.
      */
     SCHEDULING(false, false),
+    /**
+     * All stage tasks have been scheduled, but splits are still being scheduled.
+     */
+    SCHEDULING_SPLITS(false, false),
     /**
      * Stage has been scheduled on nodes and ready to execute, but all tasks are still queued.
      */

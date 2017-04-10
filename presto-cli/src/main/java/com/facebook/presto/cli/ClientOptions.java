@@ -17,8 +17,9 @@ import com.facebook.presto.client.ClientSession;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.command.Option;
+import io.airlift.airline.Option;
 import io.airlift.http.client.spnego.KerberosConfig;
+import io.airlift.units.Duration;
 
 import java.io.File;
 import java.net.URI;
@@ -33,9 +34,11 @@ import java.util.Optional;
 import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ClientOptions
 {
@@ -51,7 +54,7 @@ public class ClientOptions
     @Option(name = "--krb5-config-path", title = "krb5 config path", description = "Kerberos config file path (default: /etc/krb5.conf)")
     public String krb5ConfigPath = "/etc/krb5.conf";
 
-    @Option(name = "--krb5-keytab-path", title = "krb5 keytab path", description = "Kerberos key table path")
+    @Option(name = "--krb5-keytab-path", title = "krb5 keytab path", description = "Kerberos key table path (default: /etc/krb5.keytab)")
     public String krb5KeytabPath = "/etc/krb5.keytab";
 
     @Option(name = "--krb5-credential-cache-path", title = "krb5 credential cache path", description = "Kerberos credential cache path")
@@ -60,23 +63,35 @@ public class ClientOptions
     @Option(name = "--krb5-principal", title = "krb5 principal", description = "Kerberos principal to be used")
     public String krb5Principal;
 
+    @Option(name = "--krb5-disable-remote-service-hostname-canonicalization", title = "krb5 disable remote service hostname canonicalization", description = "Disable service hostname canonicalization using the DNS reverse lookup")
+    public boolean krb5DisableRemoteServiceHostnameCanonicalization;
+
     @Option(name = "--keystore-path", title = "keystore path", description = "Keystore path")
     public String keystorePath;
 
     @Option(name = "--keystore-password", title = "keystore password", description = "Keystore password")
     public String keystorePassword;
 
+    @Option(name = "--truststore-path", title = "truststore path", description = "Truststore path")
+    public String truststorePath;
+
+    @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
+    public String truststorePassword;
+
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
+
+    @Option(name = "--password", title = "password", description = "Prompt for password")
+    public boolean password;
 
     @Option(name = "--source", title = "source", description = "Name of source making query")
     public String source = "presto-cli";
 
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
-    public String catalog = "default";
+    public String catalog;
 
     @Option(name = "--schema", title = "schema", description = "Default schema")
-    public String schema = "default";
+    public String schema;
 
     @Option(name = {"-f", "--file"}, title = "file", description = "Execute statements from file and exit")
     public String file;
@@ -84,20 +99,23 @@ public class ClientOptions
     @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
-    @Option(name = "--log-levels-file", title = "log levels", description = "Configure log levels for debugging")
+    @Option(name = "--log-levels-file", title = "log levels file", description = "Configure log levels for debugging using this file")
     public String logLevelsFile;
 
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
-    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
+    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, CSV, TSV, CSV_HEADER, TSV_HEADER, NULL] (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
-    @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value)")
+    @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
     @Option(name = "--socks-proxy", title = "socks-proxy", description = "SOCKS proxy to use for server connections")
     public HostAndPort socksProxy;
+
+    @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
+    public Duration clientRequestTimeout = new Duration(2, MINUTES);
 
     public enum OutputFormat
     {
@@ -116,12 +134,16 @@ public class ClientOptions
                 parseServer(server),
                 user,
                 source,
+                null, // client-supplied payload field not yet supported in CLI
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(sessionProperties),
-                debug);
+                emptyMap(),
+                null,
+                debug,
+                clientRequestTimeout);
     }
 
     public KerberosConfig toKerberosConfig()
@@ -136,7 +158,7 @@ public class ClientOptions
         if (krb5CredentialCachePath != null) {
             config.setCredentialCache(new File(krb5CredentialCachePath));
         }
-
+        config.setUseCanonicalHostname(!krb5DisableRemoteServiceHostnameCanonicalization);
         return config;
     }
 
@@ -175,8 +197,7 @@ public class ClientOptions
         if (value != null && value.startsWith("FILE:")) {
             return value.substring("FILE:".length());
         }
-
-        return null;
+        return value;
     }
 
     public static final class ClientSessionProperty
@@ -209,9 +230,9 @@ public class ClientOptions
 
         public ClientSessionProperty(Optional<String> catalog, String name, String value)
         {
-            this.catalog = checkNotNull(catalog, "catalog is null");
-            this.name = checkNotNull(name, "name is null");
-            this.value = checkNotNull(value, "value is null");
+            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.name = requireNonNull(name, "name is null");
+            this.value = requireNonNull(value, "value is null");
 
             verifyProperty(catalog, name, value);
         }

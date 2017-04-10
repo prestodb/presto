@@ -15,22 +15,24 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
 
 public class Plan
 {
     private final PlanNode root;
-    private final SymbolAllocator symbolAllocator;
+    private final Map<Symbol, Type> types;
 
-    public Plan(PlanNode root, SymbolAllocator symbolAllocator)
+    public Plan(PlanNode root, Map<Symbol, Type> types)
     {
-        Preconditions.checkNotNull(root, "root is null");
-        Preconditions.checkNotNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(root, "root is null");
+        requireNonNull(types, "types is null");
 
         this.root = root;
-        this.symbolAllocator = symbolAllocator;
+        this.types = ImmutableMap.copyOf(types);
     }
 
     public PlanNode getRoot()
@@ -40,11 +42,6 @@ public class Plan
 
     public Map<Symbol, Type> getTypes()
     {
-        return symbolAllocator.getTypes();
-    }
-
-    public SymbolAllocator getSymbolAllocator()
-    {
-        return symbolAllocator;
+        return types;
     }
 }

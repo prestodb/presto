@@ -13,40 +13,22 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
-import org.intellij.lang.annotations.Language;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
+import java.util.List;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    private final Optional<Session> sampledSession;
-
-    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
+    protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
-        this(queryRunner, Optional.empty());
-    }
-
-    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession)
-    {
-        this(queryRunner, Optional.of(checkNotNull(sampledSession, "sampledSession is null")));
-    }
-
-    private AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, Optional<Session> sampledSession)
-    {
-        super(queryRunner);
-        this.sampledSession = checkNotNull(sampledSession, "sampledSession is null");
+        super(supplier);
     }
 
     @Test
@@ -56,13 +38,6 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT SUM(orderkey) FROM ORDERS");
         assertQuery("SELECT SUM(totalprice) FROM ORDERS");
         assertQuery("SELECT MAX(comment) FROM ORDERS");
-    }
-
-    @Test
-    public void testApproximateQuerySum()
-            throws Exception
-    {
-        assertApproximateQuery("SELECT SUM(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * SUM(totalprice) FROM orders");
     }
 
     @Test
@@ -122,38 +97,13 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     @Test
-    public void testTableSampleSystem()
-            throws Exception
-    {
-        if (!sampledSession.isPresent()) {
-             return;
-        }
-
-        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
-
-        boolean sampleSizeFound = false;
-        for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
-            if (sampleSize > 0 && sampleSize < total) {
-                sampleSizeFound = true;
-                break;
-            }
-        }
-        assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
-    }
-
-    @Test
     public void testShowSchemas()
             throws Exception
     {
         MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toJdbcTypes();
 
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
                 .row("tpch");
-
-        if (sampledSession.isPresent()) {
-            resultBuilder.row("tpch_sampled");
-        }
 
         assertContains(actualSchemas, resultBuilder.build());
     }
@@ -163,7 +113,7 @@ public abstract class AbstractTestIntegrationSmokeTest
             throws Exception
     {
         MaterializedResult actualTables = computeActual("SHOW TABLES").toJdbcTypes();
-        MaterializedResult expectedTables = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
+        MaterializedResult expectedTables = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
                 .row("orders")
                 .build();
         assertContains(actualTables, expectedTables);
@@ -175,13 +125,17 @@ public abstract class AbstractTestIntegrationSmokeTest
     {
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
 
-        // some connectors don't support dates, so test with both options
-        if (!actualColumns.equals(getExpectedTableDescription(true))) {
-            assertEquals(actualColumns, getExpectedTableDescription(false));
-        }
+        // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
+        List<MaterializedResult> expectedColumnsPossibilities = ImmutableList.of(
+                getExpectedTableDescription(true, true),
+                getExpectedTableDescription(true, false),
+                getExpectedTableDescription(false, true),
+                getExpectedTableDescription(false, false)
+        );
+        assertTrue(expectedColumnsPossibilities.contains(actualColumns), String.format("%s not in %s", actualColumns, expectedColumnsPossibilities));
     }
 
-    private MaterializedResult getExpectedTableDescription(boolean dateSupported)
+    private MaterializedResult getExpectedTableDescription(boolean dateSupported, boolean parametrizedVarchar)
     {
         String orderDateType;
         if (dateSupported) {
@@ -190,24 +144,31 @@ public abstract class AbstractTestIntegrationSmokeTest
         else {
             orderDateType = "varchar";
         }
-        return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
-                    .row("orderkey", "bigint", true, false, "")
-                    .row("custkey", "bigint", true, false, "")
-                    .row("orderstatus", "varchar", true, false, "")
-                    .row("totalprice", "double", true, false, "")
-                    .row("orderdate", orderDateType, true, false, "")
-                    .row("orderpriority", "varchar", true, false, "")
-                    .row("clerk", "varchar", true, false, "")
-                    .row("shippriority", "bigint", true, false, "")
-                    .row("comment", "varchar", true, false, "")
+        if (parametrizedVarchar) {
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "", "")
+                    .row("custkey", "bigint", "", "")
+                    .row("orderstatus", "varchar", "", "")
+                    .row("totalprice", "double", "", "")
+                    .row("orderdate", orderDateType, "", "")
+                    .row("orderpriority", "varchar", "", "")
+                    .row("clerk", "varchar", "", "")
+                    .row("shippriority", "integer", "", "")
+                    .row("comment", "varchar", "", "")
                     .build();
-    }
-
-    protected void assertApproximateQuery(@Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
-    {
-        if (sampledSession.isPresent()) {
-            assertApproximateQuery(sampledSession.get(), actual, expected);
+        }
+        else {
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "", "")
+                    .row("custkey", "bigint", "", "")
+                    .row("orderstatus", "varchar(1)", "", "")
+                    .row("totalprice", "double", "", "")
+                    .row("orderdate", orderDateType, "", "")
+                    .row("orderpriority", "varchar(15)", "", "")
+                    .row("clerk", "varchar(15)", "", "")
+                    .row("shippriority", "integer", "", "")
+                    .row("comment", "varchar(79)", "", "")
+                    .build();
         }
     }
 }

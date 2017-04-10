@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExplainType
         extends ExplainOption
@@ -24,19 +28,37 @@ public class ExplainType
     public enum Type
     {
         LOGICAL,
-        DISTRIBUTED
+        DISTRIBUTED,
+        VALIDATE
     }
 
     private final Type type;
 
     public ExplainType(Type type)
     {
-        this.type = checkNotNull(type, "type is null");
+        this(Optional.empty(), type);
+    }
+
+    public ExplainType(NodeLocation location, Type type)
+    {
+        this(Optional.of(location), type);
+    }
+
+    private ExplainType(Optional<NodeLocation> location, Type type)
+    {
+        super(location);
+        this.type = requireNonNull(type, "type is null");
     }
 
     public Type getType()
     {
         return type;
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

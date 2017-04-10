@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
 public class ArithmeticBinaryExpression
         extends Expression
 {
@@ -42,6 +48,17 @@ public class ArithmeticBinaryExpression
 
     public ArithmeticBinaryExpression(Type type, Expression left, Expression right)
     {
+        this(Optional.empty(), type, left, right);
+    }
+
+    public ArithmeticBinaryExpression(NodeLocation location, Type type, Expression left, Expression right)
+    {
+        this(Optional.of(location), type, left, right);
+    }
+
+    private ArithmeticBinaryExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
+    {
+        super(location);
         this.type = type;
         this.left = left;
         this.right = right;
@@ -69,6 +86,12 @@ public class ArithmeticBinaryExpression
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(left, right);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -79,26 +102,14 @@ public class ArithmeticBinaryExpression
         }
 
         ArithmeticBinaryExpression that = (ArithmeticBinaryExpression) o;
-
-        if (!left.equals(that.left)) {
-            return false;
-        }
-        if (!right.equals(that.right)) {
-            return false;
-        }
-        if (type != that.type) {
-            return false;
-        }
-
-        return true;
+        return (type == that.type) &&
+                Objects.equals(left, that.left) &&
+                Objects.equals(right, that.right);
     }
 
     @Override
     public int hashCode()
     {
-        int result = type.hashCode();
-        result = 31 * result + left.hashCode();
-        result = 31 * result + right.hashCode();
-        return result;
+        return Objects.hash(type, left, right);
     }
 }

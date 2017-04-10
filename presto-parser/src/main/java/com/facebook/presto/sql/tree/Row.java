@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Row
         extends Expression
@@ -27,7 +28,18 @@ public final class Row
 
     public Row(List<Expression> items)
     {
-        checkNotNull(items, "items is null");
+        this(Optional.empty(), items);
+    }
+
+    public Row(NodeLocation location, List<Expression> items)
+    {
+        this(Optional.of(location), items);
+    }
+
+    private Row(Optional<NodeLocation> location, List<Expression> items)
+    {
+        super(location);
+        requireNonNull(items, "items is null");
         this.items = ImmutableList.copyOf(items);
     }
 
@@ -40,6 +52,12 @@ public final class Row
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitRow(this, context);
+    }
+
+    @Override
+    public List<? extends Node> getChildren()
+    {
+        return items;
     }
 
     @Override

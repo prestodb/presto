@@ -124,6 +124,35 @@ public class TestAlignedTablePrinter
         assertEquals(writer.getBuffer().toString(), expected);
     }
 
+    @Test
+    public void testAlignedPrintingWideCharacters()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("go\u7f51", "last", "quantity\u7f51");
+        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
+
+        printer.printRows(rows(
+                row("hello", "wide\u7f51", 123),
+                row("some long\ntext \u7f51\ndoes not\u7f51\nfit", "more\ntext", 4567),
+                row("bye", "done", -15)),
+                true);
+        printer.finish();
+
+        String expected = "" +
+                "    go\u7f51    |  last  | quantity\u7f51 \n" +
+                "------------+--------+------------\n" +
+                " hello      | wide\u7f51 |        123 \n" +
+                " some long +| more  +|       4567 \n" +
+                " text \u7f51   +| text   |            \n" +
+                " does not\u7f51+|        |            \n" +
+                " fit        |        |            \n" +
+                " bye        | done   |        -15 \n" +
+                "(3 rows)\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
     static List<?> row(Object... values)
     {
         return asList(values);

@@ -13,73 +13,34 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Map;
-
-import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static com.facebook.presto.util.Reflection.methodHandle;
 
+@ScalarFunction("slice")
+@Description("Subsets an array given an offset (1-indexed) and length")
 public final class ArraySliceFunction
-        extends ParametricScalar
 {
-    public static final ArraySliceFunction ARRAY_SLICE_FUNCTION = new ArraySliceFunction();
-    private static final String FUNCTION_NAME = "slice";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "bigint", "bigint"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySliceFunction.class, "slice", Type.class, Block.class, long.class, long.class);
+    private ArraySliceFunction() {}
 
-    @Override
-    public Signature getSignature()
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public static Block slice(
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block array,
+            @SqlType(StandardTypes.BIGINT) long fromIndex,
+            @SqlType(StandardTypes.BIGINT) long length)
     {
-        return SIGNATURE;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Subsets an array given an offset (1-indexed) and length";
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type type = types.get("E");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
-        Signature signature = new Signature(FUNCTION_NAME,
-                parameterizedTypeName("array", type.getTypeSignature()),
-                parameterizedTypeName("array", type.getTypeSignature()), parseTypeSignature("bigint"), parseTypeSignature("bigint"));
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false, false));
-    }
-
-    public static Block slice(Type type, Block array, long fromIndex, long length)
-    {
-        checkCondition(length >= 0, INVALID_FUNCTION_ARGUMENT, "Invalid array length");
-        checkCondition(fromIndex != 0, INVALID_FUNCTION_ARGUMENT, "Invalid start index");
+        checkCondition(length >= 0, INVALID_FUNCTION_ARGUMENT, "length must be greater than or equal to 0");
+        checkCondition(fromIndex != 0, INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
 
         int size = array.getPositionCount();
         if (size == 0) {

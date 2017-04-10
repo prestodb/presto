@@ -23,9 +23,9 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -37,47 +37,63 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class LimitPushDown
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
     }
 
     private static class LimitContext
     {
         private final long count;
+        private final boolean partial;
 
-        public LimitContext(long count)
+        public LimitContext(long count, boolean partial)
         {
             this.count = count;
+            this.partial = partial;
         }
 
         public long getCount()
         {
             return count;
         }
+
+        public boolean isPartial()
+        {
+            return partial;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("count", count)
+                    .add("partial", partial)
+                    .toString();
+        }
     }
 
     private static class Rewriter
-            extends PlanRewriter<LimitContext>
+            extends SimplePlanRewriter<LimitContext>
     {
         private final PlanNodeIdAllocator idAllocator;
 
         private Rewriter(PlanNodeIdAllocator idAllocator)
         {
-            this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         }
 
         @Override
@@ -88,7 +104,7 @@ public class LimitPushDown
             LimitContext limit = context.get();
             if (limit != null) {
                 // Drop in a LimitNode b/c we cannot push our limit down any further
-                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.isPartial());
             }
             return rewrittenNode;
         }
@@ -96,39 +112,39 @@ public class LimitPushDown
         @Override
         public PlanNode visitLimit(LimitNode node, RewriteContext<LimitContext> context)
         {
+            long count = node.getCount();
+            if (context.get() != null) {
+                count = Math.min(count, context.get().getCount());
+            }
+
             // return empty ValuesNode in case of limit 0
-            if (node.getCount() == 0) {
+            if (count == 0) {
                 return new ValuesNode(idAllocator.getNextId(),
                                         node.getOutputSymbols(),
                                         ImmutableList.of());
             }
 
-            LimitContext limit = context.get();
-            if (limit != null && limit.getCount() < node.getCount()) {
-                return context.rewrite(node.getSource(), limit);
-            }
-            else {
-                return context.rewrite(node.getSource(), new LimitContext(node.getCount()));
-            }
+            // default visitPlan logic will insert the limit node
+            return context.rewrite(node.getSource(), new LimitContext(count, false));
         }
 
         @Override
+        @Deprecated
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<LimitContext> context)
         {
             LimitContext limit = context.get();
 
             if (limit != null &&
                     node.getAggregations().isEmpty() &&
-                    node.getOutputSymbols().size() == node.getGroupBy().size() &&
-                    node.getOutputSymbols().containsAll(node.getGroupBy())) {
-                checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
+                    node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
+                    node.getOutputSymbols().containsAll(node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), Optional.empty());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, Optional.empty());
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {
                 // Drop in a LimitNode b/c limits cannot be pushed through aggregations
-                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.isPartial());
             }
             return rewrittenNode;
         }
@@ -167,6 +183,7 @@ public class LimitPushDown
         }
 
         @Override
+        @Deprecated
         public PlanNode visitSort(SortNode node, RewriteContext<LimitContext> context)
         {
             LimitContext limit = context.get();
@@ -186,14 +203,19 @@ public class LimitPushDown
         {
             LimitContext limit = context.get();
 
-            List<PlanNode> sources = new ArrayList<>();
-            for (int i = 0; i < node.getSources().size(); i++) {
-                sources.add(context.rewrite(node.getSources().get(i), limit));
+            LimitContext childLimit = null;
+            if (limit != null) {
+                childLimit = new LimitContext(limit.getCount(), true);
             }
 
-            PlanNode output = new UnionNode(node.getId(), sources, node.getSymbolMapping());
+            List<PlanNode> sources = new ArrayList<>();
+            for (int i = 0; i < node.getSources().size(); i++) {
+                sources.add(context.rewrite(node.getSources().get(i), childLimit));
+            }
+
+            PlanNode output = new UnionNode(node.getId(), sources, node.getSymbolMapping(), node.getOutputSymbols());
             if (limit != null) {
-                output = new LimitNode(idAllocator.getNextId(), output, limit.getCount());
+                output = new LimitNode(idAllocator.getNextId(), output, limit.getCount(), limit.isPartial());
             }
             return output;
         }
@@ -203,7 +225,16 @@ public class LimitPushDown
         {
             PlanNode source = context.rewrite(node.getSource(), context.get());
             if (source != node.getSource()) {
-                return new SemiJoinNode(node.getId(), source, node.getFilteringSource(), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol());
+                return new SemiJoinNode(
+                        node.getId(),
+                        source,
+                        node.getFilteringSource(),
+                        node.getSourceJoinSymbol(),
+                        node.getFilteringSourceJoinSymbol(),
+                        node.getSemiJoinOutput(),
+                        node.getSourceHashSymbol(),
+                        node.getFilteringSourceHashSymbol(),
+                        node.getDistributionType());
             }
             return node;
         }

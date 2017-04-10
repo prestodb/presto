@@ -14,13 +14,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.index.IndexHandleJacksonModule;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.MapBinder;
 
-import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 
 public class HandleJsonModule
@@ -36,9 +33,9 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(OutputTableHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(InsertTableHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(TransactionHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(PartitioningHandleJacksonModule.class);
 
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
-        MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = newMapBinder(binder, String.class, ConnectorHandleResolver.class);
-        connectorHandleResolverBinder.addBinding("remote").to(RemoteSplitHandleResolver.class).in(Scopes.SINGLETON);
     }
 }

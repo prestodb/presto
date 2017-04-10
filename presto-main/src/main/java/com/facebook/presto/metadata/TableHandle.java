@@ -13,30 +13,31 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class TableHandle
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final ConnectorTableHandle connectorHandle;
 
     @JsonCreator
     public TableHandle(
-            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.connectorHandle = checkNotNull(connectorHandle, "connectorHandle is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }

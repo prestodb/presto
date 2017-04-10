@@ -18,19 +18,19 @@ import com.facebook.presto.spi.Page;
 import static com.google.common.base.Preconditions.checkState;
 
 public interface HashGenerator
-    extends PartitionGenerator
 {
-    int hashPosition(int position, Page page);
+    long hashPosition(int position, Page page);
 
-    default int getPartitionBucket(int partitionCount, int position, Page page)
+    default int getPartition(int partitionCount, int position, Page page)
     {
-        int rawHash = hashPosition(position, page);
+        long rawHash = hashPosition(position, page);
 
         // clear the sign bit
-        rawHash &= 0x7fff_ffffL;
+        rawHash &= 0x7fff_ffff_ffff_ffffL;
 
-        int bucket = rawHash % partitionCount;
-        checkState(bucket >= 0 && bucket < partitionCount);
-        return bucket;
+        int partition = (int) (rawHash % partitionCount);
+
+        checkState(partition >= 0 && partition < partitionCount);
+        return partition;
     }
 }

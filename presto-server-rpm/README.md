@@ -2,13 +2,9 @@
 
 ## RPM Package Build And Usage
 
-You can now build an RPM package for Presto server and install Presto using the RPM. Thus, the installation will be easier to manage on RPM-based systems.
+You can build an RPM package for Presto server and install Presto using the RPM. Thus, the installation is easier to manage on RPM-based systems.
 
-Building the RPM is currently an optional maven task and can be enabled by the 'rpmbuild' flag. From the locally cloned presto repository, run:
-
-    mvn install -P rpmbuild
-
-This will create the RPM under the directory `presto-server-rpm/target/rpm/presto/RPMS/x86_64/`
+The RPM builds by default in Maven, and can be found under the directory `presto-server-rpm/target/`
 
 The RPM has a pre-requisite of Python >= 2.4. It also needs Oracle Java 1.8 update 40 (8u40 64-bit) pre-installed. The RPM installation will fail if any of these requirements are not
 satisfied.
@@ -28,7 +24,7 @@ Note: During uninstall, any Presto related files deployed will be deleted except
 ## Control Scripts
 
 The Presto RPM will also deploy service scripts to control the Presto server process. The script is configured with chkconfig,
-so that the service is started automatically on OS boot. After installing Presto from the RPM, you can run:
+so that the service can be started automatically on OS boot. After installing Presto from the RPM, you can run:
 
     service presto [start|stop|restart|status]
 

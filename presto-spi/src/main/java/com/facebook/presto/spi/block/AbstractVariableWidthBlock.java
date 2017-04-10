@@ -15,6 +15,9 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
+
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public abstract class AbstractVariableWidthBlock
         implements Block
@@ -60,20 +63,6 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getRawSlice(position).getFloat(getPositionOffset(position) + offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getRawSlice(position).getDouble(getPositionOffset(position) + offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         checkReadablePosition(position);
@@ -85,7 +74,7 @@ public abstract class AbstractVariableWidthBlock
     {
         checkReadablePosition(position);
         Slice rawSlice = getRawSlice(position);
-        if (getLength(position) < length) {
+        if (getSliceLength(position) < length) {
             return false;
         }
         return otherBlock.bytesEqual(otherPosition, otherOffset, rawSlice, getPositionOffset(position) + offset, length);
@@ -99,10 +88,10 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         checkReadablePosition(position);
-        return getRawSlice(position).hashCode(getPositionOffset(position) + offset, length);
+        return XxHash64.hash(getRawSlice(position), getPositionOffset(position) + offset, length);
     }
 
     @Override
@@ -110,7 +99,7 @@ public abstract class AbstractVariableWidthBlock
     {
         checkReadablePosition(position);
         Slice rawSlice = getRawSlice(position);
-        if (getLength(position) < length) {
+        if (getSliceLength(position) < length) {
             throw new IllegalArgumentException("Length longer than value length");
         }
         return -otherBlock.bytesCompare(otherPosition, otherOffset, otherLength, rawSlice, getPositionOffset(position) + offset, length);
@@ -133,22 +122,22 @@ public abstract class AbstractVariableWidthBlock
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
-        writeBytesTo(position, 0, getLength(position), blockBuilder);
+        writeBytesTo(position, 0, getSliceLength(position), blockBuilder);
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
         if (isNull(position)) {
-            return new VariableWidthBlock(1, Slices.wrappedBuffer(new byte[0]), Slices.wrappedIntArray(0, 0), Slices.wrappedBooleanArray(true));
+            return new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
         }
 
         int offset = getPositionOffset(position);
-        int entrySize = getLength(position);
+        int entrySize = getSliceLength(position);
 
         Slice copy = Slices.copyOf(getRawSlice(position), offset, entrySize);
 
-        return new VariableWidthBlock(1, copy, Slices.wrappedIntArray(0, copy.length()), Slices.wrappedBooleanArray(false));
+        return new VariableWidthBlock(1, copy, new int[] {0, copy.length()}, new boolean[] {false});
     }
 
     @Override
@@ -158,12 +147,7 @@ public abstract class AbstractVariableWidthBlock
         return isEntryNull(position);
     }
 
-    @Override
-    public void assureLoaded()
-    {
-    }
-
-    private void checkReadablePosition(int position)
+    protected void checkReadablePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");

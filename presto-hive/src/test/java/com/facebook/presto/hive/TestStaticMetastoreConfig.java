@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -22,6 +23,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.testng.Assert.assertEquals;
 
 public class TestStaticMetastoreConfig
 {
@@ -29,19 +31,36 @@ public class TestStaticMetastoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StaticMetastoreConfig.class)
-                .setMetastoreUri(null));
+                .setMetastoreUris(null));
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappingsSingleMetastore()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.uri", "thrift://localhost:9083")
                 .build();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
-                .setMetastoreUri(URI.create("thrift://localhost:9083"));
+                .setMetastoreUris("thrift://localhost:9083");
 
         assertFullMapping(properties, expected);
+        assertEquals(expected.getMetastoreUris(), ImmutableList.of(URI.create("thrift://localhost:9083")));
+    }
+
+    @Test
+    public void testExplicitPropertyMappingsMultipleMetastores()
+    {
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("hive.metastore.uri", "thrift://localhost:9083,thrift://192.0.2.3:8932")
+                .build();
+
+        StaticMetastoreConfig expected = new StaticMetastoreConfig()
+                .setMetastoreUris("thrift://localhost:9083,thrift://192.0.2.3:8932");
+
+        assertFullMapping(properties, expected);
+        assertEquals(expected.getMetastoreUris(), ImmutableList.of(
+                URI.create("thrift://localhost:9083"),
+                URI.create("thrift://192.0.2.3:8932")));
     }
 }

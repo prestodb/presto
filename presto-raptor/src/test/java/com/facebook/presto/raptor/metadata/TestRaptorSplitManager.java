@@ -13,34 +13,31 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
-import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
-import com.facebook.presto.raptor.backup.BackupStore;
-import com.facebook.presto.raptor.backup.FileBackupStore;
-import com.facebook.presto.raptor.storage.FileStorageService;
-import com.facebook.presto.raptor.storage.ShardRecoveryManager;
-import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.raptor.storage.StorageService;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.raptor.RaptorTableLayoutHandle;
+import com.facebook.presto.raptor.RaptorTransactionHandle;
+import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -56,39 +53,36 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
-import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
-import static com.facebook.presto.raptor.util.Types.checkType;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestRaptorSplitManager
 {
-    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
-    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
-            .partitionKeyColumn("ds", VARCHAR)
-            .column("foo", VARCHAR)
+            .column("ds", createVarcharType(10))
+            .column("foo", createVarcharType(10))
             .column("bar", BigintType.BIGINT)
             .build();
 
     private Handle dummyHandle;
     private File temporary;
+    private RaptorMetadata metadata;
     private RaptorSplitManager raptorSplitManager;
     private ConnectorTableHandle tableHandle;
     private ShardManager shardManager;
-    private StorageManager storageManagerWithBackup;
     private long tableId;
 
     @BeforeMethod
@@ -99,26 +93,18 @@ public class TestRaptorSplitManager
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
+        createTablesWithRetry(dbi);
         temporary = createTempDir();
-        shardManager = new DatabaseShardManager(dbi);
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-
-        File dataDir = new File(temporary, "data");
-        File backupDir = new File(temporary, "backup");
-        FileBackupStore fileBackupStore = new FileBackupStore(backupDir);
-        fileBackupStore.start();
-        Optional<BackupStore> backupStore = Optional.of(fileBackupStore);
-
-        StorageService storageService = new FileStorageService(dataDir);
-        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageService, Optional.empty(), new InMemoryNodeManager(), shardManager, new Duration(5, MINUTES), 10);
-        StorageManager storageManager = createOrcStorageManager(storageService, Optional.empty(), recoveryManager);
-        storageManagerWithBackup = createOrcStorageManager(storageService, backupStore, recoveryManager);
+        AssignmentLimiter assignmentLimiter = new AssignmentLimiter(ImmutableSet::of, systemTicker(), new MetadataConfig());
+        shardManager = new DatabaseShardManager(dbi, new DaoSupplier<>(dbi, ShardDao.class), ImmutableSet::of, assignmentLimiter, systemTicker(), new Duration(0, MINUTES));
+        TestingNodeManager nodeManager = new TestingNodeManager();
+        NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
 
         String nodeName = UUID.randomUUID().toString();
-        nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
+        nodeManager.addNode(new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
-        RaptorMetadata metadata = new RaptorMetadata(connectorId, dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
 
         metadata.createTable(SESSION, TEST_TABLE);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable());
@@ -130,16 +116,17 @@ public class TestRaptorSplitManager
                 .add(shardInfo(UUID.randomUUID(), nodeName))
                 .build();
 
-        tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
+        tableId = ((RaptorTableHandle) tableHandle).getTableId();
 
         List<ColumnInfo> columns = metadata.getColumnHandles(SESSION, tableHandle).values().stream()
-                .map(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"))
+                .map(RaptorColumnHandle.class::cast)
                 .map(ColumnInfo::fromHandle)
                 .collect(toList());
 
-        shardManager.commitShards(tableId, columns, shards, Optional.empty());
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
 
-        raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, storageManager);
+        raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false);
     }
 
     @AfterMethod
@@ -153,16 +140,12 @@ public class TestRaptorSplitManager
     public void testSanity()
             throws InterruptedException
     {
-        ConnectorPartitionResult partitionResult = raptorSplitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
-        assertEquals(partitionResult.getPartitions().size(), 1);
-        assertTrue(partitionResult.getUndeterminedTupleDomain().isAll());
+        List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+        assertEquals(layouts.size(), 1);
+        ConnectorTableLayoutResult layout = getOnlyElement(layouts);
+        assertInstanceOf(layout.getTableLayout().getHandle(), RaptorTableLayoutHandle.class);
 
-        List<ConnectorPartition> partitions = partitionResult.getPartitions();
-        ConnectorPartition partition = getOnlyElement(partitions);
-        TupleDomain<ColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partition.getTupleDomain(), partition.getTupleDomain());
-        assertEquals(columnUnionedTupleDomain, TupleDomain.<ColumnHandle>all());
-
-        ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(SESSION, tableHandle, partitions);
+        ConnectorSplitSource splitSource = getSplits(raptorSplitManager, layout);
         int splitCount = 0;
         while (!splitSource.isFinished()) {
             splitCount += getFutureValue(splitSource.getNextBatch(1000)).size();
@@ -176,9 +159,8 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        ConnectorPartitionResult result = raptorSplitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
-
-        ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(SESSION, tableHandle, result.getPartitions());
+        ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
+        ConnectorSplitSource splitSource = getSplits(raptorSplitManager, layout);
         getFutureValue(splitSource.getNextBatch(1000));
     }
 
@@ -186,15 +168,17 @@ public class TestRaptorSplitManager
     public void testAssignRandomNodeWhenBackupAvailable()
             throws InterruptedException, URISyntaxException
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN);
-        nodeManager.addNode("fbraptor", node);
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), nodeManager, shardManager, storageManagerWithBackup);
+        TestingNodeManager nodeManager = new TestingNodeManager();
+        RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
+        NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
+        PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(node);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true);
 
         deleteShardNodes();
 
-        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
-        ConnectorSplitSource partitionSplit = raptorSplitManagerWithBackup.getPartitionSplits(SESSION, tableHandle, result.getPartitions());
+        ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
+        ConnectorSplitSource partitionSplit = getSplits(raptorSplitManagerWithBackup, layout);
         List<ConnectorSplit> batch = getFutureValue(partitionSplit.getNextBatch(1), PrestoException.class);
         assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
     }
@@ -205,9 +189,9 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, storageManagerWithBackup);
-        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
-        ConnectorSplitSource splitSource = raptorSplitManagerWithBackup.getPartitionSplits(SESSION, tableHandle, result.getPartitions());
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true);
+        ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
+        ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, layout);
         getFutureValue(splitSource.getNextBatch(1000), PrestoException.class);
     }
 
@@ -215,5 +199,11 @@ public class TestRaptorSplitManager
     {
         dummyHandle.execute("DELETE FROM shard_nodes");
         dummyHandle.execute(format("UPDATE %s SET node_ids = ''", shardIndexTable(tableId)));
+    }
+
+    private static ConnectorSplitSource getSplits(RaptorSplitManager splitManager, ConnectorTableLayoutResult layout)
+    {
+        ConnectorTransactionHandle transaction = new RaptorTransactionHandle();
+        return splitManager.getSplits(transaction, SESSION, layout.getTableLayout().getHandle());
     }
 }

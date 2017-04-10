@@ -1,0 +1,6 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
+ cardinality | bigint | map(K,V) | scalar | true | Returns the cardinality (the number of key-value pairs) of the map |
+ map | map(K,V) | array(K), array(V) | scalar | true | Constructs a map from the given key/value arrays |
+ map_agg | map(K,V) | K, V | aggregate | true | Aggregates all the rows (key/value pairs) into a single map |
+ map_keys | array(K) | map(K,V) | scalar | true | Returns the keys of the given map(K,V) as an array |
+ map_values | array(V) | map(K,V) | scalar | true | Returns the values of the given map(K,V) as an array |

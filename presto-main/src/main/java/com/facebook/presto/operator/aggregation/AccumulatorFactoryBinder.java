@@ -18,5 +18,5 @@ import java.util.Optional;
 
 public interface AccumulatorFactoryBinder
 {
-    AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence);
+    AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel);
 }

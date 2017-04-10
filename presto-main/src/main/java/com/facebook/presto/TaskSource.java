@@ -22,7 +22,7 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TaskSource
 {
@@ -36,8 +36,8 @@ public class TaskSource
             @JsonProperty("splits") Set<ScheduledSplit> splits,
             @JsonProperty("noMoreSplits") boolean noMoreSplits)
     {
-        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-        this.splits = ImmutableSet.copyOf(checkNotNull(splits, "splits is null"));
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.splits = ImmutableSet.copyOf(requireNonNull(splits, "splits is null"));
         this.noMoreSplits = noMoreSplits;
     }
 
@@ -66,7 +66,7 @@ public class TaskSource
         if (isNewer(source)) {
             // assure the new source is properly formed
             // we know that either the new source one has new splits and/or it is marking the source as closed
-            checkArgument(!noMoreSplits || source.isNoMoreSplits(), "Source %s has new splits, but no more splits already set", planNodeId);
+            checkArgument(!noMoreSplits || splits.containsAll(source.getSplits()), "Source %s has new splits, but no more splits already set", planNodeId);
 
             Set<ScheduledSplit> newSplits = ImmutableSet.<ScheduledSplit>builder()
                     .addAll(splits)

@@ -15,22 +15,22 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
+import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public class TestArrayAggregation
 {
@@ -40,114 +40,96 @@ public class TestArrayAggregation
     public void testEmpty()
             throws Exception
     {
-        InternalAggregationFunction bigIntAgg = metadata.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
+        InternalAggregationFunction bigIntAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 bigIntAgg,
-                1.0,
                 null,
-                new Page(createLongsBlock(new Long[] {})));
+                createLongsBlock(new Long[] {}));
     }
 
     @Test
     public void testNullOnly()
             throws Exception
     {
-        InternalAggregationFunction bigIntAgg = metadata.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
+        InternalAggregationFunction bigIntAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 bigIntAgg,
-                1.0,
-                null,
-                new Page(createLongsBlock(new Long[] {null, null, null})));
+                Arrays.asList(null, null, null),
+                createLongsBlock(new Long[] {null, null, null}));
     }
 
     @Test
     public void testNullPartial()
             throws Exception
     {
-        InternalAggregationFunction bigIntAgg = metadata.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
+        InternalAggregationFunction bigIntAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 bigIntAgg,
-                1.0,
-                Arrays.asList(2L, 3L),
-                new Page(createLongsBlock(new Long[] {null, 2L, null, 3L, null})));
+                Arrays.asList(null, 2L, null, 3L, null),
+                createLongsBlock(new Long[] {null, 2L, null, 3L, null}));
     }
 
     @Test
     public void testBoolean()
         throws Exception
     {
-        InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("array_agg", "array<boolean>", "boolean")).getAggregationFunction();
+        InternalAggregationFunction booleanAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(boolean)"), parseTypeSignature(StandardTypes.BOOLEAN)));
         assertAggregation(
                 booleanAgg,
-                1.0,
                 Arrays.asList(true, false),
-                new Page(createBooleansBlock(new Boolean[] {true, false})));
+                createBooleansBlock(new Boolean[] {true, false}));
     }
 
     @Test
     public void testBigInt()
         throws Exception
     {
-        InternalAggregationFunction bigIntAgg = metadata.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
+        InternalAggregationFunction bigIntAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 bigIntAgg,
-                1.0,
                 Arrays.asList(2L, 1L, 2L),
-                new Page(createLongsBlock(new Long[] {2L, 1L, 2L})));
+                createLongsBlock(new Long[] {2L, 1L, 2L}));
     }
 
     @Test
     public void testVarchar()
         throws Exception
     {
-        InternalAggregationFunction varcharAgg = metadata.getExactFunction(new Signature("array_agg", "array<varchar>", "varchar")).getAggregationFunction();
+        InternalAggregationFunction varcharAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(varchar)"), parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 varcharAgg,
-                1.0,
                 Arrays.asList("hello", "world"),
-                new Page(createStringsBlock(new String[] {"hello", "world"})));
+                createStringsBlock(new String[] {"hello", "world"}));
     }
 
     @Test
     public void testDate()
             throws Exception
     {
-        InternalAggregationFunction varcharAgg = metadata.getExactFunction(new Signature("array_agg", "array<date>", "date")).getAggregationFunction();
+        InternalAggregationFunction varcharAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(date)"), parseTypeSignature(StandardTypes.DATE)));
         assertAggregation(
                 varcharAgg,
-                1.0,
                 Arrays.asList(new SqlDate(1), new SqlDate(2), new SqlDate(4)),
-                new Page(createLongsBlock(new Long[] {1L, 2L, 4L})));
+                createTypedLongsBlock(DATE, ImmutableList.of(1L, 2L, 4L)));
     }
 
     @Test
     public void testArray()
             throws Exception
     {
-        InternalAggregationFunction varcharAgg = metadata.getExactFunction(new Signature("array_agg", "array<array<bigint>>", "array<bigint>")).getAggregationFunction();
-
-        Type arrayType = new ArrayType(BIGINT);
-        BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 100);
-
-        BlockBuilder variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 100);
-        BIGINT.writeLong(variableWidthBlockBuilder, 1);
-        arrayType.writeObject(builder, variableWidthBlockBuilder);
-
-        variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 100);
-        BIGINT.writeLong(variableWidthBlockBuilder, 1);
-        BIGINT.writeLong(variableWidthBlockBuilder, 2);
-        arrayType.writeObject(builder, variableWidthBlockBuilder);
-
-        variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 100);
-        BIGINT.writeLong(variableWidthBlockBuilder, 1);
-        BIGINT.writeLong(variableWidthBlockBuilder, 2);
-        BIGINT.writeLong(variableWidthBlockBuilder, 3);
-        arrayType.writeObject(builder, variableWidthBlockBuilder);
+        InternalAggregationFunction varcharAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(array(bigint))"), parseTypeSignature("array(bigint)")));
 
         assertAggregation(
                 varcharAgg,
-                1.0,
                 Arrays.asList(Arrays.asList(1L), Arrays.asList(1L, 2L), Arrays.asList(1L, 2L, 3L)),
-                new Page(builder.build()));
+                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(1L, 2L), ImmutableList.of(1L, 2L, 3L))));
     }
 }

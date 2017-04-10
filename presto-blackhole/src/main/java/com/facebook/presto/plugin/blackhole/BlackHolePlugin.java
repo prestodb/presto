@@ -11,37 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
-
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class BlackHolePlugin
         implements Plugin
 {
-    private TypeManager typeManager;
-
-    @Inject
-    public void setTypeManager(TypeManager typeManager)
-    {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
-    }
-
     @Override
-    public <T> List<T> getServices(Class<T> type)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new BlackHoleConnectorFactory(typeManager)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new BlackHoleConnectorFactory());
     }
 }

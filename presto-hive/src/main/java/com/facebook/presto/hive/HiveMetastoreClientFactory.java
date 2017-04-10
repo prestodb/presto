@@ -13,207 +13,41 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
+import com.facebook.presto.hive.thrift.Transport;
 import com.google.common.net.HostAndPort;
-import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
-import org.apache.thrift.transport.TSocket;
-import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.Socket;
-import java.net.SocketAddress;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class HiveMetastoreClientFactory
 {
     private final HostAndPort socksProxy;
     private final int timeoutMillis;
+    private final HiveMetastoreAuthentication metastoreAuthentication;
 
-    public HiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout)
+    public HiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout, HiveMetastoreAuthentication metastoreAuthentication)
     {
         this.socksProxy = socksProxy;
-        this.timeoutMillis = Ints.checkedCast(timeout.toMillis());
+        this.timeoutMillis = toIntExact(timeout.toMillis());
+        this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
     }
 
     @Inject
-    public HiveMetastoreClientFactory(HiveClientConfig config)
+    public HiveMetastoreClientFactory(HiveClientConfig config, HiveMetastoreAuthentication metastoreAuthentication)
     {
-        this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout());
-    }
-
-    private static Socket createSocksSocket(HostAndPort proxy)
-    {
-        SocketAddress address = InetSocketAddress.createUnresolved(proxy.getHostText(), proxy.getPort());
-        return new Socket(new Proxy(Proxy.Type.SOCKS, address));
-    }
-
-    private static TTransportException rewriteException(TTransportException e, String host)
-    {
-        return new TTransportException(e.getType(), String.format("%s: %s", host, e.getMessage()), e.getCause());
+        this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout(), metastoreAuthentication);
     }
 
     public HiveMetastoreClient create(String host, int port)
             throws TTransportException
     {
-        return new HiveMetastoreClient(createTransport(host, port));
-    }
-
-    protected TTransport createTransport(String host, int port)
-            throws TTransportException
-    {
-        TTransport transport;
-        if (socksProxy == null) {
-            transport = new TTransportWrapper(new TSocket(host, port, timeoutMillis), host);
-            transport.open();
-        }
-        else {
-            Socket socks = createSocksSocket(socksProxy);
-            try {
-                socks.connect(InetSocketAddress.createUnresolved(host, port), timeoutMillis);
-                socks.setSoTimeout(timeoutMillis);
-            }
-            catch (IOException e) {
-                throw rewriteException(new TTransportException(e), host);
-            }
-            try {
-                transport = new TTransportWrapper(new TSocket(socks), host);
-            }
-            catch (TTransportException e) {
-                throw rewriteException(e, host);
-            }
-        }
-        return transport;
-    }
-
-    private static class TTransportWrapper
-            extends TTransport
-    {
-        private final TTransport transport;
-        private final String host;
-
-        TTransportWrapper(TTransport transport, String host)
-        {
-            this.transport = transport;
-            this.host = host;
-        }
-
-        @Override
-        public boolean isOpen()
-        {
-            return transport.isOpen();
-        }
-
-        @Override
-        public boolean peek()
-        {
-            return transport.peek();
-        }
-
-        @Override
-        public byte[] getBuffer()
-        {
-            return transport.getBuffer();
-        }
-
-        @Override
-        public int getBufferPosition()
-        {
-            return transport.getBufferPosition();
-        }
-
-        @Override
-        public int getBytesRemainingInBuffer()
-        {
-            return transport.getBytesRemainingInBuffer();
-        }
-
-        @Override
-        public void consumeBuffer(int len)
-        {
-            transport.consumeBuffer(len);
-        }
-
-        @Override
-        public void close()
-        {
-            transport.close();
-        }
-
-        @Override
-        public void open()
-                throws TTransportException
-        {
-            try {
-                transport.open();
-            }
-            catch (TTransportException e) {
-                throw rewriteException(e, host);
-            }
-        }
-
-        @Override
-        public int readAll(byte[] bytes, int off, int len)
-                throws TTransportException
-        {
-            try {
-                return transport.readAll(bytes, off, len);
-            }
-            catch (TTransportException e) {
-                throw rewriteException(e, host);
-            }
-        }
-
-        @Override
-        public int read(byte[] bytes, int off, int len)
-                throws TTransportException
-        {
-            try {
-                return transport.read(bytes, off, len);
-            }
-            catch (TTransportException e) {
-                throw rewriteException(e, host);
-            }
-        }
-
-        @Override
-        public void write(byte[] bytes)
-                throws TTransportException
-        {
-            try {
-                transport.write(bytes);
-            }
-            catch (TTransportException e) {
-                throw rewriteException(e, host);
-            }
-        }
-
-        @Override
-        public void write(byte[] bytes, int off, int len)
-                throws TTransportException
-        {
-            try {
-                transport.write(bytes, off, len);
-            }
-            catch (TTransportException e) {
-                throw rewriteException(e, host);
-            }
-        }
-
-        @Override
-        public void flush()
-                throws TTransportException
-        {
-            try {
-                transport.flush();
-            }
-            catch (TTransportException e) {
-                throw rewriteException(e, host);
-            }
-        }
+        return new ThriftHiveMetastoreClient(Transport.create(host, port, socksProxy, timeoutMillis, metastoreAuthentication));
     }
 }

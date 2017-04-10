@@ -13,15 +13,21 @@
  */
 package com.facebook.presto.memory;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.memory.MemoryPoolInfo;
+import com.google.common.collect.ImmutableMap;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -42,11 +48,20 @@ public class ClusterMemoryPool
     private int blockedNodes;
 
     @GuardedBy("this")
-    private int queries;
+    private int assignedQueries;
+
+    // Does not include queries with zero memory usage
+    @GuardedBy("this")
+    private final Map<QueryId, Long> queryMemoryReservations = new HashMap<>();
 
     public ClusterMemoryPool(MemoryPoolId id)
     {
         this.id = requireNonNull(id, "id is null");
+    }
+
+    public synchronized MemoryPoolInfo getInfo()
+    {
+        return new MemoryPoolInfo(totalDistributedBytes, freeDistributedBytes, ImmutableMap.copyOf(queryMemoryReservations));
     }
 
     public MemoryPoolId getId()
@@ -79,18 +94,24 @@ public class ClusterMemoryPool
     }
 
     @Managed
-    public synchronized int getQueries()
+    public synchronized int getAssignedQueries()
     {
-        return queries;
+        return assignedQueries;
     }
 
-    public synchronized void update(List<MemoryInfo> memoryInfos, int queries)
+    public synchronized Map<QueryId, Long> getQueryMemoryReservations()
+    {
+        return queryMemoryReservations;
+    }
+
+    public synchronized void update(List<MemoryInfo> memoryInfos, int assignedQueries)
     {
         nodes = 0;
         blockedNodes = 0;
         totalDistributedBytes = 0;
         freeDistributedBytes = 0;
-        this.queries = queries;
+        this.assignedQueries = assignedQueries;
+        this.queryMemoryReservations.clear();
 
         for (MemoryInfo info : memoryInfos) {
             MemoryPoolInfo poolInfo = info.getPools().get(id);
@@ -101,6 +122,9 @@ public class ClusterMemoryPool
                 }
                 totalDistributedBytes += poolInfo.getMaxBytes();
                 freeDistributedBytes += poolInfo.getFreeBytes();
+                for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryReservations().entrySet()) {
+                    queryMemoryReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
+                }
             }
         }
     }
@@ -115,25 +139,26 @@ public class ClusterMemoryPool
             return false;
         }
         ClusterMemoryPool that = (ClusterMemoryPool) o;
-        return Objects.equal(id, that.id);
+        return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(id);
+        return Objects.hash(id);
     }
 
     @Override
     public synchronized String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("id", id)
                 .add("totalDistributedBytes", totalDistributedBytes)
                 .add("freeDistributedBytes", freeDistributedBytes)
                 .add("nodes", nodes)
                 .add("blockedNodes", blockedNodes)
-                .add("queries", queries)
+                .add("assignedQueries", assignedQueries)
+                .add("queryMemoryReservations", queryMemoryReservations)
                 .toString();
     }
 }

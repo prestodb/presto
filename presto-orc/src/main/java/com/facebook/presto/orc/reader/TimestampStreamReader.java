@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.Vector;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.LongStream;
-import com.facebook.presto.orc.stream.StreamSource;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -29,16 +31,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
-import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
-import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TimestampStreamReader
         implements StreamReader
@@ -52,28 +52,30 @@ public class TimestampStreamReader
     private int nextBatchSize;
 
     @Nonnull
-    private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanStream presentStream;
+    private BooleanInputStream presentStream;
+    private boolean[] nullVector = new boolean[0];
 
     @Nonnull
-    private StreamSource<LongStream> secondsStreamSource = missingStreamSource(LongStream.class);
+    private InputStreamSource<LongInputStream> secondsStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
-    private LongStream secondsStream;
+    private LongInputStream secondsStream;
 
     @Nonnull
-    private StreamSource<LongStream> nanosStreamSource = missingStreamSource(LongStream.class);
+    private InputStreamSource<LongInputStream> nanosStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
-    private LongStream nanosStream;
+    private LongInputStream nanosStream;
 
-    private final long[] nanosVector = new long[Vector.MAX_VECTOR_LENGTH];
+    private long[] secondsVector = new long[0];
+    private long[] nanosVector = new long[0];
 
     private boolean rowGroupOpen;
 
     public TimestampStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
     }
 
     @Override
@@ -84,7 +86,7 @@ public class TimestampStreamReader
     }
 
     @Override
-    public void readBatch(Object vector)
+    public Block readBlock(Type type)
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -110,7 +112,14 @@ public class TimestampStreamReader
             }
         }
 
-        LongVector longVector = castOrcVector(vector, LongVector.class);
+        if (secondsVector.length < nextBatchSize) {
+            secondsVector = new long[nextBatchSize];
+        }
+        if (nanosVector.length < nextBatchSize) {
+            nanosVector = new long[nextBatchSize];
+        }
+
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
         if (presentStream == null) {
             if (secondsStream == null) {
                 throw new OrcCorruptionException("Value is not null but seconds stream is not present");
@@ -119,12 +128,19 @@ public class TimestampStreamReader
                 throw new OrcCorruptionException("Value is not null but nanos stream is not present");
             }
 
-            Arrays.fill(longVector.isNull, false);
-            secondsStream.nextLongVector(nextBatchSize, longVector.vector);
+            secondsStream.nextLongVector(nextBatchSize, secondsVector);
             nanosStream.nextLongVector(nextBatchSize, nanosVector);
+
+            // merge seconds and nanos together
+            for (int i = 0; i < nextBatchSize; i++) {
+                type.writeLong(builder, decodeTimestamp(secondsVector[i], nanosVector[i], baseTimestampInSeconds));
+            }
         }
         else {
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, longVector.isNull);
+            if (nullVector.length < nextBatchSize) {
+                nullVector = new boolean[nextBatchSize];
+            }
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (secondsStream == null) {
                     throw new OrcCorruptionException("Value is not null but seconds stream is not present");
@@ -133,18 +149,29 @@ public class TimestampStreamReader
                     throw new OrcCorruptionException("Value is not null but nanos stream is not present");
                 }
 
-                secondsStream.nextLongVector(nextBatchSize, longVector.vector, longVector.isNull);
-                nanosStream.nextLongVector(nextBatchSize, nanosVector, longVector.isNull);
-            }
-        }
+                secondsStream.nextLongVector(nextBatchSize, secondsVector, nullVector);
+                nanosStream.nextLongVector(nextBatchSize, nanosVector, nullVector);
 
-        // merge seconds and nanos together
-        for (int i = 0; i < nextBatchSize; i++) {
-            longVector.vector[i] = decodeTimestamp(longVector.vector[i], nanosVector[i], baseTimestampInSeconds);
+                // merge seconds and nanos together
+                for (int i = 0; i < nextBatchSize; i++) {
+                    if (nullVector[i]) {
+                        builder.appendNull();
+                    }
+                    else {
+                        type.writeLong(builder, decodeTimestamp(secondsVector[i], nanosVector[i], baseTimestampInSeconds));
+                    }
+                }
+            }
+            else {
+                for (int i = 0; i < nextBatchSize; i++) {
+                    builder.appendNull();
+                }
+            }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
+        return builder.build();
     }
 
     private void openRowGroup()
@@ -157,12 +184,12 @@ public class TimestampStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanStream.class);
-        secondsStreamSource = missingStreamSource(LongStream.class);
-        nanosStreamSource = missingStreamSource(LongStream.class);
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        secondsStreamSource = missingStreamSource(LongInputStream.class);
+        nanosStreamSource = missingStreamSource(LongInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -175,12 +202,12 @@ public class TimestampStreamReader
     }
 
     @Override
-    public void startRowGroup(StreamSources dataStreamSources)
+    public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        secondsStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStream.class);
-        nanosStreamSource = dataStreamSources.getStreamSource(streamDescriptor, SECONDARY, LongStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+        secondsStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, LongInputStream.class);
+        nanosStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, SECONDARY, LongInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

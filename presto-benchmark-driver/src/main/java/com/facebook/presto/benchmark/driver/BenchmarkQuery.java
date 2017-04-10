@@ -14,7 +14,6 @@
 package com.facebook.presto.benchmark.driver;
 
 import com.google.common.base.Function;
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.collect.ImmutableMap;
@@ -27,7 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class BenchmarkQuery
 {
@@ -41,7 +41,7 @@ public final class BenchmarkQuery
     public BenchmarkQuery(File file)
             throws IOException
     {
-        checkNotNull(file, "file is null");
+        requireNonNull(file, "file is null");
 
         name = Files.getNameWithoutExtension(file.getName());
 
@@ -82,7 +82,7 @@ public final class BenchmarkQuery
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("tags", tags)
                 .add("sql", sql)

@@ -13,35 +13,47 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class TableLayoutHandle
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
+    private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorTableLayoutHandle layout;
 
     @JsonCreator
     public TableLayoutHandle(
-            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorTableLayoutHandle layout)
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(layout, "layout is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(transactionHandle, "transactionHandle is null");
+        requireNonNull(layout, "layout is null");
 
         this.connectorId = connectorId;
+        this.transactionHandle = transactionHandle;
         this.layout = layout;
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
+    }
+
+    @JsonProperty
+    public ConnectorTransactionHandle getTransactionHandle()
+    {
+        return transactionHandle;
     }
 
     @JsonProperty
@@ -61,12 +73,13 @@ public final class TableLayoutHandle
         }
         TableLayoutHandle that = (TableLayoutHandle) o;
         return Objects.equals(connectorId, that.connectorId) &&
+                Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(layout, that.layout);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, layout);
+        return Objects.hash(connectorId, transactionHandle, layout);
     }
 }

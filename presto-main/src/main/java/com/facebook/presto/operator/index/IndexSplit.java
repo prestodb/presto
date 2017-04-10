@@ -19,7 +19,7 @@ import com.facebook.presto.spi.RecordSet;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class IndexSplit
         implements ConnectorSplit
@@ -28,7 +28,7 @@ public class IndexSplit
 
     public IndexSplit(RecordSet keyRecordSet)
     {
-        this.keyRecordSet = checkNotNull(keyRecordSet, "keyRecordSet is null");
+        this.keyRecordSet = requireNonNull(keyRecordSet, "keyRecordSet is null");
     }
 
     @Override

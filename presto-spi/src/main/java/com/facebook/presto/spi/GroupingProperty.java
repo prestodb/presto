@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -29,13 +32,15 @@ public final class GroupingProperty<E>
 {
     private final Set<E> columns;
 
-    public GroupingProperty(Collection<E> columns)
+    @JsonCreator
+    public GroupingProperty(@JsonProperty("columns") Collection<E> columns)
     {
         requireNonNull(columns, "columns is null");
 
         this.columns = Collections.unmodifiableSet(new HashSet<>(columns));
     }
 
+    @JsonProperty
     public Set<E> getColumns()
     {
         return columns;

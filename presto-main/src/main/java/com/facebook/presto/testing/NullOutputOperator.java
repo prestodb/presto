@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
@@ -20,11 +21,13 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class NullOutputOperator
         implements Operator
@@ -33,9 +36,9 @@ public class NullOutputOperator
             implements OutputFactory
     {
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes)
+        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory)
         {
-            return new NullOutputOperatorFactory(operatorId, sourceTypes);
+            return new NullOutputOperatorFactory(operatorId, planNodeId, types);
         }
     }
 
@@ -43,11 +46,13 @@ public class NullOutputOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> types;
 
-        public NullOutputOperatorFactory(int operatorId, List<Type> types)
+        public NullOutputOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.types = types;
         }
 
@@ -60,13 +65,19 @@ public class NullOutputOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NullOutputOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NullOutputOperator.class.getSimpleName());
             return new NullOutputOperator(operatorContext, types);
         }
 
         @Override
         public void close()
         {
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new NullOutputOperatorFactory(operatorId, planNodeId, types);
         }
     }
 
@@ -76,8 +87,8 @@ public class NullOutputOperator
 
     public NullOutputOperator(OperatorContext operatorContext, List<Type> types)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override

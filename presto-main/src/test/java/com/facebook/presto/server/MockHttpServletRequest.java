@@ -40,9 +40,9 @@ import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Collections.emptyEnumeration;
 import static java.util.Collections.enumeration;
+import static java.util.Objects.requireNonNull;
 
 public class MockHttpServletRequest
         implements HttpServletRequest
@@ -52,8 +52,8 @@ public class MockHttpServletRequest
 
     public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress)
     {
-        this.headers = ImmutableListMultimap.copyOf(checkNotNull(headers, "headers is null"));
-        this.remoteAddress = checkNotNull(remoteAddress, "remoteAddress is null");
+        this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
+        this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
     }
 
     @Override
@@ -149,7 +149,7 @@ public class MockHttpServletRequest
     @Override
     public Principal getUserPrincipal()
     {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     @Override

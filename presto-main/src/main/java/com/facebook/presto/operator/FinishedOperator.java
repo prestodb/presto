@@ -18,7 +18,7 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class FinishedOperator
         implements Operator
@@ -28,8 +28,8 @@ public class FinishedOperator
 
     public FinishedOperator(OperatorContext operatorContext, List<Type> types)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = checkNotNull(types, "types is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = requireNonNull(types, "types is null");
     }
 
     @Override

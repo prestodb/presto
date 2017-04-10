@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.google.common.base.Throwables;
 import org.apache.thrift.transport.TTransportException;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TestingHiveCluster
         implements HiveCluster
@@ -29,8 +31,8 @@ public class TestingHiveCluster
 
     public TestingHiveCluster(HiveClientConfig config, String host, int port)
     {
-        this.config = checkNotNull(config, "config is null");
-        this.host = checkNotNull(host, "host is null");
+        this.config = requireNonNull(config, "config is null");
+        this.host = requireNonNull(host, "host is null");
         this.port = port;
     }
 
@@ -38,7 +40,7 @@ public class TestingHiveCluster
     public HiveMetastoreClient createMetastoreClient()
     {
         try {
-            return new HiveMetastoreClientFactory(config).create(host, port);
+            return new HiveMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(host, port);
         }
         catch (TTransportException e) {
             throw Throwables.propagate(e);

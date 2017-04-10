@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesIndex;
@@ -29,17 +30,19 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class IndexSnapshotBuilder
 {
+    private final Session session;
     private final int expectedPositions;
     private final List<Type> outputTypes;
     private final List<Type> missingKeysTypes;
     private final List<Integer> keyOutputChannels;
     private final Optional<Integer> keyOutputHashChannel;
     private final List<Integer> missingKeysChannels;
+    private final PagesIndex.Factory pagesIndexFactory;
 
     private final long maxMemoryInBytes;
     private PagesIndex outputPagesIndex;
@@ -54,15 +57,19 @@ public class IndexSnapshotBuilder
             Optional<Integer> keyOutputHashChannel,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,
-            int expectedPositions)
+            int expectedPositions,
+            PagesIndex.Factory pagesIndexFactory)
     {
-        checkNotNull(outputTypes, "outputTypes is null");
-        checkNotNull(keyOutputChannels, "keyOutputChannels is null");
-        checkNotNull(keyOutputHashChannel, "keyOutputHashChannel is null");
-        checkNotNull(driverContext, "driverContext is null");
-        checkNotNull(maxMemoryInBytes, "maxMemoryInBytes is null");
+        requireNonNull(outputTypes, "outputTypes is null");
+        requireNonNull(keyOutputChannels, "keyOutputChannels is null");
+        requireNonNull(keyOutputHashChannel, "keyOutputHashChannel is null");
+        requireNonNull(driverContext, "driverContext is null");
+        requireNonNull(maxMemoryInBytes, "maxMemoryInBytes is null");
+        requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         checkArgument(expectedPositions > 0, "expectedPositions must be greater than zero");
 
+        this.pagesIndexFactory = pagesIndexFactory;
+        this.session = driverContext.getSession();
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.expectedPositions = expectedPositions;
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
@@ -79,9 +86,9 @@ public class IndexSnapshotBuilder
         this.missingKeysTypes = missingKeysTypes.build();
         this.missingKeysChannels = missingKeysChannels.build();
 
-        this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions);
-        this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions);
-        this.missingKeys = missingKeysIndex.createLookupSource(this.missingKeysChannels);
+        this.outputPagesIndex = pagesIndexFactory.newPagesIndex(outputTypes, expectedPositions);
+        this.missingKeysIndex = pagesIndexFactory.newPagesIndex(missingKeysTypes.build(), expectedPositions);
+        this.missingKeys = missingKeysIndex.createLookupSourceSupplier(session, this.missingKeysChannels).get();
     }
 
     public List<Type> getOutputTypes()
@@ -118,7 +125,7 @@ public class IndexSnapshotBuilder
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSource(keyOutputChannels, keyOutputHashChannel);
+        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty()).get();
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
@@ -127,7 +134,7 @@ public class IndexSnapshotBuilder
             Block[] blocks = indexKeysRecordCursor.getBlocks();
             Page page = indexKeysRecordCursor.getPage();
             int position = indexKeysRecordCursor.getPosition();
-            if (lookupSource.getJoinPosition(position, page) < 0) {
+            if (lookupSource.getJoinPosition(position, page, page) < 0) {
                 missingKeysPageBuilder.declarePosition();
                 for (int i = 0; i < blocks.length; i++) {
                     Block block = blocks[i];
@@ -146,7 +153,7 @@ public class IndexSnapshotBuilder
         // only update missing keys if we have new missing keys
         if (!missingKeysPageBuilder.isEmpty()) {
             missingKeysIndex.addPage(missingKeysPage);
-            missingKeys = missingKeysIndex.createLookupSource(missingKeysChannels);
+            missingKeys = missingKeysIndex.createLookupSourceSupplier(session, missingKeysChannels).get();
         }
 
         return new IndexSnapshot(lookupSource, missingKeys);
@@ -156,7 +163,7 @@ public class IndexSnapshotBuilder
     {
         memoryInBytes = 0;
         pages.clear();
-        outputPagesIndex = new PagesIndex(outputTypes, expectedPositions);
-        missingKeysIndex = new PagesIndex(missingKeysTypes, expectedPositions);
+        outputPagesIndex = pagesIndexFactory.newPagesIndex(outputTypes, expectedPositions);
+        missingKeysIndex = pagesIndexFactory.newPagesIndex(missingKeysTypes, expectedPositions);
     }
 }

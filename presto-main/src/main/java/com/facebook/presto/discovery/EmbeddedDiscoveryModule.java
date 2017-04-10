@@ -40,12 +40,12 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.Objects.requireNonNull;
 
 public class EmbeddedDiscoveryModule
         extends AbstractConfigurationAwareModule
@@ -82,8 +82,8 @@ public class EmbeddedDiscoveryModule
         @Inject
         public DiscoveryServiceSelector(NodeInfo nodeInfo, ServiceInventory inventory)
         {
-            this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
-            this.inventory = checkNotNull(inventory, "inventory is null");
+            this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
+            this.inventory = requireNonNull(inventory, "inventory is null");
         }
 
         @Override

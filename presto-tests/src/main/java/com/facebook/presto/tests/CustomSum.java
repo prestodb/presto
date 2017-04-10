@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.operator.aggregation.AggregationFunction;
-import com.facebook.presto.operator.aggregation.InputFunction;
-import com.facebook.presto.operator.aggregation.IntermediateInputFunction;
-import com.facebook.presto.operator.aggregation.OutputFunction;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 
 @AggregationFunction("custom_sum")
 public final class CustomSum
@@ -29,15 +30,26 @@ public final class CustomSum
     private CustomSum() {}
 
     @InputFunction
-    @IntermediateInputFunction
-    public static void input(NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void input(@AggregationState NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         state.setLong(state.getLong() + value);
         state.setNull(false);
     }
 
+    @CombineFunction
+    public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
+    {
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setLong(otherState.getLong());
+            return;
+        }
+
+        state.setLong(state.getLong() + otherState.getLong());
+    }
+
     @OutputFunction(StandardTypes.BIGINT)
-    public static void output(NullableLongState state, BlockBuilder out)
+    public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(BigintType.BIGINT, state, out);
     }

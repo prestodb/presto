@@ -25,10 +25,9 @@ import java.util.Map;
 
 import static com.facebook.presto.ml.ModelUtils.serialize;
 import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
-import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class StringClassifierAdapter
         implements Classifier<String>
@@ -43,8 +42,8 @@ public class StringClassifierAdapter
 
     public StringClassifierAdapter(Classifier<Integer> classifier, Map<Integer, String> labelEnumeration)
     {
-        this.classifier = checkNotNull(classifier, "classifier is is null");
-        this.labelEnumeration = checkNotNull(labelEnumeration, "labelEnumeration is null");
+        this.classifier = requireNonNull(classifier, "classifier is is null");
+        this.labelEnumeration = requireNonNull(labelEnumeration, "labelEnumeration is null");
     }
 
     @Override
@@ -90,7 +89,7 @@ public class StringClassifierAdapter
             builder.put(key, value);
         }
 
-        return new StringClassifierAdapter(checkType(classifier, Classifier.class, "classifier"), builder.build());
+        return new StringClassifierAdapter((Classifier) classifier, builder.build());
     }
 
     @Override

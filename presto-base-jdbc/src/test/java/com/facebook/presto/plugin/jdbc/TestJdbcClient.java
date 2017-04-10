@@ -22,7 +22,10 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -56,7 +59,10 @@ public class TestJdbcClient
             throws Exception
     {
         assertTrue(jdbcClient.getSchemaNames().containsAll(ImmutableSet.of("example", "tpch")));
-        assertEquals(jdbcClient.getTableNames("example"), ImmutableList.of(new SchemaTableName("example", "numbers")));
+        assertEquals(jdbcClient.getTableNames("example"), ImmutableList.of(
+                new SchemaTableName("example", "numbers"),
+                new SchemaTableName("example", "view_source"),
+                new SchemaTableName("example", "view")));
         assertEquals(jdbcClient.getTableNames("tpch"), ImmutableList.of(
                 new SchemaTableName("tpch", "lineitem"),
                 new SchemaTableName("tpch", "orders")));
@@ -70,6 +76,33 @@ public class TestJdbcClient
         assertEquals(table.getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(table), ImmutableList.of(
                 new JdbcColumnHandle(CONNECTOR_ID, "TEXT", VARCHAR),
+                new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", createVarcharType(32)),
                 new JdbcColumnHandle(CONNECTOR_ID, "VALUE", BIGINT)));
+    }
+
+    @Test
+    public void testMetadataWithSchemaPattern()
+            throws Exception
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
+        JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
+        assertNotNull(table, "table is null");
+        assertEquals(jdbcClient.getColumns(table), ImmutableList.of(
+                new JdbcColumnHandle(CONNECTOR_ID, "TE_T", VARCHAR),
+                new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", BIGINT)));
+    }
+
+    @Test
+    public void testMetadataWithFloatAndDoubleCol()
+            throws Exception
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
+        JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
+        assertNotNull(table, "table is null");
+        assertEquals(jdbcClient.getColumns(table), ImmutableList.of(
+                new JdbcColumnHandle(CONNECTOR_ID, "COL1", BIGINT),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL2", DOUBLE),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL3", DOUBLE),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL4", REAL)));
     }
 }

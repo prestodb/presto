@@ -14,7 +14,8 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
@@ -22,20 +23,14 @@ import java.util.List;
 
 public interface StreamReader
 {
-    void readBatch(Object vector)
+    Block readBlock(Type type)
             throws IOException;
-
-    default void readBatch(Type type, Object vector)
-            throws IOException
-    {
-        readBatch(vector);
-    }
 
     void prepareNextRead(int batchSize);
 
-    void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException;
 
-    void startRowGroup(StreamSources dataStreamSources)
+    void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException;
 }

@@ -14,8 +14,11 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.DecimalParseResult;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -26,51 +29,65 @@ import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BinaryLiteral;
+import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.type.RowType;
+import com.facebook.presto.type.RowType.RowField;
 import com.facebook.presto.type.UnknownType;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.airlift.slice.Slices;
 
-import java.nio.charset.StandardCharsets;
-import java.util.IdentityHashMap;
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
@@ -79,17 +96,21 @@ import static com.facebook.presto.sql.relational.Signatures.arithmeticExpression
 import static com.facebook.presto.sql.relational.Signatures.arithmeticNegationSignature;
 import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
 import static com.facebook.presto.sql.relational.Signatures.betweenSignature;
+import static com.facebook.presto.sql.relational.Signatures.bindSignature;
 import static com.facebook.presto.sql.relational.Signatures.castSignature;
 import static com.facebook.presto.sql.relational.Signatures.coalesceSignature;
 import static com.facebook.presto.sql.relational.Signatures.comparisonExpressionSignature;
+import static com.facebook.presto.sql.relational.Signatures.dereferenceSignature;
 import static com.facebook.presto.sql.relational.Signatures.likePatternSignature;
 import static com.facebook.presto.sql.relational.Signatures.likeSignature;
 import static com.facebook.presto.sql.relational.Signatures.logicalExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.nullIfSignature;
+import static com.facebook.presto.sql.relational.Signatures.rowConstructorSignature;
 import static com.facebook.presto.sql.relational.Signatures.subscriptSignature;
 import static com.facebook.presto.sql.relational.Signatures.switchSignature;
 import static com.facebook.presto.sql.relational.Signatures.tryCastSignature;
 import static com.facebook.presto.sql.relational.Signatures.whenSignature;
+import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
@@ -97,7 +118,12 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
 {
@@ -105,15 +131,16 @@ public final class SqlToRowExpressionTranslator
 
     public static RowExpression translate(
             Expression expression,
-            IdentityHashMap<Expression, Type> types,
+            FunctionKind functionKind,
+            IdentityLinkedHashMap<Expression, Type> types,
             FunctionRegistry functionRegistry,
             TypeManager typeManager,
             Session session,
             boolean optimize)
     {
-        RowExpression result = new Visitor(types, typeManager, session.getTimeZoneKey()).process(expression, null);
+        RowExpression result = new Visitor(functionKind, types, typeManager, session.getTimeZoneKey()).process(expression, null);
 
-        Preconditions.checkNotNull(result, "translated expression is null");
+        requireNonNull(result, "translated expression is null");
 
         if (optimize) {
             ExpressionOptimizer optimizer = new ExpressionOptimizer(functionRegistry, typeManager, session);
@@ -126,12 +153,14 @@ public final class SqlToRowExpressionTranslator
     private static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
-        private final IdentityHashMap<Expression, Type> types;
+        private final FunctionKind functionKind;
+        private final IdentityLinkedHashMap<Expression, Type> types;
         private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
 
-        private Visitor(IdentityHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
+        private Visitor(FunctionKind functionKind, IdentityLinkedHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
         {
+            this.functionKind = functionKind;
             this.types = types;
             this.typeManager = typeManager;
             this.timeZoneKey = timeZoneKey;
@@ -144,9 +173,9 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitInputReference(InputReference node, Void context)
+        protected RowExpression visitFieldReference(FieldReference node, Void context)
         {
-            return field(node.getChannel(), types.get(node));
+            return field(node.getFieldIndex(), types.get(node));
         }
 
         @Override
@@ -164,6 +193,9 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitLongLiteral(LongLiteral node, Void context)
         {
+            if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
+                return constant(node.getValue(), INTEGER);
+            }
             return constant(node.getValue(), BIGINT);
         }
 
@@ -174,9 +206,28 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
+        protected RowExpression visitDecimalLiteral(DecimalLiteral node, Void context)
+        {
+            DecimalParseResult parseResult = Decimals.parse(node.getValue());
+            return constant(parseResult.getObject(), parseResult.getType());
+        }
+
+        @Override
         protected RowExpression visitStringLiteral(StringLiteral node, Void context)
         {
-            return constant(node.getSlice(), VARCHAR);
+            return constant(node.getSlice(), createVarcharType(countCodePoints(node.getSlice())));
+        }
+
+        @Override
+        protected RowExpression visitCharLiteral(CharLiteral node, Void context)
+        {
+            return constant(node.getSlice(), createCharType(node.getValue().length()));
+        }
+
+        @Override
+        protected RowExpression visitBinaryLiteral(BinaryLiteral node, Void context)
+        {
+            return constant(node.getValue(), VARBINARY);
         }
 
         @Override
@@ -187,10 +238,17 @@ public final class SqlToRowExpressionTranslator
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
+            if (JSON.equals(type)) {
+                return call(
+                        new Signature("json_parse", SCALAR, types.get(node).getTypeSignature(), VARCHAR.getTypeSignature()),
+                        types.get(node),
+                        constant(utf8Slice(node.getValue()), VARCHAR));
+            }
+
             return call(
                     castSignature(types.get(node), VARCHAR),
                     types.get(node),
-                    constant(Slices.copiedBuffer(node.getValue(), StandardCharsets.UTF_8), VARCHAR));
+                    constant(utf8Slice(node.getValue()), VARCHAR));
         }
 
         @Override
@@ -258,9 +316,44 @@ public final class SqlToRowExpressionTranslator
                     .map(RowExpression::getType)
                     .map(Type::getTypeSignature)
                     .collect(toImmutableList());
-            Signature signature = new Signature(node.getName().getSuffix(), types.get(node).getTypeSignature(), argumentTypes);
+
+            Signature signature = new Signature(node.getName().getSuffix(), functionKind, types.get(node).getTypeSignature(), argumentTypes);
 
             return call(signature, types.get(node), arguments);
+        }
+
+        @Override
+        protected RowExpression visitSymbolReference(SymbolReference node, Void context)
+        {
+            return new VariableReferenceExpression(node.getName(), types.get(node));
+        }
+
+        @Override
+        protected RowExpression visitLambdaExpression(LambdaExpression node, Void context)
+        {
+            RowExpression body = process(node.getBody(), context);
+
+            Type type = types.get(node);
+            List<Type> typeParameters = type.getTypeParameters();
+            List<Type> argumentTypes = typeParameters.subList(0, typeParameters.size() - 1);
+            List<String> argumentNames = node.getArguments().stream()
+                    .map(LambdaArgumentDeclaration::getName)
+                    .collect(toImmutableList());
+
+            return new LambdaDefinitionExpression(argumentTypes, argumentNames, body);
+        }
+
+        @Override
+        protected RowExpression visitBindExpression(BindExpression node, Void context)
+        {
+            RowExpression value = process(node.getValue(), context);
+            RowExpression function = process(node.getFunction(), context);
+
+            return call(
+                    bindSignature(types.get(node), value.getType(), function.getType()),
+                    types.get(node),
+                    value,
+                    function);
         }
 
         @Override
@@ -309,6 +402,10 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression value = process(node.getExpression(), context);
 
+            if (node.isTypeOnly()) {
+                return changeType(value, types.get(node));
+            }
+
             if (node.isSafe()) {
                 return call(tryCastSignature(types.get(node), value.getType()), types.get(node), value);
             }
@@ -316,12 +413,59 @@ public final class SqlToRowExpressionTranslator
             return call(castSignature(types.get(node), value.getType()), types.get(node), value);
         }
 
+        private static RowExpression changeType(RowExpression value, Type targetType)
+        {
+            ChangeTypeVisitor visitor = new ChangeTypeVisitor(targetType);
+            return value.accept(visitor, null);
+        }
+
+        private static class ChangeTypeVisitor
+                implements RowExpressionVisitor<Void, RowExpression>
+        {
+            private final Type targetType;
+
+            private ChangeTypeVisitor(Type targetType)
+            {
+                this.targetType = targetType;
+            }
+
+            @Override
+            public RowExpression visitCall(CallExpression call, Void context)
+            {
+                return new CallExpression(call.getSignature(), targetType, call.getArguments());
+            }
+
+            @Override
+            public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
+            {
+                return new InputReferenceExpression(reference.getField(), targetType);
+            }
+
+            @Override
+            public RowExpression visitConstant(ConstantExpression literal, Void context)
+            {
+                return new ConstantExpression(literal.getValue(), targetType);
+            }
+
+            @Override
+            public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+            {
+                return new VariableReferenceExpression(reference.getName(), targetType);
+            }
+        }
+
         @Override
         protected RowExpression visitCoalesceExpression(CoalesceExpression node, Void context)
         {
             List<RowExpression> arguments = node.getOperands().stream()
-                            .map(value -> process(value, context))
-                            .collect(toImmutableList());
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
 
             List<Type> argumentTypes = arguments.stream().map(RowExpression::getType).collect(toImmutableList());
             return call(coalesceSignature(types.get(node), argumentTypes), types.get(node), arguments);
@@ -390,6 +534,24 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
+        protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
+        {
+            RowType rowType = (RowType) types.get(node.getBase());
+            List<RowField> fields = rowType.getFields();
+            int index = -1;
+            for (int i = 0; i < fields.size(); i++) {
+                RowField field = fields.get(i);
+                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getFieldName())) {
+                    checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
+                    index = i;
+                }
+            }
+            checkState(index >= 0, "could not find field name: %s", node.getFieldName());
+            Type returnType = types.get(node);
+            return call(dereferenceSignature(returnType, rowType), returnType, process(node.getBase(), context), constant(index, INTEGER));
+        }
+
+        @Override
         protected RowExpression visitIfExpression(IfExpression node, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
@@ -405,6 +567,12 @@ public final class SqlToRowExpressionTranslator
             }
 
             return call(Signatures.ifSignature(types.get(node)), types.get(node), arguments.build());
+        }
+
+        @Override
+        protected RowExpression visitTryExpression(TryExpression node, Void context)
+        {
+            return call(Signatures.trySignature(types.get(node)), types.get(node), process(node.getInnerExpression(), context));
         }
 
         @Override
@@ -510,6 +678,19 @@ public final class SqlToRowExpressionTranslator
                     .map(RowExpression::getType)
                     .collect(toImmutableList());
             return call(arrayConstructorSignature(types.get(node), argumentTypes), types.get(node), arguments);
+        }
+
+        @Override
+        protected RowExpression visitRow(Row node, Void context)
+        {
+            List<RowExpression> arguments = node.getItems().stream()
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
+            Type returnType = types.get(node);
+            List<Type> argumentTypes = node.getItems().stream()
+                    .map(value -> types.get(value))
+                    .collect(toImmutableList());
+            return call(rowConstructorSignature(returnType, argumentTypes), returnType, arguments);
         }
     }
 }

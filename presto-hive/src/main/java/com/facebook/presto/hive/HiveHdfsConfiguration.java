@@ -13,26 +13,42 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
 import java.net.URI;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
+import static java.util.Objects.requireNonNull;
 
 public class HiveHdfsConfiguration
         implements HdfsConfiguration
 {
+    private static final Configuration INITIAL_CONFIGURATION;
+
+    static {
+        Configuration.addDefaultResource("hdfs-default.xml");
+        Configuration.addDefaultResource("hdfs-site.xml");
+
+        // must not be transitively reloaded during the future loading of various Hadoop modules
+        // all the required default resources must be declared above
+        INITIAL_CONFIGURATION = new Configuration(false);
+        Configuration defaultConfiguration = new Configuration();
+        copy(defaultConfiguration, INITIAL_CONFIGURATION);
+    }
+
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
     {
         @Override
         protected Configuration initialValue()
         {
-            Configuration config = new Configuration();
-            updater.updateConfiguration(config);
-            return config;
+            PrestoHadoopConfiguration configuration = new PrestoHadoopConfiguration(ImmutableClassToInstanceMap.of());
+            copy(INITIAL_CONFIGURATION, configuration);
+            updater.updateConfiguration(configuration);
+            return configuration;
         }
     };
 
@@ -41,7 +57,7 @@ public class HiveHdfsConfiguration
     @Inject
     public HiveHdfsConfiguration(HdfsConfigurationUpdater updater)
     {
-        this.updater = checkNotNull(updater, "updater is null");
+        this.updater = requireNonNull(updater, "updater is null");
     }
 
     @Override

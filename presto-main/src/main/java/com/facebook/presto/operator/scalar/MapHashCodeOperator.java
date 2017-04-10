@@ -13,55 +13,55 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
-import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapHashCodeOperator
-        extends ParametricOperator
+        extends SqlOperator
 {
     public static final MapHashCodeOperator MAP_HASH_CODE = new MapHashCodeOperator();
-    private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BIGINT);
-
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapHashCodeOperator.class, "hash", MethodHandle.class, MethodHandle.class, Type.class, Type.class, Block.class);
 
     private MapHashCodeOperator()
     {
-        super(HASH_CODE, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), StandardTypes.BIGINT, ImmutableList.of("map<K,V>"));
+        super(HASH_CODE,
+                ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.BIGINT),
+                ImmutableList.of(parseTypeSignature("map(K,V)")));
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type keyType = types.get("K");
-        Type valueType = types.get("V");
+        Type keyType = boundVariables.getTypeVariable("K");
+        Type valueType = boundVariables.getTypeVariable("V");
 
-        Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
-        TypeSignature typeSignature = type.getTypeSignature();
-
-        MethodHandle keyHashCodeFunction = functionRegistry.resolveOperator(HASH_CODE, ImmutableList.of(keyType)).getMethodHandle();
-        MethodHandle valueHashCodeFunction = functionRegistry.resolveOperator(HASH_CODE, ImmutableList.of(valueType)).getMethodHandle();
+        MethodHandle keyHashCodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(keyType))).getMethodHandle();
+        MethodHandle valueHashCodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(valueType))).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
-        return operatorInfo(HASH_CODE, RETURN_TYPE, ImmutableList.of(typeSignature), method, false, ImmutableList.of(false));
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false), method, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static long hash(MethodHandle keyHashCodeFunction, MethodHandle valueHashCodeFunction, Type keyType, Type valueType, Block block)
     {
         long result = 0;

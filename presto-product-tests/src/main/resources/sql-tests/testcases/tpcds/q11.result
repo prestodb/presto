@@ -1,0 +1,88 @@
+-- delimiter: |; types: CHAR|CHAR|CHAR|CHAR|LONGNVARCHAR|CHAR
+AAAAAAAAAFGBBAAA|Howard              |Major                         |Y|BOUVET ISLAND|null|
+AAAAAAAAAMGDAAAA|Kenneth             |Harlan                        |Y|POLAND|null|
+AAAAAAAAAOPFBAAA|Jerry               |Fields                        |Y|SIERRA LEONE|null|
+AAAAAAAABLEIBAAA|Paula               |Wakefield                     |Y|SAN MARINO|null|
+AAAAAAAABNBBAAAA|Irma                |Smith                         |Y|SERBIA|null|
+AAAAAAAACADPAAAA|Cristobal           |Thomas                        |Y|GRENADA|null|
+AAAAAAAACFENAAAA|Christopher         |Dawson                        |null|DENMARK|null|
+AAAAAAAACIJMAAAA|Elizabeth           |Thomas                        |Y|BHUTAN|null|
+AAAAAAAACJDIAAAA|James               |Kerr                          |N|PITCAIRN|null|
+AAAAAAAACNAGBAAA|Virginia            |May                           |N|NORFOLK ISLAND|null|
+AAAAAAAADBEFBAAA|Bennie              |Bowers                        |N|MALI|null|
+AAAAAAAADCKOAAAA|Robert              |Gonzalez                      |N|AUSTRIA|null|
+AAAAAAAADFKABAAA|Latoya              |Craft                         |N|MALTA|null|
+AAAAAAAADIIOAAAA|David               |Carroll                       |Y|GIBRALTAR|null|
+AAAAAAAADIJGBAAA|Ruth                |Sanders                       |N|BRUNEI DARUSSALAM|null|
+AAAAAAAADLHBBAAA|Henry               |Bertrand                      |N|PORTUGAL|null|
+AAAAAAAAEADJAAAA|Ruth                |Carroll                       |N|CUBA|null|
+AAAAAAAAEJDLAAAA|Alice               |Wright                        |N|NIGER|null|
+AAAAAAAAEKFPAAAA|Annika              |Chin                          |N|UNITED KINGDOM|null|
+AAAAAAAAEKJLAAAA|Aisha               |Carlson                       |Y|CZECH REPUBLIC|null|
+AAAAAAAAEPOGAAAA|Felisha             |Mendes                        |Y|BELIZE|null|
+AAAAAAAAFACEAAAA|Priscilla           |Miller                        |N|PERU|null|
+AAAAAAAAFBAHAAAA|Michael             |Williams                      |N|UKRAINE|null|
+AAAAAAAAFGIGAAAA|Eduardo             |Miller                        |Y|NEPAL|null|
+AAAAAAAAFGPGAAAA|Albert              |Wadsworth                     |Y|SPAIN|null|
+AAAAAAAAFMHIAAAA|Emilio              |Darling                       |Y|VIET NAM|null|
+AAAAAAAAFOGIAAAA|Michelle            |Greene                        |N|UNITED ARAB EMIRATES|null|
+AAAAAAAAFOJAAAAA|Don                 |Castillo                      |Y|ROMANIA|null|
+AAAAAAAAGEHIAAAA|Tyler               |Miller                        |N|KIRIBATI|null|
+AAAAAAAAGHPBBAAA|Nick                |Mendez                        |Y|CANADA|null|
+AAAAAAAAGNDAAAAA|Terry               |Mcdowell                      |N|TONGA|null|
+AAAAAAAAHGOABAAA|Sonia               |White                         |N|AMERICAN SAMOA|null|
+AAAAAAAAHHCABAAA|William             |Stewart                       |Y|PUERTO RICO|null|
+AAAAAAAAHJLAAAAA|Audrey              |Beltran                       |Y|SOMALIA|null|
+AAAAAAAAHMJNAAAA|Ryan                |Baptiste                      |Y|DENMARK|null|
+AAAAAAAAHMOIAAAA|Grace               |Henderson                     |N|LEBANON|null|
+AAAAAAAAIADEBAAA|Diane               |Aldridge                      |N|NIGERIA|null|
+AAAAAAAAIBAEBAAA|Sandra              |Wilson                        |N|BOUVET ISLAND|null|
+AAAAAAAAIBFCBAAA|Ruth                |Grantham                      |N|CAPE VERDE|null|
+AAAAAAAAIBHHAAAA|Jennifer            |Ballard                       |Y|CANADA|null|
+AAAAAAAAICHFAAAA|Linda               |Mccoy                         |N|MOLDOVA, REPUBLIC OF|null|
+AAAAAAAAIDKFAAAA|Michael             |Mack                          |N|CHRISTMAS ISLAND|null|
+AAAAAAAAIJEMAAAA|Charlie             |Cummings                      |Y|GEORGIA|null|
+AAAAAAAAIMHBAAAA|Kathy               |Knowles                       |N|ARMENIA|null|
+AAAAAAAAIMHHBAAA|Lillian             |Davidson                      |Y|CROATIA|null|
+AAAAAAAAJDBLAAAA|Melvin              |Taylor                        |Y|NEW ZEALAND|null|
+AAAAAAAAJEKFBAAA|Norma               |Burkholder                    |N|ANGOLA|null|
+AAAAAAAAJGMMAAAA|Richard             |Larson                        |Y|TOKELAU|null|
+AAAAAAAAJIALAAAA|Santos              |Gutierrez                     |N|PALAU|null|
+AAAAAAAAJKBNAAAA|Julie               |Kern                          |N|BOTSWANA|null|
+AAAAAAAAJMHLAAAA|Wanda               |Ryan                          |Y|MAURITANIA|null|
+AAAAAAAAJONHBAAA|Warren              |Orozco                        |N|GUINEA-BISSAU|null|
+AAAAAAAAJPINAAAA|Rose                |Waite                         |Y|BRUNEI DARUSSALAM|null|
+AAAAAAAAKAECAAAA|Milton              |Mackey                        |N|RUSSIAN FEDERATION|null|
+AAAAAAAAKAPPAAAA|Karen               |Parker                        |Y|TUNISIA|null|
+AAAAAAAAKJBKAAAA|Georgia             |Scott                         |N|CHRISTMAS ISLAND|null|
+AAAAAAAAKJBLAAAA|Kerry               |Davis                         |Y|AFGHANISTAN|null|
+AAAAAAAAKKGEAAAA|Katie               |Dunbar                        |N|NETHERLANDS|null|
+AAAAAAAAKLHHBAAA|Manuel              |Castaneda                     |N|SAMOA|null|
+AAAAAAAAKNAKAAAA|Gladys              |Banks                         |N|WESTERN SAHARA|null|
+AAAAAAAALFKKAAAA|Ignacio             |Miller                        |Y|UNITED KINGDOM|null|
+AAAAAAAALHMCAAAA|Brooke              |Nelson                        |Y|SPAIN|null|
+AAAAAAAALIOPAAAA|Derek               |Allen                         |Y|NICARAGUA|null|
+AAAAAAAALJNCBAAA|George              |Gamez                         |Y|AZERBAIJAN|null|
+AAAAAAAAMDCAAAAA|Louann              |Hamel                         |Y|TIMOR-LESTE|null|
+AAAAAAAAMFFLAAAA|Margret             |Gray                          |Y|NEW ZEALAND|null|
+AAAAAAAAMMOBBAAA|Margaret            |Smith                         |N|JAPAN|null|
+AAAAAAAANFBDBAAA|Vernice             |Fernandez                     |Y|SWEDEN|null|
+AAAAAAAANGDBBAAA|Carlos              |Jewell                        |N|ISLE OF MAN|null|
+AAAAAAAANIPLAAAA|Eric                |Lawrence                      |Y|HONDURAS|null|
+AAAAAAAANJAGAAAA|Allen               |Hood                          |Y|TOGO|null|
+AAAAAAAANJHCBAAA|Christopher         |Schreiber                     |N|UZBEKISTAN|null|
+AAAAAAAANJOLAAAA|Debra               |Underwood                     |Y|BOTSWANA|null|
+AAAAAAAAOBADBAAA|Elizabeth           |Burnham                       |N|HONDURAS|null|
+AAAAAAAAOCAJAAAA|Jenna               |Staton                        |N|GIBRALTAR|null|
+AAAAAAAAOCLBBAAA|null|null|null|null|null|
+AAAAAAAAODMMAAAA|Gayla               |Cline                         |N|ETHIOPIA|null|
+AAAAAAAAOFLCAAAA|James               |Taylor                        |N|BANGLADESH|null|
+AAAAAAAAPDFBAAAA|Terrance            |Banks                         |Y|SLOVENIA|null|
+AAAAAAAAPEHEBAAA|Edith               |Molina                        |Y|GREENLAND|null|
+AAAAAAAAPFCLAAAA|Felicia             |Neville                       |N|NEPAL|null|
+AAAAAAAAPICEAAAA|Jennifer            |Cortez                        |Y|NEW CALEDONIA|null|
+AAAAAAAAPJENAAAA|Ashley              |Norton                        |Y|IRAQ|null|
+AAAAAAAAPKBCBAAA|Andrea              |White                         |N|SAMOA|null|
+AAAAAAAAPKIKAAAA|Wendy               |Horvath                       |Y|MADAGASCAR|null|
+AAAAAAAAPMMBBAAA|Paul                |Jordan                        |N|JORDAN|null|
+AAAAAAAAPPIBBAAA|Candice             |Lee                           |Y|SWEDEN|null|

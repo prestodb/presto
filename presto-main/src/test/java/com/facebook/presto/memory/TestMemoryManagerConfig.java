@@ -16,6 +16,7 @@ package com.facebook.presto.memory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -23,6 +24,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestMemoryManagerConfig
 {
@@ -30,24 +33,24 @@ public class TestMemoryManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(MemoryManagerConfig.class)
-                .setMaxQueryMemory(new DataSize(20, GIGABYTE))
-                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
-                .setClusterMemoryManagerEnabled(true));
+                .setKillOnOutOfMemory(false)
+                .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
+                .setMaxQueryMemory(new DataSize(20, GIGABYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("query.low-memory-killer.enabled", "true")
+                .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
-                .put("query.max-memory-per-node", "2GB")
-                .put("experimental.cluster-memory-manager-enabled", "false")
                 .build();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
-                .setMaxQueryMemory(new DataSize(2, GIGABYTE))
-                .setMaxQueryMemoryPerNode(new DataSize(2, GIGABYTE))
-                .setClusterMemoryManagerEnabled(false);
+                .setKillOnOutOfMemory(true)
+                .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
+                .setMaxQueryMemory(new DataSize(2, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

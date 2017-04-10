@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.util.array.ObjectBigArray;
+import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import io.airlift.stats.cardinality.HyperLogLog;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HyperLogLogStateFactory
         implements AccumulatorStateFactory<HyperLogLogState>
@@ -67,7 +68,7 @@ public class HyperLogLogStateFactory
         @Override
         public void setHyperLogLog(HyperLogLog value)
         {
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
             hlls.set(getGroupId(), value);
         }
 

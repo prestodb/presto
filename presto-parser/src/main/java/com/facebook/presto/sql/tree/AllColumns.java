@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class AllColumns
         extends SelectItem
@@ -24,12 +28,30 @@ public class AllColumns
 
     public AllColumns()
     {
+        super(Optional.empty());
+        prefix = Optional.empty();
+    }
+
+    public AllColumns(NodeLocation location)
+    {
+        super(Optional.of(location));
         prefix = Optional.empty();
     }
 
     public AllColumns(QualifiedName prefix)
     {
-        Preconditions.checkNotNull(prefix, "prefix is null");
+        this(Optional.empty(), prefix);
+    }
+
+    public AllColumns(NodeLocation location, QualifiedName prefix)
+    {
+        this(Optional.of(location), prefix);
+    }
+
+    private AllColumns(Optional<NodeLocation> location, QualifiedName prefix)
+    {
+        super(location);
+        requireNonNull(prefix, "prefix is null");
         this.prefix = Optional.of(prefix);
     }
 
@@ -45,6 +67,12 @@ public class AllColumns
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -55,18 +83,13 @@ public class AllColumns
         }
 
         AllColumns that = (AllColumns) o;
-
-        if (prefix != null ? !prefix.equals(that.prefix) : that.prefix != null) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(prefix, that.prefix);
     }
 
     @Override
     public int hashCode()
     {
-        return prefix != null ? prefix.hashCode() : 0;
+        return prefix.hashCode();
     }
 
     @Override

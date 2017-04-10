@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -24,42 +25,44 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.Callable;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 @ThreadSafe
 public class HiveMetastoreApiStats
 {
-    private final TimeStat time = new TimeStat();
+    private final TimeStat time = new TimeStat(MILLISECONDS);
     private final CounterStat totalFailures = new CounterStat();
     private final CounterStat metastoreExceptions = new CounterStat();
     private final CounterStat thriftExceptions = new CounterStat();
 
-    public <V> Callable<V> wrap(final Callable<V> callable)
+    public <V> Callable<V> wrap(Callable<V> callable)
     {
-        return new Callable<V>()
-        {
-            @Override
-            public V call()
-                    throws Exception
-            {
-                try (TimeStat.BlockTimer timer = time.time()) {
-                    return callable.call();
-                }
-                catch (Exception e) {
-                    if (e instanceof MetaException) {
-                        metastoreExceptions.update(1);
-                        // Need to throw here instead of falling through due to JDK-8059299
-                        totalFailures.update(1);
-                        throw e;
-                    }
-                    else if (e instanceof TException) {
-                        thriftExceptions.update(1);
-                        // Need to throw here instead of falling through due to JDK-8059299
-                        totalFailures.update(1);
-                        throw e;
-                    }
+        return () -> {
+            try (TimeStat.BlockTimer ignored = time.time()) {
+                return callable.call();
+            }
+            catch (Exception e) {
+                if (e instanceof MetaException) {
+                    metastoreExceptions.update(1);
+                    // Need to throw here instead of falling through due to JDK-8059299
                     totalFailures.update(1);
-
                     throw e;
                 }
+
+                if (e instanceof TException) {
+                    if (e instanceof TBase) {
+                        // This exception is an API response and not a server error
+                        throw e;
+                    }
+
+                    thriftExceptions.update(1);
+                    // Need to throw here instead of falling through due to JDK-8059299
+                    totalFailures.update(1);
+                    throw e;
+                }
+
+                totalFailures.update(1);
+                throw e;
             }
         };
     }

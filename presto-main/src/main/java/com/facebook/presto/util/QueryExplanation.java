@@ -21,7 +21,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QueryExplanation
@@ -30,7 +30,7 @@ public class QueryExplanation
 
     public QueryExplanation(List<Input> inputs)
     {
-        this.inputs = ImmutableList.copyOf(checkNotNull(inputs, "inputs is null"));
+        this.inputs = ImmutableList.copyOf(requireNonNull(inputs, "inputs is null"));
     }
 
     @JsonProperty

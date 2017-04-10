@@ -14,14 +14,16 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.SerializableNativeValue;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
@@ -33,8 +35,8 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -51,14 +53,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Converts cardinality-insensitive aggregations (max, min, "distinct") over partition keys
  * into simple metadata queries
  */
 public class MetadataQueryOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private static final Set<String> ALLOWED_FUNCTIONS = ImmutableSet.of("max", "min", "approx_distinct");
 
@@ -66,7 +68,7 @@ public class MetadataQueryOptimizer
 
     public MetadataQueryOptimizer(Metadata metadata)
     {
-        checkNotNull(metadata, "metadata is null");
+        requireNonNull(metadata, "metadata is null");
 
         this.metadata = metadata;
     }
@@ -74,11 +76,14 @@ public class MetadataQueryOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return PlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
+        if (!SystemSessionProperties.isOptimizeMetadataQueries(session)) {
+            return plan;
+        }
+        return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
     }
 
     private static class Optimizer
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
@@ -117,12 +122,6 @@ public class MetadataQueryOptimizer
                 ColumnHandle column = tableScan.getAssignments().get(symbol);
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableScan.getTable(), column);
 
-                if (!columnMetadata.isPartitionKey()) {
-                    // the optimization is only valid if the aggregation node only
-                    // relies on partition keys
-                    return context.defaultRewrite(node);
-                }
-
                 typesBuilder.put(symbol, columnMetadata.getType());
                 columnBuilder.put(symbol, column);
             }
@@ -134,7 +133,7 @@ public class MetadataQueryOptimizer
             // with a Values node
             TableLayout layout = null;
             if (!tableScan.getLayout().isPresent()) {
-                List<TableLayoutResult> layouts = metadata.getLayouts(session, tableScan.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
+                List<TableLayoutResult> layouts = metadata.getLayouts(session, tableScan.getTable(), Constraint.alwaysTrue(), Optional.empty());
                 if (layouts.size() == 1) {
                     layout = Iterables.getOnlyElement(layouts).getLayout();
                 }
@@ -146,34 +145,42 @@ public class MetadataQueryOptimizer
             if (layout == null || !layout.getDiscretePredicates().isPresent()) {
                 return context.defaultRewrite(node);
             }
+            DiscretePredicates predicates = layout.getDiscretePredicates().get();
+
+            // the optimization is only valid if the aggregation node only relies on partition keys
+            if (!predicates.getColumns().containsAll(columns.values())) {
+                return context.defaultRewrite(node);
+            }
 
             ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
-            for (TupleDomain<ColumnHandle> domain : layout.getDiscretePredicates().get()) {
-                Map<ColumnHandle, SerializableNativeValue> entries = domain.extractNullableFixedValues();
+            for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
+                if (!domain.isNone()) {
+                    Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
 
-                ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
-                // for each input column, add a literal expression using the entry value
-                for (Symbol input : inputs) {
-                    ColumnHandle column = columns.get(input);
-                    Type type = types.get(input);
-                    SerializableNativeValue value = entries.get(column);
-                    if (value == null) {
-                        // partition key does not have a single value, so bail out to be safe
-                        return context.defaultRewrite(node);
+                    ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+                    // for each input column, add a literal expression using the entry value
+                    for (Symbol input : inputs) {
+                        ColumnHandle column = columns.get(input);
+                        Type type = types.get(input);
+                        NullableValue value = entries.get(column);
+                        if (value == null) {
+                            // partition key does not have a single value, so bail out to be safe
+                            return context.defaultRewrite(node);
+                        }
+                        else {
+                            rowBuilder.add(LiteralInterpreter.toExpression(value.getValue(), type));
+                        }
                     }
-                    else {
-                        rowBuilder.add(LiteralInterpreter.toExpression(value.getValue(), type));
-                    }
+                    rowsBuilder.add(rowBuilder.build());
                 }
-                rowsBuilder.add(rowBuilder.build());
             }
 
             // replace the tablescan node with a values node
             ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build());
-            return PlanRewriter.rewriteWith(new Replacer(valuesNode), node);
+            return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
         }
 
-        private Optional<TableScanNode> findTableScan(PlanNode source)
+        private static Optional<TableScanNode> findTableScan(PlanNode source)
         {
             while (true) {
                 // allow any chain of linear transformations
@@ -187,7 +194,7 @@ public class MetadataQueryOptimizer
                 else if (source instanceof ProjectNode) {
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
-                    if (!Iterables.all(project.getExpressions(), DeterminismEvaluator::isDeterministic)) {
+                    if (!Iterables.all(project.getAssignments().getExpressions(), DeterminismEvaluator::isDeterministic)) {
                         return Optional.empty();
                     }
                     source = project.getSource();
@@ -203,7 +210,7 @@ public class MetadataQueryOptimizer
     }
 
     private static class Replacer
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final ValuesNode replacement;
 

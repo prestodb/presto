@@ -22,3 +22,8 @@ Examples
 
     RESET SESSION optimize_hash_generation;
     RESET SESSION hive.optimized_reader_enabled;
+
+See Also
+--------
+
+:doc:`set-session`, :doc:`show-session`

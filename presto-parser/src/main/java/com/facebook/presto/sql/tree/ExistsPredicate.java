@@ -13,20 +13,37 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class ExistsPredicate
         extends Expression
 {
-    private final Query subquery;
+    private final Expression subquery;
 
-    public ExistsPredicate(Query subquery)
+    public ExistsPredicate(Expression subquery)
     {
-        Preconditions.checkNotNull(subquery, "subquery is null");
+        this(Optional.empty(), subquery);
+    }
+
+    public ExistsPredicate(NodeLocation location, Expression subquery)
+    {
+        this(Optional.of(location), subquery);
+    }
+
+    private ExistsPredicate(Optional<NodeLocation> location, Expression subquery)
+    {
+        super(location);
+        requireNonNull(subquery, "subquery is null");
         this.subquery = subquery;
     }
 
-    public Query getSubquery()
+    public Node getSubquery()
     {
         return subquery;
     }
@@ -35,6 +52,12 @@ public class ExistsPredicate
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitExists(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(subquery);
     }
 
     @Override
@@ -48,12 +71,7 @@ public class ExistsPredicate
         }
 
         ExistsPredicate that = (ExistsPredicate) o;
-
-        if (!subquery.equals(that.subquery)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(subquery, that.subquery);
     }
 
     @Override

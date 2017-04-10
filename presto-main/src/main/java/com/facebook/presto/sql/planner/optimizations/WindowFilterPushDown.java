@@ -16,10 +16,10 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -29,55 +29,60 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.spi.Marker.Bound.BELOW;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
+import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.DomainTranslator.toPredicate;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class WindowFilterPushDown
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
-    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", StandardTypes.BIGINT, ImmutableList.<String>of());
+    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, parseTypeSignature(StandardTypes.BIGINT), ImmutableList.of());
 
     private final Metadata metadata;
 
     public WindowFilterPushDown(Metadata metadata)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, session, types), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, session, types), plan, null);
     }
 
     private static class Rewriter
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
@@ -86,15 +91,16 @@ public class WindowFilterPushDown
 
         private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, Map<Symbol, Type> types)
         {
-            this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
-            this.metadata = checkNotNull(metadata, "metadata is null");
-            this.session = checkNotNull(session, "session is null");
-            this.types = ImmutableMap.copyOf(checkNotNull(types, "types is null"));
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
+            this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
+            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node)) {
@@ -105,7 +111,7 @@ public class WindowFilterPushDown
                         Optional.empty(),
                         Optional.empty());
             }
-            return context.replaceChildren(node, ImmutableList.of(rewrittenSource));
+            return replaceChildren(node, ImmutableList.of(rewrittenSource));
         }
 
         @Override
@@ -117,7 +123,7 @@ public class WindowFilterPushDown
             }
 
             PlanNode source = context.rewrite(node.getSource());
-            int limit = Ints.checkedCast(node.getCount());
+            int limit = toIntExact(node.getCount());
             if (source instanceof RowNumberNode) {
                 RowNumberNode rowNumberNode = mergeLimit(((RowNumberNode) source), limit);
                 if (rowNumberNode.getPartitionBy().isEmpty()) {
@@ -135,7 +141,7 @@ public class WindowFilterPushDown
                 }
                 source = topNRowNumberNode;
             }
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
 
         @Override
@@ -164,7 +170,7 @@ public class WindowFilterPushDown
                     return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
                 }
             }
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
 
         private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rowNumberSymbol, int upperBound)
@@ -177,7 +183,7 @@ public class WindowFilterPushDown
             }
 
             // Remove the row number domain because it is absorbed into the node
-            Map<Symbol, Domain> newDomains = tupleDomain.getDomains().entrySet().stream()
+            Map<Symbol, Domain> newDomains = tupleDomain.getDomains().get().entrySet().stream()
                     .filter(entry -> !entry.getKey().equals(rowNumberSymbol))
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -185,7 +191,7 @@ public class WindowFilterPushDown
             TupleDomain<Symbol> newTupleDomain = TupleDomain.withColumnDomains(newDomains);
             Expression newPredicate = ExpressionUtils.combineConjuncts(
                     extractionResult.getRemainingExpression(),
-                    toPredicate(newTupleDomain, types));
+                    toPredicate(newTupleDomain));
 
             if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 return source;
@@ -198,7 +204,8 @@ public class WindowFilterPushDown
             if (tupleDomain.isNone()) {
                 return false;
             }
-            return tupleDomain.getDomains().get(symbol).getRanges().equals(SortedRangeSet.of(Range.lessThanOrEqual(upperBound)));
+            Domain domain = tupleDomain.getDomains().get().get(symbol);
+            return domain.getValues().equals(ValueSet.ofRanges(Range.lessThanOrEqual(domain.getType(), upperBound)));
         }
 
         private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, Symbol symbol)
@@ -207,23 +214,22 @@ public class WindowFilterPushDown
                 return OptionalInt.empty();
             }
 
-            Domain rowNumberDomain = tupleDomain.getDomains().get(symbol);
+            Domain rowNumberDomain = tupleDomain.getDomains().get().get(symbol);
             if (rowNumberDomain == null) {
                 return OptionalInt.empty();
             }
-
-            SortedRangeSet ranges = rowNumberDomain.getRanges();
-            if (ranges.isAll() || ranges.isNone() || ranges.getRangeCount() <= 0) {
+            ValueSet values = rowNumberDomain.getValues();
+            if (values.isAll() || values.isNone() || values.getRanges().getRangeCount() <= 0) {
                 return OptionalInt.empty();
             }
 
-            Range span = ranges.getSpan();
+            Range span = values.getRanges().getSpan();
 
             if (span.getHigh().isUpperUnbounded()) {
                 return OptionalInt.empty();
             }
 
-            verify(rowNumberDomain.getType().equals(Long.class));
+            verify(rowNumberDomain.getType().equals(BIGINT));
             long upperBound = (Long) span.getHigh().getValue();
             if (span.getHigh().getBound() == BELOW) {
                 upperBound--;
@@ -232,7 +238,7 @@ public class WindowFilterPushDown
             if (upperBound > Integer.MAX_VALUE) {
                 return OptionalInt.empty();
             }
-            return OptionalInt.of(Ints.checkedCast(upperBound));
+            return OptionalInt.of(toIntExact(upperBound));
         }
 
         private static RowNumberNode mergeLimit(RowNumberNode node, int newRowCountPerPartition)
@@ -247,9 +253,7 @@ public class WindowFilterPushDown
         {
             return new TopNRowNumberNode(idAllocator.getNextId(),
                     windowNode.getSource(),
-                    windowNode.getPartitionBy(),
-                    windowNode.getOrderBy(),
-                    windowNode.getOrderings(),
+                    windowNode.getSpecification(),
                     getOnlyElement(windowNode.getWindowFunctions().keySet()),
                     limit,
                     false,
@@ -267,7 +271,7 @@ public class WindowFilterPushDown
                 return false;
             }
             Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            return isRowNumberSignature(node.getSignatures().get(rowNumberSymbol));
+            return isRowNumberSignature(node.getWindowFunctions().get(rowNumberSymbol).getSignature());
         }
 
         private static boolean isRowNumberSignature(Signature signature)

@@ -18,7 +18,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+
+import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 public final class ProjectionFunctions
 {
@@ -37,7 +42,7 @@ public final class ProjectionFunctions
 
         public SingleColumnProjection(Type columnType, int channelIndex)
         {
-            Preconditions.checkNotNull(columnType, "columnType is null");
+            requireNonNull(columnType, "columnType is null");
             Preconditions.checkArgument(channelIndex >= 0, "channelIndex is negative");
 
             this.columnType = columnType;
@@ -87,6 +92,18 @@ public final class ProjectionFunctions
                     throw new UnsupportedOperationException("not yet implemented: " + javaType);
                 }
             }
+        }
+
+        @Override
+        public Set<Integer> getInputChannels()
+        {
+            return ImmutableSet.of(channelIndex);
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return true;
         }
     }
 }

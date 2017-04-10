@@ -16,12 +16,14 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.util.Closer;
 import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.google.common.primitives.Ints;
+import io.airlift.log.Logger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.orc.NullMemoryManager;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.WriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.OrcStruct;
+import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.Reader;
 import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
@@ -33,19 +35,25 @@ import org.apache.hadoop.io.Text;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.nio.ByteBuffer;
 import java.util.BitSet;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.raptor.util.Closer.closer;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.units.Duration.nanosSince;
+import static java.lang.Math.toIntExact;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createReader;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createWriter;
-import static org.apache.hadoop.hive.ql.io.orc.OrcFile.writerOptions;
 import static org.apache.hadoop.hive.ql.io.orc.OrcUtil.getFieldValue;
 
 public final class OrcFileRewriter
 {
+    private static final Logger log = Logger.get(OrcFileRewriter.class);
     private static final Configuration CONFIGURATION = new Configuration();
 
     private OrcFileRewriter() {}
@@ -60,22 +68,31 @@ public final class OrcFileRewriter
             if (reader.getNumberOfRows() < rowsToDelete.length()) {
                 throw new IOException("File has fewer rows than deletion vector");
             }
-            if (reader.getNumberOfRows() == rowsToDelete.cardinality()) {
+            int deleteRowCount = rowsToDelete.cardinality();
+            if (reader.getNumberOfRows() == deleteRowCount) {
                 return new OrcFileInfo(0, 0);
             }
             if (reader.getNumberOfRows() >= Integer.MAX_VALUE) {
                 throw new IOException("File has too many rows");
             }
-            int inputRowCount = Ints.checkedCast(reader.getNumberOfRows());
+            int inputRowCount = toIntExact(reader.getNumberOfRows());
 
-            WriterOptions writerOptions = writerOptions(CONFIGURATION)
+            WriterOptions writerOptions = new OrcWriterOptions(CONFIGURATION)
+                    .memory(new NullMemoryManager(CONFIGURATION))
                     .fileSystem(fileSystem)
                     .compress(reader.getCompression())
                     .inspector(reader.getObjectInspector());
 
+            long start = System.nanoTime();
             try (Closer<RecordReader, IOException> recordReader = closer(reader.rows(), RecordReader::close);
                     Closer<Writer, IOException> writer = closer(createWriter(path(output), writerOptions), Writer::close)) {
-                return rewrite(recordReader.get(), writer.get(), rowsToDelete, inputRowCount);
+                if (reader.hasMetadataValue(OrcFileMetadata.KEY)) {
+                    ByteBuffer orcFileMetadata = reader.getMetadataValue(OrcFileMetadata.KEY);
+                    writer.get().addUserMetadata(OrcFileMetadata.KEY, orcFileMetadata);
+                }
+                OrcFileInfo fileInfo = rewrite(recordReader.get(), writer.get(), rowsToDelete, inputRowCount);
+                log.debug("Rewrote file %s in %s (input rows: %s, output rows: %s)", input.getName(), nanosSince(start), inputRowCount, inputRowCount - deleteRowCount);
+                return fileInfo;
             }
         }
     }
@@ -88,21 +105,30 @@ public final class OrcFileRewriter
         long rowCount = 0;
         long uncompressedSize = 0;
 
-        while (true) {
-            row = rowsToDelete.nextClearBit(row);
-            if (row >= inputRowCount) {
-                return new OrcFileInfo(rowCount, uncompressedSize);
+        row = rowsToDelete.nextClearBit(row);
+        if (row < inputRowCount) {
+            reader.seekToRow(row);
+        }
+
+        while (row < inputRowCount) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedIOException();
             }
 
-            reader.seekToRow(row);
+            // seekToRow() is extremely expensive
+            if (reader.getRowNumber() < row) {
+                reader.next(object);
+                continue;
+            }
+
             object = reader.next(object);
             writer.addRow(object);
-
-            row++;
-
             rowCount++;
             uncompressedSize += uncompressedSize(object);
+
+            row = rowsToDelete.nextClearBit(row + 1);
         }
+        return new OrcFileInfo(rowCount, uncompressedSize);
     }
 
     private static Path path(File input)
@@ -135,6 +161,21 @@ public final class OrcFileRewriter
         }
         if (object instanceof BytesWritable) {
             return ((BytesWritable) object).getLength();
+        }
+        if (object instanceof List<?>) {
+            int size = 0;
+            for (Object element : (Iterable<?>) object) {
+                size += uncompressedSize(element);
+            }
+            return size;
+        }
+        if (object instanceof Map<?, ?>) {
+            int size = 0;
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) object).entrySet()) {
+                size += uncompressedSize(entry.getKey());
+                size += uncompressedSize(entry.getValue());
+            }
+            return size;
         }
         throw new IOException("Unhandled ORC object: " + object.getClass().getName());
     }

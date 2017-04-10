@@ -19,7 +19,9 @@ import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -29,24 +31,28 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static java.util.Objects.requireNonNull;
 
 public class DeleteOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT, VARBINARY);
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
 
     public static class DeleteOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final int rowIdChannel;
         private boolean closed;
 
-        public DeleteOperatorFactory(int operatorId, int rowIdChannel)
+        public DeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, int rowIdChannel)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.rowIdChannel = rowIdChannel;
         }
 
@@ -60,7 +66,7 @@ public class DeleteOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext context = driverContext.addOperatorContext(operatorId, DeleteOperator.class.getSimpleName());
+            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, DeleteOperator.class.getSimpleName());
             return new DeleteOperator(context, rowIdChannel);
         }
 
@@ -68,6 +74,12 @@ public class DeleteOperator
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new DeleteOperatorFactory(operatorId, planNodeId, rowIdChannel);
         }
     }
 
@@ -81,13 +93,13 @@ public class DeleteOperator
 
     private State state = State.RUNNING;
     private long rowCount;
-    private boolean committed;
     private boolean closed;
+    private ListenableFuture<Collection<Slice>> finishFuture;
     private Supplier<Optional<UpdatablePageSource>> pageSource = Optional::empty;
 
     public DeleteOperator(OperatorContext operatorContext, int rowIdChannel)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.rowIdChannel = rowIdChannel;
     }
 
@@ -108,6 +120,7 @@ public class DeleteOperator
     {
         if (state == State.RUNNING) {
             state = State.FINISHING;
+            finishFuture = toListenableFuture(pageSource().finish());
         }
     }
 
@@ -126,7 +139,7 @@ public class DeleteOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
         Block rowIds = page.getBlock(rowIdChannel);
@@ -135,15 +148,23 @@ public class DeleteOperator
     }
 
     @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        if (finishFuture == null) {
+            return NOT_BLOCKED;
+        }
+        return finishFuture;
+    }
+
+    @Override
     public Page getOutput()
     {
-        if (state != State.FINISHING) {
+        if ((state != State.FINISHING) || !finishFuture.isDone()) {
             return null;
         }
         state = State.FINISHED;
 
-        Collection<Slice> fragments = pageSource().commit();
-        committed = true;
+        Collection<Slice> fragments = getFutureValue(finishFuture);
 
         PageBuilder page = new PageBuilder(TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
@@ -170,15 +191,18 @@ public class DeleteOperator
     {
         if (!closed) {
             closed = true;
-            if (!committed) {
-                pageSource.get().ifPresent(UpdatablePageSource::rollback);
+            if (finishFuture != null) {
+                finishFuture.cancel(true);
+            }
+            else {
+                pageSource.get().ifPresent(UpdatablePageSource::abort);
             }
         }
     }
 
     public void setPageSource(Supplier<Optional<UpdatablePageSource>> pageSource)
     {
-        this.pageSource = checkNotNull(pageSource, "pageSource is null");
+        this.pageSource = requireNonNull(pageSource, "pageSource is null");
     }
 
     private UpdatablePageSource pageSource()

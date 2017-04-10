@@ -14,138 +14,68 @@
 package com.facebook.presto.hive.rcfile;
 
 import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.HiveUtil;
+import com.facebook.presto.rcfile.RcFileCorruptionException;
+import com.facebook.presto.rcfile.RcFileReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.LazyArrayBlock;
+import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
-import com.facebook.presto.spi.block.LazyFixedWidthBlock;
-import com.facebook.presto.spi.block.LazySliceArrayBlock;
-import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VariableWidthType;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.ql.io.RCFile;
-import org.apache.hadoop.hive.ql.io.RCFile.Reader;
-import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
-import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
-import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
-import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Maps.uniqueIndex;
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class RcFilePageSource
         implements ConnectorPageSource
 {
-    private static final int MAX_PAGE_SIZE = 1024;
-    public static final int MAX_FIXED_WIDTH_SIZE = 8;
-    public static final int NULL_ENTRY_SIZE = 0;
+    private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
 
-    private final RCFile.Reader recordReader;
-    private final RcFileBlockLoader blockLoader;
-    private final long startFilePosition;
-    private final long endFilePosition;
+    private static final int NULL_ENTRY_SIZE = 0;
+    private final RcFileReader rcFileReader;
 
     private final List<String> columnNames;
     private final List<Type> types;
-    private final List<HiveType> hiveTypes;
-
-    private final ObjectInspector[] fieldInspectors; // DON'T USE THESE UNLESS EXTRACTION WILL BE SLOW ANYWAY
 
     private final Block[] constantBlocks;
     private final int[] hiveColumnIndexes;
 
     private int pageId;
-    private int currentBatchSize;
-    private int positionInBatch;
-    private int currentPageSize;
 
     private boolean closed;
 
-    private final BytesRefArrayWritable[] columnBatch;
-    private final boolean[] columnBatchLoaded;
-
-    private long completedBytes;
-
     public RcFilePageSource(
-            Reader recordReader,
-            long offset,
-            long length,
-            RcFileBlockLoader blockLoader,
-            Properties splitSchema,
-            List<HivePartitionKey> partitionKeys,
+            RcFileReader rcFileReader,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        this.recordReader = checkNotNull(recordReader, "recordReader is null");
-        this.blockLoader = checkNotNull(blockLoader, "blockLoader is null");
-        checkNotNull(splitSchema, "splitSchema is null");
-        checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(columns, "columns is null");
-        checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        checkNotNull(typeManager, "typeManager is null");
+        requireNonNull(rcFileReader, "rcReader is null");
+        requireNonNull(columns, "columns is null");
+        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        requireNonNull(typeManager, "typeManager is null");
 
-        // seek to start
-        try {
-            if (offset > recordReader.getPosition()) {
-                recordReader.sync(offset);
-            }
-
-            this.startFilePosition = recordReader.getPosition();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-
-        this.endFilePosition = offset + length;
-
-        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
+        this.rcFileReader = rcFileReader;
 
         int size = columns.size();
 
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
-        this.fieldInspectors = new ObjectInspector[size];
-
-        StructObjectInspector rowInspector = getTableObjectInspector(splitSchema);
 
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -162,99 +92,34 @@ public class RcFilePageSource
 
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
-            if (!column.isPartitionKey()) {
-                fieldInspectors[columnIndex] = rowInspector.getStructFieldRef(column.getName()).getFieldObjectInspector();
-            }
-
-            if (column.isPartitionKey()) {
-                HivePartitionKey partitionKey = partitionKeysByName.get(name);
-                checkArgument(partitionKey != null, "No value provided for partition key %s", name);
-
-                byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
-
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_PAGE_SIZE, Math.max(MAX_FIXED_WIDTH_SIZE, bytes.length));
-
-                if (HiveUtil.isHiveNull(bytes)) {
-                    for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                        blockBuilder.appendNull();
-                    }
-                }
-                else if (type.equals(BOOLEAN)) {
-                    boolean value = booleanPartitionKey(partitionKey.getValue(), name);
-                    for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                        BOOLEAN.writeBoolean(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(BIGINT)) {
-                    long value = bigintPartitionKey(partitionKey.getValue(), name);
-                    for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                        BIGINT.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(DOUBLE)) {
-                    double value = doublePartitionKey(partitionKey.getValue(), name);
-                    for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                        DOUBLE.writeDouble(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(VARCHAR)) {
-                    Slice value = Slices.wrappedBuffer(bytes);
-                    for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                        VARCHAR.writeSlice(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(DATE)) {
-                    long value = datePartitionKey(partitionKey.getValue(), name);
-                    for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                        DATE.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (TIMESTAMP.equals(type)) {
-                    long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
-                    for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                        TIMESTAMP.writeLong(blockBuilder, value);
-                    }
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
-                }
-
-                constantBlocks[columnIndex] = blockBuilder.build();
-            }
-            else if (hiveColumnIndexes[columnIndex] >= recordReader.getCurrentKeyBufferObj().getColumnNumber()) {
-                // this partition may contain fewer fields than what's declared in the schema
-                // this happens when additional columns are added to the hive table after a partition has been created
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_PAGE_SIZE, NULL_ENTRY_SIZE);
-                for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                    blockBuilder.appendNull();
-                }
+            if (hiveColumnIndexes[columnIndex] >= rcFileReader.getColumnCount()) {
+                // this file may contain fewer fields than what's declared in the schema
+                // this happens when additional columns are added to the hive table after files have been created
+                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, NULL_ENTRY_SIZE);
+                blockBuilder.appendNull();
                 constantBlocks[columnIndex] = blockBuilder.build();
             }
         }
         types = typesBuilder.build();
-        hiveTypes = hiveTypesBuilder.build();
         columnNames = namesBuilder.build();
-
-        columnBatch = new BytesRefArrayWritable[hiveColumnIndexes.length];
-        columnBatchLoaded = new boolean[hiveColumnIndexes.length];
     }
 
     @Override
     public long getTotalBytes()
     {
-        return 0;
+        return rcFileReader.getLength();
     }
 
     @Override
     public long getCompletedBytes()
     {
-        return completedBytes;
+        return rcFileReader.getBytesRead();
     }
 
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return rcFileReader.getReadTimeNanos();
     }
 
     @Override
@@ -269,58 +134,31 @@ public class RcFilePageSource
         try {
             // advance in the current batch
             pageId++;
-            positionInBatch += currentPageSize;
 
             // if the batch has been consumed, read the next batch
-            if (positionInBatch >= currentBatchSize) {
-                //noinspection deprecation
-                if (!recordReader.nextColumnsBatch() || recordReader.lastSeenSyncPos() >= endFilePosition) {
-                    close();
-                    return null;
-                }
-
-                currentBatchSize = recordReader.getCurrentKeyBufferObj().getNumberRows();
-                positionInBatch = 0;
-
-                Arrays.fill(columnBatchLoaded, false);
+            int currentPageSize = rcFileReader.advance();
+            if (currentPageSize < 0) {
+                close();
+                return null;
             }
-
-            currentPageSize = Ints.checkedCast(Math.min(currentBatchSize - positionInBatch, MAX_PAGE_SIZE));
-
-            RcFileColumnsBatch rcFileColumnsBatch = new RcFileColumnsBatch(pageId, positionInBatch);
 
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                Type type = types.get(fieldId);
                 if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, currentPageSize);
-                }
-                else if (type instanceof FixedWidthType) {
-                    LazyBlockLoader<LazyFixedWidthBlock> loader = blockLoader.fixedWidthBlockLoader(rcFileColumnsBatch, fieldId, hiveTypes.get(fieldId));
-                    blocks[fieldId] = new LazyFixedWidthBlock(((FixedWidthType) type).getFixedSize(), currentPageSize, loader);
-                }
-                else if (type instanceof VariableWidthType) {
-                    LazyBlockLoader<LazySliceArrayBlock> loader = blockLoader.variableWidthBlockLoader(rcFileColumnsBatch,
-                            fieldId,
-                            hiveTypes.get(fieldId),
-                            fieldInspectors[fieldId]);
-                    blocks[fieldId] = new LazySliceArrayBlock(currentPageSize, loader);
+                    blocks[fieldId] = new RunLengthEncodedBlock(constantBlocks[fieldId], currentPageSize);
                 }
                 else {
-                    LazyBlockLoader<LazyArrayBlock> loader = blockLoader.structuralBlockLoader(
-                            rcFileColumnsBatch,
-                            fieldId,
-                            hiveTypes.get(fieldId),
-                            fieldInspectors[fieldId],
-                            type);
-                    blocks[fieldId] = new LazyArrayBlock(loader);
+                    blocks[fieldId] = createBlock(currentPageSize, fieldId);
                 }
             }
 
             Page page = new Page(currentPageSize, blocks);
-            completedBytes = recordReader.getPosition() - startFilePosition;
 
             return page;
+        }
+        catch (PrestoException e) {
+            closeWithSuppression(e);
+            throw e;
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
@@ -330,6 +168,7 @@ public class RcFilePageSource
 
     @Override
     public void close()
+            throws IOException
     {
         // some hive input formats are broken and bad things can happen if you close them multiple times
         if (closed) {
@@ -337,7 +176,7 @@ public class RcFilePageSource
         }
         closed = true;
 
-        recordReader.close();
+        rcFileReader.close();
     }
 
     @Override
@@ -349,51 +188,67 @@ public class RcFilePageSource
                 .toString();
     }
 
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return GUESSED_MEMORY_USAGE;
+    }
+
     private void closeWithSuppression(Throwable throwable)
     {
-        checkNotNull(throwable, "throwable is null");
+        requireNonNull(throwable, "throwable is null");
         try {
             close();
         }
-        catch (RuntimeException e) {
-            throwable.addSuppressed(e);
+        catch (Exception e) {
+            if (e != throwable) {
+                throwable.addSuppressed(e);
+            }
         }
     }
 
-    public final class RcFileColumnsBatch
+    private Block createBlock(int currentPageSize, int fieldId)
     {
-        private final int expectedBatchId;
-        private final int positionInBatch;
+        int hiveColumnIndex = hiveColumnIndexes[fieldId];
 
-        private RcFileColumnsBatch(int expectedBatchId, int positionInBatch)
-        {
-            this.expectedBatchId = expectedBatchId;
-            this.positionInBatch = positionInBatch;
-        }
+        return new LazyBlock(
+                currentPageSize,
+                new RcFileBlockLoader(hiveColumnIndex));
+    }
 
-        public BytesRefArrayWritable getColumn(int fieldId)
-                throws IOException
-        {
-            checkState(pageId == expectedBatchId);
-            if (!columnBatchLoaded[fieldId]) {
-                columnBatch[fieldId] = recordReader.getColumn(hiveColumnIndexes[fieldId], columnBatch[fieldId]);
-                columnBatchLoaded[fieldId] = true;
-            }
-            return columnBatch[fieldId];
-        }
+    private final class RcFileBlockLoader
+            implements LazyBlockLoader<LazyBlock>
+    {
+        private final int expectedBatchId = pageId;
+        private final int columnIndex;
+        private boolean loaded;
 
-        public int getPositionInBatch()
+        public RcFileBlockLoader(int columnIndex)
         {
-            return positionInBatch;
+            this.columnIndex = columnIndex;
         }
 
         @Override
-        public String toString()
+        public final void load(LazyBlock lazyBlock)
         {
-            return toStringHelper(this)
-                    .add("expectedBatchId", expectedBatchId)
-                    .add("positionInBatch", positionInBatch)
-                    .toString();
+            if (loaded) {
+                return;
+            }
+
+            checkState(pageId == expectedBatchId);
+
+            try {
+                Block block = rcFileReader.readBlock(columnIndex);
+                lazyBlock.setBlock(block);
+            }
+            catch (IOException e) {
+                if (e instanceof RcFileCorruptionException) {
+                    throw new PrestoException(HIVE_BAD_DATA, e);
+                }
+                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            }
+
+            loaded = true;
         }
     }
 }

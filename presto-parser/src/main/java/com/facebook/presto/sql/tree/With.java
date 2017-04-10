@@ -17,10 +17,11 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class With
         extends Node
@@ -30,7 +31,18 @@ public class With
 
     public With(boolean recursive, List<WithQuery> queries)
     {
-        checkNotNull(queries, "queries is null");
+        this(Optional.empty(), recursive, queries);
+    }
+
+    public With(NodeLocation location, boolean recursive, List<WithQuery> queries)
+    {
+        this(Optional.of(location), recursive, queries);
+    }
+
+    private With(Optional<NodeLocation> location, boolean recursive, List<WithQuery> queries)
+    {
+        super(location);
+        requireNonNull(queries, "queries is null");
         checkArgument(!queries.isEmpty(), "queries is empty");
 
         this.recursive = recursive;
@@ -51,6 +63,12 @@ public class With
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitWith(this, context);
+    }
+
+    @Override
+    public List<? extends Node> getChildren()
+    {
+        return queries;
     }
 
     @Override

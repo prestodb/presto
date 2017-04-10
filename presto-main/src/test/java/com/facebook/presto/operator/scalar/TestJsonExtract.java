@@ -30,7 +30,6 @@ import static com.facebook.presto.operator.scalar.JsonExtract.ObjectFieldJsonExt
 import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -61,7 +60,7 @@ public class TestJsonExtract
 
         assertQuotedPathToken("-1.1");
         assertQuotedPathToken("!@#$%^&*()[]{}/?'");
-        assertQuotedPathToken("ab\\u0001c");
+        assertQuotedPathToken("ab\u0001c");
         assertQuotedPathToken("ab\0c");
         assertQuotedPathToken("ab\t\n\rc");
         assertQuotedPathToken(".");
@@ -69,7 +68,11 @@ public class TestJsonExtract
         assertQuotedPathToken("]");
         assertQuotedPathToken("[");
         assertQuotedPathToken("'");
-        assertQuotedPathToken("!@#$%^&*(){}[]<>?/\\|.,`~\r\n\t \0");
+        assertQuotedPathToken("!@#$%^&*(){}[]<>?/|.,`~\r\n\t \0");
+        assertQuotedPathToken("a\\\\b\\\"", "a\\b\"");
+
+        // backslash not followed by valid escape
+        assertInvalidPath("$[\"a\\ \"]");
 
         // colon in subscript must be quoted
         assertInvalidPath("$[foo:bar]");
@@ -97,16 +100,25 @@ public class TestJsonExtract
 
     private static void assertQuotedPathToken(String fieldName)
     {
-        assertPathTokenQuoting(fieldName);
+        assertQuotedPathToken(fieldName, fieldName);
+    }
+
+    private static void assertQuotedPathToken(String fieldName, String expectedTokenizedField)
+    {
+        assertPathTokenQuoting(fieldName, expectedTokenizedField);
         // without quoting we should get an error
         assertInvalidPath("$." + fieldName);
     }
 
     private static void assertPathTokenQuoting(String fieldName)
     {
-        assertTrue(fieldName.indexOf('"') < 0);
-        assertEquals(tokenizePath("$[\"" + fieldName + "\"]"), ImmutableList.of(fieldName));
-        assertEquals(tokenizePath("$.foo[\"" + fieldName + "\"].bar"), ImmutableList.of("foo", fieldName, "bar"));
+        assertPathTokenQuoting(fieldName, fieldName);
+    }
+
+    private static void assertPathTokenQuoting(String fieldName, String expectedTokenizedField)
+    {
+        assertEquals(tokenizePath("$[\"" + fieldName + "\"]"), ImmutableList.of(expectedTokenizedField));
+        assertEquals(tokenizePath("$.foo[\"" + fieldName + "\"].bar"), ImmutableList.of("foo", expectedTokenizedField, "bar"));
     }
 
     public static void assertInvalidPath(String path)
@@ -315,28 +327,29 @@ public class TestJsonExtract
         assertInvalidExtract("", "$$", "Invalid JSON path: '$$'");
         assertInvalidExtract("", " ", "Invalid JSON path: ' '");
         assertInvalidExtract("", ".", "Invalid JSON path: '.'");
+        assertInvalidExtract("{ \"store\": { \"book\": [{ \"title\": \"title\" }] } }", "$.store.book[", "Invalid JSON path: '$.store.book['");
     }
 
     private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)
             throws IOException
     {
         JsonFactory jsonFactory = new JsonFactory();
-        JsonParser jsonParser = jsonFactory.createJsonParser(json);
+        JsonParser jsonParser = jsonFactory.createParser(json);
         jsonParser.nextToken(); // Advance to the first token
         Slice extract = jsonExtractor.extract(jsonParser);
-        return (extract == null) ? null : extract.toString(UTF_8);
+        return (extract == null) ? null : extract.toStringUtf8();
     }
 
     private static String doScalarExtract(String inputJson, String jsonPath)
     {
         Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
-        return (value == null) ? null : value.toString(UTF_8);
+        return (value == null) ? null : value.toStringUtf8();
     }
 
     private static String doJsonExtract(String inputJson, String jsonPath)
     {
         Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
-        return (value == null) ? null : value.toString(UTF_8);
+        return (value == null) ? null : value.toStringUtf8();
     }
 
     private static List<String> tokenizePath(String path)

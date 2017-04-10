@@ -13,24 +13,22 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
-import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
-import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
+import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
+import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-
-import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import java.util.Set;
 
 public final class HiveTestUtils
 {
@@ -38,22 +36,42 @@ public final class HiveTestUtils
     {
     }
 
+    public static final ConnectorSession SESSION = new TestingConnectorSession(
+            new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
+
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
-    public static final ImmutableSet<HivePageSourceFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.<HivePageSourceFactory>builder()
-            .add(new RcFilePageSourceFactory(TYPE_MANAGER))
-            .add(new OrcPageSourceFactory(TYPE_MANAGER))
-            .add(new DwrfPageSourceFactory(TYPE_MANAGER))
-            .build();
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());
 
-    public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.<HiveRecordCursorProvider>builder()
-            .add(new OrcRecordCursorProvider())
-            .add(new ParquetRecordCursorProvider(false))
-            .add(new DwrfRecordCursorProvider())
-            .add(new ColumnarTextHiveRecordCursorProvider())
-            .add(new ColumnarBinaryHiveRecordCursorProvider())
-            .add(new GenericHiveRecordCursorProvider())
-            .build();
+    public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
+    {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        return ImmutableSet.<HivePageSourceFactory>builder()
+                .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment))
+                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment))
+                .add(new DwrfPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment))
+                .add(new ParquetPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment))
+                .build();
+    }
+
+    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveClientConfig hiveClientConfig)
+    {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        return ImmutableSet.<HiveRecordCursorProvider>builder()
+                .add(new ParquetRecordCursorProvider(hiveClientConfig, testHdfsEnvironment))
+                .add(new ColumnarTextHiveRecordCursorProvider(testHdfsEnvironment))
+                .add(new ColumnarBinaryHiveRecordCursorProvider(testHdfsEnvironment))
+                .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
+                .build();
+    }
+
+    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveClientConfig hiveClientConfig)
+    {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        return ImmutableSet.<HiveFileWriterFactory>builder()
+                .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig))
+                .build();
+    }
 
     public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
     {
@@ -64,29 +82,14 @@ public final class HiveTestUtils
         return types.build();
     }
 
-    public static Block arrayBlockOf(Type elementType, Object... values)
+    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig config)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), 1024);
-        for (Object value : values) {
-            appendToBlockBuilder(elementType, value, blockBuilder);
-        }
-        return blockBuilder.build();
+        return createTestHdfsEnvironment(config, new HiveS3Config());
     }
 
-    public static Block mapBlockOf(Type keyType, Type valueType, Object key, Object value)
+    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig hiveConfig, HiveS3Config s3Config)
     {
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), 1024);
-        appendToBlockBuilder(keyType, key, blockBuilder);
-        appendToBlockBuilder(valueType, value, blockBuilder);
-        return blockBuilder.build();
-    }
-
-    public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
-    {
-        InterleavedBlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), 1024);
-        for (int i = 0; i < values.length; i++) {
-            appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
-        }
-        return blockBuilder.build();
+        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveConfig, s3Config));
+        return new HdfsEnvironment(hdfsConfig, hiveConfig, new NoHdfsAuthentication());
     }
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.tree.NodeLocation;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
@@ -28,10 +29,11 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Functions.toStringFunction;
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
@@ -42,7 +44,7 @@ public final class Failures
 
     public static final String WORKER_NODE_ERROR = "Encountered too many errors talking to a worker node. " + NODE_CRASHED_ERROR;
 
-    public static final String WORKER_RESTARTED_ERROR = "A worker node running your query has restarted. " + NODE_CRASHED_ERROR;
+    public static final String REMOTE_TASK_MISMATCH_ERROR = "Could not communicate with the remote task. " + NODE_CRASHED_ERROR;
 
     private Failures() {}
 
@@ -57,7 +59,8 @@ public final class Failures
             type = ((Failure) failure).getType();
         }
         else {
-            type = failure.getClass().getCanonicalName();
+            Class<?> clazz = failure.getClass();
+            type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
         }
 
         return new ExecutionFailureInfo(type,
@@ -91,6 +94,13 @@ public final class Failures
             ParsingException e = (ParsingException) throwable;
             return new ErrorLocation(e.getLineNumber(), e.getColumnNumber());
         }
+        else if (throwable instanceof SemanticException) {
+            SemanticException e = (SemanticException) throwable;
+            if (e.getNode().getLocation().isPresent()) {
+                NodeLocation nodeLocation = e.getNode().getLocation().get();
+                return new ErrorLocation(nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
+            }
+        }
         return null;
     }
 
@@ -113,6 +123,6 @@ public final class Failures
         if (throwable.getCause() != null) {
             return toErrorCode(throwable.getCause());
         }
-        return INTERNAL_ERROR.toErrorCode();
+        return GENERIC_INTERNAL_ERROR.toErrorCode();
     }
 }

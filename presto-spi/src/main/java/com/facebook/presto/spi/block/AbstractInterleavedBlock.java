@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public abstract class AbstractInterleavedBlock
@@ -24,12 +25,14 @@ public abstract class AbstractInterleavedBlock
 
     protected abstract Block getBlock(int blockIndex);
 
+    protected abstract int toAbsolutePosition(int position);
+
     @Override
     public abstract InterleavedBlockEncoding getEncoding();
 
     protected AbstractInterleavedBlock(int columns)
     {
-        if (columns < 0) {
+        if (columns <= 0) {
             throw new IllegalArgumentException("Number of blocks in InterleavedBlock must be positive");
         }
         this.columns = columns;
@@ -38,6 +41,16 @@ public abstract class AbstractInterleavedBlock
     int getBlockCount()
     {
         return columns;
+    }
+
+    Block[] computeSerializableSubBlocks()
+    {
+        InterleavedBlock interleavedBlock = (InterleavedBlock) sliceRange(0, getPositionCount(), false);
+        Block[] result = new Block[interleavedBlock.getBlockCount()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = interleavedBlock.getBlock(i);
+        }
+        return result;
     }
 
     /**
@@ -56,6 +69,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -65,6 +79,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public byte getByte(int position, int offset)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -74,6 +89,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public short getShort(int position, int offset)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -83,6 +99,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public int getInt(int position, int offset)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -92,6 +109,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public long getLong(int position, int offset)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -99,26 +117,9 @@ public abstract class AbstractInterleavedBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        int blockIndex = position % columns;
-        int positionInBlock = position / columns;
-
-        return getBlock(blockIndex).getFloat(positionInBlock, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        int blockIndex = position % columns;
-        int positionInBlock = position / columns;
-
-        return getBlock(blockIndex).getDouble(positionInBlock, offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -128,6 +129,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -135,17 +137,19 @@ public abstract class AbstractInterleavedBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
-        return getBlock(blockIndex).getLength(positionInBlock);
+        return getBlock(blockIndex).getSliceLength(positionInBlock);
     }
 
     @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -155,6 +159,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -162,8 +167,9 @@ public abstract class AbstractInterleavedBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -173,6 +179,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -182,6 +189,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -191,6 +199,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -200,6 +209,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -210,64 +220,86 @@ public abstract class AbstractInterleavedBlock
     @Override
     public Block copyPositions(List<Integer> positions)
     {
-        throw new UnsupportedOperationException();
-    }
+        if (positions.size() % columns != 0) {
+            throw new IllegalArgumentException("Positions.size (" + positions.size() + ") is not evenly dividable by columns (" + columns + ")");
+        }
+        int positionsPerColumn = positions.size() / columns;
 
-    @Override
-    public Block getRegion(int position, int length)
-    {
-        return getRegion(position, length, false);
+        List<List<Integer>> valuePositions = new ArrayList<>(columns);
+        for (int i = 0; i < columns; i++) {
+            valuePositions.add(new ArrayList<>(positionsPerColumn));
+        }
+        int ordinal = 0;
+        for (int position : positions) {
+            position = toAbsolutePosition(position);
+            if (ordinal % columns != position % columns) {
+                throw new IllegalArgumentException("Position (" + position + ") is not congruent to ordinal (" + ordinal + ") modulo columns (" + columns + ")");
+            }
+            valuePositions.get(position % columns).add(position / columns);
+            ordinal++;
+        }
+        Block[] blocks = new Block[columns];
+        for (int i = 0; i < columns; i++) {
+            blocks[i] = getBlock(i).copyPositions(valuePositions.get(i));
+        }
+        return new InterleavedBlock(blocks);
     }
 
     @Override
     public Block copyRegion(int position, int length)
     {
-        return getRegion(position, length, true);
+        validateRange(position, length);
+        return sliceRange(position, length, true);
     }
 
-    private Block getRegion(int position, int length, boolean compact)
+    @Override
+    public int getRegionSizeInBytes(int position, int length)
+    {
+        if (position == 0 && length == getPositionCount()) {
+            // Calculation of getRegionSizeInBytes is expensive in this class.
+            // On the other hand, getSizeInBytes result is cached or pre-computed.
+            return getSizeInBytes();
+        }
+        validateRange(position, length);
+        int result = 0;
+        for (int blockIndex = 0; blockIndex < getBlockCount(); blockIndex++) {
+            result += getBlock(blockIndex).getRegionSizeInBytes(position / columns, length / columns);
+        }
+        return result;
+    }
+
+    protected void validateRange(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position (" + position + "), length (" + length + ") in block with " + positionCount + " positions");
+        if (position < 0 || length < 0 || position + length > positionCount || position % columns != 0 || length % columns != 0) {
+            throw new IndexOutOfBoundsException("Invalid position (" + position + "), length (" + length + ") in InterleavedBlock with " + positionCount + " positions and " + columns + " columns");
         }
-        if (length <= 1) {
-            // This is not only an optimization. It is required for correctness in the case of length == 0
-            int positionInBlock = position / columns;
+    }
+
+    protected Block sliceRange(int position, int length, boolean compact)
+    {
+        position = toAbsolutePosition(position);
+        Block[] resultBlocks = new Block[columns];
+        int positionInBlock = position / columns;
+        int subBlockLength = length / columns;
+        for (int blockIndex = 0; blockIndex < columns; blockIndex++) {
             if (compact) {
-                return getBlock(position % columns).copyRegion(positionInBlock, length);
+                resultBlocks[blockIndex] = getBlock((blockIndex + position) % columns).copyRegion(positionInBlock, subBlockLength);
             }
             else {
-                return getBlock(position % columns).getRegion(positionInBlock, length);
+                resultBlocks[blockIndex] = getBlock((blockIndex + position) % columns).getRegion(positionInBlock, subBlockLength);
             }
         }
-        else {
-            Block[] resultBlocks = new Block[Math.min(columns, length)];
-            for (int newBlockIndex = 0; newBlockIndex < resultBlocks.length; newBlockIndex++) {
-                int positionInBlock = (position + newBlockIndex) / columns;
-                int subBlockLength = (length + columns - 1 - newBlockIndex) / columns;
-                if (compact) {
-                    resultBlocks[newBlockIndex] = getBlock((newBlockIndex + position) % columns).copyRegion(positionInBlock, subBlockLength);
-                }
-                else {
-                    resultBlocks[newBlockIndex] = getBlock((newBlockIndex + position) % columns).getRegion(positionInBlock, subBlockLength);
-                }
-            }
-            return new InterleavedBlock(resultBlocks);
-        }
+        return new InterleavedBlock(resultBlocks);
     }
 
     @Override
     public boolean isNull(int position)
     {
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
         return getBlock(blockIndex).isNull(positionInBlock);
-    }
-
-    @Override
-    public void assureLoaded()
-    {
     }
 }

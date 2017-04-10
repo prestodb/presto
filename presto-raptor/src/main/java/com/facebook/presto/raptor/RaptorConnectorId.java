@@ -15,7 +15,7 @@ package com.facebook.presto.raptor;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class RaptorConnectorId
 {
@@ -23,7 +23,7 @@ public final class RaptorConnectorId
 
     public RaptorConnectorId(String id)
     {
-        this.id = checkNotNull(id, "id is null");
+        this.id = requireNonNull(id, "id is null");
     }
 
     @Override

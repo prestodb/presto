@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -29,7 +32,7 @@ public class InMemoryNodeManager
         implements InternalNodeManager
 {
     private final Node localNode;
-    private final SetMultimap<String, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.<String, Node>create());
+    private final SetMultimap<ConnectorId, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
 
     @Inject
     public InMemoryNodeManager()
@@ -39,40 +42,49 @@ public class InMemoryNodeManager
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN);
+        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
     }
 
-    public void addCurrentNodeDatasource(String datasourceName)
+    public void addCurrentNodeConnector(ConnectorId connectorId)
     {
-        addNode(datasourceName, localNode);
+        addNode(connectorId, localNode);
     }
 
-    public void addNode(String datasourceName, Node... nodes)
+    public void addNode(ConnectorId connectorId, Node... nodes)
     {
-        addNode(datasourceName, ImmutableList.copyOf(nodes));
+        addNode(connectorId, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(String datasourceName, Iterable<Node> nodes)
+    public void addNode(ConnectorId connectorId, Iterable<Node> nodes)
     {
-        remoteNodes.putAll(datasourceName, nodes);
-    }
-
-    @Override
-    public Set<Node> getActiveNodes()
-    {
-        return getAllNodes().getActiveNodes();
+        remoteNodes.putAll(connectorId, nodes);
     }
 
     @Override
-    public Set<Node> getActiveDatasourceNodes(String datasourceName)
+    public Set<Node> getNodes(NodeState state)
     {
-        return ImmutableSet.copyOf(remoteNodes.get(datasourceName));
+        switch (state) {
+            case ACTIVE:
+                return getAllNodes().getActiveNodes();
+            case INACTIVE:
+                return getAllNodes().getInactiveNodes();
+            case SHUTTING_DOWN:
+                return getAllNodes().getShuttingDownNodes();
+            default:
+                throw new IllegalArgumentException("Unknown node state " + state);
+        }
+    }
+
+    @Override
+    public Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
+    {
+        return ImmutableSet.copyOf(remoteNodes.get(connectorId));
     }
 
     @Override
     public AllNodes getAllNodes()
     {
-        return new AllNodes(ImmutableSet.<Node>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.<Node>of());
+        return new AllNodes(ImmutableSet.<Node>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.of(), ImmutableSet.of());
     }
 
     @Override

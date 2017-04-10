@@ -20,44 +20,60 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
+import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class ShardMetadata
 {
+    private final long tableId;
     private final long shardId;
     private final UUID shardUuid;
+    private final OptionalInt bucketNumber;
     private final long rowCount;
     private final long compressedSize;
     private final long uncompressedSize;
     private final OptionalLong rangeStart;
     private final OptionalLong rangeEnd;
 
-    public ShardMetadata(long shardId, UUID shardUuid, long rowCount, long compressedSize, long uncompressedSize)
+    public ShardMetadata(
+            long tableId,
+            long shardId,
+            UUID shardUuid,
+            OptionalInt bucketNumber,
+            long rowCount,
+            long compressedSize,
+            long uncompressedSize,
+            OptionalLong rangeStart,
+            OptionalLong rangeEnd)
     {
-        this(shardId, shardUuid, rowCount, compressedSize, uncompressedSize, OptionalLong.empty(), OptionalLong.empty());
-    }
-
-    public ShardMetadata(long shardId, UUID shardUuid, long rowCount, long compressedSize, long uncompressedSize, OptionalLong rangeStart, OptionalLong rangeEnd)
-    {
+        checkArgument(tableId > 0, "tableId must be > 0");
         checkArgument(shardId > 0, "shardId must be > 0");
         checkArgument(rowCount >= 0, "rowCount must be >= 0");
         checkArgument(compressedSize >= 0, "compressedSize must be >= 0");
         checkArgument(uncompressedSize >= 0, "uncompressedSize must be >= 0");
 
+        this.tableId = tableId;
         this.shardId = shardId;
-        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
+        this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.rowCount = rowCount;
         this.compressedSize = compressedSize;
         this.uncompressedSize = uncompressedSize;
         this.rangeStart = requireNonNull(rangeStart, "rangeStart is null");
         this.rangeEnd = requireNonNull(rangeEnd, "rangeEnd is null");
+    }
+
+    public long getTableId()
+    {
+        return tableId;
     }
 
     public UUID getShardUuid()
@@ -68,6 +84,11 @@ public class ShardMetadata
     public long getShardId()
     {
         return shardId;
+    }
+
+    public OptionalInt getBucketNumber()
+    {
+        return bucketNumber;
     }
 
     public long getRowCount()
@@ -98,8 +119,10 @@ public class ShardMetadata
     public ShardMetadata withTimeRange(long rangeStart, long rangeEnd)
     {
         return new ShardMetadata(
+                tableId,
                 shardId,
                 shardUuid,
+                bucketNumber,
                 rowCount,
                 compressedSize,
                 uncompressedSize,
@@ -109,15 +132,24 @@ public class ShardMetadata
     @Override
     public String toString()
     {
-        return toStringHelper(this)
+        ToStringHelper stringHelper = toStringHelper(this)
+                .add("tableId", tableId)
                 .add("shardId", shardId)
                 .add("shardUuid", shardUuid)
                 .add("rowCount", rowCount)
                 .add("compressedSize", DataSize.succinctBytes(compressedSize))
-                .add("uncompressedSize", DataSize.succinctBytes(uncompressedSize))
-                .add("rangeStart", rangeStart)
-                .add("rangeEnd", rangeEnd)
-                .toString();
+                .add("uncompressedSize", DataSize.succinctBytes(uncompressedSize));
+
+        if (bucketNumber.isPresent()) {
+            stringHelper.add("bucketNumber", bucketNumber.getAsInt());
+        }
+        if (rangeStart.isPresent()) {
+            stringHelper.add("rangeStart", rangeStart.getAsLong());
+        }
+        if (rangeEnd.isPresent()) {
+            stringHelper.add("rangeEnd", rangeEnd.getAsLong());
+        }
+        return stringHelper.toString();
     }
 
     @Override
@@ -130,7 +162,9 @@ public class ShardMetadata
             return false;
         }
         ShardMetadata that = (ShardMetadata) o;
-        return Objects.equals(shardId, that.shardId) &&
+        return Objects.equals(tableId, that.tableId) &&
+                Objects.equals(shardId, that.shardId) &&
+                Objects.equals(bucketNumber, that.bucketNumber) &&
                 Objects.equals(rowCount, that.rowCount) &&
                 Objects.equals(compressedSize, that.compressedSize) &&
                 Objects.equals(uncompressedSize, that.uncompressedSize) &&
@@ -142,7 +176,16 @@ public class ShardMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(shardId, shardUuid, rowCount, compressedSize, uncompressedSize, rangeStart, rangeEnd);
+        return Objects.hash(
+                tableId,
+                shardId,
+                shardUuid,
+                bucketNumber,
+                rowCount,
+                compressedSize,
+                uncompressedSize,
+                rangeStart,
+                rangeEnd);
     }
 
     public static class Mapper
@@ -153,11 +196,15 @@ public class ShardMetadata
                 throws SQLException
         {
             return new ShardMetadata(
+                    r.getLong("table_id"),
                     r.getLong("shard_id"),
                     uuidFromBytes(r.getBytes("shard_uuid")),
+                    getOptionalInt(r, "bucket_number"),
                     r.getLong("row_count"),
                     r.getLong("compressed_size"),
-                    r.getLong("uncompressed_size"));
+                    r.getLong("uncompressed_size"),
+                    OptionalLong.empty(),
+                    OptionalLong.empty());
         }
     }
 }

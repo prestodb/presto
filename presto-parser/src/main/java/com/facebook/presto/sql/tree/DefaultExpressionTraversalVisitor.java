@@ -25,4 +25,11 @@ public abstract class DefaultExpressionTraversalVisitor<R, C>
         // Don't traverse into Subqueries within an Expression
         return null;
     }
+
+    @Override
+    protected R visitExists(ExistsPredicate node, C context)
+    {
+        // Don't traverse into Subqueries within an Expression
+        return null;
+    }
 }

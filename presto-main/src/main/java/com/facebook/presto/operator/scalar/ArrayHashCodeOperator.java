@@ -13,52 +13,134 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.OperatorDependency;
+import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Throwables;
+import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
-import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 
-public class ArrayHashCodeOperator
-        extends ParametricOperator
+@ScalarOperator(HASH_CODE)
+public final class ArrayHashCodeOperator
 {
-    public static final ArrayHashCodeOperator ARRAY_HASH_CODE = new ArrayHashCodeOperator();
-    private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BIGINT);
-    public static final MethodHandle METHOD_HANDLE = methodHandle(ArrayHashCodeOperator.class, "hash", Type.class, Block.class);
+    private ArrayHashCodeOperator() {}
 
-    private ArrayHashCodeOperator()
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BIGINT)
+    public static long hash(
+            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @TypeParameter("T") Type type,
+            @SqlType("array(T)") Block block)
     {
-        super(HASH_CODE, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BIGINT, ImmutableList.of("array<T>"));
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invoke(readNativeValue(type, block, i)));
+            }
+            return hash;
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    @TypeParameter("T")
+    @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
+    @SqlType(StandardTypes.BIGINT)
+    public static long hashLong(
+            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @TypeParameter("T") Type type,
+            @SqlType("array(T)") Block block)
     {
-        Type type = types.get("T");
-        type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
-        TypeSignature typeSignature = type.getTypeSignature();
-        return operatorInfo(HASH_CODE, RETURN_TYPE, ImmutableList.of(typeSignature), METHOD_HANDLE.bindTo(type), false, ImmutableList.of(false));
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getLong(block, i)));
+            }
+            return hash;
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
-    public static long hash(Type type, Block block)
+    @TypeParameter("T")
+    @TypeParameterSpecialization(name = "T", nativeContainerType = boolean.class)
+    @SqlType(StandardTypes.BIGINT)
+    public static long hashBoolean(
+            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @TypeParameter("T") Type type,
+            @SqlType("array(T)") Block block)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
-        blockBuilder.writeObject(block).closeEntry();
-        return type.hash(blockBuilder.build(), 0);
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getBoolean(block, i)));
+            }
+            return hash;
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
+    }
+
+    @TypeParameter("T")
+    @TypeParameterSpecialization(name = "T", nativeContainerType = Slice.class)
+    @SqlType(StandardTypes.BIGINT)
+    public static long hashSlice(
+            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @TypeParameter("T") Type type,
+            @SqlType("array(T)") Block block)
+    {
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getSlice(block, i)));
+            }
+            return hash;
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
+    }
+
+    @TypeParameter("T")
+    @TypeParameterSpecialization(name = "T", nativeContainerType = double.class)
+    @SqlType(StandardTypes.BIGINT)
+    public static long hashDouble(
+            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @TypeParameter("T") Type type,
+            @SqlType("array(T)") Block block)
+    {
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getDouble(block, i)));
+            }
+            return hash;
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
+    }
+
+    private static PrestoException internalError(Throwable t)
+    {
+        Throwables.propagateIfInstanceOf(t, Error.class);
+        Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+        return new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
     }
 }

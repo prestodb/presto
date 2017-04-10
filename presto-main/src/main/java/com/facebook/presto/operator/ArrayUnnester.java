@@ -21,22 +21,22 @@ import com.facebook.presto.type.ArrayType;
 
 import javax.annotation.Nullable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ArrayUnnester
         implements Unnester
 {
     private final Type elementType;
-    private final Block arrayBlock;
+    private Block arrayBlock;
     private final int channelCount;
 
     private int position;
-    private final int positionCount;
+    private int positionCount;
 
     public ArrayUnnester(ArrayType arrayType, @Nullable Block arrayBlock)
     {
         this.channelCount = 1;
-        this.elementType = checkNotNull(arrayType, "arrayType is null").getElementType();
+        this.elementType = requireNonNull(arrayType, "arrayType is null").getElementType();
 
         this.arrayBlock = arrayBlock;
         this.positionCount = arrayBlock == null ? 0 : arrayBlock.getPositionCount();
@@ -65,5 +65,13 @@ public class ArrayUnnester
     public final void appendNext(PageBuilder pageBuilder, int outputChannelOffset)
     {
         appendTo(pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public void setBlock(@Nullable Block arrayBlock)
+    {
+        this.arrayBlock = arrayBlock;
+        this.position = 0;
+        this.positionCount = arrayBlock == null ? 0 : arrayBlock.getPositionCount();
     }
 }

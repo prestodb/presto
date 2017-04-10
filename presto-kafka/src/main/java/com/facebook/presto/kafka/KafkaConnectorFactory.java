@@ -13,26 +13,25 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import com.google.inject.name.Names;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Creates Kafka Connectors based off connectorId and specific configuration.
@@ -40,20 +39,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class KafkaConnectorFactory
         implements ConnectorFactory
 {
-    private final TypeManager typeManager;
-    private final NodeManager nodeManager;
     private final Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier;
-    private final Map<String, String> optionalConfig;
 
-    KafkaConnectorFactory(TypeManager typeManager,
-            NodeManager nodeManager,
-            Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier,
-            Map<String, String> optionalConfig)
+    KafkaConnectorFactory(Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier)
     {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
-        this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
-        this.tableDescriptionSupplier = checkNotNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
+        this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
     }
 
     @Override
@@ -63,30 +53,31 @@ public class KafkaConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, Map<String, String> config)
+    public ConnectorHandleResolver getHandleResolver()
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(config, "config is null");
+        return new KafkaHandleResolver();
+    }
+
+    @Override
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    {
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(config, "config is null");
 
         try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new KafkaConnectorModule(),
-                    new Module()
-                    {
-                        @Override
-                        public void configure(Binder binder)
-                        {
-                            binder.bindConstant().annotatedWith(Names.named("connectorId")).to(connectorId);
-                            binder.bind(TypeManager.class).toInstance(typeManager);
-                            binder.bind(NodeManager.class).toInstance(nodeManager);
+                    binder -> {
+                        binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(connectorId));
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
-                            if (tableDescriptionSupplier.isPresent()) {
-                                binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
-                            }
-                            else {
-                                binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).to(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
-                            }
+                        if (tableDescriptionSupplier.isPresent()) {
+                            binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
+                        }
+                        else {
+                            binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).to(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
                         }
                     }
             );
@@ -94,7 +85,6 @@ public class KafkaConnectorFactory
             Injector injector = app.strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
             return injector.getInstance(KafkaConnector.class);

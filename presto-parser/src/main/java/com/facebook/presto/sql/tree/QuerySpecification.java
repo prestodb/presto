@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QuerySpecification
         extends QueryBody
@@ -26,27 +28,54 @@ public class QuerySpecification
     private final Select select;
     private final Optional<Relation> from;
     private final Optional<Expression> where;
-    private final List<Expression> groupBy;
+    private final Optional<GroupBy> groupBy;
     private final Optional<Expression> having;
-    private final List<SortItem> orderBy;
+    private final Optional<OrderBy> orderBy;
     private final Optional<String> limit;
 
     public QuerySpecification(
             Select select,
             Optional<Relation> from,
             Optional<Expression> where,
-            List<Expression> groupBy,
+            Optional<GroupBy> groupBy,
             Optional<Expression> having,
-            List<SortItem> orderBy,
+            Optional<OrderBy> orderBy,
             Optional<String> limit)
     {
-        checkNotNull(select, "select is null");
-        checkNotNull(from, "from is null");
-        checkNotNull(where, "where is null");
-        checkNotNull(groupBy, "groupBy is null");
-        checkNotNull(having, "having is null");
-        checkNotNull(orderBy, "orderBy is null");
-        checkNotNull(limit, "limit is null");
+        this(Optional.empty(), select, from, where, groupBy, having, orderBy, limit);
+    }
+
+    public QuerySpecification(
+            NodeLocation location,
+            Select select,
+            Optional<Relation> from,
+            Optional<Expression> where,
+            Optional<GroupBy> groupBy,
+            Optional<Expression> having,
+            Optional<OrderBy> orderBy,
+            Optional<String> limit)
+    {
+        this(Optional.of(location), select, from, where, groupBy, having, orderBy, limit);
+    }
+
+    private QuerySpecification(
+            Optional<NodeLocation> location,
+            Select select,
+            Optional<Relation> from,
+            Optional<Expression> where,
+            Optional<GroupBy> groupBy,
+            Optional<Expression> having,
+            Optional<OrderBy> orderBy,
+            Optional<String> limit)
+    {
+        super(location);
+        requireNonNull(select, "select is null");
+        requireNonNull(from, "from is null");
+        requireNonNull(where, "where is null");
+        requireNonNull(groupBy, "groupBy is null");
+        requireNonNull(having, "having is null");
+        requireNonNull(orderBy, "orderBy is null");
+        requireNonNull(limit, "limit is null");
 
         this.select = select;
         this.from = from;
@@ -72,7 +101,7 @@ public class QuerySpecification
         return where;
     }
 
-    public List<Expression> getGroupBy()
+    public Optional<GroupBy> getGroupBy()
     {
         return groupBy;
     }
@@ -82,7 +111,7 @@ public class QuerySpecification
         return having;
     }
 
-    public List<SortItem> getOrderBy()
+    public Optional<OrderBy> getOrderBy()
     {
         return orderBy;
     }
@@ -96,6 +125,19 @@ public class QuerySpecification
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitQuerySpecification(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(select);
+        from.ifPresent(nodes::add);
+        where.ifPresent(nodes::add);
+        groupBy.ifPresent(nodes::add);
+        having.ifPresent(nodes::add);
+        orderBy.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override

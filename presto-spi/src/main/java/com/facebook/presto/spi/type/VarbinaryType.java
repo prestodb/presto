@@ -16,18 +16,16 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
-public class VarbinaryType
+public final class VarbinaryType
         extends AbstractVariableWidthType
 {
     public static final VarbinaryType VARBINARY = new VarbinaryType();
 
-    @JsonCreator
-    public VarbinaryType()
+    private VarbinaryType()
     {
         super(parseTypeSignature(StandardTypes.VARBINARY), Slice.class);
     }
@@ -51,14 +49,14 @@ public class VarbinaryType
             return null;
         }
 
-        return new SqlVarbinary(block.getSlice(position, 0, block.getLength(position)).getBytes());
+        return new SqlVarbinary(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
         if (leftLength != rightLength) {
             return false;
         }
@@ -66,16 +64,16 @@ public class VarbinaryType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
-        return block.hash(position, 0, block.getLength(position));
+        return block.hash(position, 0, block.getSliceLength(position));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
         return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 
@@ -86,7 +84,7 @@ public class VarbinaryType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -94,7 +92,7 @@ public class VarbinaryType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     @Override
@@ -107,5 +105,17 @@ public class VarbinaryType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        return other == VARBINARY;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 }

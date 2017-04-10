@@ -13,26 +13,28 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.AbstractArrayBlock;
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
-import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static java.util.Objects.requireNonNull;
 
 public class ArrayType
         extends AbstractType
@@ -42,25 +44,13 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(parameterizedTypeName("array", elementType.getTypeSignature()), Block.class);
-        this.elementType = checkNotNull(elementType, "elementType is null");
+        super(new TypeSignature(ARRAY, TypeSignatureParameter.of(elementType.getTypeSignature())), Block.class);
+        this.elementType = requireNonNull(elementType, "elementType is null");
     }
 
     public Type getElementType()
     {
         return elementType;
-    }
-
-    /**
-     * Takes a list of stack types and converts them to the stack representation of an array
-     */
-    public static Block toStackRepresentation(List<?> values, Type elementType)
-    {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), values.size());
-        for (Object element : values) {
-            appendToBlockBuilder(elementType, element, blockBuilder);
-        }
-        return blockBuilder.build();
     }
 
     @Override
@@ -78,24 +68,42 @@ public class ArrayType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return compareTo(leftBlock, leftPosition, rightBlock, rightPosition) == 0;
+        Block leftArray = leftBlock.getObject(leftPosition, Block.class);
+        Block rightArray = rightBlock.getObject(rightPosition, Block.class);
+
+        if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
+            return false;
+        }
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            if (!elementType.equalTo(leftArray, i, rightArray, i)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         Block array = getObject(block, position);
-        List<Integer> hashArray = new ArrayList<>(array.getPositionCount());
+        long hash = 0;
         for (int i = 0; i < array.getPositionCount(); i++) {
-            checkElementNotNull(array.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            hashArray.add(elementType.hash(array, i));
+            hash = CombineHashFunction.getHash(hash, hashPosition(elementType, array, i));
         }
-        return Objects.hash(hashArray);
+        return hash;
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
+        if (!elementType.isOrderable()) {
+            throw new UnsupportedOperationException(getTypeSignature() + " type is not orderable");
+        }
+
         Block leftArray = leftBlock.getObject(leftPosition, Block.class);
         Block rightArray = rightBlock.getObject(rightPosition, Block.class);
 
@@ -125,12 +133,21 @@ public class ArrayType
             return null;
         }
 
-        Block arrayBlock = block.getObject(position, Block.class);
+        if (block instanceof AbstractArrayBlock) {
+            return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
+        }
+        else {
+            Block arrayBlock = block.getObject(position, Block.class);
+            return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
+        }
+    }
 
-        List<Object> values = Lists.newArrayListWithCapacity(arrayBlock.getPositionCount());
+    private List<Object> arrayBlockToObjectValues(ConnectorSession session, Block block, int start, int length)
+    {
+        List<Object> values = new ArrayList<>(length);
 
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            values.add(elementType.getObjectValue(session, arrayBlock, i));
+        for (int i = 0; i < length; i++) {
+            values.add(elementType.getObjectValue(session, block, i + start));
         }
 
         return Collections.unmodifiableList(values);
@@ -151,7 +168,7 @@ public class ArrayType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     @Override
@@ -199,6 +216,6 @@ public class ArrayType
     @Override
     public String getDisplayName()
     {
-        return "array<" + elementType.getDisplayName() + ">";
+        return ARRAY + "(" + elementType.getDisplayName() + ")";
     }
 }

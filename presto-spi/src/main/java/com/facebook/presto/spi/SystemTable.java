@@ -13,27 +13,42 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 
-import java.util.List;
-
-import static java.util.stream.Collectors.toList;
-
+/**
+ * Exactly one of {@link #cursor} or {@link #pageSource} must be implemented.
+ */
 public interface SystemTable
-        extends RecordSet
 {
-    /**
-     * True if table is distributed across all nodes.
-     */
-    boolean isDistributed();
+    enum Distribution
+    {
+        ALL_NODES, ALL_COORDINATORS, SINGLE_COORDINATOR
+    }
+
+    Distribution getDistribution();
 
     ConnectorTableMetadata getTableMetadata();
 
-    @Override
-    default List<Type> getColumnTypes()
+    /**
+     * Create a cursor for the data in this table.
+     *
+     * @param session the session to use for creating the data
+     * @param constraint the constraints for the table columns (indexed from 0)
+     */
+    default RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return getTableMetadata().getColumns().stream()
-                .map(ColumnMetadata::getType)
-                .collect(toList());
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Create a page source for the data in this table.
+     *
+     * @param session the session to use for creating the data
+     * @param constraint the constraints for the table columns (indexed from 0)
+     */
+    default ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    {
+        throw new UnsupportedOperationException();
     }
 }

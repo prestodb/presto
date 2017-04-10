@@ -21,23 +21,23 @@ import com.facebook.presto.type.MapType;
 
 import javax.annotation.Nullable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class MapUnnester
         implements Unnester
 {
     private final Type keyType;
     private final Type valueType;
-    private final Block block;
+    private Block block;
     private final int channelCount;
 
     private int position;
-    private final int positionCount;
+    private int positionCount;
 
     public MapUnnester(MapType mapType, @Nullable Block mapBlock)
     {
         this.channelCount = 2;
-        checkNotNull(mapType, "mapType is null");
+        requireNonNull(mapType, "mapType is null");
         this.keyType = mapType.getKeyType();
         this.valueType = mapType.getValueType();
 
@@ -69,5 +69,13 @@ public class MapUnnester
     public final void appendNext(PageBuilder pageBuilder, int outputChannelOffset)
     {
         appendTo(pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public void setBlock(@Nullable Block mapBlock)
+    {
+        this.block = mapBlock;
+        this.position = 0;
+        this.positionCount = mapBlock == null ? 0 : mapBlock.getPositionCount();
     }
 }

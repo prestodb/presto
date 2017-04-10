@@ -16,9 +16,10 @@ package com.facebook.presto.hive.util;
 import com.facebook.presto.hive.DirectoryLister;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
 import org.apache.hadoop.fs.FileSystem;
@@ -30,11 +31,12 @@ import org.apache.hadoop.mapred.InputFormat;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveFileIterator
         extends AbstractIterator<LocatedFileStatus>
@@ -48,6 +50,7 @@ public class HiveFileIterator
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final Map<Integer, HiveType> columnCoercions;
 
     private RemoteIterator<LocatedFileStatus> remoteIterator;
 
@@ -60,17 +63,19 @@ public class HiveFileIterator
             InputFormat<?, ?> inputFormat,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate)
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Map<Integer, HiveType> columnCoercions)
     {
-        this.partitionName = checkNotNull(partitionName, "partitionName is null");
-        this.inputFormat = checkNotNull(inputFormat, "inputFormat is null");
-        this.schema = checkNotNull(schema, "schema is null");
-        this.partitionKeys = checkNotNull(partitionKeys, "partitionKeys is null");
-        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
-        this.path = checkNotNull(path, "path is null");
-        this.fileSystem = checkNotNull(fileSystem, "fileSystem is null");
-        this.directoryLister = checkNotNull(directoryLister, "directoryLister is null");
-        this.namenodeStats = checkNotNull(namenodeStats, "namenodeStats is null");
+        this.partitionName = requireNonNull(partitionName, "partitionName is null");
+        this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        this.path = requireNonNull(path, "path is null");
+        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
+        this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
+        this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
     }
 
     @Override
@@ -97,7 +102,7 @@ public class HiveFileIterator
             throw new PrestoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to list directory: " + path, e);
         }
     }
 
@@ -163,5 +168,10 @@ public class HiveFileIterator
     public TupleDomain<HiveColumnHandle> getEffectivePredicate()
     {
         return effectivePredicate;
+    }
+
+    public Map<Integer, HiveType> getColumnCoercions()
+    {
+        return columnCoercions;
     }
 }

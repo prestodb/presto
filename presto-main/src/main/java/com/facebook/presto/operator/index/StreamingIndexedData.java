@@ -20,15 +20,15 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class StreamingIndexedData
@@ -45,13 +45,13 @@ public class StreamingIndexedData
 
     public StreamingIndexedData(List<Type> outputTypes, List<Type> indexKeyTypes, Page indexKeyTuple, PageBuffer pageBuffer, Driver driver)
     {
-        this.outputTypes = ImmutableList.copyOf(checkNotNull(outputTypes, "outputTypes is null"));
-        this.indexKeyTypes = ImmutableList.copyOf(checkNotNull(indexKeyTypes, "indexKeyTypes is null"));
-        this.indexKeyTuple = checkNotNull(indexKeyTuple, "indexKeyTuple is null");
+        this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
+        this.indexKeyTypes = ImmutableList.copyOf(requireNonNull(indexKeyTypes, "indexKeyTypes is null"));
+        this.indexKeyTuple = requireNonNull(indexKeyTuple, "indexKeyTuple is null");
         checkArgument(indexKeyTuple.getPositionCount() == 1, "indexKeyTuple Page should only have one position");
         checkArgument(indexKeyTypes.size() == indexKeyTuple.getChannelCount(), "indexKeyTypes doesn't match indexKeyTuple columns");
-        this.pageBuffer = checkNotNull(pageBuffer, "pageBuffer is null");
-        this.driver = checkNotNull(driver, "driver is null");
+        this.pageBuffer = requireNonNull(pageBuffer, "pageBuffer is null");
+        this.driver = requireNonNull(driver, "driver is null");
     }
 
     @Override
@@ -124,7 +124,7 @@ public class StreamingIndexedData
     {
         // TODO: use the code generator here
         checkState(currentPage != null, "getJoinPosition not called first");
-        int intPosition = Ints.checkedCast(position);
+        int intPosition = toIntExact(position);
         for (int i = 0; i < outputTypes.size(); i++) {
             Type type = outputTypes.get(i);
             Block block = currentPage.getBlock(i);

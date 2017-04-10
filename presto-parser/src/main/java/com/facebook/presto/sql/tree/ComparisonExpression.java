@@ -13,50 +13,44 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class ComparisonExpression
         extends Expression
 {
-    public enum Type
-    {
-        EQUAL("="),
-        NOT_EQUAL("<>"),
-        LESS_THAN("<"),
-        LESS_THAN_OR_EQUAL("<="),
-        GREATER_THAN(">"),
-        GREATER_THAN_OR_EQUAL(">="),
-        IS_DISTINCT_FROM("IS DISTINCT FROM");
-
-        private final String value;
-
-        Type(String value)
-        {
-            this.value = value;
-        }
-
-        public String getValue()
-        {
-            return value;
-        }
-    }
-
-    private final Type type;
+    private final ComparisonExpressionType type;
     private final Expression left;
     private final Expression right;
 
-    public ComparisonExpression(Type type, Expression left, Expression right)
+    public ComparisonExpression(ComparisonExpressionType type, Expression left, Expression right)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(left, "left is null");
-        Preconditions.checkNotNull(right, "right is null");
+        this(Optional.empty(), type, left, right);
+    }
+
+    public ComparisonExpression(NodeLocation location, ComparisonExpressionType type, Expression left, Expression right)
+    {
+        this(Optional.of(location), type, left, right);
+    }
+
+    private ComparisonExpression(Optional<NodeLocation> location, ComparisonExpressionType type, Expression left, Expression right)
+    {
+        super(location);
+        requireNonNull(type, "type is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
 
         this.type = type;
         this.left = left;
         this.right = right;
     }
 
-    public Type getType()
+    public ComparisonExpressionType getType()
     {
         return type;
     }
@@ -78,6 +72,12 @@ public class ComparisonExpression
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(left, right);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -88,26 +88,14 @@ public class ComparisonExpression
         }
 
         ComparisonExpression that = (ComparisonExpression) o;
-
-        if (!left.equals(that.left)) {
-            return false;
-        }
-        if (!right.equals(that.right)) {
-            return false;
-        }
-        if (type != that.type) {
-            return false;
-        }
-
-        return true;
+        return (type == that.type) &&
+                Objects.equals(left, that.left) &&
+                Objects.equals(right, that.right);
     }
 
     @Override
     public int hashCode()
     {
-        int result = type.hashCode();
-        result = 31 * result + left.hashCode();
-        result = 31 * result + right.hashCode();
-        return result;
+        return Objects.hash(type, left, right);
     }
 }

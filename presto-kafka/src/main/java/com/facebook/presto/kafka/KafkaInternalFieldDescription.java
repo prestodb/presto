@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -25,10 +26,11 @@ import io.airlift.slice.Slices;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Describes an internal (managed by the connector) field which is added to each table row. The definition itself makes the row
@@ -71,7 +73,7 @@ public class KafkaInternalFieldDescription
     /**
      * <tt>_message</tt> - Represents the full topic as a text column. Format is UTF-8 which may be wrong for some topics. TODO: make charset configurable.
      */
-    public static final KafkaInternalFieldDescription MESSAGE_FIELD = new KafkaInternalFieldDescription("_message", VarcharType.VARCHAR, "Message text");
+    public static final KafkaInternalFieldDescription MESSAGE_FIELD = new KafkaInternalFieldDescription("_message", createUnboundedVarcharType(), "Message text");
 
     /**
      * <tt>_message_length</tt> - length in bytes of the message.
@@ -86,7 +88,7 @@ public class KafkaInternalFieldDescription
     /**
      * <tt>_key</tt> - Represents the key as a text column. Format is UTF-8 which may be wrong for topics. TODO: make charset configurable.
      */
-    public static final KafkaInternalFieldDescription KEY_FIELD = new KafkaInternalFieldDescription("_key", VarcharType.VARCHAR, "Key text");
+    public static final KafkaInternalFieldDescription KEY_FIELD = new KafkaInternalFieldDescription("_key", createUnboundedVarcharType(), "Key text");
 
     /**
      * <tt>_key_length</tt> - length in bytes of the key.
@@ -112,8 +114,8 @@ public class KafkaInternalFieldDescription
     {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
         this.name = name;
-        this.type = checkNotNull(type, "type is null");
-        this.comment = checkNotNull(comment, "comment is null");
+        this.type = requireNonNull(type, "type is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public String getName()
@@ -142,20 +144,20 @@ public class KafkaInternalFieldDescription
 
     ColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new ColumnMetadata(name, type, false, comment, hidden);
+        return new ColumnMetadata(name, type, comment, hidden);
     }
 
-    public KafkaFieldValueProvider forBooleanValue(boolean value)
+    public FieldValueProvider forBooleanValue(boolean value)
     {
         return new BooleanKafkaFieldValueProvider(value);
     }
 
-    public KafkaFieldValueProvider forLongValue(long value)
+    public FieldValueProvider forLongValue(long value)
     {
         return new LongKafkaFieldValueProvider(value);
     }
 
-    public KafkaFieldValueProvider forByteValue(byte[] value)
+    public FieldValueProvider forByteValue(byte[] value)
     {
         return new BytesKafkaFieldValueProvider(value);
     }
@@ -191,7 +193,7 @@ public class KafkaInternalFieldDescription
     }
 
     public class BooleanKafkaFieldValueProvider
-            extends KafkaFieldValueProvider
+            extends FieldValueProvider
     {
         private final boolean value;
 
@@ -201,7 +203,7 @@ public class KafkaInternalFieldDescription
         }
 
         @Override
-        public boolean accept(KafkaColumnHandle columnHandle)
+        public boolean accept(DecoderColumnHandle columnHandle)
         {
             return columnHandle.getName().equals(name);
         }
@@ -220,7 +222,7 @@ public class KafkaInternalFieldDescription
     }
 
     public class LongKafkaFieldValueProvider
-            extends KafkaFieldValueProvider
+            extends FieldValueProvider
     {
         private final long value;
 
@@ -230,7 +232,7 @@ public class KafkaInternalFieldDescription
         }
 
         @Override
-        public boolean accept(KafkaColumnHandle columnHandle)
+        public boolean accept(DecoderColumnHandle columnHandle)
         {
             return columnHandle.getName().equals(name);
         }
@@ -249,7 +251,7 @@ public class KafkaInternalFieldDescription
     }
 
     public class BytesKafkaFieldValueProvider
-            extends KafkaFieldValueProvider
+            extends FieldValueProvider
     {
         private final byte[] value;
 
@@ -259,7 +261,7 @@ public class KafkaInternalFieldDescription
         }
 
         @Override
-        public boolean accept(KafkaColumnHandle columnHandle)
+        public boolean accept(DecoderColumnHandle columnHandle)
         {
             return columnHandle.getName().equals(name);
         }

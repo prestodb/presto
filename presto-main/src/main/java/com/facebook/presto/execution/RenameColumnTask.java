@@ -15,19 +15,26 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Locale.ENGLISH;
 
 public class RenameColumnTask
         implements DataDefinitionTask<RenameColumn>
@@ -39,22 +46,30 @@ public class RenameColumnTask
     }
 
     @Override
-    public void execute(RenameColumn statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        QualifiedTableName tableName = createQualifiedTableName(session, statement.getTable());
+        Session session = stateMachine.getSession();
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+
+        String source = statement.getSource().toLowerCase(ENGLISH);
+        String target = statement.getTarget().toLowerCase(ENGLISH);
+
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
+        accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
-        if (!columnHandles.containsKey(statement.getSource())) {
-            throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", statement.getSource());
+        if (!columnHandles.containsKey(source)) {
+            throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", source);
         }
 
-        if (columnHandles.containsKey(statement.getTarget())) {
-            throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", statement.getTarget());
+        if (columnHandles.containsKey(target)) {
+            throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", target);
         }
-        metadata.renameColumn(session, tableHandle.get(), columnHandles.get(statement.getSource()), statement.getTarget());
+        metadata.renameColumn(session, tableHandle.get(), columnHandles.get(source), target);
+
+        return immediateFuture(null);
     }
 }

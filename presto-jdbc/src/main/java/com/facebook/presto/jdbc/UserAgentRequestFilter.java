@@ -17,8 +17,8 @@ import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.Request.Builder.fromRequest;
+import static java.util.Objects.requireNonNull;
 
 class UserAgentRequestFilter
         implements HttpRequestFilter
@@ -27,7 +27,7 @@ class UserAgentRequestFilter
 
     public UserAgentRequestFilter(String userAgent)
     {
-        this.userAgent = checkNotNull(userAgent, "userAgent is null");
+        this.userAgent = requireNonNull(userAgent, "userAgent is null");
     }
 
     @Override

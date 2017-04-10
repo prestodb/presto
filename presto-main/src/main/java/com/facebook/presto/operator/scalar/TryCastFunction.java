@@ -13,20 +13,21 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
+import java.util.List;
 
-import static com.facebook.presto.metadata.Signature.internalFunction;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.invoke.MethodHandles.catchException;
 import static java.lang.invoke.MethodHandles.constant;
@@ -34,16 +35,20 @@ import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodType.methodType;
 
 public class TryCastFunction
-        extends ParametricScalar
+        extends SqlScalarFunction
 {
     public static final TryCastFunction TRY_CAST = new TryCastFunction();
 
-    private static final Signature SIGNATURE = new Signature("TRY_CAST", ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"), false, false);
-
-    @Override
-    public Signature getSignature()
+    public TryCastFunction()
     {
-        return SIGNATURE;
+        super(new Signature(
+                "TRY_CAST",
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("F"), typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature("T"),
+                ImmutableList.of(parseTypeSignature("F")),
+                false));
     }
 
     @Override
@@ -65,33 +70,31 @@ public class TryCastFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type fromType = types.get("F");
-        Type toType = types.get("T");
+        Type fromType = boundVariables.getTypeVariable("F");
+        Type toType = boundVariables.getTypeVariable("T");
 
         Class<?> returnType = Primitives.wrap(toType.getJavaType());
+        List<Boolean> nullableArguments;
         MethodHandle tryCastHandle;
 
         if (fromType.equals(UNKNOWN)) {
+            nullableArguments = ImmutableList.of(true);
             tryCastHandle = dropArguments(constant(returnType, null), 0, Void.class);
         }
         else {
             // the resulting method needs to return a boxed type
-            MethodHandle coercion = functionRegistry.getCoercion(fromType, toType).getMethodHandle();
+            Signature signature = functionRegistry.getCoercion(fromType, toType);
+            ScalarFunctionImplementation implementation = functionRegistry.getScalarFunctionImplementation(signature);
+            nullableArguments = implementation.getNullableArguments();
+            MethodHandle coercion = implementation.getMethodHandle();
             coercion = coercion.asType(methodType(returnType, coercion.type()));
 
             MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
             tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
         }
 
-        return new FunctionInfo(
-                internalFunction(SIGNATURE.getName(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())),
-                getDescription(),
-                isHidden(),
-                tryCastHandle,
-                isDeterministic(),
-                true,
-                ImmutableList.of(true));
+        return new ScalarFunctionImplementation(true, nullableArguments, tryCastHandle, isDeterministic());
     }
 }

@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
-import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.io.Files;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
@@ -30,14 +29,18 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -64,7 +67,8 @@ public class TestShardRecovery
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        ShardManager shardManager = new DatabaseShardManager(dbi);
+        createTablesWithRetry(dbi);
+        ShardManager shardManager = createShardManager(dbi);
         recoveryManager = createShardRecoveryManager(storageService, Optional.of(backupStore), shardManager);
     }
 
@@ -90,10 +94,13 @@ public class TestShardRecovery
         Files.write("test data", tempFile, UTF_8);
 
         backupStore.backupShard(shardUuid, tempFile);
-        assertTrue(backupStore.getBackupFile(shardUuid).exists());
-        assertEquals(backupStore.shardSize(shardUuid).getAsLong(), tempFile.length());
+        assertTrue(backupStore.shardExists(shardUuid));
+        File backupFile = backupStore.getBackupFile(shardUuid);
+        assertTrue(backupFile.exists());
+        assertEquals(backupFile.length(), tempFile.length());
 
-        recoveryManager.restoreFromBackup(shardUuid);
+        assertFalse(file.exists());
+        recoveryManager.restoreFromBackup(shardUuid, OptionalLong.empty());
         assertTrue(file.exists());
         assertEquals(file.length(), tempFile.length());
     }
@@ -113,13 +120,15 @@ public class TestShardRecovery
 
         backupStore.backupShard(shardUuid, tempFile);
 
-        long backupSize = backupStore.shardSize(shardUuid).getAsLong();
-        assertEquals(backupSize, tempFile.length());
+        long backupSize = tempFile.length();
+
+        assertTrue(backupStore.shardExists(shardUuid));
+        assertEquals(backupStore.getBackupFile(shardUuid).length(), backupSize);
 
         assertTrue(file.exists());
         assertNotEquals(file.length(), backupSize);
 
-        recoveryManager.restoreFromBackup(shardUuid);
+        recoveryManager.restoreFromBackup(shardUuid, OptionalLong.of(backupSize));
 
         assertTrue(file.exists());
         assertEquals(file.length(), backupSize);
@@ -129,7 +138,7 @@ public class TestShardRecovery
     public void testNoBackupException()
             throws Exception
     {
-        recoveryManager.restoreFromBackup(UUID.randomUUID());
+        recoveryManager.restoreFromBackup(UUID.randomUUID(), OptionalLong.empty());
     }
 
     public static ShardRecoveryManager createShardRecoveryManager(
@@ -140,7 +149,7 @@ public class TestShardRecovery
         return new ShardRecoveryManager(
                 storageService,
                 backupStore,
-                new InMemoryNodeManager(),
+                new TestingNodeManager(),
                 shardManager,
                 new Duration(5, MINUTES),
                 10);

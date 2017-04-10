@@ -41,12 +41,11 @@ The TPCH connector supplies several schemas::
      sf300
      sf3000
      sf30000
-     sys
      tiny
     (11 rows)
 
-Ignore the special ``information_schema`` and ``sys`` schemas which are
-provided by Presto and exist in every catalog.
+Ignore the standard schema ``information_schema`` which exists in every
+catalog and is not directly provided by the TPCH connector.
 
 Every TPCH schema provides the same set of tables. Some tables are
 identical in all schemas. Other tables vary based on the *scale factor*

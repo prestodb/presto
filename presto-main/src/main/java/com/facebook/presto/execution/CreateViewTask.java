@@ -15,20 +15,18 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.ViewDefinition;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
@@ -36,29 +34,28 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Objects.requireNonNull;
 
 public class CreateViewTask
         implements DataDefinitionTask<CreateView>
 {
     private final JsonCodec<ViewDefinition> codec;
     private final SqlParser sqlParser;
-    private final List<PlanOptimizer> planOptimizers;
-    private final boolean experimentalSyntaxEnabled;
 
     @Inject
-    public CreateViewTask(JsonCodec<ViewDefinition> codec, SqlParser sqlParser, List<PlanOptimizer> planOptimizers, FeaturesConfig featuresConfig)
+    public CreateViewTask(
+            JsonCodec<ViewDefinition> codec,
+            SqlParser sqlParser,
+            FeaturesConfig featuresConfig)
     {
-        this.codec = checkNotNull(codec, "codec is null");
-        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
-        this.planOptimizers = ImmutableList.copyOf(checkNotNull(planOptimizers, "planOptimizers is null"));
-        checkNotNull(featuresConfig, "featuresConfig is null");
-        this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
+        this.codec = requireNonNull(codec, "codec is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        requireNonNull(featuresConfig, "featuresConfig is null");
     }
 
     @Override
@@ -68,48 +65,38 @@ public class CreateViewTask
     }
 
     @Override
-    public void execute(CreateView statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public String explain(CreateView statement, List<Expression> parameters)
     {
-        QualifiedTableName name = createQualifiedTableName(session, statement.getName());
+        return "CREATE VIEW " + statement.getName();
+    }
 
-        String sql = getFormattedSql(statement);
+    @Override
+    public ListenableFuture<?> execute(CreateView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    {
+        Session session = stateMachine.getSession();
+        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        Analysis analysis = analyzeStatement(statement, session, metadata);
+        accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), name);
 
-        List<ViewColumn> columns = analysis.getOutputDescriptor()
+        String sql = getFormattedSql(statement.getQuery(), sqlParser, Optional.of(parameters));
+
+        Analysis analysis = analyzeStatement(statement, session, metadata, accessControl, parameters);
+
+        List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
                 .map(field -> new ViewColumn(field.getName().get(), field.getType()))
                 .collect(toImmutableList());
 
-        String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns));
+        String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, Optional.of(session.getUser())));
 
         metadata.createView(session, name, data, statement.isReplace());
+
+        return immediateFuture(null);
     }
 
-    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata)
+    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters)
     {
-        QueryExplainer explainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(explainer), experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters);
         return analyzer.analyze(statement);
-    }
-
-    private String getFormattedSql(CreateView statement)
-    {
-        Query query = statement.getQuery();
-        String sql = formatSql(query);
-
-        // verify round-trip
-        Statement parsed;
-        try {
-            parsed = sqlParser.createStatement(sql);
-        }
-        catch (ParsingException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Formatted query does not parse: " + query);
-        }
-        if (!query.equals(parsed)) {
-            throw new PrestoException(INTERNAL_ERROR, "Query does not round-trip: " + query);
-        }
-
-        return sql;
     }
 }

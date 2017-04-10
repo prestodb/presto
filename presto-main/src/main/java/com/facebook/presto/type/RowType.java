@@ -25,9 +25,7 @@ import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
@@ -35,8 +33,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 /**
  * As defined in ISO/IEC FCD 9075-2 (SQL 2011), section 4.8
@@ -45,14 +45,14 @@ public class RowType
         extends AbstractType
 {
     private final List<RowField> fields;
+    private final List<Type> fieldTypes;
 
     public RowType(List<Type> fieldTypes, Optional<List<String>> fieldNames)
     {
         super(new TypeSignature(
-                        "row",
+                        ROW,
                         Lists.transform(fieldTypes, Type::getTypeSignature),
                         fieldNames.orElse(ImmutableList.of()).stream()
-                                .map(Object.class::cast)
                                 .collect(toImmutableList())),
                 Block.class);
 
@@ -62,6 +62,7 @@ public class RowType
             builder.add(new RowField(fieldTypes.get(i), fieldNames.map((names) -> names.get(index))));
         }
         fields = builder.build();
+        this.fieldTypes = ImmutableList.copyOf(fieldTypes);
     }
 
     @Override
@@ -96,7 +97,7 @@ public class RowType
                 fieldDisplayNames.add(typeDisplayName);
             }
         }
-        return "row(" + Joiner.on(", ").join(fieldDisplayNames) + ")";
+        return ROW + "(" + Joiner.on(", ").join(fieldDisplayNames) + ")";
     }
 
     @Override
@@ -107,7 +108,7 @@ public class RowType
         }
 
         Block arrayBlock = getObject(block, position);
-        List<Object> values = Lists.newArrayListWithCapacity(arrayBlock.getPositionCount());
+        List<Object> values = new ArrayList<>(arrayBlock.getPositionCount());
 
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             values.add(fields.get(i).getType().getObjectValue(session, arrayBlock, i));
@@ -143,9 +144,7 @@ public class RowType
     @Override
     public List<Type> getTypeParameters()
     {
-        return fields.stream()
-                .map(RowField::getType)
-                .collect(toImmutableList());
+        return fieldTypes;
     }
 
     public List<RowField> getFields()
@@ -160,8 +159,8 @@ public class RowType
 
         public RowField(Type type, Optional<String> name)
         {
-            this.type = checkNotNull(type, "type is null");
-            this.name = checkNotNull(name, "name is null");
+            this.type = requireNonNull(type, "type is null");
+            this.name = requireNonNull(name, "name is null");
         }
 
         public Type getType()
@@ -178,14 +177,13 @@ public class RowType
     @Override
     public boolean isComparable()
     {
-        return Iterables.all(fields, new Predicate<RowField>()
-        {
-            @Override
-            public boolean apply(RowField field)
-            {
-                return field.getType().isComparable();
-            }
-        });
+        return fields.stream().allMatch(field -> field.getType().isComparable());
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return fields.stream().allMatch(field -> field.getType().isOrderable());
     }
 
     @Override
@@ -207,14 +205,35 @@ public class RowType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        Block leftRow = leftBlock.getObject(leftPosition, Block.class);
+        Block rightRow = rightBlock.getObject(rightPosition, Block.class);
+
+        for (int i = 0; i < leftRow.getPositionCount(); i++) {
+            checkElementNotNull(leftRow.isNull(i));
+            checkElementNotNull(rightRow.isNull(i));
+            Type fieldType = fields.get(i).getType();
+            if (!fieldType.isOrderable()) {
+                throw new UnsupportedOperationException(fieldType.getTypeSignature() + " type is not orderable");
+            }
+            int compareResult = fieldType.compareTo(leftRow, i, rightRow, i);
+            if (compareResult != 0) {
+                return compareResult;
+            }
+        }
+
+        return 0;
+    }
+
+    @Override
+    public long hash(Block block, int position)
     {
         Block arrayBlock = block.getObject(position, Block.class);
-        int result = 1;
+        long result = 1;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            checkElementNotNull(arrayBlock.isNull(i));
             Type elementType = fields.get(i).getType();
-            result = 31 * result + elementType.hash(arrayBlock, i);
+            result = 31 * result + hashPosition(elementType, arrayBlock, i);
         }
         return result;
     }

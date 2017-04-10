@@ -31,8 +31,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public abstract class AbstractSvmModel
@@ -43,12 +43,12 @@ public abstract class AbstractSvmModel
 
     protected AbstractSvmModel(svm_parameter params)
     {
-        this.params = checkNotNull(params, "params is null");
+        this.params = requireNonNull(params, "params is null");
     }
 
     protected AbstractSvmModel(svm_model model)
     {
-        this.model = checkNotNull(model, "model is null");
+        this.model = requireNonNull(model, "model is null");
     }
 
     @Override

@@ -14,16 +14,14 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
-import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
@@ -37,40 +35,21 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Objects.requireNonNull;
 
 public class DwrfPageSourceFactory
         implements HivePageSourceFactory
 {
     private final TypeManager typeManager;
-    private final boolean enabled;
-    private final DataSize orcMaxMergeDistance;
-    private final DataSize orcMaxBufferSize;
-    private final DataSize orcStreamBufferSize;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public DwrfPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
+    public DwrfPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment)
     {
-        //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance(), config.getOrcMaxBufferSize(), config.getOrcStreamBufferSize());
-    }
-
-    public DwrfPageSourceFactory(TypeManager typeManager)
-    {
-        this(typeManager, true, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE));
-    }
-
-    public DwrfPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance, DataSize orcMaxBufferSize, DataSize orcStreamBufferSize)
-    {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
-        this.enabled = enabled;
-        this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
-        this.orcMaxBufferSize = checkNotNull(orcMaxBufferSize, "orcMaxBufferSize is null");
-        this.orcStreamBufferSize = checkNotNull(orcStreamBufferSize, "orcStreamBufferSize is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -81,31 +60,29 @@ public class DwrfPageSourceFactory
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isOptimizedReaderEnabled(session, enabled)) {
-            return Optional.empty();
-        }
-
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
         }
 
         return Optional.of(createOrcPageSource(
                 new DwrfMetadataReader(),
+                hdfsEnvironment,
+                session.getUser(),
                 configuration,
                 path,
                 start,
                 length,
                 columns,
-                partitionKeys,
+                false,
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session, orcMaxMergeDistance),
-                getOrcMaxBufferSize(session, orcMaxBufferSize),
-                getOrcStreamBufferSize(session, orcStreamBufferSize)));
+                getOrcMaxMergeDistance(session),
+                getOrcMaxBufferSize(session),
+                getOrcStreamBufferSize(session),
+                false));
     }
 }

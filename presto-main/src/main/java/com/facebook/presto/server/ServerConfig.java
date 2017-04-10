@@ -14,6 +14,9 @@
 package com.facebook.presto.server;
 
 import io.airlift.configuration.Config;
+import io.airlift.units.Duration;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ServerConfig
 {
@@ -21,6 +24,7 @@ public class ServerConfig
     private String prestoVersion;
     private String dataSources;
     private boolean includeExceptionInResponse = true;
+    private Duration gracePeriod = new Duration(2, MINUTES);
 
     public boolean isCoordinator()
     {
@@ -69,6 +73,18 @@ public class ServerConfig
     public ServerConfig setIncludeExceptionInResponse(boolean includeExceptionInResponse)
     {
         this.includeExceptionInResponse = includeExceptionInResponse;
+        return this;
+    }
+
+    public Duration getGracePeriod()
+    {
+        return gracePeriod;
+    }
+
+    @Config("shutdown.grace-period")
+    public ServerConfig setGracePeriod(Duration gracePeriod)
+    {
+        this.gracePeriod = gracePeriod;
         return this;
     }
 }

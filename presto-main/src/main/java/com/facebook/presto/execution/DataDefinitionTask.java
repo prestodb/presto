@@ -13,13 +13,35 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.sql.SqlFormatter;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import java.util.List;
+import java.util.Optional;
 
 public interface DataDefinitionTask<T extends Statement>
 {
     String getName();
 
-    void execute(T statement, Session session, Metadata metadata, QueryStateMachine stateMachine);
+    ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters);
+
+    default String explain(T statement, List<Expression> parameters)
+    {
+        if (statement instanceof Prepare) {
+            return SqlFormatter.formatSql(statement, Optional.empty());
+        }
+
+        return SqlFormatter.formatSql(statement, Optional.of(parameters));
+    }
+
+    default boolean isTransactionControl()
+    {
+        return false;
+    }
 }

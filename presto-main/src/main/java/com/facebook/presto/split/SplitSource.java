@@ -13,18 +13,19 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public interface SplitSource
         extends Closeable
 {
-    String getDataSourceName();
+    ConnectorId getConnectorId();
 
-    CompletableFuture<List<Split>> getNextBatch(int maxSize);
+    ListenableFuture<List<Split>> getNextBatch(int maxSize);
 
     @Override
     void close();

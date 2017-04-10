@@ -11,27 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 
 import java.util.Map;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class BlackHoleConnectorFactory
         implements ConnectorFactory
 {
-    private final TypeManager typeManager;
-
-    public BlackHoleConnectorFactory(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public String getName()
     {
@@ -39,14 +35,22 @@ public class BlackHoleConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> requiredConfig)
+    public ConnectorHandleResolver getHandleResolver()
     {
+        return new BlackHoleHandleResolver();
+    }
+
+    @Override
+    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
+    {
+        ListeningScheduledExecutorService executorService = listeningDecorator(newSingleThreadScheduledExecutor(daemonThreadsNamed("blackhole")));
         return new BlackHoleConnector(
-                new BlackHoleMetadata(typeManager),
-                new BlackHoleHandleResolver(),
+                new BlackHoleMetadata(),
                 new BlackHoleSplitManager(),
-                new BlackHolePageSourceProvider(),
-                new BlackHolePageSinkProvider()
-        );
+                new BlackHolePageSourceProvider(executorService),
+                new BlackHolePageSinkProvider(executorService),
+                new BlackHoleNodePartitioningProvider(context.getNodeManager()),
+                context.getTypeManager(),
+                executorService);
     }
 }

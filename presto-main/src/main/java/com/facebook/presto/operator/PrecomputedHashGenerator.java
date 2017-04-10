@@ -15,7 +15,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
-import com.google.common.base.MoreObjects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class PrecomputedHashGenerator
     implements HashGenerator
@@ -28,15 +29,15 @@ public class PrecomputedHashGenerator
     }
 
     @Override
-    public int hashPosition(int position, Page page)
+    public long hashPosition(int position, Page page)
     {
-        return (int) BigintType.BIGINT.getLong(page.getBlock(hashChannel), position);
+        return BigintType.BIGINT.getLong(page.getBlock(hashChannel), position);
     }
 
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("hashChannel", hashChannel)
                 .toString();
     }

@@ -13,15 +13,20 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 
 public interface JoinProbe
 {
-    int getChannelCount();
+    int getOutputChannelCount();
 
     boolean advanceNextPosition();
 
     long getCurrentJoinPosition();
 
     void appendTo(PageBuilder pageBuilder);
+
+    int getPosition();
+
+    Page getPage();
 }

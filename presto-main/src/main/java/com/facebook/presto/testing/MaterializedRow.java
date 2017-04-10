@@ -17,13 +17,17 @@ import com.google.common.base.Preconditions;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.util.ArrayList;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Materialize all values in a row
@@ -36,7 +40,7 @@ public class MaterializedRow
 
     public MaterializedRow(int precision, Object... values)
     {
-        this(precision, Arrays.asList(checkNotNull(values, "values is null")));
+        this(precision, Arrays.asList(requireNonNull(values, "values is null")));
     }
 
     public MaterializedRow(int precision, List<Object> values)
@@ -44,18 +48,33 @@ public class MaterializedRow
         checkArgument(precision > 0, "Need at least one digit of precision");
         this.precision = precision;
 
-        this.values = new ArrayList<>(values.size());
-        for (Object object : values) {
-            if (object instanceof Double || object instanceof Float) {
-                this.values.add(new ApproximateDouble(((Number) object).doubleValue(), precision));
-            }
-            else if (object instanceof Number) {
-                this.values.add(((Number) object).longValue());
-            }
-            else {
-                this.values.add(object);
-            }
+        this.values = (List<Object>) processValue(precision, values);
+    }
+
+    private static Object processValue(int precision, Object value)
+    {
+        if (value instanceof Double) {
+            return new ApproximateDouble(((Double) value), precision);
         }
+        if (value instanceof Float) {
+            return new ApproximateFloat(((Float) value), precision);
+        }
+        if (value instanceof List) {
+            return ((List<?>) value).stream()
+                    .map(element -> processValue(precision, element))
+                    .collect(toList());
+        }
+        if (value instanceof Map) {
+            Map<Object, Object> map = new HashMap<>();
+            for (Entry<Object, Object> entry : ((Map<Object, Object>) value).entrySet()) {
+                map.put(processValue(precision, entry.getKey()), processValue(precision, entry.getValue()));
+            }
+            return map;
+        }
+        if (value instanceof byte[]) {
+            return ByteBuffer.wrap((byte[]) value);
+        }
+        return value;
     }
 
     public int getPrecision()
@@ -68,11 +87,41 @@ public class MaterializedRow
         return values.size();
     }
 
+    public List<Object> getFields()
+    {
+        return values.stream()
+                .map(MaterializedRow::processField)
+                .collect(toList());
+    }
+
     public Object getField(int field)
     {
         Preconditions.checkElementIndex(field, values.size());
-        Object o = values.get(field);
-        return (o instanceof ApproximateDouble) ? ((ApproximateDouble) o).getValue() : o;
+        return processField(values.get(field));
+    }
+
+    private static Object processField(Object value)
+    {
+        if (value instanceof ApproximateNumeric) {
+            return ((ApproximateNumeric) value).getValue();
+        }
+        if (value instanceof List) {
+            return ((List<?>) value).stream()
+                    .map(MaterializedRow::processField)
+                    .collect(toList());
+        }
+        if (value instanceof Map) {
+            Map<Object, Object> map = new HashMap<>();
+            for (Entry<Object, Object> entry : ((Map<Object, Object>) value).entrySet()) {
+                map.put(processField(entry.getKey()), processField(entry.getValue()));
+            }
+            return map;
+        }
+        if (value instanceof ByteBuffer) {
+            return ((ByteBuffer) value).array();
+        }
+
+        return value;
     }
 
     @Override
@@ -100,31 +149,16 @@ public class MaterializedRow
         return Objects.hash(values);
     }
 
-    private static class ApproximateDouble
+    private abstract static class ApproximateNumeric
     {
-        private final Double value;
-        private final Double normalizedValue;
+        public abstract Number getValue();
 
-        private ApproximateDouble(Double value, int precision)
-        {
-            this.value = value;
-            if (value.isNaN() || value.isInfinite()) {
-                this.normalizedValue = value;
-            }
-            else {
-                this.normalizedValue = new BigDecimal(value).round(new MathContext(precision)).doubleValue();
-            }
-        }
-
-        public Double getValue()
-        {
-            return value;
-        }
+        protected abstract Number getNormalizedValue();
 
         @Override
         public String toString()
         {
-            return value.toString();
+            return getValue().toString();
         }
 
         @Override
@@ -136,14 +170,71 @@ public class MaterializedRow
             if ((obj == null) || (getClass() != obj.getClass())) {
                 return false;
             }
-            ApproximateDouble o = (ApproximateDouble) obj;
-            return Objects.equals(normalizedValue, o.normalizedValue);
+
+            ApproximateNumeric o = (ApproximateNumeric) obj;
+            return Objects.equals(getNormalizedValue(), o.getNormalizedValue());
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(normalizedValue);
+            return Objects.hash(getNormalizedValue());
+        }
+    }
+
+    private static class ApproximateDouble
+            extends ApproximateNumeric
+    {
+        private final Double value;
+        private final int precision;
+
+        private ApproximateDouble(Double value, int precision)
+        {
+            this.value = requireNonNull(value, "value is null");
+            this.precision = precision;
+        }
+
+        @Override
+        public Number getValue()
+        {
+            return value;
+        }
+
+        @Override
+        protected Number getNormalizedValue()
+        {
+            if (value.isNaN() || value.isInfinite()) {
+                return value;
+            }
+            return new BigDecimal(getValue().doubleValue()).round(new MathContext(precision)).doubleValue();
+        }
+    }
+
+    private static class ApproximateFloat
+            extends ApproximateNumeric
+    {
+        private final Float value;
+        private final int precision;
+
+        private ApproximateFloat(Float value, int precision)
+        {
+            this.value = requireNonNull(value, "value is null");
+            this.precision = precision;
+        }
+
+        @Override
+        public Number getValue()
+        {
+            return value;
+        }
+
+        @Override
+        protected Number getNormalizedValue()
+        {
+            if (value.isNaN() || value.isInfinite()) {
+                return value;
+            }
+            return new BigDecimal(getValue().floatValue()).round(new MathContext(precision)).floatValue();
         }
     }
 }

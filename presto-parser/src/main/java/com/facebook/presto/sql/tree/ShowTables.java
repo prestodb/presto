@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ShowTables
         extends Statement
@@ -27,8 +30,19 @@ public class ShowTables
 
     public ShowTables(Optional<QualifiedName> schema, Optional<String> likePattern)
     {
-        checkNotNull(schema, "schema is null");
-        checkNotNull(likePattern, "likePattern is null");
+        this(Optional.empty(), schema, likePattern);
+    }
+
+    public ShowTables(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern)
+    {
+        this(Optional.of(location), schema, likePattern);
+    }
+
+    private ShowTables(Optional<NodeLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern)
+    {
+        super(location);
+        requireNonNull(schema, "schema is null");
+        requireNonNull(likePattern, "likePattern is null");
 
         this.schema = schema;
         this.likePattern = likePattern;
@@ -48,6 +62,12 @@ public class ShowTables
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitShowTables(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

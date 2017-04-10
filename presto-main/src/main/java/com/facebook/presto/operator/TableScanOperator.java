@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -30,10 +31,12 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
         implements SourceOperator, Closeable
@@ -56,10 +59,10 @@ public class TableScanOperator
                 Iterable<ColumnHandle> columns)
         {
             this.operatorId = operatorId;
-            this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.types = checkNotNull(types, "types is null");
-            this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
-            this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.types = requireNonNull(types, "types is null");
+            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+            this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         }
 
         @Override
@@ -78,7 +81,7 @@ public class TableScanOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TableScanOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, TableScanOperator.class.getSimpleName());
             return new TableScanOperator(
                     operatorContext,
                     sourceId,
@@ -99,6 +102,7 @@ public class TableScanOperator
     private final PageSourceProvider pageSourceProvider;
     private final List<Type> types;
     private final List<ColumnHandle> columns;
+    private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
 
     private Split split;
@@ -116,11 +120,12 @@ public class TableScanOperator
             List<Type> types,
             Iterable<ColumnHandle> columns)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-        this.types = checkNotNull(types, "types is null");
-        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
-        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.types = requireNonNull(types, "types is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
     }
 
     @Override
@@ -138,7 +143,7 @@ public class TableScanOperator
     @Override
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
-        checkNotNull(split, "split is null");
+        requireNonNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 
         if (finished) {
@@ -149,7 +154,7 @@ public class TableScanOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> splitInfo);
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
         }
 
         blocked.set(null);
@@ -196,6 +201,7 @@ public class TableScanOperator
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
+            systemMemoryContext.setBytes(source.getSystemMemoryUsage());
         }
     }
 
@@ -203,8 +209,10 @@ public class TableScanOperator
     public boolean isFinished()
     {
         if (!finished) {
-            createSourceIfNecessary();
             finished = (source != null) && source.isFinished();
+            if (source != null) {
+                systemMemoryContext.setBytes(source.getSystemMemoryUsage());
+            }
         }
 
         return finished;
@@ -213,7 +221,14 @@ public class TableScanOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return blocked;
+        if (!blocked.isDone()) {
+            return blocked;
+        }
+        if (source != null) {
+            CompletableFuture<?> pageSourceBlocked = source.isBlocked();
+            return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
+        }
+        return NOT_BLOCKED;
     }
 
     @Override
@@ -231,9 +246,11 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
-        createSourceIfNecessary();
-        if (source == null) {
+        if (split == null) {
             return null;
+        }
+        if (source == null) {
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
         }
 
         Page page = source.getNextPage();
@@ -249,13 +266,9 @@ public class TableScanOperator
             readTimeNanos = endReadTimeNanos;
         }
 
-        return page;
-    }
+        // updating system memory usage should happen after page is loaded.
+        systemMemoryContext.setBytes(source.getSystemMemoryUsage());
 
-    private void createSourceIfNecessary()
-    {
-        if ((split != null) && (source == null)) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
-        }
+        return page;
     }
 }

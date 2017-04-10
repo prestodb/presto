@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -45,6 +46,8 @@ public abstract class AbstractTestApproximateCountDistinct
     public abstract Type getValueType();
 
     public abstract Object randomValue();
+
+    protected static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
 
     @DataProvider(name = "provideStandardErrors")
     public Object[][] provideStandardErrors()
@@ -136,19 +139,19 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private long estimateGroupByCount(List<Object> values, double maxStandardError)
     {
-        Object result = AggregationTestUtils.groupedAggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError));
+        Object result = AggregationTestUtils.groupedAggregation(getAggregationFunction(), createPage(values, maxStandardError));
         return (long) result;
     }
 
     private long estimateCount(List<Object> values, double maxStandardError)
     {
-        Object result = AggregationTestUtils.aggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError));
+        Object result = AggregationTestUtils.aggregation(getAggregationFunction(), createPage(values, maxStandardError));
         return (long) result;
     }
 
     private long estimateCountPartial(List<Object> values, double maxStandardError)
     {
-        Object result = AggregationTestUtils.partialAggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError));
+        Object result = AggregationTestUtils.partialAggregation(getAggregationFunction(), createPage(values, maxStandardError));
         return (long) result;
     }
 

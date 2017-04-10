@@ -13,32 +13,38 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
-import javax.inject.Inject;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.plugin.jdbc.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadata
         implements ConnectorMetadata
@@ -46,13 +52,12 @@ public class JdbcMetadata
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
 
-    @Inject
-    public JdbcMetadata(JdbcConnectorId connectorId, JdbcClient jdbcClient, JdbcMetadataConfig config)
-    {
-        this.jdbcClient = checkNotNull(jdbcClient, "client is null");
+    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-        checkNotNull(config, "config is null");
-        allowDropTable = config.isAllowDropTable();
+    public JdbcMetadata(JdbcClient jdbcClient, boolean allowDropTable)
+    {
+        this.jdbcClient = requireNonNull(jdbcClient, "client is null");
+        this.allowDropTable = allowDropTable;
     }
 
     @Override
@@ -68,9 +73,23 @@ public class JdbcMetadata
     }
 
     @Override
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        ConnectorTableLayout layout = new ConnectorTableLayout(new JdbcTableLayoutHandle(tableHandle, constraint.getSummary()));
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+    }
+
+    @Override
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    {
+        return new ConnectorTableLayout(handle);
+    }
+
+    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        JdbcTableHandle handle = checkType(table, JdbcTableHandle.class, "tableHandle");
+        JdbcTableHandle handle = (JdbcTableHandle) table;
 
         ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(handle)) {
@@ -86,15 +105,9 @@ public class JdbcMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return null;
-    }
-
-    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        JdbcTableHandle jdbcTableHandle = checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
+        JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(jdbcTableHandle)) {
@@ -107,7 +120,14 @@ public class JdbcMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix.getSchemaName())) {
+        List<SchemaTableName> tables;
+        if (prefix.getTableName() != null) {
+            tables = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+        else {
+            tables = listTables(session, prefix.getSchemaName());
+        }
+        for (SchemaTableName tableName : tables) {
             try {
                 JdbcTableHandle tableHandle = jdbcClient.getTableHandle(tableName);
                 if (tableHandle == null) {
@@ -125,20 +145,7 @@ public class JdbcMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
-        return checkType(columnHandle, JdbcColumnHandle.class, "columnHandle").getColumnMetadata();
-    }
-
-    @Override
-    public boolean canCreateSampledTables(ConnectorSession session)
-    {
-        return false;
-    }
-
-    @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
+        return ((JdbcColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
@@ -147,62 +154,53 @@ public class JdbcMetadata
         if (!allowDropTable) {
             throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
         }
-        JdbcTableHandle handle = checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         jdbcClient.dropTable(handle);
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        return jdbcClient.beginCreateTable(tableMetadata);
+        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(tableMetadata);
+        setRollback(() -> jdbcClient.rollbackCreateTable(handle));
+        return handle;
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-        JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
-        jdbcClient.commitCreateTable(handle, fragments);
+        JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
+        jdbcClient.commitCreateTable(handle);
+        clearRollback();
+        return Optional.empty();
     }
 
-    @Override
-    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    private void setRollback(Runnable action)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+        checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
+    }
+
+    private void clearRollback()
+    {
+        rollbackAction.set(null);
+    }
+
+    public void rollback()
+    {
+        Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
     }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
+        return jdbcClient.beginInsertTable(getTableMetadata(session, tableHandle));
     }
 
     @Override
-    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
-    }
-
-    @Override
-    public void dropView(ConnectorSession session, SchemaTableName viewName)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
-    }
-
-    @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        return ImmutableMap.of();
+        JdbcOutputTableHandle jdbcInsertHandle = (JdbcOutputTableHandle) tableHandle;
+        jdbcClient.finishInsertTable(jdbcInsertHandle);
+        return Optional.empty();
     }
 }

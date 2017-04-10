@@ -14,16 +14,19 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
@@ -34,25 +37,35 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
-import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
-import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
-import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Objects.requireNonNull;
 
 public class HandTpchQuery1
         extends AbstractSimpleOperatorBenchmark
 {
+    private final InternalAggregationFunction longAverage;
+    private final InternalAggregationFunction doubleAverage;
+    private final InternalAggregationFunction doubleSum;
+    private final InternalAggregationFunction countFunction;
+
     public HandTpchQuery1(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
+
+        longAverage = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
+        doubleAverage = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        doubleSum = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        countFunction = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
     }
 
     @Override
@@ -82,6 +95,7 @@ public class HandTpchQuery1
 
         OperatorFactory tableScanOperator = createTableScanOperator(
                 0,
+                new PlanNodeId("test"),
                 "lineitem",
                 "returnflag",
                 "linestatus",
@@ -94,22 +108,25 @@ public class HandTpchQuery1
         TpchQuery1OperatorFactory tpchQuery1Operator = new TpchQuery1OperatorFactory(1);
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
                 2,
+                new PlanNodeId("test"),
                 ImmutableList.of(tpchQuery1Operator.getTypes().get(0), tpchQuery1Operator.getTypes().get(1)),
                 Ints.asList(0, 1),
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(
-                        LONG_SUM.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
-                        LONG_AVERAGE.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_AVERAGE.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0),
-                        COUNT.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)
+                        doubleSum.bind(ImmutableList.of(2), Optional.empty()),
+                        doubleSum.bind(ImmutableList.of(3), Optional.empty()),
+                        doubleSum.bind(ImmutableList.of(4), Optional.empty()),
+                        longAverage.bind(ImmutableList.of(2), Optional.empty()),
+                        doubleAverage.bind(ImmutableList.of(5), Optional.empty()),
+                        doubleAverage.bind(ImmutableList.of(6), Optional.empty()),
+                        countFunction.bind(ImmutableList.of(2), Optional.empty())
                         ),
                 Optional.empty(),
                 Optional.empty(),
                 10_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                JOIN_COMPILER);
 
         return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);
     }
@@ -117,10 +134,10 @@ public class HandTpchQuery1
     public static class TpchQuery1Operator
             implements com.facebook.presto.operator.Operator // TODO: use import when Java 7 compiler bug is fixed
     {
-        private static final ImmutableList<Type> TYPES = ImmutableList.<Type>of(
+        private static final ImmutableList<Type> TYPES = ImmutableList.of(
                 VARCHAR,
                 VARCHAR,
-                BIGINT,
+                DOUBLE,
                 DOUBLE,
                 DOUBLE,
                 DOUBLE,
@@ -145,13 +162,19 @@ public class HandTpchQuery1
             @Override
             public Operator createOperator(DriverContext driverContext)
             {
-                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TpchQuery1Operator.class.getSimpleName());
+                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, new PlanNodeId("test"), TpchQuery1Operator.class.getSimpleName());
                 return new TpchQuery1Operator(operatorContext);
             }
 
             @Override
             public void close()
             {
+            }
+
+            @Override
+            public OperatorFactory duplicate()
+            {
+                throw new UnsupportedOperationException();
             }
         }
 
@@ -161,7 +184,7 @@ public class HandTpchQuery1
 
         public TpchQuery1Operator(OperatorContext operatorContext)
         {
-            this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.pageBuilder = new PageBuilder(TYPES);
         }
 
@@ -198,7 +221,7 @@ public class HandTpchQuery1
         @Override
         public void addInput(Page page)
         {
-            checkNotNull(page, "page is null");
+            requireNonNull(page, "page is null");
             checkState(!pageBuilder.isFull(), "Output buffer is full");
             checkState(!finishing, "Operator is finished");
 
@@ -268,7 +291,7 @@ public class HandTpchQuery1
                         VARCHAR.appendTo(lineStatusBlock, position, pageBuilder.getBlockBuilder(1));
                     }
 
-                    long quantity = BIGINT.getLong(quantityBlock, position);
+                    double quantity = DOUBLE.getDouble(quantityBlock, position);
                     double extendedPrice = DOUBLE.getDouble(extendedPriceBlock, position);
                     double discount = DOUBLE.getDouble(discountBlock, position);
                     double tax = DOUBLE.getDouble(taxBlock, position);
@@ -282,7 +305,7 @@ public class HandTpchQuery1
                         pageBuilder.getBlockBuilder(2).appendNull();
                     }
                     else {
-                        BIGINT.writeLong(pageBuilder.getBlockBuilder(2), quantity);
+                        DOUBLE.writeDouble(pageBuilder.getBlockBuilder(2), quantity);
                     }
 
                     if (extendedPriceIsNull) {

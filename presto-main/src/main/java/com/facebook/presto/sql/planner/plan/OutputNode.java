@@ -18,10 +18,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class OutputNode
@@ -39,8 +42,8 @@ public class OutputNode
     {
         super(id);
 
-        Preconditions.checkNotNull(source, "source is null");
-        Preconditions.checkNotNull(columnNames, "columnNames is null");
+        requireNonNull(source, "source is null");
+        requireNonNull(columnNames, "columnNames is null");
         Preconditions.checkArgument(columnNames.size() == outputs.size(), "columnNames and assignments sizes don't match");
 
         this.source = source;
@@ -77,5 +80,11 @@ public class OutputNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitOutput(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new OutputNode(getId(), Iterables.getOnlyElement(newChildren), columnNames, outputs);
     }
 }

@@ -20,13 +20,17 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
 
+import java.util.OptionalDouble;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Math.min;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class StatementStats
 {
     private final String state;
+    private final boolean queued;
     private final boolean scheduled;
     private final int nodes;
     private final int totalSplits;
@@ -43,6 +47,7 @@ public class StatementStats
     @JsonCreator
     public StatementStats(
             @JsonProperty("state") String state,
+            @JsonProperty("queued") boolean queued,
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("nodes") int nodes,
             @JsonProperty("totalSplits") int totalSplits,
@@ -56,7 +61,8 @@ public class StatementStats
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("rootStage") StageStats rootStage)
     {
-        this.state = checkNotNull(state, "state is null");
+        this.state = requireNonNull(state, "state is null");
+        this.queued = queued;
         this.scheduled = scheduled;
         this.nodes = nodes;
         this.totalSplits = totalSplits;
@@ -76,6 +82,12 @@ public class StatementStats
     public String getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public boolean isQueued()
+    {
+        return queued;
     }
 
     @JsonProperty
@@ -151,11 +163,21 @@ public class StatementStats
         return rootStage;
     }
 
+    @JsonProperty
+    public OptionalDouble getProgressPercentage()
+    {
+        if (!scheduled || totalSplits == 0) {
+            return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(min(100, (completedSplits * 100.0) / totalSplits));
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("state", state)
+                .add("queued", queued)
                 .add("scheduled", scheduled)
                 .add("nodes", nodes)
                 .add("totalSplits", totalSplits)
@@ -179,6 +201,7 @@ public class StatementStats
     public static class Builder
     {
         private String state;
+        private boolean queued;
         private boolean scheduled;
         private int nodes;
         private int totalSplits;
@@ -196,13 +219,19 @@ public class StatementStats
 
         public Builder setState(String state)
         {
-            this.state = checkNotNull(state, "state is null");
+            this.state = requireNonNull(state, "state is null");
             return this;
         }
 
         public Builder setNodes(int nodes)
         {
             this.nodes = nodes;
+            return this;
+        }
+
+        public Builder setQueued(boolean queued)
+        {
+            this.queued = queued;
             return this;
         }
 
@@ -276,6 +305,7 @@ public class StatementStats
         {
             return new StatementStats(
                     state,
+                    queued,
                     scheduled,
                     nodes,
                     totalSplits,

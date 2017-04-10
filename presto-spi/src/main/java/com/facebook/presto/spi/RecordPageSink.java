@@ -19,9 +19,10 @@ import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class RecordPageSink
         implements ConnectorPageSink
@@ -34,34 +35,31 @@ public class RecordPageSink
     }
 
     @Override
-    public Collection<Slice> commit()
+    public CompletableFuture<Collection<Slice>> finish()
     {
-        return recordSink.commit();
+        return completedFuture(recordSink.commit());
     }
 
     @Override
-    public void rollback()
+    public void abort()
     {
         recordSink.rollback();
     }
 
     @Override
-    public void appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page)
     {
         Block[] blocks = page.getBlocks();
         List<Type> columnTypes = recordSink.getColumnTypes();
 
         for (int position = 0; position < page.getPositionCount(); position++) {
-            long sampleWeight = 1;
-            if (sampleWeightBlock != null) {
-                sampleWeight = BIGINT.getLong(sampleWeightBlock, position);
-            }
-            recordSink.beginRecord(sampleWeight);
+            recordSink.beginRecord();
             for (int i = 0; i < blocks.length; i++) {
                 writeField(position, blocks[i], columnTypes.get(i));
             }
             recordSink.finishRecord();
         }
+        return NOT_BLOCKED;
     }
 
     private void writeField(int position, Block block, Type type)

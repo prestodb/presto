@@ -13,25 +13,43 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.metadata.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Lists.newArrayList;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -44,37 +62,55 @@ public final class TestingOrcPredicate
     {
     }
 
-    public static OrcPredicate createOrcPredicate(ObjectInspector objectInspector, Iterable<?> expectedValues)
+    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values)
     {
-        if (!(objectInspector instanceof PrimitiveObjectInspector)) {
+        List<Object> expectedValues = newArrayList(values);
+        if (BOOLEAN.equals(type)) {
+            return new BooleanOrcPredicate(expectedValues);
+        }
+        if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
+            return new LongOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : ((Number) value).longValue())
+                            .collect(toList()));
+        }
+        if (TIMESTAMP.equals(type)) {
+            return new LongOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
+                            .collect(toList()));
+        }
+        if (DATE.equals(type)) {
+            return new DateOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
+                            .collect(toList()));
+        }
+        if (REAL.equals(type) || DOUBLE.equals(type)) {
+            return new DoubleOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : ((Number) value).doubleValue())
+                            .collect(toList()));
+        }
+        if (type instanceof VarbinaryType) {
+            // binary does not have stats
             return new BasicOrcPredicate<>(expectedValues, Object.class);
         }
-
-        PrimitiveObjectInspector primitiveObjectInspector = (PrimitiveObjectInspector) objectInspector;
-        PrimitiveCategory primitiveCategory = primitiveObjectInspector.getPrimitiveCategory();
-
-        switch (primitiveCategory) {
-            case BOOLEAN:
-                return new BooleanOrcPredicate(expectedValues);
-            case BYTE:
-            case SHORT:
-            case INT:
-            case LONG:
-            case TIMESTAMP:
-                return new LongOrcPredicate(expectedValues);
-            case DATE:
-                return new DateOrcPredicate(expectedValues);
-            case FLOAT:
-            case DOUBLE:
-                return new DoubleOrcPredicate(expectedValues);
-            case BINARY:
-                // binary does not have stats
-                return new BasicOrcPredicate<>(expectedValues, Object.class);
-            case STRING:
-                return new StringOrcPredicate(expectedValues);
-            default:
-                throw new IllegalArgumentException("Unsupported types " + primitiveCategory);
+        if (type instanceof VarcharType) {
+            return new StringOrcPredicate(expectedValues);
         }
+        if (type instanceof CharType) {
+            return new CharOrcPredicate(expectedValues);
+        }
+        if (type instanceof DecimalType) {
+            return new DecimalOrcPredicate(expectedValues);
+        }
+
+        String baseType = type.getTypeSignature().getBase();
+        if (ARRAY.equals(baseType) || MAP.equals(baseType) || ROW.equals(baseType)) {
+            return new BasicOrcPredicate<>(expectedValues, Object.class);
+        }
+        throw new IllegalArgumentException("Unsupported type " + type);
     }
 
     public static class BasicOrcPredicate<T>
@@ -197,17 +233,25 @@ public final class TestingOrcPredicate
             // statistics can be missing for any reason
             if (columnStatistics.getDoubleStatistics() != null) {
                 // verify min
-                if (!columnStatistics.getDoubleStatistics().getMin().equals(Ordering.natural().nullsLast().min(chunk))) {
+                if (Math.abs(columnStatistics.getDoubleStatistics().getMin() - Ordering.natural().nullsLast().min(chunk)) > 0.001) {
                     return false;
                 }
 
                 // verify max
-                if (!columnStatistics.getDoubleStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
+                if (Math.abs(columnStatistics.getDoubleStatistics().getMax() - Ordering.natural().nullsFirst().max(chunk)) > 0.001) {
                     return false;
                 }
-
             }
             return true;
+        }
+    }
+
+    private static class DecimalOrcPredicate
+            extends BasicOrcPredicate<SqlDecimal>
+    {
+        public DecimalOrcPredicate(Iterable<?> expectedValues)
+        {
+            super(expectedValues, SqlDecimal.class);
         }
     }
 
@@ -273,7 +317,7 @@ public final class TestingOrcPredicate
             List<Slice> slices = chunk.stream()
                     .filter(Objects::nonNull)
                     .map(Slices::utf8Slice)
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {
@@ -286,6 +330,51 @@ public final class TestingOrcPredicate
                 // verify max
                 Slice chunkMax = Ordering.natural().nullsFirst().max(slices);
                 if (columnStatistics.getStringStatistics().getMax().compareTo(chunkMax) < 0) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    public static class CharOrcPredicate
+            extends BasicOrcPredicate<String>
+    {
+        public CharOrcPredicate(Iterable<?> expectedValues)
+        {
+            super(expectedValues, String.class);
+        }
+
+        @Override
+        protected boolean chunkMatchesStats(List<String> chunk, ColumnStatistics columnStatistics)
+        {
+            assertNull(columnStatistics.getBooleanStatistics());
+            assertNull(columnStatistics.getIntegerStatistics());
+            assertNull(columnStatistics.getDoubleStatistics());
+            assertNull(columnStatistics.getDateStatistics());
+
+            // check basic statistics
+            if (!super.chunkMatchesStats(chunk, columnStatistics)) {
+                return false;
+            }
+
+            List<String> strings = chunk.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .collect(toList());
+
+            // statistics can be missing for any reason
+            if (columnStatistics.getStringStatistics() != null) {
+                // verify min
+                String chunkMin = Ordering.natural().nullsLast().min(strings);
+                if (columnStatistics.getStringStatistics().getMin().toStringUtf8().trim().compareTo(chunkMin) > 0) {
+                    return false;
+                }
+
+                // verify max
+                String chunkMax = Ordering.natural().nullsFirst().max(strings);
+                if (columnStatistics.getStringStatistics().getMax().toStringUtf8().trim().compareTo(chunkMax) < 0) {
                     return false;
                 }
             }

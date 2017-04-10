@@ -13,97 +13,43 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Map;
-
-import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Math.toIntExact;
 
-public class ArrayElementAtFunction
-        extends ParametricScalar
+@ScalarFunction("element_at")
+@Description("Get element of array at given index")
+public final class ArrayElementAtFunction
 {
-    public static final ArrayElementAtFunction ARRAY_ELEMENT_AT_FUNCTION = new ArrayElementAtFunction();
-    private static final String FUNCTION_NAME = "element_at";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array<E>", "bigint"), false, false);
-    private static final Map<Class<?>, MethodHandle> METHOD_HANDLES = ImmutableMap.<Class<?>, MethodHandle>builder()
-            .put(boolean.class, methodHandle(ArrayElementAtFunction.class, "booleanElementAt", Type.class, Block.class, long.class))
-            .put(long.class, methodHandle(ArrayElementAtFunction.class, "longElementAt", Type.class, Block.class, long.class))
-            .put(double.class, methodHandle(ArrayElementAtFunction.class, "doubleElementAt", Type.class, Block.class, long.class))
-            .put(Slice.class, methodHandle(ArrayElementAtFunction.class, "sliceElementAt", Type.class, Block.class, long.class))
-            .put(void.class, methodHandle(ArrayElementAtFunction.class, "voidElementAt", Type.class, Block.class, long.class))
-            .build();
-    private static final MethodHandle OBJECT_METHOD_HANDLE = methodHandle(ArrayElementAtFunction.class, "objectElementAt", Type.class, Block.class, long.class);
+    private ArrayElementAtFunction() {}
 
-    @Override
-    public Signature getSignature()
-    {
-        return SIGNATURE;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Get element of array at given index";
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        checkArgument(types.size() == 1, "Expected one type, got %s", types);
-        Type elementType = types.get("E");
-
-        MethodHandle methodHandle;
-        if (METHOD_HANDLES.containsKey(elementType.getJavaType())) {
-            methodHandle = METHOD_HANDLES.get(elementType.getJavaType());
-        }
-        else {
-            checkArgument(!elementType.getJavaType().isPrimitive(), "Unsupported primitive type: " + elementType.getJavaType());
-            methodHandle = OBJECT_METHOD_HANDLE;
-        }
-        checkNotNull(methodHandle, "methodHandle is null");
-        methodHandle = methodHandle.bindTo(elementType);
-        Signature signature = new Signature(FUNCTION_NAME, elementType.getTypeSignature(), parameterizedTypeName("array", elementType.getTypeSignature()), parseTypeSignature("bigint"));
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false, false));
-    }
-
-    public static void voidElementAt(Type elementType, Block array, long index)
+    @TypeParameter("E")
+    @SqlNullable
+    @SqlType("E")
+    public static Void voidElementAt(@SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
         checkedIndexToBlockPosition(array, index);
+        return null;
     }
 
-    public static Long longElementAt(Type elementType, Block array, long index)
+    @TypeParameter("E")
+    @SqlNullable
+    @SqlType("E")
+    public static Long longElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
         int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
@@ -111,9 +57,15 @@ public class ArrayElementAtFunction
         return elementType.getLong(array, position);
     }
 
-    public static Boolean booleanElementAt(Type elementType, Block array, long index)
+    @TypeParameter("E")
+    @SqlNullable
+    @SqlType("E")
+    public static Boolean booleanElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
         int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
@@ -121,9 +73,15 @@ public class ArrayElementAtFunction
         return elementType.getBoolean(array, position);
     }
 
-    public static Double doubleElementAt(Type elementType, Block array, long index)
+    @TypeParameter("E")
+    @SqlNullable
+    @SqlType("E")
+    public static Double doubleElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
         int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
@@ -131,9 +89,15 @@ public class ArrayElementAtFunction
         return elementType.getDouble(array, position);
     }
 
-    public static Slice sliceElementAt(Type elementType, Block array, long index)
+    @TypeParameter("E")
+    @SqlNullable
+    @SqlType("E")
+    public static Slice sliceElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
         int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
@@ -141,16 +105,25 @@ public class ArrayElementAtFunction
         return elementType.getSlice(array, position);
     }
 
-    public static Object objectElementAt(Type elementType, Block array, long index)
+    @TypeParameter("E")
+    @SqlNullable
+    @SqlType("E")
+    public static Block blockElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
         int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
 
-        return elementType.getObject(array, position);
+        return (Block) elementType.getObject(array, position);
     }
 
+    /**
+     * @return PrestoException if the index is 0, -1 if the index is out of range (to tell the calling function to return null), and the element position otherwise.
+     */
     private static int checkedIndexToBlockPosition(Block block, long index)
     {
         int arrayLength = block.getPositionCount();
@@ -158,14 +131,13 @@ public class ArrayElementAtFunction
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         }
         if (Math.abs(index) > arrayLength) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
+            return -1; // -1 indicates that the element is out of range and "ELEMENT_AT" should return null
         }
-
         if (index > 0) {
-            return Ints.checkedCast(index - 1);
+            return toIntExact(index - 1);
         }
         else {
-            return Ints.checkedCast(arrayLength + index);
+            return toIntExact(arrayLength + index);
         }
     }
 }

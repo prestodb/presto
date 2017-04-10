@@ -13,53 +13,66 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.ParametricOperator;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.FunctionInvoker;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
+import java.lang.invoke.MethodHandles;
 
-import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.type.TypeUtils.castValue;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.sql.relational.Signatures.castSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.String.format;
 
 public class MapSubscriptOperator
-        extends ParametricOperator
+        extends SqlOperator
 {
-    public static final MapSubscriptOperator MAP_SUBSCRIPT = new MapSubscriptOperator();
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, Object.class);
 
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, Object.class);
+    private final boolean legacyMissingKey;
 
-    protected MapSubscriptOperator()
+    public MapSubscriptOperator(boolean legacyMissingKey)
     {
-        super(SUBSCRIPT, ImmutableList.of(typeParameter("K"), typeParameter("V")), "V", ImmutableList.of("map<K,V>", "K"));
+        super(SUBSCRIPT,
+                ImmutableList.of(typeVariable("K"), typeVariable("V")),
+                ImmutableList.of(),
+                parseTypeSignature("V"),
+                ImmutableList.of(parseTypeSignature("map(K,V)"), parseTypeSignature("K")));
+        this.legacyMissingKey = legacyMissingKey;
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type keyType = types.get("K");
-        Type valueType = types.get("V");
+        Type keyType = boundVariables.getTypeVariable("K");
+        Type valueType = boundVariables.getTypeVariable("V");
 
-        MethodHandle keyEqualsMethod = functionRegistry.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType)).getMethodHandle();
+        MethodHandle keyEqualsMethod = functionRegistry.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(keyType, keyType))).getMethodHandle();
 
         MethodHandle methodHandle;
         if (keyType.getJavaType() == boolean.class) {
@@ -77,7 +90,9 @@ public class MapSubscriptOperator
         else {
             methodHandle = METHOD_HANDLE_OBJECT;
         }
-        methodHandle = methodHandle.bindTo(keyEqualsMethod).bindTo(keyType).bindTo(valueType);
+        methodHandle = MethodHandles.insertArguments(methodHandle, 0, legacyMissingKey);
+        FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
+        methodHandle = methodHandle.bindTo(functionInvoker).bindTo(keyEqualsMethod).bindTo(keyType).bindTo(valueType);
 
         // this casting is necessary because otherwise presto byte code generator will generate illegal byte code
         if (valueType.getJavaType() == void.class) {
@@ -87,92 +102,123 @@ public class MapSubscriptOperator
             methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
         }
 
-        Signature signature = new Signature(SUBSCRIPT.name(), valueType.getTypeSignature(), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()), keyType.getTypeSignature());
-        return new FunctionInfo(signature, "Map subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
+        return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), methodHandle, isDeterministic());
     }
 
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, boolean key)
+    @UsedByGeneratedCode
+    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, boolean key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getBoolean(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw throwMissingKeyException(keyType, functionInvoker, key, session);
     }
 
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, long key)
+    @UsedByGeneratedCode
+    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, long key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getLong(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw throwMissingKeyException(keyType, functionInvoker, key, session);
     }
 
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, double key)
+    @UsedByGeneratedCode
+    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, double key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getDouble(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw throwMissingKeyException(keyType, functionInvoker, key, session);
     }
 
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
+    @UsedByGeneratedCode
+    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, Slice key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getSlice(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw throwMissingKeyException(keyType, functionInvoker, key, session);
     }
 
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
+    @UsedByGeneratedCode
+    public static Object subscript(boolean legacyMissingKey, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getObject(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                if ((boolean) keyEqualsMethod.invoke(keyType.getObject(map, position), key)) {
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw throwMissingKeyException(keyType, functionInvoker, key, session);
+    }
+
+    private static RuntimeException throwMissingKeyException(Type type, FunctionInvoker functionInvoker, Object value, ConnectorSession session)
+    {
+        String stringValue;
+        try {
+            stringValue = ((Slice) functionInvoker.invoke(castSignature(VarcharType.VARCHAR, type), session, value)).toStringUtf8();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key not present in map");
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", stringValue));
     }
 }

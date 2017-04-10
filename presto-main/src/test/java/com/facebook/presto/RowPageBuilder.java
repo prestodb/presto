@@ -19,13 +19,12 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.List;
 
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RowPageBuilder
 {
@@ -46,7 +45,7 @@ public class RowPageBuilder
 
     RowPageBuilder(Iterable<Type> types)
     {
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         ImmutableList.Builder<BlockBuilder> builders = ImmutableList.builder();
         for (Type type : types) {
             builders.add(type.createBlockBuilder(new BlockBuilderStatus(), 1));
@@ -80,30 +79,10 @@ public class RowPageBuilder
         return new Page(blocks);
     }
 
-    private void append(int channel, Object value)
+    private void append(int channel, Object element)
     {
-        BlockBuilder builder = builders.get(channel);
-
+        BlockBuilder blockBuilder = builders.get(channel);
         Type type = types.get(channel);
-        Class<?> javaType = type.getJavaType();
-        if (value == null) {
-            builder.appendNull();
-        }
-        else if (javaType == boolean.class) {
-            type.writeBoolean(builder, (Boolean) value);
-        }
-        else if (javaType == long.class) {
-            type.writeLong(builder, ((Number) value).longValue());
-        }
-        else if (javaType == double.class) {
-            type.writeDouble(builder, (Double) value);
-        }
-        else if (javaType == Slice.class) {
-            Slice slice = value instanceof Slice ? (Slice) value : Slices.utf8Slice((String) value);
-            type.writeSlice(builder, slice, 0, slice.length());
-        }
-        else {
-            type.writeObject(builder, value);
-        }
+        appendToBlockBuilder(type, element, blockBuilder);
     }
 }

@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.kafka.decoder.KafkaFieldDecoder;
-import com.facebook.presto.kafka.decoder.KafkaRowDecoder;
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.FieldDecoder;
+import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -40,7 +42,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Kafka specific record set. Returns a cursor for a topic which iterates over a Kafka partition segment.
@@ -56,43 +58,43 @@ public class KafkaRecordSet
     private final KafkaSplit split;
     private final KafkaSimpleConsumerManager consumerManager;
 
-    private final KafkaRowDecoder keyDecoder;
-    private final KafkaRowDecoder messageDecoder;
-    private final Map<KafkaColumnHandle, KafkaFieldDecoder<?>> keyFieldDecoders;
-    private final Map<KafkaColumnHandle, KafkaFieldDecoder<?>> messageFieldDecoders;
+    private final RowDecoder keyDecoder;
+    private final RowDecoder messageDecoder;
+    private final Map<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoders;
+    private final Map<DecoderColumnHandle, FieldDecoder<?>> messageFieldDecoders;
 
-    private final List<KafkaColumnHandle> columnHandles;
+    private final List<DecoderColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
-    private final Set<KafkaFieldValueProvider> globalInternalFieldValueProviders;
+    private final Set<FieldValueProvider> globalInternalFieldValueProviders;
 
     KafkaRecordSet(KafkaSplit split,
             KafkaSimpleConsumerManager consumerManager,
-            List<KafkaColumnHandle> columnHandles,
-            KafkaRowDecoder keyDecoder,
-            KafkaRowDecoder messageDecoder,
-            Map<KafkaColumnHandle, KafkaFieldDecoder<?>> keyFieldDecoders,
-            Map<KafkaColumnHandle, KafkaFieldDecoder<?>> messageFieldDecoders)
+            List<DecoderColumnHandle> columnHandles,
+            RowDecoder keyDecoder,
+            RowDecoder messageDecoder,
+            Map<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoders,
+            Map<DecoderColumnHandle, FieldDecoder<?>> messageFieldDecoders)
     {
-        this.split = checkNotNull(split, "split is null");
+        this.split = requireNonNull(split, "split is null");
 
         this.globalInternalFieldValueProviders = ImmutableSet.of(
                 KafkaInternalFieldDescription.PARTITION_ID_FIELD.forLongValue(split.getPartitionId()),
                 KafkaInternalFieldDescription.SEGMENT_START_FIELD.forLongValue(split.getStart()),
                 KafkaInternalFieldDescription.SEGMENT_END_FIELD.forLongValue(split.getEnd()));
 
-        this.consumerManager = checkNotNull(consumerManager, "consumerManager is null");
+        this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
 
-        this.keyDecoder = checkNotNull(keyDecoder, "rowDecoder is null");
-        this.messageDecoder = checkNotNull(messageDecoder, "rowDecoder is null");
-        this.keyFieldDecoders = checkNotNull(keyFieldDecoders, "keyFieldDecoders is null");
-        this.messageFieldDecoders = checkNotNull(messageFieldDecoders, "messageFieldDecoders is null");
+        this.keyDecoder = requireNonNull(keyDecoder, "rowDecoder is null");
+        this.messageDecoder = requireNonNull(messageDecoder, "rowDecoder is null");
+        this.keyFieldDecoders = requireNonNull(keyFieldDecoders, "keyFieldDecoders is null");
+        this.messageFieldDecoders = requireNonNull(messageFieldDecoders, "messageFieldDecoders is null");
 
-        this.columnHandles = checkNotNull(columnHandles, "columnHandles is null");
+        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
 
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
 
-        for (KafkaColumnHandle handle : columnHandles) {
+        for (DecoderColumnHandle handle : columnHandles) {
             typeBuilder.add(handle.getType());
         }
 
@@ -120,7 +122,7 @@ public class KafkaRecordSet
         private Iterator<MessageAndOffset> messageAndOffsetIterator;
         private final AtomicBoolean reported = new AtomicBoolean();
 
-        private KafkaFieldValueProvider[] fieldValueProviders;
+        private FieldValueProvider[] fieldValueProviders;
 
         KafkaRecordCursor()
         {
@@ -207,7 +209,7 @@ public class KafkaRecordSet
                 message.get(messageData);
             }
 
-            Set<KafkaFieldValueProvider> fieldValueProviders = new HashSet<>();
+            Set<FieldValueProvider> fieldValueProviders = new HashSet<>();
 
             fieldValueProviders.addAll(globalInternalFieldValueProviders);
             fieldValueProviders.add(KafkaInternalFieldDescription.SEGMENT_COUNT_FIELD.forLongValue(totalMessages));
@@ -216,17 +218,17 @@ public class KafkaRecordSet
             fieldValueProviders.add(KafkaInternalFieldDescription.MESSAGE_LENGTH_FIELD.forLongValue(messageData.length));
             fieldValueProviders.add(KafkaInternalFieldDescription.KEY_FIELD.forByteValue(keyData));
             fieldValueProviders.add(KafkaInternalFieldDescription.KEY_LENGTH_FIELD.forLongValue(keyData.length));
-            fieldValueProviders.add(KafkaInternalFieldDescription.KEY_CORRUPT_FIELD.forBooleanValue(keyDecoder.decodeRow(keyData, fieldValueProviders, columnHandles, keyFieldDecoders)));
-            fieldValueProviders.add(KafkaInternalFieldDescription.MESSAGE_CORRUPT_FIELD.forBooleanValue(messageDecoder.decodeRow(messageData, fieldValueProviders, columnHandles, messageFieldDecoders)));
+            fieldValueProviders.add(KafkaInternalFieldDescription.KEY_CORRUPT_FIELD.forBooleanValue(keyDecoder.decodeRow(keyData, null, fieldValueProviders, columnHandles, keyFieldDecoders)));
+            fieldValueProviders.add(KafkaInternalFieldDescription.MESSAGE_CORRUPT_FIELD.forBooleanValue(messageDecoder.decodeRow(messageData, null, fieldValueProviders, columnHandles, messageFieldDecoders)));
 
-            this.fieldValueProviders = new KafkaFieldValueProvider[columnHandles.size()];
+            this.fieldValueProviders = new FieldValueProvider[columnHandles.size()];
 
             // If a value provider for a requested internal column is present, assign the
             // value to the internal cache. It is possible that an internal column is present
             // where no value provider exists (e.g. the '_corrupt' column with the DummyRowDecoder).
             // In that case, the cache is null (and the column is reported as null).
             for (int i = 0; i < columnHandles.size(); i++) {
-                for (KafkaFieldValueProvider fieldValueProvider : fieldValueProviders) {
+                for (FieldValueProvider fieldValueProvider : fieldValueProviders) {
                     if (fieldValueProvider.accept(columnHandles.get(i))) {
                         this.fieldValueProviders[i] = fieldValueProvider;
                         break; // for(InternalColumnProvider...
@@ -310,7 +312,7 @@ public class KafkaRecordSet
 
                 // TODO - this should look at the actual node this is running on and prefer
                 // that copy if running locally. - look into NodeInfo
-                SimpleConsumer consumer = consumerManager.getConsumer(split.getNodes().get(0));
+                SimpleConsumer consumer = consumerManager.getConsumer(split.getLeader());
 
                 FetchResponse fetchResponse = consumer.fetch(req);
                 if (fetchResponse.hasError()) {

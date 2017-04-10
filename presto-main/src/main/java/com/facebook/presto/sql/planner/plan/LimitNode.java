@@ -16,12 +16,15 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class LimitNode
@@ -29,14 +32,20 @@ public class LimitNode
 {
     private final PlanNode source;
     private final long count;
+    private final boolean partial;
 
     @JsonCreator
-    public LimitNode(@JsonProperty("id") PlanNodeId id, @JsonProperty("source") PlanNode source, @JsonProperty("count") long count)
+    public LimitNode(
+            @JsonProperty("id") PlanNodeId id,
+            @JsonProperty("source") PlanNode source,
+            @JsonProperty("count") long count,
+            @JsonProperty("partial") boolean partial)
     {
         super(id);
+        this.partial = partial;
 
-        Preconditions.checkNotNull(source, "source is null");
-        Preconditions.checkArgument(count >= 0, "count must be greater than or equal to zero");
+        requireNonNull(source, "source is null");
+        checkArgument(count >= 0, "count must be greater than or equal to zero");
 
         this.source = source;
         this.count = count;
@@ -48,16 +57,22 @@ public class LimitNode
         return ImmutableList.of(source);
     }
 
-    @JsonProperty("source")
+    @JsonProperty
     public PlanNode getSource()
     {
         return source;
     }
 
-    @JsonProperty("count")
+    @JsonProperty
     public long getCount()
     {
         return count;
+    }
+
+    @JsonProperty
+    public boolean isPartial()
+    {
+        return partial;
     }
 
     @Override
@@ -70,5 +85,11 @@ public class LimitNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitLimit(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new LimitNode(getId(), Iterables.getOnlyElement(newChildren), count, isPartial());
     }
 }

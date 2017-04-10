@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <meta name="description" content="Query Details - Presto">
+    <title>Live Plan - Presto</title>
+
+    <link rel="icon" href="assets/favicon.ico">
+
+    <!-- Bootstrap core -->
+    <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- React (comment out for development)-->
+    <script src="vendor/react/react-15.0.1.min.js"></script>
+    <script src="vendor/react/react-dom-15.0.1.min.js"></script>
+    <script src="vendor/react/react-dom-server-15.0.1.min.js"></script>
+
+    <!-- React (uncomment for development)-->
+    <!--
+    <script src="vendor/react/react-15.0.1.js"></script>
+    <script src="vendor/react/react-dom-15.0.1.js"></script>
+    <script src="vendor/react/react-dom-server-15.0.1.js"></script>
+    -->
+
+    <!-- jQuery -->
+    <script type="text/javascript" src="vendor/jquery/jquery-2.2.3.min.js"></script>
+
+    <!-- Bootstrap JS -->
+    <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
+
+    <!-- Sparkline -->
+    <script type="text/javascript" src="vendor/jquery.sparkline/jquery.sparkline.min.js"></script>
+
+    <!-- Reactable -->
+    <script type="text/javascript" src="vendor/reactable/reactable.js"></script>
+
+    <!-- Code highlighting -->
+    <link rel="stylesheet" href="vendor/highlightjs/9.3/styles/solarized-dark.css">
+    <script src="vendor/highlightjs/9.3/highlight.pack.js"></script>
+
+    <!-- CSS loader -->
+    <link href="vendor/css-loaders/loader.css" rel="stylesheet">
+
+    <!-- DagreD3 -->
+    <script src="vendor/d3/d3-3.3.4.js"></script>
+    <script src="vendor/dagre-d3/dagre-d3-0.4.14.js"></script>
+
+    <!-- Custom CSS -->
+    <link href="assets/presto.css" rel="stylesheet">
+
+    <!-- Custom JS -->
+    <script type="text/javascript" src="assets/utils.js"></script>
+</head>
+
+<body>
+
+<div class="container">
+    <nav class="navbar">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <table>
+                    <tr>
+                        <td>
+                            <a href="/"><img src="assets/logo.png"/></a>
+                        </td>
+                        <td>
+                            <span class="navbar-brand">
+                                Query
+                                <span id="page-subtitle">
+                                    Live Plan
+                                </span>
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <span class="navbar-cluster-info">
+                            Version <br/>
+                            <span class="text" id="version-number">...</span>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="navbar-cluster-info">
+                            Environment <br/>
+                            <span class="text" id="environment">...</span>
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div id="live-plan-header">
+        <div class="loader">Loading...</div>
+    </div>
+    <div id="live-plan" class="graph-container">
+        <svg id="plan-canvas"></svg>
+    </div>
+</div> <!-- /container -->
+
+
+<script type="text/javascript">
+    $.get("/v1/info", function (info) {
+        $('#version-number').text(info.nodeVersion.version);
+        $('#environment').text(info.environment);
+    });
+</script>
+
+<script src="vendor/react/browser.min.js"></script>
+<script type="text/babel" src="assets/plan.js"></script>
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700" rel="stylesheet">
+
+</body>
+</html>

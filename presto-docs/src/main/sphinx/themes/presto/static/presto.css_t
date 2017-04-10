@@ -78,12 +78,20 @@ h4 {
     font-size: 1.2em;
 }
 
+p {
+    text-align: left;
+}
+
 div.content {
     font-size: 1.0em;
 }
 
 div.content ul > li {
     background-image: url(bullet.png);
+}
+
+div.topic {
+    border: none;
 }
 
 div.admonition {
@@ -95,20 +103,25 @@ div.note {
     background-color: #f5f5ff
 }
 
-tt {
+tt, code {
     font-family: Consolas, 'Liberation Mono', Courier, monospace;
     font-size: 0.9em;
 }
 
-tt.descname {
+tt.descname, code.descname {
     font-size: 1.1em;
 }
 
-tt.docutils.literal {
+tt.docutils.literal, code.docutils.literal {
     margin: 0 2px;
     padding: 0 5px;
     border: 1px solid #ddd;
     background-color: #f8f8f8;
     border-radius: 3px;
     white-space: nowrap;
+}
+
+/* hide children of Release Notes */
+div.toctree-wrapper > ul > li:last-child > ul {
+    display: none;
 }

@@ -15,13 +15,8 @@ package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-
-import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 
 public final class SqlDate
 {
@@ -60,8 +55,6 @@ public final class SqlDate
     @Override
     public String toString()
     {
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-        format.setTimeZone(getTimeZoneForKey(UTC_KEY));
-        return format.format(new Date(TimeUnit.DAYS.toMillis(days)));
+        return LocalDate.ofEpochDay(days).toString();
     }
 }

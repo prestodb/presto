@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.block.PagesSerde;
 import com.facebook.presto.client.PrestoHeaders;
-import com.facebook.presto.execution.BufferResult;
+import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerdeUtil;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -27,6 +26,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
+import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
@@ -41,16 +41,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class MockExchangeRequestProcessor
-        implements Function<Request, Response>
+        implements TestingHttpClient.Processor
 {
+    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+
     private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(new CacheLoader<URI, MockBuffer>()
     {
         @Override
@@ -78,10 +84,11 @@ public class MockExchangeRequestProcessor
     }
 
     @Override
-    public Response apply(Request request)
+    public Response handle(Request request)
+            throws Exception
     {
         if (request.getMethod().equalsIgnoreCase("DELETE")) {
-            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]);
+            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]);
         }
 
         // verify we got a data size and it parses correctly
@@ -93,18 +100,14 @@ public class MockExchangeRequestProcessor
         URI location = requestLocation.getLocation();
 
         BufferResult result = buffers.getUnchecked(location).getPages(requestLocation.getSequenceId(), maxSize);
-        List<Page> pages = result.getPages();
 
         byte[] bytes = new byte[0];
         HttpStatus status;
-        if (!pages.isEmpty()) {
+        if (!result.getSerializedPages().isEmpty()) {
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(64);
-            PagesSerde.writePages(new BlockEncodingManager(new TypeRegistry()), sliceOutput, pages);
+            PagesSerdeUtil.writeSerializedPages(sliceOutput, result.getSerializedPages());
             bytes = sliceOutput.slice().getBytes();
             status = HttpStatus.OK;
-        }
-        else if (result.isBufferClosed()) {
-            status = HttpStatus.GONE;
         }
         else {
             status = HttpStatus.NO_CONTENT;
@@ -114,8 +117,10 @@ public class MockExchangeRequestProcessor
                 status,
                 ImmutableListMultimap.of(
                         CONTENT_TYPE, PRESTO_PAGES,
+                        PRESTO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()),
                         PRESTO_PAGE_TOKEN, String.valueOf(result.getToken()),
-                        PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken())
+                        PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
+                        PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())
                 ),
                 bytes);
     }
@@ -149,7 +154,7 @@ public class MockExchangeRequestProcessor
         private final URI location;
         private final AtomicBoolean completed = new AtomicBoolean();
         private final AtomicLong token = new AtomicLong();
-        private final BlockingQueue<Page> pages = new LinkedBlockingQueue<>();
+        private final BlockingQueue<SerializedPage> serializedPages = new LinkedBlockingQueue<>();
 
         private MockBuffer(URI location)
         {
@@ -164,49 +169,49 @@ public class MockExchangeRequestProcessor
         public synchronized void addPage(Page page)
         {
             checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
-            pages.add(page);
+            serializedPages.add(PAGES_SERDE.serialize(page));
         }
 
         public BufferResult getPages(long sequenceId, DataSize maxSize)
         {
             // if location is complete return GONE
-            if (completed.get() && pages.isEmpty()) {
-                return BufferResult.emptyResults(token.get(), true);
+            if (completed.get() && serializedPages.isEmpty()) {
+                return BufferResult.emptyResults(TASK_INSTANCE_ID, token.get(), true);
             }
 
             assertEquals(sequenceId, token.get(), "token");
 
             // wait for a single page to arrive
-            Page page = null;
+            SerializedPage serializedPage = null;
             try {
-                page = pages.poll(10, TimeUnit.MILLISECONDS);
+                serializedPage = serializedPages.poll(10, TimeUnit.MILLISECONDS);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
 
             // if no page, return NO CONTENT
-            if (page == null) {
-                return BufferResult.emptyResults(token.get(), false);
+            if (serializedPage == null) {
+                return BufferResult.emptyResults(TASK_INSTANCE_ID, token.get(), false);
             }
 
-            // add pages up to the size limit
-            List<Page> responsePages = new ArrayList<>();
-            responsePages.add(page);
-            long responseSize = page.getSizeInBytes();
+            // add serializedPages up to the size limit
+            List<SerializedPage> responsePages = new ArrayList<>();
+            responsePages.add(serializedPage);
+            long responseSize = serializedPage.getSizeInBytes();
             while (responseSize < maxSize.toBytes()) {
-                page = pages.poll();
-                if (page == null) {
+                serializedPage = serializedPages.poll();
+                if (serializedPage == null) {
                     break;
                 }
-                responsePages.add(page);
-                responseSize += page.getSizeInBytes();
+                responsePages.add(serializedPage);
+                responseSize += serializedPage.getSizeInBytes();
             }
 
             // update sequence id
             long nextToken = token.get() + responsePages.size();
 
-            BufferResult bufferResult = new BufferResult(token.get(), nextToken, false, responsePages);
+            BufferResult bufferResult = new BufferResult(TASK_INSTANCE_ID, token.get(), nextToken, false, responsePages);
             token.set(nextToken);
 
             return bufferResult;

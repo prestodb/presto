@@ -37,10 +37,10 @@ public abstract class AbstractArrayElementBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         checkReadablePosition(position);
-        return getBlock().getLength(position + start);
+        return getBlock().getSliceLength(position + start);
     }
 
     @Override
@@ -69,20 +69,6 @@ public abstract class AbstractArrayElementBlock
     {
         checkReadablePosition(position);
         return getBlock().getLong(position + start, offset);
-    }
-
-    @Override
-    public float getFloat(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getBlock().getFloat(position + start, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getBlock().getDouble(position + start, offset);
     }
 
     @Override
@@ -135,7 +121,7 @@ public abstract class AbstractArrayElementBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         checkReadablePosition(position);
         return getBlock().hash(position + start, offset, length);
@@ -151,7 +137,8 @@ public abstract class AbstractArrayElementBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return getBlock().getSingleValueBlock(position + start);
     }
 
     @Override
@@ -159,11 +146,6 @@ public abstract class AbstractArrayElementBlock
     {
         checkReadablePosition(position);
         return getBlock().isNull(position + start);
-    }
-
-    @Override
-    public void assureLoaded()
-    {
     }
 
     @Override
@@ -186,14 +168,14 @@ public abstract class AbstractArrayElementBlock
     }
 
     @Override
-    public Block copyRegion(int position, int length)
+    public int getRegionSizeInBytes(int position, int length)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public Block copyRegion(int position, int length)
     {
-        return getBlock().getRetainedSizeInBytes();
+        throw new UnsupportedOperationException();
     }
 }

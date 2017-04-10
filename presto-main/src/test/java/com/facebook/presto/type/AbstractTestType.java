@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -33,6 +31,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
+import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
@@ -40,9 +39,11 @@ import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Collections.unmodifiableSortedMap;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -63,11 +64,11 @@ public abstract class AbstractTestType
 
     protected AbstractTestType(Type type, Class<?> objectValueType, Block testBlock, Block expectedValues)
     {
-        this.type = checkNotNull(type, "type is null");
-        this.objectValueType = checkNotNull(objectValueType, "objectValueType is null");
-        this.testBlock = checkNotNull(testBlock, "testBlock is null");
+        this.type = requireNonNull(type, "type is null");
+        this.objectValueType = requireNonNull(objectValueType, "objectValueType is null");
+        this.testBlock = requireNonNull(testBlock, "testBlock is null");
 
-        checkNotNull(expectedValues, "expectedValues is null");
+        requireNonNull(expectedValues, "expectedValues is null");
         this.expectedStackValues = indexStackValues(type, expectedValues);
         this.expectedObjectValues = indexObjectValues(type, expectedValues);
         this.testBlockWithNulls = createAlternatingNullsBlock(testBlock);
@@ -115,7 +116,7 @@ public abstract class AbstractTestType
 
     protected void assertPositionEquals(Block block, int position, Object expectedStackValue, Object expectedObjectValue)
     {
-        int hash = 0;
+        long hash = 0;
         if (type.isComparable()) {
             hash = hashPosition(type, block, position);
         }
@@ -130,7 +131,7 @@ public abstract class AbstractTestType
         assertPositionValue(blockBuilder.build(), 0, expectedStackValue, hash, expectedObjectValue);
     }
 
-    private void assertPositionValue(Block block, int position, Object expectedStackValue, int expectedHash, Object expectedObjectValue)
+    private void assertPositionValue(Block block, int position, Object expectedStackValue, long expectedHash, Object expectedObjectValue)
     {
         Object objectValue = type.getObjectValue(SESSION, block, position);
         assertEquals(objectValue, expectedObjectValue);
@@ -488,7 +489,7 @@ public abstract class AbstractTestType
             ArrayType arrayType = (ArrayType) type;
             Type elementType = arrayType.getElementType();
             Object elementNonNullValue = getNonNullValueForType(elementType);
-            return ArrayType.toStackRepresentation(ImmutableList.of(elementNonNullValue), elementType);
+            return arrayBlockOf(elementType, elementNonNullValue);
         }
         if (type instanceof MapType) {
             MapType mapType = (MapType) type;
@@ -497,13 +498,13 @@ public abstract class AbstractTestType
             Object keyNonNullValue = getNonNullValueForType(keyType);
             Object valueNonNullValue = getNonNullValueForType(valueType);
             Map map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
-            return MapType.toStackRepresentation(map, keyType, valueType);
+            return mapBlockOf(keyType, valueType, map);
         }
         if (type instanceof RowType) {
             RowType rowType = (RowType) type;
             List<Type> elementTypes = rowType.getTypeParameters();
             Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
-            return TestingRowConstructor.toStackRepresentation(elementTypes, elementNonNullValues);
+            return toRow(elementTypes, elementNonNullValues);
         }
         throw new IllegalStateException("Unsupported Java type " + type.getJavaType() + " (for type " + type + ")");
     }

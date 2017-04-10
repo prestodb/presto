@@ -17,6 +17,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class CoalesceExpression
         extends Expression
@@ -25,12 +29,23 @@ public class CoalesceExpression
 
     public CoalesceExpression(Expression... operands)
     {
-        this(ImmutableList.copyOf(operands));
+        this(Optional.empty(), ImmutableList.copyOf(operands));
     }
 
     public CoalesceExpression(List<Expression> operands)
     {
-        Preconditions.checkNotNull(operands, "operands is null");
+        this(Optional.empty(), operands);
+    }
+
+    public CoalesceExpression(NodeLocation location, List<Expression> operands)
+    {
+        this(Optional.of(location), operands);
+    }
+
+    private CoalesceExpression(Optional<NodeLocation> location, List<Expression> operands)
+    {
+        super(location);
+        requireNonNull(operands, "operands is null");
         Preconditions.checkArgument(!operands.isEmpty(), "operands is empty");
 
         this.operands = ImmutableList.copyOf(operands);
@@ -48,6 +63,12 @@ public class CoalesceExpression
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return operands;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -58,12 +79,7 @@ public class CoalesceExpression
         }
 
         CoalesceExpression that = (CoalesceExpression) o;
-
-        if (!operands.equals(that.operands)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(operands, that.operands);
     }
 
     @Override

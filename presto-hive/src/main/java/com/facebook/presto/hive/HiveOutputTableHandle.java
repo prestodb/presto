@@ -13,86 +13,64 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveOutputTableHandle
+        extends HiveWritableTableHandle
         implements ConnectorOutputTableHandle
 {
-    private final String clientId;
-    private final String schemaName;
-    private final String tableName;
-    private final List<String> columnNames;
-    private final List<Type> columnTypes;
+    private final List<String> partitionedBy;
     private final String tableOwner;
-    private final String targetPath;
-    private final String temporaryPath;
-    private final HiveStorageFormat hiveStorageFormat;
+    private final Map<String, String> additionalTableParameters;
 
     @JsonCreator
     public HiveOutputTableHandle(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("columnTypes") List<Type> columnTypes,
+            @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
+            @JsonProperty("filePrefix") String filePrefix,
+            @JsonProperty("pageSinkMetadata") HivePageSinkMetadata pageSinkMetadata,
+            @JsonProperty("locationHandle") LocationHandle locationHandle,
+            @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
+            @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
+            @JsonProperty("partitionedBy") List<String> partitionedBy,
+            @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("tableOwner") String tableOwner,
-            @JsonProperty("targetPath") String targetPath,
-            @JsonProperty("temporaryPath") String temporaryPath,
-            @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat)
+            @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters)
     {
-        this.clientId = checkNotNull(clientId, "clientId is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.tableOwner = checkNotNull(tableOwner, "tableOwner is null");
-        this.targetPath = checkNotNull(targetPath, "targetPath is null");
-        this.temporaryPath = checkNotNull(temporaryPath, "temporaryPath is null");
-        this.hiveStorageFormat = checkNotNull(hiveStorageFormat, "hiveStorageFormat is null");
+        super(
+                clientId,
+                schemaName,
+                tableName,
+                inputColumns,
+                filePrefix,
+                pageSinkMetadata,
+                locationHandle,
+                bucketProperty,
+                tableStorageFormat,
+                partitionStorageFormat);
 
-        checkNotNull(columnNames, "columnNames is null");
-        checkNotNull(columnTypes, "columnTypes is null");
-        checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
-        this.columnNames = ImmutableList.copyOf(columnNames);
-        this.columnTypes = ImmutableList.copyOf(columnTypes);
-
+        this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
+        this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
+        this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
     }
 
     @JsonProperty
-    public String getClientId()
+    public List<String> getPartitionedBy()
     {
-        return clientId;
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public List<String> getColumnNames()
-    {
-        return columnNames;
-    }
-
-    @JsonProperty
-    public List<Type> getColumnTypes()
-    {
-        return columnTypes;
+        return partitionedBy;
     }
 
     @JsonProperty
@@ -102,31 +80,8 @@ public class HiveOutputTableHandle
     }
 
     @JsonProperty
-    public String getTargetPath()
+    public Map<String, String> getAdditionalTableParameters()
     {
-        return targetPath;
-    }
-
-    @JsonProperty
-    public String getTemporaryPath()
-    {
-        return temporaryPath;
-    }
-
-    @JsonProperty
-    public HiveStorageFormat getHiveStorageFormat()
-    {
-        return hiveStorageFormat;
-    }
-
-    @Override
-    public String toString()
-    {
-        return "hive:" + schemaName + "." + tableName;
-    }
-
-    public boolean hasTemporaryPath()
-    {
-        return !temporaryPath.equals(targetPath);
+        return additionalTableParameters;
     }
 }

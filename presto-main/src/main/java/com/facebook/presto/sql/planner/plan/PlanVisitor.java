@@ -70,6 +70,11 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitExplainAnalyze(ExplainAnalyzeNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitValues(ValuesNode node, C context)
     {
         return visitPlan(node, context);
@@ -115,12 +120,27 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitTableCommit(TableCommitNode node, C context)
+    public R visitMetadataDelete(MetadataDeleteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableFinish(TableFinishNode node, C context)
     {
         return visitPlan(node, context);
     }
 
     public R visitUnion(UnionNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitIntersect(IntersectNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitExcept(ExceptNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -131,6 +151,11 @@ public class PlanVisitor<C, R>
     }
 
     public R visitMarkDistinct(MarkDistinctNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitGroupId(GroupIdNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -146,6 +171,21 @@ public class PlanVisitor<C, R>
     }
 
     public R visitExchange(ExchangeNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitEnforceSingleRow(EnforceSingleRowNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitApply(ApplyNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitAssignUniqueId(AssignUniqueId node, C context)
     {
         return visitPlan(node, context);
     }

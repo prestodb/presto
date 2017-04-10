@@ -20,6 +20,16 @@ import java.util.Set;
 
 public interface ResultsSession<T>
 {
+    default void setUpdateType(String type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void setUpdateCount(long count)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     void addResults(QueryResults result);
 
     T build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties);

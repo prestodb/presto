@@ -13,24 +13,25 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
-public class WindowFunctionValidator
+class WindowFunctionValidator
         extends DefaultExpressionTraversalVisitor<Void, Analysis>
 {
     @Override
     protected Void visitFunctionCall(FunctionCall functionCall, Analysis analysis)
     {
-        checkNotNull(analysis, "analysis is null");
+        requireNonNull(analysis, "analysis is null");
 
-        FunctionInfo functionInfo = analysis.getFunctionInfo(functionCall);
-        if (functionInfo != null && functionInfo.isWindow() && !functionInfo.isAggregate() && !functionCall.getWindow().isPresent()) {
-            throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", functionInfo.getName());
+        Signature signature = analysis.getFunctionSignature(functionCall);
+        if (signature != null && signature.getKind() == WINDOW && !functionCall.getWindow().isPresent()) {
+            throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", signature.getName());
         }
         return super.visitFunctionCall(functionCall, analysis);
     }

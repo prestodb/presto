@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.Scope;
-import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.byteCode.control.IfStatement;
-import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.facebook.presto.byteCode.instruction.VariableInstruction;
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.bytecode.instruction.VariableInstruction;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -32,14 +31,14 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 
 public class SwitchCodeGenerator
-        implements ByteCodeGenerator
+        implements BytecodeGenerator
 {
     @Override
-    public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
         // TODO: compile as
         /*
@@ -75,14 +74,14 @@ public class SwitchCodeGenerator
 
         // process value, else, and all when clauses
         RowExpression value = arguments.get(0);
-        ByteCodeNode valueBytecode = generatorContext.generate(value);
-        ByteCodeNode elseValue;
+        BytecodeNode valueBytecode = generatorContext.generate(value);
+        BytecodeNode elseValue;
 
         List<RowExpression> whenClauses;
         RowExpression last = arguments.get(arguments.size() - 1);
         if (last instanceof CallExpression && ((CallExpression) last).getSignature().getName().equals("WHEN")) {
             whenClauses = arguments.subList(1, arguments.size());
-            elseValue = new Block()
+            elseValue = new BytecodeBlock()
                     .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());
         }
@@ -97,15 +96,15 @@ public class SwitchCodeGenerator
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");
         Variable tempVariable = scope.createTempVariable(valueType);
-        Block block = new Block()
+        BytecodeBlock block = new BytecodeBlock()
                 .append(valueBytecode)
-                .append(ByteCodeUtils.ifWasNullClearPopAndGoto(scope, nullValue, void.class, valueType))
+                .append(BytecodeUtils.ifWasNullClearPopAndGoto(scope, nullValue, void.class, valueType))
                 .putVariable(tempVariable);
 
-        ByteCodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable);
+        BytecodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable);
 
         // build the statements
-        elseValue = new Block().visitLabel(nullValue).append(elseValue);
+        elseValue = new BytecodeBlock().visitLabel(nullValue).append(elseValue);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (RowExpression clause : Lists.reverse(whenClauses)) {
             Preconditions.checkArgument(clause instanceof CallExpression && ((CallExpression) clause).getSignature().getName().equals("WHEN"));
@@ -114,18 +113,19 @@ public class SwitchCodeGenerator
             RowExpression result = ((CallExpression) clause).getArguments().get(1);
 
             // call equals(value, operand)
-            FunctionInfo equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
+            Signature equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
 
             // TODO: what if operand is null? It seems that the call will return "null" (which is cleared below)
             // and the code only does the right thing because the value in the stack for that scenario is
             // Java's default for boolean == false
             // This code should probably be checking for wasNull after the call and "failing" the equality
             // check if wasNull is true
-            ByteCodeNode equalsCall = generatorContext.generateCall(
-                    equalsFunction,
+            BytecodeNode equalsCall = generatorContext.generateCall(
+                    equalsFunction.getName(),
+                    generatorContext.getRegistry().getScalarFunctionImplementation(equalsFunction),
                     ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
 
-            Block condition = new Block()
+            BytecodeBlock condition = new BytecodeBlock()
                     .append(equalsCall)
                     .append(generatorContext.wasNull().set(constantFalse()));
 

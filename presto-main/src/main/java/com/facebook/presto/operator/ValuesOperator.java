@@ -15,14 +15,15 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class ValuesOperator
         implements Operator
@@ -31,15 +32,17 @@ public class ValuesOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> types;
         private final List<Page> pages;
         private boolean closed;
 
-        public ValuesOperatorFactory(int operatorId, List<Type> types, List<Page> pages)
+        public ValuesOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types, List<Page> pages)
         {
             this.operatorId = operatorId;
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-            this.pages = ImmutableList.copyOf(checkNotNull(pages, "pages is null"));
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
         }
 
         @Override
@@ -52,7 +55,7 @@ public class ValuesOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ValuesOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ValuesOperator.class.getSimpleName());
             return new ValuesOperator(operatorContext, types, pages);
         }
 
@@ -60,6 +63,12 @@ public class ValuesOperator
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new ValuesOperatorFactory(operatorId, planNodeId, types, pages);
         }
     }
 
@@ -69,10 +78,10 @@ public class ValuesOperator
 
     public ValuesOperator(OperatorContext operatorContext, List<Type> types, List<Page> pages)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
-        checkNotNull(pages, "pages is null");
+        requireNonNull(pages, "pages is null");
 
         this.pages = ImmutableList.copyOf(pages).iterator();
     }

@@ -17,15 +17,14 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-@Test
+@Test(groups = "hive")
 public class TestHiveClient
         extends AbstractTestHiveClient
 {
     @Parameters({"hive.cdh4.metastoreHost", "hive.cdh4.metastorePort", "hive.cdh4.databaseName", "hive.cdh4.timeZone"})
     @BeforeClass
-    @Override
-    public void setup(String host, int port, String databaseName, String timeZone)
+    public void initialize(String host, int port, String databaseName, String timeZone)
     {
-        super.setup(host, port, databaseName, timeZone);
+        setup(host, port, databaseName, timeZone);
     }
 }

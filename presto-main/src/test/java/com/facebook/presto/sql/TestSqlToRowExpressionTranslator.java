@@ -17,33 +17,34 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import org.testng.annotations.Test;
 
-import java.util.IdentityHashMap;
-
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestSqlToRowExpressionTranslator
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final FunctionRegistry FUNCTION_REGISTRY = new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), true);
-
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
     {
+        TypeManager typeManager = new TypeRegistry();
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+
         Expression expression = new LongLiteral("1");
-        IdentityHashMap<Expression, Type> types = new IdentityHashMap<>();
+        IdentityLinkedHashMap<Expression, Type> types = new IdentityLinkedHashMap<>();
         types.put(expression, BIGINT);
         for (int i = 0; i < 100; i++) {
             expression = new CoalesceExpression(expression);
             types.put(expression, BIGINT);
         }
-        SqlToRowExpressionTranslator.translate(expression, types,  FUNCTION_REGISTRY, TYPE_MANAGER, TEST_SESSION, true);
+        SqlToRowExpressionTranslator.translate(expression, SCALAR, types, functionRegistry, typeManager, TEST_SESSION, true);
     }
 }

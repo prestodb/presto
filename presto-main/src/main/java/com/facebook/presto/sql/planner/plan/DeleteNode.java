@@ -18,12 +18,13 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class DeleteNode
@@ -44,10 +45,10 @@ public class DeleteNode
     {
         super(id);
 
-        this.source = checkNotNull(source, "source is null");
-        this.target = checkNotNull(target, "target is null");
-        this.rowId = checkNotNull(rowId, "rowId is null");
-        this.outputs = ImmutableList.copyOf(checkNotNull(outputs, "outputs is null"));
+        this.source = requireNonNull(source, "source is null");
+        this.target = requireNonNull(target, "target is null");
+        this.rowId = requireNonNull(rowId, "rowId is null");
+        this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
     }
 
     @JsonProperty
@@ -85,5 +86,11 @@ public class DeleteNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitDelete(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new DeleteNode(getId(), Iterables.getOnlyElement(newChildren), target, rowId, outputs);
     }
 }

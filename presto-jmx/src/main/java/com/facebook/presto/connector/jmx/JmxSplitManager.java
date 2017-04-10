@@ -14,25 +14,28 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
+import javax.inject.Inject;
 
-import static com.facebook.presto.connector.jmx.Types.checkType;
-import static com.facebook.presto.spi.TupleDomain.withFixedValues;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.connector.jmx.JmxMetadata.NODE_COLUMN_NAME;
+import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -40,90 +43,35 @@ import static java.util.stream.Collectors.toList;
 public class JmxSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final NodeManager nodeManager;
 
-    public JmxSplitManager(String connectorId, NodeManager nodeManager)
+    @Inject
+    public JmxSplitManager(NodeManager nodeManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        requireNonNull(tupleDomain, "tupleDomain is null");
-        JmxTableHandle jmxTableHandle = checkType(table, JmxTableHandle.class, "table");
-
-        List<ConnectorPartition> partitions = ImmutableList.of(new JmxPartition(jmxTableHandle, tupleDomain));
-        return new ConnectorPartitionResult(partitions, tupleDomain);
-    }
-
-    @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions)
-    {
-        requireNonNull(partitions, "partitions is null");
-        if (partitions.isEmpty()) {
-            return new FixedSplitSource(connectorId, ImmutableList.of());
-        }
-
-        JmxPartition jmxPartition = checkType(getOnlyElement(partitions), JmxPartition.class, "partition");
-        JmxTableHandle tableHandle = jmxPartition.getTableHandle();
-        TupleDomain<ColumnHandle> predicate = jmxPartition.getPredicate();
+        JmxTableLayoutHandle jmxLayout = (JmxTableLayoutHandle) layout;
+        JmxTableHandle tableHandle = jmxLayout.getTable();
+        TupleDomain<ColumnHandle> predicate = jmxLayout.getConstraint();
 
         //TODO is there a better way to get the node column?
-        JmxColumnHandle nodeColumnHandle = tableHandle.getColumns().get(0);
+        Optional<JmxColumnHandle> nodeColumnHandle = tableHandle.getColumnHandles().stream()
+                .filter(jmxColumnHandle -> jmxColumnHandle.getColumnName().equals(NODE_COLUMN_NAME))
+                .findFirst();
+        checkState(nodeColumnHandle.isPresent(), "Failed to find %s column", NODE_COLUMN_NAME);
 
-        List<ConnectorSplit> splits = nodeManager.getActiveNodes()
-                .stream()
-                .filter(node -> predicate.overlaps(withFixedValues(ImmutableMap.of(nodeColumnHandle, utf8Slice(node.getNodeIdentifier())))))
+        List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
+                .filter(node -> {
+                    NullableValue value = NullableValue.of(createUnboundedVarcharType(), utf8Slice(node.getNodeIdentifier()));
+                    return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.get(), value)));
+                })
                 .map(node -> new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())))
                 .collect(toList());
 
-        return new FixedSplitSource(connectorId, splits);
-    }
-
-    public static class JmxPartition
-            implements ConnectorPartition
-    {
-        private final JmxTableHandle tableHandle;
-        private final TupleDomain<ColumnHandle> predicate;
-
-        public JmxPartition(JmxTableHandle tableHandle, TupleDomain<ColumnHandle> predicate)
-        {
-            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-            this.predicate = requireNonNull(predicate, "predicate is null");
-        }
-
-        public JmxTableHandle getTableHandle()
-        {
-            return tableHandle;
-        }
-
-        public TupleDomain<ColumnHandle> getPredicate()
-        {
-            return predicate;
-        }
-
-        @Override
-        public String getPartitionId()
-        {
-            return "jmx";
-        }
-
-        @Override
-        public TupleDomain<ColumnHandle> getTupleDomain()
-        {
-            return TupleDomain.all();
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("tableHandle", tableHandle)
-                    .add("predicate", predicate)
-                    .toString();
-        }
+        return new FixedSplitSource(splits);
     }
 }

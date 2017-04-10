@@ -13,24 +13,46 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ShowSchemas
         extends Statement
 {
     private final Optional<String> catalog;
+    private final Optional<String> likePattern;
 
-    public ShowSchemas(Optional<String> catalog)
+    public ShowSchemas(Optional<String> catalog, Optional<String> likePattern)
     {
-        this.catalog = checkNotNull(catalog, "catalog is null");
+        this(Optional.empty(), catalog, likePattern);
+    }
+
+    public ShowSchemas(NodeLocation location, Optional<String> catalog, Optional<String> likePattern)
+    {
+        this(Optional.of(location), catalog, likePattern);
+    }
+
+    private ShowSchemas(Optional<NodeLocation> location, Optional<String> catalog, Optional<String> likePattern)
+    {
+        super(location);
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.likePattern = requireNonNull(likePattern, "likePattern is null");
     }
 
     public Optional<String> getCatalog()
     {
         return catalog;
+    }
+
+    public Optional<String> getLikePattern()
+    {
+        return likePattern;
     }
 
     @Override
@@ -40,9 +62,15 @@ public class ShowSchemas
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
     public int hashCode()
     {
-        return 0;
+        return catalog.hashCode();
     }
 
     @Override
@@ -51,12 +79,18 @@ public class ShowSchemas
         if (this == obj) {
             return true;
         }
-        return (obj != null) && (getClass() == obj.getClass());
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        ShowSchemas o = (ShowSchemas) obj;
+        return Objects.equals(catalog, o.catalog);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this).toString();
+        return toStringHelper(this)
+                .add("catalog", catalog)
+                .toString();
     }
 }

@@ -20,51 +20,68 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RaptorInsertTableHandle
         implements ConnectorInsertTableHandle
 {
     private final String connectorId;
+    private final long transactionId;
     private final long tableId;
     private final List<RaptorColumnHandle> columnHandles;
     private final List<Type> columnTypes;
-    @Nullable
-    private final String externalBatchId;
+    private final Optional<String> externalBatchId;
     private final List<RaptorColumnHandle> sortColumnHandles;
     private final List<SortOrder> sortOrders;
+    private final OptionalInt bucketCount;
+    private final List<RaptorColumnHandle> bucketColumnHandles;
+    private final Optional<RaptorColumnHandle> temporalColumnHandle;
 
     @JsonCreator
     public RaptorInsertTableHandle(
             @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("transactionId") long transactionId,
             @JsonProperty("tableId") long tableId,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("externalBatchId") @Nullable String externalBatchId,
+            @JsonProperty("externalBatchId") Optional<String> externalBatchId,
             @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
-            @JsonProperty("sortOrders") List<SortOrder> sortOrders)
+            @JsonProperty("sortOrders") List<SortOrder> sortOrders,
+            @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles,
+            @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle)
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.transactionId = transactionId;
         this.tableId = tableId;
-        this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
-        this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
-        this.externalBatchId = externalBatchId;
+        this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
+        this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+        this.externalBatchId = requireNonNull(externalBatchId, "externalBatchId is null");
 
-        this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
-        this.sortColumnHandles = ImmutableList.copyOf(checkNotNull(sortColumnHandles, "sortColumnHandles is null"));
+        this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
+        this.sortColumnHandles = ImmutableList.copyOf(requireNonNull(sortColumnHandles, "sortColumnHandles is null"));
+        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
+        this.temporalColumnHandle = requireNonNull(temporalColumnHandle, "temporalColumnHandle is null");
     }
 
     @JsonProperty
     public String getConnectorId()
     {
         return connectorId;
+    }
+
+    @JsonProperty
+    public long getTransactionId()
+    {
+        return transactionId;
     }
 
     @JsonProperty
@@ -85,9 +102,8 @@ public class RaptorInsertTableHandle
         return columnTypes;
     }
 
-    @Nullable
     @JsonProperty
-    public String getExternalBatchId()
+    public Optional<String> getExternalBatchId()
     {
         return externalBatchId;
     }
@@ -102,6 +118,24 @@ public class RaptorInsertTableHandle
     public List<SortOrder> getSortOrders()
     {
         return sortOrders;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @JsonProperty
+    public List<RaptorColumnHandle> getBucketColumnHandles()
+    {
+        return bucketColumnHandles;
+    }
+
+    @JsonProperty
+    public Optional<RaptorColumnHandle> getTemporalColumnHandle()
+    {
+        return temporalColumnHandle;
     }
 
     @Override

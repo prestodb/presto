@@ -13,37 +13,42 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.ExceededMemoryLimitException;
+import com.facebook.presto.array.IntBigArray;
+import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
-import com.facebook.presto.util.array.IntBigArray;
-import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import org.openjdk.jol.info.ClassLayout;
 
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.util.Objects.requireNonNull;
 
 public class TypedHistogram
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedHistogram.class).instanceSize();
+
     private static final float FILL_RATIO = 0.9f;
     private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
 
+    private int hashCapacity;
     private int maxFill;
     private int mask;
 
-    private Type type;
+    private final Type type;
 
-    private BlockBuilder values;
+    private final BlockBuilder values;
     private IntBigArray hashPositions;
     private final LongBigArray counts;
 
@@ -53,21 +58,21 @@ public class TypedHistogram
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        int hashSize = arraySize(expectedSize, FILL_RATIO);
+        hashCapacity = arraySize(expectedSize, FILL_RATIO);
 
-        maxFill = calculateMaxFill(hashSize);
-        mask = hashSize - 1;
-        values = this.type.createBlockBuilder(new BlockBuilderStatus(), hashSize, expectedValueSize(type, hashSize));
+        maxFill = calculateMaxFill(hashCapacity);
+        mask = hashCapacity - 1;
+        values = this.type.createBlockBuilder(new BlockBuilderStatus(), hashCapacity);
         hashPositions = new IntBigArray(-1);
-        hashPositions.ensureCapacity(hashSize);
+        hashPositions.ensureCapacity(hashCapacity);
         counts = new LongBigArray();
-        counts.ensureCapacity(hashSize);
+        counts.ensureCapacity(hashCapacity);
     }
 
     public TypedHistogram(Block block, Type type, int expectedSize)
     {
         this(type, expectedSize);
-        checkNotNull(block, "block is null");
+        requireNonNull(block, "block is null");
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             add(i, block, BIGINT.getLong(block, i + 1));
         }
@@ -75,9 +80,7 @@ public class TypedHistogram
 
     public long getEstimatedSize()
     {
-        return values.getRetainedSizeInBytes() +
-                counts.sizeOf() +
-                hashPositions.sizeOf();
+        return INSTANCE_SIZE + values.getRetainedSizeInBytes() + counts.sizeOf() + hashPositions.sizeOf();
     }
 
     private Block getValues()
@@ -133,7 +136,6 @@ public class TypedHistogram
         }
 
         addNewGroup(hashPosition, position, block, count);
-        return;
     }
 
     private void addNewGroup(int hashPosition, int position, Block block, long count)
@@ -144,28 +146,30 @@ public class TypedHistogram
 
         // increase capacity, if necessary
         if (values.getPositionCount() >= maxFill) {
-            rehash(maxFill * 2);
+            rehash();
         }
 
         if (getEstimatedSize() > FOUR_MEGABYTES) {
-            throw new ExceededMemoryLimitException(new DataSize(4, MEGABYTE));
+            throw exceededLocalLimit(new DataSize(4, MEGABYTE));
         }
-
-        return;
     }
 
-    private void rehash(int size)
+    private void rehash()
     {
-        int newSize = arraySize(size + 1, FILL_RATIO);
+        long newCapacityLong = hashCapacity * 2L;
+        if (newCapacityLong > Integer.MAX_VALUE) {
+            throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+        }
+        int newCapacity = (int) newCapacityLong;
 
-        int newMask = newSize - 1;
+        int newMask = newCapacity - 1;
         IntBigArray newHashPositions = new IntBigArray(-1);
-        newHashPositions.ensureCapacity(newSize);
+        newHashPositions.ensureCapacity(newCapacity);
 
         for (int i = 0; i < values.getPositionCount(); i++) {
             // find an empty slot for the address
             int hashPosition = getHashPosition(TypeUtils.hashPosition(type, values, i), newMask);
-            while (hashPositions.get(hashPosition) != -1) {
+            while (newHashPositions.get(hashPosition) != -1) {
                 hashPosition = (hashPosition + 1) & newMask;
             }
 
@@ -173,8 +177,9 @@ public class TypedHistogram
             newHashPositions.set(hashPosition, i);
         }
 
+        hashCapacity = newCapacity;
         mask = newMask;
-        maxFill = calculateMaxFill(newSize);
+        maxFill = calculateMaxFill(newCapacity);
         hashPositions = newHashPositions;
 
         this.counts.ensureCapacity(maxFill);
@@ -187,7 +192,7 @@ public class TypedHistogram
 
     private static int calculateMaxFill(int hashSize)
     {
-        checkArgument(hashSize > 0, "hashSize must greater than 0");
+        checkArgument(hashSize > 0, "hashSize must be greater than 0");
         int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
         if (maxFill == hashSize) {
             maxFill--;

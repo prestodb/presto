@@ -19,13 +19,15 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.WindowFunction;
+import com.facebook.presto.spi.function.WindowIndex;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class AggregateWindowFunction
         implements WindowFunction
@@ -41,9 +43,9 @@ public class AggregateWindowFunction
 
     private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels)
     {
-        this.function = checkNotNull(function, "function is null");
+        this.function = requireNonNull(function, "function is null");
         this.argumentChannels = Ints.toArray(argumentChannels);
-        this.accumulatorFactory = function.bind(createArgs(function), Optional.empty(), Optional.empty(), 1.0);
+        this.accumulatorFactory = function.bind(createArgs(function), Optional.empty());
     }
 
     @Override
@@ -100,7 +102,7 @@ public class AggregateWindowFunction
 
     public static WindowFunctionSupplier supplier(Signature signature, final InternalAggregationFunction function)
     {
-        checkNotNull(function, "function is null");
+        requireNonNull(function, "function is null");
         return new AbstractWindowFunctionSupplier(signature, null)
         {
             @Override

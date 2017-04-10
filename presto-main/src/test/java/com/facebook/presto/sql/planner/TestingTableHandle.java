@@ -14,8 +14,16 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 public class TestingTableHandle
         implements ConnectorTableHandle
 {
+    // Jackson refuses to serialize this class otherwise because it's empty.
+    @JsonValue
+    @Override
+    public String toString()
+    {
+        return getClass().getSimpleName();
+    }
 }

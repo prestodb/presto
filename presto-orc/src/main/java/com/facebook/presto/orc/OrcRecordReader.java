@@ -13,24 +13,32 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.ColumnStatistics;
-import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.StripeInformation;
-import com.facebook.presto.orc.metadata.StripeStatistics;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
+import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,12 +47,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
+import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
+import static java.util.Objects.requireNonNull;
 
 public class OrcRecordReader
+        implements Closeable
 {
     private final OrcDataSource orcDataSource;
 
@@ -60,6 +75,7 @@ public class OrcRecordReader
     private final List<StripeInformation> stripes;
     private final StripeReader stripeReader;
     private int currentStripe = -1;
+    private AggregatedMemoryContext currentStripeSystemMemoryContext;
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
@@ -68,6 +84,10 @@ public class OrcRecordReader
     private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
     private long currentGroupRowCount;
     private long nextRowInGroup;
+
+    private final Map<String, Slice> userMetadata;
+
+    private final AbstractAggregatedMemoryContext systemMemoryUsage;
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
@@ -80,21 +100,26 @@ public class OrcRecordReader
             long splitOffset,
             long splitLength,
             List<OrcType> types,
-            CompressionKind compressionKind,
-            int bufferSize,
+            Optional<OrcDecompressor> decompressor,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
-            MetadataReader metadataReader)
+            HiveWriterVersion hiveWriterVersion,
+            MetadataReader metadataReader,
+            DataSize maxMergeDistance,
+            DataSize maxReadSize,
+            Map<String, Slice> userMetadata,
+            AbstractAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
-        checkNotNull(includedColumns, "includedColumns is null");
-        checkNotNull(predicate, "predicate is null");
-        checkNotNull(fileStripes, "fileStripes is null");
-        checkNotNull(stripeStats, "stripeStats is null");
-        checkNotNull(orcDataSource, "orcDataSource is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(compressionKind, "compressionKind is null");
-        checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        requireNonNull(includedColumns, "includedColumns is null");
+        requireNonNull(predicate, "predicate is null");
+        requireNonNull(fileStripes, "fileStripes is null");
+        requireNonNull(stripeStats, "stripeStats is null");
+        requireNonNull(orcDataSource, "orcDataSource is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(decompressor, "decompressor is null");
+        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        requireNonNull(userMetadata, "userMetadata is null");
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -109,9 +134,6 @@ public class OrcRecordReader
             }
         }
         this.presentColumns = presentColumns.build();
-
-        this.orcDataSource = orcDataSource;
-        this.splitLength = splitLength;
 
         // it is possible that old versions of orc use 0 to mean there are no row groups
         checkArgument(rowsInRowGroup > 0, "rowsInRowGroup must be greater than zero");
@@ -148,19 +170,28 @@ public class OrcRecordReader
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
+        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, maxReadSize);
+        this.orcDataSource = orcDataSource;
+        this.splitLength = splitLength;
+
         this.fileRowCount = stripeInfos.stream()
                 .map(StripeInfo::getStripe)
                 .mapToLong(StripeInformation::getNumberOfRows)
                 .sum();
 
+        this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
+
+        this.systemMemoryUsage = requireNonNull(systemMemoryUsage, "systemMemoryUsage is null").newAggregatedMemoryContext();
+        this.currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+
         stripeReader = new StripeReader(
                 orcDataSource,
-                compressionKind,
+                decompressor,
                 types,
-                bufferSize,
                 this.presentColumns,
                 rowsInRowGroup,
                 predicate,
+                hiveWriterVersion,
                 metadataReader);
 
         streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());
@@ -183,6 +214,20 @@ public class OrcRecordReader
             return true;
         }
         return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.get().getColumnStatistics()));
+    }
+
+    @VisibleForTesting
+    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize maxReadSize)
+    {
+        if (dataSource instanceof CachingOrcDataSource) {
+            return dataSource;
+        }
+        for (StripeInformation stripe : stripes) {
+            if (stripe.getTotalLength() > maxReadSize.toBytes()) {
+                return dataSource;
+            }
+        }
+        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, maxReadSize));
     }
 
     /**
@@ -234,6 +279,7 @@ public class OrcRecordReader
         return splitLength;
     }
 
+    @Override
     public void close()
             throws IOException
     {
@@ -262,7 +308,7 @@ public class OrcRecordReader
             }
         }
 
-        currentBatchSize = Ints.checkedCast(Math.min(Vector.MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
+        currentBatchSize = toIntExact(min(MAX_BATCH_SIZE, currentGroupRowCount - nextRowInGroup));
 
         for (StreamReader column : streamReaders) {
             if (column != null) {
@@ -273,16 +319,21 @@ public class OrcRecordReader
         return currentBatchSize;
     }
 
-    public void readVector(int columnIndex, Object vector)
+    public Block readBlock(Type type, int columnIndex)
             throws IOException
     {
-        streamReaders[columnIndex].readBatch(vector);
+        return streamReaders[columnIndex].readBlock(type);
     }
 
-    public void readVector(Type type, int columnIndex, Object vector)
-            throws IOException
+    public StreamReader getStreamReader(int index)
     {
-        streamReaders[columnIndex].readBatch(type, vector);
+        checkArgument(index < streamReaders.length, "index does not exist");
+        return streamReaders[index];
+    }
+
+    public Map<String, Slice> getUserMetadata()
+    {
+        return ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
     }
 
     private boolean advanceToNextRowGroup()
@@ -306,7 +357,7 @@ public class OrcRecordReader
         filePosition = stripeFilePositions.get(currentStripe) + currentRowGroup.getRowOffset();
 
         // give reader data streams from row group
-        StreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
+        InputStreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
         for (StreamReader column : streamReaders) {
             if (column != null) {
                 column.startRowGroup(rowGroupStreamSources);
@@ -319,6 +370,10 @@ public class OrcRecordReader
     private void advanceToNextStripe()
             throws IOException
     {
+        currentStripeSystemMemoryContext.close();
+        currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+        rowGroups = ImmutableList.<RowGroup>of().iterator();
+
         currentStripe++;
         if (currentStripe >= stripes.size()) {
             return;
@@ -329,10 +384,11 @@ public class OrcRecordReader
         }
 
         StripeInformation stripeInformation = stripes.get(currentStripe);
-        Stripe stripe = stripeReader.readStripe(stripeInformation);
+
+        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
         if (stripe != null) {
             // Give readers access to dictionary streams
-            StreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
+            InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             List<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             for (StreamReader column : streamReaders) {
                 if (column != null) {
@@ -341,9 +397,6 @@ public class OrcRecordReader
             }
 
             rowGroups = stripe.getRowGroups().iterator();
-        }
-        else {
-            rowGroups = ImmutableList.<RowGroup>of().iterator();
         }
     }
 
@@ -359,7 +412,7 @@ public class OrcRecordReader
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, includedColumns.get(columnId), hiveStorageTimeZone);
+                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
             }
         }
         return streamReaders;
@@ -391,15 +444,17 @@ public class OrcRecordReader
 
     private static Map<Integer, ColumnStatistics> getStatisticsByColumnOrdinal(OrcType rootStructType, List<ColumnStatistics> fileStats)
     {
-        checkNotNull(rootStructType, "rootStructType is null");
+        requireNonNull(rootStructType, "rootStructType is null");
         checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
-        checkNotNull(fileStats, "fileStats is null");
+        requireNonNull(fileStats, "fileStats is null");
 
         ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();
         for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
-            ColumnStatistics element = fileStats.get(rootStructType.getFieldTypeIndex(ordinal));
-            if (element != null) {
-                statistics.put(ordinal, element);
+            if (fileStats.size() > ordinal) {
+                ColumnStatistics element = fileStats.get(rootStructType.getFieldTypeIndex(ordinal));
+                if (element != null) {
+                    statistics.put(ordinal, element);
+                }
             }
         }
         return statistics.build();
@@ -412,8 +467,8 @@ public class OrcRecordReader
 
         public StripeInfo(StripeInformation stripe, Optional<StripeStatistics> stats)
         {
-            this.stripe = checkNotNull(stripe, "stripe is null");
-            this.stats = checkNotNull(stats, "metadata is null");
+            this.stripe = requireNonNull(stripe, "stripe is null");
+            this.stats = requireNonNull(stats, "metadata is null");
         }
 
         public StripeInformation getStripe()
@@ -424,6 +479,48 @@ public class OrcRecordReader
         public Optional<StripeStatistics> getStats()
         {
             return stats;
+        }
+    }
+
+    @VisibleForTesting
+    static class LinearProbeRangeFinder
+            implements CachingOrcDataSource.RegionFinder
+    {
+        private final List<DiskRange> diskRanges;
+        private int index;
+
+        public LinearProbeRangeFinder(List<DiskRange> diskRanges)
+        {
+            this.diskRanges = diskRanges;
+        }
+
+        @Override
+        public DiskRange getRangeFor(long desiredOffset)
+        {
+            // Assumption: range are always read in order
+            // Assumption: bytes that are not part of any range are never read
+            for (; index < diskRanges.size(); index++) {
+                DiskRange range = diskRanges.get(index);
+                if (range.getEnd() > desiredOffset) {
+                    checkArgument(range.getOffset() <= desiredOffset);
+                    return range;
+                }
+            }
+            throw new IllegalArgumentException("Invalid desiredOffset " + desiredOffset);
+        }
+
+        public static LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize maxReadSize)
+        {
+            if (stripes.size() == 0) {
+                return new LinearProbeRangeFinder(ImmutableList.of());
+            }
+
+            List<DiskRange> scratchDiskRanges = stripes.stream()
+                    .map(stripe -> new DiskRange(stripe.getOffset(), toIntExact(stripe.getTotalLength())))
+                    .collect(Collectors.toList());
+            List<DiskRange> diskRanges = mergeAdjacentDiskRanges(scratchDiskRanges, maxMergeDistance, maxReadSize);
+
+            return new LinearProbeRangeFinder(diskRanges);
         }
     }
 }

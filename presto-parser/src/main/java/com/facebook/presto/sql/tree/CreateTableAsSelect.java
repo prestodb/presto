@@ -13,21 +13,44 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CreateTableAsSelect
         extends Statement
 {
     private final QualifiedName name;
     private final Query query;
+    private final boolean notExists;
+    private final Map<String, Expression> properties;
+    private final boolean withData;
 
-    public CreateTableAsSelect(QualifiedName name, Query query)
+    public CreateTableAsSelect(QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.query = checkNotNull(query, "query is null");
+        this(Optional.empty(), name, query, notExists, properties, withData);
+    }
+
+    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData)
+    {
+        this(Optional.of(location), name, query, notExists, properties, withData);
+    }
+
+    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData)
+    {
+        super(location);
+        this.name = requireNonNull(name, "name is null");
+        this.query = requireNonNull(query, "query is null");
+        this.notExists = notExists;
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.withData = withData;
     }
 
     public QualifiedName getName()
@@ -40,6 +63,21 @@ public class CreateTableAsSelect
         return query;
     }
 
+    public boolean isNotExists()
+    {
+        return notExists;
+    }
+
+    public Map<String, Expression> getProperties()
+    {
+        return properties;
+    }
+
+    public boolean isWithData()
+    {
+        return withData;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -47,9 +85,18 @@ public class CreateTableAsSelect
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(query);
+        nodes.addAll(properties.values());
+        return nodes.build();
+    }
+
+    @Override
     public int hashCode()
     {
-        return Objects.hash(name, query);
+        return Objects.hash(name, query, properties, withData);
     }
 
     @Override
@@ -63,7 +110,10 @@ public class CreateTableAsSelect
         }
         CreateTableAsSelect o = (CreateTableAsSelect) obj;
         return Objects.equals(name, o.name)
-                && Objects.equals(query, o.query);
+                && Objects.equals(query, o.query)
+                && Objects.equals(notExists, o.notExists)
+                && Objects.equals(properties, o.properties)
+                && Objects.equals(withData, o.withData);
     }
 
     @Override
@@ -72,6 +122,9 @@ public class CreateTableAsSelect
         return toStringHelper(this)
                 .add("name", name)
                 .add("query", query)
+                .add("notExists", notExists)
+                .add("properties", properties)
+                .add("withData", withData)
                 .toString();
     }
 }

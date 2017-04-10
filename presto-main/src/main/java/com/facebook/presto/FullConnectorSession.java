@@ -13,44 +13,87 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Locale;
 import java.util.Map;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FullConnectorSession
         implements ConnectorSession
 {
-    private final String user;
+    private final String queryId;
+    private final Identity identity;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final long startTime;
     private final Map<String, String> properties;
+    private final ConnectorId connectorId;
+    private final String catalog;
+    private final SessionPropertyManager sessionPropertyManager;
 
     public FullConnectorSession(
-            String user,
+            String queryId,
+            Identity identity,
             TimeZoneKey timeZoneKey,
             Locale locale,
-            long startTime,
-            Map<String, String> properties)
+            long startTime)
     {
-        this.user = requireNonNull(user, "user is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.identity = requireNonNull(identity, "identity is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
 
-        this.properties = ImmutableMap.copyOf(properties);
+        this.properties = null;
+        this.connectorId = null;
+        this.catalog = null;
+        this.sessionPropertyManager = null;
+    }
+
+    public FullConnectorSession(
+            String queryId,
+            Identity identity,
+            TimeZoneKey timeZoneKey,
+            Locale locale,
+            long startTime,
+            Map<String, String> properties,
+            ConnectorId connectorId,
+            String catalog,
+            SessionPropertyManager sessionPropertyManager)
+    {
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.identity = requireNonNull(identity, "identity is null");
+        this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
+        this.locale = requireNonNull(locale, "locale is null");
+        this.startTime = startTime;
+
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
     @Override
-    public String getUser()
+    public String getQueryId()
     {
-        return user;
+        return queryId;
+    }
+
+    @Override
+    public Identity getIdentity()
+    {
+        return identity;
     }
 
     @Override
@@ -72,16 +115,22 @@ public class FullConnectorSession
     }
 
     @Override
-    public Map<String, String> getProperties()
+    public <T> T getProperty(String propertyName, Class<T> type)
     {
-        return properties;
+        if (properties == null) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("Unknown session property: %s.%s", catalog, propertyName));
+        }
+
+        return sessionPropertyManager.decodeCatalogPropertyValue(connectorId, catalog, propertyName, properties.get(propertyName), type);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("user", user)
+        return toStringHelper(this)
+                .omitNullValues()
+                .add("queryId", queryId)
+                .add("user", getUser())
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("startTime", startTime)

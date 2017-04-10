@@ -13,14 +13,32 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class LogicalBinaryExpression
         extends Expression
 {
     public enum Type
     {
-        AND, OR
+        AND, OR;
+
+        public Type flip()
+        {
+            switch (this) {
+                case AND:
+                    return LogicalBinaryExpression.Type.OR;
+                case OR:
+                    return LogicalBinaryExpression.Type.AND;
+                default:
+                    throw new IllegalArgumentException("Unsupported logical expression type: " + this);
+            }
+        }
     }
 
     private final Type type;
@@ -29,9 +47,20 @@ public class LogicalBinaryExpression
 
     public LogicalBinaryExpression(Type type, Expression left, Expression right)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(left, "left is null");
-        Preconditions.checkNotNull(right, "right is null");
+        this(Optional.empty(), type, left, right);
+    }
+
+    public LogicalBinaryExpression(NodeLocation location, Type type, Expression left, Expression right)
+    {
+        this(Optional.of(location), type, left, right);
+    }
+
+    private LogicalBinaryExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
+    {
+        super(location);
+        requireNonNull(type, "type is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
 
         this.type = type;
         this.left = left;
@@ -59,14 +88,20 @@ public class LogicalBinaryExpression
         return visitor.visitLogicalBinaryExpression(this, context);
     }
 
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(left, right);
+    }
+
     public static LogicalBinaryExpression and(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(Type.AND, left, right);
+        return new LogicalBinaryExpression(Optional.empty(), Type.AND, left, right);
     }
 
     public static LogicalBinaryExpression or(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(Type.OR, left, right);
+        return new LogicalBinaryExpression(Optional.empty(), Type.OR, left, right);
     }
 
     @Override
@@ -80,26 +115,14 @@ public class LogicalBinaryExpression
         }
 
         LogicalBinaryExpression that = (LogicalBinaryExpression) o;
-
-        if (!left.equals(that.left)) {
-            return false;
-        }
-        if (!right.equals(that.right)) {
-            return false;
-        }
-        if (type != that.type) {
-            return false;
-        }
-
-        return true;
+        return type == that.type &&
+                Objects.equals(left, that.left) &&
+                Objects.equals(right, that.right);
     }
 
     @Override
     public int hashCode()
     {
-        int result = type.hashCode();
-        result = 31 * result + left.hashCode();
-        result = 31 * result + right.hashCode();
-        return result;
+        return Objects.hash(type, left, right);
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.113-SNAPSHOT</version>
+        <version>0.173-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -33,12 +33,22 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-array</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-client</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-parser</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-bytecode</artifactId>
         </dependency>
 
         <dependency>
@@ -49,6 +59,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>aircompressor</artifactId>
         </dependency>
 
         <dependency>
@@ -139,6 +154,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>joni</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.teradata</groupId>
+            <artifactId>re2j-td</artifactId>
         </dependency>
 
         <dependency>
@@ -242,11 +262,17 @@
             <artifactId>jgrapht-core</artifactId>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>org.apache.bval</groupId>
+            <artifactId>bval-jsr</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-            <scope>test</scope>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -275,6 +301,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
             <scope>test</scope>
@@ -296,21 +329,24 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>com.mycila</groupId>
-                <artifactId>license-maven-plugin</artifactId>
-                <configuration>
-                    <excludes combine.children="append">
-                        <exclude>src/main/java/com/facebook/presto/byteCode/ClassInfo.java</exclude>
-                        <exclude>src/main/java/com/facebook/presto/byteCode/ClassInfoLoader.java</exclude>
-                    </excludes>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                 <configuration>
+                     <!-- To allow usage of java.util.Hashtable -->
+                     <ignorePackages>
+                         <ignorePackage>com.facebook.presto.server.security.util.jndi</ignorePackage>
+                         <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
+                     </ignorePackages>
                 </configuration>
             </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <excludedGroups>hive</excludedGroups>
+                    <!-- these tests take a very long time so only run them in the CI server -->
+                    <excludes>
+                        <exclude>**/TestLocalExecutionPlanner.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
         </plugins>
@@ -342,6 +378,20 @@
                                 <argument>com.facebook.presto.benchmark.BenchmarkSuite</argument>
                             </arguments>
                             <classpathScope>test</classpathScope>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>ci</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override" />
                         </configuration>
                     </plugin>
                 </plugins>

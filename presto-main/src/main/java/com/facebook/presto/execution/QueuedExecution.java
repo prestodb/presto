@@ -15,14 +15,13 @@ package com.facebook.presto.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
 
 import java.util.List;
 import java.util.concurrent.Executor;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QueuedExecution
 {
@@ -30,22 +29,20 @@ public class QueuedExecution
     private final List<QueryQueue> nextQueues;
     private final ListenableFuture<?> listenableFuture;
     private final Executor executor;
-    private final SqlQueryManagerStats stats;
 
-    public static QueuedExecution createQueuedExecution(QueryExecution queryExecution, List<QueryQueue> nextQueues, Executor executor, SqlQueryManagerStats stats)
+    public static QueuedExecution createQueuedExecution(QueryExecution queryExecution, List<QueryQueue> nextQueues, Executor executor)
     {
         SettableFuture<?> settableFuture = SettableFuture.create();
         SqlQueryManager.addCompletionCallback(queryExecution, () -> settableFuture.set(null));
-        return new QueuedExecution(queryExecution, nextQueues, executor, stats, settableFuture);
+        return new QueuedExecution(queryExecution, nextQueues, executor, settableFuture);
     }
 
-    private QueuedExecution(QueryExecution queryExecution, List<QueryQueue> nextQueues, Executor executor, SqlQueryManagerStats stats, ListenableFuture<?> listenableFuture)
+    private QueuedExecution(QueryExecution queryExecution, List<QueryQueue> nextQueues, Executor executor, ListenableFuture<?> listenableFuture)
     {
-        this.queryExecution = checkNotNull(queryExecution, "queryExecution is null");
-        this.nextQueues = ImmutableList.copyOf(checkNotNull(nextQueues, "nextQueues is null"));
-        this.executor = checkNotNull(executor, "executor is null");
-        this.stats = checkNotNull(stats, "stats is null");
-        this.listenableFuture = checkNotNull(listenableFuture, "listenableFuture is null");
+        this.queryExecution = requireNonNull(queryExecution, "queryExecution is null");
+        this.nextQueues = ImmutableList.copyOf(requireNonNull(nextQueues, "nextQueues is null"));
+        this.executor = requireNonNull(executor, "executor is null");
+        this.listenableFuture = requireNonNull(listenableFuture, "listenableFuture is null");
     }
 
     public ListenableFuture<?> getCompletionFuture()
@@ -61,18 +58,13 @@ public class QueuedExecution
         }
         if (nextQueues.isEmpty()) {
             executor.execute(() -> {
-                try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())) {
-                    stats.queryStarted();
-                    listenableFuture.addListener(stats::queryStopped, MoreExecutors.directExecutor());
-
+                try (SetThreadName ignored = new SetThreadName("Query-%s", queryExecution.getQueryId())) {
                     queryExecution.start();
                 }
             });
         }
         else {
-            if (!nextQueues.get(0).enqueue(new QueuedExecution(queryExecution, nextQueues.subList(1, nextQueues.size()), executor, stats, listenableFuture))) {
-                queryExecution.fail(new IllegalStateException("Entering secondary queue failed"));
-            }
+            nextQueues.get(0).enqueue(new QueuedExecution(queryExecution, nextQueues.subList(1, nextQueues.size()), executor, listenableFuture));
         }
     }
 }

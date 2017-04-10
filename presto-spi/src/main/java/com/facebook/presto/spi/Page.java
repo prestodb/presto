@@ -14,10 +14,18 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class Page
@@ -99,9 +107,120 @@ public class Page
         return new Page(length, slicedBlocks);
     }
 
+    public void compact()
+    {
+        if (getRetainedSizeInBytes() <= getSizeInBytes()) {
+            return;
+        }
+
+        for (int i = 0; i < blocks.length; i++) {
+            Block block = blocks[i];
+            if (block instanceof DictionaryBlock) {
+                continue;
+            }
+            if (block.getSizeInBytes() < block.getRetainedSizeInBytes()) {
+                // Copy the block to compact its size
+                Block compactedBlock = block.copyRegion(0, block.getPositionCount());
+                blocks[i] = compactedBlock;
+            }
+        }
+
+        Map<DictionaryId, DictionaryBlockIndexes> dictionaryBlocks = getRelatedDictionaryBlocks();
+        for (DictionaryBlockIndexes blockIndexes : dictionaryBlocks.values()) {
+            List<DictionaryBlock> compactBlocks = compactRelatedBlocks(blockIndexes.getBlocks());
+            List<Integer> indexes = blockIndexes.getIndexes();
+            for (int i = 0; i < compactBlocks.size(); i++) {
+                blocks[indexes.get(i)] = compactBlocks.get(i);
+            }
+        }
+
+        long retainedSize = 0;
+        for (Block block : blocks) {
+            retainedSize += block.getRetainedSizeInBytes();
+        }
+        retainedSizeInBytes.set(retainedSize);
+    }
+
+    private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
+    {
+        Map<DictionaryId, DictionaryBlockIndexes> relatedDictionaryBlocks = new HashMap<>();
+
+        for (int i = 0; i < blocks.length; i++) {
+            Block block = blocks[i];
+            if (block instanceof DictionaryBlock) {
+                DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+                relatedDictionaryBlocks.computeIfAbsent(dictionaryBlock.getDictionarySourceId(), id -> new DictionaryBlockIndexes())
+                        .addBlock(dictionaryBlock, i);
+            }
+        }
+        return relatedDictionaryBlocks;
+    }
+
+    private static List<DictionaryBlock> compactRelatedBlocks(List<DictionaryBlock> blocks)
+    {
+        DictionaryBlock firstDictionaryBlock = blocks.get(0);
+        Block dictionary = firstDictionaryBlock.getDictionary();
+
+        int positionCount = firstDictionaryBlock.getPositionCount();
+        int dictionarySize = dictionary.getPositionCount();
+
+        // determine which dictionary entries are referenced and build a reindex for them
+        List<Integer> dictionaryPositionsToCopy = new ArrayList<>(min(dictionarySize, positionCount));
+        int[] remapIndex = new int[dictionarySize];
+        Arrays.fill(remapIndex, -1);
+
+        int newIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            int position = firstDictionaryBlock.getId(i);
+            if (remapIndex[position] == -1) {
+                dictionaryPositionsToCopy.add(position);
+                remapIndex[position] = newIndex;
+                newIndex++;
+            }
+        }
+
+        // entire dictionary is referenced
+        if (dictionaryPositionsToCopy.size() == dictionarySize) {
+            return blocks;
+        }
+
+        // compact the dictionaries
+        int[] newIds = getNewIds(positionCount, firstDictionaryBlock, remapIndex);
+        List<DictionaryBlock> outputDictionaryBlocks = new ArrayList<>(blocks.size());
+        DictionaryId newDictionaryId = randomDictionaryId();
+        for (DictionaryBlock dictionaryBlock : blocks) {
+            if (!firstDictionaryBlock.getDictionarySourceId().equals(dictionaryBlock.getDictionarySourceId())) {
+                throw new IllegalArgumentException("dictionarySourceIds must be the same");
+            }
+
+            try {
+                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy);
+                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, true, newDictionaryId));
+            }
+            catch (UnsupportedOperationException e) {
+                // ignore if copy positions is not supported for the dictionary
+                outputDictionaryBlocks.add(dictionaryBlock);
+            }
+        }
+        return outputDictionaryBlocks;
+    }
+
+    private static int[] getNewIds(int positionCount, DictionaryBlock dictionaryBlock, int[] remapIndex)
+    {
+        int[] newIds = new int[positionCount];
+        for (int i = 0; i < positionCount; i++) {
+            int newId = remapIndex[dictionaryBlock.getId(i)];
+            if (newId == -1) {
+                throw new IllegalStateException("reference to a non-existent key");
+            }
+            newIds[i] = newId;
+        }
+        return newIds;
+    }
+
     /**
      * Assures that all data for the block is in memory.
-     *
+     * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
@@ -131,5 +250,27 @@ public class Page
         }
 
         return blocks[0].getPositionCount();
+    }
+
+    private static class DictionaryBlockIndexes
+    {
+        private final List<DictionaryBlock> blocks = new ArrayList<>();
+        private final List<Integer> indexes = new ArrayList<>();
+
+        public void addBlock(DictionaryBlock block, int index)
+        {
+            blocks.add(block);
+            indexes.add(index);
+        }
+
+        public List<DictionaryBlock> getBlocks()
+        {
+            return blocks;
+        }
+
+        public List<Integer> getIndexes()
+        {
+            return indexes;
+        }
     }
 }

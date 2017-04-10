@@ -18,8 +18,7 @@ import com.facebook.presto.ml.type.RegressorType;
 
 import java.util.List;
 
-import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RegressorFeatureTransformer
         implements Regressor
@@ -29,8 +28,8 @@ public class RegressorFeatureTransformer
 
     public RegressorFeatureTransformer(Regressor regressor, FeatureTransformation transformation)
     {
-        this.regressor = checkNotNull(regressor, "regressor is null");
-        this.transformation = checkNotNull(transformation, "transformation is null");
+        this.regressor = requireNonNull(regressor, "regressor is null");
+        this.transformation = requireNonNull(transformation, "transformation is null");
     }
 
     @Override
@@ -49,7 +48,7 @@ public class RegressorFeatureTransformer
     {
         List<Model> models = ModelUtils.deserializeModels(data);
 
-        return new RegressorFeatureTransformer(checkType(models.get(0), Regressor.class, "model 0"), checkType(models.get(1), FeatureTransformation.class, "model 1"));
+        return new RegressorFeatureTransformer((Regressor) models.get(0), (FeatureTransformation) models.get(1));
     }
 
     @Override

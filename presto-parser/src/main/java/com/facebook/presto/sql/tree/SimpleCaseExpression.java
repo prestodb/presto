@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class SimpleCaseExpression
         extends Expression
@@ -28,8 +30,19 @@ public class SimpleCaseExpression
 
     public SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
-        Preconditions.checkNotNull(operand, "operand is null");
-        Preconditions.checkNotNull(whenClauses, "whenClauses is null");
+        this(Optional.empty(), operand, whenClauses, defaultValue);
+    }
+
+    public SimpleCaseExpression(NodeLocation location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    {
+        this(Optional.of(location), operand, whenClauses, defaultValue);
+    }
+
+    private SimpleCaseExpression(Optional<NodeLocation> location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    {
+        super(location);
+        requireNonNull(operand, "operand is null");
+        requireNonNull(whenClauses, "whenClauses is null");
 
         this.operand = operand;
         this.whenClauses = ImmutableList.copyOf(whenClauses);
@@ -58,6 +71,16 @@ public class SimpleCaseExpression
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(operand);
+        nodes.addAll(whenClauses);
+        defaultValue.ifPresent(nodes::add);
+        return nodes.build();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -68,26 +91,14 @@ public class SimpleCaseExpression
         }
 
         SimpleCaseExpression that = (SimpleCaseExpression) o;
-
-        if (defaultValue != null ? !defaultValue.equals(that.defaultValue) : that.defaultValue != null) {
-            return false;
-        }
-        if (!operand.equals(that.operand)) {
-            return false;
-        }
-        if (!whenClauses.equals(that.whenClauses)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(operand, that.operand) &&
+                Objects.equals(whenClauses, that.whenClauses) &&
+                Objects.equals(defaultValue, that.defaultValue);
     }
 
     @Override
     public int hashCode()
     {
-        int result = operand.hashCode();
-        result = 31 * result + whenClauses.hashCode();
-        result = 31 * result + (defaultValue != null ? defaultValue.hashCode() : 0);
-        return result;
+        return Objects.hash(operand, whenClauses, defaultValue);
     }
 }

@@ -7,8 +7,8 @@ Synopsis
 
 .. code-block:: none
 
-    SET SESSION name = 'value'
-    SET SESSION catalog.name = 'value'
+    SET SESSION name = expression
+    SET SESSION catalog.name = expression
 
 Description
 -----------
@@ -20,5 +20,10 @@ Examples
 
 .. code-block:: sql
 
-    SET SESSION optimize_hash_generation = 'true';
-    SET SESSION hive.optimized_reader_enabled = 'true';
+    SET SESSION optimize_hash_generation = true;
+    SET SESSION hive.optimized_reader_enabled = true;
+
+See Also
+--------
+
+:doc:`reset-session`, :doc:`show-session`

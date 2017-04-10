@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import com.facebook.presto.sql.parser.ParsingException;
 
 import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public final class GenericLiteral
         extends Literal
@@ -25,8 +28,25 @@ public final class GenericLiteral
 
     public GenericLiteral(String type, String value)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(value, "value is null");
+        this(Optional.empty(), type, value);
+    }
+
+    public GenericLiteral(NodeLocation location, String type, String value)
+    {
+        this(Optional.of(location), type, value);
+    }
+
+    private GenericLiteral(Optional<NodeLocation> location, String type, String value)
+    {
+        super(location);
+        requireNonNull(type, "type is null");
+        requireNonNull(value, "value is null");
+        if (type.equalsIgnoreCase("X")) {
+            // we explicitly disallow "X" as type name, so if the user arrived here,
+            // it must be because that he intended to give a binaryLiteral instead, but
+            // added whitespace between the X and quote
+            throw new ParsingException("Spaces are not allowed between 'X' and the starting quote of a binary literal", location.get());
+        }
         this.type = type;
         this.value = value;
     }

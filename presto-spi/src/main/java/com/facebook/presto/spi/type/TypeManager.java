@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spi.type;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface TypeManager
 {
@@ -25,10 +27,27 @@ public interface TypeManager
     /**
      * Gets the type with the specified base type, and the given parameters, or null if not found.
      */
-    Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters);
+    Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters);
 
     /**
      * Gets a list of all registered types.
      */
     List<Type> getTypes();
+
+    /**
+     * Gets all registered parametric types.
+     */
+    Collection<ParametricType> getParametricTypes();
+
+    Optional<Type> getCommonSuperType(Type firstType, Type secondType);
+
+    default boolean canCoerce(Type actualType, Type expectedType)
+    {
+        Optional<Type> commonSuperType = getCommonSuperType(actualType, expectedType);
+        return commonSuperType.isPresent() && commonSuperType.get().equals(expectedType);
+    }
+
+    boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
+
+    Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase);
 }

@@ -15,9 +15,14 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
@@ -29,8 +34,7 @@ public final class BooleanOrAggregation
     private BooleanOrAggregation() {}
 
     @InputFunction
-    @IntermediateInputFunction
-    public static void booleanOr(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    public static void booleanOr(@AggregationState TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         // if value is true, the result is true
         if (value) {
@@ -44,8 +48,20 @@ public final class BooleanOrAggregation
         }
     }
 
+    @CombineFunction
+    public static void combine(@AggregationState TriStateBooleanState state, @AggregationState TriStateBooleanState otherState)
+    {
+        if (state.getByte() == NULL_VALUE) {
+            state.setByte(otherState.getByte());
+            return;
+        }
+        if (otherState.getByte() == TRUE_VALUE) {
+            state.setByte(otherState.getByte());
+        }
+    }
+
     @OutputFunction(StandardTypes.BOOLEAN)
-    public static void output(TriStateBooleanState state, BlockBuilder out)
+    public static void output(@AggregationState TriStateBooleanState state, BlockBuilder out)
     {
         TriStateBooleanState.write(BooleanType.BOOLEAN, state, out);
     }

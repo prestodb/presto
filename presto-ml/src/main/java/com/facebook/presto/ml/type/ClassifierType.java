@@ -14,13 +14,14 @@
 package com.facebook.presto.ml.type;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 
 // Layout is <size>:<model>, where
@@ -36,7 +37,7 @@ public class ClassifierType
 
     public ClassifierType(Type type)
     {
-        super(parameterizedTypeName(ClassifierParametricType.NAME, type.getTypeSignature()));
+        super(new TypeSignature(ClassifierParametricType.NAME, TypeSignatureParameter.of(type.getTypeSignature())));
         checkArgument(type.isComparable(), "type must be comparable");
         labelType = type;
     }

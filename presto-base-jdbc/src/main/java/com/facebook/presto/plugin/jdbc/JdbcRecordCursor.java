@@ -16,12 +16,18 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -29,6 +35,7 @@ import io.airlift.slice.Slice;
 import org.joda.time.chrono.ISOChronology;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -37,12 +44,13 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Float.floatToRawIntBits;
+import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class JdbcRecordCursor
@@ -55,25 +63,21 @@ public class JdbcRecordCursor
     private final List<JdbcColumnHandle> columnHandles;
 
     private final Connection connection;
-    private final Statement statement;
+    private final PreparedStatement statement;
     private final ResultSet resultSet;
     private boolean closed;
 
     public JdbcRecordCursor(JdbcClient jdbcClient, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
     {
-        this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
+        this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
 
-        String sql = jdbcClient.buildSql(split, columnHandles);
         try {
             connection = jdbcClient.getConnection(split);
-
-            statement = connection.createStatement();
-            statement.setFetchSize(1000);
-
-            log.debug("Executing: %s", sql);
-            resultSet = statement.executeQuery(sql);
+            statement = jdbcClient.buildSql(connection, split, columnHandles);
+            log.debug("Executing: %s", statement.toString());
+            resultSet = statement.executeQuery();
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -116,7 +120,7 @@ public class JdbcRecordCursor
             }
             return result;
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -128,7 +132,7 @@ public class JdbcRecordCursor
         try {
             return resultSet.getBoolean(field + 1);
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -139,6 +143,18 @@ public class JdbcRecordCursor
         checkState(!closed, "cursor is closed");
         try {
             Type type = getType(field);
+            if (type.equals(TinyintType.TINYINT)) {
+                return (long) resultSet.getByte(field + 1);
+            }
+            if (type.equals(SmallintType.SMALLINT)) {
+                return (long) resultSet.getShort(field + 1);
+            }
+            if (type.equals(IntegerType.INTEGER)) {
+                return (long) resultSet.getInt(field + 1);
+            }
+            if (type.equals(RealType.REAL)) {
+                return (long) floatToRawIntBits(resultSet.getFloat(field + 1));
+            }
             if (type.equals(BigintType.BIGINT)) {
                 return resultSet.getLong(field + 1);
             }
@@ -158,9 +174,9 @@ public class JdbcRecordCursor
                 Timestamp timestamp = resultSet.getTimestamp(field + 1);
                 return timestamp.getTime();
             }
-            throw new PrestoException(INTERNAL_ERROR, "Unhandled type for long: " + type.getTypeSignature());
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for long: " + type.getTypeSignature());
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -172,7 +188,7 @@ public class JdbcRecordCursor
         try {
             return resultSet.getDouble(field + 1);
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -183,15 +199,18 @@ public class JdbcRecordCursor
         checkState(!closed, "cursor is closed");
         try {
             Type type = getType(field);
-            if (type.equals(VarcharType.VARCHAR)) {
+            if (type instanceof VarcharType) {
                 return utf8Slice(resultSet.getString(field + 1));
+            }
+            if (type instanceof CharType) {
+                return utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(field + 1)));
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
                 return wrappedBuffer(resultSet.getBytes(field + 1));
             }
-            throw new PrestoException(INTERNAL_ERROR, "Unhandled type for slice: " + type.getTypeSignature());
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for slice: " + type.getTypeSignature());
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -216,7 +235,7 @@ public class JdbcRecordCursor
 
             return resultSet.wasNull();
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -241,13 +260,16 @@ public class JdbcRecordCursor
         }
     }
 
-    private RuntimeException handleSqlException(SQLException e)
+    private RuntimeException handleSqlException(Exception e)
     {
         try {
             close();
         }
         catch (Exception closeException) {
-            e.addSuppressed(closeException);
+            // Self-suppression not permitted
+            if (e != closeException) {
+                e.addSuppressed(closeException);
+            }
         }
         return Throwables.propagate(e);
     }

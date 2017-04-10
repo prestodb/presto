@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -25,6 +29,17 @@ public class DropView
 
     public DropView(QualifiedName name, boolean exists)
     {
+        this(Optional.empty(), name, exists);
+    }
+
+    public DropView(NodeLocation location, QualifiedName name, boolean exists)
+    {
+        this(Optional.of(location), name, exists);
+    }
+
+    private DropView(Optional<NodeLocation> location, QualifiedName name, boolean exists)
+    {
+        super(location);
         this.name = name;
         this.exists = exists;
     }
@@ -43,6 +58,12 @@ public class DropView
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitDropView(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

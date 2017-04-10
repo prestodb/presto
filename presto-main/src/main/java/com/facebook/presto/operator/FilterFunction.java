@@ -16,9 +16,13 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 
+import java.util.Set;
+
 public interface FilterFunction
 {
     boolean filter(int position, Block... blocks);
 
     boolean filter(RecordCursor cursor);
+
+    Set<Integer> getInputChannels();
 }

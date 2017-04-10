@@ -13,19 +13,24 @@
  */
 package com.facebook.presto.hive;
 
-import org.apache.hadoop.hive.metastore.api.Partition;
+import com.facebook.presto.hive.metastore.Partition;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Map;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class HivePartitionMetadata
 {
-    private final Partition partition;
+    private final Optional<Partition> partition;
     private final HivePartition hivePartition;
+    private final Map<Integer, HiveType> columnCoercions;
 
-    HivePartitionMetadata(HivePartition hivePartition, Partition partition)
+    HivePartitionMetadata(HivePartition hivePartition, Optional<Partition> partition, Map<Integer, HiveType> columnCoercions)
     {
-        this.partition = checkNotNull(partition, "partition is null");
-        this.hivePartition = checkNotNull(hivePartition, "hivePartition is null");
+        this.partition = requireNonNull(partition, "partition is null");
+        this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
+        this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
     }
 
     public HivePartition getHivePartition()
@@ -33,8 +38,16 @@ public class HivePartitionMetadata
         return hivePartition;
     }
 
-    public Partition getPartition()
+    /**
+     * @return empty if this HivePartitionMetadata represents an unpartitioned table
+     */
+    public Optional<Partition> getPartition()
     {
         return partition;
+    }
+
+    public Map<Integer, HiveType> getColumnCoercions()
+    {
+        return columnCoercions;
     }
 }

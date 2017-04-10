@@ -17,23 +17,31 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingSets;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -46,15 +54,16 @@ import com.google.common.base.Strings;
 
 import java.io.PrintStream;
 import java.util.IdentityHashMap;
+import java.util.Set;
 
 public class TreePrinter
 {
     private static final String INDENT = "   ";
 
-    private final IdentityHashMap<QualifiedNameReference, QualifiedName> resolvedNameReferences;
+    private final IdentityHashMap<Expression, QualifiedName> resolvedNameReferences;
     private final PrintStream out;
 
-    public TreePrinter(IdentityHashMap<QualifiedNameReference, QualifiedName> resolvedNameReferences, PrintStream out)
+    public TreePrinter(IdentityHashMap<Expression, QualifiedName> resolvedNameReferences, PrintStream out)
     {
         this.resolvedNameReferences = new IdentityHashMap<>(resolvedNameReferences);
         this.out = out;
@@ -79,12 +88,9 @@ public class TreePrinter
 
                 print(indentLevel, "QueryBody");
                 process(node.getQueryBody(), indentLevel);
-
-                if (!node.getOrderBy().isEmpty()) {
+                if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
-                    for (SortItem sortItem : node.getOrderBy()) {
-                        process(sortItem, indentLevel + 1);
-                    }
+                    process(node.getOrderBy().get(), indentLevel + 1);
                 }
 
                 if (node.getLimit().isPresent()) {
@@ -113,10 +119,41 @@ public class TreePrinter
                     process(node.getWhere().get(), indentLevel + 1);
                 }
 
-                if (!node.getGroupBy().isEmpty()) {
-                    print(indentLevel, "GroupBy");
-                    for (Expression expression : node.getGroupBy()) {
-                        process(expression, indentLevel + 1);
+                if (node.getGroupBy().isPresent()) {
+                    String distinct = "";
+                    if (node.getGroupBy().get().isDistinct()) {
+                        distinct = "[DISTINCT]";
+                    }
+                    print(indentLevel, "GroupBy" + distinct);
+                    for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
+                        print(indentLevel, "SimpleGroupBy");
+                        if (groupingElement instanceof SimpleGroupBy) {
+                            for (Expression column : ((SimpleGroupBy) groupingElement).getColumnExpressions()) {
+                                process(column, indentLevel + 1);
+                            }
+                        }
+                        else if (groupingElement instanceof GroupingSets) {
+                            print(indentLevel + 1, "GroupingSets");
+                            for (Set<Expression> column : groupingElement.enumerateGroupingSets()) {
+                                print(indentLevel + 2, "GroupingSet[");
+                                for (Expression expression : column) {
+                                    process(expression, indentLevel + 3);
+                                }
+                                print(indentLevel + 2, "]");
+                            }
+                        }
+                        else if (groupingElement instanceof Cube) {
+                            print(indentLevel + 1, "Cube");
+                            for (QualifiedName column : ((Cube) groupingElement).getColumns()) {
+                                print(indentLevel + 1, column.toString());
+                            }
+                        }
+                        else if (groupingElement instanceof Rollup) {
+                            print(indentLevel + 1, "Rollup");
+                            for (QualifiedName column : ((Rollup) groupingElement).getColumns()) {
+                                print(indentLevel + 1, column.toString());
+                            }
+                        }
                     }
                 }
 
@@ -125,15 +162,22 @@ public class TreePrinter
                     process(node.getHaving().get(), indentLevel + 1);
                 }
 
-                if (!node.getOrderBy().isEmpty()) {
+                if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
-                    for (SortItem sortItem : node.getOrderBy()) {
-                        process(sortItem, indentLevel + 1);
-                    }
+                    process(node.getOrderBy().get(), indentLevel + 1);
                 }
 
                 if (node.getLimit().isPresent()) {
                     print(indentLevel, "Limit: " + node.getLimit().get());
+                }
+
+                return null;
+            }
+
+            protected Void visitOrderBy(OrderBy node, Integer indentLevel)
+            {
+                for (SortItem sortItem : node.getSortItems()) {
+                    process(sortItem, indentLevel);
                 }
 
                 return null;
@@ -216,6 +260,13 @@ public class TreePrinter
             }
 
             @Override
+            protected Void visitBinaryLiteral(BinaryLiteral node, Integer indentLevel)
+            {
+                print(indentLevel, "Binary[" + node.toHexString() + "]");
+                return null;
+            }
+
+            @Override
             protected Void visitBooleanLiteral(BooleanLiteral node, Integer indentLevel)
             {
                 print(indentLevel, "Boolean[" + node.getValue() + "]");
@@ -240,14 +291,26 @@ public class TreePrinter
             }
 
             @Override
-            protected Void visitQualifiedNameReference(QualifiedNameReference node, Integer indentLevel)
+            protected Void visitIdentifier(Identifier node, Integer indentLevel)
             {
                 QualifiedName resolved = resolvedNameReferences.get(node);
                 String resolvedName = "";
                 if (resolved != null) {
                     resolvedName = "=>" + resolved.toString();
                 }
-                print(indentLevel, "QualifiedName[" + node.getName() + resolvedName + "]");
+                print(indentLevel, "Identifier[" + node.getName() + resolvedName + "]");
+                return null;
+            }
+
+            @Override
+            protected Void visitDereferenceExpression(DereferenceExpression node, Integer indentLevel)
+            {
+                QualifiedName resolved = resolvedNameReferences.get(node);
+                String resolvedName = "";
+                if (resolved != null) {
+                    resolvedName = "=>" + resolved.toString();
+                }
+                print(indentLevel, "DereferenceExpression[" + node + resolvedName + "]");
                 return null;
             }
 
@@ -304,12 +367,7 @@ public class TreePrinter
             @Override
             protected Void visitSampledRelation(SampledRelation node, Integer indentLevel)
             {
-                String stratifyOn = "";
-                if (node.getColumnsToStratifyOn().isPresent()) {
-                    stratifyOn = " STRATIFY ON (" + node.getColumnsToStratifyOn().get().toString() + ")";
-                }
-
-                print(indentLevel, "TABLESAMPLE[" + node.getType() + " (" + node.getSamplePercentage() + ")" + stratifyOn + "]");
+                print(indentLevel, "TABLESAMPLE[" + node.getType() + " (" + node.getSamplePercentage() + ")]");
 
                 super.visitSampledRelation(node, indentLevel + 1);
 

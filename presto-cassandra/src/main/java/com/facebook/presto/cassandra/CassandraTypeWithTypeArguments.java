@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraTypeWithTypeArguments
         implements FullCassandraType
@@ -25,8 +25,8 @@ public class CassandraTypeWithTypeArguments
 
     public CassandraTypeWithTypeArguments(CassandraType cassandraType, List<CassandraType> typeArguments)
     {
-        this.cassandraType = checkNotNull(cassandraType, "cassandraType is null");
-        this.typeArguments = checkNotNull(typeArguments, "typeArguments is null");
+        this.cassandraType = requireNonNull(cassandraType, "cassandraType is null");
+        this.typeArguments = requireNonNull(typeArguments, "typeArguments is null");
     }
 
     @Override

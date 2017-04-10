@@ -14,17 +14,16 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
 import io.airlift.slice.ChunkedSliceInput.SliceLoader;
 import io.airlift.slice.FixedLengthSliceInput;
-import io.airlift.slice.RuntimeIOException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -32,7 +31,8 @@ import java.util.Map.Entry;
 import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractOrcDataSource
         implements OrcDataSource
@@ -43,21 +43,28 @@ public abstract class AbstractOrcDataSource
     private final DataSize maxBufferSize;
     private final DataSize streamBufferSize;
     private long readTimeNanos;
+    private long readBytes;
 
     public AbstractOrcDataSource(String name, long size, DataSize maxMergeDistance, DataSize maxBufferSize, DataSize streamBufferSize)
     {
-        this.name = checkNotNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null");
 
         this.size = size;
         checkArgument(size >= 0, "size is negative");
 
-        this.maxMergeDistance = checkNotNull(maxMergeDistance, "maxMergeDistance is null");
-        this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
-        this.streamBufferSize = checkNotNull(streamBufferSize, "streamBufferSize is null");
+        this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
+        this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
+        this.streamBufferSize = requireNonNull(streamBufferSize, "streamBufferSize is null");
     }
 
     protected abstract void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException;
+
+    @Override
+    public final long getReadBytes()
+    {
+        return readBytes;
+    }
 
     @Override
     public final long getReadTimeNanos()
@@ -87,13 +94,14 @@ public abstract class AbstractOrcDataSource
         readInternal(position, buffer, bufferOffset, bufferLength);
 
         readTimeNanos += System.nanoTime() - start;
+        readBytes += bufferLength;
     }
 
     @Override
     public final <K> Map<K, FixedLengthSliceInput> readFully(Map<K, DiskRange> diskRanges)
             throws IOException
     {
-        checkNotNull(diskRanges, "diskRanges is null");
+        requireNonNull(diskRanges, "diskRanges is null");
 
         if (diskRanges.isEmpty()) {
             return ImmutableMap.of();
@@ -160,7 +168,7 @@ public abstract class AbstractOrcDataSource
 
         ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-            ChunkedSliceInput sliceInput = new ChunkedSliceInput(new HdfsSliceLoader(entry.getValue()), Ints.checkedCast(streamBufferSize.toBytes()));
+            ChunkedSliceInput sliceInput = new ChunkedSliceInput(new HdfsSliceLoader(entry.getValue()), toIntExact(streamBufferSize.toBytes()));
             slices.put(entry.getKey(), sliceInput);
         }
         return slices.build();
@@ -201,7 +209,7 @@ public abstract class AbstractOrcDataSource
                 readFully(diskRange.getOffset() + position, bufferReference.getBuffer(), 0, length);
             }
             catch (IOException e) {
-                throw new RuntimeIOException(e);
+                throw new UncheckedIOException(e);
             }
         }
 

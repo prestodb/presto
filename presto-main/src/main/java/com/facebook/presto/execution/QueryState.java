@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public enum QueryState
 {
@@ -33,9 +33,13 @@ public enum QueryState
      */
     STARTING(false),
     /**
-     * Query has at least one task in the output stage.
+     * Query has at least one running task.
      */
     RUNNING(false),
+    /**
+     * Query is finishing (e.g. commit for autocommit queries)
+     */
+    FINISHING(false),
     /**
      * Query has finished executing and all output has been consumed.
      */

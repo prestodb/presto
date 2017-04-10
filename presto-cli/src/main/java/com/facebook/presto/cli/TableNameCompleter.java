@@ -28,10 +28,10 @@ import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TableNameCompleter
@@ -46,7 +46,7 @@ public class TableNameCompleter
 
     public TableNameCompleter(QueryRunner queryRunner)
     {
-        this.queryRunner = checkNotNull(queryRunner, "queryRunner session was null!");
+        this.queryRunner = requireNonNull(queryRunner, "queryRunner session was null!");
 
         tableCache = CacheBuilder.newBuilder()
                 .refreshAfterWrite(RELOAD_TIME_MINUTES, TimeUnit.MINUTES)
@@ -89,16 +89,13 @@ public class TableNameCompleter
 
     public void populateCache()
     {
-        final String schemaName = queryRunner.getSession().getSchema();
-        executor.execute(new Runnable()
-        {
-            @Override
-            public void run()
-            {
+        String schemaName = queryRunner.getSession().getSchema();
+        if (schemaName != null) {
+            executor.execute(() -> {
                 functionCache.refresh(schemaName);
                 tableCache.refresh(schemaName);
-            }
-        });
+            });
+        }
     }
 
     @Override
@@ -110,18 +107,22 @@ public class TableNameCompleter
         int blankPos = findLastBlank(buffer.substring(0, cursor));
         String prefix = buffer.substring(blankPos + 1, cursor);
         String schemaName = queryRunner.getSession().getSchema();
-        List<String> functionNames = functionCache.getIfPresent(schemaName);
-        List<String> tableNames = tableCache.getIfPresent(schemaName);
 
-        SortedSet<String> sortedCandidates = new TreeSet<>();
-        if (functionNames != null) {
-            sortedCandidates.addAll(filterResults(functionNames, prefix));
-        }
-        if (tableNames != null) {
-            sortedCandidates.addAll(filterResults(tableNames, prefix));
+        if (schemaName != null) {
+            List<String> functionNames = functionCache.getIfPresent(schemaName);
+            List<String> tableNames = tableCache.getIfPresent(schemaName);
+
+            SortedSet<String> sortedCandidates = new TreeSet<>();
+            if (functionNames != null) {
+                sortedCandidates.addAll(filterResults(functionNames, prefix));
+            }
+            if (tableNames != null) {
+                sortedCandidates.addAll(filterResults(tableNames, prefix));
+            }
+
+            candidates.addAll(sortedCandidates);
         }
 
-        candidates.addAll(sortedCandidates);
         return blankPos + 1;
     }
 

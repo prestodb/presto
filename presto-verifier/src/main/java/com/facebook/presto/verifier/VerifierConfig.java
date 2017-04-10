@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +32,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.verifier.QueryType.CREATE;
+import static com.facebook.presto.verifier.QueryType.MODIFY;
+import static com.facebook.presto.verifier.QueryType.READ;
+import static java.util.Objects.requireNonNull;
 
 public class VerifierConfig
 {
@@ -40,6 +44,8 @@ public class VerifierConfig
     private String testPasswordOverride;
     private String controlPasswordOverride;
     private List<String> suites;
+    private Set<QueryType> controlQueryTypes = ImmutableSet.of(READ, CREATE, MODIFY);
+    private Set<QueryType> testQueryTypes = ImmutableSet.of(READ, CREATE, MODIFY);
     private String source;
     private String runId = new DateTime().toString("yyyy-MM-dd");
     private Set<String> eventClients = ImmutableSet.of("human-readable");
@@ -59,7 +65,9 @@ public class VerifierConfig
     private int queryRepetitions = 1;
     private String skipCorrectnessRegex = "^$";
     private boolean checkCorrectness = true;
-    private boolean explainOnly = false;
+    private String skipCpuCheckRegex = "(?i)(?s).*LIMIT.*";
+    private boolean checkCpu = true;
+    private boolean explainOnly;
     private boolean verboseResultsComparison;
     private String testCatalogOverride;
     private String testSchemaOverride;
@@ -69,6 +77,14 @@ public class VerifierConfig
     private String additionalJdbcDriverPath;
     private String testJdbcDriverName;
     private String controlJdbcDriverName;
+    private int doublePrecision = 3;
+    private int controlTeardownRetries = 1;
+    private int testTeardownRetries = 1;
+    private boolean shadowWrites = true;
+    private String shadowTestTablePrefix = "tmp_verifier_";
+    private String shadowControlTablePrefix = "tmp_verifier_";
+
+    private Duration regressionMinCpuTime = new Duration(5, TimeUnit.MINUTES);
 
     @NotNull
     public String getSkipCorrectnessRegex()
@@ -81,6 +97,20 @@ public class VerifierConfig
     public VerifierConfig setSkipCorrectnessRegex(String skipCorrectnessRegex)
     {
         this.skipCorrectnessRegex = skipCorrectnessRegex;
+        return this;
+    }
+
+    @NotNull
+    public String getSkipCpuCheckRegex()
+    {
+        return skipCpuCheckRegex;
+    }
+
+    @ConfigDescription("CPU check will be skipped if this regex matches query")
+    @Config("skip-cpu-check-regex")
+    public VerifierConfig setSkipCpuCheckRegex(String skipCpuCheckRegex)
+    {
+        this.skipCpuCheckRegex = skipCpuCheckRegex;
         return this;
     }
 
@@ -136,6 +166,52 @@ public class VerifierConfig
             return this;
         }
         suites = ImmutableList.of(suite);
+        return this;
+    }
+
+    public Set<QueryType> getControlQueryTypes()
+    {
+        return controlQueryTypes;
+    }
+
+    @ConfigDescription("The types of control queries allowed to run [CREATE, READ, MODIFY]")
+    @Config("control.query-types")
+    public VerifierConfig setControlQueryTypes(String types)
+    {
+        if (Strings.isNullOrEmpty(types)) {
+            this.controlQueryTypes = ImmutableSet.of();
+            return this;
+        }
+
+        ImmutableSet.Builder<QueryType> builder = ImmutableSet.builder();
+        for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(types)) {
+            builder.add(QueryType.valueOf(value.toUpperCase()));
+        }
+
+        this.controlQueryTypes = builder.build();
+        return this;
+    }
+
+    public Set<QueryType> getTestQueryTypes()
+    {
+        return testQueryTypes;
+    }
+
+    @ConfigDescription("The types of control queries allowed to run [CREATE, READ, MODIFY]")
+    @Config("test.query-types")
+    public VerifierConfig setTestQueryTypes(String types)
+    {
+        if (Strings.isNullOrEmpty(types)) {
+            this.testQueryTypes = ImmutableSet.of();
+            return this;
+        }
+
+        ImmutableSet.Builder<QueryType> builder = ImmutableSet.builder();
+        for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(types)) {
+            builder.add(QueryType.valueOf(value.toUpperCase()));
+        }
+
+        this.testQueryTypes = builder.build();
         return this;
     }
 
@@ -281,6 +357,19 @@ public class VerifierConfig
         return this;
     }
 
+    public boolean isCheckCpuEnabled()
+    {
+        return checkCpu;
+    }
+
+    @ConfigDescription("Whether to check that CPU from control and test match")
+    @Config("check-cpu")
+    public VerifierConfig setCheckCpuEnabled(boolean checkCpu)
+    {
+        this.checkCpu = checkCpu;
+        return this;
+    }
+
     public boolean isExplainOnly()
     {
         return explainOnly;
@@ -317,7 +406,7 @@ public class VerifierConfig
     @Config("event-client")
     public VerifierConfig setEventClients(String eventClients)
     {
-        checkNotNull(eventClients, "eventClients is null");
+        requireNonNull(eventClients, "eventClients is null");
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
         for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(eventClients)) {
             builder.add(value);
@@ -571,6 +660,100 @@ public class VerifierConfig
     public VerifierConfig setControlJdbcDriverName(String controlJdbcDriverName)
     {
         this.controlJdbcDriverName = controlJdbcDriverName;
+        return this;
+    }
+
+    public int getDoublePrecision()
+    {
+        return doublePrecision;
+    }
+
+    @ConfigDescription("The expected precision when comparing test and control results")
+    @Config("expected-double-precision")
+    public VerifierConfig setDoublePrecision(int doublePrecision)
+    {
+        this.doublePrecision = doublePrecision;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRegressionMinCpuTime()
+    {
+        return regressionMinCpuTime;
+    }
+
+    @ConfigDescription("Minimum cpu time a query must use in the control to be considered for regression")
+    @Config("regression.min-cpu-time")
+    public VerifierConfig setRegressionMinCpuTime(Duration regressionMinCpuTime)
+    {
+        this.regressionMinCpuTime = regressionMinCpuTime;
+        return this;
+    }
+
+    @Min(0)
+    public int getControlTeardownRetries()
+    {
+        return controlTeardownRetries;
+    }
+
+    @ConfigDescription("Number of retries for control teardown queries")
+    @Config("control.teardown-retries")
+    public VerifierConfig setControlTeardownRetries(int controlTeardownRetries)
+    {
+        this.controlTeardownRetries = controlTeardownRetries;
+        return this;
+    }
+
+    @Min(0)
+    public int getTestTeardownRetries()
+    {
+        return testTeardownRetries;
+    }
+
+    @ConfigDescription("Number of retries for test teardown queries")
+    @Config("test.teardown-retries")
+    public VerifierConfig setTestTeardownRetries(int testTeardownRetries)
+    {
+        this.testTeardownRetries = testTeardownRetries;
+        return this;
+    }
+
+    public boolean getShadowWrites()
+    {
+        return shadowWrites;
+    }
+
+    @ConfigDescription("Modify write queries to write to a temporary table instead")
+    @Config("shadow-writes.enabled")
+    public VerifierConfig setShadowWrites(boolean shadowWrites)
+    {
+        this.shadowWrites = shadowWrites;
+        return this;
+    }
+
+    public QualifiedName getShadowTestTablePrefix()
+    {
+        return QualifiedName.of(Splitter.on(".").splitToList(shadowTestTablePrefix));
+    }
+
+    @ConfigDescription("The prefix to use for temporary test shadow tables. May be fully qualified like 'tmp_catalog.tmp_schema.tmp_'")
+    @Config("shadow-writes.test-table-prefix")
+    public VerifierConfig setShadowTestTablePrefix(String prefix)
+    {
+        this.shadowTestTablePrefix = prefix;
+        return this;
+    }
+
+    public QualifiedName getShadowControlTablePrefix()
+    {
+        return QualifiedName.of(Splitter.on(".").splitToList(shadowControlTablePrefix));
+    }
+
+    @ConfigDescription("The prefix to use for temporary control shadow tables. May be fully qualified like 'tmp_catalog.tmp_schema.tmp_'")
+    @Config("shadow-writes.control-table-prefix")
+    public VerifierConfig setShadowControlTablePrefix(String prefix)
+    {
+        this.shadowControlTablePrefix = prefix;
         return this;
     }
 }

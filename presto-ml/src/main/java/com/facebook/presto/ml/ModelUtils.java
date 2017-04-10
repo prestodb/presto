@@ -34,11 +34,11 @@ import java.util.Map;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class ModelUtils
 {
@@ -85,9 +85,9 @@ public final class ModelUtils
      */
     public static Slice serialize(Model model)
     {
-        checkNotNull(model, "model is null");
+        requireNonNull(model, "model is null");
         Integer id = MODEL_SERIALIZATION_IDS.get(model.getClass());
-        checkNotNull(id, "id is null");
+        requireNonNull(id, "id is null");
         int size = HYPERPARAMETERS_OFFSET;
 
         // hyperparameters aren't implemented yet
@@ -137,7 +137,7 @@ public final class ModelUtils
 
         int id = slice.getInt(ALGORITHM_OFFSET);
         Class<? extends Model> algorithm = MODEL_SERIALIZATION_IDS.inverse().get(id);
-        checkNotNull(algorithm, "Unsupported algorith %d", id);
+        requireNonNull(algorithm, format("Unsupported algorith %d", id));
 
         int hyperparameterLength = slice.getInt(HYPERPARAMETER_LENGTH_OFFSET);
 

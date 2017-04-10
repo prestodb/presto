@@ -24,23 +24,25 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.SqlQueryManager.addCompletionCallback;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QueryQueue
 {
-    private final int maxQueuedQueries;
     private final AtomicInteger queryQueueSize = new AtomicInteger();
     private final AtomicInteger queuePermits;
     private final AsyncSemaphore<QueueEntry> asyncSemaphore;
 
     QueryQueue(Executor queryExecutor, int maxQueuedQueries, int maxConcurrentQueries)
     {
-        checkNotNull(queryExecutor, "queryExecutor is null");
+        requireNonNull(queryExecutor, "queryExecutor is null");
         checkArgument(maxQueuedQueries > 0, "maxQueuedQueries must be greater than zero");
         checkArgument(maxConcurrentQueries > 0, "maxConcurrentQueries must be greater than zero");
 
-        this.maxQueuedQueries = maxQueuedQueries;
-        this.queuePermits = new AtomicInteger(maxQueuedQueries + maxConcurrentQueries);
+        int permits = maxQueuedQueries + maxConcurrentQueries;
+        // Check for overflow
+        checkArgument(permits > 0, "maxQueuedQueries + maxConcurrentQueries must be less than or equal to %s", Integer.MAX_VALUE);
+
+        this.queuePermits = new AtomicInteger(permits);
         this.asyncSemaphore = new AsyncSemaphore<>(maxConcurrentQueries,
                 queryExecutor,
                 queueEntry -> {
@@ -61,7 +63,7 @@ public class QueryQueue
 
     public boolean reserve(QueryExecution queryExecution)
     {
-        if (queuePermits.getAndDecrement() < 0) {
+        if (queuePermits.decrementAndGet() < 0) {
             queuePermits.incrementAndGet();
             return false;
         }
@@ -70,12 +72,9 @@ public class QueryQueue
         return true;
     }
 
-    public boolean enqueue(QueuedExecution queuedExecution)
+    public void enqueue(QueuedExecution queuedExecution)
     {
-        if (queryQueueSize.incrementAndGet() > maxQueuedQueries) {
-            queryQueueSize.decrementAndGet();
-            return false;
-        }
+        queryQueueSize.incrementAndGet();
 
         // Add a callback to dequeue the entry if it is ever completed.
         // This enables us to remove the entry sooner if is cancelled before starting,
@@ -84,7 +83,6 @@ public class QueryQueue
         queuedExecution.getCompletionFuture().addListener(entry::dequeue, MoreExecutors.directExecutor());
 
         asyncSemaphore.submit(entry);
-        return true;
     }
 
     private static class QueueEntry
@@ -94,9 +92,9 @@ public class QueryQueue
 
         private QueueEntry(QueuedExecution queuedExecution, Runnable onDequeue)
         {
-            checkNotNull(queuedExecution, "queueableExecution is null");
+            requireNonNull(queuedExecution, "queuedExecution is null");
             this.queryExecution = new AtomicReference<>(queuedExecution);
-            this.onDequeue = checkNotNull(onDequeue, "onDequeue is null");
+            this.onDequeue = requireNonNull(onDequeue, "onDequeue is null");
         }
 
         public QueuedExecution dequeue()

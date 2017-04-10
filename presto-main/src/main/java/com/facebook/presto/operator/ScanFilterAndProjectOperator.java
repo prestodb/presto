@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -33,10 +34,16 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.SystemSessionProperties.getProcessingOptimization;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.DISABLED;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static java.util.Objects.requireNonNull;
 
 public class ScanFilterAndProjectOperator
         implements SourceOperator, Closeable
@@ -51,7 +58,10 @@ public class ScanFilterAndProjectOperator
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
     private final PageProcessor pageProcessor;
+    private final LocalMemoryContext pageSourceMemoryContext;
+    private final LocalMemoryContext pageBuilderMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
+    private final String processingOptimization;
 
     private RecordCursor cursor;
     private ConnectorPageSource pageSource;
@@ -74,13 +84,16 @@ public class ScanFilterAndProjectOperator
             Iterable<ColumnHandle> columns,
             Iterable<Type> types)
     {
-        this.cursorProcessor = checkNotNull(cursorProcessor, "cursorProcessor is null");
-        this.pageProcessor = checkNotNull(pageProcessor, "pageProcessor is null");
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.planNodeId = checkNotNull(sourceId, "sourceId is null");
-        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
+        this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.planNodeId = requireNonNull(sourceId, "sourceId is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.pageSourceMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.pageBuilderMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.processingOptimization = getProcessingOptimization(operatorContext.getSession());
 
         this.pageBuilder = new PageBuilder(getTypes());
     }
@@ -100,7 +113,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
-        checkNotNull(split, "split is null");
+        requireNonNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 
         if (finishing) {
@@ -111,7 +124,7 @@ public class ScanFilterAndProjectOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> splitInfo);
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
         }
         blocked.set(null);
 
@@ -165,10 +178,6 @@ public class ScanFilterAndProjectOperator
     @Override
     public final boolean isFinished()
     {
-        if (!finishing) {
-            createSourceIfNecessary();
-        }
-
         if (pageSource != null && pageSource.isFinished() && currentPage == null) {
             finishing = true;
         }
@@ -179,7 +188,14 @@ public class ScanFilterAndProjectOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return blocked;
+        if (!blocked.isDone()) {
+            return blocked;
+        }
+        if (pageSource != null) {
+            CompletableFuture<?> pageSourceBlocked = pageSource.isBlocked();
+            return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
+        }
+        return NOT_BLOCKED;
     }
 
     @Override
@@ -197,11 +213,26 @@ public class ScanFilterAndProjectOperator
     @Override
     public Page getOutput()
     {
+        if (split == null) {
+            return null;
+        }
+
         if (!finishing) {
-            createSourceIfNecessary();
+            if ((pageSource == null) && (cursor == null)) {
+                ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
+                if (source instanceof RecordPageSource) {
+                    cursor = ((RecordPageSource) source).getCursor();
+                }
+                else {
+                    pageSource = source;
+                }
+            }
 
             if (cursor != null) {
                 int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
+
+                pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
+
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
                 long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
                 operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
@@ -229,44 +260,56 @@ public class ScanFilterAndProjectOperator
                 }
 
                 if (currentPage != null) {
-                    currentPosition = pageProcessor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
-                    if (currentPosition == currentPage.getPositionCount()) {
-                        currentPage = null;
-                        currentPosition = 0;
+                    switch (processingOptimization) {
+                        case COLUMNAR: {
+                            Page page = pageProcessor.processColumnar(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
+                            currentPage = null;
+                            currentPosition = 0;
+                            return page;
+                        }
+                        case COLUMNAR_DICTIONARY: {
+                            Page page = pageProcessor.processColumnarDictionary(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
+                            currentPage = null;
+                            currentPosition = 0;
+                            return page;
+                        }
+                        case DISABLED: {
+                            currentPosition = pageProcessor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
+                            if (currentPosition == currentPage.getPositionCount()) {
+                                currentPage = null;
+                                currentPosition = 0;
+                            }
+                            break;
+                        }
+                        default:
+                            throw new IllegalStateException(String.format("Found unexpected value %s for processingOptimization", processingOptimization));
                     }
                 }
+
+                pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
             }
         }
 
         // only return a full page if buffer is full or we are finishing
         if (pageBuilder.isEmpty() || (!finishing && !pageBuilder.isFull())) {
+            pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
             return null;
         }
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return page;
-    }
 
-    private void createSourceIfNecessary()
-    {
-        if ((split != null) && (pageSource == null) && (cursor == null)) {
-            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
-            if (source instanceof RecordPageSource) {
-                cursor = ((RecordPageSource) source).getCursor();
-            }
-            else {
-                pageSource = source;
-            }
-        }
+        pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+        return page;
     }
 
     public static class ScanFilterAndProjectOperatorFactory
             implements SourceOperatorFactory
     {
         private final int operatorId;
-        private final CursorProcessor cursorProcessor;
-        private final PageProcessor pageProcessor;
+        private final PlanNodeId planNodeId;
+        private final Supplier<CursorProcessor> cursorProcessor;
+        private final Supplier<PageProcessor> pageProcessor;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
         private final List<ColumnHandle> columns;
@@ -275,20 +318,22 @@ public class ScanFilterAndProjectOperator
 
         public ScanFilterAndProjectOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
-                CursorProcessor cursorProcessor,
-                PageProcessor pageProcessor,
+                Supplier<CursorProcessor> cursorProcessor,
+                Supplier<PageProcessor> pageProcessor,
                 Iterable<ColumnHandle> columns,
                 List<Type> types)
         {
             this.operatorId = operatorId;
-            this.cursorProcessor = checkNotNull(cursorProcessor, "cursorProcessor is null");
-            this.pageProcessor = checkNotNull(pageProcessor, "pageProcessor is null");
-            this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
-            this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-            this.types = checkNotNull(types, "types is null");
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
+            this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+            this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -307,13 +352,13 @@ public class ScanFilterAndProjectOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ScanFilterAndProjectOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ScanFilterAndProjectOperator.class.getSimpleName());
             return new ScanFilterAndProjectOperator(
                     operatorContext,
                     sourceId,
                     pageSourceProvider,
-                    cursorProcessor,
-                    pageProcessor,
+                    cursorProcessor.get(),
+                    pageProcessor.get(),
                     columns,
                     types);
         }

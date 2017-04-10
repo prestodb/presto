@@ -17,14 +17,15 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import javax.annotation.Nullable;
-
 import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.raptor.util.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class RaptorTableHandle
         implements ConnectorTableHandle
@@ -33,8 +34,12 @@ public final class RaptorTableHandle
     private final String schemaName;
     private final String tableName;
     private final long tableId;
-    @Nullable
-    private final RaptorColumnHandle sampleWeightColumnHandle;
+    private final OptionalLong distributionId;
+    private final Optional<String> distributionName;
+    private final OptionalInt bucketCount;
+    private final boolean organized;
+    private final OptionalLong transactionId;
+    private final boolean delete;
 
     @JsonCreator
     public RaptorTableHandle(
@@ -42,16 +47,27 @@ public final class RaptorTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
-            @JsonProperty("sampleWeightColumnHandle") @Nullable RaptorColumnHandle sampleWeightColumnHandle)
+            @JsonProperty("distributionId") OptionalLong distributionId,
+            @JsonProperty("distributionName") Optional<String> distributionName,
+            @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("organized") boolean organized,
+            @JsonProperty("transactionId") OptionalLong transactionId,
+            @JsonProperty("delete") boolean delete)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
 
         checkArgument(tableId > 0, "tableId must be greater than zero");
         this.tableId = tableId;
 
-        this.sampleWeightColumnHandle = sampleWeightColumnHandle;
+        this.distributionName = requireNonNull(distributionName, "distributionName is null");
+        this.distributionId = requireNonNull(distributionId, "distributionId is null");
+        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.organized = organized;
+        this.transactionId = requireNonNull(transactionId, "transactionId is null");
+
+        this.delete = delete;
     }
 
     @JsonProperty
@@ -78,11 +94,40 @@ public final class RaptorTableHandle
         return tableId;
     }
 
-    @Nullable
     @JsonProperty
-    public RaptorColumnHandle getSampleWeightColumnHandle()
+    public OptionalLong getDistributionId()
     {
-        return sampleWeightColumnHandle;
+        return distributionId;
+    }
+
+    @JsonProperty
+    public Optional<String> getDistributionName()
+    {
+        return distributionName;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @JsonProperty
+    public boolean isOrganized()
+    {
+        return organized;
+    }
+
+    @JsonProperty
+    public OptionalLong getTransactionId()
+    {
+        return transactionId;
+    }
+
+    @JsonProperty
+    public boolean isDelete()
+    {
+        return delete;
     }
 
     @Override

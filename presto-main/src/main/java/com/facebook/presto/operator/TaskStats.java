@@ -25,9 +25,9 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -37,6 +37,7 @@ public class TaskStats
     private final DateTime createTime;
     private final DateTime firstStartTime;
     private final DateTime lastStartTime;
+    private final DateTime lastEndTime;
     private final DateTime endTime;
 
     private final Duration elapsedTime;
@@ -49,7 +50,9 @@ public class TaskStats
     private final int runningPartitionedDrivers;
     private final int completedDrivers;
 
+    private final double cumulativeMemory;
     private final DataSize memoryReservation;
+    private final DataSize systemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -74,6 +77,7 @@ public class TaskStats
         this(createTime,
                 null,
                 null,
+                null,
                 endTime,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -83,6 +87,8 @@ public class TaskStats
                 0,
                 0,
                 0,
+                0.0,
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -96,7 +102,7 @@ public class TaskStats
                 0,
                 new DataSize(0, BYTE),
                 0,
-                ImmutableList.<PipelineStats>of());
+                ImmutableList.of());
     }
 
     @JsonCreator
@@ -104,6 +110,7 @@ public class TaskStats
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("firstStartTime") DateTime firstStartTime,
             @JsonProperty("lastStartTime") DateTime lastStartTime,
+            @JsonProperty("lastEndTime") DateTime lastEndTime,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
@@ -115,7 +122,9 @@ public class TaskStats
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
+            @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -135,12 +144,13 @@ public class TaskStats
 
             @JsonProperty("pipelines") List<PipelineStats> pipelines)
     {
-        this.createTime = checkNotNull(createTime, "createTime is null");
+        this.createTime = requireNonNull(createTime, "createTime is null");
         this.firstStartTime = firstStartTime;
         this.lastStartTime = lastStartTime;
+        this.lastEndTime = lastEndTime;
         this.endTime = endTime;
-        this.elapsedTime = checkNotNull(elapsedTime, "elapsedTime is null");
-        this.queuedTime = checkNotNull(queuedTime, "queuedTime is null");
+        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
+        this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -157,28 +167,30 @@ public class TaskStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.memoryReservation = checkNotNull(memoryReservation, "memoryReservation is null");
+        this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
+        this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
-        this.totalScheduledTime = checkNotNull(totalScheduledTime, "totalScheduledTime is null");
-        this.totalCpuTime = checkNotNull(totalCpuTime, "totalCpuTime is null");
-        this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
-        this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
+        this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
+        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
+        this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
+        this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        this.rawInputDataSize = checkNotNull(rawInputDataSize, "rawInputDataSize is null");
+        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
 
-        this.processedInputDataSize = checkNotNull(processedInputDataSize, "processedInputDataSize is null");
+        this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
-        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
+        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        this.pipelines = ImmutableList.copyOf(checkNotNull(pipelines, "pipelines is null"));
+        this.pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
     }
 
     @JsonProperty
@@ -199,6 +211,13 @@ public class TaskStats
     public DateTime getLastStartTime()
     {
         return lastStartTime;
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getLastEndTime()
+    {
+        return lastEndTime;
     }
 
     @Nullable
@@ -245,9 +264,21 @@ public class TaskStats
     }
 
     @JsonProperty
+    public double getCumulativeMemory()
+    {
+        return cumulativeMemory;
+    }
+
+    @JsonProperty
     public DataSize getMemoryReservation()
     {
         return memoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSystemMemoryReservation()
+    {
+        return systemMemoryReservation;
     }
 
     @JsonProperty
@@ -346,6 +377,7 @@ public class TaskStats
                 createTime,
                 firstStartTime,
                 lastStartTime,
+                lastEndTime,
                 endTime,
                 elapsedTime,
                 queuedTime,
@@ -355,7 +387,9 @@ public class TaskStats
                 runningDrivers,
                 runningPartitionedDrivers,
                 completedDrivers,
+                cumulativeMemory,
                 memoryReservation,
+                systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
                 totalUserTime,
@@ -368,6 +402,42 @@ public class TaskStats
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
-                ImmutableList.<PipelineStats>of());
+                ImmutableList.of());
+    }
+
+    public TaskStats summarizeFinal()
+    {
+        return new TaskStats(
+                createTime,
+                firstStartTime,
+                lastStartTime,
+                lastEndTime,
+                endTime,
+                elapsedTime,
+                queuedTime,
+                totalDrivers,
+                queuedDrivers,
+                queuedPartitionedDrivers,
+                runningDrivers,
+                runningPartitionedDrivers,
+                completedDrivers,
+                cumulativeMemory,
+                memoryReservation,
+                systemMemoryReservation,
+                totalScheduledTime,
+                totalCpuTime,
+                totalUserTime,
+                totalBlockedTime,
+                fullyBlocked,
+                blockedReasons,
+                rawInputDataSize,
+                rawInputPositions,
+                processedInputDataSize,
+                processedInputPositions,
+                outputDataSize,
+                outputPositions,
+                pipelines.stream()
+                        .map(PipelineStats::summarize)
+                        .collect(Collectors.toList()));
     }
 }

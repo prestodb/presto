@@ -20,12 +20,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         include = JsonTypeInfo.As.PROPERTY,
-        property = "type")
+        property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = OutputNode.class, name = "output"),
         @JsonSubTypes.Type(value = ProjectNode.class, name = "project"),
@@ -49,10 +49,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
         @JsonSubTypes.Type(value = IndexSourceNode.class, name = "indexsource"),
         @JsonSubTypes.Type(value = TableWriterNode.class, name = "tablewriter"),
         @JsonSubTypes.Type(value = DeleteNode.class, name = "delete"),
-        @JsonSubTypes.Type(value = TableCommitNode.class, name = "tablecommit"),
+        @JsonSubTypes.Type(value = MetadataDeleteNode.class, name = "metadatadelete"),
+        @JsonSubTypes.Type(value = TableFinishNode.class, name = "tablecommit"),
         @JsonSubTypes.Type(value = UnnestNode.class, name = "unnest"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
         @JsonSubTypes.Type(value = UnionNode.class, name = "union"),
+        @JsonSubTypes.Type(value = IntersectNode.class, name = "intersect"),
+        @JsonSubTypes.Type(value = EnforceSingleRowNode.class, name = "scalar"),
+        @JsonSubTypes.Type(value = GroupIdNode.class, name = "groupid"),
+        @JsonSubTypes.Type(value = ExplainAnalyzeNode.class, name = "explainAnalyze"),
+        @JsonSubTypes.Type(value = ApplyNode.class, name = "apply"),
+        @JsonSubTypes.Type(value = AssignUniqueId.class, name = "assignUniqueId"),
 })
 public abstract class PlanNode
 {
@@ -60,7 +67,7 @@ public abstract class PlanNode
 
     protected PlanNode(PlanNodeId id)
     {
-        checkNotNull(id, "id is null");
+        requireNonNull(id, "id is null");
         this.id = id;
     }
 
@@ -73,6 +80,8 @@ public abstract class PlanNode
     public abstract List<PlanNode> getSources();
 
     public abstract List<Symbol> getOutputSymbols();
+
+    public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
 
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {

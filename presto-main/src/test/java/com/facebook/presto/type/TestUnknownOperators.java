@@ -14,6 +14,10 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -25,6 +29,20 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 public class TestUnknownOperators
         extends AbstractTestFunctions
 {
+    @BeforeClass
+    public void setUp()
+    {
+        registerScalar(getClass());
+    }
+
+    @ScalarFunction(value = "null_function", deterministic = false)
+    @SqlNullable
+    @SqlType("unknown")
+    public static Void nullFunction()
+    {
+        return null;
+    }
+
     @Test
     public void testLiteral()
             throws Exception
@@ -86,6 +104,7 @@ public class TestUnknownOperators
             throws Exception
     {
         assertFunction("cast(NULL as bigint)", BIGINT, null);
+        assertFunction("cast(null_function() as bigint)", BIGINT, null);
     }
 
     @Test
@@ -93,6 +112,7 @@ public class TestUnknownOperators
             throws Exception
     {
         assertFunction("cast(NULL as varchar)", VARCHAR, null);
+        assertFunction("cast(null_function() as varchar)", VARCHAR, null);
     }
 
     @Test
@@ -100,6 +120,7 @@ public class TestUnknownOperators
             throws Exception
     {
         assertFunction("cast(NULL as double)", DOUBLE, null);
+        assertFunction("cast(null_function() as double)", DOUBLE, null);
     }
 
     @Test
@@ -107,5 +128,13 @@ public class TestUnknownOperators
             throws Exception
     {
         assertFunction("cast(NULL as boolean)", BOOLEAN, null);
+        assertFunction("cast(null_function() as boolean)", BOOLEAN, null);
+    }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("NULL IS DISTINCT FROM NULL", BOOLEAN, false);
     }
 }

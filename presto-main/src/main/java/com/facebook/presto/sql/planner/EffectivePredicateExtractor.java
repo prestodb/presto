@@ -14,9 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -33,13 +32,10 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -53,15 +49,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * Computes the effective predicate at the top of the specified PlanNode
@@ -76,6 +74,17 @@ public class EffectivePredicateExtractor
         return node.accept(new EffectivePredicateExtractor(symbolTypes), null);
     }
 
+    private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
+            entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
+
+    private static final Function<Map.Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
+            entry -> {
+                SymbolReference reference = entry.getKey().toSymbolReference();
+                Expression expression = entry.getValue();
+                // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
+                return new ComparisonExpression(ComparisonExpressionType.EQUAL, reference, expression);
+            };
+
     private final Map<Symbol, Type> symbolTypes;
 
     public EffectivePredicateExtractor(Map<Symbol, Type> symbolTypes)
@@ -86,15 +95,24 @@ public class EffectivePredicateExtractor
     @Override
     protected Expression visitPlan(PlanNode node, Void context)
     {
-        return BooleanLiteral.TRUE_LITERAL;
+        return TRUE_LITERAL;
     }
 
     @Override
     public Expression visitAggregation(AggregationNode node, Void context)
     {
+        // GROUP BY () always produces a group, regardless of whether there's any
+        // input (unlike the case where there are group by keys, which produce
+        // no output if there's no input).
+        // Therefore, we can't say anything about the effective predicate of the
+        // output of such an aggregation.
+        if (node.getGroupingKeys().isEmpty()) {
+            return TRUE_LITERAL;
+        }
+
         Expression underlyingPredicate = node.getSource().accept(this, context);
 
-        return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupBy());
+        return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupingKeys());
     }
 
     @Override
@@ -110,30 +128,15 @@ public class EffectivePredicateExtractor
         return combineConjuncts(predicate, underlyingPredicate);
     }
 
-    private static Predicate<Map.Entry<Symbol, ? extends Expression>> symbolMatchesExpression()
-    {
-        return entry -> entry.getValue().equals(new QualifiedNameReference(entry.getKey().toQualifiedName()));
-    }
-
-    private static Function<Map.Entry<Symbol, ? extends Expression>, Expression> entryToEquality()
-    {
-        return entry -> {
-            QualifiedNameReference reference = new QualifiedNameReference(entry.getKey().toQualifiedName());
-            Expression expression = entry.getValue();
-            // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
-            return new ComparisonExpression(ComparisonExpression.Type.EQUAL, reference, expression);
-        };
-    }
-
     @Override
     public Expression visitExchange(ExchangeNode node, Void context)
     {
         return deriveCommonPredicates(node, source -> {
-            Map<Symbol, QualifiedNameReference> mappings = new HashMap<>();
+            Map<Symbol, SymbolReference> mappings = new HashMap<>();
             for (int i = 0; i < node.getInputs().get(source).size(); i++) {
                 mappings.put(
                         node.getOutputSymbols().get(i),
-                        node.getInputs().get(source).get(i).toQualifiedNameReference());
+                        node.getInputs().get(source).get(i).toSymbolReference());
             }
             return mappings.entrySet();
         });
@@ -146,15 +149,16 @@ public class EffectivePredicateExtractor
 
         Expression underlyingPredicate = node.getSource().accept(this, context);
 
-        Iterable<Expression> projectionEqualities = FluentIterable.from(node.getAssignments().entrySet())
-                .filter(not(symbolMatchesExpression()))
-                .transform(entryToEquality());
+        List<Expression> projectionEqualities = node.getAssignments().entrySet().stream()
+                .filter(SYMBOL_MATCHES_EXPRESSION.negate())
+                .map(ENTRY_TO_EQUALITY)
+                .collect(toImmutableList());
 
         return pullExpressionThroughSymbols(combineConjuncts(
-                        ImmutableList.<Expression>builder()
-                                .addAll(projectionEqualities)
-                                .add(underlyingPredicate)
-                                .build()),
+                ImmutableList.<Expression>builder()
+                        .addAll(projectionEqualities)
+                        .add(underlyingPredicate)
+                        .build()),
                 node.getOutputSymbols());
     }
 
@@ -180,9 +184,7 @@ public class EffectivePredicateExtractor
     public Expression visitTableScan(TableScanNode node, Void context)
     {
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
-        return DomainTranslator.toPredicate(
-                spanTupleDomain(node.getCurrentConstraint()).transform(assignments::get),
-                symbolTypes);
+        return DomainTranslator.toPredicate(spanTupleDomain(node.getCurrentConstraint()).transform(assignments::get));
     }
 
     private static TupleDomain<ColumnHandle> spanTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
@@ -191,15 +193,10 @@ public class EffectivePredicateExtractor
             return tupleDomain;
         }
 
-        // Retain nullability, but collapse each SortedRangeSet into a single span
-        Map<ColumnHandle, Domain> spannedDomains = Maps.transformValues(tupleDomain.getDomains(), domain -> Domain.create(getSortedRangeSpan(domain.getRanges()), domain.isNullAllowed()));
+        // Simplify domains if they get too complex
+        Map<ColumnHandle, Domain> spannedDomains = Maps.transformValues(tupleDomain.getDomains().get(), DomainUtils::simplifyDomain);
 
         return TupleDomain.withColumnDomains(spannedDomains);
-    }
-
-    private static SortedRangeSet getSortedRangeSpan(SortedRangeSet rangeSet)
-    {
-        return rangeSet.isNone() ? SortedRangeSet.none(rangeSet.getType()) : SortedRangeSet.of(rangeSet.getSpan());
     }
 
     @Override
@@ -228,40 +225,49 @@ public class EffectivePredicateExtractor
 
         List<Expression> joinConjuncts = new ArrayList<>();
         for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-            joinConjuncts.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                    new QualifiedNameReference(clause.getLeft().toQualifiedName()),
-                    new QualifiedNameReference(clause.getRight().toQualifiedName())));
+            joinConjuncts.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
+                    clause.getLeft().toSymbolReference(),
+                    clause.getRight().toSymbolReference()));
         }
 
         switch (node.getType()) {
             case INNER:
-            case CROSS:
                 return combineConjuncts(ImmutableList.<Expression>builder()
-                        .add(leftPredicate)
-                        .add(rightPredicate)
-                        .addAll(joinConjuncts)
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
+                        .addAll(pullExpressionsThroughSymbols(joinConjuncts, node.getOutputSymbols()))
                         .build());
             case LEFT:
                 return combineConjuncts(ImmutableList.<Expression>builder()
-                        .add(leftPredicate)
-                        .addAll(transform(extractConjuncts(rightPredicate), expressionOrNullSymbols(in(node.getRight().getOutputSymbols()))))
-                        .addAll(transform(joinConjuncts, expressionOrNullSymbols(in(node.getRight().getOutputSymbols()))))
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                         .build());
             case RIGHT:
                 return combineConjuncts(ImmutableList.<Expression>builder()
-                        .add(rightPredicate)
-                        .addAll(transform(extractConjuncts(leftPredicate), expressionOrNullSymbols(in(node.getLeft().getOutputSymbols()))))
-                        .addAll(transform(joinConjuncts, expressionOrNullSymbols(in(node.getLeft().getOutputSymbols()))))
+                        .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
                         .build());
             case FULL:
                 return combineConjuncts(ImmutableList.<Expression>builder()
-                        .addAll(transform(extractConjuncts(leftPredicate), expressionOrNullSymbols(in(node.getLeft().getOutputSymbols()))))
-                        .addAll(transform(extractConjuncts(rightPredicate), expressionOrNullSymbols(in(node.getRight().getOutputSymbols()))))
-                        .addAll(transform(joinConjuncts, expressionOrNullSymbols(in(node.getLeft().getOutputSymbols()), in(node.getRight().getOutputSymbols()))))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
                         .build());
             default:
                 throw new UnsupportedOperationException("Unknown join type: " + node.getType());
         }
+    }
+
+    private static Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, Collection<Symbol> outputSymbols, Predicate<Symbol>... nullSymbolScopes)
+    {
+        // Conjuncts without any symbol dependencies cannot be applied to the effective predicate (e.g. FALSE literal)
+        return conjuncts.stream()
+                .map(expression -> pullExpressionThroughSymbols(expression, outputSymbols))
+                .map(expression -> DependencyExtractor.extractAll(expression).isEmpty() ? TRUE_LITERAL : expression)
+                .map(expressionOrNullSymbols(nullSymbolScopes))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -271,22 +277,23 @@ public class EffectivePredicateExtractor
         return node.getSource().accept(this, context);
     }
 
-    private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, QualifiedNameReference>>> mapping)
+    private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, SymbolReference>>> mapping)
     {
         // Find the predicates that can be pulled up from each source
         List<Set<Expression>> sourceOutputConjuncts = new ArrayList<>();
         for (int i = 0; i < node.getSources().size(); i++) {
             Expression underlyingPredicate = node.getSources().get(i).accept(this, null);
 
-            Iterable<Expression> equalities = FluentIterable.from(mapping.apply(i))
-                    .filter(not(symbolMatchesExpression()))
-                    .transform(entryToEquality());
+            List<Expression> equalities = mapping.apply(i).stream()
+                    .filter(SYMBOL_MATCHES_EXPRESSION.negate())
+                    .map(ENTRY_TO_EQUALITY)
+                    .collect(toImmutableList());
 
             sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughSymbols(combineConjuncts(
-                            ImmutableList.<Expression>builder()
-                                    .addAll(equalities)
-                                    .add(underlyingPredicate)
-                                    .build()),
+                    ImmutableList.<Expression>builder()
+                            .addAll(equalities)
+                            .add(underlyingPredicate)
+                            .build()),
                     node.getOutputSymbols()))));
         }
 
@@ -299,6 +306,13 @@ public class EffectivePredicateExtractor
         }
 
         return combineConjuncts(potentialOutputConjuncts);
+    }
+
+    private static List<Expression> pullExpressionsThroughSymbols(List<Expression> expressions, Collection<Symbol> symbols)
+    {
+        return expressions.stream()
+                .map(expression -> pullExpressionThroughSymbols(expression, symbols))
+                .collect(toImmutableList());
     }
 
     private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)

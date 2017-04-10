@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 public final class StreamReaders
@@ -23,7 +22,7 @@ public final class StreamReaders
     {
     }
 
-    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, Type type, DateTimeZone hiveStorageTimeZone)
+    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
@@ -41,17 +40,20 @@ public final class StreamReaders
                 return new DoubleStreamReader(streamDescriptor);
             case BINARY:
             case STRING:
+            case VARCHAR:
+            case CHAR:
                 return new SliceStreamReader(streamDescriptor);
             case TIMESTAMP:
                 return new TimestampStreamReader(streamDescriptor, hiveStorageTimeZone);
-            case STRUCT:
             case LIST:
+                return new ListStreamReader(streamDescriptor, hiveStorageTimeZone);
+            case STRUCT:
+                return new StructStreamReader(streamDescriptor, hiveStorageTimeZone);
             case MAP:
-                return new BlockStreamReader(streamDescriptor, hiveStorageTimeZone);
-            case UNION:
+                return new MapStreamReader(streamDescriptor, hiveStorageTimeZone);
             case DECIMAL:
-            case VARCHAR:
-            case CHAR:
+                return new DecimalStreamReader(streamDescriptor);
+            case UNION:
             default:
                 throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
         }

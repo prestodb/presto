@@ -16,21 +16,72 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import java.util.Objects;
 
-public class VarcharType
+import static java.util.Collections.singletonList;
+
+public final class VarcharType
         extends AbstractVariableWidthType
 {
-    public static final VarcharType VARCHAR = new VarcharType();
+    public static final int UNBOUNDED_LENGTH = Integer.MAX_VALUE;
+    public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
+    public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
 
-    @JsonCreator
-    public VarcharType()
+    public static VarcharType createUnboundedVarcharType()
     {
-        super(parseTypeSignature(StandardTypes.VARCHAR), Slice.class);
+        return VARCHAR;
+    }
+
+    public static VarcharType createVarcharType(int length)
+    {
+        if (length > MAX_LENGTH || length < 0) {
+            // Use createUnboundedVarcharType for unbounded VARCHAR.
+            throw new IllegalArgumentException("Invalid VARCHAR length " + length);
+        }
+        return new VarcharType(length);
+    }
+
+    public static TypeSignature getParametrizedVarcharSignature(String param)
+    {
+        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(param));
+    }
+
+    private final int length;
+
+    private VarcharType(int length)
+    {
+        super(
+                new TypeSignature(
+                        StandardTypes.VARCHAR,
+                        singletonList(TypeSignatureParameter.of((long) length))),
+                Slice.class);
+
+        if (length < 0) {
+            throw new IllegalArgumentException("Invalid VARCHAR length " + length);
+        }
+        this.length = length;
+    }
+
+    @Deprecated
+    public int getLength()
+    {
+        return length;
+    }
+
+    public int getLengthSafe()
+    {
+        if (isUnbounded()) {
+            throw new IllegalStateException("Cannot get size of unbounded VARCHAR.");
+        }
+        return length;
+    }
+
+    public boolean isUnbounded()
+    {
+        return length == UNBOUNDED_LENGTH;
     }
 
     @Override
@@ -52,14 +103,14 @@ public class VarcharType
             return null;
         }
 
-        return block.getSlice(position, 0, block.getLength(position)).toStringUtf8();
+        return block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
         if (leftLength != rightLength) {
             return false;
         }
@@ -67,16 +118,16 @@ public class VarcharType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
-        return block.hash(position, 0, block.getLength(position));
+        return block.hash(position, 0, block.getSliceLength(position));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
         return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 
@@ -87,7 +138,7 @@ public class VarcharType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -95,7 +146,7 @@ public class VarcharType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     public void writeString(BlockBuilder blockBuilder, String value)
@@ -113,5 +164,42 @@ public class VarcharType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        VarcharType other = (VarcharType) o;
+
+        return Objects.equals(this.length, other.length);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(length);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        if (length == UNBOUNDED_LENGTH) {
+            return getTypeSignature().getBase();
+        }
+
+        return getTypeSignature().toString();
+    }
+
+    @Override
+    public String toString()
+    {
+        return getDisplayName();
     }
 }

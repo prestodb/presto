@@ -34,7 +34,7 @@ public class TestFixedWidthBlockBuilder
 
     private static void testIsFull(PageBuilderStatus pageBuilderStatus)
     {
-        FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), pageBuilderStatus.createBlockBuilderStatus());
+        FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), pageBuilderStatus.createBlockBuilderStatus(), 1024);
         assertTrue(pageBuilderStatus.isEmpty());
         while (!pageBuilderStatus.isFull()) {
             BOOLEAN.writeBoolean(blockBuilder, true);

@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
-import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
@@ -34,8 +32,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nullable;
-
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,8 +43,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
@@ -64,7 +62,7 @@ public class TestHttpPageBufferClient
 {
     private ScheduledExecutorService executor;
 
-    private static final BlockEncodingManager blockEncodingManager = new BlockEncodingManager(new TypeRegistry());
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     @BeforeClass
     public void setUp()
@@ -98,11 +96,10 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 expectedMaxSize,
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -150,11 +147,21 @@ public class TestHttpPageBufferClient
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
 
+        // get the buffer complete signal
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 1);
+
+        // schedule the delete call to the buffer
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(callback.getFinishedBuffers(), 1);
+
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 0);
-        assertEquals(callback.getFinishedBuffers(), 1);
         assertEquals(callback.getFailedBuffers(), 0);
-        assertStatus(client, location, "closed", 3, 4, 4, 0, "not scheduled");
+
+        assertStatus(client, location, "closed", 3, 5, 5, 0, "not scheduled");
     }
 
     @Test
@@ -164,7 +171,7 @@ public class TestHttpPageBufferClient
         CyclicBarrier beforeRequest = new CyclicBarrier(2);
         CyclicBarrier afterRequest = new CyclicBarrier(2);
         StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
-        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]));
+        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
@@ -173,11 +180,10 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -191,7 +197,11 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         client.close();
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "not scheduled");
+        beforeRequest.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 1, 1, 1, "PROCESSING_REQUEST");
+        afterRequest.await(10, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
     }
 
     @Test
@@ -209,11 +219,10 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -257,7 +266,8 @@ public class TestHttpPageBufferClient
 
         // close client and verify
         client.close();
-        assertStatus(client, location, "closed", 0, 3, 3, 3, "not scheduled");
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 3, 4, 3, "not scheduled");
     }
 
     @Test
@@ -267,7 +277,7 @@ public class TestHttpPageBufferClient
         CyclicBarrier beforeRequest = new CyclicBarrier(2);
         CyclicBarrier afterRequest = new CyclicBarrier(2);
         StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
-        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]));
+        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
@@ -276,11 +286,10 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -297,7 +306,17 @@ public class TestHttpPageBufferClient
         }
         catch (BrokenBarrierException ignored) {
         }
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "not scheduled");
+        try {
+            afterRequest.await(10, TimeUnit.SECONDS);
+        }
+        catch (BrokenBarrierException ignored) {
+            afterRequest.reset();
+        }
+        // client.close() triggers a DELETE request, so wait for it to finish
+        beforeRequest.await(10, TimeUnit.SECONDS);
+        afterRequest.await(10, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
     }
 
     @Test
@@ -307,7 +326,7 @@ public class TestHttpPageBufferClient
         TestingTicker ticker = new TestingTicker();
         AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
 
-        Function<Request, Response> processor = (input) -> {
+        TestingHttpClient.Processor processor = (input) -> {
             Duration delta = tickerIncrement.get();
             ticker.increment(delta.toMillis(), TimeUnit.MILLISECONDS);
             throw new RuntimeException("Foo");
@@ -320,11 +339,11 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
                 executor,
-                Stopwatch.createUnstarted(ticker));
+                ticker);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -361,7 +380,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportTimeoutException.class);
-        assertContains(callback.getFailure().getMessage(), WORKER_NODE_ERROR + " (http://localhost:8080/0 - requests failed for 61.00s)");
+        assertContains(callback.getFailure().getMessage(), WORKER_NODE_ERROR + " (http://localhost:8080/0 - 3 failures, time since last success 61.00s)");
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
     }
 
@@ -403,7 +422,7 @@ public class TestHttpPageBufferClient
             implements ClientCallback
     {
         private final CyclicBarrier done;
-        private final List<Page> pages = Collections.synchronizedList(new ArrayList<>());
+        private final List<SerializedPage> pages = Collections.synchronizedList(new ArrayList<>());
         private final AtomicInteger completedRequests = new AtomicInteger();
         private final AtomicInteger finishedBuffers = new AtomicInteger();
         private final AtomicInteger failedBuffers = new AtomicInteger();
@@ -416,7 +435,9 @@ public class TestHttpPageBufferClient
 
         public List<Page> getPages()
         {
-            return pages;
+            return pages.stream()
+                    .map(PAGES_SERDE::deserialize)
+                    .collect(Collectors.toList());
         }
 
         private int getCompletedRequests()
@@ -440,41 +461,24 @@ public class TestHttpPageBufferClient
         }
 
         @Override
-        public void addPage(HttpPageBufferClient client, Page page)
+        public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
         {
-            pages.add(page);
+            this.pages.addAll(pages);
+            return true;
         }
 
         @Override
         public void requestComplete(HttpPageBufferClient client)
         {
             completedRequests.getAndIncrement();
-            try {
-                done.await(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
-            }
+            awaitDone();
         }
 
         @Override
         public void clientFinished(HttpPageBufferClient client)
         {
             finishedBuffers.getAndIncrement();
-            try {
-                done.await(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
-            }
+            awaitDone();
         }
 
         @Override
@@ -493,10 +497,24 @@ public class TestHttpPageBufferClient
             failedBuffers.set(0);
             failure.set(null);
         }
+
+        private void awaitDone()
+        {
+            try {
+                done.await(10, TimeUnit.SECONDS);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            catch (BrokenBarrierException | TimeoutException e) {
+                throw Throwables.propagate(e);
+            }
+        }
     }
 
     private static class StaticRequestProcessor
-            implements Function<Request, Response>
+            implements TestingHttpClient.Processor
     {
         private final AtomicReference<Response> response = new AtomicReference<>();
         private final CyclicBarrier beforeRequest;
@@ -515,33 +533,16 @@ public class TestHttpPageBufferClient
 
         @SuppressWarnings({"ThrowFromFinallyBlock", "Finally"})
         @Override
-        public Response apply(@Nullable Request request)
+        public Response handle(Request request)
+                throws Exception
         {
-            try {
-                beforeRequest.await(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
-            }
+            beforeRequest.await(10, TimeUnit.SECONDS);
 
             try {
                 return response.get();
             }
             finally {
-                try {
-                    afterRequest.await(10, TimeUnit.SECONDS);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
-                }
-                catch (BrokenBarrierException | TimeoutException e) {
-                    throw Throwables.propagate(e);
-                }
+                afterRequest.await(10, TimeUnit.SECONDS);
             }
         }
     }

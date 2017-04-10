@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
 public class WhenClause
         extends Expression
 {
@@ -21,6 +27,17 @@ public class WhenClause
 
     public WhenClause(Expression operand, Expression result)
     {
+        this(Optional.empty(), operand, result);
+    }
+
+    public WhenClause(NodeLocation location, Expression operand, Expression result)
+    {
+        this(Optional.of(location), operand, result);
+    }
+
+    private WhenClause(Optional<NodeLocation> location, Expression operand, Expression result)
+    {
+        super(location);
         this.operand = operand;
         this.result = result;
     }
@@ -42,6 +59,12 @@ public class WhenClause
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(operand, result);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -52,22 +75,13 @@ public class WhenClause
         }
 
         WhenClause that = (WhenClause) o;
-
-        if (!operand.equals(that.operand)) {
-            return false;
-        }
-        if (!result.equals(that.result)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(operand, that.operand) &&
+                Objects.equals(result, that.result);
     }
 
     @Override
     public int hashCode()
     {
-        int result1 = operand.hashCode();
-        result1 = 31 * result1 + result.hashCode();
-        return result1;
+        return Objects.hash(operand, result);
     }
 }

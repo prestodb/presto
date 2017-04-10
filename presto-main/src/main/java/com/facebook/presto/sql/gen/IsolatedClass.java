@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
@@ -36,9 +36,9 @@ public final class IsolatedClass
             Class<?>... additionalClasses)
     {
         ImmutableMap.Builder<String, byte[]> builder = ImmutableMap.builder();
-        builder.put(implementationClass.getName(), getByteCode(implementationClass));
+        builder.put(implementationClass.getName(), getBytecode(implementationClass));
         for (Class<?> additionalClass : additionalClasses) {
-            builder.put(additionalClass.getName(), getByteCode(additionalClass));
+            builder.put(additionalClass.getName(), getBytecode(additionalClass));
         }
 
         // load classes into a private class loader
@@ -56,7 +56,7 @@ public final class IsolatedClass
         return isolatedClass.asSubclass(publicBaseClass);
     }
 
-    private static byte[] getByteCode(Class<?> clazz)
+    private static byte[] getBytecode(Class<?> clazz)
     {
         InputStream stream = clazz.getClassLoader().getResourceAsStream(clazz.getName().replace('.', '/') + ".class");
         checkArgument(stream != null, "Could not obtain byte code for class %s", clazz.getName());

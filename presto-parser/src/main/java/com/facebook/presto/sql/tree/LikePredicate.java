@@ -13,7 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class LikePredicate
         extends Expression
@@ -24,8 +30,19 @@ public class LikePredicate
 
     public LikePredicate(Expression value, Expression pattern, Expression escape)
     {
-        Preconditions.checkNotNull(value, "value is null");
-        Preconditions.checkNotNull(pattern, "pattern is null");
+        this(Optional.empty(), value, pattern, escape);
+    }
+
+    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Expression escape)
+    {
+        this(Optional.of(location), value, pattern, escape);
+    }
+
+    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Expression escape)
+    {
+        super(location);
+        requireNonNull(value, "value is null");
+        requireNonNull(pattern, "pattern is null");
 
         this.value = value;
         this.pattern = pattern;
@@ -54,6 +71,20 @@ public class LikePredicate
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> result = ImmutableList.<Node>builder()
+                .add(value)
+                .add(pattern);
+
+        if (escape != null) {
+            result.add(escape);
+        }
+
+        return result.build();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -64,26 +95,14 @@ public class LikePredicate
         }
 
         LikePredicate that = (LikePredicate) o;
-
-        if (escape != null ? !escape.equals(that.escape) : that.escape != null) {
-            return false;
-        }
-        if (!pattern.equals(that.pattern)) {
-            return false;
-        }
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value) &&
+                Objects.equals(pattern, that.pattern) &&
+                Objects.equals(escape, that.escape);
     }
 
     @Override
     public int hashCode()
     {
-        int result = value.hashCode();
-        result = 31 * result + pattern.hashCode();
-        result = 31 * result + (escape != null ? escape.hashCode() : 0);
-        return result;
+        return Objects.hash(value, pattern, escape);
     }
 }

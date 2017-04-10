@@ -19,7 +19,9 @@ import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestConditions
         extends AbstractTestFunctions
@@ -67,7 +69,7 @@ public class TestConditions
         assertFunction("'monkey' not like null", BOOLEAN, null);
         assertFunction("'monkey' not like 'monkey' escape null", BOOLEAN, null);
 
-        assertInvalidFunction("'monkey' like 'monkey' escape 'foo'", "Escape must be empty or a single character");
+        assertInvalidFunction("'monkey' like 'monkey' escape 'foo'", "Escape string must be a single character");
     }
 
     @Test
@@ -86,6 +88,7 @@ public class TestConditions
         assertFunction("1 IS NOT DISTINCT FROM 1", BOOLEAN, true);
         assertFunction("1 IS NOT DISTINCT FROM 2", BOOLEAN, false);
     }
+
     @Test
     public void testBetween()
     {
@@ -99,6 +102,11 @@ public class TestConditions
         assertFunction("null between 2 and 4", BOOLEAN, null);
         assertFunction("3 between null and 4", BOOLEAN, null);
         assertFunction("3 between 2 and null", BOOLEAN, null);
+
+        assertFunction("3 between 3 and 4000000000", BOOLEAN, true);
+        assertFunction("5 between 3 and 4000000000", BOOLEAN, true);
+        assertFunction("3 between BIGINT '3' and 4", BOOLEAN, true);
+        assertFunction("BIGINT '3' between 3 and 4", BOOLEAN, true);
 
         assertFunction("'c' between 'b' and 'd'", BOOLEAN, true);
         assertFunction("'c' between 'c' and 'c'", BOOLEAN, true);
@@ -164,11 +172,24 @@ public class TestConditions
         assertFunction("case " +
                         "when true then 33 " +
                         "end",
+                INTEGER,
+                33);
+
+        assertFunction("case " +
+                        "when true then BIGINT '33' " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case " +
                         "when false then 1 " +
+                        "else 33 " +
+                        "end",
+                INTEGER,
+                33);
+
+        assertFunction("case " +
+                        "when false then 10000000000 " +
                         "else 33 " +
                         "end",
                 BIGINT,
@@ -180,24 +201,49 @@ public class TestConditions
                         "when true then 33 " +
                         "else 1 " +
                         "end",
+                INTEGER,
+                33);
+
+        assertFunction("case " +
+                        "when false then BIGINT '1' " +
+                        "when false then 1 " +
+                        "when true then 33 " +
+                        "else 1 " +
+                        "end",
+                BIGINT,
+                33L);
+
+        assertFunction("case " +
+                        "when false then 10000000000 " +
+                        "when false then 1 " +
+                        "when true then 33 " +
+                        "else 1 " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case " +
                         "when false then 1 " +
                         "end",
-                BIGINT,
+                INTEGER,
                 null);
 
         assertFunction("case " +
                         "when true then null " +
                         "else 'foo' " +
                         "end",
-                VARCHAR,
+                createVarcharType(3),
                 null);
 
         assertFunction("case " +
                         "when null then 1 " +
+                        "when true then 33 " +
+                        "end",
+                INTEGER,
+                33);
+
+        assertFunction("case " +
+                        "when null then 10000000000 " +
                         "when true then 33 " +
                         "end",
                 BIGINT,
@@ -224,11 +270,24 @@ public class TestConditions
         assertFunction("case true " +
                         "when true then 33 " +
                         "end",
+                INTEGER,
+                33);
+
+        assertFunction("case true " +
+                        "when true then BIGINT '33' " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case true " +
                         "when false then 1 " +
+                        "else 33 " +
+                        "end",
+                INTEGER,
+                33);
+
+        assertFunction("case true " +
+                        "when false then 10000000000 " +
                         "else 33 " +
                         "end",
                 BIGINT,
@@ -240,34 +299,41 @@ public class TestConditions
                         "when true then 33 " +
                         "else 1 " +
                         "end",
-                BIGINT,
-                33L);
+                INTEGER,
+                33);
 
         assertFunction("case true " +
                         "when false then 1 " +
                         "end",
-                BIGINT,
+                INTEGER,
                 null);
 
         assertFunction("case true " +
                         "when true then null " +
                         "else 'foo' " +
                         "end",
-                VARCHAR,
+                createVarcharType(3),
                 null);
 
         assertFunction("case true " +
-                        "when null then 1 " +
+                        "when null then 10000000000 " +
                         "when true then 33 " +
                         "end",
                 BIGINT,
                 33L);
 
+        assertFunction("case true " +
+                        "when null then 1 " +
+                        "when true then 33 " +
+                        "end",
+                INTEGER,
+                33);
+
         assertFunction("case null " +
                         "when true then 1 " +
                         "else 33 " +
                         "end",
-                BIGINT,
+                INTEGER,
                 33);
 
         assertFunction("case true " +

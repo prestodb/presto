@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.google.common.base.MoreObjects;
 import io.airlift.units.Duration;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -58,13 +57,13 @@ public class BenchmarkQueryResult
             Stat processCpuTimeNanos,
             Stat queryCpuTimeNanos)
     {
-        this.suite = checkNotNull(suite, "suite is null");
-        this.benchmarkQuery = checkNotNull(benchmarkQuery, "benchmarkQuery is null");
-        this.status = checkNotNull(status, "status is null");
+        this.suite = requireNonNull(suite, "suite is null");
+        this.benchmarkQuery = requireNonNull(benchmarkQuery, "benchmarkQuery is null");
+        this.status = requireNonNull(status, "status is null");
         this.errorMessage = requireNonNull(errorMessage, "errorMessage is null");
-        this.wallTimeNanos = checkNotNull(wallTimeNanos, "wallTimeNanos is null");
-        this.processCpuTimeNanos = checkNotNull(processCpuTimeNanos, "processCpuTimeNanos is null");
-        this.queryCpuTimeNanos = checkNotNull(queryCpuTimeNanos, "queryCpuTimeNanos is null");
+        this.wallTimeNanos = requireNonNull(wallTimeNanos, "wallTimeNanos is null");
+        this.processCpuTimeNanos = requireNonNull(processCpuTimeNanos, "processCpuTimeNanos is null");
+        this.queryCpuTimeNanos = requireNonNull(queryCpuTimeNanos, "queryCpuTimeNanos is null");
     }
 
     public Suite getSuite()
@@ -105,7 +104,7 @@ public class BenchmarkQueryResult
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("suite", suite.getName())
                 .add("benchmarkQuery", benchmarkQuery.getName())
                 .add("status", status)

@@ -19,13 +19,14 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class PageBufferOperator
         implements Operator
@@ -34,12 +35,14 @@ public class PageBufferOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final PageBuffer pageBuffer;
 
-        public PageBufferOperatorFactory(int operatorId, PageBuffer pageBuffer)
+        public PageBufferOperatorFactory(int operatorId, PlanNodeId planNodeId, PageBuffer pageBuffer)
         {
             this.operatorId = operatorId;
-            this.pageBuffer = checkNotNull(pageBuffer, "pageBuffer is null");
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.pageBuffer = requireNonNull(pageBuffer, "pageBuffer is null");
         }
 
         @Override
@@ -51,13 +54,19 @@ public class PageBufferOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, PageBufferOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PageBufferOperator.class.getSimpleName());
             return new PageBufferOperator(operatorContext, pageBuffer);
         }
 
         @Override
         public void close()
         {
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new PageBufferOperatorFactory(operatorId, planNodeId, pageBuffer);
         }
     }
 
@@ -68,8 +77,8 @@ public class PageBufferOperator
 
     public PageBufferOperator(OperatorContext operatorContext, PageBuffer pageBuffer)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.pageBuffer = checkNotNull(pageBuffer, "pageBuffer is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.pageBuffer = requireNonNull(pageBuffer, "pageBuffer is null");
     }
 
     @Override
@@ -121,7 +130,7 @@ public class PageBufferOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(blocked == NOT_BLOCKED, "output is already blocked");
         ListenableFuture<?> future = pageBuffer.add(page);
         if (!future.isDone()) {

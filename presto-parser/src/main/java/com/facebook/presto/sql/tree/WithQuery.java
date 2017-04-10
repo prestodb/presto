@@ -13,24 +13,38 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class WithQuery
         extends Node
 {
     private final String name;
     private final Query query;
-    private final List<String> columnNames;
+    private final Optional<List<String>> columnNames;
 
-    public WithQuery(String name, Query query, List<String> columnNames)
+    public WithQuery(String name, Query query, Optional<List<String>> columnNames)
     {
-        this.name = QualifiedName.of(checkNotNull(name, "name is null")).getParts().get(0);
-        this.query = checkNotNull(query, "query is null");
-        this.columnNames = columnNames;
+        this(Optional.empty(), name, query, columnNames);
+    }
+
+    public WithQuery(NodeLocation location, String name, Query query, Optional<List<String>> columnNames)
+    {
+        this(Optional.of(location), name, query, columnNames);
+    }
+
+    private WithQuery(Optional<NodeLocation> location, String name, Query query, Optional<List<String>> columnNames)
+    {
+        super(location);
+        this.name = QualifiedName.of(requireNonNull(name, "name is null")).getParts().get(0);
+        this.query = requireNonNull(query, "query is null");
+        this.columnNames = requireNonNull(columnNames, "columnNames is null");
     }
 
     public String getName()
@@ -43,7 +57,7 @@ public class WithQuery
         return query;
     }
 
-    public List<String> getColumnNames()
+    public Optional<List<String>> getColumnNames()
     {
         return columnNames;
     }
@@ -52,6 +66,12 @@ public class WithQuery
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitWithQuery(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(query);
     }
 
     @Override

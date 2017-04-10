@@ -14,38 +14,46 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class PageSourceManager
         implements PageSourceProvider
 {
-    private final ConcurrentMap<String, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSourceProvider(String connectorId, ConnectorPageSourceProvider connectorPageSourceProvider)
+    public void addConnectorPageSourceProvider(ConnectorId connectorId, ConnectorPageSourceProvider pageSourceProvider)
     {
-        pageSourceProviders.put(connectorId, connectorPageSourceProvider);
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        checkState(pageSourceProviders.put(connectorId, pageSourceProvider) == null, "PageSourceProvider for connector '%s' is already registered", connectorId);
+    }
+
+    public void removeConnectorPageSourceProvider(ConnectorId connectorId)
+    {
+        pageSourceProviders.remove(connectorId);
     }
 
     @Override
     public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
     {
-        checkNotNull(split, "split is null");
-        checkNotNull(columns, "columns is null");
+        requireNonNull(split, "split is null");
+        requireNonNull(columns, "columns is null");
 
-        // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
-        return getPageSourceProvider(split).createPageSource(connectorSession, split.getConnectorSplit(), columns);
+        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(Split split)

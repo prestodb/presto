@@ -16,12 +16,16 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.SystemSessionProperties.getProcessingOptimization;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class FilterAndProjectOperator
         implements Operator
@@ -31,15 +35,17 @@ public class FilterAndProjectOperator
 
     private final PageBuilder pageBuilder;
     private final PageProcessor processor;
+    private final String processingOptimization;
     private Page currentPage;
     private int currentPosition;
     private boolean finishing;
 
     public FilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types, PageProcessor processor)
     {
-        this.processor = checkNotNull(processor, "processor is null");
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.processor = requireNonNull(processor, "processor is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.processingOptimization = getProcessingOptimization(operatorContext.getSession());
         this.pageBuilder = new PageBuilder(getTypes());
     }
 
@@ -77,7 +83,7 @@ public class FilterAndProjectOperator
     public final void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!pageBuilder.isFull(), "Page buffer is full");
 
         currentPage = page;
@@ -88,10 +94,29 @@ public class FilterAndProjectOperator
     public final Page getOutput()
     {
         if (!pageBuilder.isFull() && currentPage != null) {
-            currentPosition = processor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
-            if (currentPosition == currentPage.getPositionCount()) {
-                currentPage = null;
-                currentPosition = 0;
+            switch (processingOptimization) {
+                case FeaturesConfig.ProcessingOptimization.COLUMNAR: {
+                    Page page = processor.processColumnar(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
+                    currentPage = null;
+                    currentPosition = 0;
+                    return page;
+                }
+                case FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY: {
+                    Page page = processor.processColumnarDictionary(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
+                    currentPage = null;
+                    currentPosition = 0;
+                    return page;
+                }
+                case FeaturesConfig.ProcessingOptimization.DISABLED: {
+                    currentPosition = processor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
+                    if (currentPosition == currentPage.getPositionCount()) {
+                        currentPage = null;
+                        currentPosition = 0;
+                    }
+                    break;
+                }
+                default:
+                    throw new IllegalStateException();
             }
         }
 
@@ -108,13 +133,15 @@ public class FilterAndProjectOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final PageProcessor processor;
+        private final PlanNodeId planNodeId;
+        private final Supplier<PageProcessor> processor;
         private final List<Type> types;
         private boolean closed;
 
-        public FilterAndProjectOperatorFactory(int operatorId, PageProcessor processor, List<Type> types)
+        public FilterAndProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, Supplier<PageProcessor> processor, List<Type> types)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.processor = processor;
             this.types = types;
         }
@@ -129,14 +156,20 @@ public class FilterAndProjectOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, FilterAndProjectOperator.class.getSimpleName());
-            return new FilterAndProjectOperator(operatorContext, types, processor);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, FilterAndProjectOperator.class.getSimpleName());
+            return new FilterAndProjectOperator(operatorContext, types, processor.get());
         }
 
         @Override
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new FilterAndProjectOperatorFactory(operatorId, planNodeId, processor, types);
         }
     }
 }

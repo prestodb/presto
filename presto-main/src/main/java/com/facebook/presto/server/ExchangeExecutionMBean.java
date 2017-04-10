@@ -23,8 +23,7 @@ import javax.inject.Inject;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExchangeExecutionMBean
 {
@@ -33,8 +32,8 @@ public class ExchangeExecutionMBean
     @Inject
     public ExchangeExecutionMBean(@ForExchange ScheduledExecutorService executor)
     {
-        checkNotNull(executor, "executor is null");
-        this.executorMBean = new ThreadPoolExecutorMBean(checkType(executor, ThreadPoolExecutor.class, "executor"));
+        requireNonNull(executor, "executor is null");
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
     }
 
     @Managed

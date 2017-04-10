@@ -16,12 +16,15 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -29,9 +32,10 @@ import org.joda.time.DateTime;
 import javax.inject.Inject;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class QuerySystemTable
         implements SystemTable
@@ -39,12 +43,12 @@ public class QuerySystemTable
     public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("runtime", "queries");
 
     public static final ConnectorTableMetadata QUERY_TABLE = tableMetadataBuilder(QUERY_TABLE_NAME)
-            .column("node_id", VARCHAR)
-            .column("query_id", VARCHAR)
-            .column("state", VARCHAR)
-            .column("user", VARCHAR)
-            .column("source", VARCHAR)
-            .column("query", VARCHAR)
+            .column("node_id", createUnboundedVarcharType())
+            .column("query_id", createUnboundedVarcharType())
+            .column("state", createUnboundedVarcharType())
+            .column("user", createUnboundedVarcharType())
+            .column("source", createUnboundedVarcharType())
+            .column("query", createUnboundedVarcharType())
 
             .column("queued_time_ms", BIGINT)
             .column("analysis_time_ms", BIGINT)
@@ -67,9 +71,9 @@ public class QuerySystemTable
     }
 
     @Override
-    public boolean isDistributed()
+    public Distribution getDistribution()
     {
-        return true;
+        return ALL_COORDINATORS;
     }
 
     @Override
@@ -79,7 +83,7 @@ public class QuerySystemTable
     }
 
     @Override
-    public RecordCursor cursor()
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {

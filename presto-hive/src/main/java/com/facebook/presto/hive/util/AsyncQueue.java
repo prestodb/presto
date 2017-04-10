@@ -15,101 +15,128 @@ package com.facebook.presto.hive.util;
 
 import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-/**
- * A simple unbounded queue that can fetch batches of elements asynchronously.
- * <p>
- * This class is designed for multiple writers and multiple readers.
- */
+@ThreadSafe
 public class AsyncQueue<T>
 {
-    private final LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
-    private final AtomicBoolean finished = new AtomicBoolean();
-    private final AtomicReference<CompletableFuture<?>> notEmptyFuture = new AtomicReference<>(new CompletableFuture<>());
+    private final int targetQueueSize;
 
-    /**
-     * Adds an element to the queue.  Elements added after the queue is finished
-     * are normally ignored (without error), but if someone calls finish while
-     * {@code add} is running the element may still be added.
-     *
-     * @throws NullPointerException if the element is null
-     */
-    public void add(T element)
+    @GuardedBy("this")
+    private final Queue<T> elements;
+    // This future is completed when the queue transitions from full to not. But it will be replaced by a new instance of future immediately.
+    @GuardedBy("this")
+    private CompletableFuture<?> notFullSignal = new CompletableFuture<>();
+    // This future is completed when the queue transitions from empty to not. But it will be replaced by a new instance of future immediately.
+    @GuardedBy("this")
+    private CompletableFuture<?> notEmptySignal = new CompletableFuture<>();
+    @GuardedBy("this")
+    private boolean finishing = false;
+
+    private Executor executor;
+
+    public AsyncQueue(int targetQueueSize, Executor executor)
     {
-        requireNonNull(element, "element is null");
-        if (finished.get()) {
+        checkArgument(targetQueueSize >= 1, "targetQueueSize must be at least 1");
+        this.targetQueueSize = targetQueueSize;
+        this.elements = new ArrayDeque<>(targetQueueSize * 2);
+        this.executor = requireNonNull(executor);
+    }
+
+    public synchronized int size()
+    {
+        return elements.size();
+    }
+
+    public synchronized boolean isFinished()
+    {
+        return finishing && elements.size() == 0;
+    }
+
+    public synchronized void finish()
+    {
+        if (finishing) {
             return;
         }
-        queue.add(element);
-        notEmptyFuture.get().complete(null);
-    }
+        finishing = true;
 
-    /**
-     * Gets a batch of elements from the queue.  If queue is not empty, a
-     * completed future containing the queued elements is returned.  If the
-     * queue is empty, an incomplete future is returned that completes when
-     * an element is added.
-     * <p>
-     * It is possible that an empty list will be returned as another reader
-     * may have consumed all of the data.  A caller should read until, the
-     * {@code isFinished} method returns {@code true}.
-     *
-     * @param maxSize the maximum number of elements to return.
-     */
-    public CompletableFuture<List<T>> getBatchAsync(int maxSize)
-    {
-        return notEmptyFuture.get().thenApply(x -> getBatch(maxSize));
-    }
-
-    private List<T> getBatch(int maxSize)
-    {
-        // take up to maxSize elements from the queue
-        List<Object> elements = new ArrayList<>(maxSize);
-        queue.drainTo(elements, maxSize);
-
-        // if the queue is empty and the current future is finished, create a new one so
-        // a new readers can be notified when the queue has elements to read
-        if (queue.isEmpty() && !finished.get()) {
-            CompletableFuture<?> future = notEmptyFuture.get();
-            if (future.isDone()) {
-                notEmptyFuture.compareAndSet(future, new CompletableFuture<>());
-            }
+        if (elements.size() == 0) {
+            completeAsync(executor, notEmptySignal);
+            notEmptySignal = new CompletableFuture<>();
         }
-
-        // if someone added an element while we were updating the state, complete the current future
-        if (!queue.isEmpty() || finished.get()) {
-            notEmptyFuture.get().complete(null);
-        }
-
-        return ImmutableList.copyOf((Collection<T>) elements);
-    }
-
-    /**
-     * Finishes the queue. Elements added after the queue is finished
-     * are ignored without error.
-     */
-    public void finish()
-    {
-        finished.set(true);
-        if (queue.isEmpty()) {
-            notEmptyFuture.get().complete(null);
+        else if (elements.size() >= targetQueueSize) {
+            completeAsync(executor, notFullSignal);
+            notFullSignal = new CompletableFuture<>();
         }
     }
 
-    /**
-     * Is the queue finished and no more elements can be fetched?
-     */
-    public boolean isFinished()
+    public synchronized CompletableFuture<?> offer(T element)
     {
-        return finished.get() && queue.isEmpty();
+        requireNonNull(element);
+
+        if (finishing) {
+            return CompletableFuture.completedFuture(null);
+        }
+        elements.add(element);
+        int newSize = elements.size();
+        if (newSize == 1) {
+            completeAsync(executor, notEmptySignal);
+            notEmptySignal = new CompletableFuture<>();
+        }
+        if (newSize >= targetQueueSize) {
+            return notFullSignal;
+        }
+        return CompletableFuture.completedFuture(null);
+    }
+
+    private synchronized List<T> getBatch(int maxSize)
+    {
+        int oldSize = elements.size();
+        int reduceBy = Math.min(maxSize, oldSize);
+        if (reduceBy == 0) {
+            return ImmutableList.of();
+        }
+        List<T> result = new ArrayList<>(reduceBy);
+        for (int i = 0; i < reduceBy; i++) {
+            result.add(elements.remove());
+        }
+        // This checks that the queue size changed from above threshold to below. Therefore, writers shall be notified.
+        if (oldSize >= targetQueueSize && oldSize - reduceBy < targetQueueSize) {
+            completeAsync(executor, notFullSignal);
+            notFullSignal = new CompletableFuture<>();
+        }
+        return result;
+    }
+
+    public synchronized CompletableFuture<List<T>> getBatchAsync(int maxSize)
+    {
+        checkArgument(maxSize >= 0, "maxSize must be at least 0");
+
+        List<T> list = getBatch(maxSize);
+        if (!list.isEmpty()) {
+            return CompletableFuture.completedFuture(list);
+        }
+        else if (finishing) {
+            return CompletableFuture.completedFuture(ImmutableList.of());
+        }
+        else {
+            return notEmptySignal.thenApplyAsync(x -> getBatch(maxSize), executor);
+        }
+    }
+
+    private static void completeAsync(Executor executor, CompletableFuture<?> future)
+    {
+        executor.execute(() -> future.complete(null));
     }
 }

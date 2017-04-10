@@ -1,0 +1,101 @@
+-- delimiter: |; types: DECIMAL|LONGNVARCHAR|CHAR|INTEGER|BIGINT
+-0.43|null|null|2|1|
+-0.45|Electronics|null|1|1|
+-0.44|Children|null|1|2|
+-0.44|Home|null|1|2|
+-0.44|Sports|null|1|2|
+-0.43|Books|null|1|5|
+-0.43|Jewelry|null|1|5|
+-0.43|Men|null|1|5|
+-0.43|Music|null|1|5|
+-0.43|Shoes|null|1|5|
+-0.43|Women|null|1|5|
+-0.41|null|null|1|11|
+-0.49|Books|null|0|1|
+-0.46|Books|self-help                                         |0|2|
+-0.45|Books|home repair                                       |0|3|
+-0.45|Books|parenting                                         |0|3|
+-0.45|Books|romance                                           |0|3|
+-0.44|Books|arts                                              |0|6|
+-0.44|Books|computers                                         |0|6|
+-0.44|Books|entertainments                                    |0|6|
+-0.43|Books|business                                          |0|9|
+-0.43|Books|cooking                                           |0|9|
+-0.43|Books|fiction                                           |0|9|
+-0.43|Books|history                                           |0|9|
+-0.43|Books|sports                                            |0|9|
+-0.42|Books|travel                                            |0|14|
+-0.41|Books|reference                                         |0|15|
+-0.41|Books|science                                           |0|15|
+-0.40|Books|mystery                                           |0|17|
+-0.52|Children|null|0|1|
+-0.44|Children|infants                                           |0|2|
+-0.44|Children|newborn                                           |0|2|
+-0.44|Children|toddlers                                          |0|2|
+-0.43|Children|school-uniforms                                   |0|5|
+-0.48|Electronics|scanners                                          |0|1|
+-0.47|Electronics|musical                                           |0|2|
+-0.47|Electronics|wireless                                          |0|2|
+-0.46|Electronics|audio                                             |0|4|
+-0.46|Electronics|automotive                                        |0|4|
+-0.46|Electronics|portable                                          |0|4|
+-0.45|Electronics|karoke                                            |0|7|
+-0.45|Electronics|personal                                          |0|7|
+-0.44|Electronics|camcorders                                        |0|9|
+-0.44|Electronics|monitors                                          |0|9|
+-0.44|Electronics|stereo                                            |0|9|
+-0.43|Electronics|cameras                                           |0|12|
+-0.43|Electronics|disk drives                                       |0|12|
+-0.43|Electronics|dvd/vcr players                                   |0|12|
+-0.43|Electronics|televisions                                       |0|12|
+-0.42|Electronics|memory                                            |0|16|
+-0.46|Home|rugs                                              |0|1|
+-0.46|Home|wallpaper                                         |0|1|
+-0.45|Home|bedding                                           |0|3|
+-0.45|Home|blinds/shades                                     |0|3|
+-0.45|Home|tables                                            |0|3|
+-0.44|Home|accent                                            |0|6|
+-0.44|Home|curtains/drapes                                   |0|6|
+-0.44|Home|decor                                             |0|6|
+-0.44|Home|kids                                              |0|6|
+-0.44|Home|paint                                             |0|6|
+-0.43|Home|glassware                                         |0|11|
+-0.42|Home|bathroom                                          |0|12|
+-0.42|Home|flatware                                          |0|12|
+-0.42|Home|furniture                                         |0|12|
+-0.42|Home|mattresses                                        |0|12|
+-0.40|Home|lighting                                          |0|16|
+-0.28|Home|null|0|17|
+-0.48|Jewelry|consignment                                       |0|1|
+-0.45|Jewelry|gold                                              |0|2|
+-0.44|Jewelry|bracelets                                         |0|3|
+-0.44|Jewelry|semi-precious                                     |0|3|
+-0.44|Jewelry|womens watch                                      |0|3|
+-0.44|Jewelry|null|0|3|
+-0.43|Jewelry|birdal                                            |0|7|
+-0.43|Jewelry|estate                                            |0|7|
+-0.43|Jewelry|loose stones                                      |0|7|
+-0.43|Jewelry|pendants                                          |0|7|
+-0.43|Jewelry|rings                                             |0|7|
+-0.42|Jewelry|costume                                           |0|12|
+-0.42|Jewelry|earings                                           |0|12|
+-0.41|Jewelry|custom                                            |0|14|
+-0.41|Jewelry|jewelry boxes                                     |0|14|
+-0.41|Jewelry|mens watch                                        |0|14|
+-0.40|Jewelry|diamonds                                          |0|17|
+-0.44|Men|accessories                                       |0|1|
+-0.44|Men|pants                                             |0|1|
+-0.44|Men|sports-apparel                                    |0|1|
+-0.42|Men|shirts                                            |0|4|
+-0.38|Men|null|0|5|
+-0.47|Music|null|0|1|
+-0.43|Music|classical                                         |0|2|
+-0.43|Music|country                                           |0|2|
+-0.43|Music|pop                                               |0|2|
+-0.42|Music|rock                                              |0|5|
+-0.64|Shoes|null|0|1|
+-0.44|Shoes|mens                                              |0|2|
+-0.44|Shoes|womens                                            |0|2|
+-0.43|Shoes|kids                                              |0|4|
+-0.42|Shoes|athletic                                          |0|5|
+-0.47|Sports|basketball                                        |0|1|

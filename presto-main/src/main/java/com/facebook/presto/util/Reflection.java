@@ -14,13 +14,14 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class Reflection
 {
@@ -32,7 +33,7 @@ public final class Reflection
             return clazz.getField(name);
         }
         catch (NoSuchFieldException e) {
-            throw new PrestoException(INTERNAL_ERROR, e);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -42,7 +43,7 @@ public final class Reflection
             return clazz.getMethod(name, parameterTypes);
         }
         catch (NoSuchMethodException e) {
-            throw new PrestoException(INTERNAL_ERROR, e);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -52,7 +53,27 @@ public final class Reflection
             return MethodHandles.lookup().unreflect(clazz.getMethod(name, parameterTypes));
         }
         catch (IllegalAccessException | NoSuchMethodException e) {
-            throw new PrestoException(INTERNAL_ERROR, e);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+        }
+    }
+
+    public static MethodHandle methodHandle(Method method)
+    {
+        try {
+            return MethodHandles.lookup().unreflect(method);
+        }
+        catch (IllegalAccessException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+        }
+    }
+
+    public static MethodHandle constructorMethodHandle(StandardErrorCode errorCode, Class<?> clazz, Class<?>... parameterTypes)
+    {
+        try {
+            return MethodHandles.lookup().unreflectConstructor(clazz.getConstructor(parameterTypes));
+        }
+        catch (IllegalAccessException | NoSuchMethodException e) {
+            throw new PrestoException(errorCode, e);
         }
     }
 }

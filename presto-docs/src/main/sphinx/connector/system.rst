@@ -26,13 +26,29 @@ Query one of the tables::
 
     SELECT * FROM system.runtime.nodes;
 
+Kill a running query::
+
+    CALL system.runtime.kill_query('20151207_215727_00146_tx3nr');
+
 System Connector Tables
 -----------------------
 
-``metadata.catalog``
-^^^^^^^^^^^^^^^^^^^^
+``metadata.catalogs``
+^^^^^^^^^^^^^^^^^^^^^
 
 The catalogs table contains the list of available catalogs.
+
+``metadata.schema_properties``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The schema properties table contains the list of available properties
+that can be set when creating a new schema.
+
+``metadata.table_properties``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The table properties table contains the list of available properties
+that can be set when creating a new table.
 
 ``runtime.nodes``
 ^^^^^^^^^^^^^^^^^
@@ -55,3 +71,17 @@ was queued and analyzed.
 The tasks table contains information about the tasks involved in a
 Presto query including where they were executed and and how many rows
 and bytes each task processed.
+
+``runtime.transactions``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The transactions table contains the list of currently open transactions
+and related metadata. This includes information such as the create time,
+idle time, initialization parameters, and accessed catalogs.
+
+System Connector Procedures
+---------------------------
+
+.. function:: runtime.kill_query(id)
+
+    Kill the query with the specified ``id``.

@@ -32,11 +32,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleClient
 {
@@ -49,8 +49,8 @@ public class ExampleClient
     public ExampleClient(ExampleConfig config, JsonCodec<Map<String, List<ExampleTable>>> catalogCodec)
             throws IOException
     {
-        checkNotNull(config, "config is null");
-        checkNotNull(catalogCodec, "catalogCodec is null");
+        requireNonNull(config, "config is null");
+        requireNonNull(catalogCodec, "catalogCodec is null");
 
         schemas = Suppliers.memoize(schemasSupplier(catalogCodec, config.getMetadata()));
     }
@@ -62,7 +62,7 @@ public class ExampleClient
 
     public Set<String> getTableNames(String schema)
     {
-        checkNotNull(schema, "schema is null");
+        requireNonNull(schema, "schema is null");
         Map<String, ExampleTable> tables = schemas.get().get(schema);
         if (tables == null) {
             return ImmutableSet.of();
@@ -72,8 +72,8 @@ public class ExampleClient
 
     public ExampleTable getTable(String schema, String tableName)
     {
-        checkNotNull(schema, "schema is null");
-        checkNotNull(tableName, "tableName is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(tableName, "tableName is null");
         Map<String, ExampleTable> tables = schemas.get().get(schema);
         if (tables == null) {
             return null;
