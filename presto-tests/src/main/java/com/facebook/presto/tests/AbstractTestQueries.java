@@ -51,7 +51,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -6213,8 +6212,7 @@ public abstract class AbstractTestQueries
                 "  LIMIT 10)");
     }
 
-    //Disabled till #6622 is fixed
-    @Test(enabled = false)
+    @Test
     public void testSemiJoinNullHandling()
     {
         assertQuery("" +
@@ -8208,17 +8206,7 @@ public abstract class AbstractTestQueries
                         parameter("quantifier").of("ALL", "ANY"),
                         parameter("value").of("1", "NULL"),
                         parameter("operator").of("=", "!=", "<", ">", "<=", ">="));
-        //the following are disabled till #6622 is fixed
-        List<String> excludedInPredicateQueries = ImmutableList.of(
-                "SELECT NULL != ALL (SELECT * FROM (SELECT 1 WHERE false))",
-                "SELECT NULL = ANY (SELECT * FROM (SELECT 1 WHERE false))",
-                "SELECT NULL != ALL (SELECT * FROM (SELECT CAST(NULL AS INTEGER)))",
-                "SELECT NULL = ANY (SELECT * FROM (SELECT CAST(NULL AS INTEGER)))",
-                "SELECT NULL = ANY (SELECT * FROM (VALUES (1), (NULL)))",
-                "SELECT NULL != ALL (SELECT * FROM (VALUES (1), (NULL)))"
-        );
-        Predicate<String> isExcluded = excludedInPredicateQueries::contains;
-        return toArgumentsArrays(queries.filter(isExcluded.negate()).map(Arguments::of));
+        return toArgumentsArrays(queries.map(Arguments::of));
     }
 
     @Test
