@@ -44,6 +44,16 @@ public class PartitioningScheme
             }
         },
 
+        /**
+         * Replicates nulls and also makes sures every node gets some data if there is any data globally.
+         */
+        REPLICATE_NULLS_AND_ANY {
+            boolean isCompatibleWithColumns(int columnsCount)
+            {
+                return columnsCount <= 1;
+            }
+        },
+
         REPLICATE_NULLS {
             boolean isCompatibleWithColumns(int columnsCount)
             {

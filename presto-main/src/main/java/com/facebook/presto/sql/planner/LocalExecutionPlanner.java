@@ -360,7 +360,14 @@ public class LocalExecutionPlanner
                 plan,
                 outputLayout,
                 types,
-                new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, outputBuffer, maxPagePartitioningBufferSize));
+                new PartitionedOutputFactory(
+                        partitionFunction,
+                        partitionChannels,
+                        partitionConstants,
+                        partitioningScheme.getReplication(),
+                        nullChannel,
+                        outputBuffer,
+                        maxPagePartitioningBufferSize));
     }
 
     private boolean isReplicateNulls(Replication replication)
@@ -368,6 +375,7 @@ public class LocalExecutionPlanner
         switch (requireNonNull(replication, "replication is null")) {
             case NONE:
                 return false;
+            case REPLICATE_NULLS_AND_ANY:
             case REPLICATE_NULLS:
                 return true;
             default:

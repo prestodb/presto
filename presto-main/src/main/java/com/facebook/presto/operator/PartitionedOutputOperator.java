@@ -24,6 +24,7 @@ import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.PartitioningScheme.Replication;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -56,6 +57,7 @@ public class PartitionedOutputOperator
         private final List<Integer> partitionChannels;
         private final List<Optional<NullableValue>> partitionConstants;
         private final OutputBuffer outputBuffer;
+        private final Replication replication;
         private final OptionalInt nullChannel;
         private final DataSize maxMemory;
 
@@ -63,6 +65,7 @@ public class PartitionedOutputOperator
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
                 List<Optional<NullableValue>> partitionConstants,
+                Replication replication,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 DataSize maxMemory)
@@ -70,6 +73,7 @@ public class PartitionedOutputOperator
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
+            this.replication = requireNonNull(replication, "replication is null");
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
@@ -91,6 +95,7 @@ public class PartitionedOutputOperator
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
+                    replication,
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
@@ -108,6 +113,7 @@ public class PartitionedOutputOperator
         private final PartitionFunction partitionFunction;
         private final List<Integer> partitionChannels;
         private final List<Optional<NullableValue>> partitionConstants;
+        private final Replication replication;
         private final OptionalInt nullChannel;
         private final OutputBuffer outputBuffer;
         private final PagesSerdeFactory serdeFactory;
@@ -121,6 +127,7 @@ public class PartitionedOutputOperator
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
                 List<Optional<NullableValue>> partitionConstants,
+                Replication replication,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
@@ -133,6 +140,7 @@ public class PartitionedOutputOperator
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
+            this.replication = requireNonNull(replication, "replication is null");
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
@@ -156,6 +164,7 @@ public class PartitionedOutputOperator
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
+                    replication,
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
@@ -178,6 +187,7 @@ public class PartitionedOutputOperator
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
+                    replication,
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
@@ -198,6 +208,7 @@ public class PartitionedOutputOperator
             PartitionFunction partitionFunction,
             List<Integer> partitionChannels,
             List<Optional<NullableValue>> partitionConstants,
+            Replication replication,
             OptionalInt nullChannel,
             OutputBuffer outputBuffer,
             PagesSerdeFactory serdeFactory,
@@ -209,6 +220,7 @@ public class PartitionedOutputOperator
                 partitionFunction,
                 partitionChannels,
                 partitionConstants,
+                replication,
                 nullChannel,
                 outputBuffer,
                 serdeFactory,
@@ -298,14 +310,17 @@ public class PartitionedOutputOperator
         private final List<Optional<Block>> partitionConstants;
         private final PagesSerde serde;
         private final List<PageBuilder> pageBuilders;
+        private final boolean replicateAny;
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
         private final AtomicLong rowsAdded = new AtomicLong();
         private final AtomicLong pagesAdded = new AtomicLong();
+        private boolean hasAnyBeenReplicated;
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
                 List<Optional<NullableValue>> partitionConstants,
+                Replication replication,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
@@ -317,6 +332,7 @@ public class PartitionedOutputOperator
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null").stream()
                     .map(constant -> constant.map(NullableValue::asBlock))
                     .collect(toImmutableList());
+            this.replicateAny = requireNonNull(replication, "replication is null") == Replication.REPLICATE_NULLS_AND_ANY;
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
@@ -352,6 +368,7 @@ public class PartitionedOutputOperator
             Page partitionFunctionArgs = getPartitionFunctionArguments(page);
             for (int position = 0; position < page.getPositionCount(); position++) {
                 if (shouldReplicate(page, position)) {
+                    hasAnyBeenReplicated = true;
                     for (PageBuilder pageBuilder : pageBuilders) {
                         addToPageBuilder(pageBuilder, page, position);
                     }
@@ -383,7 +400,8 @@ public class PartitionedOutputOperator
 
         private boolean shouldReplicate(Page page, int position)
         {
-            return nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position);
+            return (replicateAny && !hasAnyBeenReplicated) ||
+                    (nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position));
         }
 
         private void addToPageBuilder(PageBuilder pageBuilder, Page page, int position)
