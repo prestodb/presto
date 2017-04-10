@@ -180,9 +180,19 @@ public class HashSemiJoinOperator
         // update hashing strategy to use probe cursor
         for (int position = 0; position < page.getPositionCount(); position++) {
             if (probeJoinPage.getBlock(0).isNull(position)) {
-                throw new PrestoException(
-                        NOT_SUPPORTED,
-                        "NULL values are not allowed on the probe side of SemiJoin operator. See the query plan for details.");
+                if (legacySemiJoin) {
+                    throw new PrestoException(
+                            NOT_SUPPORTED,
+                            "NULL values are not allowed on the probe side of SemiJoin operator. See the query plan for details.");
+                }
+                else {
+                    if (!channelSet.hasElements()) {
+                        BOOLEAN.writeBoolean(blockBuilder, false);
+                    }
+                    else {
+                        blockBuilder.appendNull();
+                    }
+                }
             }
             else {
                 boolean contains = channelSet.contains(position, probeJoinPage);

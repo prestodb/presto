@@ -840,7 +840,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitSemiJoin(SemiJoinNode node, Context context)
         {
-            Replication partitionedSemiJoinReplication = Replication.REPLICATE_NULLS;
+            Replication partitionedSemiJoinReplication = Replication.REPLICATE_NULLS_AND_ANY;
             PlanWithProperties source;
             PlanWithProperties filteringSource;
 

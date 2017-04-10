@@ -841,27 +841,36 @@ public class PredicatePushDown
             Expression sourceEffectivePredicate = EffectivePredicateExtractor.extract(node.getSource(), symbolAllocator.getTypes());
 
             List<Expression> sourceConjuncts = new ArrayList<>();
-            List<Expression> filteringSourceConjuncts = new ArrayList<>();
             List<Expression> postJoinConjuncts = new ArrayList<>();
 
             // TODO: see if there are predicates that can be inferred from the semi join output
 
-            // Push inherited and source predicates to filtering source via a contrived join predicate (but needs to avoid touching NULL values in the filtering source)
-            Expression joinPredicate = equalsExpression(node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol());
-            EqualityInference joinInference = createEqualityInference(inheritedPredicate, sourceEffectivePredicate, joinPredicate);
-            for (Expression conjunct : Iterables.concat(EqualityInference.nonInferrableConjuncts(inheritedPredicate), EqualityInference.nonInferrableConjuncts(sourceEffectivePredicate))) {
-                Expression rewrittenConjunct = joinInference.rewriteExpression(conjunct, equalTo(node.getFilteringSourceJoinSymbol()));
-                if (rewrittenConjunct != null && DeterminismEvaluator.isDeterministic(rewrittenConjunct)) {
-                    // Alter conjunct to include an OR filteringSourceJoinSymbol IS NULL disjunct
-                    Expression rewrittenConjunctOrNull = expressionOrNullSymbols(Predicate.isEqual(node.getFilteringSourceJoinSymbol())).apply(rewrittenConjunct);
-                    filteringSourceConjuncts.add(rewrittenConjunctOrNull);
-                }
-            }
-            EqualityInference.EqualityPartition joinInferenceEqualityPartition = joinInference.generateEqualitiesPartitionedBy(equalTo(node.getFilteringSourceJoinSymbol()));
+            PlanNode rewrittenFilteringSource;
+            if (node.isLegacySemiJoin()) {
+                List<Expression> filteringSourceConjuncts = new ArrayList<>();
 
-            filteringSourceConjuncts.addAll(joinInferenceEqualityPartition.getScopeEqualities().stream()
-                    .map(expressionOrNullSymbols(Predicate.isEqual(node.getFilteringSourceJoinSymbol())))
-                    .collect(Collectors.toList()));
+                // Push inherited and source predicates to filtering source via a contrived join predicate (but needs to avoid touching NULL values in the filtering source)
+                Expression joinPredicate = equalsExpression(node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol());
+                EqualityInference joinInference = createEqualityInference(inheritedPredicate, sourceEffectivePredicate, joinPredicate);
+                for (Expression conjunct : Iterables.concat(EqualityInference.nonInferrableConjuncts(inheritedPredicate), EqualityInference.nonInferrableConjuncts(sourceEffectivePredicate))) {
+                    Expression rewrittenConjunct = joinInference.rewriteExpression(conjunct, equalTo(node.getFilteringSourceJoinSymbol()));
+                    if (rewrittenConjunct != null && DeterminismEvaluator.isDeterministic(rewrittenConjunct)) {
+                        // Alter conjunct to include an OR filteringSourceJoinSymbol IS NULL disjunct
+                        Expression rewrittenConjunctOrNull = expressionOrNullSymbols(Predicate.isEqual(node.getFilteringSourceJoinSymbol())).apply(rewrittenConjunct);
+                        filteringSourceConjuncts.add(rewrittenConjunctOrNull);
+                    }
+                }
+                EqualityInference.EqualityPartition joinInferenceEqualityPartition = joinInference.generateEqualitiesPartitionedBy(equalTo(node.getFilteringSourceJoinSymbol()));
+
+                filteringSourceConjuncts.addAll(joinInferenceEqualityPartition.getScopeEqualities().stream()
+                        .map(expressionOrNullSymbols(Predicate.isEqual(node.getFilteringSourceJoinSymbol())))
+                        .collect(Collectors.toList()));
+
+                rewrittenFilteringSource = context.rewrite(node.getFilteringSource(), combineConjuncts(filteringSourceConjuncts));
+            }
+            else {
+                rewrittenFilteringSource = node.getFilteringSource();
+            }
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             EqualityInference inheritedInference = createEqualityInference(inheritedPredicate);
@@ -883,7 +892,6 @@ public class PredicatePushDown
             postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
             PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(sourceConjuncts));
-            PlanNode rewrittenFilteringSource = context.rewrite(node.getFilteringSource(), combineConjuncts(filteringSourceConjuncts));
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
