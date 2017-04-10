@@ -72,7 +72,7 @@ public abstract class AbstractResourceConfigurationManager
                 }
                 else {
                     for (ResourceGroupSpec subGroup : group.getSubGroups()) {
-                        checkArgument(!subGroup.getSchedulingWeight().isPresent(), "Must use \"weight\" scheduling policy when using scheduling weight");
+                        checkArgument(!subGroup.getSchedulingWeight().isPresent(), "Must use \"weighted\" scheduling policy when using scheduling weight");
                     }
                 }
             }
