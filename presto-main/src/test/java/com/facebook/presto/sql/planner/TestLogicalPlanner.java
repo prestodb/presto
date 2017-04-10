@@ -268,7 +268,7 @@ public class TestLogicalPlanner
                 "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
                 LogicalPlanner.Stage.OPTIMIZED,
                 anyTree(
-                        filter("3 = X",
+                        filter("BIGINT '3' = X",
                                 apply(ImmutableList.of("X"),
                                         ImmutableMap.of(),
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
@@ -289,7 +289,7 @@ public class TestLogicalPlanner
                         filter("OUTER_FILTER",
                                 apply(ImmutableList.of("C", "O"),
                                         ImmutableMap.of("OUTER_FILTER", expression("THREE IN (C)")),
-                                        project(ImmutableMap.of("THREE", expression("3")),
+                                        project(ImmutableMap.of("THREE", expression("BIGINT '3'")),
                                                 tableScan("orders", ImmutableMap.of(
                                                         "O", "orderkey",
                                                         "C", "custkey"))),
@@ -309,13 +309,13 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT orderkey FROM orders WHERE EXISTS(SELECT 1 WHERE orderkey = 3)", // EXISTS maps to count(*) = 1
                 anyTree(
-                        filter("FINAL_COUNT > 0",
+                        filter("FINAL_COUNT > BIGINT '0'",
                                 any(
                                         aggregation(ImmutableMap.of("FINAL_COUNT", functionCall("count", ImmutableList.of("PARTIAL_COUNT"))),
                                                 any(
                                                         aggregation(ImmutableMap.of("PARTIAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
                                                                 any(
-                                                                        join(LEFT, ImmutableList.of(), Optional.of("3 = ORDERKEY"),
+                                                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
                                                                                 any(
                                                                                         tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
                                                                                 project(ImmutableMap.of("NON_NULL", expression("true")),
