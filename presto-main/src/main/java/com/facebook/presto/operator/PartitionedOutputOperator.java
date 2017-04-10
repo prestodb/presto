@@ -351,7 +351,7 @@ public class PartitionedOutputOperator
 
             Page partitionFunctionArgs = getPartitionFunctionArguments(page);
             for (int position = 0; position < page.getPositionCount(); position++) {
-                if (nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position)) {
+                if (shouldReplicate(page, position)) {
                     for (PageBuilder pageBuilder : pageBuilders) {
                         addToPageBuilder(pageBuilder, page, position);
                     }
@@ -379,6 +379,11 @@ public class PartitionedOutputOperator
                 }
             }
             return new Page(page.getPositionCount(), blocks);
+        }
+
+        private boolean shouldReplicate(Page page, int position)
+        {
+            return nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position);
         }
 
         private void addToPageBuilder(PageBuilder pageBuilder, Page page, int position)
