@@ -17,14 +17,16 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RollbackTask
         implements DataDefinitionTask<Rollback>
@@ -36,7 +38,7 @@ public class RollbackTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Rollback statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(Rollback statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         if (!session.getTransactionId().isPresent()) {
@@ -46,7 +48,7 @@ public class RollbackTask
 
         stateMachine.clearTransactionId();
         transactionManager.asyncAbort(transactionId);
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 
     @Override

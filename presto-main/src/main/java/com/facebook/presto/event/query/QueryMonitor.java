@@ -15,6 +15,10 @@ package com.facebook.presto.event.query;
 
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.eventlistener.EventListenerManager;
+import com.facebook.presto.execution.Column;
+import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
@@ -22,129 +26,191 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
+import com.facebook.presto.spi.eventlistener.QueryContext;
+import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryFailureInfo;
+import com.facebook.presto.spi.eventlistener.QueryIOMetadata;
+import com.facebook.presto.spi.eventlistener.QueryInputMetadata;
+import com.facebook.presto.spi.eventlistener.QueryMetadata;
+import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
+import com.facebook.presto.spi.eventlistener.QueryStatistics;
+import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
+import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
+import com.facebook.presto.spi.eventlistener.SplitStatistics;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.event.client.EventClient;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
+import static java.time.Duration.ofMillis;
+import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryMonitor
 {
     private static final Logger log = Logger.get(QueryMonitor.class);
 
+    private final JsonCodec<StageInfo> stageInfoCodec;
     private final ObjectMapper objectMapper;
-    private final EventClient eventClient;
-    private final String environment;
+    private final EventListenerManager eventListenerManager;
     private final String serverVersion;
+    private final String serverAddress;
+    private final String environment;
+    private final QueryMonitorConfig config;
 
     @Inject
-    public QueryMonitor(ObjectMapper objectMapper, EventClient eventClient, NodeInfo nodeInfo, NodeVersion nodeVersion)
+    public QueryMonitor(
+            ObjectMapper objectMapper,
+            JsonCodec<StageInfo> stageInfoCodec,
+            EventListenerManager eventListenerManager,
+            NodeInfo nodeInfo,
+            NodeVersion nodeVersion,
+            QueryMonitorConfig config)
     {
+        this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
+        this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
-        this.eventClient = requireNonNull(eventClient, "eventClient is null");
-        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.serverVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
+        this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
+        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
+        this.config = requireNonNull(config, "config is null");
     }
 
-    public void createdEvent(QueryInfo queryInfo)
+    public void queryCreatedEvent(QueryInfo queryInfo)
     {
-        eventClient.post(
+        eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
-                        queryInfo.getQueryId(),
-                        queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(null),
-                        queryInfo.getSession().getUser(),
-                        queryInfo.getSession().getPrincipal().orElse(null),
-                        queryInfo.getSession().getSource().orElse(null),
-                        serverVersion,
-                        environment,
-                        queryInfo.getSession().getCatalog().orElse(null),
-                        queryInfo.getSession().getSchema().orElse(null),
-                        queryInfo.getSession().getRemoteUserAddress().orElse(null),
-                        queryInfo.getSession().getUserAgent().orElse(null),
-                        queryInfo.getSelf(),
-                        queryInfo.getQuery(),
-                        queryInfo.getQueryStats().getCreateTime()
-                )
-        );
+                        queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
+                        new QueryContext(
+                                queryInfo.getSession().getUser(),
+                                queryInfo.getSession().getPrincipal(),
+                                queryInfo.getSession().getRemoteUserAddress(),
+                                queryInfo.getSession().getUserAgent(),
+                                queryInfo.getSession().getClientInfo(),
+                                queryInfo.getSession().getSource(),
+                                queryInfo.getSession().getCatalog(),
+                                queryInfo.getSession().getSchema(),
+                                mergeSessionAndCatalogProperties(queryInfo),
+                                serverAddress,
+                                serverVersion,
+                                environment),
+                        new QueryMetadata(
+                                queryInfo.getQueryId().toString(),
+                                queryInfo.getSession().getTransactionId().map(TransactionId::toString),
+                                queryInfo.getQuery(),
+                                queryInfo.getState().toString(),
+                                queryInfo.getSelf(),
+                                Optional.empty())));
     }
 
-    public void completionEvent(QueryInfo queryInfo)
+    public void queryCompletedEvent(QueryInfo queryInfo)
     {
         try {
-            QueryStats queryStats = queryInfo.getQueryStats();
-            FailureInfo failureInfo = queryInfo.getFailureInfo();
+            Optional<QueryFailureInfo> queryFailureInfo = Optional.empty();
 
-            String failureType = failureInfo == null ? null : failureInfo.getType();
-            String failureMessage = failureInfo == null ? null : failureInfo.getMessage();
+            if (queryInfo.getFailureInfo() != null) {
+                FailureInfo failureInfo = queryInfo.getFailureInfo();
+                Optional<TaskInfo> failedTask = queryInfo.getOutputStage().flatMap(QueryMonitor::findFailedTask);
 
-            ImmutableMap.Builder<String, String> mergedProperties = ImmutableMap.builder();
-            mergedProperties.putAll(queryInfo.getSession().getSystemProperties());
-            for (Map.Entry<String, Map<String, String>> catalogEntry : queryInfo.getSession().getCatalogProperties().entrySet()) {
-                for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
-                    mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
-                }
+                queryFailureInfo = Optional.of(new QueryFailureInfo(
+                        queryInfo.getErrorCode(),
+                        Optional.ofNullable(failureInfo.getType()),
+                        Optional.ofNullable(failureInfo.getMessage()),
+                        failedTask.map(task -> task.getTaskStatus().getTaskId().toString()),
+                        failedTask.map(task -> task.getTaskStatus().getSelf().getHost()),
+                        objectMapper.writeValueAsString(queryInfo.getFailureInfo())));
             }
 
-            Optional<TaskInfo> task = findFailedTask(queryInfo.getOutputStage());
-            String failureHost = task.map(x -> x.getSelf().getHost()).orElse(null);
-            String failureTask = task.map(x -> x.getTaskId().toString()).orElse(null);
+            ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
+            for (Input input : queryInfo.getInputs()) {
+                inputs.add(new QueryInputMetadata(
+                        input.getConnectorId().getCatalogName(),
+                        input.getSchema(),
+                        input.getTable(),
+                        input.getColumns().stream()
+                                .map(Column::toString).collect(Collectors.toList()),
+                        input.getConnectorInfo()));
+            }
 
-            eventClient.post(
-                    new QueryCompletionEvent(
-                            queryInfo.getQueryId(),
-                            queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(null),
-                            queryInfo.getSession().getUser(),
-                            queryInfo.getSession().getPrincipal().orElse(null),
-                            queryInfo.getSession().getSource().orElse(null),
-                            serverVersion,
-                            environment,
-                            queryInfo.getSession().getCatalog().orElse(null),
-                            queryInfo.getSession().getSchema().orElse(null),
-                            queryInfo.getSession().getRemoteUserAddress().orElse(null),
-                            queryInfo.getSession().getUserAgent().orElse(null),
-                            queryInfo.getState(),
-                            queryInfo.getSelf(),
-                            queryInfo.getFieldNames(),
-                            queryInfo.getQuery(),
-                            queryStats.getPeakMemoryReservation().toBytes(),
-                            queryStats.getCreateTime(),
-                            queryStats.getExecutionStartTime(),
-                            queryStats.getEndTime(),
-                            queryStats.getQueuedTime(),
-                            queryStats.getAnalysisTime(),
-                            queryStats.getDistributedPlanningTime(),
-                            queryStats.getTotalScheduledTime(),
-                            queryStats.getTotalCpuTime(),
-                            queryStats.getRawInputDataSize(),
-                            queryStats.getRawInputPositions(),
-                            queryStats.getTotalDrivers(),
-                            queryInfo.getErrorCode(),
-                            failureType,
-                            failureMessage,
-                            failureTask,
-                            failureHost,
-                            objectMapper.writeValueAsString(queryInfo.getOutputStage()),
-                            objectMapper.writeValueAsString(queryInfo.getFailureInfo()),
-                            objectMapper.writeValueAsString(queryInfo.getInputs()),
-                            objectMapper.writeValueAsString(mergedProperties.build())
-                    )
-            );
+            QueryStats queryStats = queryInfo.getQueryStats();
+
+            Optional<QueryOutputMetadata> output = Optional.empty();
+            if (queryInfo.getOutput().isPresent()) {
+                Optional<TableFinishInfo> tableFinishInfo = queryStats.getOperatorSummaries().stream()
+                        .map(OperatorStats::getInfo)
+                        .filter(TableFinishInfo.class::isInstance)
+                        .map(TableFinishInfo.class::cast)
+                        .findFirst();
+
+                output = Optional.of(
+                        new QueryOutputMetadata(
+                                queryInfo.getOutput().get().getConnectorId().getCatalogName(),
+                                queryInfo.getOutput().get().getSchema(),
+                                queryInfo.getOutput().get().getTable(),
+                                tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
+                                tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
+            }
+
+            eventListenerManager.queryCompleted(
+                    new QueryCompletedEvent(
+                            new QueryMetadata(
+                                    queryInfo.getQueryId().toString(),
+                                    queryInfo.getSession().getTransactionId().map(TransactionId::toString),
+                                    queryInfo.getQuery(),
+                                    queryInfo.getState().toString(),
+                                    queryInfo.getSelf(),
+                                    queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, toIntExact(config.getMaxOutputStageJsonSize().toBytes())))),
+                            new QueryStatistics(
+                                    ofMillis(queryStats.getTotalCpuTime().toMillis()),
+                                    ofMillis(queryStats.getTotalScheduledTime().toMillis()),
+                                    ofMillis(queryStats.getQueuedTime().toMillis()),
+                                    Optional.ofNullable(queryStats.getAnalysisTime()).map(duration -> ofMillis(duration.toMillis())),
+                                    Optional.ofNullable(queryStats.getDistributedPlanningTime()).map(duration -> ofMillis(duration.toMillis())),
+                                    queryStats.getPeakMemoryReservation().toBytes(),
+                                    queryStats.getRawInputDataSize().toBytes(),
+                                    queryStats.getRawInputPositions(),
+                                    queryStats.getCompletedDrivers(),
+                                    queryInfo.isCompleteInfo(),
+                                    objectMapper.writeValueAsString(queryInfo.getQueryStats().getOperatorSummaries())),
+                            new QueryContext(
+                                    queryInfo.getSession().getUser(),
+                                    queryInfo.getSession().getPrincipal(),
+                                    queryInfo.getSession().getRemoteUserAddress(),
+                                    queryInfo.getSession().getUserAgent(),
+                                    queryInfo.getSession().getClientInfo(),
+                                    queryInfo.getSession().getSource(),
+                                    queryInfo.getSession().getCatalog(),
+                                    queryInfo.getSession().getSchema(),
+                                    mergeSessionAndCatalogProperties(queryInfo),
+                                    serverAddress,
+                                    serverVersion,
+                                    environment),
+                            new QueryIOMetadata(inputs.build(), output),
+                            queryFailureInfo,
+                            ofEpochMilli(queryStats.getCreateTime().getMillis()),
+                            ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
+                            ofEpochMilli(queryStats.getEndTime().getMillis())));
 
             logQueryTimeline(queryInfo);
         }
@@ -155,10 +221,6 @@ public class QueryMonitor
 
     private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
     {
-        if (stageInfo == null) {
-            return Optional.empty();
-        }
-
         for (StageInfo subStage : stageInfo.getSubStages()) {
             Optional<TaskInfo> task = findFailedTask(subStage);
             if (task.isPresent()) {
@@ -166,11 +228,23 @@ public class QueryMonitor
             }
         }
         return stageInfo.getTasks().stream()
-                .filter(taskInfo -> taskInfo.getState() == TaskState.FAILED)
+                .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
                 .findFirst();
     }
 
-    private void logQueryTimeline(QueryInfo queryInfo)
+    private static Map<String, String> mergeSessionAndCatalogProperties(QueryInfo queryInfo)
+    {
+        ImmutableMap.Builder<String, String> mergedProperties = ImmutableMap.builder();
+        mergedProperties.putAll(queryInfo.getSession().getSystemProperties());
+        for (Map.Entry<ConnectorId, Map<String, String>> catalogEntry : queryInfo.getSession().getCatalogProperties().entrySet()) {
+            for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
+                mergedProperties.put(catalogEntry.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
+            }
+        }
+        return mergedProperties.build();
+    }
+
+    private static void logQueryTimeline(QueryInfo queryInfo)
     {
         try {
             QueryStats queryStats = queryInfo.getQueryStats();
@@ -183,16 +257,13 @@ public class QueryMonitor
             }
 
             // planning duration -- start to end of planning
-            Duration planning = queryStats.getTotalPlanningTime();
-            if (planning == null) {
-                planning = new Duration(0, MILLISECONDS);
-            }
+            long planning = queryStats.getTotalPlanningTime() == null ? 0 : queryStats.getTotalPlanningTime().toMillis();
 
             List<StageInfo> stages = StageInfo.getAllStages(queryInfo.getOutputStage());
             // long lastSchedulingCompletion = 0;
             long firstTaskStartTime = queryEndTime.getMillis();
-            long lastTaskStartTime = queryStartTime.getMillis() + planning.toMillis();
-            long lastTaskEndTime = queryStartTime.getMillis() + planning.toMillis();
+            long lastTaskStartTime = queryStartTime.getMillis() + planning;
+            long lastTaskEndTime = queryStartTime.getMillis() + planning;
             for (StageInfo stage : stages) {
                 // only consider leaf stages
                 if (!stage.getSubStages().isEmpty()) {
@@ -209,95 +280,89 @@ public class QueryMonitor
 
                     DateTime lastStartTime = taskStats.getLastStartTime();
                     if (lastStartTime != null) {
-                        lastTaskStartTime = Math.max(lastStartTime.getMillis(), lastTaskStartTime);
+                        lastTaskStartTime = max(lastStartTime.getMillis(), lastTaskStartTime);
                     }
 
                     DateTime endTime = taskStats.getEndTime();
                     if (endTime != null) {
-                        lastTaskEndTime = Math.max(endTime.getMillis(), lastTaskEndTime);
+                        lastTaskEndTime = max(endTime.getMillis(), lastTaskEndTime);
                     }
                 }
             }
 
-            Duration elapsed = millis(queryEndTime.getMillis() - queryStartTime.getMillis());
+            long elapsed = queryEndTime.getMillis() - queryStartTime.getMillis();
+            long scheduling = firstTaskStartTime - queryStartTime.getMillis() - planning;
+            long running = lastTaskEndTime - firstTaskStartTime;
+            long finishing = queryEndTime.getMillis() - lastTaskEndTime;
 
-            Duration scheduling = millis(firstTaskStartTime - queryStartTime.getMillis() - planning.toMillis());
-
-            Duration running = millis(lastTaskEndTime - firstTaskStartTime);
-
-            Duration finishing = millis(queryEndTime.getMillis() - lastTaskEndTime);
-
-            log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %s :: planning %s :: scheduling %s :: running %s :: finishing %s :: begin %s :: end %s",
+            log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s",
                     queryInfo.getQueryId(),
-                     queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(""),
-                    elapsed,
-                    planning,
-                    scheduling,
-                    running,
-                    finishing,
+                    queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(""),
+                    max(elapsed, 0),
+                    max(planning, 0),
+                    max(scheduling, 0),
+                    max(running, 0),
+                    max(finishing, 0),
                     queryStartTime,
-                    queryEndTime
-            );
+                    queryEndTime);
         }
         catch (Exception e) {
             log.error(e, "Error logging query timeline");
         }
     }
 
-    public void splitCompletionEvent(TaskId taskId, DriverStats driverStats)
+    public void splitCompletedEvent(TaskId taskId, DriverStats driverStats)
     {
-        splitCompletionEvent(taskId, driverStats, null, null);
+        splitCompletedEvent(taskId, driverStats, null, null);
     }
 
     public void splitFailedEvent(TaskId taskId, DriverStats driverStats, Throwable cause)
     {
-        splitCompletionEvent(taskId, driverStats, cause.getClass().getName(), cause.getMessage());
+        splitCompletedEvent(taskId, driverStats, cause.getClass().getName(), cause.getMessage());
     }
 
-    private void splitCompletionEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage)
+    private void splitCompletedEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage)
     {
-        Duration timeToStart = null;
+        Optional<Duration> timeToStart = Optional.empty();
         if (driverStats.getStartTime() != null) {
-            timeToStart = millis(driverStats.getStartTime().getMillis() - driverStats.getCreateTime().getMillis());
+            timeToStart = Optional.of(ofMillis(driverStats.getStartTime().getMillis() - driverStats.getCreateTime().getMillis()));
         }
-        Duration timeToEnd = null;
+
+        Optional<Duration> timeToEnd = Optional.empty();
         if (driverStats.getEndTime() != null) {
-            timeToEnd = millis(driverStats.getEndTime().getMillis() - driverStats.getCreateTime().getMillis());
+            timeToEnd = Optional.of(ofMillis(driverStats.getEndTime().getMillis() - driverStats.getCreateTime().getMillis()));
+        }
+
+        Optional<SplitFailureInfo> splitFailureMetadata = Optional.empty();
+        if (failureType != null) {
+            splitFailureMetadata = Optional.of(new SplitFailureInfo(failureType, failureMessage != null ? failureMessage : ""));
         }
 
         try {
-            eventClient.post(
-                    new SplitCompletionEvent(
-                            taskId.getQueryId(),
-                            taskId.getStageId(),
-                            taskId,
-                            environment,
-                            driverStats.getQueuedTime(),
-                            driverStats.getStartTime(),
-                            timeToStart,
-                            timeToEnd,
-                            driverStats.getRawInputDataSize(),
-                            driverStats.getRawInputPositions(),
-                            driverStats.getRawInputReadTime(),
-                            driverStats.getElapsedTime(),
-                            driverStats.getTotalCpuTime(),
-                            driverStats.getTotalUserTime(),
-                            failureType,
-                            failureMessage,
-                            objectMapper.writeValueAsString(driverStats)
-                    )
-            );
+            eventListenerManager.splitCompleted(
+                    new SplitCompletedEvent(
+                            taskId.getQueryId().toString(),
+                            taskId.getStageId().toString(),
+                            Integer.toString(taskId.getId()),
+                            driverStats.getCreateTime().toDate().toInstant(),
+                            Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),
+                            Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),
+                            new SplitStatistics(
+                                    ofMillis(driverStats.getTotalCpuTime().toMillis()),
+                                    ofMillis(driverStats.getElapsedTime().toMillis()),
+                                    ofMillis(driverStats.getQueuedTime().toMillis()),
+                                    ofMillis(driverStats.getTotalUserTime().toMillis()),
+                                    ofMillis(driverStats.getRawInputReadTime().toMillis()),
+                                    driverStats.getRawInputPositions(),
+                                    driverStats.getRawInputDataSize().toBytes(),
+                                    driverStats.getPeakMemoryReservation().toBytes(),
+                                    timeToStart,
+                                    timeToEnd),
+                            splitFailureMetadata,
+                            objectMapper.writeValueAsString(driverStats)));
         }
         catch (JsonProcessingException e) {
-            log.error(e, "Error posting split completion event for task %s", taskId);
+            log.error(e, "Error processing split completion event for task %s", taskId);
         }
-    }
-
-    private static Duration millis(long millis)
-    {
-        if (millis < 0) {
-            millis = 0;
-        }
-        return new Duration(millis, MILLISECONDS);
     }
 }

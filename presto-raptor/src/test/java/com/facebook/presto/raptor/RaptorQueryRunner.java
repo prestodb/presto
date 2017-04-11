@@ -14,11 +14,13 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -49,9 +51,6 @@ public final class RaptorQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        queryRunner.installPlugin(new SampledTpchPlugin());
-        queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
-
         queryRunner.installPlugin(new RaptorPlugin());
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
         Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
@@ -68,13 +67,12 @@ public final class RaptorQueryRunner
 
         if (loadTpch) {
             copyTables(queryRunner, "tpch", createSession(), bucketed);
-            copyTables(queryRunner, "tpch_sampled", createSampledSession(), bucketed);
         }
 
         return queryRunner;
     }
 
-    private static void copyTables(QueryRunner queryRunner, String catalog, Session session, boolean bucketed)
+    public static void copyTables(QueryRunner queryRunner, String catalog, Session session, boolean bucketed)
             throws Exception
     {
         String schema = TINY_SCHEMA_NAME;
@@ -121,17 +119,15 @@ public final class RaptorQueryRunner
         return createSession("tpch");
     }
 
-    public static Session createSampledSession()
+    public static Session createSession(String schema)
     {
-        return createSession("tpch_sampled");
-    }
-
-    private static Session createSession(String schema)
-    {
-        return testSessionBuilder()
+        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
+        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId("raptor"), new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
+        return testSessionBuilder(sessionPropertyManager)
                 .setCatalog("raptor")
                 .setSchema(schema)
-                .setSystemProperties(ImmutableMap.of("columnar_processing_dictionary", "true", "dictionary_aggregation", "true"))
+                .setSystemProperty("processing_optimization", "columnar_dictionary")
+                .setSystemProperty("dictionary_aggregation", "true")
                 .build();
     }
 

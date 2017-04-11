@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,19 +30,24 @@ public interface TypeManager
     Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters);
 
     /**
-     * Gets the type with the specified base type, and the given parameters, or null if not found.
-     * <p>
-     * This method is deprecated and {@link #getParameterizedType(String, java.util.List)} should be used.
-     */
-    @Deprecated
-    Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<String> literalParameters);
-
-    /**
      * Gets a list of all registered types.
      */
     List<Type> getTypes();
 
-    Optional<Type> getCommonSuperType(List<? extends Type> types);
+    /**
+     * Gets all registered parametric types.
+     */
+    Collection<ParametricType> getParametricTypes();
 
     Optional<Type> getCommonSuperType(Type firstType, Type secondType);
+
+    default boolean canCoerce(Type actualType, Type expectedType)
+    {
+        Optional<Type> commonSuperType = getCommonSuperType(actualType, expectedType);
+        return commonSuperType.isPresent() && commonSuperType.get().equals(expectedType);
+    }
+
+    boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
+
+    Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase);
 }

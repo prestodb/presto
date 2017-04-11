@@ -28,40 +28,29 @@ public class SampledRelation
     public enum Type
     {
         BERNOULLI,
-        POISSONIZED,
         SYSTEM
     }
 
     private final Relation relation;
     private final Type type;
     private final Expression samplePercentage;
-    private final boolean rescaled;
-    private final Optional<List<Expression>> columnsToStratifyOn;
 
-    public SampledRelation(Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
+    public SampledRelation(Relation relation, Type type, Expression samplePercentage)
     {
-        this(Optional.empty(), relation, type, samplePercentage, rescaled, columnsToStratifyOn);
+        this(Optional.empty(), relation, type, samplePercentage);
     }
 
-    public SampledRelation(NodeLocation location, Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
+    public SampledRelation(NodeLocation location, Relation relation, Type type, Expression samplePercentage)
     {
-        this(Optional.of(location), relation, type, samplePercentage, rescaled, columnsToStratifyOn);
+        this(Optional.of(location), relation, type, samplePercentage);
     }
 
-    private SampledRelation(Optional<NodeLocation> location, Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
+    private SampledRelation(Optional<NodeLocation> location, Relation relation, Type type, Expression samplePercentage)
     {
         super(location);
         this.relation = requireNonNull(relation, "relation is null");
         this.type = requireNonNull(type, "type is null");
         this.samplePercentage = requireNonNull(samplePercentage, "samplePercentage is null");
-        this.rescaled = rescaled;
-
-        if (columnsToStratifyOn.isPresent()) {
-            this.columnsToStratifyOn = Optional.<List<Expression>>of(ImmutableList.copyOf(columnsToStratifyOn.get()));
-        }
-        else {
-            this.columnsToStratifyOn = columnsToStratifyOn;
-        }
     }
 
     public Relation getRelation()
@@ -79,20 +68,16 @@ public class SampledRelation
         return samplePercentage;
     }
 
-    public boolean isRescaled()
-    {
-        return rescaled;
-    }
-
-    public Optional<List<Expression>> getColumnsToStratifyOn()
-    {
-        return columnsToStratifyOn;
-    }
-
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitSampledRelation(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(relation, samplePercentage);
     }
 
     @Override
@@ -102,7 +87,6 @@ public class SampledRelation
                 .add("relation", relation)
                 .add("type", type)
                 .add("samplePercentage", samplePercentage)
-                .add("columnsToStratifyOn", columnsToStratifyOn)
                 .toString();
     }
 
@@ -118,13 +102,12 @@ public class SampledRelation
         SampledRelation that = (SampledRelation) o;
         return Objects.equals(relation, that.relation) &&
                 Objects.equals(type, that.type) &&
-                Objects.equals(samplePercentage, that.samplePercentage) &&
-                Objects.equals(columnsToStratifyOn, that.columnsToStratifyOn);
+                Objects.equals(samplePercentage, that.samplePercentage);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(relation, type, samplePercentage, columnsToStratifyOn);
+        return Objects.hash(relation, type, samplePercentage);
     }
 }

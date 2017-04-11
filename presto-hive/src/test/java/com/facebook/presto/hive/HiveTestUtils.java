@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
+import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ColumnHandle;
@@ -39,22 +41,35 @@ public final class HiveTestUtils
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());
+
     public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
     {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new RcFilePageSourceFactory(TYPE_MANAGER))
-                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig))
-                .add(new DwrfPageSourceFactory(TYPE_MANAGER))
+                .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment))
+                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment))
+                .add(new DwrfPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment))
+                .add(new ParquetPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment))
                 .build();
     }
 
     public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveClientConfig hiveClientConfig)
     {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new ParquetRecordCursorProvider(hiveClientConfig))
-                .add(new ColumnarTextHiveRecordCursorProvider())
-                .add(new ColumnarBinaryHiveRecordCursorProvider())
-                .add(new GenericHiveRecordCursorProvider())
+                .add(new ParquetRecordCursorProvider(hiveClientConfig, testHdfsEnvironment))
+                .add(new ColumnarTextHiveRecordCursorProvider(testHdfsEnvironment))
+                .add(new ColumnarBinaryHiveRecordCursorProvider(testHdfsEnvironment))
+                .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
+                .build();
+    }
+
+    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveClientConfig hiveClientConfig)
+    {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        return ImmutableSet.<HiveFileWriterFactory>builder()
+                .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig))
                 .build();
     }
 
@@ -65,5 +80,16 @@ public final class HiveTestUtils
             types.add(TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
         }
         return types.build();
+    }
+
+    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig config)
+    {
+        return createTestHdfsEnvironment(config, new HiveS3Config());
+    }
+
+    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig hiveConfig, HiveS3Config s3Config)
+    {
+        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveConfig, s3Config));
+        return new HdfsEnvironment(hdfsConfig, hiveConfig, new NoHdfsAuthentication());
     }
 }

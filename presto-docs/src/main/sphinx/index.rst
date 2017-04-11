@@ -8,6 +8,7 @@ Presto Documentation
 
     overview
     installation
+    security
     admin
     connector
     functions

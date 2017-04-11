@@ -24,15 +24,20 @@ public final class ErrorCode
 {
     private final int code;
     private final String name;
+    private final ErrorType type;
 
     @JsonCreator
-    public ErrorCode(@JsonProperty("code") int code, @JsonProperty("name") String name)
+    public ErrorCode(
+            @JsonProperty("code") int code,
+            @JsonProperty("name") String name,
+            @JsonProperty("type") ErrorType type)
     {
         if (code < 0) {
             throw new IllegalArgumentException("code is negative");
         }
         this.code = code;
         this.name = requireNonNull(name, "name is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     @JsonProperty
@@ -45,6 +50,12 @@ public final class ErrorCode
     public String getName()
     {
         return name;
+    }
+
+    @JsonProperty
+    public ErrorType getType()
+    {
+        return type;
     }
 
     @Override

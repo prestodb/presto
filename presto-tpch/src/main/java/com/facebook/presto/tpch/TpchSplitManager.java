@@ -26,20 +26,16 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Set;
 
-import static com.facebook.presto.tpch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class TpchSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final NodeManager nodeManager;
     private final int splitsPerNode;
 
-    public TpchSplitManager(String connectorId, NodeManager nodeManager, int splitsPerNode)
+    public TpchSplitManager(NodeManager nodeManager, int splitsPerNode)
     {
-        this.connectorId = connectorId;
         this.nodeManager = nodeManager;
         checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
         this.splitsPerNode = splitsPerNode;
@@ -48,10 +44,9 @@ public class TpchSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        TpchTableHandle tableHandle = checkType(layout, TpchTableLayoutHandle.class, "layout").getTable();
+        TpchTableHandle tableHandle = ((TpchTableLayoutHandle) layout).getTable();
 
-        Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
-        checkState(!nodes.isEmpty(), "No TPCH nodes available");
+        Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
 
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
@@ -64,6 +59,6 @@ public class TpchSplitManager
                 partNumber++;
             }
         }
-        return new FixedSplitSource(connectorId, splits.build());
+        return new FixedSplitSource(splits.build());
     }
 }

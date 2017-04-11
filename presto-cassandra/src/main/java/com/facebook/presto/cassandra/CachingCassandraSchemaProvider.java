@@ -30,15 +30,12 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.cassandra.RetryDriver.retry;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -68,9 +65,6 @@ public class CachingCassandraSchemaProvider
      * does not properly handle case sensitive names.
      */
     private final LoadingCache<String, Map<String, String>> tableNamesCache;
-
-    private final LoadingCache<PartitionListKey, List<CassandraPartition>> partitionsCache;
-    private final LoadingCache<PartitionListKey, List<CassandraPartition>> partitionsCacheFull;
     private final LoadingCache<SchemaTableName, CassandraTable> tableCache;
 
     @Inject
@@ -135,31 +129,6 @@ public class CachingCassandraSchemaProvider
                         return loadTable(tableName);
                     }
                 }, executor));
-
-        partitionsCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<PartitionListKey, List<CassandraPartition>>()
-                {
-                    @Override
-                    public List<CassandraPartition> load(PartitionListKey key)
-                            throws Exception
-                    {
-                        return loadPartitions(key);
-                    }
-                }, executor));
-
-        partitionsCacheFull = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<PartitionListKey, List<CassandraPartition>>()
-                {
-                    @Override
-                    public List<CassandraPartition> load(PartitionListKey key)
-                            throws Exception
-                    {
-                        return loadPartitions(key);
-                    }
-                }, executor));
     }
 
     @Managed
@@ -167,7 +136,6 @@ public class CachingCassandraSchemaProvider
     {
         schemaNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
-        partitionsCache.invalidateAll();
         tableCache.invalidateAll();
     }
 
@@ -239,22 +207,9 @@ public class CachingCassandraSchemaProvider
 
     public void flushTable(SchemaTableName tableName)
     {
-        tableCache.asMap().remove(tableName);
-
-        tableNamesCache.asMap().remove(tableName.getSchemaName());
-
-        for (Iterator<PartitionListKey> iterator = partitionsCache.asMap().keySet().iterator(); iterator.hasNext(); ) {
-            PartitionListKey partitionListKey = iterator.next();
-            if (partitionListKey.getTable().getTableHandle().getSchemaTableName().equals(tableName)) {
-                iterator.remove();
-            }
-        }
-        for (Iterator<PartitionListKey> iterator = partitionsCacheFull.asMap().keySet().iterator(); iterator.hasNext(); ) {
-            PartitionListKey partitionListKey = iterator.next();
-            if (partitionListKey.getTable().getTableHandle().getSchemaTableName().equals(tableName)) {
-                iterator.remove();
-            }
-        }
+        tableCache.invalidate(tableName);
+        tableNamesCache.invalidate(tableName.getSchemaName());
+        schemaNamesCache.invalidateAll();
     }
 
     private CassandraTable loadTable(final SchemaTableName tableName)
@@ -264,30 +219,6 @@ public class CachingCassandraSchemaProvider
                 .stopOn(NotFoundException.class)
                 .stopOnIllegalExceptions()
                 .run("getTable", () -> session.getTable(tableName));
-    }
-
-    public List<CassandraPartition> getAllPartitions(CassandraTable table)
-    {
-        PartitionListKey key = new PartitionListKey(table, ImmutableList.of());
-        return getCacheValue(partitionsCache, key, RuntimeException.class);
-    }
-
-    public List<CassandraPartition> getPartitions(CassandraTable table, List<Object> partitionKeys)
-    {
-        requireNonNull(table, "table is null");
-        requireNonNull(partitionKeys, "partitionKeys is null");
-        checkArgument(partitionKeys.size() == table.getPartitionKeyColumns().size());
-
-        PartitionListKey key = new PartitionListKey(table, partitionKeys);
-        return getCacheValue(partitionsCacheFull, key, RuntimeException.class);
-    }
-
-    private List<CassandraPartition> loadPartitions(final PartitionListKey key)
-            throws Exception
-    {
-        return retry()
-                .stopOnIllegalExceptions()
-                .run("getPartitions", () -> session.getPartitions(key.getTable(), key.getFilterPrefix()));
     }
 
     private static <K, V, E extends Exception> V getCacheValue(LoadingCache<K, V> cache, K key, Class<E> exceptionClass)
@@ -306,47 +237,5 @@ public class CachingCassandraSchemaProvider
     private static String toLowerCase(String value)
     {
         return value.toLowerCase(ENGLISH);
-    }
-
-    private static final class PartitionListKey
-    {
-        private final CassandraTable table;
-        private final List<Object> filterPrefix;
-
-        PartitionListKey(CassandraTable table, List<Object> filterPrefix)
-        {
-            this.table = table;
-            this.filterPrefix = ImmutableList.copyOf(filterPrefix);
-        }
-
-        public List<Object> getFilterPrefix()
-        {
-            return filterPrefix;
-        }
-
-        public CassandraTable getTable()
-        {
-            return table;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(table, filterPrefix);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            PartitionListKey other = (PartitionListKey) obj;
-            return Objects.equals(this.table, other.table) &&
-                    Objects.equals(this.filterPrefix, other.filterPrefix);
-        }
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
@@ -32,8 +33,8 @@ public class TestQueryStats
             new DateTime(2),
             new DateTime(3),
             new DateTime(4),
-            new Duration(5, NANOSECONDS),
             new Duration(6, NANOSECONDS),
+            new Duration(5, NANOSECONDS),
             new Duration(7, NANOSECONDS),
             new Duration(8, NANOSECONDS),
 
@@ -53,6 +54,7 @@ public class TestQueryStats
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
 
+            true,
             new Duration(20, NANOSECONDS),
             new Duration(21, NANOSECONDS),
             new Duration(22, NANOSECONDS),
@@ -67,7 +69,8 @@ public class TestQueryStats
             27,
 
             new DataSize(28, BYTE),
-            29);
+            29,
+            ImmutableList.of());
 
     @Test
     public void testJson()
@@ -87,8 +90,9 @@ public class TestQueryStats
         assertEquals(actual.getLastHeartbeat(), new DateTime(3, UTC));
         assertEquals(actual.getEndTime(), new DateTime(4, UTC));
 
-        assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
-        assertEquals(actual.getQueuedTime(), new Duration(6, NANOSECONDS));
+        assertEquals(actual.getElapsedTime(), new Duration(6, NANOSECONDS));
+        assertEquals(actual.getQueuedTime(), new Duration(5, NANOSECONDS));
+        assertEquals(actual.getExecutionTime(), new Duration(1, NANOSECONDS));
         assertEquals(actual.getAnalysisTime(), new Duration(7, NANOSECONDS));
         assertEquals(actual.getDistributedPlanningTime(), new Duration(8, NANOSECONDS));
 

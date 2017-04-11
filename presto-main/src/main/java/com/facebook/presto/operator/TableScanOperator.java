@@ -31,9 +31,11 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
@@ -59,7 +61,7 @@ public class TableScanOperator
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.types = requireNonNull(types, "types is null");
-            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceManager is null");
+            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         }
 
@@ -121,7 +123,7 @@ public class TableScanOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.types = requireNonNull(types, "types is null");
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceManager is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
     }
@@ -152,7 +154,7 @@ public class TableScanOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> splitInfo);
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
         }
 
         blocked.set(null);
@@ -207,7 +209,6 @@ public class TableScanOperator
     public boolean isFinished()
     {
         if (!finished) {
-            createSourceIfNecessary();
             finished = (source != null) && source.isFinished();
             if (source != null) {
                 systemMemoryContext.setBytes(source.getSystemMemoryUsage());
@@ -220,7 +221,14 @@ public class TableScanOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return blocked;
+        if (!blocked.isDone()) {
+            return blocked;
+        }
+        if (source != null) {
+            CompletableFuture<?> pageSourceBlocked = source.isBlocked();
+            return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
+        }
+        return NOT_BLOCKED;
     }
 
     @Override
@@ -238,9 +246,11 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
-        createSourceIfNecessary();
-        if (source == null) {
+        if (split == null) {
             return null;
+        }
+        if (source == null) {
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
         }
 
         Page page = source.getNextPage();
@@ -260,12 +270,5 @@ public class TableScanOperator
         systemMemoryContext.setBytes(source.getSystemMemoryUsage());
 
         return page;
-    }
-
-    private void createSourceIfNecessary()
-    {
-        if ((split != null) && (source == null)) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
-        }
     }
 }

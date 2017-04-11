@@ -18,21 +18,26 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
+import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class SourcePartitionedScheduler
@@ -42,12 +47,14 @@ public class SourcePartitionedScheduler
     private final SplitSource splitSource;
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final int splitBatchSize;
+    private final PlanNodeId partitionedNode;
 
-    private CompletableFuture<List<Split>> batchFuture;
+    private ListenableFuture<List<Split>> batchFuture;
     private Set<Split> pendingSplits = ImmutableSet.of();
 
     public SourcePartitionedScheduler(
             SqlStageExecution stage,
+            PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize)
@@ -58,43 +65,51 @@ public class SourcePartitionedScheduler
 
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
         this.splitBatchSize = splitBatchSize;
+
+        this.partitionedNode = partitionedNode;
     }
 
     @Override
     public synchronized ScheduleResult schedule()
     {
-        // Acquire a future for the next state change before doing calculations.
-        //
-        // This code may need to return a future when the workers are full, and
-        // it is critical that this future is notified of any changes that occur
-        // during this calculation (to avoid starvation).
-        CompletableFuture<?> taskStateChange = stage.getTaskStateChange();
-
         // try to get the next batch if necessary
         if (pendingSplits.isEmpty()) {
             if (batchFuture == null) {
                 if (splitSource.isFinished()) {
                     // no more splits
                     splitSource.close();
-                    return new ScheduleResult(true, ImmutableSet.of(), CompletableFuture.completedFuture(null));
+                    return new ScheduleResult(true, ImmutableSet.of(), 0);
                 }
 
                 long start = System.nanoTime();
                 batchFuture = splitSource.getNextBatch(splitBatchSize);
-                batchFuture.thenRun(() -> stage.recordGetSplitTime(start));
+                Futures.addCallback(batchFuture, new FutureCallback<List<Split>>()
+                {
+                    @Override
+                    public void onSuccess(List<Split> result)
+                    {
+                        stage.recordGetSplitTime(start);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t)
+                    {
+                    }
+                });
             }
 
             if (!batchFuture.isDone()) {
-                // wrap batch future in unmodifiable future so cancellation is not propagated
-                CompletableFuture<List<Split>> blocked = unmodifiableFuture(batchFuture);
-                return new ScheduleResult(false, ImmutableSet.of(), blocked);
+                // wrap batch future so cancellation is not propagated
+                ListenableFuture<List<Split>> blocked = nonCancellationPropagating(batchFuture);
+                return new ScheduleResult(false, ImmutableSet.of(), blocked, WAITING_FOR_SOURCE, 0);
             }
             pendingSplits = ImmutableSet.copyOf(getFutureValue(batchFuture));
             batchFuture = null;
         }
 
         // assign the splits
-        Multimap<Node, Split> splitAssignment = splitPlacementPolicy.computeAssignments(pendingSplits);
+        SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(pendingSplits);
+        Multimap<Node, Split> splitAssignment = splitPlacementResult.getAssignments();
         Set<RemoteTask> newTasks = assignSplits(splitAssignment);
 
         // remove assigned splits
@@ -107,7 +122,7 @@ public class SourcePartitionedScheduler
                     .addAll(finalizeTaskCreationIfNecessary())
                     .build();
 
-            return new ScheduleResult(false, newTasks, taskStateChange);
+            return new ScheduleResult(false, newTasks, splitPlacementResult.getBlocked(), SPLIT_QUEUES_FULL, splitAssignment.values().size());
         }
 
         // all splits assigned - check if the source is finished
@@ -115,7 +130,7 @@ public class SourcePartitionedScheduler
         if (finished) {
             splitSource.close();
         }
-        return new ScheduleResult(finished, newTasks, CompletableFuture.completedFuture(null));
+        return new ScheduleResult(finished, newTasks, splitAssignment.values().size());
     }
 
     @Override
@@ -129,7 +144,9 @@ public class SourcePartitionedScheduler
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         for (Entry<Node, Collection<Split>> taskSplits : splitAssignment.asMap().entrySet()) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
-            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), BROADCAST_PARTITION_ID, taskSplits.getValue()));
+            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), ImmutableMultimap.<PlanNodeId, Split>builder()
+                    .putAll(partitionedNode, taskSplits.getValue())
+                    .build()));
         }
         return newTasks.build();
     }
@@ -146,7 +163,7 @@ public class SourcePartitionedScheduler
         Set<Node> scheduledNodes = stage.getScheduledNodes();
         Set<RemoteTask> newTasks = splitPlacementPolicy.allNodes().stream()
                 .filter(node -> !scheduledNodes.contains(node))
-                .map(node -> stage.scheduleTask(node, BROADCAST_PARTITION_ID))
+                .flatMap(node -> stage.scheduleSplits(node, ImmutableMultimap.of()).stream())
                 .collect(toImmutableSet());
 
         // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits

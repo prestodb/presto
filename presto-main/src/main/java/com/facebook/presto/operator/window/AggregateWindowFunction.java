@@ -19,6 +19,8 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.WindowFunction;
+import com.facebook.presto.spi.function.WindowIndex;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -43,7 +45,7 @@ public class AggregateWindowFunction
     {
         this.function = requireNonNull(function, "function is null");
         this.argumentChannels = Ints.toArray(argumentChannels);
-        this.accumulatorFactory = function.bind(createArgs(function), Optional.empty(), Optional.empty(), 1.0);
+        this.accumulatorFactory = function.bind(createArgs(function), Optional.empty());
     }
 
     @Override

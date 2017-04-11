@@ -14,10 +14,8 @@
 package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
-
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class ParquetDoubleColumnReader
         extends ParquetColumnReader
@@ -27,31 +25,22 @@ public class ParquetDoubleColumnReader
         super(descriptor);
     }
 
-    public BlockBuilder createBlockBuilder()
-    {
-        return DOUBLE.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
-    }
-
     @Override
-    public void readValues(BlockBuilder blockBuilder, int valueNumber)
+    protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        for (int i = 0; i < valueNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                DOUBLE.writeDouble(blockBuilder, valuesReader.readDouble());
-            }
-            else {
-                blockBuilder.appendNull();
-            }
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            type.writeDouble(blockBuilder, valuesReader.readDouble());
+        }
+        else {
+            blockBuilder.appendNull();
         }
     }
 
     @Override
-    public void skipValues(int offsetNumber)
+    protected void skipValue()
     {
-        for (int i = 0; i < offsetNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                valuesReader.readDouble();
-            }
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            valuesReader.readDouble();
         }
     }
 }

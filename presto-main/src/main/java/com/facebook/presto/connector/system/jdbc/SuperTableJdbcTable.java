@@ -22,7 +22,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class SuperTableJdbcTable
         extends JdbcTable
@@ -30,10 +30,10 @@ public class SuperTableJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "super_tables");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", VARCHAR)
-            .column("table_schem", VARCHAR)
-            .column("table_name", VARCHAR)
-            .column("supertable_name", VARCHAR)
+            .column("table_cat", createUnboundedVarcharType())
+            .column("table_schem", createUnboundedVarcharType())
+            .column("table_name", createUnboundedVarcharType())
+            .column("supertable_name", createUnboundedVarcharType())
             .build();
 
     @Override

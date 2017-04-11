@@ -15,13 +15,24 @@ package com.facebook.presto.spi;
 
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+
 public interface NodeManager
 {
-    Set<Node> getNodes(NodeState state);
+    Set<Node> getAllNodes();
 
-    Set<Node> getActiveDatasourceNodes(String datasourceName);
+    Set<Node> getWorkerNodes();
 
     Node getCurrentNode();
 
-    Set<Node> getCoordinators();
+    String getEnvironment();
+
+    default Set<Node> getRequiredWorkerNodes()
+    {
+        Set<Node> nodes = getWorkerNodes();
+        if (nodes.isEmpty()) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+        }
+        return nodes;
+    }
 }

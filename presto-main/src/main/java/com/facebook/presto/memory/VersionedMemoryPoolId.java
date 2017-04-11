@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.memory;
 
-import com.google.common.base.MoreObjects;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class VersionedMemoryPoolId
@@ -41,7 +42,7 @@ public class VersionedMemoryPoolId
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("id", id)
                 .add("version", version)
                 .toString();

@@ -19,11 +19,20 @@ import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -31,42 +40,40 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveChar;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
-import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.StandardListObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.StandardMapObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.StandardStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
-import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveCharObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 
@@ -75,19 +82,48 @@ import static com.facebook.presto.orc.OrcTester.Compression.ZLIB;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.CHAR;
+import static com.facebook.presto.spi.type.StandardTypes.DATE;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.google.common.base.Functions.constant;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
+import static com.google.common.collect.Lists.newArrayList;
+import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaShortObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class OrcTester
@@ -98,7 +134,64 @@ public class OrcTester
 
     public enum Format
     {
-        ORC_12, ORC_11, DWRF
+        ORC_12 {
+            @Override
+            public MetadataReader createMetadataReader()
+            {
+                return new OrcMetadataReader();
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public Serializer createSerializer()
+            {
+                return new OrcSerde();
+            }
+        },
+        ORC_11 {
+            @Override
+            public MetadataReader createMetadataReader()
+            {
+                return new OrcMetadataReader();
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public Serializer createSerializer()
+            {
+                return new OrcSerde();
+            }
+        },
+        DWRF {
+            @Override
+            public MetadataReader createMetadataReader()
+            {
+                return new DwrfMetadataReader();
+            }
+
+            @Override
+            public boolean supportsType(Type type)
+            {
+                return !hasType(type, ImmutableSet.of(DATE, DECIMAL, CHAR));
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public Serializer createSerializer()
+            {
+                return new com.facebook.hive.orc.OrcSerde();
+            }
+        };
+
+        public abstract MetadataReader createMetadataReader();
+
+        public boolean supportsType(Type type)
+        {
+            return true;
+        }
+
+        @SuppressWarnings("deprecation")
+        public abstract Serializer createSerializer();
     }
 
     public enum Compression
@@ -148,238 +241,310 @@ public class OrcTester
         return orcTester;
     }
 
-    public void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<?> writeValues, Type parameterType)
-            throws Exception
-    {
-        testRoundTrip(columnObjectInspector, writeValues, writeValues, parameterType);
-    }
-
-    public <W, R> void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> readTransform, Type parameterType)
-            throws Exception
-    {
-        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType);
-    }
-
-    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
+    public void testRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
         // just the values
-        testRoundTripType(objectInspector, writeValues, readValues, type);
+        testRoundTripType(type, readValues);
 
         // all nulls
-        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type);
+        assertRoundTrip(
+                type,
+                readValues.stream()
+                        .map(value -> null)
+                        .collect(toList()));
 
         // values wrapped in struct
         if (structTestsEnabled) {
-            testStructRoundTrip(objectInspector, writeValues, readValues, type);
+            testStructRoundTrip(type, readValues);
         }
 
         // values wrapped in a struct wrapped in a struct
         if (complexStructuralTestsEnabled) {
-            testStructRoundTrip(createHiveStructInspector(objectInspector),
-                    transform(writeValues, OrcTester::toHiveStruct),
-                    transform(readValues, OrcTester::toHiveStruct),
-                    rowType(type, type, type));
+            testStructRoundTrip(
+                    rowType(type, type, type),
+                    readValues.stream()
+                            .map(OrcTester::toHiveStruct)
+                            .collect(toList()));
         }
 
         // values wrapped in map
-        if (mapTestsEnabled) {
-            testMapRoundTrip(objectInspector, writeValues, readValues, type);
+        if (mapTestsEnabled && type.isComparable()) {
+            testMapRoundTrip(type, readValues);
         }
 
         // values wrapped in list
         if (listTestsEnabled) {
-            testListRoundTrip(objectInspector, writeValues, readValues, type);
+            testListRoundTrip(type, readValues);
         }
 
         // values wrapped in a list wrapped in a list
         if (complexStructuralTestsEnabled) {
-            testListRoundTrip(createHiveListInspector(objectInspector),
-                    transform(writeValues, OrcTester::toHiveList),
-                    transform(readValues, OrcTester::toHiveList),
-                    arrayType(type));
+            testListRoundTrip(
+                    arrayType(type),
+                    readValues.stream()
+                            .map(OrcTester::toHiveList)
+                            .collect(toList()));
         }
     }
 
-    private void testStructRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type elementType)
+    private void testStructRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
-        Type rowType = rowType(elementType, elementType, elementType);
+        Type rowType = rowType(type, type, type);
         // values in simple struct
-        testRoundTripType(createHiveStructInspector(objectInspector),
-                transform(writeValues, OrcTester::toHiveStruct),
-                transform(readValues, OrcTester::toHiveStruct),
-                rowType);
+        testRoundTripType(
+                rowType,
+                readValues.stream()
+                        .map(OrcTester::toHiveStruct)
+                        .collect(toList()));
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple struct
-            testRoundTripType(createHiveStructInspector(objectInspector),
-                    transform(insertNullEvery(5, writeValues), OrcTester::toHiveStruct),
-                    transform(insertNullEvery(5, readValues), OrcTester::toHiveStruct),
-                    rowType);
+            testRoundTripType(
+                    rowType,
+                    insertNullEvery(5, readValues).stream()
+                            .map(OrcTester::toHiveStruct)
+                            .collect(toList()));
 
             // all null values in simple struct
-            testRoundTripType(createHiveStructInspector(objectInspector),
-                    transform(transform(writeValues, constant(null)), OrcTester::toHiveStruct),
-                    transform(transform(writeValues, constant(null)), OrcTester::toHiveStruct),
-                    rowType);
+            testRoundTripType(
+                    rowType,
+                    readValues.stream()
+                            .map(value -> toHiveStruct(null))
+                            .collect(toList()));
         }
     }
 
-    private void testMapRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type elementType)
+    private void testMapRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
-        Type mapType = mapType(elementType, elementType);
+        Type mapType = mapType(type, type);
 
         // maps can not have a null key, so select a value to use for the map key when the value is null
-        Object writeNullKeyValue = Iterables.getLast(writeValues);
         Object readNullKeyValue = Iterables.getLast(readValues);
 
         // values in simple map
-        testRoundTripType(createHiveMapInspector(objectInspector),
-                transform(writeValues, value -> toHiveMap(value, writeNullKeyValue)),
-                transform(readValues, value -> toHiveMap(value, readNullKeyValue)),
-                mapType);
+        testRoundTripType(
+                mapType,
+                readValues.stream()
+                        .map(value -> toHiveMap(value, readNullKeyValue))
+                        .collect(toList()));
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple map
-            testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(insertNullEvery(5, writeValues), value -> toHiveMap(value, writeNullKeyValue)),
-                    transform(insertNullEvery(5, readValues), value -> toHiveMap(value, readNullKeyValue)),
-                    mapType);
+            testRoundTripType(
+                    mapType,
+                    insertNullEvery(5, readValues).stream()
+                            .map(value -> toHiveMap(value, readNullKeyValue))
+                            .collect(toList()));
 
             // all null values in simple map
-            testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(transform(writeValues, constant(null)), value -> toHiveMap(value, writeNullKeyValue)),
-                    transform(transform(readValues, constant(null)), value -> toHiveMap(value, readNullKeyValue)),
-                    mapType);
+            testRoundTripType(
+                    mapType,
+                    readValues.stream()
+                            .map(value -> toHiveMap(null, readNullKeyValue))
+                            .collect(toList()));
         }
     }
 
-    private void testListRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type elementType)
+    private void testListRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
-        Type arrayType = arrayType(elementType);
+        Type arrayType = arrayType(type);
         // values in simple list
-        testRoundTripType(createHiveListInspector(objectInspector),
-                transform(writeValues, OrcTester::toHiveList),
-                transform(readValues, OrcTester::toHiveList),
-                arrayType);
+        testRoundTripType(
+                arrayType,
+                readValues.stream()
+                        .map(OrcTester::toHiveList)
+                        .collect(toList()));
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple list
-            testRoundTripType(createHiveListInspector(objectInspector),
-                    transform(insertNullEvery(5, writeValues), OrcTester::toHiveList),
-                    transform(insertNullEvery(5, readValues), OrcTester::toHiveList),
-                    arrayType);
+            testRoundTripType(
+                    arrayType,
+                    insertNullEvery(5, readValues).stream()
+                            .map(OrcTester::toHiveList)
+                            .collect(toList()));
 
             // all null values in simple list
-            testRoundTripType(createHiveListInspector(objectInspector),
-                    transform(transform(writeValues, constant(null)), OrcTester::toHiveList),
-                    transform(transform(readValues, constant(null)), OrcTester::toHiveList),
-                    arrayType);
+            testRoundTripType(
+                    arrayType,
+                    readValues.stream()
+                            .map(value -> toHiveList(null))
+                            .collect(toList()));
         }
     }
 
-    private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
+    private void testRoundTripType(Type type, List<?> readValues)
             throws Exception
     {
         // forward order
-        assertRoundTrip(objectInspector, writeValues, readValues, type);
+        assertRoundTrip(type, readValues);
 
         // reverse order
         if (reverseTestsEnabled) {
-            assertRoundTrip(objectInspector, reverse(writeValues), reverse(readValues), type);
+            assertRoundTrip(type, reverse(readValues));
         }
 
         if (nullTestsEnabled) {
             // forward order with nulls
-            assertRoundTrip(objectInspector, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), type);
+            assertRoundTrip(type, insertNullEvery(5, readValues));
 
             // reverse order with nulls
             if (reverseTestsEnabled) {
-                assertRoundTrip(objectInspector, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), type);
+                assertRoundTrip(type, insertNullEvery(5, reverse(readValues)));
             }
         }
     }
 
-    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
+    public void assertRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
-        for (Format formatVersion : formats) {
-            MetadataReader metadataReader;
-            if (DWRF == formatVersion) {
-                if (hasType(objectInspector, PrimitiveCategory.DATE)) {
-                    // DWRF doesn't support dates
-                    return;
-                }
-                metadataReader = new DwrfMetadataReader();
+        for (Format format : formats) {
+            if (!format.supportsType(type)) {
+                return;
             }
-            else {
-                metadataReader = new OrcMetadataReader();
-            }
-            for (Compression compression : compressions) {
-                try (TempFile tempFile = new TempFile("test", "orc")) {
-                    writeOrcColumn(tempFile.getFile(), formatVersion, compression, objectInspector, writeValues.iterator());
 
-                    assertFileContents(objectInspector, tempFile, readValues, false, false, metadataReader, type);
+            MetadataReader metadataReader = format.createMetadataReader();
+            for (Compression compression : compressions) {
+                try (TempFile tempFile = new TempFile()) {
+                    writeOrcColumn(tempFile.getFile(), format, compression, type, readValues.iterator());
+
+                    assertFileContents(type, tempFile, readValues, false, false, metadataReader);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContents(objectInspector, tempFile, readValues, true, false, metadataReader, type);
+                        assertFileContents(type, tempFile, readValues, true, false, metadataReader);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContents(objectInspector, tempFile, readValues, false, true, metadataReader, type);
+                        assertFileContents(type, tempFile, readValues, false, true, metadataReader);
                     }
                 }
             }
         }
     }
 
-    private static void assertFileContents(ObjectInspector objectInspector,
+    private static void assertFileContents(
+            Type type,
             TempFile tempFile,
-            Iterable<?> expectedValues,
+            List<?> expectedValues,
             boolean skipFirstBatch,
             boolean skipStripe,
-            MetadataReader metadataReader,
-            Type type)
+            MetadataReader metadataReader)
             throws IOException
     {
-        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(objectInspector, expectedValues), type);
-        assertEquals(recordReader.getReaderPosition(), 0);
-        assertEquals(recordReader.getFilePosition(), 0);
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues), type)) {
+            assertEquals(recordReader.getReaderPosition(), 0);
+            assertEquals(recordReader.getFilePosition(), 0);
 
-        boolean isFirst = true;
-        int rowsProcessed = 0;
-        Iterator<?> iterator = expectedValues.iterator();
-        for (int batchSize = Ints.checkedCast(recordReader.nextBatch()); batchSize >= 0; batchSize = Ints.checkedCast(recordReader.nextBatch())) {
-            if (skipStripe && rowsProcessed < 10000) {
-                assertEquals(advance(iterator, batchSize), batchSize);
-            }
-            else if (skipFirstBatch && isFirst) {
-                assertEquals(advance(iterator, batchSize), batchSize);
-                isFirst = false;
-            }
-            else {
-                Block block = recordReader.readBlock(type, 0);
-                for (int i = 0; i < batchSize; i++) {
-                    assertTrue(iterator.hasNext());
-                    Object expected = iterator.next();
-
-                    Object actual = decodeObject(type, block, i);
-
-                    assertEquals(actual, expected);
+            boolean isFirst = true;
+            int rowsProcessed = 0;
+            Iterator<?> iterator = expectedValues.iterator();
+            for (int batchSize = toIntExact(recordReader.nextBatch()); batchSize >= 0; batchSize = toIntExact(recordReader.nextBatch())) {
+                if (skipStripe && rowsProcessed < 10000) {
+                    assertEquals(advance(iterator, batchSize), batchSize);
                 }
+                else if (skipFirstBatch && isFirst) {
+                    assertEquals(advance(iterator, batchSize), batchSize);
+                    isFirst = false;
+                }
+                else {
+                    Block block = recordReader.readBlock(type, 0);
+
+                    List<Object> data = new ArrayList<>(block.getPositionCount());
+                    for (int position = 0; position < block.getPositionCount(); position++) {
+                        data.add(type.getObjectValue(SESSION, block, position));
+                    }
+
+                    for (int i = 0; i < batchSize; i++) {
+                        assertTrue(iterator.hasNext());
+                        Object expected = iterator.next();
+                        Object actual = data.get(i);
+                        assertColumnValueEquals(type, actual, expected);
+                    }
+                }
+                assertEquals(recordReader.getReaderPosition(), rowsProcessed);
+                assertEquals(recordReader.getFilePosition(), rowsProcessed);
+                rowsProcessed += batchSize;
             }
+            assertFalse(iterator.hasNext());
+
             assertEquals(recordReader.getReaderPosition(), rowsProcessed);
             assertEquals(recordReader.getFilePosition(), rowsProcessed);
-            rowsProcessed += batchSize;
         }
-        assertFalse(iterator.hasNext());
+    }
 
-        assertEquals(recordReader.getReaderPosition(), rowsProcessed);
-        assertEquals(recordReader.getFilePosition(), rowsProcessed);
-        recordReader.close();
+    private static void assertColumnValueEquals(Type type, Object actual, Object expected)
+    {
+        if (actual == null) {
+            assertNull(expected);
+            return;
+        }
+        String baseType = type.getTypeSignature().getBase();
+        if (ARRAY.equals(baseType)) {
+            List<?> actualArray = (List<?>) actual;
+            List<?> expectedArray = (List<?>) expected;
+            assertEquals(actualArray.size(), expectedArray.size());
+
+            Type elementType = type.getTypeParameters().get(0);
+            for (int i = 0; i < actualArray.size(); i++) {
+                Object actualElement = actualArray.get(i);
+                Object expectedElement = expectedArray.get(i);
+                assertColumnValueEquals(elementType, actualElement, expectedElement);
+            }
+        }
+        else if (MAP.equals(baseType)) {
+            Map<?, ?> actualMap = (Map<?, ?>) actual;
+            Map<?, ?> expectedMap = (Map<?, ?>) expected;
+            assertEquals(actualMap.size(), expectedMap.size());
+
+            Type keyType = type.getTypeParameters().get(0);
+            Type valueType = type.getTypeParameters().get(1);
+
+            List<Entry<?, ?>> expectedEntries = new ArrayList<>(expectedMap.entrySet());
+            for (Entry<?, ?> actualEntry : actualMap.entrySet()) {
+                for (Iterator<Entry<?, ?>> iterator = expectedEntries.iterator(); iterator.hasNext(); ) {
+                    Entry<?, ?> expectedEntry = iterator.next();
+                    try {
+                        assertColumnValueEquals(keyType, actualEntry.getKey(), expectedEntry.getKey());
+                        assertColumnValueEquals(valueType, actualEntry.getValue(), expectedEntry.getValue());
+                        iterator.remove();
+                    }
+                    catch (AssertionError ignored) {
+                    }
+                }
+            }
+            assertTrue(expectedEntries.isEmpty(), "Unmatched entries " + expectedEntries);
+        }
+        else if (ROW.equals(baseType)) {
+            List<Type> fieldTypes = type.getTypeParameters();
+
+            List<?> actualRow = (List<?>) actual;
+            List<?> expectedRow = (List<?>) expected;
+            assertEquals(actualRow.size(), fieldTypes.size());
+            assertEquals(actualRow.size(), expectedRow.size());
+
+            for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
+                Type fieldType = fieldTypes.get(fieldId);
+                Object actualElement = actualRow.get(fieldId);
+                Object expectedElement = expectedRow.get(fieldId);
+                assertColumnValueEquals(fieldType, actualElement, expectedElement);
+            }
+        }
+        else if (type.equals(DOUBLE)) {
+            Double actualDouble = (Double) actual;
+            Double expectedDouble = (Double) expected;
+            if (actualDouble.isNaN()) {
+                assertTrue(expectedDouble.isNaN(), "expected double to be NaN");
+            }
+            else {
+                assertEquals(actualDouble, expectedDouble, 0.001);
+            }
+        }
+        else if (!Objects.equals(actual, expected)) {
+            assertEquals(actual, expected);
+        }
     }
 
     static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader, OrcPredicate predicate, Type type)
@@ -394,49 +559,190 @@ public class OrcTester
         return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, new AggregatedMemoryContext());
     }
 
-    static DataSize writeOrcColumn(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector, Iterator<?> values)
+    public static DataSize writeOrcColumn(File outputFile, Format format, Compression compression, Type type, Iterator<?> values)
             throws Exception
     {
         RecordWriter recordWriter;
         if (DWRF == format) {
-            recordWriter = createDwrfRecordWriter(outputFile, compression, columnObjectInspector);
+            recordWriter = createDwrfRecordWriter(outputFile, compression, type);
         }
         else {
-            recordWriter = createOrcRecordWriter(outputFile, format, compression, columnObjectInspector);
+            recordWriter = createOrcRecordWriter(outputFile, format, compression, type);
         }
-        return writeOrcColumn(outputFile, format, recordWriter, columnObjectInspector, values);
+        return writeOrcFileColumnOld(outputFile, format, recordWriter, type, values);
     }
 
-    static DataSize writeOrcColumn(File outputFile, Format format, RecordWriter recordWriter, ObjectInspector columnObjectInspector, Iterator<?> values)
+    public static DataSize writeOrcFileColumnOld(File outputFile, Format format, RecordWriter recordWriter, Type type, Iterator<?> values)
             throws Exception
     {
-        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", columnObjectInspector);
+        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", type);
         Object row = objectInspector.create();
 
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
+        @SuppressWarnings("deprecation") Serializer serializer = format.createSerializer();
 
         int i = 0;
         while (values.hasNext()) {
             Object value = values.next();
+            value = preprocessWriteValueOld(type, value);
             objectInspector.setStructFieldData(row, fields.get(0), value);
 
-            @SuppressWarnings("deprecation") Serializer serde;
             if (DWRF == format) {
-                serde = new com.facebook.hive.orc.OrcSerde();
                 if (i == 142_345) {
                     setDwrfLowMemoryFlag(recordWriter);
                 }
             }
-            else {
-                serde = new OrcSerde();
-            }
-            Writable record = serde.serialize(row, objectInspector);
+            Writable record = serializer.serialize(row, objectInspector);
             recordWriter.write(record);
             i++;
         }
 
         recordWriter.close(false);
-        return new DataSize(outputFile.length(), Unit.BYTE).convertToMostSuccinctDataSize();
+        return succinctBytes(outputFile.length());
+    }
+
+    private static ObjectInspector getJavaObjectInspector(Type type)
+    {
+        if (type.equals(BOOLEAN)) {
+            return javaBooleanObjectInspector;
+        }
+        if (type.equals(BIGINT)) {
+            return javaLongObjectInspector;
+        }
+        if (type.equals(INTEGER)) {
+            return javaIntObjectInspector;
+        }
+        if (type.equals(SMALLINT)) {
+            return javaShortObjectInspector;
+        }
+        if (type.equals(TINYINT)) {
+            return javaByteObjectInspector;
+        }
+        if (type.equals(REAL)) {
+            return javaFloatObjectInspector;
+        }
+        if (type.equals(DOUBLE)) {
+            return javaDoubleObjectInspector;
+        }
+        if (type instanceof VarcharType) {
+            return javaStringObjectInspector;
+        }
+        if (type instanceof CharType) {
+            int charLength = ((CharType) type).getLength();
+            return new JavaHiveCharObjectInspector(getCharTypeInfo(charLength));
+        }
+        if (type instanceof VarbinaryType) {
+            return javaByteArrayObjectInspector;
+        }
+        if (type.equals(DateType.DATE)) {
+            return javaDateObjectInspector;
+        }
+        if (type.equals(TIMESTAMP)) {
+            return javaTimestampObjectInspector;
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
+        }
+        if (type.getTypeSignature().getBase().equals(ARRAY)) {
+            return getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
+        }
+        if (type.getTypeSignature().getBase().equals(MAP)) {
+            ObjectInspector keyObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(0));
+            ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
+            return getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
+        }
+        if (type.getTypeSignature().getBase().equals(ROW)) {
+            return getStandardStructObjectInspector(
+                    type.getTypeSignature().getParameters().stream()
+                            .map(parameter -> parameter.getNamedTypeSignature().getName())
+                            .collect(toList()),
+                    type.getTypeParameters().stream()
+                            .map(OrcTester::getJavaObjectInspector)
+                            .collect(toList()));
+        }
+        throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    private static Object preprocessWriteValueOld(Type type, Object value)
+    {
+        if (value == null) {
+            return null;
+        }
+
+        if (type.equals(BOOLEAN)) {
+            return value;
+        }
+        else if (type.equals(TINYINT)) {
+            return ((Number) value).byteValue();
+        }
+        else if (type.equals(SMALLINT)) {
+            return ((Number) value).shortValue();
+        }
+        else if (type.equals(INTEGER)) {
+            return ((Number) value).intValue();
+        }
+        else if (type.equals(BIGINT)) {
+            return ((Number) value).longValue();
+        }
+        else if (type.equals(REAL)) {
+            return ((Number) value).floatValue();
+        }
+        else if (type.equals(DOUBLE)) {
+            return ((Number) value).doubleValue();
+        }
+        else if (type instanceof VarcharType) {
+            return value;
+        }
+        else if (type instanceof CharType) {
+            return new HiveChar((String) value, ((CharType) type).getLength());
+        }
+        else if (type.equals(VARBINARY)) {
+            return ((SqlVarbinary) value).getBytes();
+        }
+        else if (type.equals(DateType.DATE)) {
+            int days = ((SqlDate) value).getDays();
+            LocalDate localDate = LocalDate.ofEpochDay(days);
+            ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
+
+            long millis = SECONDS.toMillis(zonedDateTime.toEpochSecond());
+            Date date = new Date(0);
+            // millis must be set separately to avoid masking
+            date.setTime(millis);
+            return date;
+        }
+        else if (type.equals(TIMESTAMP)) {
+            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
+            return new Timestamp(millisUtc);
+        }
+        else if (type instanceof DecimalType) {
+            return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
+        }
+        else if (type.getTypeSignature().getBase().equals(ARRAY)) {
+            Type elementType = type.getTypeParameters().get(0);
+            return ((List<?>) value).stream()
+                    .map(element -> preprocessWriteValueOld(elementType, element))
+                    .collect(toList());
+        }
+        else if (type.getTypeSignature().getBase().equals(MAP)) {
+            Type keyType = type.getTypeParameters().get(0);
+            Type valueType = type.getTypeParameters().get(1);
+            Map<Object, Object> newMap = new HashMap<>();
+            for (Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                newMap.put(preprocessWriteValueOld(keyType, entry.getKey()), preprocessWriteValueOld(valueType, entry.getValue()));
+            }
+            return newMap;
+        }
+        else if (type.getTypeSignature().getBase().equals(ROW)) {
+            List<?> fieldValues = (List<?>) value;
+            List<Type> fieldTypes = type.getTypeParameters();
+            List<Object> newStruct = new ArrayList<>();
+            for (int fieldId = 0; fieldId < fieldValues.size(); fieldId++) {
+                newStruct.add(preprocessWriteValueOld(fieldTypes.get(fieldId), fieldValues.get(fieldId)));
+            }
+            return newStruct;
+        }
+        throw new IllegalArgumentException("unsupported type: " + type);
     }
 
     private static void setDwrfLowMemoryFlag(RecordWriter recordWriter)
@@ -476,25 +782,24 @@ public class OrcTester
         }
     }
 
-    static RecordWriter createOrcRecordWriter(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector)
+    static RecordWriter createOrcRecordWriter(File outputFile, Format format, Compression compression, Type type)
             throws IOException
     {
         JobConf jobConf = new JobConf();
         jobConf.set("hive.exec.orc.write.format", format == ORC_12 ? "0.12" : "0.11");
         jobConf.set("hive.exec.orc.default.compress", compression.name());
-        ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         return new OrcOutputFormat().getHiveRecordWriter(
                 jobConf,
                 new Path(outputFile.toURI()),
                 Text.class,
                 compression != NONE,
-                createTableProperties("test", columnObjectInspector.getTypeName()),
+                createTableProperties("test", getJavaObjectInspector(type).getTypeName()),
                 () -> { }
         );
     }
 
-    private static RecordWriter createDwrfRecordWriter(File outputFile, Compression compressionCodec, ObjectInspector columnObjectInspector)
+    private static RecordWriter createDwrfRecordWriter(File outputFile, Compression compressionCodec, Type type)
             throws IOException
     {
         JobConf jobConf = new JobConf();
@@ -503,21 +808,20 @@ public class OrcTester
         OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_ENTROPY_STRING_THRESHOLD, 1);
         OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_DICTIONARY_ENCODING_INTERVAL, 2);
         OrcConf.setBoolVar(jobConf, OrcConf.ConfVars.HIVE_ORC_BUILD_STRIDE_DICTIONARY, true);
-        ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         return new com.facebook.hive.orc.OrcOutputFormat().getHiveRecordWriter(
                 jobConf,
                 new Path(outputFile.toURI()),
                 Text.class,
                 compressionCodec != NONE,
-                createTableProperties("test", columnObjectInspector.getTypeName()),
+                createTableProperties("test", getJavaObjectInspector(type).getTypeName()),
                 () -> { }
         );
     }
 
-    static SettableStructObjectInspector createSettableStructObjectInspector(String name, ObjectInspector objectInspector)
+    static SettableStructObjectInspector createSettableStructObjectInspector(String name, Type type)
     {
-        return getStandardStructObjectInspector(ImmutableList.of(name), ImmutableList.of(objectInspector));
+        return getStandardStructObjectInspector(ImmutableList.of(name), ImmutableList.of(getJavaObjectInspector(type)));
     }
 
     private static Properties createTableProperties(String name, String type)
@@ -528,42 +832,14 @@ public class OrcTester
         return orderTableProperties;
     }
 
-    static class TempFile
-            implements Closeable
-    {
-        private final File file;
-
-        public TempFile(String prefix, String suffix)
-        {
-            try {
-                file = File.createTempFile(prefix, suffix);
-                file.delete();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        public File getFile()
-        {
-            return file;
-        }
-
-        @Override
-        public void close()
-        {
-            file.delete();
-        }
-    }
-
-    private static <T> Iterable<T> reverse(Iterable<T> iterable)
+    private static <T> List<T> reverse(List<T> iterable)
     {
         return Lists.reverse(ImmutableList.copyOf(iterable));
     }
 
-    private static <T> Iterable<T> insertNullEvery(int n, Iterable<T> iterable)
+    private static <T> List<T> insertNullEvery(int n, List<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return newArrayList(() -> new AbstractIterator<T>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
@@ -583,22 +859,12 @@ public class OrcTester
 
                 return delegate.next();
             }
-        };
-    }
-
-    private static StandardStructObjectInspector createHiveStructInspector(ObjectInspector objectInspector)
-    {
-        return getStandardStructObjectInspector(ImmutableList.of("a", "b", "c"), ImmutableList.of(objectInspector, objectInspector, objectInspector));
+        });
     }
 
     private static List<Object> toHiveStruct(Object input)
     {
         return asList(input, input, input);
-    }
-
-    private static StandardMapObjectInspector createHiveMapInspector(ObjectInspector objectInspector)
-    {
-        return getStandardMapObjectInspector(objectInspector, objectInspector);
     }
 
     private static Map<Object, Object> toHiveMap(Object input, Object nullKeyValue)
@@ -608,113 +874,49 @@ public class OrcTester
         return map;
     }
 
-    private static StandardListObjectInspector createHiveListInspector(ObjectInspector objectInspector)
-    {
-        return getStandardListObjectInspector(objectInspector);
-    }
-
     private static List<Object> toHiveList(Object input)
     {
         return asList(input, input, input, input);
     }
 
-    private static Object decodeObject(Type type, Block block, int position)
+    private static boolean hasType(Type testType, Set<String> baseTypes)
     {
-        if (block.isNull(position)) {
-            return null;
+        String testBaseType = testType.getTypeSignature().getBase();
+        if (ARRAY.equals(testBaseType)) {
+            Type elementType = testType.getTypeParameters().get(0);
+            return hasType(elementType, baseTypes);
+        }
+        if (MAP.equals(testBaseType)) {
+            Type keyType = testType.getTypeParameters().get(0);
+            Type valueType = testType.getTypeParameters().get(1);
+            return hasType(keyType, baseTypes) || hasType(valueType, baseTypes);
+        }
+        if (ROW.equals(testBaseType)) {
+            return testType.getTypeParameters().stream()
+                    .anyMatch(fieldType -> hasType(fieldType, baseTypes));
         }
 
-        String base = type.getTypeSignature().getBase();
-        if (base.equals(ARRAY)) {
-            Block arrayBlock = (Block) type.getObject(block, position);
-
-            Type elementType = type.getTypeParameters().get(0);
-
-            List<Object> array = new ArrayList<>();
-            for (int entry = 0; entry < arrayBlock.getPositionCount(); entry++) {
-                array.add(decodeObject(elementType, arrayBlock, entry));
-            }
-            return array;
-        }
-        if (base.equals(ROW)) {
-            Block rowBlock = (Block) type.getObject(block, position);
-
-            List<Type> fieldTypes = type.getTypeParameters();
-
-            List<Object> row = new ArrayList<>();
-            for (int field = 0; field < fieldTypes.size(); field++) {
-                row.add(decodeObject(fieldTypes.get(field), rowBlock, field));
-            }
-            return row;
-        }
-        if (base.equals(MAP)) {
-            Block mapBlock = (Block) type.getObject(block, position);
-
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
-
-            Map<Object, Object> map = new LinkedHashMap<>();
-            int entryCount = mapBlock.getPositionCount() / 2;
-            for (int entry = 0; entry < entryCount; entry++) {
-                int blockPosition = entry * 2;
-                Object key = decodeObject(keyType, mapBlock, blockPosition);
-                // null keys are not allowed
-                if (key != null) {
-                    Object value = decodeObject(valueType, mapBlock, blockPosition + 1);
-                    map.put(key, value);
-                }
-            }
-            return map;
-        }
-
-        return type.getObjectValue(SESSION, block, position);
-    }
-
-    private static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
-    {
-        if (objectInspector instanceof PrimitiveObjectInspector) {
-            PrimitiveObjectInspector primitiveInspector = (PrimitiveObjectInspector) objectInspector;
-            PrimitiveCategory primitiveCategory = primitiveInspector.getPrimitiveCategory();
-            for (PrimitiveCategory type : types) {
-                if (primitiveCategory == type) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        if (objectInspector instanceof ListObjectInspector) {
-            ListObjectInspector listInspector = (ListObjectInspector) objectInspector;
-            return hasType(listInspector.getListElementObjectInspector(), types);
-        }
-        if (objectInspector instanceof MapObjectInspector) {
-            MapObjectInspector mapInspector = (MapObjectInspector) objectInspector;
-            return hasType(mapInspector.getMapKeyObjectInspector(), types) ||
-                    hasType(mapInspector.getMapValueObjectInspector(), types);
-        }
-        if (objectInspector instanceof StructObjectInspector) {
-            for (StructField field : ((StructObjectInspector) objectInspector).getAllStructFieldRefs()) {
-                if (hasType(field.getFieldObjectInspector(), types)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        throw new IllegalArgumentException("Unknown object inspector type " + objectInspector);
+        return baseTypes.contains(testBaseType);
     }
 
     private static Type arrayType(Type elementType)
     {
-        return TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(elementType.getTypeSignature()), ImmutableList.of());
+        return TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
     }
 
     private static Type mapType(Type keyType, Type valueType)
     {
-        return TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
+        return TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
     }
 
     private static Type rowType(Type... fieldTypes)
     {
-        TypeSignature[] typeSignatures = Arrays.stream(fieldTypes).map(Type::getTypeSignature).toArray(TypeSignature[]::new);
-        return TYPE_MANAGER.getParameterizedType(ROW, ImmutableList.copyOf(typeSignatures), ImmutableList.of());
+        ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
+        for (int i = 0; i < fieldTypes.length; i++) {
+            String filedName = "field_" + i;
+            Type fieldType = fieldTypes[i];
+            typeSignatureParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(filedName, fieldType.getTypeSignature())));
+        }
+        return TYPE_MANAGER.getParameterizedType(ROW, typeSignatureParameters.build());
     }
 }

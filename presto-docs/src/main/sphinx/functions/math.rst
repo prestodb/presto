@@ -34,6 +34,12 @@ Mathematical Functions
 
     Returns ``x`` rounded up to the nearest integer.
 
+.. function:: cosine_similarity(x, y) -> double
+
+    Returns the cosine similarity between the sparse vectors ``x`` and ``y``::
+
+        SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
+
 .. function:: degrees(x) -> double
 
     Converts angle ``x`` in radians to degrees.
@@ -109,6 +115,20 @@ Mathematical Functions
 .. function:: round(x, d) -> [same as input]
 
     Returns ``x`` rounded to ``d`` decimal places.
+
+.. function:: sign(x) -> [same as input]
+
+    Returns the signum function of ``x``, that is:
+
+    * 0 if the argument is 0,
+    * 1 if the argument is greater than 0,
+    * -1 if the argument is less than 0.
+
+    For double arguments, the function additionally returns:
+
+    * NaN if tha argument is NaN,
+    * 1 if the argument is +Infinity,
+    * -1 if the argument is -Infinity.
 
 .. function:: sqrt(x) -> double
 

@@ -22,8 +22,11 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.lang.invoke.MethodHandle;
@@ -34,18 +37,21 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
+import static com.facebook.presto.sql.relational.Signatures.BIND;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
+import static com.facebook.presto.sql.relational.Signatures.DEREFERENCE;
 import static com.facebook.presto.sql.relational.Signatures.IF;
 import static com.facebook.presto.sql.relational.Signatures.IN;
 import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
 import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
+import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
 import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ExpressionOptimizer
 {
@@ -93,7 +99,7 @@ public class ExpressionOptimizer
             else {
                 switch (signature.getName()) {
                     // TODO: optimize these special forms
-                    case IF:
+                    case IF: {
                         checkState(call.getArguments().size() == 3, "IF function should have 3 arguments. Get " + call.getArguments().size());
                         RowExpression optimizedOperand = call.getArguments().get(0).accept(this, context);
                         if (optimizedOperand instanceof ConstantExpression) {
@@ -107,21 +113,48 @@ public class ExpressionOptimizer
                                 return call.getArguments().get(2).accept(this, context);
                             }
                         }
-                    case NULL_IF:
-                    case SWITCH:
-                    case "WHEN":
-                    case TRY:
-                    case TRY_CAST:
-                    case IS_NULL:
-                    case "IS_DISTINCT_FROM":
-                    case COALESCE:
-                    case "AND":
-                    case "OR":
-                    case IN:
                         List<RowExpression> arguments = call.getArguments().stream()
                                 .map(argument -> argument.accept(this, null))
                                 .collect(toImmutableList());
                         return call(signature, call.getType(), arguments);
+                    }
+                    case TRY: {
+                        checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
+                        if (!(Iterables.getOnlyElement(call.getArguments()) instanceof CallExpression)) {
+                            return Iterables.getOnlyElement(call.getArguments()).accept(this, null);
+                        }
+                        List<RowExpression> arguments = call.getArguments().stream()
+                                .map(argument -> argument.accept(this, null))
+                                .collect(toImmutableList());
+                        return call(signature, call.getType(), arguments);
+                    }
+                    case BIND: {
+                        checkState(call.getArguments().size() == 2, BIND + " function should have 2 arguments. Got " + call.getArguments().size());
+                        RowExpression optimizedValue = call.getArguments().get(0).accept(this, context);
+                        RowExpression optimizedFunction = call.getArguments().get(1).accept(this, context);
+                        if (optimizedValue instanceof ConstantExpression && optimizedFunction instanceof ConstantExpression) {
+                            // Here, optimizedValue and optimizedFunction should be merged together into a new ConstantExpression.
+                            // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
+                            throw new UnsupportedOperationException();
+                        }
+                        return call(signature, call.getType(), ImmutableList.of(optimizedValue, optimizedFunction));
+                    }
+                    case NULL_IF:
+                    case SWITCH:
+                    case "WHEN":
+                    case TRY_CAST:
+                    case IS_NULL:
+                    case COALESCE:
+                    case "AND":
+                    case "OR":
+                    case IN:
+                    case DEREFERENCE:
+                    case ROW_CONSTRUCTOR: {
+                        List<RowExpression> arguments = call.getArguments().stream()
+                                .map(argument -> argument.accept(this, null))
+                                .collect(toImmutableList());
+                        return call(signature, call.getType(), arguments);
+                    }
                     default:
                         function = registry.getScalarFunctionImplementation(signature);
                 }
@@ -131,6 +164,7 @@ public class ExpressionOptimizer
                     .map(argument -> argument.accept(this, context))
                     .collect(toImmutableList());
 
+            // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
             if (Iterables.all(arguments, instanceOf(ConstantExpression.class)) && function.isDeterministic()) {
                 MethodHandle method = function.getMethodHandle();
 
@@ -162,6 +196,18 @@ public class ExpressionOptimizer
             }
 
             return call(signature, typeManager.getType(signature.getReturnType()), arguments);
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return reference;
         }
     }
 }

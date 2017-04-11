@@ -43,7 +43,7 @@ public class TestCachingCassandraSchemaProvider
     public void setUp()
             throws Exception
     {
-        mockSession = new MockCassandraSession(CONNECTOR_ID, new CassandraClientConfig());
+        mockSession = new MockCassandraSession(CONNECTOR_ID);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         schemaProvider = new CachingCassandraSchemaProvider(
                 CONNECTOR_ID,
@@ -115,30 +115,6 @@ public class TestCachingCassandraSchemaProvider
     {
         CassandraTableHandle tableHandle = new CassandraTableHandle(CONNECTOR_ID, BAD_SCHEMA, TEST_TABLE);
         schemaProvider.getTable(tableHandle);
-    }
-
-    @Test
-    public void testGetPartitions()
-            throws Exception
-    {
-        CassandraTableHandle tableHandle = new CassandraTableHandle(CONNECTOR_ID, TEST_SCHEMA, TEST_TABLE);
-        assertEquals(mockSession.getAccessCount(), 0);
-
-        CassandraTable table = schemaProvider.getTable(tableHandle);
-        assertNotNull(table);
-
-        String expectedList = "[column1 = 'testpartition1', column1 = 'testpartition2']";
-
-        assertEquals(mockSession.getAccessCount(), 1);
-        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
-        assertEquals(mockSession.getAccessCount(), 2);
-        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
-        assertEquals(mockSession.getAccessCount(), 2);
-
-        schemaProvider.flushCache();
-
-        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
-        assertEquals(mockSession.getAccessCount(), 3);
     }
 
     @Test

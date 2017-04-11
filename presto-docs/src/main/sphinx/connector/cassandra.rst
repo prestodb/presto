@@ -4,6 +4,11 @@ Cassandra Connector
 
 The Cassandra connector allows querying data stored in Cassandra.
 
+Compatibility
+-------------
+
+Connector is compatible with all Cassandra versions starting from 2.1.5.
+
 Configuration
 -------------
 
@@ -44,14 +49,6 @@ Property Name                                      Description
 ``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol
                                                    (defaults to ``9042``).
 
-``cassandra.thrift-port``                          The Cassandra server port running the Thrift client protocol
-                                                   (defaults to ``9160``).
-
-``cassandra.limit-for-partition-key-select``       Limit of rows to read for finding all partition keys. If a
-                                                   Cassandra table has more rows than this value, splits based on
-                                                   token ranges are used instead. Note that for larger values you
-                                                   may need to adjust read timeout for Cassandra.
-
 ``cassandra.max-schema-refresh-threads``           Maximum number of schema cache refresh threads. This property
                                                    corresponds to the maximum number of parallel requests.
 
@@ -82,57 +79,74 @@ Property Name                                      Description
                                                    of the user who is connected to Presto.
 ================================================== ======================================================================
 
+.. note::
+
+        If authorization is enabled, ``cassandra.username`` must have enough permissions to perform ``SELECT`` queries on
+        the ``system.size_estimates`` table.
+
 .. _Cassandra consistency: http://www.datastax.com/documentation/cassandra/2.0/cassandra/dml/dml_config_consistency_c.html
 
 The following advanced configuration properties are available:
 
-================================================== ======================================================================
-Property Name                                      Description
-================================================== ======================================================================
-``cassandra.fetch-size``                           Number of rows fetched at a time in a Cassandra query.
+============================================================= ======================================================================
+Property Name                                                 Description
+============================================================= ======================================================================
+``cassandra.fetch-size``                                      Number of rows fetched at a time in a Cassandra query.
 
-``cassandra.fetch-size-for-partition-key-select``  Number of rows fetched at a time in a Cassandra query that
-                                                   selects partition keys.
+``cassandra.partition-size-for-batch-select``                 Number of partitions batched together into a single select for a
+                                                              single partion key column table.
 
-``cassandra.partition-size-for-batch-select``      Number of partitions batched together into a single select for a
-                                                   single partion key column table.
+``cassandra.split-size``                                      Number of keys per split when querying Cassandra.
 
-``cassandra.split-size``                           Number of keys per split when querying Cassandra.
+``cassandra.client.read-timeout``                             Maximum time the Cassandra driver will wait for an
+                                                              answer to a query from one Cassandra node. Note that the underlying
+                                                              Cassandra driver may retry a query against more than one node in
+                                                              the event of a read timeout. Increasing this may help with queries
+                                                              that use an index.
 
-``cassandra.partitioner``                          Partitioner to use for hashing and data distribution. This
-                                                   property defaults to ``Murmur3Partitioner``. The other supported
-                                                   values are ``RandomPartitioner`` and ``ByteOrderedPartitioner``.
+``cassandra.client.connect-timeout``                          Maximum time the Cassandra driver will wait to establish
+                                                              a connection to a Cassandra node. Increasing this may help with
+                                                              heavily loaded Cassandra clusters.
 
-``cassandra.thrift-connection-factory-class``      Allows for the specification of a custom implementation of
-                                                   ``org.apache.cassandra.thrift.ITransportFactory`` to be used to
-                                                   connect to Cassandra using the Thrift protocol.
+``cassandra.client.so-linger``                                Number of seconds to linger on close if unsent data is queued.
+                                                              If set to zero, the socket will be closed immediately.
+                                                              When this option is non-zero, a socket will linger that many
+                                                              seconds for an acknowledgement that all data was written to a
+                                                              peer. This option can be used to avoid consuming sockets on a
+                                                              Cassandra server by immediately closing connections when they
+                                                              are no longer needed.
 
-``cassandra.transport-factory-options``            Allows for the specification of arbitrary options to be passed to
-                                                   the Thrift connection factory.
+``cassandra.retry-policy``                                    Policy used to retry failed requests to Cassandra. This property
+                                                              defaults to ``DEFAULT``. Using ``BACKOFF`` may help when
+                                                              queries fail with *"not enough replicas"*. The other possible
+                                                              values are ``DOWNGRADING_CONSISTENCY`` and ``FALLTHROUGH``.
 
-``cassandra.client.read-timeout``                  Maximum time the Cassandra driver will wait for an
-                                                   answer to a query from one Cassandra node. Note that the underlying
-                                                   Cassandra driver may retry a query against more than one node in
-                                                   the event of a read timeout. Increasing this may help with queries
-                                                   that use an index.
+``cassandra.load-policy.use-dc-aware``                        Set to ``true`` to use ``DCAwareRoundRobinPolicy``
+                                                              (defaults to ``false``).
 
-``cassandra.client.connect-timeout``               Maximum time the Cassandra driver will wait to establish
-                                                   a connection to a Cassandra node. Increasing this may help with
-                                                   heavily loaded Cassandra clusters.
+``cassandra.load-policy.dc-aware.local-dc``                   The name of the local datacenter for ``DCAwareRoundRobinPolicy``.
 
-``cassandra.client.so-linger``                     Number of seconds to linger on close if unsent data is queued.
-                                                   If set to zero, the socket will be closed immediately.
-                                                   When this option is non-zero, a socket will linger that many
-                                                   seconds for an acknowledgement that all data was written to a
-                                                   peer. This option can be used to avoid consuming sockets on a
-                                                   Cassandra server by immediately closing connections when they
-                                                   are no longer needed.
+``cassandra.load-policy.dc-aware.used-hosts-per-remote-dc``   Uses the provided number of host per remote datacenter
+                                                              as failover for the local hosts for ``DCAwareRoundRobinPolicy``.
 
-``cassandra.retry-policy``                         Policy used to retry failed requests to Cassandra. This property
-                                                   defaults to ``DEFAULT``. Using ``BACKOFF`` may help when
-                                                   queries fail with *"not enough replicas"*. The other possible
-                                                   values are ``DOWNGRADING_CONSISTENCY`` and ``FALLTHROUGH``.
-================================================== ======================================================================
+``cassandra.load-policy.dc-aware.allow-remote-dc-for-local``  Set to ``true`` to allow to use hosts of
+                                                              remote datacenter for local consistency level.
+
+``cassandra.load-policy.use-token-aware``                     Set to ``true`` to use ``TokenAwarePolicy`` (defaults to ``false``).
+
+``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas
+                                                              (defaults to ``false``).
+
+``cassandra.load-policy.use-white-list``                      Set to ``true`` to use ``WhiteListPolicy`` (defaults to ``false``).
+
+``cassandra.load-policy.white-list.addresses``                Comma-separated list of hosts for ``WhiteListPolicy``.
+
+``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``NoHostAvailableException`` (defaults to ``1m``).
+
+``cassandra.speculative-execution.limit``                     The number of speculative executions (defaults to ``1``).
+
+``cassandra.speculative-execution.delay``                     The delay between each speculative execution (defaults to ``500ms``).
+============================================================= ======================================================================
 
 Querying Cassandra Tables
 -------------------------
@@ -160,11 +174,11 @@ This table can be described in Presto::
 
 .. code-block:: none
 
-     Column  |  Type   | Null | Partition Key | Comment
-    ---------+---------+------+---------------+---------
-     user_id | bigint  | true | true          |
-     fname   | varchar | true | false         |
-     lname   | varchar | true | false         |
+     Column  |  Type   | Extra | Comment
+    ---------+---------+-------+---------
+     user_id | bigint  |       |
+     fname   | varchar |       |
+     lname   | varchar |       |
     (3 rows)
 
 This table can then be queried in Presto::

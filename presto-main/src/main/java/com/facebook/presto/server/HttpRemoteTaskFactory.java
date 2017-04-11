@@ -23,8 +23,11 @@ import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.remotetask.HttpRemoteTask;
+import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -45,7 +48,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -54,33 +59,46 @@ public class HttpRemoteTaskFactory
 {
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
+    private final JsonCodec<TaskStatus> taskStatusCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration minErrorDuration;
-    private final Duration taskInfoRefreshMaxWait;
+    private final Duration maxErrorDuration;
+    private final Duration taskStatusRefreshMaxWait;
+    private final Duration taskInfoUpdateInterval;
     private final ExecutorService coreExecutor;
     private final Executor executor;
     private final ThreadPoolExecutorMBean executorMBean;
+    private final ScheduledExecutorService updateScheduledExecutor;
     private final ScheduledExecutorService errorScheduledExecutor;
+    private final RemoteTaskStats stats;
 
     @Inject
     public HttpRemoteTaskFactory(QueryManagerConfig config,
             TaskManagerConfig taskConfig,
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
+            JsonCodec<TaskStatus> taskStatusCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
-            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            RemoteTaskStats stats)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
+        this.taskStatusCodec = taskStatusCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
+        checkArgument(config.getRemoteTaskMaxErrorDuration().compareTo(config.getRemoteTaskMinErrorDuration()) >= 0, "max error duration is less than min error duration");
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
-        this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
+        this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
+        this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
+        this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
+        this.stats = requireNonNull(stats, "stats is null");
 
+        this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
     }
 
@@ -95,13 +113,14 @@ public class HttpRemoteTaskFactory
     public void stop()
     {
         coreExecutor.shutdownNow();
+        updateScheduledExecutor.shutdownNow();
+        errorScheduledExecutor.shutdownNow();
     }
 
     @Override
     public RemoteTask createRemoteTask(Session session,
             TaskId taskId,
             Node node,
-            int partition,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
@@ -111,20 +130,23 @@ public class HttpRemoteTaskFactory
         return new HttpRemoteTask(session,
                 taskId,
                 node.getNodeIdentifier(),
-                partition,
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
                 initialSplits,
                 outputBuffers,
                 httpClient,
                 executor,
+                updateScheduledExecutor,
                 errorScheduledExecutor,
                 minErrorDuration,
-                taskInfoRefreshMaxWait,
+                maxErrorDuration,
+                taskStatusRefreshMaxWait,
+                taskInfoUpdateInterval,
                 summarizeTaskInfo,
+                taskStatusCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
-                partitionedSplitCountTracker
-        );
+                partitionedSplitCountTracker,
+                stats);
     }
 }

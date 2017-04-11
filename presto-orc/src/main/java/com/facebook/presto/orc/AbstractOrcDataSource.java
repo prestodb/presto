@@ -14,17 +14,16 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
 import io.airlift.slice.ChunkedSliceInput.SliceLoader;
 import io.airlift.slice.FixedLengthSliceInput;
-import io.airlift.slice.RuntimeIOException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -32,6 +31,7 @@ import java.util.Map.Entry;
 import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractOrcDataSource
@@ -168,7 +168,7 @@ public abstract class AbstractOrcDataSource
 
         ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-            ChunkedSliceInput sliceInput = new ChunkedSliceInput(new HdfsSliceLoader(entry.getValue()), Ints.checkedCast(streamBufferSize.toBytes()));
+            ChunkedSliceInput sliceInput = new ChunkedSliceInput(new HdfsSliceLoader(entry.getValue()), toIntExact(streamBufferSize.toBytes()));
             slices.put(entry.getKey(), sliceInput);
         }
         return slices.build();
@@ -209,7 +209,7 @@ public abstract class AbstractOrcDataSource
                 readFully(diskRange.getOffset() + position, bufferReference.getBuffer(), 0, length);
             }
             catch (IOException e) {
-                throw new RuntimeIOException(e);
+                throw new UncheckedIOException(e);
             }
         }
 

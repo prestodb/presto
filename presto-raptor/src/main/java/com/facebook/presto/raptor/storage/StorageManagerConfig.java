@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -29,6 +30,7 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Runtime.getRuntime;
@@ -37,6 +39,7 @@ import static java.lang.Runtime.getRuntime;
 public class StorageManagerConfig
 {
     private File dataDirectory;
+    private DataSize minAvailableSpace = new DataSize(0, BYTE);
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
     private boolean compactionEnabled = true;
@@ -47,11 +50,14 @@ public class StorageManagerConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
-    private int compactionThreads = 5;
+    private int organizationThreads = 5;
+    private boolean organizationEnabled = true;
+    private Duration organizationInterval = new Duration(7, TimeUnit.DAYS);
 
     private long maxShardRows = 1_000_000;
     private DataSize maxShardSize = new DataSize(256, MEGABYTE);
     private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
+    private int oneSplitPerBucketThreshold;
 
     @NotNull
     public File getDataDirectory()
@@ -64,6 +70,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setDataDirectory(File dataDirectory)
     {
         this.dataDirectory = dataDirectory;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMinAvailableSpace()
+    {
+        return minAvailableSpace;
+    }
+
+    @Config("storage.min-available-space")
+    @ConfigDescription("Minimum space that must be available on the data directory file system")
+    public StorageManagerConfig setMinAvailableSpace(DataSize minAvailableSpace)
+    {
+        this.minAvailableSpace = minAvailableSpace;
         return this;
     }
 
@@ -120,6 +140,7 @@ public class StorageManagerConfig
         return this;
     }
 
+    @MinDuration("1s")
     public Duration getShardRecoveryTimeout()
     {
         return shardRecoveryTimeout;
@@ -133,6 +154,7 @@ public class StorageManagerConfig
         return this;
     }
 
+    @MinDuration("1s")
     public Duration getMissingShardDiscoveryInterval()
     {
         return missingShardDiscoveryInterval;
@@ -146,6 +168,7 @@ public class StorageManagerConfig
         return this;
     }
 
+    @MinDuration("1s")
     public Duration getCompactionInterval()
     {
         return compactionInterval;
@@ -156,6 +179,21 @@ public class StorageManagerConfig
     public StorageManagerConfig setCompactionInterval(Duration compactionInterval)
     {
         this.compactionInterval = compactionInterval;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1s")
+    public Duration getOrganizationInterval()
+    {
+        return organizationInterval;
+    }
+
+    @Config("storage.organization-interval")
+    @ConfigDescription("How long to wait between table organization iterations")
+    public StorageManagerConfig setOrganizationInterval(Duration organizationInterval)
+    {
+        this.organizationInterval = organizationInterval;
         return this;
     }
 
@@ -187,18 +225,19 @@ public class StorageManagerConfig
         return this;
     }
 
-    @Config("storage.max-compaction-threads")
-    @ConfigDescription("Maximum number of threads to use for compaction")
-    public StorageManagerConfig setCompactionThreads(int compactionThreads)
+    @LegacyConfig("storage.max-compaction-threads")
+    @Config("storage.max-organization-threads")
+    @ConfigDescription("Maximum number of threads to use for organization")
+    public StorageManagerConfig setOrganizationThreads(int organizationThreads)
     {
-        this.compactionThreads = compactionThreads;
+        this.organizationThreads = organizationThreads;
         return this;
     }
 
     @Min(1)
-    public int getCompactionThreads()
+    public int getOrganizationThreads()
     {
-        return compactionThreads;
+        return organizationThreads;
     }
 
     @Min(1)
@@ -254,6 +293,31 @@ public class StorageManagerConfig
     public StorageManagerConfig setCompactionEnabled(boolean compactionEnabled)
     {
         this.compactionEnabled = compactionEnabled;
+        return this;
+    }
+
+    public boolean isOrganizationEnabled()
+    {
+        return organizationEnabled;
+    }
+
+    @Config("storage.organization-enabled")
+    public StorageManagerConfig setOrganizationEnabled(boolean organizationEnabled)
+    {
+        this.organizationEnabled = organizationEnabled;
+        return this;
+    }
+
+    public int getOneSplitPerBucketThreshold()
+    {
+        return oneSplitPerBucketThreshold;
+    }
+
+    @Config("storage.one-split-per-bucket-threshold")
+    @ConfigDescription("Experimental: Maximum bucket count at which to produce multiple splits per bucket")
+    public StorageManagerConfig setOneSplitPerBucketThreshold(int oneSplitPerBucketThreshold)
+    {
+        this.oneSplitPerBucketThreshold = oneSplitPerBucketThreshold;
         return this;
     }
 }

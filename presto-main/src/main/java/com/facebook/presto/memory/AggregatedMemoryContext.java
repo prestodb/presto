@@ -20,7 +20,7 @@ import static java.util.Objects.requireNonNull;
 public class AggregatedMemoryContext
         extends AbstractAggregatedMemoryContext
 {
-    // This class should remain exactly the same as AggregatedMemoryContext in com.facebook.presto.orc.memory
+    // This class should remain exactly the same as AggregatedMemoryContext in com.facebook.presto.orc.memory and com.facebook.presto.hive.parquet.memory
 
     private final AbstractAggregatedMemoryContext parentMemoryContext;
     private long usedBytes;

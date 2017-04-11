@@ -46,6 +46,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -123,7 +124,7 @@ public class InCodeGeneratorBenchmark
         inputPage = pageBuilder.build();
 
         RowExpression filter = call(
-                new Signature(IN, SCALAR, StandardTypes.BOOLEAN),
+                new Signature(IN, SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                 BOOLEAN,
                 arguments);
 

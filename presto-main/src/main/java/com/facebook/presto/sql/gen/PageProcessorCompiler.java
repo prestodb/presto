@@ -42,18 +42,21 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.Signatures;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.IntStream;
 
@@ -76,6 +79,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newIns
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -281,7 +285,7 @@ public class PageProcessorCompiler
         Scope scope = method.getScope();
         Variable thisVariable = method.getThis();
 
-        ImmutableList.Builder<Variable> builder = ImmutableList.<Variable>builder();
+        ImmutableList.Builder<Variable> builder = ImmutableList.builder();
         for (int channel : getInputChannels(projection)) {
             Variable blockVariable = scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
             builder.add(blockVariable);
@@ -314,7 +318,9 @@ public class PageProcessorCompiler
             // if nothing is filtered out, copy the entire block, else project it
             body.append(new IfStatement()
                     .condition(equal(cardinality, positionCount))
-                    .ifTrue(outputBlock.set(inputs.get(0)))
+                    .ifTrue(new BytecodeBlock()
+                            .append(inputs.get(0).invoke("assureLoaded", void.class))
+                            .append(outputBlock.set(inputs.get(0))))
                     .ifFalse(projectBlock));
         }
         else if (isConstantExpression(projection)) {
@@ -449,7 +455,6 @@ public class PageProcessorCompiler
         Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
 
         Variable dictionary = scope.declareVariable(Block.class, "dictionary");
-        Variable ids = scope.declareVariable(Slice.class, "ids");
         Variable dictionaryCount = scope.declareVariable(int.class, "dictionaryCount");
         Variable inputSourceId = scope.declareVariable(DictionaryId.class, "inputSourceId");
         Variable outputSourceId = scope.declareVariable(DictionaryId.class, "outputSourceId");
@@ -465,7 +470,6 @@ public class PageProcessorCompiler
         BytecodeExpression castDictionaryBlock = inputBlock.cast(DictionaryBlock.class);
         body.comment("Extract dictionary, ids, positionCount and dictionarySourceId")
                 .append(dictionary.set(castDictionaryBlock.invoke("getDictionary", Block.class)))
-                .append(ids.set(castDictionaryBlock.invoke("getIds", Slice.class)))
                 .append(dictionaryCount.set(dictionary.invoke("getPositionCount", int.class)))
                 .append(inputSourceId.set(castDictionaryBlock.invoke("getDictionarySourceId", DictionaryId.class)));
 
@@ -503,8 +507,7 @@ public class PageProcessorCompiler
                         .append(dictionarySourceIds.invoke("put", Object.class, inputSourceId.cast(Object.class), outputSourceId.cast(Object.class)))
                         .pop()));
 
-        BytecodeExpression idsSlice = invokeStatic(Slices.class, "wrappedIntArray", Slice.class, outputIds);
-        body.append(newInstance(DictionaryBlock.class, cardinality, outputDictionary, idsSlice, constantFalse(), outputSourceId)
+        body.append(newInstance(DictionaryBlock.class, cardinality, outputDictionary, outputIds, constantFalse(), outputSourceId)
                 .cast(Block.class)
                 .ret());
         return method;
@@ -626,7 +629,7 @@ public class PageProcessorCompiler
         List<Integer> filterChannels = getInputChannels(filter);
 
         // extract block variables
-        ImmutableList.Builder<Variable> blockVariablesBuilder = ImmutableList.<Variable>builder();
+        ImmutableList.Builder<Variable> blockVariablesBuilder = ImmutableList.builder();
         for (int channel : filterChannels) {
             Variable blockVariable = scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
             blockVariablesBuilder.add(blockVariable);
@@ -730,76 +733,90 @@ public class PageProcessorCompiler
         return ifFilterOnDictionaryBlock;
     }
 
-    private Map<CallExpression, MethodDefinition> generateTryMethods(
+    private PreGeneratedExpressions generateMethodsForLambdaAndTry(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression projection,
             String methodPrefix)
     {
-        TryExpressionExtractor tryExtractor = new TryExpressionExtractor();
-        projection.accept(tryExtractor, null);
-        List<CallExpression> tryExpressions = tryExtractor.getTryExpressionsPreOrder();
-
+        Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(projection));
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+        ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
 
-        int methodId = 0;
-        for (CallExpression tryExpression : tryExpressions) {
-            Parameter session = arg("session", ConnectorSession.class);
-            List<Parameter> blocks = toBlockParameters(getInputChannels(tryExpression.getArguments()));
-            Parameter position = arg("position", int.class);
-            Parameter wasNullVariable = arg("wasNull", boolean.class);
+        int counter = 0;
+        for (RowExpression expression : lambdaAndTryExpressions) {
+            if (expression instanceof CallExpression) {
+                CallExpression tryExpression = (CallExpression) expression;
+                verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
 
-            List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
-                    .add(session)
-                    .addAll(blocks)
-                    .add(position)
-                    .add(wasNullVariable)
-                    .build();
+                Parameter session = arg("session", ConnectorSession.class);
+                List<Parameter> blocks = toBlockParameters(getInputChannels(tryExpression.getArguments()));
+                Parameter position = arg("position", int.class);
 
-            BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
-                    metadata.getFunctionRegistry(),
-                    inputParameters,
-                    tryMethodMap.build());
+                BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        fieldReferenceCompiler(callSiteBinder),
+                        metadata.getFunctionRegistry(),
+                        new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build()));
 
-            MethodDefinition tryMethod = defineTryMethod(
-                    innerExpressionVisitor,
-                    containerClassDefinition,
-                    methodPrefix + "_try_" + methodId,
-                    inputParameters,
-                    Primitives.wrap(tryExpression.getType().getJavaType()),
-                    tryExpression,
-                    callSiteBinder);
+                List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
+                        .add(session)
+                        .addAll(blocks)
+                        .add(position)
+                        .build();
 
-            tryMethodMap.put(tryExpression, tryMethod);
-            methodId++;
+                MethodDefinition tryMethod = defineTryMethod(
+                        innerExpressionVisitor,
+                        containerClassDefinition,
+                        methodPrefix + "_try_" + counter,
+                        inputParameters,
+                        Primitives.wrap(tryExpression.getType().getJavaType()),
+                        tryExpression,
+                        callSiteBinder);
+
+                tryMethodMap.put(tryExpression, tryMethod);
+            }
+            else if (expression instanceof LambdaDefinitionExpression) {
+                LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
+                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
+                FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                        lambdaExpression,
+                        methodPrefix + "_lambda_" + counter,
+                        containerClassDefinition,
+                        preGeneratedExpressions,
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        metadata.getFunctionRegistry());
+                lambdaFieldMap.put(lambdaExpression, methodHandleField);
+            }
+            else {
+                throw new VerifyException(format("unexpected expression: %s", expression.toString()));
+            }
+            counter++;
         }
 
-        return tryMethodMap.build();
+        return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
     }
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter)
     {
-        Map<CallExpression, MethodDefinition> tryMethodMap = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
+        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
 
         Parameter session = arg("session", ConnectorSession.class);
         List<Parameter> blocks = toBlockParameters(getInputChannels(filter));
         Parameter position = arg("position", int.class);
 
-        List<Parameter> expressionInputs = ImmutableList.<Parameter>builder()
-                .add(session)
-                .addAll(blocks)
-                .add(position)
-                .build();
-
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 "filter",
                 type(boolean.class),
-                expressionInputs);
+                ImmutableList.<Parameter>builder()
+                        .add(session)
+                        .addAll(blocks)
+                        .add(position)
+                        .build());
 
         method.comment("Filter: %s", filter.toString());
         BytecodeBlock body = method.getBody();
@@ -810,13 +827,9 @@ public class PageProcessorCompiler
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
+                fieldReferenceCompiler(callSiteBinder),
                 metadata.getFunctionRegistry(),
-                ImmutableList.<Variable>builder()
-                        .addAll(expressionInputs)
-                        .add(wasNullVariable)
-                        .build(),
-                tryMethodMap);
+                preGeneratedExpressions);
 
         BytecodeNode visitorBody = filter.accept(visitor, scope);
 
@@ -831,25 +844,21 @@ public class PageProcessorCompiler
 
     private MethodDefinition generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, String methodName, RowExpression projection)
     {
-        Map<CallExpression, MethodDefinition> tryMethodMap = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, projection, methodName);
+        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, projection, methodName);
 
         Parameter session = arg("session", ConnectorSession.class);
         List<Parameter> blocks = toBlockParameters(getInputChannels(projection));
         Parameter position = arg("position", int.class);
         Parameter output = arg("output", BlockBuilder.class);
 
-        List<Parameter> expressionInputs = ImmutableList.<Parameter>builder()
-                .add(session)
-                .addAll(blocks)
-                .add(position)
-                .build();
-
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 methodName,
                 type(void.class),
                 ImmutableList.<Parameter>builder()
-                        .addAll(expressionInputs)
+                        .add(session)
+                        .addAll(blocks)
+                        .add(position)
                         .add(output)
                         .build());
 
@@ -862,14 +871,9 @@ public class PageProcessorCompiler
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
+                fieldReferenceCompiler(callSiteBinder),
                 metadata.getFunctionRegistry(),
-                ImmutableList.<Variable>builder()
-                    .addAll(expressionInputs)
-                    .add(wasNullVariable)
-                    .build(),
-                tryMethodMap
-        );
+                preGeneratedExpressions);
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
@@ -918,56 +922,12 @@ public class PageProcessorCompiler
         return parameters.build();
     }
 
-    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(final CallSiteBinder callSiteBinder, final Variable positionVariable, final Variable wasNullVariable)
+    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(CallSiteBinder callSiteBinder)
     {
-        return new RowExpressionVisitor<Scope, BytecodeNode>()
-        {
-            @Override
-            public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
-            {
-                int field = node.getField();
-                Type type = node.getType();
-                Variable block = scope.getVariable("block_" + field);
-
-                Class<?> javaType = type.getJavaType();
-                if (!javaType.isPrimitive() && javaType != Slice.class) {
-                    javaType = Object.class;
-                }
-
-                IfStatement ifStatement = new IfStatement();
-                ifStatement.condition()
-                        .setDescription(format("block_%d.get%s()", field, type))
-                        .append(block)
-                        .getVariable(positionVariable)
-                        .invokeInterface(Block.class, "isNull", boolean.class, int.class);
-
-                ifStatement.ifTrue()
-                        .putVariable(wasNullVariable, true)
-                        .pushJavaDefault(javaType);
-
-                String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
-
-                ifStatement.ifFalse()
-                        .append(loadConstant(callSiteBinder.bind(type, Type.class)))
-                        .append(block)
-                        .getVariable(positionVariable)
-                        .invokeInterface(Type.class, methodName, javaType, Block.class, int.class);
-
-                return ifStatement;
-            }
-
-            @Override
-            public BytecodeNode visitCall(CallExpression call, Scope scope)
-            {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
-
-            @Override
-            public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
-            {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
-        };
+        return new InputReferenceCompiler(
+                (scope, field) -> scope.getVariable("block_" + field),
+                (scope, field) -> scope.getVariable("position"),
+                callSiteBinder);
     }
 
     private static Map<RowExpression, List<Variable>> getExpressionInputBlocks(List<RowExpression> projections, RowExpression filter, Map<Integer, Variable> channelBlock)

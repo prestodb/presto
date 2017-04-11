@@ -6,8 +6,7 @@
         "fields": [
             {
                 "name": "redis_key",
-                "dataFormat": "VARCHAR",
-                "type": "VARCHAR",
+                "type": "VARCHAR(64)",
                 "hidden": "true"
             }
         ]
@@ -28,7 +27,7 @@
             {
                 "name": "availqty",
                 "mapping": "availqty",
-                "type": "BIGINT"
+                "type": "INTEGER"
             },
             {
                 "name": "supplycost",
@@ -38,7 +37,7 @@
             {
                 "name": "comment",
                 "mapping": "comment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(199)"
             }
         ]
     }

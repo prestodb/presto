@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,8 +23,6 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
@@ -41,11 +38,14 @@ import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-@ThreadSafe
+/**
+ * Only calling getDriverStats is ThreadSafe
+ */
 public class DriverContext
 {
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
@@ -77,6 +77,7 @@ public class DriverContext
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final AtomicLong peakMemoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
@@ -96,18 +97,13 @@ public class DriverContext
 
     public OperatorContext addOperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType)
     {
-        return addOperatorContext(operatorId, planNodeId, operatorType, Long.MAX_VALUE);
-    }
-
-    public OperatorContext addOperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, long maxMemoryReservation)
-    {
         checkArgument(operatorId >= 0, "operatorId is negative");
 
         for (OperatorContext operatorContext : operatorContexts) {
             checkArgument(operatorId != operatorContext.getOperatorId(), "A context already exists for operatorId %s", operatorId);
         }
 
-        OperatorContext operatorContext = new OperatorContext(operatorId, planNodeId, operatorType, this, executor, maxMemoryReservation);
+        OperatorContext operatorContext = new OperatorContext(operatorId, planNodeId, operatorType, this, executor);
         operatorContexts.add(operatorContext);
         return operatorContext;
     }
@@ -170,8 +166,6 @@ public class DriverContext
         executionEndTime.set(DateTime.now());
         endNanos.set(System.nanoTime());
 
-        freeMemory(memoryReservation.get());
-
         pipelineContext.driverFinished(this);
     }
 
@@ -186,11 +180,6 @@ public class DriverContext
         return finished.get() || pipelineContext.isDone();
     }
 
-    public DataSize getOperatorPreAllocatedMemory()
-    {
-        return pipelineContext.getOperatorPreAllocatedMemory();
-    }
-
     public void transferMemoryToTaskContext(long bytes)
     {
         pipelineContext.transferMemoryToTaskContext(bytes);
@@ -200,7 +189,8 @@ public class DriverContext
     public ListenableFuture<?> reserveMemory(long bytes)
     {
         ListenableFuture<?> future = pipelineContext.reserveMemory(bytes);
-        memoryReservation.getAndAdd(bytes);
+        long newMemoryReservation = memoryReservation.addAndGet(bytes);
+        peakMemoryReservation.accumulateAndGet(newMemoryReservation, Math::max);
         return future;
     }
 
@@ -212,10 +202,16 @@ public class DriverContext
         return future;
     }
 
+    public ListenableFuture<?> reserveSpill(long bytes)
+    {
+        return pipelineContext.reserveSpill(bytes);
+    }
+
     public boolean tryReserveMemory(long bytes)
     {
         if (pipelineContext.tryReserveMemory(bytes)) {
-            memoryReservation.getAndAdd(bytes);
+            long newMemoryReservation = memoryReservation.addAndGet(bytes);
+            peakMemoryReservation.accumulateAndGet(newMemoryReservation, Math::max);
             return true;
         }
         return false;
@@ -226,7 +222,7 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes > 0, "bytes is negative");
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         pipelineContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
@@ -237,21 +233,34 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes > 0, "bytes is negative");
         checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more memory than is reserved");
         pipelineContext.freeSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(-bytes);
     }
 
-    @VisibleForTesting
+    public void freeSpill(long bytes)
+    {
+        if (bytes == 0) {
+            return;
+        }
+        checkArgument(bytes > 0, "bytes is negative");
+        pipelineContext.freeSpill(bytes);
+    }
+
     public long getSystemMemoryUsage()
     {
         return systemMemoryReservation.get();
     }
 
+    public long getMemoryUsage()
+    {
+        return memoryReservation.get();
+    }
+
     public void moreMemoryAvailable()
     {
-        operatorContexts.stream().forEach(OperatorContext::moreMemoryAvailable);
+        operatorContexts.forEach(OperatorContext::moreMemoryAvailable);
     }
 
     public boolean isVerboseStats()
@@ -382,8 +391,9 @@ public class DriverContext
                 executionEndTime.get(),
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
-                new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(memoryReservation.get()),
+                succinctBytes(peakMemoryReservation.get()),
+                succinctBytes(systemMemoryReservation.get()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

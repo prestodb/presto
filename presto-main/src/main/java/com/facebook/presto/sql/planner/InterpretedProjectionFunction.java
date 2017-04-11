@@ -22,15 +22,15 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
-import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class InterpretedProjectionFunction
@@ -50,14 +50,14 @@ public class InterpretedProjectionFunction
             Session session)
     {
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
-        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), expression);
+        Expression rewritten = new SymbolToInputRewriter(symbolToInputMappings).rewrite(expression);
 
         // analyze expression so we can know the type of every expression in the tree
         ImmutableMap.Builder<Integer, Type> inputTypes = ImmutableMap.builder();
         for (Map.Entry<Symbol, Integer> entry : symbolToInputMappings.entrySet()) {
             inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
         }
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten);
+        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten, emptyList() /* parameters already replaced */);
         this.type = requireNonNull(expressionTypes.get(rewritten), "type is null");
 
         evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);

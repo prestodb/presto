@@ -13,24 +13,26 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.booleanArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.doubleArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.longArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.sliceArrayMinMax;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 
 @ScalarFunction("array_max")
@@ -41,7 +43,7 @@ public final class ArrayMaxFunction
 
     @TypeParameter("T")
     @SqlType("T")
-    @Nullable
+    @SqlNullable
     public static Void arrayWithUnknownType(
             @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @SqlType("array(T)") Block block)
@@ -51,7 +53,7 @@ public final class ArrayMaxFunction
 
     @TypeParameter("T")
     @SqlType("T")
-    @Nullable
+    @SqlNullable
     public static Long longArrayMax(
             @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -62,7 +64,7 @@ public final class ArrayMaxFunction
 
     @TypeParameter("T")
     @SqlType("T")
-    @Nullable
+    @SqlNullable
     public static Boolean booleanArrayMax(
             @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -73,7 +75,7 @@ public final class ArrayMaxFunction
 
     @TypeParameter("T")
     @SqlType("T")
-    @Nullable
+    @SqlNullable
     public static Double doubleArrayMax(
             @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -84,7 +86,7 @@ public final class ArrayMaxFunction
 
     @TypeParameter("T")
     @SqlType("T")
-    @Nullable
+    @SqlNullable
     public static Slice sliceArrayMax(
             @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -95,7 +97,7 @@ public final class ArrayMaxFunction
 
     @TypeParameter("T")
     @SqlType("T")
-    @Nullable
+    @SqlNullable
     public static Block blockArrayMax(
             @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -122,7 +124,7 @@ public final class ArrayMaxFunction
         catch (Throwable t) {
             propagateIfInstanceOf(t, Error.class);
             propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 }

@@ -30,7 +30,7 @@ import java.net.URL;
 
 import static com.facebook.presto.example.MetadataUtil.CATALOG_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -76,7 +76,7 @@ public class TestExampleMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(SESSION, NUMBERS_TABLE_HANDLE), ImmutableMap.of(
-                "text", new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0),
+                "text", new ExampleColumnHandle(CONNECTOR_ID, "text", createUnboundedVarcharType(), 0),
                 "value", new ExampleColumnHandle(CONNECTOR_ID, "value", BIGINT, 1)));
 
         // unknown table
@@ -101,7 +101,7 @@ public class TestExampleMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, NUMBERS_TABLE_HANDLE);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", VARCHAR),
+                new ColumnMetadata("text", createUnboundedVarcharType()),
                 new ColumnMetadata("value", BIGINT)));
 
         // unknown tables should produce null
@@ -133,8 +133,8 @@ public class TestExampleMetadata
     @Test
     public void getColumnMetadata()
     {
-        assertEquals(metadata.getColumnMetadata(SESSION, NUMBERS_TABLE_HANDLE, new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0)),
-                new ColumnMetadata("text", VARCHAR));
+        assertEquals(metadata.getColumnMetadata(SESSION, NUMBERS_TABLE_HANDLE, new ExampleColumnHandle(CONNECTOR_ID, "text", createUnboundedVarcharType(), 0)),
+                new ColumnMetadata("text", createUnboundedVarcharType()));
 
         // example connector assumes that the table handle and column handle are
         // properly formed, so it will return a metadata object for any
@@ -148,7 +148,7 @@ public class TestExampleMetadata
     {
         metadata.createTable(SESSION, new ConnectorTableMetadata(
                 new SchemaTableName("example", "foo"),
-                ImmutableList.of(new ColumnMetadata("text", VARCHAR))));
+                ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))));
     }
 
     @Test(expectedExceptions = PrestoException.class)

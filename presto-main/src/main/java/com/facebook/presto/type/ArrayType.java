@@ -15,12 +15,15 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.AbstractArrayBlock;
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -30,7 +33,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayType
@@ -41,7 +44,7 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(parameterizedTypeName(ARRAY, elementType.getTypeSignature()), Block.class);
+        super(new TypeSignature(ARRAY, TypeSignatureParameter.of(elementType.getTypeSignature())), Block.class);
         this.elementType = requireNonNull(elementType, "elementType is null");
     }
 
@@ -84,13 +87,12 @@ public class ArrayType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         Block array = getObject(block, position);
-        int hash = 0;
+        long hash = 0;
         for (int i = 0; i < array.getPositionCount(); i++) {
-            checkElementNotNull(array.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            hash = (int) CombineHashFunction.getHash(hash, elementType.hash(array, i));
+            hash = CombineHashFunction.getHash(hash, hashPosition(elementType, array, i));
         }
         return hash;
     }
@@ -131,12 +133,21 @@ public class ArrayType
             return null;
         }
 
-        Block arrayBlock = block.getObject(position, Block.class);
+        if (block instanceof AbstractArrayBlock) {
+            return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
+        }
+        else {
+            Block arrayBlock = block.getObject(position, Block.class);
+            return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
+        }
+    }
 
-        List<Object> values = new ArrayList<>(arrayBlock.getPositionCount());
+    private List<Object> arrayBlockToObjectValues(ConnectorSession session, Block block, int start, int length)
+    {
+        List<Object> values = new ArrayList<>(length);
 
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            values.add(elementType.getObjectValue(session, arrayBlock, i));
+        for (int i = 0; i < length; i++) {
+            values.add(elementType.getObjectValue(session, block, i + start));
         }
 
         return Collections.unmodifiableList(values);
@@ -157,7 +168,7 @@ public class ArrayType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     @Override

@@ -14,11 +14,14 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.Set;
 
 public class AllowAllAccessControl
         implements AccessControl
@@ -26,6 +29,38 @@ public class AllowAllAccessControl
     @Override
     public void checkCanSetUser(Principal principal, String userName)
     {
+    }
+
+    @Override
+    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    {
+        return catalogs;
+    }
+
+    @Override
+    public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName)
+    {
+    }
+
+    @Override
+    public void checkCanShowSchemas(TransactionId transactionId, Identity identity, String catalogName)
+    {
+    }
+
+    @Override
+    public Set<String> filterSchemas(TransactionId transactionId, Identity identity, String catalogName, Set<String> schemaNames)
+    {
+        return schemaNames;
     }
 
     @Override
@@ -41,6 +76,17 @@ public class AllowAllAccessControl
     @Override
     public void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
+    }
+
+    @Override
+    public void checkCanShowTables(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
+    {
+    }
+
+    @Override
+    public Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    {
+        return tableNames;
     }
 
     @Override
@@ -94,7 +140,12 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
     {
     }
 
@@ -104,7 +155,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
     {
     }
 }

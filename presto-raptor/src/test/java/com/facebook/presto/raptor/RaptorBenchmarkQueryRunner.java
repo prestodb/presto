@@ -15,16 +15,9 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
-import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.File;
@@ -61,12 +54,13 @@ public final class RaptorBenchmarkQueryRunner
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch
-        InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         // add raptor
-        ConnectorFactory raptorConnectorFactory = createRaptorConnectorFactory(TPCH_CACHE_DIR, nodeManager);
-        localQueryRunner.createCatalog("raptor", raptorConnectorFactory, ImmutableMap.of());
+        ConnectorFactory raptorConnectorFactory = getOnlyElement(new RaptorPlugin()
+                .getConnectorFactories());
+        Map<String, String> config = createRaptorConfig(TPCH_CACHE_DIR);
+        localQueryRunner.createCatalog("raptor", raptorConnectorFactory, config);
 
         if (!localQueryRunner.tableExists(session, "orders")) {
             localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch.sf1.orders");
@@ -77,33 +71,16 @@ public final class RaptorBenchmarkQueryRunner
         return localQueryRunner;
     }
 
-    private static ConnectorFactory createRaptorConnectorFactory(String cacheDir, NodeManager nodeManager)
+    private static Map<String, String> createRaptorConfig(String cacheDir)
     {
-        try {
-            File dataDir = new File(cacheDir);
-            File databaseDir = new File(dataDir, "db");
+        File dataDir = new File(cacheDir);
+        File databaseDir = new File(dataDir, "db");
 
-            Map<String, String> config = ImmutableMap.<String, String>builder()
-                    .put("metadata.db.type", "h2")
-                    .put("metadata.db.filename", databaseDir.getAbsolutePath())
-                    .put("storage.data-directory", dataDir.getAbsolutePath())
-                    .put("storage.compress", "false")
-                    .build();
-
-            TypeManager typeManager = new TypeRegistry();
-            BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
-
-            RaptorPlugin plugin = new RaptorPlugin();
-
-            plugin.setOptionalConfig(config);
-            plugin.setNodeManager(nodeManager);
-            plugin.setBlockEncodingSerde(blockEncodingSerde);
-            plugin.setTypeManager(typeManager);
-
-            return getOnlyElement(plugin.getServices(ConnectorFactory.class));
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+        return ImmutableMap.<String, String>builder()
+                .put("metadata.db.type", "h2")
+                .put("metadata.db.filename", databaseDir.getAbsolutePath())
+                .put("storage.data-directory", dataDir.getAbsolutePath())
+                .put("storage.compress", "false")
+                .build();
     }
 }

@@ -31,14 +31,16 @@ public class QueryResult
     private final Exception exception;
     private final Duration wallTime;
     private final Duration cpuTime;
+    private final String queryId;
     private final List<List<Object>> results;
 
-    public QueryResult(State state, Exception exception, Duration wallTime, Duration cpuTime, List<List<Object>> results)
+    public QueryResult(State state, Exception exception, Duration wallTime, Duration cpuTime, String queryId, List<List<Object>> results)
     {
         this.state = requireNonNull(state, "state is null");
         this.exception = exception;
         this.wallTime = wallTime;
         this.cpuTime = cpuTime;
+        this.queryId = queryId;
         this.results = (results != null) ? ImmutableList.copyOf(results) : null;
     }
 
@@ -60,6 +62,11 @@ public class QueryResult
     public Duration getCpuTime()
     {
         return cpuTime;
+    }
+
+    public String getQueryId()
+    {
+        return queryId;
     }
 
     public List<List<Object>> getResults()

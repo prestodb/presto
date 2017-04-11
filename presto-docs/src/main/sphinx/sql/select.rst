@@ -13,7 +13,7 @@ Synopsis
     [ WHERE condition ]
     [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] ]
     [ HAVING condition]
-    [ UNION [ ALL | DISTINCT ] select ]
+    [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
     [ LIMIT [ count | ALL ] ]
 
@@ -119,7 +119,7 @@ row counts for the ``customer`` table using the input column ``mktsegment``::
     (5 rows)
 
 When a ``GROUP BY`` clause is used in a ``SELECT`` statement all output
-expression must be either aggregate functions or columns present in
+expressions must be either aggregate functions or columns present in
 the ``GROUP BY`` clause.
 
 .. _complex_grouping_operations:
@@ -127,7 +127,7 @@ the ``GROUP BY`` clause.
 **Complex Grouping Operations**
 
 Presto also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
-and ``ROLLUP`` syntax. This syntax allows users to perform analysis that require
+and ``ROLLUP`` syntax. This syntax allows users to perform analysis that requires
 aggregation on multiple sets of columns in a single query. Complex grouping
 operations do not support grouping on expressions composed of input columns.
 Only column names or ordinals are allowed.
@@ -209,7 +209,7 @@ source is not deterministic.
 The ``CUBE`` operator generates all possible grouping sets (i.e. a power set)
 for a given set of columns. For example, the query::
 
-    SELECT origin_state, origin_zip, destination_state, sum(package_weight)
+    SELECT origin_state, destination_state, sum(package_weight)
     FROM shipping
     GROUP BY CUBE (origin_state, destination_state);
 
@@ -266,7 +266,7 @@ columns. For example, the query::
 
 is equivalent to::
 
-    SELECT origin_state, destination_state, sum(package_weight)
+    SELECT origin_state, origin_zip, sum(package_weight)
     FROM shipping
     GROUP BY GROUPING SETS ((origin_state, origin_zip), (origin_state), ());
 
@@ -396,25 +396,44 @@ with an account balance greater than the specified value::
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
 
-UNION Clause
-------------
+UNION | INTERSECT | EXCEPT Clause
+---------------------------------
 
-The ``UNION`` clause is used to combine the results of more than one
-select statement into a single result set:
+``UNION``  ``INTERSECT`` and ``EXCEPT`` are all set operations.  These clauses are used
+to combine the results of more than one select statement into a single result set:
 
 .. code-block:: none
 
     query UNION [ALL | DISTINCT] query
 
+.. code-block:: none
+
+    query INTERSECT [DISTINCT] query
+
+.. code-block:: none
+
+    query EXCEPT [DISTINCT] query
+
 The argument ``ALL`` or ``DISTINCT`` controls which rows are included in
 the final result set. If the argument ``ALL`` is specified all rows are
 included even if the rows are identical.  If the argument ``DISTINCT``
 is specified only unique rows are included in the combined result set.
-If neither is specified, the behavior defaults to ``DISTINCT``.
+If neither is specified, the behavior defaults to ``DISTINCT``.  The ``ALL``
+argument is not supported for ``INTERSECT`` or ``EXCEPT``.
 
-The following is an example of one of the simplest possible ``UNION``
-clauses. The following query selects the value ``13`` and combines
-this result set with a second query which selects the value ``42``::
+
+Multiple set operations are processed left to right, unless the order is explicitly
+specified via parentheses. Additionally, ``INTERSECT`` binds more tightly
+than ``EXCEPT`` and ``UNION``. That means ``A UNION B INTERSECT C EXCEPT D``
+is the same as ``A UNION (B INTERSECT C) EXCEPT D``.
+
+**UNION**
+
+``UNION`` combines all the rows that are in the result set from the
+first query with those that are in the result set for the second query.
+The following is an example of one of the simplest possible ``UNION`` clauses.
+It selects the value ``13`` and combines this result set with a second query
+that selects the value ``42``::
 
     SELECT 13
     UNION
@@ -428,8 +447,74 @@ this result set with a second query which selects the value ``42``::
         42
     (2 rows)
 
-Multiple unions are processed left to right, unless the order is explicitly
-specified via parentheses.
+The following query demonstrates the difference between ``UNION`` and ``UNION ALL``.
+It selects the value ``13`` and combines this result set with a second query that
+selects the values ``42`` and ``13``::
+
+    SELECT 13
+    UNION
+    SELECT * FROM (VALUES 42, 13);
+
+.. code-block:: none
+
+     _col0
+    -------
+        13
+        42
+    (2 rows)
+
+::
+
+    SELECT 13
+    UNION ALL
+    SELECT * FROM (VALUES 42, 13);
+
+.. code-block:: none
+
+     _col0
+    -------
+        13
+        42
+        13
+    (2 rows)
+
+**INTERSECT**
+
+``INTERSECT`` returns only the rows that are in the result sets of both the first and
+the second queries. The following is an example of one of the simplest
+possible ``INTERSECT`` clauses. It selects the values ``13`` and ``42`` and combines
+this result set with a second query that selects the value ``13``.  Since ``42``
+is only in the result set of the first query, it is not included in the final results.::
+
+    SELECT * FROM (VALUES 13, 42)
+    INTERSECT
+    SELECT 13;
+
+.. code-block:: none
+
+     _col0
+    -------
+        13
+    (2 rows)
+
+**EXCEPT**
+
+``EXCEPT`` returns the rows that are in the result set of the first query,
+but not the second. The following is an example of one of the simplest
+possible ``EXCEPT`` clauses. It selects the values ``13`` and ``42`` and combines
+this result set with a second query that selects the value ``13``.  Since ``13``
+is also in the result set of the second query, it is not included in the final result.::
+
+    SELECT * FROM (VALUES 13, 42)
+    EXCEPT
+    SELECT 13;
+
+.. code-block:: none
+
+     _col0
+    -------
+       42
+    (2 rows)
 
 ORDER BY Clause
 ---------------
@@ -646,3 +731,53 @@ The following query will fail with the error ``Column 'name' is ambiguous``::
     SELECT name
     FROM nation
     CROSS JOIN region;
+
+Subqueries
+----------
+
+A subquery is an expression which is composed of a query. The subquery
+is correlated when it refers to columns outside of the subquery.
+Logically, the subquery will be evaluated for each row in the surrounding
+query. The referenced columns will thus be constant during any single
+evaluation of the subquery.
+
+.. note:: Support for correlated subqueries is limited. Not every standard form is supported.
+
+EXISTS
+^^^^^^
+
+The ``EXISTS`` predicate determines if a subquery returns any rows::
+
+    SELECT name
+    FROM nation
+    WHERE EXISTS (SELECT * FROM region WHERE region.regionkey = nation.regionkey)
+
+IN
+^^
+
+The ``IN`` predicate determines if any values produced by the subquery
+are equal to the provided expression. The result of ``IN`` follows the
+standard rules for nulls. The subquery must produce exactly one column::
+
+    SELECT name
+    FROM nation
+    WHERE regionkey IN (SELECT regionkey FROM region)
+
+.. note::
+
+    Currently, the expression on the left hand side of ``IN`` must
+    not be ``NULL`` for any of the queried rows. Otherwise, the query will fail.
+    This limitation is needed to ensure correct results and may be dropped in the future.
+
+Scalar Subquery
+^^^^^^^^^^^^^^^
+
+A scalar subquery is a non-correlated subquery that returns zero or
+one row. It is an error for the subquery to produce more than one
+row. The returned value is ``NULL`` if the subquery produces no rows::
+
+    SELECT name
+    FROM nation
+    WHERE regionkey = (SELECT max(regionkey) FROM region)
+
+.. note:: Currently only single column can be returned from the scalar subquery.

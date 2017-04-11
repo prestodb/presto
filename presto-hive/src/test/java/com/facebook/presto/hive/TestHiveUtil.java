@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import org.apache.hadoop.hive.metastore.Warehouse;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
 import org.apache.hadoop.hive.serde2.thrift.test.IntString;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -21,10 +23,14 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
+import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
@@ -53,6 +59,30 @@ public class TestHiveUtil
         schema.setProperty(SERIALIZATION_FORMAT, TBinaryProtocol.class.getName());
 
         assertInstanceOf(getDeserializer(schema), ThriftDeserializer.class);
+    }
+
+    @Test
+    public void testToPartitionValues()
+            throws MetaException
+    {
+        assertToPartitionValues("ds=2015-12-30/event_type=QueryCompletion");
+        assertToPartitionValues("ds=2015-12-30");
+        assertToPartitionValues("a=1/b=2/c=3");
+        assertToPartitionValues("a=1");
+        assertToPartitionValues("pk=!@%23$%25%5E&%2A()%2F%3D");
+        assertToPartitionValues("pk=__HIVE_DEFAULT_PARTITION__");
+    }
+
+    private static void assertToPartitionValues(String partitionName)
+            throws MetaException
+    {
+        List<String> actual = toPartitionValues(partitionName);
+        AbstractList<String> expected = new ArrayList<>();
+        for (String s : actual) {
+            expected.add(null);
+        }
+        Warehouse.makeValsFromName(partitionName, expected);
+        assertEquals(actual, expected);
     }
 
     private static long parse(DateTime time, String pattern)

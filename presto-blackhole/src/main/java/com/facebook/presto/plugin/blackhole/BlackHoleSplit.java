@@ -18,6 +18,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,16 +31,19 @@ public final class BlackHoleSplit
     private final int pagesCount;
     private final int rowsPerPage;
     private final int fieldsLength;
+    private final Duration pageProcessingDelay;
 
     @JsonCreator
     public BlackHoleSplit(
             @JsonProperty("pagesCount") int pagesCount,
             @JsonProperty("rowsPerPage") int rowsPerPage,
-            @JsonProperty("fieldsLength") int fieldsLength)
+            @JsonProperty("fieldsLength") int fieldsLength,
+            @JsonProperty("pageProcessingDelay") Duration pageProcessingDelay)
     {
         this.rowsPerPage = requireNonNull(rowsPerPage, "rowsPerPage is null");
         this.pagesCount = requireNonNull(pagesCount, "pagesCount is null");
         this.fieldsLength = requireNonNull(fieldsLength, "fieldsLength is null");
+        this.pageProcessingDelay = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null");
     }
 
     @JsonProperty
@@ -58,6 +62,12 @@ public final class BlackHoleSplit
     public int getFieldsLength()
     {
         return fieldsLength;
+    }
+
+    @JsonProperty
+    public Duration getPageProcessingDelay()
+    {
+        return pageProcessingDelay;
     }
 
     @Override

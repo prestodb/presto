@@ -41,7 +41,7 @@ Next, create a properties file to configure the verifier:
     test.gateway=jdbc:presto://localhost:8081
     thread-count=1
 
-Lastly, download :download:`verifier`, rename it to ``verifier``,
+Lastly, download :maven_download:`verifier`, rename it to ``verifier``,
 make it executable with ``chmod +x``, then run it:
 
 .. code-block:: none

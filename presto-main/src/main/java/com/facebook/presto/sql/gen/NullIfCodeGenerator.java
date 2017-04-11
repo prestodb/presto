@@ -18,9 +18,9 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -81,7 +81,7 @@ public class NullIfCodeGenerator
         return block;
     }
 
-    private BytecodeNode cast(
+    private static BytecodeNode cast(
             BytecodeGeneratorContext generatorContext,
             BytecodeNode argument,
             Type actualType,

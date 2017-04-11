@@ -17,28 +17,28 @@ import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.weakref.jmx.Managed;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
 public interface HiveMetastore
 {
-    String DEFAULT_DATABASE_NAME = "default";
+    void createDatabase(Database database);
+
+    void dropDatabase(String databaseName);
+
+    void alterDatabase(String databaseName, Database database);
 
     void createTable(Table table);
 
-    void dropTable(String databaseName, String tableName);
+    void dropTable(String databaseName, String tableName, boolean deleteData);
 
     void alterTable(String databaseName, String tableName, Table table);
-
-    @Managed
-    void flushCache();
 
     List<String> getAllDatabases();
 
@@ -55,29 +55,29 @@ public interface HiveMetastore
      */
     void addPartitions(String databaseName, String tableName, List<Partition> partitions);
 
-    void dropPartition(String databaseName, String tableName, List<String> parts);
+    void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void dropPartitionByName(String databaseName, String tableName, String partitionName);
+    void alterPartition(String databaseName, String tableName, Partition partition);
 
     Optional<List<String>> getPartitionNames(String databaseName, String tableName);
 
     Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts);
 
-    Optional<Partition> getPartition(String databaseName, String tableName, String partitionName);
+    Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
 
-    Optional<Map<String, Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
+    List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
 
     Optional<Table> getTable(String databaseName, String tableName);
 
     Set<String> getRoles(String user);
 
-    Set<HivePrivilege> getDatabasePrivileges(String user, String databaseName);
+    Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName);
 
-    Set<HivePrivilege> getTablePrivileges(String user, String databaseName, String tableName);
+    Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName);
 
     void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet);
 
-    boolean hasPrivilegeWithGrantOptionOnTable(String user, String databaseName, String tableName, HivePrivilege hivePrivilege);
+    void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet);
 
     default boolean isDatabaseOwner(String user, String databaseName)
     {

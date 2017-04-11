@@ -19,13 +19,11 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -39,8 +37,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -53,7 +52,6 @@ public class TaskContext
     private final Executor executor;
     private final Session session;
 
-    private final DataSize operatorPreAllocatedMemory;
     private final AtomicLong memoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
 
@@ -84,7 +82,6 @@ public class TaskContext
             TaskStateMachine taskStateMachine,
             Executor executor,
             Session session,
-            DataSize operatorPreAllocatedMemory,
             boolean verboseStats,
             boolean cpuTimerEnabled)
     {
@@ -92,7 +89,6 @@ public class TaskContext
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.session = session;
-        this.operatorPreAllocatedMemory = requireNonNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null");
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
@@ -114,9 +110,9 @@ public class TaskContext
         return taskStateMachine.getTaskId();
     }
 
-    public PipelineContext addPipelineContext(boolean inputPipeline, boolean outputPipeline)
+    public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline)
     {
-        PipelineContext pipelineContext = new PipelineContext(this, executor, inputPipeline, outputPipeline);
+        PipelineContext pipelineContext = new PipelineContext(pipelineId, this, executor, inputPipeline, outputPipeline);
         pipelineContexts.add(pipelineContext);
         return pipelineContext;
     }
@@ -151,11 +147,6 @@ public class TaskContext
         return taskStateMachine.getState();
     }
 
-    public DataSize getOperatorPreAllocatedMemory()
-    {
-        return operatorPreAllocatedMemory;
-    }
-
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -171,6 +162,12 @@ public class TaskContext
         ListenableFuture<?> future = queryContext.reserveSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(bytes);
         return future;
+    }
+
+    public synchronized ListenableFuture<?> reserveSpill(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        return queryContext.reserveSpill(bytes);
     }
 
     public synchronized boolean tryReserveMemory(long bytes)
@@ -200,9 +197,15 @@ public class TaskContext
         queryContext.freeSystemMemory(bytes);
     }
 
+    public synchronized void freeSpill(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        queryContext.freeSpill(bytes);
+    }
+
     public void moreMemoryAvailable()
     {
-        pipelineContexts.stream().forEach(PipelineContext::moreMemoryAvailable);
+        pipelineContexts.forEach(PipelineContext::moreMemoryAvailable);
     }
 
     public boolean isVerboseStats()
@@ -327,7 +330,7 @@ public class TaskContext
         }
 
         long startNanos = this.startNanos.get();
-        if (startNanos < createNanos) {
+        if (startNanos == 0) {
             startNanos = System.nanoTime();
         }
         Duration queuedTime = new Duration(startNanos - createNanos, NANOSECONDS);
@@ -343,12 +346,12 @@ public class TaskContext
 
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
-            long currentSystemMemory = systemMemoryReservation.get();
-            long averageMemoryForLastPeriod = (currentSystemMemory + lastMemoryReservation) / 2;
+            long currentMemory = memoryReservation.get();
+            long averageMemoryForLastPeriod = (currentMemory + lastMemoryReservation) / 2;
             cumulativeMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
 
             lastTaskStatCallNanos = System.nanoTime();
-            lastMemoryReservation = currentSystemMemory;
+            lastMemoryReservation = currentMemory;
         }
 
         boolean fullyBlocked = pipelineStats.stream()
@@ -357,7 +360,7 @@ public class TaskContext
         ImmutableSet<BlockedReason> blockedReasons = pipelineStats.stream()
                 .filter(pipeline -> pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0)
                 .flatMap(pipeline -> pipeline.getBlockedReasons().stream())
-                .collect(ImmutableCollectors.toImmutableSet());
+                .collect(toImmutableSet());
         return new TaskStats(
                 taskStateMachine.getCreatedTime(),
                 executionStartTime.get(),
@@ -373,19 +376,19 @@ public class TaskContext
                 runningPartitionedDrivers,
                 completedDrivers,
                 cumulativeMemory.get(),
-                new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(memoryReservation.get()),
+                succinctBytes(systemMemoryReservation.get()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
-                new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(rawInputDataSize),
                 rawInputPositions,
-                new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(processedInputDataSize),
                 processedInputPositions,
-                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize),
                 outputPositions,
                 pipelineStats);
     }

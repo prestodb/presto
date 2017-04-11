@@ -312,7 +312,7 @@ public class KafkaRecordSet
 
                 // TODO - this should look at the actual node this is running on and prefer
                 // that copy if running locally. - look into NodeInfo
-                SimpleConsumer consumer = consumerManager.getConsumer(split.getNodes().get(0));
+                SimpleConsumer consumer = consumerManager.getConsumer(split.getLeader());
 
                 FetchResponse fetchResponse = consumer.fetch(req);
                 if (fetchResponse.hasError()) {

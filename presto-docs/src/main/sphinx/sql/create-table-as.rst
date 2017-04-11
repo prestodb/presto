@@ -8,6 +8,7 @@ Synopsis
 .. code-block:: none
 
     CREATE TABLE [ IF NOT EXISTS ] table_name
+    [ COMMENT table_comment ]
     [ WITH ( property_name = expression [, ...] ) ]
     AS query
     [ WITH [ NO ] DATA ]
@@ -33,6 +34,7 @@ Examples
 Create a new table ``orders_by_date`` that summarizes ``orders``::
 
     CREATE TABLE orders_by_date
+    COMMENT 'Summary of orders by date'
     WITH (format = 'ORC')
     AS
     SELECT orderdate, sum(totalprice) AS price
@@ -49,6 +51,11 @@ Create the table ``orders_by_date`` if it does not already exist::
 Create a new ``empty_nation`` table with the same schema as ``nation`` and no data::
 
     CREATE TABLE empty_nation AS
-    SELECT * 
-    FROM nation 
+    SELECT *
+    FROM nation
     WITH NO DATA
+
+See Also
+--------
+
+:doc:`create-table`, :doc:`select`

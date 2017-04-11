@@ -20,7 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -102,6 +102,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public int getRegionSizeInBytes(int position, int length)
+    {
+        return value.getSizeInBytes();
+    }
+
+    @Override
     public Block copyRegion(int positionOffset, int length)
     {
         checkPositionIndexes(positionOffset, length);
@@ -109,9 +115,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
-        return value.getLength(0);
+        return value.getSliceLength(0);
     }
 
     @Override
@@ -136,18 +142,6 @@ public class RunLengthEncodedBlock
     public long getLong(int position, int offset)
     {
         return value.getLong(0, offset);
-    }
-
-    @Override
-    public float getFloat(int position, int offset)
-    {
-        return value.getFloat(0, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        return value.getDouble(0, offset);
     }
 
     @Override
@@ -193,7 +187,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         return value.hash(0, offset, length);
     }

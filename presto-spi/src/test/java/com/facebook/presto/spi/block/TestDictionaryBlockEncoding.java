@@ -19,8 +19,6 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
@@ -92,10 +90,9 @@ public class TestDictionaryBlockEncoding
         for (int i = 0; i < 40; i++) {
             ids[i] = i % 4;
         }
-        Slice idsSlice = Slices.wrappedIntArray(ids);
 
         BlockEncoding blockEncoding = new DictionaryBlockEncoding(new VariableWidthBlockEncoding());
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(positionCount, dictionary, idsSlice);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(positionCount, dictionary, ids);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         blockEncoding.writeBlock(sliceOutput, dictionaryBlock);
@@ -104,7 +101,9 @@ public class TestDictionaryBlockEncoding
         assertTrue(actualBlock instanceof DictionaryBlock);
         DictionaryBlock actualDictionaryBlock = (DictionaryBlock) actualBlock;
         assertBlockEquals(VARCHAR, actualDictionaryBlock.getDictionary(), dictionary);
-        assertEquals(actualDictionaryBlock.getIds(), idsSlice);
+        for (int position = 0; position < actualDictionaryBlock.getPositionCount(); position++) {
+            assertEquals(actualDictionaryBlock.getId(position), ids[position]);
+        }
         assertEquals(actualDictionaryBlock.getDictionarySourceId(), dictionaryBlock.getDictionarySourceId());
     }
 

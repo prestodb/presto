@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.144-SNAPSHOT</version>
+        <version>0.173-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -102,12 +102,6 @@
             <artifactId>annotations</artifactId>
         </dependency>
 
-        <!-- TODO: fix this in Airlift and remove this dependency -->
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-util</artifactId>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -142,6 +136,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -202,6 +202,10 @@
                                     <pattern>org.eclipse.jetty</pattern>
                                     <shadedPattern>${shadeBase}.jetty</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>org.HdrHistogram</pattern>
+                                    <shadedPattern>${shadeBase}.HdrHistogram</shadedPattern>
+                                </relocation>
                             </relocations>
                             <filters>
                                 <filter>
@@ -209,13 +213,11 @@
                                     <excludes>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/*.xml</exclude>
+                                        <exclude>META-INF/services/org.eclipse.**</exclude>
+                                        <exclude>META-INF/services/com.fasterxml.**</exclude>
                                         <exclude>LICENSE</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>com.fasterxml.jackson.*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/**</exclude>
+                                        <exclude>*.css</exclude>
+                                        <exclude>*.html</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
@@ -226,30 +228,6 @@
                                 </filter>
                                 <filter>
                                     <artifact>javax.validation:validation-api</artifact>
-                                    <excludes>
-                                        <exclude>**</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>io.airlift</artifact>
-                                    <excludes>
-                                        <exclude>jetty-logging.properties</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>org.eclipse.jetty:jetty-util</artifact>
-                                    <excludes>
-                                        <exclude>jetty-dir.css</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>org.eclipse.jetty:*</artifact>
-                                    <excludes>
-                                        <exclude>about.html</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>net.sf.opencsv:opencsv</artifact>
                                     <excludes>
                                         <exclude>**</exclude>
                                     </excludes>

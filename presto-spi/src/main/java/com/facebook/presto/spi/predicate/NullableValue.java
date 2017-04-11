@@ -91,7 +91,7 @@ public final class NullableValue
     {
         int hash = Objects.hash(type);
         if (value != null) {
-            hash = hash * 31 + type.hash(Utils.nativeValueToBlock(type, value), 0);
+            hash = hash * 31 + (int) type.hash(Utils.nativeValueToBlock(type, value), 0);
         }
         return hash;
     }

@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class BenchmarkSchema
 {
@@ -25,7 +26,7 @@ public class BenchmarkSchema
 
     public BenchmarkSchema(String name)
     {
-        this(name, ImmutableMap.<String, String>of());
+        this(name, ImmutableMap.of());
     }
 
     public BenchmarkSchema(String name, Map<String, String> tags)
@@ -47,7 +48,7 @@ public class BenchmarkSchema
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("tags", tags)
                 .toString();

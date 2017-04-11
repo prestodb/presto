@@ -48,7 +48,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
-import static com.facebook.presto.raptor.util.Types.checkType;
+import static com.facebook.presto.raptor.RaptorSessionProperties.getOneSplitPerBucketThreshold;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -94,15 +94,16 @@ public class RaptorSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        RaptorTableLayoutHandle handle = checkType(layout, RaptorTableLayoutHandle.class, "layout");
+        RaptorTableLayoutHandle handle = (RaptorTableLayoutHandle) layout;
         RaptorTableHandle table = handle.getTable();
         TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(handle.getConstraint());
         long tableId = table.getTableId();
         boolean bucketed = table.getBucketCount().isPresent();
-        boolean merged = bucketed && !table.isDelete();
+        boolean merged = bucketed && !table.isDelete() && (table.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session));
         OptionalLong transactionId = table.getTransactionId();
         Optional<Map<Integer, String>> bucketToNode = handle.getPartitioning().map(RaptorPartitioningHandle::getBucketToNode);
-        return new RaptorSplitSource(tableId, bucketed, merged, effectivePredicate, transactionId, bucketToNode);
+        verify(bucketed == bucketToNode.isPresent(), "mismatched bucketCount and bucketToNode presence");
+        return new RaptorSplitSource(tableId, merged, effectivePredicate, transactionId, bucketToNode);
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -120,7 +121,7 @@ public class RaptorSplitManager
     @SuppressWarnings("unchecked")
     private static TupleDomain<RaptorColumnHandle> toRaptorTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tupleDomain.transform(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"));
+        return tupleDomain.transform(handle -> (RaptorColumnHandle) handle);
     }
 
     private static <T> T selectRandom(Iterable<T> elements)
@@ -144,7 +145,6 @@ public class RaptorSplitManager
 
         public RaptorSplitSource(
                 long tableId,
-                boolean bucketed,
                 boolean merged,
                 TupleDomain<RaptorColumnHandle> effectivePredicate,
                 OptionalLong transactionId,
@@ -154,13 +154,15 @@ public class RaptorSplitManager
             this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
             this.transactionId = requireNonNull(transactionId, "transactionId is null");
             this.bucketToNode = requireNonNull(bucketToNode, "bucketToNode is null");
-            this.iterator = new SynchronizedResultIterator<>(shardManager.getShardNodes(tableId, bucketed, merged, effectivePredicate));
-        }
 
-        @Override
-        public String getDataSourceName()
-        {
-            return connectorId;
+            ResultIterator<BucketShards> iterator;
+            if (bucketToNode.isPresent()) {
+                iterator = shardManager.getShardNodesBucketed(tableId, merged, bucketToNode.get(), effectivePredicate);
+            }
+            else {
+                iterator = shardManager.getShardNodes(tableId, effectivePredicate);
+            }
+            this.iterator = new SynchronizedResultIterator<>(iterator);
         }
 
         @Override
@@ -237,24 +239,13 @@ public class RaptorSplitManager
 
         private ConnectorSplit createBucketSplit(int bucketNumber, Set<ShardNodes> shards)
         {
+            // Bucket splits contain all the shards for the bucket
+            // and run on the node assigned to the bucket.
+
             String nodeId = bucketToNode.get().get(bucketNumber);
             Node node = nodesById.get(nodeId);
             if (node == null) {
                 throw new PrestoException(NO_NODES_AVAILABLE, "Node for bucket is offline: " + nodeId);
-            }
-
-            // Bucket splits contain all the shards for the bucket and run on
-            // the node assigned to the bucket. Reassign any of the bucket
-            // shards not currently assigned to the node for the bucket.
-            for (ShardNodes shard : shards) {
-                if (!shard.getNodeIdentifiers().contains(nodeId)) {
-                    shardManager.assignShard(tableId, shard.getShardUuid(), nodeId, false);
-                }
-                for (String shardNodeId : shard.getNodeIdentifiers()) {
-                    if (!shardNodeId.equals(nodeId)) {
-                        shardManager.unassignShard(tableId, shard.getShardUuid(), shardNodeId);
-                    }
-                }
             }
 
             Set<UUID> shardUuids = shards.stream()

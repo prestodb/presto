@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -27,6 +26,7 @@ import io.airlift.slice.Slices;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -43,12 +43,12 @@ public class RedisInternalFieldDescription
     /**
      * <tt>_key</tt> - Represents the key as a text column.
      */
-    public static final RedisInternalFieldDescription KEY_FIELD = new RedisInternalFieldDescription("_key", VarcharType.VARCHAR, "Key text");
+    public static final RedisInternalFieldDescription KEY_FIELD = new RedisInternalFieldDescription("_key", createUnboundedVarcharType(), "Key text");
 
     /**
      * <tt>_value</tt> - Represents the value as a text column. Format is UTF-8
      */
-    public static final RedisInternalFieldDescription VALUE_FIELD = new RedisInternalFieldDescription("_value", VarcharType.VARCHAR, "Value text");
+    public static final RedisInternalFieldDescription VALUE_FIELD = new RedisInternalFieldDescription("_value", createUnboundedVarcharType(), "Value text");
 
     /**
      * <tt>_value_corrupt</tt> - True if the row converter could not read the value. May be null if the row converter does not set a value (e.g. the dummy row converter does not).

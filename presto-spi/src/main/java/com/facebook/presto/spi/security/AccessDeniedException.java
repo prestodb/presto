@@ -38,6 +38,46 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal, userName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateSchema(String schemaName)
+    {
+        denyCreateSchema(schemaName, null);
+    }
+
+    public static void denyCreateSchema(String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create schema %s%s", schemaName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropSchema(String schemaName)
+    {
+        denyDropSchema(schemaName, null);
+    }
+
+    public static void denyDropSchema(String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop schema %s%s", schemaName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRenameSchema(String schemaName, String newSchemaName)
+    {
+        denyRenameSchema(schemaName, newSchemaName, null);
+    }
+
+    public static void denyRenameSchema(String schemaName, String newSchemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyShowSchemas()
+    {
+        denyShowSchemas(null);
+    }
+
+    public static void denyShowSchemas(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show schemas%s", formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateTable(String tableName)
     {
         denyCreateTable(tableName, null);
@@ -66,6 +106,16 @@ public class AccessDeniedException
     public static void denyRenameTable(String tableName, String newTableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot rename table from %s to %s%s", tableName, newTableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyShowTables(String schemaName)
+    {
+        denyShowTables(schemaName, null);
+    }
+
+    public static void denyShowTables(String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyAddColumn(String tableName)
@@ -128,6 +178,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot create view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateViewWithSelect(String sourceName)
+    {
+        denyCreateViewWithSelect(sourceName, null);
+    }
+
+    public static void denyCreateViewWithSelect(String sourceName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create view that selects from %s%s", sourceName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropView(String viewName)
     {
         denyDropView(viewName, null);
@@ -158,6 +218,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot grant privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyRevokeTablePrivilege(String privilege, String tableName)
+    {
+        denyRevokeTablePrivilege(privilege, tableName, null);
+    }
+
+    public static void denyRevokeTablePrivilege(String privilege, String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denySetSystemSessionProperty(String propertyName)
     {
         denySetSystemSessionProperty(propertyName, null);
@@ -176,6 +246,11 @@ public class AccessDeniedException
     public static void denySetCatalogSessionProperty(String catalogName, String propertyName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot set catalog session property %s.%s%s", catalogName, propertyName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denySetCatalogSessionProperty(String propertyName)
+    {
+        throw new AccessDeniedException(format("Cannot set catalog session property %s", propertyName));
     }
 
     private static Object formatExtraInfo(String extraInfo)

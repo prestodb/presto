@@ -15,15 +15,14 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
-import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.PostScript;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
-import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -34,9 +33,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class OrcReader
@@ -54,10 +55,11 @@ public class OrcReader
     private final MetadataReader metadataReader;
     private final DataSize maxMergeDistance;
     private final DataSize maxReadSize;
-    private final CompressionKind compressionKind;
+    private final HiveWriterVersion hiveWriterVersion;
     private final int bufferSize;
     private final Footer footer;
     private final Metadata metadata;
+    private Optional<OrcDecompressor> decompressor = Optional.empty();
 
     // This is based on the Apache Hive ORC code
     public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, DataSize maxMergeDistance, DataSize maxReadSize)
@@ -85,7 +87,7 @@ public class OrcReader
         }
 
         // Read the tail of the file
-        byte[] buffer = new byte[Ints.checkedCast(min(size, EXPECTED_FOOTER_SIZE))];
+        byte[] buffer = new byte[toIntExact(min(size, EXPECTED_FOOTER_SIZE))];
         orcDataSource.readFully(size - buffer.length, buffer);
 
         // get length of PostScript - last byte of the file
@@ -101,13 +103,29 @@ public class OrcReader
         // verify this is a supported version
         checkOrcVersion(orcDataSource, postScript.getVersion());
 
+        this.bufferSize = toIntExact(postScript.getCompressionBlockSize());
+
         // check compression codec is supported
-        this.compressionKind = postScript.getCompression();
+        switch (postScript.getCompression()) {
+            case UNCOMPRESSED:
+                break;
+            case ZLIB:
+                decompressor = Optional.of(new OrcZlibDecompressor(bufferSize));
+                break;
+            case SNAPPY:
+                decompressor = Optional.of(new OrcSnappyDecompressor(bufferSize));
+                break;
+            case ZSTD:
+                decompressor = Optional.of(new OrcZstdDecompressor(bufferSize));
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported compression type: " + postScript.getCompression());
+        }
 
-        this.bufferSize = Ints.checkedCast(postScript.getCompressionBlockSize());
+        this.hiveWriterVersion = postScript.getHiveWriterVersion();
 
-        int footerSize = Ints.checkedCast(postScript.getFooterLength());
-        int metadataSize = Ints.checkedCast(postScript.getMetadataLength());
+        int footerSize = toIntExact(postScript.getFooterLength());
+        int metadataSize = toIntExact(postScript.getMetadataLength());
 
         // check if extra bytes need to be read
         Slice completeFooterSlice;
@@ -130,14 +148,14 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
-            this.metadata = metadataReader.readMetadata(metadataInputStream);
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+            this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
-            this.footer = metadataReader.readFooter(footerInputStream);
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+            this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
     }
 
@@ -154,11 +172,6 @@ public class OrcReader
     public Metadata getMetadata()
     {
         return metadata;
-    }
-
-    public CompressionKind getCompressionKind()
-    {
-        return compressionKind;
     }
 
     public int getBufferSize()
@@ -192,13 +205,14 @@ public class OrcReader
                 offset,
                 length,
                 footer.getTypes(),
-                compressionKind,
-                bufferSize,
+                decompressor,
                 footer.getRowsInRowGroup(),
                 requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
+                hiveWriterVersion,
                 metadataReader,
                 maxMergeDistance,
                 maxReadSize,
+                footer.getUserMetadata(),
                 systemMemoryUsage);
     }
 
@@ -210,7 +224,7 @@ public class OrcReader
         if (dataSource.getSize() > maxCacheSize.toBytes()) {
             return dataSource;
         }
-        DiskRange diskRange = new DiskRange(0, Ints.checkedCast(dataSource.getSize()));
+        DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
         return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
     }
 

@@ -15,9 +15,10 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.StandardErrorCode.ErrorType;
+import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,7 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
+import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -52,14 +53,19 @@ public class QueryInfo
     private final QueryStats queryStats;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
+    private final Map<String, String> addedPreparedStatements;
+    private final Set<String> deallocatedPreparedStatements;
     private final Optional<TransactionId> startedTransactionId;
     private final boolean clearTransactionId;
     private final String updateType;
-    private final StageInfo outputStage;
+    private final Optional<StageInfo> outputStage;
     private final FailureInfo failureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
+    private final Optional<Output> output;
+    private final boolean completeInfo;
+    private final Optional<String> resourceGroupName;
 
     @JsonCreator
     public QueryInfo(
@@ -74,13 +80,18 @@ public class QueryInfo
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
+            @JsonProperty("addedPreparedStatements") Map<String, String> addedPreparedStatements,
+            @JsonProperty("deallocatedPreparedStatements") Set<String> deallocatedPreparedStatements,
             @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
             @JsonProperty("clearTransactionId") boolean clearTransactionId,
             @JsonProperty("updateType") String updateType,
-            @JsonProperty("outputStage") StageInfo outputStage,
+            @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
-            @JsonProperty("inputs") Set<Input> inputs)
+            @JsonProperty("inputs") Set<Input> inputs,
+            @JsonProperty("output") Optional<Output> output,
+            @JsonProperty("completeInfo") boolean completeInfo,
+            @JsonProperty("resourceGroupName") Optional<String> resourceGroupName)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -90,9 +101,14 @@ public class QueryInfo
         requireNonNull(queryStats, "queryStats is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
+        requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
+        requireNonNull(deallocatedPreparedStatements, "deallocatedPreparedStatements is null");
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
+        requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
+        requireNonNull(output, "output is null");
+        requireNonNull(resourceGroupName, "resourceGroupName is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -105,14 +121,19 @@ public class QueryInfo
         this.queryStats = queryStats;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
+        this.addedPreparedStatements = ImmutableMap.copyOf(addedPreparedStatements);
+        this.deallocatedPreparedStatements = ImmutableSet.copyOf(deallocatedPreparedStatements);
         this.startedTransactionId = startedTransactionId;
         this.clearTransactionId = clearTransactionId;
         this.updateType = updateType;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
-        this.errorType = errorCode == null ? null : toErrorType(errorCode.getCode());
+        this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
+        this.output = output;
+        this.completeInfo = completeInfo;
+        this.resourceGroupName = resourceGroupName;
     }
 
     @JsonProperty
@@ -182,6 +203,18 @@ public class QueryInfo
     }
 
     @JsonProperty
+    public Map<String, String> getAddedPreparedStatements()
+    {
+        return addedPreparedStatements;
+    }
+
+    @JsonProperty
+    public Set<String> getDeallocatedPreparedStatements()
+    {
+        return deallocatedPreparedStatements;
+    }
+
+    @JsonProperty
     public Optional<TransactionId> getStartedTransactionId()
     {
         return startedTransactionId;
@@ -201,7 +234,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public StageInfo getOutputStage()
+    public Optional<StageInfo> getOutputStage()
     {
         return outputStage;
     }
@@ -228,9 +261,27 @@ public class QueryInfo
     }
 
     @JsonProperty
+    public boolean isFinalQueryInfo()
+    {
+        return state.isDone() && getAllStages(outputStage).stream().allMatch(StageInfo::isFinalStageInfo);
+    }
+
+    @JsonProperty
     public Set<Input> getInputs()
     {
         return inputs;
+    }
+
+    @JsonProperty
+    public Optional<Output> getOutput()
+    {
+        return output;
+    }
+
+    @JsonProperty
+    public Optional<String> getResourceGroupName()
+    {
+        return resourceGroupName;
     }
 
     @Override
@@ -241,5 +292,10 @@ public class QueryInfo
                 .add("state", state)
                 .add("fieldNames", fieldNames)
                 .toString();
+    }
+
+    public boolean isCompleteInfo()
+    {
+        return completeInfo;
     }
 }

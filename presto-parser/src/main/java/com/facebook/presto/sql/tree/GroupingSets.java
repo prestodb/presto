@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -25,7 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 
-public class GroupingSets
+public final class GroupingSets
         extends GroupingElement
 {
     private final List<List<QualifiedName>> sets;
@@ -43,9 +45,14 @@ public class GroupingSets
     private GroupingSets(Optional<NodeLocation> location, List<List<QualifiedName>> sets)
     {
         super(location);
-        requireNonNull(sets);
+        requireNonNull(sets, "sets is null");
         checkArgument(!sets.isEmpty(), "grouping sets cannot be empty");
-        this.sets = sets;
+        this.sets = ImmutableList.copyOf(sets.stream().map(ImmutableList::copyOf).collect(Collectors.toList()));
+    }
+
+    public List<List<QualifiedName>> getSets()
+    {
+        return sets;
     }
 
     @Override
@@ -53,9 +60,21 @@ public class GroupingSets
     {
         return sets.stream()
                 .map(groupingSet -> groupingSet.stream()
-                        .map(QualifiedNameReference::new)
+                        .map(DereferenceExpression::from)
                         .collect(Collectors.<Expression>toSet()))
                 .collect(collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
+    }
+
+    @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitGroupingSets(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

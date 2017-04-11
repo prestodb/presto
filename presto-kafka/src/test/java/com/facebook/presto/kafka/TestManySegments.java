@@ -35,7 +35,7 @@ import java.util.UUID;
 import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
 import static com.facebook.presto.kafka.util.TestUtils.createEmptyTopicDescription;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestManySegments
@@ -59,7 +59,7 @@ public class TestManySegments
         topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
         Properties topicProperties = new Properties();
-        topicProperties.setProperty("segment.bytes", "256");
+        topicProperties.setProperty("segment.bytes", "1048576");
 
         embeddedKafka.createTopics(1, 1, topicProperties, topicName);
 
@@ -109,7 +109,7 @@ public class TestManySegments
         MaterializedResult result = queryRunner.execute("SELECT count(_message) from " + topicName);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(100000)
+                .row(100000L)
                 .build();
 
         assertEquals(result, expected);

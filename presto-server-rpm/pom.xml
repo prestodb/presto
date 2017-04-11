@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.144-SNAPSHOT</version>
+        <version>0.173-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server-rpm</artifactId>
@@ -63,9 +63,9 @@
             </plugin>
             <!-- Build presto-server rpm using the untarred artifacts -->
             <plugin>
-                <groupId>uk.co.codezen</groupId>
-                <artifactId>redlinerpm-maven-plugin</artifactId>
-                <version>2.0</version>
+                <groupId>com.teradata</groupId>
+                <artifactId>redlinerpm-maven-plugin-td</artifactId>
+                <version>2.1.5</version>
                 <extensions>true</extensions>
 
                 <configuration>
@@ -74,6 +74,7 @@
                     <packages>
                         <package>
                             <name>presto-server-rpm</name>
+                            <nameOverride>presto-server-rpm-${project.version}.x86_64.rpm</nameOverride>
                             <version>${project.version}</version>
                             <release>1</release>
 
@@ -97,6 +98,13 @@
                                     <name>/usr/sbin/groupadd</name>
                                 </dependency>
                             </dependencies>
+
+                            <links>
+                                <link>
+                                    <path>/usr/lib/presto/etc</path>
+                                    <target>/etc/presto</target>
+                                </link>
+                            </links>
 
                             <rules>
                                 <rule>
@@ -168,27 +176,4 @@
             </plugin>
         </plugins>
     </build>
-    <profiles>
-        <profile>
-            <!-- This profile builds an rpm that works on versions of rpm earlier than 4.6.
-            Later versions of redline-rpm use 64bit integers, which isn't
-            supported before version 4.6 of rpm -->
-            <id>old-rpm</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <artifactId>redlinerpm-maven-plugin</artifactId>
-                        <groupId>uk.co.codezen</groupId>
-                        <dependencies>
-                            <dependency>
-                                <artifactId>redline</artifactId>
-                                <groupId>org.redline-rpm</groupId>
-                                <version>1.2.1</version>
-                            </dependency>
-                        </dependencies>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

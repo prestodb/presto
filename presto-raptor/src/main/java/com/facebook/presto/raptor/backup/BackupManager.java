@@ -15,13 +15,13 @@ package com.facebook.presto.raptor.backup;
 
 import com.facebook.presto.raptor.storage.BackupStats;
 import com.google.common.base.Throwables;
-import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.util.Optional;
@@ -75,9 +75,11 @@ public class BackupManager
             return completedFuture(null);
         }
 
+        // TODO: decrement when the running task is finished (not immediately on cancel)
         pendingBackups.incrementAndGet();
-        return runAsync(new BackgroundBackup(uuid, source))
-                .whenComplete((none, throwable) -> pendingBackups.decrementAndGet());
+        CompletableFuture<?> future = runAsync(new BackgroundBackup(uuid, source), executorService);
+        future.whenComplete((none, throwable) -> pendingBackups.decrementAndGet());
+        return future;
     }
 
     private class BackgroundBackup

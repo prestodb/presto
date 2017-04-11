@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,8 +55,10 @@ public class OrcType
     private final OrcTypeKind orcTypeKind;
     private final List<Integer> fieldTypeIndexes;
     private final List<String> fieldNames;
+    private final Optional<Integer> precision;
+    private final Optional<Integer> scale;
 
-    public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames)
+    public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> precision, Optional<Integer> scale)
     {
         this.orcTypeKind = requireNonNull(orcTypeKind, "typeKind is null");
         this.fieldTypeIndexes = ImmutableList.copyOf(requireNonNull(fieldTypeIndexes, "fieldTypeIndexes is null"));
@@ -66,6 +69,8 @@ public class OrcType
             this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
             checkArgument(fieldNames.size() == fieldTypeIndexes.size(), "fieldNames and fieldTypeIndexes have different sizes");
         }
+        this.precision = requireNonNull(precision, "precision is null");
+        this.scale = requireNonNull(scale, "scale can not be null");
     }
 
     public OrcTypeKind getOrcTypeKind()
@@ -91,6 +96,16 @@ public class OrcType
     public List<String> getFieldNames()
     {
         return fieldNames;
+    }
+
+    public Optional<Integer> getPrecision()
+    {
+        return precision;
+    }
+
+    public Optional<Integer> getScale()
+    {
+        return scale;
     }
 
     @Override

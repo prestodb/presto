@@ -23,12 +23,15 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
+import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
 public class SliceArrayBlock
         extends AbstractVariableWidthBlock
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceArrayBlock.class).instanceSize();
+    private static final int SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
 
     private final int positionCount;
     private final Slice[] values;
@@ -105,7 +108,7 @@ public class SliceArrayBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         return values[position].length();
     }
@@ -176,16 +179,36 @@ public class SliceArrayBlock
 
     public static int getSliceArraySizeInBytes(Slice[] values)
     {
-        long sizeInBytes = SizeOf.sizeOf(values);
+        long sizeInBytes = values.length * (long) (ARRAY_OBJECT_INDEX_SCALE + SLICE_INSTANCE_SIZE);
         for (Slice value : values) {
             if (value != null) {
                 sizeInBytes += value.length();
             }
         }
-        if (sizeInBytes > Integer.MAX_VALUE) {
-            sizeInBytes = Integer.MAX_VALUE;
+        return intSaturatedCast(sizeInBytes);
+    }
+
+    @Override
+    public int getRegionSizeInBytes(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset == 0 && length == positionCount) {
+            // Calculation of getRegionSizeInBytes is expensive in this class.
+            // On the other hand, getSizeInBytes result is pre-computed.
+            return getSizeInBytes();
         }
-        return (int) sizeInBytes;
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        long sizeInBytes = length * (long) (ARRAY_OBJECT_INDEX_SCALE + SLICE_INSTANCE_SIZE);
+        for (int i = positionOffset; i < positionOffset + length; i++) {
+            Slice value = values[i];
+            if (value != null) {
+                sizeInBytes += value.length();
+            }
+        }
+        return intSaturatedCast(sizeInBytes);
     }
 
     static int getSliceArrayRetainedSizeInBytes(Slice[] values)
@@ -197,9 +220,6 @@ public class SliceArrayBlock
                 sizeInBytes += value.getRetainedSize();
             }
         }
-        if (sizeInBytes > Integer.MAX_VALUE) {
-            sizeInBytes = Integer.MAX_VALUE;
-        }
-        return (int) sizeInBytes;
+        return intSaturatedCast(sizeInBytes);
     }
 }

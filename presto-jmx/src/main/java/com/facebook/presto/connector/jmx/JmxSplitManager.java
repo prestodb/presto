@@ -27,12 +27,15 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
+import javax.inject.Inject;
 
-import static com.facebook.presto.connector.jmx.Types.checkType;
-import static com.facebook.presto.spi.NodeState.ACTIVE;
+import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.connector.jmx.JmxMetadata.NODE_COLUMN_NAME;
 import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -40,34 +43,35 @@ import static java.util.stream.Collectors.toList;
 public class JmxSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final NodeManager nodeManager;
 
-    public JmxSplitManager(String connectorId, NodeManager nodeManager)
+    @Inject
+    public JmxSplitManager(NodeManager nodeManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        JmxTableLayoutHandle jmxLayout = checkType(layout, JmxTableLayoutHandle.class, "layout");
+        JmxTableLayoutHandle jmxLayout = (JmxTableLayoutHandle) layout;
         JmxTableHandle tableHandle = jmxLayout.getTable();
         TupleDomain<ColumnHandle> predicate = jmxLayout.getConstraint();
 
         //TODO is there a better way to get the node column?
-        JmxColumnHandle nodeColumnHandle = tableHandle.getColumns().get(0);
+        Optional<JmxColumnHandle> nodeColumnHandle = tableHandle.getColumnHandles().stream()
+                .filter(jmxColumnHandle -> jmxColumnHandle.getColumnName().equals(NODE_COLUMN_NAME))
+                .findFirst();
+        checkState(nodeColumnHandle.isPresent(), "Failed to find %s column", NODE_COLUMN_NAME);
 
-        List<ConnectorSplit> splits = nodeManager.getNodes(ACTIVE)
-                .stream()
+        List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
                 .filter(node -> {
-                    NullableValue value = NullableValue.of(VARCHAR, utf8Slice(node.getNodeIdentifier()));
-                    return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle, value)));
+                    NullableValue value = NullableValue.of(createUnboundedVarcharType(), utf8Slice(node.getNodeIdentifier()));
+                    return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.get(), value)));
                 })
                 .map(node -> new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())))
                 .collect(toList());
 
-        return new FixedSplitSource(connectorId, splits);
+        return new FixedSplitSource(splits);
     }
 }

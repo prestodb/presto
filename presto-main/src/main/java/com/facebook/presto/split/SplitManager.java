@@ -14,40 +14,62 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+
+import javax.inject.Inject;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class SplitManager
 {
-    private final ConcurrentMap<String, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
+    private final int minScheduleSplitBatchSize;
 
-    public void addConnectorSplitManager(String connectorId, ConnectorSplitManager connectorSplitManager)
+    @Inject
+    public SplitManager(QueryManagerConfig config)
     {
+        this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
+    }
+
+    public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)
+    {
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(connectorSplitManager, "connectorSplitManager is null");
         checkState(splitManagers.putIfAbsent(connectorId, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", connectorId);
+    }
+
+    public void removeConnectorSplitManager(ConnectorId connectorId)
+    {
+        splitManagers.remove(connectorId);
     }
 
     public SplitSource getSplits(Session session, TableLayoutHandle layout)
     {
-        String connectorId = layout.getConnectorId();
+        ConnectorId connectorId = layout.getConnectorId();
         ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
 
-        // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
         ConnectorSplitSource source = splitManager.getSplits(layout.getTransactionHandle(), connectorSession, layout.getConnectorHandle());
 
-        return new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
+        if (minScheduleSplitBatchSize > 1) {
+            splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
+        }
+        return splitSource;
     }
 
-    private ConnectorSplitManager getConnectorSplitManager(String connectorId)
+    private ConnectorSplitManager getConnectorSplitManager(ConnectorId connectorId)
     {
         ConnectorSplitManager result = splitManagers.get(connectorId);
         checkArgument(result != null, "No split manager for connector '%s'", connectorId);

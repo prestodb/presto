@@ -6,8 +6,7 @@
         "fields": [
             {
                 "name": "redis_key",
-                "dataFormat": "VARCHAR",
-                "type": "VARCHAR",
+                "type": "VARCHAR(64)",
                 "hidden": "true"
             }
         ]
@@ -23,12 +22,12 @@
             {
                 "name": "name",
                 "mapping": "name",
-                "type": "VARCHAR"
+                "type": "VARCHAR(25)"
             },
             {
                 "name": "comment",
                 "mapping": "comment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(152)"
             }
         ]
     }

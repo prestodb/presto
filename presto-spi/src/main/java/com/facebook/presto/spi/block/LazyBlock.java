@@ -43,10 +43,10 @@ public class LazyBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         assureLoaded();
-        return block.getLength(position);
+        return block.getSliceLength(position);
     }
 
     @Override
@@ -75,20 +75,6 @@ public class LazyBlock
     {
         assureLoaded();
         return block.getLong(position, offset);
-    }
-
-    @Override
-    public float getFloat(int position, int offset)
-    {
-        assureLoaded();
-        return block.getFloat(position, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        assureLoaded();
-        return block.getDouble(position, offset);
     }
 
     @Override
@@ -151,7 +137,7 @@ public class LazyBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         assureLoaded();
         return block.hash(position, offset, length);
@@ -182,6 +168,13 @@ public class LazyBlock
     {
         assureLoaded();
         return block.getSizeInBytes();
+    }
+
+    @Override
+    public int getRegionSizeInBytes(int position, int length)
+    {
+        assureLoaded();
+        return block.getRegionSizeInBytes(position, length);
     }
 
     @Override

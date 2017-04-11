@@ -49,5 +49,6 @@ public interface StorageManager
             long transactionId,
             OptionalInt bucketNumber,
             List<Long> columnIds,
-            List<Type> columnTypes);
+            List<Type> columnTypes,
+            boolean checkSpace);
 }

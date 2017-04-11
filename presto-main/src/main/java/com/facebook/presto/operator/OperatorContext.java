@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -36,16 +35,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-@ThreadSafe
+/**
+ * Only calling getOperatorStats is ThreadSafe
+ */
 public class OperatorContext
 {
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
@@ -85,20 +85,20 @@ public class OperatorContext
 
     private final AtomicLong memoryReservation = new AtomicLong();
     private final OperatorSystemMemoryContext systemMemoryContext;
-    private final long maxMemoryReservation;
+    private final SpillContext spillContext;
 
-    private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
+    private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
-    public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
+    public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-        this.maxMemoryReservation = maxMemoryReservation;
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
         this.systemMemoryContext = new OperatorSystemMemoryContext(this.driverContext);
+        this.spillContext = new OperatorSpillContext(this.driverContext);
         this.executor = requireNonNull(executor, "executor is null");
         SettableFuture<Object> future = SettableFuture.create();
         future.set(null);
@@ -216,11 +216,6 @@ public class OperatorContext
         return memoryFuture.get();
     }
 
-    public DataSize getOperatorPreAllocatedMemory()
-    {
-        return driverContext.getOperatorPreAllocatedMemory();
-    }
-
     public void reserveMemory(long bytes)
     {
         ListenableFuture<?> future = driverContext.reserveMemory(bytes);
@@ -254,26 +249,7 @@ public class OperatorContext
                 }
             });
         }
-        long newReservation = memoryReservation.addAndGet(bytes);
-        if (newReservation > maxMemoryReservation) {
-            memoryReservation.getAndAdd(-bytes);
-            throw exceededLocalLimit(new DataSize(maxMemoryReservation, BYTE));
-        }
-    }
-
-    public boolean tryReserveMemory(long bytes)
-    {
-        if (!driverContext.tryReserveMemory(bytes)) {
-            return false;
-        }
-
-        long newReservation = memoryReservation.addAndGet(bytes);
-        if (newReservation > maxMemoryReservation) {
-            memoryReservation.getAndAdd(-bytes);
-            driverContext.freeMemory(bytes);
-            return false;
-        }
-        return true;
+        memoryReservation.addAndGet(bytes);
     }
 
     public void freeMemory(long bytes)
@@ -292,6 +268,11 @@ public class OperatorContext
     public void closeSystemMemoryContext()
     {
         systemMemoryContext.close();
+    }
+
+    public SpillContext getSpillContext()
+    {
+        return spillContext;
     }
 
     public void moreMemoryAvailable()
@@ -340,15 +321,19 @@ public class OperatorContext
         long delta = newMemoryReservation - memoryReservation.get();
 
         if (delta > 0) {
-            return tryReserveMemory(delta);
+            if (!driverContext.tryReserveMemory(delta)) {
+                return false;
+            }
+
+            memoryReservation.addAndGet(delta);
         }
         else {
             freeMemory(-delta);
-            return true;
         }
+        return true;
     }
 
-    public void setInfoSupplier(Supplier<Object> infoSupplier)
+    public void setInfoSupplier(Supplier<OperatorInfo> infoSupplier)
     {
         requireNonNull(infoSupplier, "infoProvider is null");
         this.infoSupplier.set(infoSupplier);
@@ -376,29 +361,32 @@ public class OperatorContext
 
     public OperatorStats getOperatorStats()
     {
-        Supplier<Object> infoSupplier = this.infoSupplier.get();
-        Object info = null;
-        if (infoSupplier != null) {
-            info = infoSupplier.get();
-        }
+        Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
+        OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
+
+        long inputPositionsCount = inputPositions.getTotalCount();
 
         return new OperatorStats(
+                driverContext.getPipelineContext().getPipelineId(),
                 operatorId,
                 planNodeId,
                 operatorType,
+
+                1,
 
                 addInputCalls.get(),
                 new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(inputDataSize.getTotalCount(), BYTE).convertToMostSuccinctDataSize(),
-                inputPositions.getTotalCount(),
+                succinctBytes(inputDataSize.getTotalCount()),
+                inputPositionsCount,
+                (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputCalls.get(),
                 new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(outputDataSize.getTotalCount(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
 
                 new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -408,8 +396,8 @@ public class OperatorContext
                 new Duration(finishCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryContext.getReservedBytes(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(memoryReservation.get()),
+                succinctBytes(systemMemoryContext.getReservedBytes()),
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
     }
@@ -508,6 +496,41 @@ public class OperatorContext
             return toStringHelper(this)
                     .add("usedBytes", reservedBytes)
                     .add("closed", closed)
+                    .toString();
+        }
+    }
+
+    @ThreadSafe
+    private class OperatorSpillContext
+        implements SpillContext
+    {
+        private final DriverContext driverContext;
+
+        private long reservedBytes;
+
+        public OperatorSpillContext(DriverContext driverContext)
+        {
+            this.driverContext = driverContext;
+        }
+
+        @Override
+        public void updateBytes(long bytes)
+        {
+            if (bytes > 0) {
+                driverContext.reserveSpill(bytes);
+            }
+            else {
+                checkArgument(reservedBytes + bytes >= 0, "tried to free %s spilled bytes from %s bytes reserved", -bytes, reservedBytes);
+                driverContext.freeSpill(-bytes);
+            }
+            reservedBytes += bytes;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("usedBytes", reservedBytes)
                     .toString();
         }
     }

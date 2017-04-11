@@ -13,13 +13,22 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ArrayType;
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestBlockBuilder
@@ -38,5 +47,37 @@ public class TestBlockBuilder
         assertEquals(BIGINT.getLong(block, 1), 42L);
         assertTrue(block.isNull(2));
         assertEquals(BIGINT.getLong(block, 3), 42L);
+    }
+
+    @Test
+    public void testNewBlockBuilderLike()
+    {
+        ArrayType longArrayType = new ArrayType(BIGINT);
+        ArrayType arrayType = new ArrayType(longArrayType);
+        List<Type> channels = ImmutableList.of(BIGINT, VARCHAR, arrayType);
+        PageBuilder pageBuilder = new PageBuilder(channels);
+        BlockBuilder bigintBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder varcharBlockBuilder = pageBuilder.getBlockBuilder(1);
+        BlockBuilder arrayBlockBuilder = pageBuilder.getBlockBuilder(2);
+
+        for (int i = 0; i < 100; i++) {
+            BIGINT.writeLong(bigintBlockBuilder, i);
+            VARCHAR.writeSlice(varcharBlockBuilder, Slices.utf8Slice("test" + i));
+            Block longArrayBlock = new ArrayType(BIGINT)
+                    .createBlockBuilder(new BlockBuilderStatus(), 1)
+                    .writeObject(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2).writeLong(i).closeEntry().writeLong(i * 2).closeEntry().build())
+                    .closeEntry();
+            arrayBlockBuilder.writeObject(longArrayBlock).closeEntry();
+            pageBuilder.declarePosition();
+        }
+
+        PageBuilder newPageBuilder = pageBuilder.newPageBuilderLike();
+        for (int i = 0; i < channels.size(); i++) {
+            assertEquals(newPageBuilder.getType(i), pageBuilder.getType(i));
+            // we should get new block builder instances
+            assertNotEquals(pageBuilder.getBlockBuilder(i), newPageBuilder.getBlockBuilder(i));
+            assertEquals(newPageBuilder.getBlockBuilder(i).getPositionCount(), 0);
+            assertTrue(newPageBuilder.getBlockBuilder(i).getRetainedSizeInBytes() < pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes());
+        }
     }
 }

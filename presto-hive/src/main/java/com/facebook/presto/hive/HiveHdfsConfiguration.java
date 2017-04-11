@@ -13,19 +13,31 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.Map;
 
+import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static java.util.Objects.requireNonNull;
 
 public class HiveHdfsConfiguration
         implements HdfsConfiguration
 {
-    private static final Configuration DEFAULT_CONFIGURATION = new Configuration();
+    private static final Configuration INITIAL_CONFIGURATION;
+
+    static {
+        Configuration.addDefaultResource("hdfs-default.xml");
+        Configuration.addDefaultResource("hdfs-site.xml");
+
+        // must not be transitively reloaded during the future loading of various Hadoop modules
+        // all the required default resources must be declared above
+        INITIAL_CONFIGURATION = new Configuration(false);
+        Configuration defaultConfiguration = new Configuration();
+        copy(defaultConfiguration, INITIAL_CONFIGURATION);
+    }
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -33,12 +45,10 @@ public class HiveHdfsConfiguration
         @Override
         protected Configuration initialValue()
         {
-            Configuration config = new Configuration(false);
-            for (Map.Entry<String, String> entry : DEFAULT_CONFIGURATION) {
-                config.set(entry.getKey(), entry.getValue());
-            }
-            updater.updateConfiguration(config);
-            return config;
+            PrestoHadoopConfiguration configuration = new PrestoHadoopConfiguration(ImmutableClassToInstanceMap.of());
+            copy(INITIAL_CONFIGURATION, configuration);
+            updater.updateConfiguration(configuration);
+            return configuration;
         }
     };
 

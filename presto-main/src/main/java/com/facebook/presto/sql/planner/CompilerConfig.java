@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.function.Description;
 import io.airlift.configuration.Config;
 
 public class CompilerConfig

@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
@@ -29,7 +30,7 @@ public interface ShardManager
     /**
      * Create a table.
      */
-    void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed);
+    void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed, OptionalLong temporalColumnId);
 
     /**
      * Drop a table.
@@ -44,12 +45,12 @@ public interface ShardManager
     /**
      * Commit data for a table.
      */
-    void commitShards(long transactionId, long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId);
+    void commitShards(long transactionId, long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId, long updateTime);
 
     /**
      * Replace oldShardsUuids with newShards.
      */
-    void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards);
+    void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards, OptionalLong updateTime);
 
     /**
      * Get shard metadata for shards on a given node.
@@ -57,9 +58,19 @@ public interface ShardManager
     Set<ShardMetadata> getNodeShards(String nodeIdentifier);
 
     /**
-     * Return the shard nodes a given table.
+     * Get shard metadata for shards on a given node.
      */
-    ResultIterator<BucketShards> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    Set<ShardMetadata> getNodeShards(String nodeIdentifier, long tableId);
+
+    /**
+     * Return the shard nodes for a non-bucketed table.
+     */
+    ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
+
+    /**
+     * Return the shard nodes for a bucketed table.
+     */
+    ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, Map<Integer, String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Assign a shard to a node.
@@ -94,7 +105,32 @@ public interface ShardManager
     void createBuckets(long distributionId, int bucketCount);
 
     /**
-     * Get map of buckets to node identifiers for a table.
+     * Get map of buckets to node identifiers for a distribution.
      */
     Map<Integer, String> getBucketAssignments(long distributionId);
+
+    /**
+     * Change the node a bucket is assigned to.
+     */
+    void updateBucketAssignment(long distributionId, int bucketNumber, String nodeId);
+
+    /**
+     * Get all active distributions.
+     */
+    List<Distribution> getDistributions();
+
+    /**
+     * Get total physical size of all tables in a distribution.
+     */
+    long getDistributionSizeInBytes(long distributionId);
+
+    /**
+     * Get list of bucket nodes for a distribution.
+     */
+    List<BucketNode> getBucketNodes(long distributionId);
+
+    /**
+     * Return the subset of shard uuids that exist
+     */
+    Set<UUID> getExistingShardUuids(long tableId, Set<UUID> shardUuids);
 }

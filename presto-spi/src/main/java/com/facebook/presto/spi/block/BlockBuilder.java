@@ -21,44 +21,49 @@ public interface BlockBuilder
     /**
      * Write a byte to the current entry;
      */
-    BlockBuilder writeByte(int value);
+    default BlockBuilder writeByte(int value)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Write a short to the current entry;
      */
-    BlockBuilder writeShort(int value);
+    default BlockBuilder writeShort(int value)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Write a int to the current entry;
      */
-    BlockBuilder writeInt(int value);
+    default BlockBuilder writeInt(int value)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Write a long to the current entry;
      */
-    BlockBuilder writeLong(long value);
-
-    /**
-     * Write a float to the current entry;
-     */
-    BlockBuilder writeFloat(float v);
-
-    /**
-     * Write a double to the current entry;
-     */
-    BlockBuilder writeDouble(double value);
+    default BlockBuilder writeLong(long value)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Write a byte sequences to the current entry;
      */
-    BlockBuilder writeBytes(Slice source, int sourceIndex, int length);
+    default BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Write an object to the current entry;
      */
     default BlockBuilder writeObject(Object value)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -67,7 +72,7 @@ public interface BlockBuilder
      */
     default BlockBuilder beginBlockEntry()
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -84,4 +89,14 @@ public interface BlockBuilder
      * Builds the block. This method can be called multiple times.
      */
     Block build();
+
+    /**
+     * Resets the block builder, clearing all of the data.
+     */
+    void reset(BlockBuilderStatus blockBuilderStatus);
+
+    /**
+     * Creates a new block builder of the same type based on the current usage statistics of this block builder.
+     */
+    BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus);
 }

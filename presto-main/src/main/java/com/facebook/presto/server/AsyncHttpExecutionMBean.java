@@ -23,7 +23,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class AsyncHttpExecutionMBean
@@ -36,8 +35,8 @@ public class AsyncHttpExecutionMBean
     {
         requireNonNull(responseExecutor, "responseExecutor is null");
         requireNonNull(timeoutExecutor, "timeoutExecutor is null");
-        this.responseExecutor = new ThreadPoolExecutorMBean(checkType(responseExecutor, ThreadPoolExecutor.class, "response-executor"));
-        this.timeoutExecutor = new ThreadPoolExecutorMBean(checkType(timeoutExecutor, ThreadPoolExecutor.class, "timeout-executor"));
+        this.responseExecutor = new ThreadPoolExecutorMBean((ThreadPoolExecutor) responseExecutor);
+        this.timeoutExecutor = new ThreadPoolExecutorMBean((ThreadPoolExecutor) timeoutExecutor);
     }
 
     @Managed

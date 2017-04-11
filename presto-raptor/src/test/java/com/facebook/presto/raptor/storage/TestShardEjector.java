@@ -13,19 +13,18 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.raptor.RaptorConnectorId;
-import com.facebook.presto.raptor.RaptorNodeSupplier;
+import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -41,14 +40,15 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
-import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.toSet;
@@ -70,6 +70,7 @@ public class TestShardEjector
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
+        createTablesWithRetry(dbi);
         shardManager = createShardManager(dbi);
 
         dataDir = createTempDir();
@@ -96,7 +97,7 @@ public class TestShardEjector
 
         ShardEjector ejector = new ShardEjector(
                 nodeManager.getCurrentNode().getNodeIdentifier(),
-                new RaptorNodeSupplier(nodeManager, new RaptorConnectorId("test")),
+                nodeManager::getWorkerNodes,
                 shardManager,
                 storageService,
                 new Duration(1, HOURS),
@@ -123,10 +124,10 @@ public class TestShardEjector
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
-        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
 
         for (ShardInfo shard : shards.subList(0, 8)) {
             File file = storageService.getStorageFile(shard.getShardUuid());
@@ -136,7 +137,7 @@ public class TestShardEjector
 
         ejector.process();
 
-        shardManager.getShardNodes(tableId, false, false, TupleDomain.all());
+        shardManager.getShardNodes(tableId, TupleDomain.all());
 
         Set<UUID> ejectedShards = shards.subList(0, 4).stream()
                 .map(ShardInfo::getShardUuid)
@@ -169,7 +170,7 @@ public class TestShardEjector
 
     private long createTable(String name)
     {
-        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, null);
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, false, null, 0);
     }
 
     private static Set<UUID> uuids(Set<ShardMetadata> metadata)
@@ -186,81 +187,17 @@ public class TestShardEjector
 
     private static NodeManager createNodeManager(String current, String... others)
     {
-        Node currentNode = new TestingNode(current);
-
-        ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
-        nodes.add(currentNode);
+        Node currentNode = createTestingNode(current);
+        TestingNodeManager nodeManager = new TestingNodeManager(currentNode);
         for (String other : others) {
-            nodes.add(new TestingNode(other));
+            nodeManager.addNode(createTestingNode(other));
         }
-
-        return new TestingNodeManager(nodes.build(), currentNode);
+        return nodeManager;
     }
 
-    private static class TestingNodeManager
-            implements NodeManager
+    private static Node createTestingNode(String identifier)
     {
-        private final Set<Node> nodes;
-        private final Node currentNode;
-
-        public TestingNodeManager(Set<Node> nodes, Node currentNode)
-        {
-            this.nodes = ImmutableSet.copyOf(requireNonNull(nodes, "nodes is null"));
-            this.currentNode = requireNonNull(currentNode, "currentNode is null");
-        }
-
-        @Override
-        public Set<Node> getNodes(NodeState state)
-        {
-            return nodes;
-        }
-
-        @Override
-        public Set<Node> getActiveDatasourceNodes(String datasourceName)
-        {
-            return nodes;
-        }
-
-        @Override
-        public Node getCurrentNode()
-        {
-            return currentNode;
-        }
-
-        @Override
-        public Set<Node> getCoordinators()
-        {
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    private static class TestingNode
-            implements Node
-    {
-        private final String identifier;
-
-        public TestingNode(String identifier)
-        {
-            this.identifier = requireNonNull(identifier, "identifier is null");
-        }
-
-        @Override
-        public HostAddress getHostAndPort()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public URI getHttpUri()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public String getNodeIdentifier()
-        {
-            return identifier;
-        }
+        return new PrestoNode(identifier, URI.create("http://test"), NodeVersion.UNKNOWN, false);
     }
 
     private static class TestingBackupStore
@@ -279,7 +216,7 @@ public class TestShardEjector
         }
 
         @Override
-        public void deleteShard(UUID uuid)
+        public boolean deleteShard(UUID uuid)
         {
             throw new UnsupportedOperationException();
         }

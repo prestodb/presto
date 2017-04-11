@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -20,7 +21,6 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
@@ -32,16 +32,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
-import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class InformationSchemaSplitManager
         implements ConnectorSplitManager
 {
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
 
-    public InformationSchemaSplitManager(NodeManager nodeManager)
+    public InformationSchemaSplitManager(InternalNodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
@@ -49,17 +48,17 @@ public class InformationSchemaSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        InformationSchemaTableLayoutHandle handle = checkType(layout, InformationSchemaTableLayoutHandle.class, "layout");
+        InformationSchemaTableLayoutHandle handle = (InformationSchemaTableLayoutHandle) layout;
         Map<ColumnHandle, NullableValue> bindings = extractFixedValues(handle.getConstraint()).orElse(ImmutableMap.of());
 
         List<HostAddress> localAddress = ImmutableList.of(nodeManager.getCurrentNode().getHostAndPort());
 
         Map<String, NullableValue> filters = bindings.entrySet().stream().collect(toMap(
-                entry -> checkType(entry.getKey(), InformationSchemaColumnHandle.class, "column").getColumnName(),
+                entry -> ((InformationSchemaColumnHandle) entry.getKey()).getColumnName(),
                 Entry::getValue));
 
         ConnectorSplit split = new InformationSchemaSplit(handle.getTable(), filters, localAddress);
 
-        return new FixedSplitSource(null, ImmutableList.of(split));
+        return new FixedSplitSource(ImmutableList.of(split));
     }
 }

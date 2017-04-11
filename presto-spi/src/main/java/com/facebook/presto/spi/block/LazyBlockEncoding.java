@@ -41,12 +41,6 @@ public class LazyBlockEncoding
     }
 
     @Override
-    public int getEstimatedSize(Block block)
-    {
-        return delegate.getEstimatedSize(((LazyBlock) block).getBlock());
-    }
-
-    @Override
     public Block readBlock(SliceInput sliceInput)
     {
         // We write the actual underlying block, so we will never need to read a lazy block

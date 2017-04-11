@@ -260,7 +260,7 @@ public final class Marker
     {
         int hash = Objects.hash(type, bound);
         if (valueBlock.isPresent()) {
-            hash = hash * 31 + type.hash(valueBlock.get(), 0);
+            hash = hash * 31 + (int) type.hash(valueBlock.get(), 0);
         }
         return hash;
     }

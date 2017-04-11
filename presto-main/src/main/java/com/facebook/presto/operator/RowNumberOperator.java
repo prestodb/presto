@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -50,6 +51,7 @@ public class RowNumberOperator
         private final int expectedPositions;
         private final List<Type> types;
         private boolean closed;
+        private final JoinCompiler joinCompiler;
 
         public RowNumberOperatorFactory(
                 int operatorId,
@@ -60,7 +62,8 @@ public class RowNumberOperator
                 List<? extends Type> partitionTypes,
                 Optional<Integer> maxRowsPerPartition,
                 Optional<Integer> hashChannel,
-                int expectedPositions)
+                int expectedPositions,
+                JoinCompiler joinCompiler)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -74,6 +77,7 @@ public class RowNumberOperator
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
             this.types = toTypes(sourceTypes, outputChannels);
+            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         }
 
         @Override
@@ -96,7 +100,8 @@ public class RowNumberOperator
                     partitionTypes,
                     maxRowsPerPartition,
                     hashChannel,
-                    expectedPositions);
+                    expectedPositions,
+                    joinCompiler);
         }
 
         @Override
@@ -108,7 +113,7 @@ public class RowNumberOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new RowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions);
+            return new RowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions, joinCompiler);
         }
     }
 
@@ -133,7 +138,8 @@ public class RowNumberOperator
             List<Type> partitionTypes,
             Optional<Integer> maxRowsPerPartition,
             Optional<Integer> hashChannel,
-            int expectedPositions)
+            int expectedPositions,
+            JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(outputChannels);
@@ -145,7 +151,7 @@ public class RowNumberOperator
         }
         else {
             int[] channels = Ints.toArray(partitionChannels);
-            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, channels, Optional.<Integer>empty(), hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, channels, hashChannel, expectedPositions, joinCompiler));
         }
         this.types = toTypes(sourceTypes, outputChannels);
     }
@@ -275,7 +281,7 @@ public class RowNumberOperator
             pageBuilder.declarePosition();
             for (int i = 0; i < outputChannels.length; i++) {
                 int channel = outputChannels[i];
-                Type type = types.get(channel);
+                Type type = types.get(i);
                 type.appendTo(inputPage.getBlock(channel), currentPosition, pageBuilder.getBlockBuilder(i));
             }
             BIGINT.writeLong(pageBuilder.getBlockBuilder(rowNumberChannel), rowCount + 1);

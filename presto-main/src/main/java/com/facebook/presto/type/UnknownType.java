@@ -17,8 +17,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.AbstractFixedWidthType;
+import com.facebook.presto.spi.type.TypeSignature;
 
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class UnknownType
@@ -29,7 +29,7 @@ public final class UnknownType
 
     private UnknownType()
     {
-        super(parameterizedTypeName(NAME), void.class, 0);
+        super(new TypeSignature(NAME), void.class, 0);
     }
 
     @Override
@@ -45,7 +45,7 @@ public final class UnknownType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         // Check that the position is valid
         checkArgument(block.isNull(position), "Expected NULL value for UnknownType");

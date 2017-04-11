@@ -10,23 +10,19 @@ Config Properties
 
 These configuration options may require tuning in specific situations:
 
-* ``task.info-refresh-max-wait``:
-  Controls staleness of task information, which is used in scheduling. Increasing
-  this value can reduce coordinator CPU load, but may result in suboptimal
-  split scheduling.
-
 * ``task.max-worker-threads``:
   Sets the number of threads used by workers to process splits. Increasing this number
-  can improve throughput, if worker CPU utilization is low, but will cause increased
-  heap space usage.
+  can improve throughput if worker CPU utilization is low and all the threads are in use,
+  but will cause increased heap space usage. The number of active threads is available via
+  the ``com.facebook.presto.execution.TaskExecutor.RunningSplits`` JMX stat.
 
 * ``distributed-joins-enabled``:
   Use hash distributed joins instead of broadcast joins. Distributed joins
   require redistributing both tables using a hash of the join key. This can
   be slower (sometimes substantially) than broadcast joins, but allows much
   larger joins. Broadcast joins require that the tables on the right side of
-  the join fit in memory on each machine, whereas distributed joins only
-  need to fit in distributed memory across all machines. This can also be
+  the join fit in memory on each machine, whereas with distributed joins the
+  tables on the right side have to fit in distributed memory. This can also be
   specified on a per-query basis using the ``distributed_join`` session property.
 
 * ``node-scheduler.network-topology``:

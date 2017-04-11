@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
-import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
+import static com.facebook.presto.spi.type.CharType.createCharType;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedQueries
@@ -25,34 +29,36 @@ public class TestHiveDistributedQueries
     public TestHiveDistributedQueries()
             throws Exception
     {
-        super(createQueryRunner(getTables()), createSampledSession());
+        super(() -> createQueryRunner(getTables()));
     }
 
     @Override
     public void testDelete()
-            throws Exception
     {
         // Hive connector currently does not support row-by-row delete
     }
 
-    @Override
-    public void testAddColumn()
+    @Test
+    public void testOrderByChar()
             throws Exception
     {
-        // Hive connector currently does not support schema change
-    }
+        assertUpdate("CREATE TABLE char_order_by (c_char char(2))");
+        assertUpdate("INSERT INTO char_order_by (c_char) VALUES" +
+                "(CAST('a' as CHAR(2)))," +
+                "(CAST('a\0' as CHAR(2)))," +
+                "(CAST('a  ' as CHAR(2)))", 3);
 
-    @Override
-    public void testRenameColumn()
-            throws Exception
-    {
-        // Hive connector currently does not support schema change
-    }
+        MaterializedResult actual = computeActual(getSession(),
+                "SELECT * FROM char_order_by ORDER BY c_char ASC");
 
-    @Override
-    public void testRenameTable()
-            throws Exception
-    {
-        // Hive connector currently does not support table rename
+        assertUpdate("DROP TABLE char_order_by");
+
+        MaterializedResult expected = resultBuilder(getSession(), createCharType(2))
+                .row("a\0")
+                .row("a ")
+                .row("a ")
+                .build();
+
+        assertEquals(actual, expected);
     }
 }

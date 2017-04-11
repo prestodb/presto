@@ -116,7 +116,7 @@ public final class BytecodeExpressionAssertions
             dumpBytecode.visitClass(classDefinition);
         }
 
-        DynamicClassLoader classLoader = parentClassLoader.isPresent() ? new DynamicClassLoader(parentClassLoader.get()) : new DynamicClassLoader();
+        DynamicClassLoader classLoader = new DynamicClassLoader(parentClassLoader.orElse(BytecodeExpressionAssertions.class.getClassLoader()));
         ClassWriter cw = new SmartClassWriter(ClassInfoLoader.createClassInfoLoader(ImmutableList.of(classDefinition), classLoader));
         classDefinition.visit(cw);
 

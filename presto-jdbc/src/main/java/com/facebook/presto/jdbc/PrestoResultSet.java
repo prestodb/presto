@@ -14,6 +14,8 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.IntervalDayTime;
+import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
@@ -22,14 +24,11 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
-import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.ISODateTimeFormat;
-import org.joda.time.format.PeriodFormatter;
-import org.joda.time.format.PeriodFormatterBuilder;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -68,6 +67,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
+import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -95,22 +95,6 @@ public class PrestoResultSet
             .toFormatter()
             .withOffsetParsed();
 
-    private static final PeriodFormatter INTERVAL_YEAR_TO_MONTH_FORMATTER = new PeriodFormatterBuilder()
-            .appendYears()
-            .appendLiteral("-")
-            .appendMonths()
-            .toFormatter();
-
-    private static final PeriodFormatter INTERVAL_DAY_TO_SECOND_FORMATTER = new PeriodFormatterBuilder()
-            .appendDays()
-            .appendLiteral(" ")
-            .appendHours()
-            .appendLiteral(":")
-            .appendMinutes()
-            .appendLiteral(":")
-            .appendSecondsWithOptionalMillis()
-            .toFormatter();
-
     private static final int YEAR_FIELD = 0;
     private static final int MONTH_FIELD = 1;
     private static final int DAY_FIELD = 3;
@@ -129,13 +113,13 @@ public class PrestoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
 
-    PrestoResultSet(StatementClient client, Consumer<QueryStats> progressCallback)
+    PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback)
             throws SQLException
     {
         this.client = requireNonNull(client, "client is null");
         requireNonNull(progressCallback, "progressCallback is null");
 
-        this.sessionTimeZone = DateTimeZone.forID(client.getTimeZoneId());
+        this.sessionTimeZone = DateTimeZone.forID(client.getTimeZone().getId());
         this.queryId = client.current().getId();
 
         List<Column> columns = getColumns(client, progressCallback);
@@ -143,7 +127,7 @@ public class PrestoResultSet
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
-        this.results = flatten(new ResultsPageIterator(client, progressCallback));
+        this.results = flatten(new ResultsPageIterator(client, progressCallback), maxRows);
     }
 
     public String getQueryId()
@@ -253,7 +237,11 @@ public class PrestoResultSet
     public BigDecimal getBigDecimal(int columnIndex, int scale)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getBigDecimal");
+        BigDecimal bigDecimal = getBigDecimal(columnIndex);
+        if (bigDecimal != null) {
+            bigDecimal = bigDecimal.setScale(scale, ROUND_HALF_UP);
+        }
+        return bigDecimal;
     }
 
     @Override
@@ -443,7 +431,7 @@ public class PrestoResultSet
     public BigDecimal getBigDecimal(String columnLabel, int scale)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getBigDecimal");
+        return getBigDecimal(columnIndex(columnLabel), scale);
     }
 
     @Override
@@ -538,6 +526,8 @@ public class PrestoResultSet
                 return getTimestamp(columnIndex);
             case Types.ARRAY:
                 return getArray(columnIndex);
+            case Types.DECIMAL:
+                return getBigDecimal(columnIndex);
             case Types.JAVA_OBJECT:
                 if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval year to month")) {
                     return getIntervalYearMonth(columnIndex);
@@ -557,10 +547,7 @@ public class PrestoResultSet
             return null;
         }
 
-        Period period = INTERVAL_YEAR_TO_MONTH_FORMATTER.parsePeriod(String.valueOf(value));
-        return new PrestoIntervalYearMonth(
-                period.getValue(YEAR_FIELD),
-                period.getValue(MONTH_FIELD));
+        return new PrestoIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
     }
 
     private PrestoIntervalDayTime getIntervalDayTime(int columnIndex)
@@ -571,13 +558,7 @@ public class PrestoResultSet
             return null;
         }
 
-        Period period = INTERVAL_DAY_TO_SECOND_FORMATTER.parsePeriod(String.valueOf(value));
-        return new PrestoIntervalDayTime(
-                period.getValue(DAY_FIELD),
-                period.getValue(HOUR_FIELD),
-                period.getValue(MINUTE_FIELD),
-                period.getValue(SECOND_FIELD),
-                period.getValue(MILLIS_FIELD));
+        return new PrestoIntervalDayTime(IntervalDayTime.parseMillis(String.valueOf(value)));
     }
 
     @Override
@@ -613,14 +594,19 @@ public class PrestoResultSet
     public BigDecimal getBigDecimal(int columnIndex)
             throws SQLException
     {
-        throw new NotImplementedException("ResultSet", "getBigDecimal");
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        return new BigDecimal(String.valueOf(value));
     }
 
     @Override
     public BigDecimal getBigDecimal(String columnLabel)
             throws SQLException
     {
-        throw new NotImplementedException("ResultSet", "getBigDecimal");
+        return getBigDecimal(columnIndex(columnLabel));
     }
 
     @Override
@@ -1761,9 +1747,10 @@ public class PrestoResultSet
         throw resultsException(results);
     }
 
-    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
+    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows)
     {
-        return concat(transform(iterator, Iterable::iterator));
+        Iterator<T> rowsIterator = concat(transform(iterator, Iterable::iterator));
+        return (maxRows > 0) ? new LengthLimitedIterator<>(rowsIterator, maxRows) : rowsIterator;
     }
 
     private static class ResultsPageIterator

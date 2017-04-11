@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -30,13 +31,10 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
-import static java.lang.Double.doubleToLongBits;
-import static java.lang.Float.floatToIntBits;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -49,6 +47,8 @@ public abstract class AbstractTestBlock
     {
         assertBlockPositions(block, expectedValues);
         assertBlockPositions(copyBlock(block), expectedValues);
+
+        assertBlockSize(block);
 
         try {
             block.isNull(-1);
@@ -90,6 +90,37 @@ public abstract class AbstractTestBlock
         }
     }
 
+    protected List<Block> splitBlock(Block block, int count)
+    {
+        double sizePerSplit = block.getPositionCount() * 1.0 / count;
+        ImmutableList.Builder<Block> result = ImmutableList.builder();
+        for (int i = 0; i < count; i++) {
+            int startPosition = toIntExact(Math.round(sizePerSplit * i));
+            int endPosition = toIntExact(Math.round(sizePerSplit * (i + 1)));
+            result.add(block.getRegion(startPosition, endPosition - startPosition));
+        }
+        return result.build();
+    }
+
+    private void assertBlockSize(Block block)
+    {
+        // Asserting on `block` is not very effective because most blocks passed to this method is compact.
+        // Therefore, we split the `block` into two and assert again.
+        int expectedBlockSize = copyBlock(block).getSizeInBytes();
+        assertEquals(block.getSizeInBytes(), expectedBlockSize);
+        assertEquals(block.getRegionSizeInBytes(0, block.getPositionCount()), expectedBlockSize);
+
+        List<Block> splitBlock = splitBlock(block, 2);
+        Block firstHalf = splitBlock.get(0);
+        int expectedFirstHalfSize = copyBlock(firstHalf).getSizeInBytes();
+        assertEquals(firstHalf.getSizeInBytes(), expectedFirstHalfSize);
+        assertEquals(block.getRegionSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfSize);
+        Block secondHalf = splitBlock.get(1);
+        int expectedSecondHalfSize = copyBlock(secondHalf).getSizeInBytes();
+        assertEquals(secondHalf.getSizeInBytes(), expectedSecondHalfSize);
+        assertEquals(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount()), expectedSecondHalfSize);
+    }
+
     protected <T> void assertBlockPosition(Block block, int position, T expectedValue)
     {
         assertPositionValue(block, position, expectedValue);
@@ -97,13 +128,16 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.getRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.getRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, expectedValue);
+        assertPositionValue(copyBlock(block.getRegion(position, 1)), 0, expectedValue);
+        assertPositionValue(copyBlock(block.getRegion(0, position + 1)), position, expectedValue);
+        assertPositionValue(copyBlock(block.getRegion(position, block.getPositionCount() - position)), 0, expectedValue);
         assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
         assertPositionValue(block.copyPositions(Ints.asList(position)), 0, expectedValue);
     }
 
-    protected static <T> void assertPositionValue(Block block, int position, T expectedValue)
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
         if (expectedValue == null) {
             assertTrue(block.isNull(position));
@@ -115,56 +149,33 @@ public abstract class AbstractTestBlock
         if (expectedValue instanceof Slice) {
             Slice expectedSliceValue = (Slice) expectedValue;
 
-            int length = block.getLength(position);
-            assertEquals(length, expectedSliceValue.length());
-
-            for (int offset = 0; offset <= length - SIZE_OF_BYTE; offset++) {
-                assertEquals(block.getByte(position, offset), expectedSliceValue.getByte(offset));
+            if (isByteAccessSupported()) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_BYTE; offset++) {
+                    assertEquals(block.getByte(position, offset), expectedSliceValue.getByte(offset));
+                }
             }
 
-            for (int offset = 0; offset <= length - SIZE_OF_SHORT; offset++) {
-                assertEquals(block.getShort(position, offset), expectedSliceValue.getShort(offset));
+            if (isShortAccessSupported()) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_SHORT; offset++) {
+                    assertEquals(block.getShort(position, offset), expectedSliceValue.getShort(offset));
+                }
             }
 
-            for (int offset = 0; offset <= length - SIZE_OF_INT; offset++) {
-                assertEquals(block.getInt(position, offset), expectedSliceValue.getInt(offset));
+            if (isIntAccessSupported()) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_INT; offset++) {
+                    assertEquals(block.getInt(position, offset), expectedSliceValue.getInt(offset));
+                }
             }
 
-            for (int offset = 0; offset <= length - SIZE_OF_LONG; offset++) {
-                assertEquals(block.getLong(position, offset), expectedSliceValue.getLong(offset));
+            if (isLongAccessSupported()) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_LONG; offset++) {
+                    assertEquals(block.getLong(position, offset), expectedSliceValue.getLong(offset));
+                }
             }
 
-            for (int offset = 0; offset <= length - SIZE_OF_FLOAT; offset++) {
-                assertEquals(floatToIntBits(block.getFloat(position, offset)), floatToIntBits(expectedSliceValue.getFloat(offset)));
-            }
-
-            for (int offset = 0; offset <= length - SIZE_OF_DOUBLE; offset++) {
-                assertEquals(doubleToLongBits(block.getDouble(position, offset)), doubleToLongBits(expectedSliceValue.getDouble(offset)));
-            }
-
-            Block expectedBlock = toSingeValuedBlock(expectedSliceValue);
-
-            for (int offset = 0; offset < length - 3; offset++) {
-                assertEquals(block.getSlice(position, offset, 3), expectedSliceValue.slice(offset, 3));
-                assertEquals(block.hash(position, offset, 3), expectedSliceValue.hashCode(offset, 3));
-                assertTrue(block.bytesEqual(position, offset, expectedSliceValue, offset, 3));
-                // if your tests fail here, please change your test to not use this value
-                assertFalse(block.bytesEqual(position, offset, Slices.utf8Slice("XXX"), 0, 3));
-
-                assertEquals(block.bytesCompare(position, offset, 3, expectedSliceValue, offset, 3), 0);
-                assertTrue(block.bytesCompare(position, offset, 3, expectedSliceValue, offset, 2) > 0);
-                Slice greaterSlice = createGreaterValue(expectedSliceValue, offset, 3);
-                assertTrue(block.bytesCompare(position, offset, 3, greaterSlice, 0, greaterSlice.length()) < 0);
-
-                assertTrue(block.equals(position, offset, expectedBlock, 0, offset, 3));
-                assertEquals(block.compareTo(position, offset, 3, expectedBlock, 0, offset, 3), 0);
-
-                BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
-                block.writeBytesTo(position, offset, 3, blockBuilder);
-                blockBuilder.closeEntry();
-                Block segment = blockBuilder.build();
-
-                assertTrue(block.equals(position, offset, segment, 0, 0, 3));
+            if (isSliceAccessSupported()) {
+                assertEquals(block.getSliceLength(position), expectedSliceValue.length());
+                assertSlicePosition(block, position, expectedSliceValue);
             }
         }
         else if (expectedValue instanceof long[]) {
@@ -194,6 +205,60 @@ public abstract class AbstractTestBlock
         else {
             throw new IllegalArgumentException();
         }
+    }
+
+    protected void assertSlicePosition(Block block, int position, Slice expectedSliceValue)
+    {
+        int length = block.getSliceLength(position);
+        assertEquals(length, expectedSliceValue.length());
+
+        Block expectedBlock = toSingeValuedBlock(expectedSliceValue);
+        for (int offset = 0; offset < length - 3; offset++) {
+            assertEquals(block.getSlice(position, offset, 3), expectedSliceValue.slice(offset, 3));
+            assertTrue(block.bytesEqual(position, offset, expectedSliceValue, offset, 3));
+            // if your tests fail here, please change your test to not use this value
+            assertFalse(block.bytesEqual(position, offset, Slices.utf8Slice("XXX"), 0, 3));
+
+            assertEquals(block.bytesCompare(position, offset, 3, expectedSliceValue, offset, 3), 0);
+            assertTrue(block.bytesCompare(position, offset, 3, expectedSliceValue, offset, 2) > 0);
+            Slice greaterSlice = createGreaterValue(expectedSliceValue, offset, 3);
+            assertTrue(block.bytesCompare(position, offset, 3, greaterSlice, 0, greaterSlice.length()) < 0);
+
+            assertTrue(block.equals(position, offset, expectedBlock, 0, offset, 3));
+            assertEquals(block.compareTo(position, offset, 3, expectedBlock, 0, offset, 3), 0);
+
+            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
+            block.writeBytesTo(position, offset, 3, blockBuilder);
+            blockBuilder.closeEntry();
+            Block segment = blockBuilder.build();
+
+            assertTrue(block.equals(position, offset, segment, 0, 0, 3));
+        }
+    }
+
+    protected boolean isByteAccessSupported()
+    {
+        return true;
+    }
+
+    protected boolean isShortAccessSupported()
+    {
+        return true;
+    }
+
+    protected boolean isIntAccessSupported()
+    {
+        return true;
+    }
+
+    protected boolean isLongAccessSupported()
+    {
+        return true;
+    }
+
+    protected boolean isSliceAccessSupported()
+    {
+        return true;
     }
 
     private static Block copyBlock(Block block)

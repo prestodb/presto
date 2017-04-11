@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.Version;
+import com.fasterxml.jackson.databind.DatabindContext;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -153,12 +154,12 @@ public abstract class AbstractTypedJacksonModule<T>
         }
 
         @Override
-        public JavaType typeFromId(String id)
+        public JavaType typeFromId(DatabindContext context, String id)
         {
             requireNonNull(id, "id is null");
             Class<?> typeClass = classResolver.apply(id);
             checkArgument(typeClass != null, "Unknown type ID: %s", id);
-            return SimpleType.construct(typeClass);
+            return context.getTypeFactory().constructType(typeClass);
         }
 
         @Override

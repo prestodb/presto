@@ -14,10 +14,9 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.google.common.base.MoreObjects;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class RowGroupDictionaryLengthStreamCheckpoint
         extends LongStreamV1Checkpoint
@@ -30,9 +29,9 @@ public final class RowGroupDictionaryLengthStreamCheckpoint
         this.rowGroupDictionarySize = rowGroupDictionarySize;
     }
 
-    public RowGroupDictionaryLengthStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
+    public RowGroupDictionaryLengthStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {
-        super(compressionKind, positionsList);
+        super(compressed, positionsList);
         rowGroupDictionarySize = positionsList.nextPosition();
     }
 
@@ -44,7 +43,7 @@ public final class RowGroupDictionaryLengthStreamCheckpoint
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("rowGroupDictionarySize", rowGroupDictionarySize)
                 .add("offset", getOffset())
                 .add("inputStreamCheckpoint", inputStreamCheckpointToString(getInputStreamCheckpoint()))

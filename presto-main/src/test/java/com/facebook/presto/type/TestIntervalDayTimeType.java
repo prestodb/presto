@@ -16,9 +16,8 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.SqlIntervalDayTime;
 
-import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
 public class TestIntervalDayTimeType
         extends AbstractTestType

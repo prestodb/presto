@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -28,9 +31,11 @@ import javax.inject.Inject;
 
 import java.util.Map;
 
+import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
+import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogSystemTable
@@ -39,15 +44,17 @@ public class CatalogSystemTable
     public static final SchemaTableName CATALOG_TABLE_NAME = new SchemaTableName("metadata", "catalogs");
 
     public static final ConnectorTableMetadata CATALOG_TABLE = tableMetadataBuilder(CATALOG_TABLE_NAME)
-            .column("catalog_name", VARCHAR)
-            .column("connector_id", VARCHAR)
+            .column("catalog_name", createUnboundedVarcharType())
+            .column("connector_id", createUnboundedVarcharType())
             .build();
     private final Metadata metadata;
+    private final AccessControl accessControl;
 
     @Inject
-    public CatalogSystemTable(Metadata metadata)
+    public CatalogSystemTable(Metadata metadata, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata);
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -63,11 +70,12 @@ public class CatalogSystemTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
+        Session session = toSession(transactionHandle, connectorSession);
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
-        for (Map.Entry<String, String> entry : metadata.getCatalogNames().entrySet()) {
-            table.addRow(entry.getKey(), entry.getValue());
+        for (Map.Entry<String, ConnectorId> entry : listCatalogs(session, metadata, accessControl).entrySet()) {
+            table.addRow(entry.getKey(), entry.getValue().toString());
         }
         return table.build().cursor();
     }

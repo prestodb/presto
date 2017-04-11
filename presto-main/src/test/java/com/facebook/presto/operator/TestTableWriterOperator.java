@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.split.PageSinkManager;
@@ -32,7 +33,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -47,7 +47,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestTableWriterOperator
 {
-    private static final String CONNECTOR_ID = "testConnectorId";
+    private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
     private ExecutorService executor;
 
     @BeforeClass
@@ -142,13 +142,13 @@ public class TestTableWriterOperator
                 new TableWriterNode.CreateHandle(new OutputTableHandle(
                         CONNECTOR_ID,
                         new ConnectorTransactionHandle() {},
-                        new ConnectorOutputTableHandle() {})),
+                        new ConnectorOutputTableHandle() {}),
+                        new SchemaTableName("testSchema", "testTable")),
                 ImmutableList.of(0),
-                Optional.empty(),
                 TEST_SESSION);
 
         return factory.createOperator(createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext());
     }
 
@@ -179,18 +179,20 @@ public class TestTableWriterOperator
             implements ConnectorPageSink
     {
         private CompletableFuture<?> future = new CompletableFuture<>();
+        private CompletableFuture<Collection<Slice>> finishFuture = new CompletableFuture<>();
 
         @Override
-        public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
+        public CompletableFuture<?> appendPage(Page page)
         {
             future = new CompletableFuture<>();
             return future;
         }
 
         @Override
-        public Collection<Slice> finish()
+        public CompletableFuture<Collection<Slice>> finish()
         {
-            return ImmutableList.of();
+            finishFuture = new CompletableFuture<>();
+            return finishFuture;
         }
 
         @Override
@@ -201,6 +203,7 @@ public class TestTableWriterOperator
         public void complete()
         {
             future.complete(null);
+            finishFuture.complete(ImmutableList.of());
         }
     }
 }

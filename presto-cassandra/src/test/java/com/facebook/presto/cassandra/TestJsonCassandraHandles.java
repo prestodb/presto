@@ -30,7 +30,7 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestJsonCassandraHandles
 {
-    private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.<String, Object>of(
+    private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.of(
             "connectorId", "cassandra",
             "schemaName", "cassandra_schema",
             "tableName", "cassandra_table");

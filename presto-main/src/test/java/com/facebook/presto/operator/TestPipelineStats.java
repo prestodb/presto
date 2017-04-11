@@ -33,6 +33,8 @@ import static org.testng.Assert.assertEquals;
 public class TestPipelineStats
 {
     public static final PipelineStats EXPECTED = new PipelineStats(
+            0,
+
             new DateTime(100),
             new DateTime(101),
             new DateTime(102),

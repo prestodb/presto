@@ -61,6 +61,7 @@ public class ServerInfoResource
     public Response updateState(NodeState state)
             throws WebApplicationException
     {
+        requireNonNull(state, "state is null");
         switch (state) {
             case SHUTTING_DOWN:
                 shutdownHandler.requestShutdown();
@@ -91,5 +92,17 @@ public class ServerInfoResource
         else {
             return ACTIVE;
         }
+    }
+
+    @GET
+    @Path("coordinator")
+    @Produces(TEXT_PLAIN)
+    public Response getServerCoordinator()
+    {
+        if (serverInfo.isCoordinator()) {
+            return Response.ok().build();
+        }
+        // return 404 to allow load balancers to only send traffic to the coordinator
+        return Response.status(Response.Status.NOT_FOUND).build();
     }
 }

@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.type.VarbinaryOperators;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Base64;
@@ -25,6 +30,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.testng.Assert.assertEquals;
 
 public class TestVarbinaryFunctions
         extends AbstractTestFunctions
@@ -49,9 +55,9 @@ public class TestVarbinaryFunctions
     public void testLength()
             throws Exception
     {
-        assertFunction("length(CAST('' AS VARBINARY))", BIGINT, 0);
-        assertFunction("length(CAST('a' AS VARBINARY))", BIGINT, 1);
-        assertFunction("length(CAST('abc' AS VARBINARY))", BIGINT, 3);
+        assertFunction("length(CAST('' AS VARBINARY))", BIGINT, 0L);
+        assertFunction("length(CAST('a' AS VARBINARY))", BIGINT, 1L);
+        assertFunction("length(CAST('abc' AS VARBINARY))", BIGINT, 3L);
     }
 
     @Test
@@ -132,6 +138,29 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testToBigEndian64()
+            throws Exception
+    {
+        assertFunction("to_big_endian_64(0)", VARBINARY, sqlVarbinaryHex("0000000000000000"));
+        assertFunction("to_big_endian_64(1)", VARBINARY, sqlVarbinaryHex("0000000000000001"));
+        assertFunction("to_big_endian_64(9223372036854775807)", VARBINARY, sqlVarbinaryHex("7FFFFFFFFFFFFFFF"));
+        assertFunction("to_big_endian_64(-9223372036854775807)", VARBINARY, sqlVarbinaryHex("8000000000000001"));
+    }
+
+    @Test
+    public void testFromBigEndian64()
+            throws Exception
+    {
+        assertFunction("from_big_endian_64(from_hex('0000000000000000'))", BIGINT, 0L);
+        assertFunction("from_big_endian_64(from_hex('0000000000000001'))", BIGINT, 1L);
+        assertFunction("from_big_endian_64(from_hex('7FFFFFFFFFFFFFFF'))", BIGINT, 9223372036854775807L);
+        assertFunction("from_big_endian_64(from_hex('8000000000000001'))", BIGINT, -9223372036854775807L);
+        assertInvalidFunction("from_big_endian_64(from_hex(''))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_big_endian_64(from_hex('1111'))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_big_endian_64(from_hex('000000000000000011'))", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
     public void testMd5()
             throws Exception
     {
@@ -161,6 +190,28 @@ public class TestVarbinaryFunctions
     {
         assertFunction("sha512(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E"));
         assertFunction("sha512(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("8A4B59FB9188D09B989FF596AC9CEFBF2ED91DED8DCD9498E8BF2236814A92B23BE6867E7FC340880E514F8FDF97E1F147EA4B0FD6C2DA3557D0CF1C0B58A204"));
+    }
+
+    @Test
+    public void testXxhash64()
+            throws Exception
+    {
+        assertFunction("xxhash64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("EF46DB3751D8E999"));
+        assertFunction("xxhash64(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F9D96E0E1165E892"));
+    }
+
+    @Test
+    public void testHashCode()
+            throws Exception
+    {
+        Slice data = Slices.wrappedBuffer(ALL_BYTES);
+
+        Block block = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1, ALL_BYTES.length)
+                .writeBytes(data, 0, data.length())
+                .closeEntry()
+                .build();
+
+        assertEquals(VarbinaryOperators.hashCode(data), VARBINARY.hash(block, 0));
     }
 
     private static String encodeBase64(byte[] value)

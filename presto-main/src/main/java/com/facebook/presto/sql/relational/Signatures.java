@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.type.LikePatternType;
+import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -29,11 +31,12 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
+import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class Signatures
 {
@@ -46,6 +49,9 @@ public final class Signatures
     public static final String COALESCE = "COALESCE";
     public static final String IN = "IN";
     public static final String TRY = "TRY";
+    public static final String DEREFERENCE = "DEREFERENCE";
+    public static final String ROW_CONSTRUCTOR = "ROW_CONSTRUCTOR";
+    public static final String BIND = "$INTERNAL$BIND";
 
     private Signatures()
     {
@@ -54,7 +60,7 @@ public final class Signatures
     // **************** sql operators ****************
     public static Signature notSignature()
     {
-        return new Signature("not", SCALAR, StandardTypes.BOOLEAN, ImmutableList.of(StandardTypes.BOOLEAN));
+        return new Signature("not", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN)));
     }
 
     public static Signature betweenSignature(Type valueType, Type minType, Type maxType)
@@ -64,12 +70,12 @@ public final class Signatures
 
     public static Signature likeSignature()
     {
-        return internalScalarFunction("LIKE", StandardTypes.BOOLEAN, StandardTypes.VARCHAR, LikePatternType.NAME);
+        return internalScalarFunction("LIKE", parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(LikePatternType.NAME));
     }
 
     public static Signature likePatternSignature()
     {
-        return internalScalarFunction("LIKE_PATTERN", LikePatternType.NAME, StandardTypes.VARCHAR, StandardTypes.VARCHAR);
+        return internalScalarFunction("LIKE_PATTERN", parseTypeSignature(LikePatternType.NAME), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR));
     }
 
     public static Signature castSignature(Type returnType, Type valueType)
@@ -85,7 +91,7 @@ public final class Signatures
 
     public static Signature logicalExpressionSignature(LogicalBinaryExpression.Type expressionType)
     {
-        return internalScalarFunction(expressionType.name(), StandardTypes.BOOLEAN, StandardTypes.BOOLEAN, StandardTypes.BOOLEAN);
+        return internalScalarFunction(expressionType.name(), parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN));
     }
 
     public static Signature arithmeticNegationSignature(Type returnType, Type valueType)
@@ -113,7 +119,7 @@ public final class Signatures
         return internalScalarFunction(ARRAY_CONSTRUCTOR, returnType, argumentTypes);
     }
 
-    public static Signature comparisonExpressionSignature(ComparisonExpression.Type expressionType, Type leftType, Type rightType)
+    public static Signature comparisonExpressionSignature(ComparisonExpressionType expressionType, Type leftType, Type rightType)
     {
         for (OperatorType operatorType : OperatorType.values()) {
             if (operatorType.name().equals(expressionType.name())) {
@@ -149,10 +155,20 @@ public final class Signatures
         return new Signature(TRY, SCALAR, returnType.getTypeSignature());
     }
 
+    public static Signature bindSignature(Type returnType, Type valueType, Type functionType)
+    {
+        return new Signature(BIND, SCALAR, returnType.getTypeSignature(), valueType.getTypeSignature(), functionType.getTypeSignature());
+    }
+
     // **************** functions that require varargs and/or complex types (e.g., lists) ****************
     public static Signature inSignature()
     {
-        return internalScalarFunction(IN, StandardTypes.BOOLEAN);
+        return internalScalarFunction(IN, parseTypeSignature(StandardTypes.BOOLEAN));
+    }
+
+    public static Signature rowConstructorSignature(Type returnType, List<Type> argumentTypes)
+    {
+        return internalScalarFunction(ROW_CONSTRUCTOR, returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }
 
     // **************** functions that need to do special null handling ****************
@@ -164,5 +180,10 @@ public final class Signatures
     public static Signature coalesceSignature(Type returnType, List<Type> argumentTypes)
     {
         return internalScalarFunction(COALESCE, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature));
+    }
+
+    public static Signature dereferenceSignature(Type returnType, RowType rowType)
+    {
+        return internalScalarFunction(DEREFERENCE, returnType.getTypeSignature(), ImmutableList.of(rowType.getTypeSignature(), BigintType.BIGINT.getTypeSignature()));
     }
 }

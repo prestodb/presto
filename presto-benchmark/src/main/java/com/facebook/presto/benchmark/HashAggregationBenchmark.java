@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -27,15 +29,21 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HashAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
 {
+    private final InternalAggregationFunction doubleSum;
+
     public HashAggregationBenchmark(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hash_agg", 5, 25);
+
+        doubleSum = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 
     @Override
@@ -43,16 +51,19 @@ public class HashAggregationBenchmark
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderstatus", "totalprice");
         List<Type> types = ImmutableList.of(tableScanOperator.getTypes().get(0));
-        HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(1,
+        HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
+                1,
                 new PlanNodeId("test"),
                 types,
                 Ints.asList(0),
+                ImmutableList.of(),
                 Step.SINGLE,
-                ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0)),
+                ImmutableList.of(doubleSum.bind(ImmutableList.of(1), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                JOIN_COMPILER);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

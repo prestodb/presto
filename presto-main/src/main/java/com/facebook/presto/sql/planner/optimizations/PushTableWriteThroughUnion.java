@@ -27,11 +27,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 public class PushTableWriteThroughUnion
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -66,6 +67,15 @@ public class PushTableWriteThroughUnion
         {
             PlanNode sourceNode = context.rewrite(node.getSource());
 
+            if (node.getPartitioningScheme().isPresent()) {
+                // The primary incentive of this optimizer is to increase the parallelism for table
+                // write. For a table with partitioning scheme, parallelism for table writing is
+                // guaranteed regardless of this optimizer. The level of local parallelism will be
+                // determined by LocalExecutionPlanner separately, and shouldn't be a concern of
+                // this optimizer.
+                return node;
+            }
+
             // if sourceNode is not a UNION ALL, don't perform this optimization. A UNION DISTINCT would have an aggregationNode as source
             if (!(sourceNode instanceof UnionNode)) {
                 return node;
@@ -83,15 +93,17 @@ public class PushTableWriteThroughUnion
                     mappings.put(outputSymbol, newSymbol);
                 }
 
+                int index = i;
                 rewrittenSources.add(new TableWriterNode(
                         idAllocator.getNextId(),
                         unionOriginalSource,
                         node.getTarget(),
-                        unionNode.sourceOutputLayout(i),
+                        node.getColumns().stream()
+                            .map(column -> unionNode.getSymbolMapping().get(column).get(index))
+                            .collect(Collectors.toList()),
                         node.getColumnNames(),
                         newSymbols.build(),
-                        node.getSampleWeightSymbol(),
-                        node.getPartitionFunction()));
+                        node.getPartitioningScheme()));
             }
 
             return new UnionNode(idAllocator.getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));

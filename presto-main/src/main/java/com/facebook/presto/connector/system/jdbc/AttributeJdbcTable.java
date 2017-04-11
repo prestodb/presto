@@ -23,7 +23,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class AttributeJdbcTable
         extends JdbcTable
@@ -31,26 +31,26 @@ public class AttributeJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "attributes");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("type_cat", VARCHAR)
-            .column("type_schem", VARCHAR)
-            .column("type_name", VARCHAR)
-            .column("attr_name", VARCHAR)
+            .column("type_cat", createUnboundedVarcharType())
+            .column("type_schem", createUnboundedVarcharType())
+            .column("type_name", createUnboundedVarcharType())
+            .column("attr_name", createUnboundedVarcharType())
             .column("data_type", BIGINT)
-            .column("attr_type_name", VARCHAR)
+            .column("attr_type_name", createUnboundedVarcharType())
             .column("attr_size", BIGINT)
             .column("decimal_digits", BIGINT)
             .column("num_prec_radix", BIGINT)
             .column("nullable", BIGINT)
-            .column("remarks", VARCHAR)
-            .column("attr_def", VARCHAR)
+            .column("remarks", createUnboundedVarcharType())
+            .column("attr_def", createUnboundedVarcharType())
             .column("sql_data_type", BIGINT)
             .column("sql_datetime_sub", BIGINT)
             .column("char_octet_length", BIGINT)
             .column("ordinal_position", BIGINT)
-            .column("is_nullable", VARCHAR)
-            .column("scope_catalog", VARCHAR)
-            .column("scope_schema", VARCHAR)
-            .column("scope_table", VARCHAR)
+            .column("is_nullable", createUnboundedVarcharType())
+            .column("scope_catalog", createUnboundedVarcharType())
+            .column("scope_schema", createUnboundedVarcharType())
+            .column("scope_table", createUnboundedVarcharType())
             .column("source_data_type", BIGINT)
             .build();
 

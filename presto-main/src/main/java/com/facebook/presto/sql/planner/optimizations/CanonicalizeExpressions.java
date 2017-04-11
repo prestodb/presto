@@ -18,7 +18,9 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -38,8 +40,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
 import java.util.Map;
 import java.util.Optional;
@@ -47,7 +47,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class CanonicalizeExpressions
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     public static Expression canonicalizeExpression(Expression expression)
     {
@@ -70,10 +70,33 @@ public class CanonicalizeExpressions
             extends SimplePlanRewriter<Void>
     {
         @Override
+        public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
+        {
+            if (node.getFilter().isPresent()) {
+                Expression canonicalizedExpression = canonicalizeExpression(node.getFilter().get());
+                if (!canonicalizedExpression.equals(node.getFilter().get())) {
+                    return new JoinNode(
+                            node.getId(),
+                            node.getType(),
+                            context.rewrite(node.getLeft()),
+                            context.rewrite(node.getRight()),
+                            node.getCriteria(),
+                            node.getOutputSymbols(),
+                            Optional.of(canonicalizedExpression),
+                            node.getLeftHashSymbol(),
+                            node.getRightHashSymbol(),
+                            node.getDistributionType());
+                }
+            }
+
+            return context.defaultRewrite(node);
+        }
+
+        @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), CanonicalizeExpressions::canonicalizeExpression));
+            Assignments assignments = node.getAssignments().rewrite(CanonicalizeExpressions::canonicalizeExpression);
             return new ProjectNode(node.getId(), source, assignments);
         }
 
@@ -137,15 +160,15 @@ public class CanonicalizeExpressions
 
             switch (node.getType()) {
                 case DATE:
-                    return new FunctionCall(new QualifiedName("current_date"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("current_date"), ImmutableList.of());
                 case TIME:
-                    return new FunctionCall(new QualifiedName("current_time"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("current_time"), ImmutableList.of());
                 case LOCALTIME:
-                    return new FunctionCall(new QualifiedName("localtime"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("localtime"), ImmutableList.of());
                 case TIMESTAMP:
-                    return new FunctionCall(new QualifiedName("current_timestamp"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("current_timestamp"), ImmutableList.of());
                 case LOCALTIMESTAMP:
-                    return new FunctionCall(new QualifiedName("localtimestamp"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("localtimestamp"), ImmutableList.of());
                 default:
                     throw new UnsupportedOperationException("not yet implemented: " + node.getType());
             }
@@ -158,35 +181,35 @@ public class CanonicalizeExpressions
 
             switch (node.getField()) {
                 case YEAR:
-                    return new FunctionCall(new QualifiedName("year"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("year"), ImmutableList.of(value));
                 case QUARTER:
-                    return new FunctionCall(new QualifiedName("quarter"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("quarter"), ImmutableList.of(value));
                 case MONTH:
-                    return new FunctionCall(new QualifiedName("month"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("month"), ImmutableList.of(value));
                 case WEEK:
-                    return new FunctionCall(new QualifiedName("week"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("week"), ImmutableList.of(value));
                 case DAY:
                 case DAY_OF_MONTH:
-                    return new FunctionCall(new QualifiedName("day"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("day"), ImmutableList.of(value));
                 case DAY_OF_WEEK:
                 case DOW:
-                    return new FunctionCall(new QualifiedName("day_of_week"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("day_of_week"), ImmutableList.of(value));
                 case DAY_OF_YEAR:
                 case DOY:
-                    return new FunctionCall(new QualifiedName("day_of_year"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("day_of_year"), ImmutableList.of(value));
                 case YEAR_OF_WEEK:
                 case YOW:
-                    return new FunctionCall(new QualifiedName("year_of_week"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("year_of_week"), ImmutableList.of(value));
                 case HOUR:
-                    return new FunctionCall(new QualifiedName("hour"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("hour"), ImmutableList.of(value));
                 case MINUTE:
-                    return new FunctionCall(new QualifiedName("minute"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("minute"), ImmutableList.of(value));
                 case SECOND:
-                    return new FunctionCall(new QualifiedName("second"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("second"), ImmutableList.of(value));
                 case TIMEZONE_MINUTE:
-                    return new FunctionCall(new QualifiedName("timezone_minute"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("timezone_minute"), ImmutableList.of(value));
                 case TIMEZONE_HOUR:
-                    return new FunctionCall(new QualifiedName("timezone_hour"), ImmutableList.of(value));
+                    return new FunctionCall(QualifiedName.of("timezone_hour"), ImmutableList.of(value));
             }
 
             throw new UnsupportedOperationException("not yet implemented: " + node.getField());

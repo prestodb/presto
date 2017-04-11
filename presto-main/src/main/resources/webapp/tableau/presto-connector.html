@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <script src="/vendor/jquery/jquery-1.11.1.min.js"></script>
+    <script src="/vendor/jquery/jquery-2.2.3.min.js"></script>
     <script src="/vendor/tableau/tableauwdc-1.1.0.js"></script>
     <script src="presto-client.js" type="text/javascript"></script>
 
@@ -135,8 +135,6 @@
 
         function populateCatalogs() {
             var catalogClient = new StatementClient({
-                    'catalog': 'hive',
-                    'schema': 'default',
                     'query': 'show catalogs'
                 },
                 function() {},
@@ -191,8 +189,8 @@
         }
 
         populateCatalogs();
-        // initially load the schemas of the hive catalog
-        populateSchemas('hive');
+        // initially load the schemas of the first catalog
+        populateSchemas($('#catalog option:selected').val());
 
         document.getElementById("catalog").addEventListener('change',
             function() {

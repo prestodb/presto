@@ -13,13 +13,22 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.OrcTester.TempFile;
-import com.facebook.presto.orc.metadata.IntegerStatistics;
+import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.spi.block.Block;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
+import org.apache.hadoop.hive.ql.io.orc.NullMemoryManager;
+import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
+import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
@@ -31,13 +40,16 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
+import java.util.Map;
 
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
 import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderPositions
@@ -46,26 +58,26 @@ public class TestOrcReaderPositions
     public void testEntireFile()
             throws Exception
     {
-        try (TempFile tempFile = new TempFile("test", "orc")) {
+        try (TempFile tempFile = new TempFile()) {
             createMultiStripeFile(tempFile.getFile());
 
-            OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), OrcPredicate.TRUE, BIGINT);
-            assertEquals(reader.getReaderRowCount(), 100);
-            assertEquals(reader.getReaderPosition(), 0);
-            assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());
-            assertEquals(reader.getFilePosition(), reader.getReaderPosition());
-
-            for (int i = 0; i < 5; i++) {
-                assertEquals(reader.nextBatch(), 20);
-                assertEquals(reader.getReaderPosition(), i * 20L);
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), OrcPredicate.TRUE, BIGINT)) {
+                assertEquals(reader.getReaderRowCount(), 100);
+                assertEquals(reader.getReaderPosition(), 0);
+                assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());
                 assertEquals(reader.getFilePosition(), reader.getReaderPosition());
-                assertCurrentBatch(reader, i);
-            }
 
-            assertEquals(reader.nextBatch(), -1);
-            assertEquals(reader.getReaderPosition(), 100);
-            assertEquals(reader.getFilePosition(), reader.getReaderPosition());
-            reader.close();
+                for (int i = 0; i < 5; i++) {
+                    assertEquals(reader.nextBatch(), 20);
+                    assertEquals(reader.getReaderPosition(), i * 20L);
+                    assertEquals(reader.getFilePosition(), reader.getReaderPosition());
+                    assertCurrentBatch(reader, i);
+                }
+
+                assertEquals(reader.nextBatch(), -1);
+                assertEquals(reader.getReaderPosition(), 100);
+                assertEquals(reader.getFilePosition(), reader.getReaderPosition());
+            }
         }
     }
 
@@ -73,7 +85,7 @@ public class TestOrcReaderPositions
     public void testStripeSkipping()
             throws Exception
     {
-        try (TempFile tempFile = new TempFile("test", "orc")) {
+        try (TempFile tempFile = new TempFile()) {
             createMultiStripeFile(tempFile.getFile());
 
             // test reading second and fourth stripes
@@ -86,28 +98,28 @@ public class TestOrcReaderPositions
                         ((stats.getMin() == 180) && (stats.getMax() == 237));
             };
 
-            OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), predicate, BIGINT);
-            assertEquals(reader.getFileRowCount(), 100);
-            assertEquals(reader.getReaderRowCount(), 40);
-            assertEquals(reader.getFilePosition(), 0);
-            assertEquals(reader.getReaderPosition(), 0);
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), predicate, BIGINT)) {
+                assertEquals(reader.getFileRowCount(), 100);
+                assertEquals(reader.getReaderRowCount(), 40);
+                assertEquals(reader.getFilePosition(), 0);
+                assertEquals(reader.getReaderPosition(), 0);
 
-            // second stripe
-            assertEquals(reader.nextBatch(), 20);
-            assertEquals(reader.getReaderPosition(), 0);
-            assertEquals(reader.getFilePosition(), 20);
-            assertCurrentBatch(reader, 1);
+                // second stripe
+                assertEquals(reader.nextBatch(), 20);
+                assertEquals(reader.getReaderPosition(), 0);
+                assertEquals(reader.getFilePosition(), 20);
+                assertCurrentBatch(reader, 1);
 
-            // fourth stripe
-            assertEquals(reader.nextBatch(), 20);
-            assertEquals(reader.getReaderPosition(), 20);
-            assertEquals(reader.getFilePosition(), 60);
-            assertCurrentBatch(reader, 3);
+                // fourth stripe
+                assertEquals(reader.nextBatch(), 20);
+                assertEquals(reader.getReaderPosition(), 20);
+                assertEquals(reader.getFilePosition(), 60);
+                assertCurrentBatch(reader, 3);
 
-            assertEquals(reader.nextBatch(), -1);
-            assertEquals(reader.getReaderPosition(), 40);
-            assertEquals(reader.getFilePosition(), 100);
-            reader.close();
+                assertEquals(reader.nextBatch(), -1);
+                assertEquals(reader.getReaderPosition(), 40);
+                assertEquals(reader.getFilePosition(), 100);
+            }
         }
     }
 
@@ -115,7 +127,7 @@ public class TestOrcReaderPositions
     public void testRowGroupSkipping()
             throws Exception
     {
-        try (TempFile tempFile = new TempFile("test", "orc")) {
+        try (TempFile tempFile = new TempFile()) {
             // create single strip file with multiple row groups
             int rowCount = 142_000;
             createSequentialFile(tempFile.getFile(), rowCount);
@@ -129,34 +141,52 @@ public class TestOrcReaderPositions
                 return (stats.getMin() == 50_000) || (stats.getMin() == 60_000);
             };
 
-            OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), predicate, BIGINT);
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), predicate, BIGINT)) {
+                assertEquals(reader.getFileRowCount(), rowCount);
+                assertEquals(reader.getReaderRowCount(), rowCount);
+                assertEquals(reader.getFilePosition(), 0);
+                assertEquals(reader.getReaderPosition(), 0);
 
-            assertEquals(reader.getFileRowCount(), rowCount);
-            assertEquals(reader.getReaderRowCount(), rowCount);
-            assertEquals(reader.getFilePosition(), 0);
-            assertEquals(reader.getReaderPosition(), 0);
+                long position = 50_000;
+                while (true) {
+                    int batchSize = reader.nextBatch();
+                    if (batchSize == -1) {
+                        break;
+                    }
 
-            long position = 50_000;
-            while (true) {
-                int batchSize = reader.nextBatch();
-                if (batchSize == -1) {
-                    break;
+                    Block block = reader.readBlock(BIGINT, 0);
+                    for (int i = 0; i < batchSize; i++) {
+                        assertEquals(BIGINT.getLong(block, i), position + i);
+                    }
+
+                    assertEquals(reader.getFilePosition(), position);
+                    assertEquals(reader.getReaderPosition(), position);
+                    position += batchSize;
                 }
 
-                Block block = reader.readBlock(BIGINT, 0);
-                for (int i = 0; i < batchSize; i++) {
-                    assertEquals(BIGINT.getLong(block, i), position + i);
-                }
-
-                assertEquals(reader.getFilePosition(), position);
-                assertEquals(reader.getReaderPosition(), position);
-                position += batchSize;
+                assertEquals(position, 70_000);
+                assertEquals(reader.getFilePosition(), rowCount);
+                assertEquals(reader.getReaderPosition(), rowCount);
             }
+        }
+    }
 
-            assertEquals(position, 70_000);
-            assertEquals(reader.getFilePosition(), rowCount);
-            assertEquals(reader.getReaderPosition(), rowCount);
-            reader.close();
+    @Test
+    public void testReadUserMetadata()
+            throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            Map<String, String> metadata = ImmutableMap.of(
+                    "a", "ala",
+                    "b", "ma",
+                    "c", "kota");
+            createFileWithOnlyUserMetadata(tempFile.getFile(), metadata);
+
+            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, DataSize.Unit.MEGABYTE), new DataSize(1, DataSize.Unit.MEGABYTE), new DataSize(1, DataSize.Unit.MEGABYTE));
+            OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader(), new DataSize(1, DataSize.Unit.MEGABYTE), new DataSize(1, DataSize.Unit.MEGABYTE));
+            Footer footer = orcReader.getFooter();
+            Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);
+            assertEquals(readMetadata, metadata);
         }
     }
 
@@ -173,10 +203,10 @@ public class TestOrcReaderPositions
     private static void createMultiStripeFile(File file)
             throws IOException, ReflectiveOperationException, SerDeException
     {
-        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, javaLongObjectInspector);
+        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, BIGINT);
 
         @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
-        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", javaLongObjectInspector);
+        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", BIGINT);
         Object row = objectInspector.create();
         StructField field = objectInspector.getAllStructFieldRefs().get(0);
 
@@ -193,6 +223,21 @@ public class TestOrcReaderPositions
         writer.close(false);
     }
 
+    private static void createFileWithOnlyUserMetadata(File file, Map<String, String> metadata)
+            throws IOException
+    {
+        Configuration conf = new Configuration();
+        OrcFile.WriterOptions writerOptions = new OrcWriterOptions(conf)
+                .memory(new NullMemoryManager(conf))
+                .inspector(createSettableStructObjectInspector("test", BIGINT))
+                .compress(SNAPPY);
+        Writer writer = OrcFile.createWriter(new Path(file.toURI()), writerOptions);
+        for (Map.Entry<String, String> entry : metadata.entrySet()) {
+            writer.addUserMetadata(entry.getKey(), ByteBuffer.wrap(entry.getValue().getBytes(UTF_8)));
+        }
+        writer.close();
+    }
+
     private static void flushWriter(FileSinkOperator.RecordWriter writer)
             throws IOException, ReflectiveOperationException
     {
@@ -206,10 +251,10 @@ public class TestOrcReaderPositions
     private static void createSequentialFile(File file, int count)
             throws IOException, ReflectiveOperationException, SerDeException
     {
-        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, javaLongObjectInspector);
+        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, BIGINT);
 
         @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
-        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", javaLongObjectInspector);
+        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", BIGINT);
         Object row = objectInspector.create();
         StructField field = objectInspector.getAllStructFieldRefs().get(0);
 

@@ -14,11 +14,14 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
@@ -34,32 +37,43 @@ public class TestJsonOperators
     public void testCastToBigint()
     {
         assertFunction("cast(JSON 'null' as BIGINT)", BIGINT, null);
-        assertFunction("cast(JSON '128' as BIGINT)", BIGINT, 128);
+        assertFunction("cast(JSON '128' as BIGINT)", BIGINT, 128L);
         assertInvalidFunction("cast(JSON '12345678901234567890' as BIGINT)", INVALID_CAST_ARGUMENT);
-        assertFunction("cast(JSON '128.9' as BIGINT)", BIGINT, 129);
+        assertFunction("cast(JSON '128.9' as BIGINT)", BIGINT, 129L);
         assertFunction("cast(JSON '1234567890123456789.0' as BIGINT)", BIGINT, 1234567890123456768L); // loss of precision
         assertFunction("cast(JSON '12345678901234567890.0' as BIGINT)", BIGINT, 9223372036854775807L); // overflow. unexpected behavior. coherent with rest of Presto.
-        assertFunction("cast(JSON '1e-324' as BIGINT)", BIGINT, 0);
+        assertFunction("cast(JSON '1e-324' as BIGINT)", BIGINT, 0L);
         assertInvalidFunction("cast(JSON '1e309' as BIGINT)", INVALID_CAST_ARGUMENT);
-        assertFunction("cast(JSON 'true' as BIGINT)", BIGINT, 1);
-        assertFunction("cast(JSON 'false' as BIGINT)", BIGINT, 0);
-        assertFunction("cast(JSON '\"128\"' as BIGINT)", BIGINT, 128);
+        assertFunction("cast(JSON 'true' as BIGINT)", BIGINT, 1L);
+        assertFunction("cast(JSON 'false' as BIGINT)", BIGINT, 0L);
+        assertFunction("cast(JSON '\"128\"' as BIGINT)", BIGINT, 128L);
         assertInvalidFunction("cast(JSON '\"12345678901234567890\"' as BIGINT)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(JSON '\"128.9\"' as BIGINT)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(JSON '\"true\"' as BIGINT)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(JSON '\"false\"' as BIGINT)", INVALID_CAST_ARGUMENT);
 
-        assertFunction("cast(JSON ' 128' as BIGINT)", BIGINT, 128); // leading space
+        assertFunction("cast(JSON ' 128' as BIGINT)", BIGINT, 128L); // leading space
 
-        assertFunction("cast(json_extract('{\"x\":999}', '$.x') as BIGINT)", BIGINT, 999);
+        assertFunction("cast(json_extract('{\"x\":999}', '$.x') as BIGINT)", BIGINT, 999L);
         assertInvalidCast("cast(JSON '{ \"x\" : 123}' as BIGINT)");
     }
 
     @Test
-    public void testCastFromBigint()
+    public void testTypeConstructor()
+            throws Exception
     {
+        assertFunction("JSON '123'", JSON, "123");
+        assertFunction("JSON '[4,5,6]'", JSON, "[4,5,6]");
+        assertFunction("JSON '{ \"a\": 789 }'", JSON, "{\"a\":789}");
+    }
+
+    @Test
+    public void testCastFromIntegrals()
+    {
+        assertFunction("cast(cast (null as integer) as JSON)", JSON, null);
         assertFunction("cast(cast (null as bigint) as JSON)", JSON, null);
         assertFunction("cast(128 as JSON)", JSON, "128");
+        assertFunction("cast(BIGINT '128' as JSON)", JSON, "128");
     }
 
     @Test
@@ -98,6 +112,30 @@ public class TestJsonOperators
         assertFunction("cast(nan() as JSON)", JSON, "\"NaN\"");
         assertFunction("cast(infinity() as JSON)", JSON, "\"Infinity\"");
         assertFunction("cast(-infinity() as JSON)", JSON, "\"-Infinity\"");
+    }
+
+    @Test
+    public void testCastToDecimal()
+            throws Exception
+    {
+        assertFunction("cast(JSON 'null' as DECIMAL(10,3))", createDecimalType(10, 3), null);
+        assertFunction("cast(JSON '128' as DECIMAL(10,3))", createDecimalType(10, 3), decimal("128.000"));
+        assertFunction("cast(cast(DECIMAL '123456789012345678901234567890.12345678' as JSON) as DECIMAL(38,8))", createDecimalType(38, 8), decimal("123456789012345678901234567890.12345678"));
+        assertFunction("cast(JSON '123.456' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("123.45600"));
+        assertFunction("cast(JSON 'true' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("1.00000"));
+        assertFunction("cast(JSON 'false' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("0.00000"));
+        assertInvalidCast("cast(JSON '1234567890123456' as DECIMAL(10,3))", "Cannot cast input json to DECIMAL(10,3)");
+        assertInvalidCast("cast(JSON '{ \"x\" : 123}' as DECIMAL(10,3))", "Cannot cast '{\"x\":123}' to DECIMAL(10,3)");
+        assertInvalidCast("cast(JSON '\"abc\"' as DECIMAL(10,3))", "Cannot cast '\"abc\"' to DECIMAL(10,3)");
+    }
+
+    @Test
+    public void testCastFromDecimal()
+            throws Exception
+    {
+        assertFunction("cast(cast(null as decimal(5,2)) as JSON)", JSON, null);
+        assertFunction("cast(DECIMAL '3.14' as JSON)", JSON, "3.14");
+        assertFunction("cast(DECIMAL '12345678901234567890.123456789012345678' as JSON)", JSON, "12345678901234567890.123456789012345678");
     }
 
     @Test
@@ -160,5 +198,17 @@ public class TestJsonOperators
         assertFunction("cast(cast (null as varchar) as JSON)", JSON, null);
         assertFunction("cast('abc' as JSON)", JSON, "\"abc\"");
         assertFunction("cast('\"a\":2' as JSON)", JSON, "\"\\\"a\\\":2\"");
+    }
+
+    @Test
+    public void testCastFromTimestamp()
+    {
+        assertFunction("cast(cast (null as timestamp) as JSON)", JSON, null);
+        assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
+    }
+
+    private static SqlTimestamp sqlTimestamp(long millisUtc)
+    {
+        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 }

@@ -21,21 +21,23 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public final class RaptorColumnHandle
         implements ColumnHandle
 {
-    // This is intentionally not named "$sampleWeight" because column names are lowercase and case insensitive
-    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "$sample_weight";
-
     // Generated rowId column for updates
     private static final long SHARD_ROW_ID_COLUMN_ID = -1;
     private static final String SHARD_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
     public static final long SHARD_UUID_COLUMN_ID = -2;
     public static final String SHARD_UUID_COLUMN_NAME = "$shard_uuid";
+    public static final Type SHARD_UUID_COLUMN_TYPE = createVarcharType(36);
+
+    public static final long BUCKET_NUMBER_COLUMN_ID = -3;
+    public static final String BUCKET_NUMBER_COLUMN_NAME = "$bucket_number";
 
     private final String connectorId;
     private final String columnName;
@@ -114,6 +116,11 @@ public final class RaptorColumnHandle
         return isShardUuidColumn(columnId);
     }
 
+    public boolean isBucketNumber()
+    {
+        return isBucketNumberColumn(columnId);
+    }
+
     public static boolean isShardRowIdColumn(long columnId)
     {
         return columnId == SHARD_ROW_ID_COLUMN_ID;
@@ -131,6 +138,21 @@ public final class RaptorColumnHandle
 
     public static RaptorColumnHandle shardUuidColumnHandle(String connectorId)
     {
-        return new RaptorColumnHandle(connectorId, SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_ID, VARCHAR);
+        return new RaptorColumnHandle(connectorId, SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_ID, SHARD_UUID_COLUMN_TYPE);
+    }
+
+    public static boolean isBucketNumberColumn(long columnId)
+    {
+        return columnId == BUCKET_NUMBER_COLUMN_ID;
+    }
+
+    public static RaptorColumnHandle bucketNumberColumnHandle(String connectorId)
+    {
+        return new RaptorColumnHandle(connectorId, BUCKET_NUMBER_COLUMN_NAME, BUCKET_NUMBER_COLUMN_ID, INTEGER);
+    }
+
+    public static boolean isHiddenColumn(long columnId)
+    {
+        return columnId < 0;
     }
 }

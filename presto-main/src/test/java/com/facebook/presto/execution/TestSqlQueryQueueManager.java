@@ -31,6 +31,7 @@ public class TestSqlQueryQueueManager
         parse("queue_config.json");
         assertFails("queue_config_bad_cycle.json", "Queues must not contain a cycle. The shortest cycle found is \\[q(.), q., q., q., q\\1\\]");
         assertFails("queue_config_bad_selfcycle.json", "Queues must not contain a cycle. The shortest cycle found is \\[q1, q1\\]");
+        assertFails("queue_config_bad_out_degree.json", "Queues must form a tree. Queue q0 feeds into \\[q1, q2\\]");
     }
 
     private void parse(String fileName)

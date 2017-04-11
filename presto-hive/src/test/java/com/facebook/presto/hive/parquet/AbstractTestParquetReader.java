@@ -45,10 +45,12 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Functions.compose;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
@@ -150,15 +152,15 @@ public abstract class AbstractTestParquetReader
     {
         tester.testRoundTrip(javaByteObjectInspector,
                 transform(writeValues, AbstractTestParquetReader::intToByte),
-                AbstractTestParquetReader::byteToLong,
-                BIGINT);
+                AbstractTestParquetReader::byteToInt,
+                INTEGER);
 
         tester.testRoundTrip(javaShortObjectInspector,
                 transform(writeValues, AbstractTestParquetReader::intToShort),
-                AbstractTestParquetReader::shortToLong,
-                BIGINT);
+                AbstractTestParquetReader::shortToInt,
+                INTEGER);
 
-        tester.testRoundTrip(javaIntObjectInspector, writeValues, AbstractTestParquetReader::intToLong, BIGINT);
+        tester.testRoundTrip(javaIntObjectInspector, writeValues, writeValues, INTEGER);
         tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, AbstractTestParquetReader::intToLong), BIGINT);
         tester.testRoundTrip(javaTimestampObjectInspector,
                 transform(writeValues, AbstractTestParquetReader::intToTimestamp),
@@ -175,7 +177,21 @@ public abstract class AbstractTestParquetReader
     public void testFloatSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), AbstractTestParquetReader::floatToDouble, DOUBLE);
+        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), REAL);
+    }
+
+    @Test
+    public void testFloatNaNInfinity()
+            throws Exception
+    {
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(-1000.0f, Float.NEGATIVE_INFINITY, 1.23f), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(0.0f, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY), REAL);
+
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, -0.0f, 1.0f), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, -1.0f, Float.POSITIVE_INFINITY), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, 1.0f), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY), REAL);
     }
 
     @Test
@@ -203,35 +219,35 @@ public abstract class AbstractTestParquetReader
     public void testStringUnicode()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000), VARCHAR);
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000), createUnboundedVarcharType());
     }
 
     @Test
     public void testStringDirectSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString), VARCHAR);
+        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString), createUnboundedVarcharType());
     }
 
     @Test
     public void testStringDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000), VARCHAR);
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000), createUnboundedVarcharType());
     }
 
     @Test
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")), VARCHAR);
+        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")), createUnboundedVarcharType());
     }
 
     @Test
     public void testEmptyStringSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000), VARCHAR);
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000), createUnboundedVarcharType());
     }
 
     @Test
@@ -359,14 +375,6 @@ public abstract class AbstractTestParquetReader
         return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.integers());
     }
 
-    private static Double floatToDouble(Float input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return input.doubleValue();
-    }
-
     private static Byte intToByte(Integer input)
     {
         if (input == null) {
@@ -383,19 +391,27 @@ public abstract class AbstractTestParquetReader
         return Shorts.checkedCast(input);
     }
 
-    private static Long byteToLong(Byte input)
+    private static Integer byteToInt(Byte input)
     {
-        return toLong(input);
+        return toInteger(input);
     }
 
-    private static Long shortToLong(Short input)
+    private static Integer shortToInt(Short input)
     {
-        return toLong(input);
+        return toInteger(input);
     }
 
     private static Long intToLong(Integer input)
     {
         return toLong(input);
+    }
+
+    private static <N extends Number> Integer toInteger(N input)
+    {
+        if (input == null) {
+            return null;
+        }
+        return input.intValue();
     }
 
     private static <N extends Number> Long toLong(N input)

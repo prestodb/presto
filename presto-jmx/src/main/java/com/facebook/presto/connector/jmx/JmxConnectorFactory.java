@@ -13,34 +13,32 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.presto.connector.jmx.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.common.base.Throwables;
+import com.google.inject.Injector;
+import com.google.inject.Scopes;
+import io.airlift.bootstrap.Bootstrap;
 
 import javax.management.MBeanServer;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class JmxConnectorFactory
         implements ConnectorFactory
 {
     private final MBeanServer mbeanServer;
-    private final NodeManager nodeManager;
 
-    public JmxConnectorFactory(MBeanServer mbeanServer, NodeManager nodeManager)
+    public JmxConnectorFactory(MBeanServer mbeanServer)
     {
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -56,34 +54,32 @@ public class JmxConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties)
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
-        return new Connector()
-        {
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
-            {
-                checkConnectorSupports(READ_COMMITTED, isolationLevel);
-                return JmxTransactionHandle.INSTANCE;
-            }
+        try {
+            Bootstrap app = new Bootstrap(
+                    binder -> {
+                        configBinder(binder).bindConfig(JmxConnectorConfig.class);
+                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(mbeanServer));
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                        binder.bind(JmxConnector.class).in(Scopes.SINGLETON);
+                        binder.bind(JmxHistoricalData.class).in(Scopes.SINGLETON);
+                        binder.bind(JmxMetadata.class).in(Scopes.SINGLETON);
+                        binder.bind(JmxSplitManager.class).in(Scopes.SINGLETON);
+                        binder.bind(JmxPeriodicSampler.class).in(Scopes.SINGLETON);
+                        binder.bind(JmxRecordSetProvider.class).in(Scopes.SINGLETON);
+                    }
+            );
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
-            {
-                return new JmxMetadata(connectorId, mbeanServer);
-            }
+            Injector injector = app.strictConfig()
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .initialize();
 
-            @Override
-            public ConnectorSplitManager getSplitManager()
-            {
-                return new JmxSplitManager(connectorId, nodeManager);
-            }
-
-            @Override
-            public ConnectorRecordSetProvider getRecordSetProvider()
-            {
-                return new JmxRecordSetProvider(mbeanServer, nodeManager.getCurrentNode().getNodeIdentifier());
-            }
-        };
+            return injector.getInstance(JmxConnector.class);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 }

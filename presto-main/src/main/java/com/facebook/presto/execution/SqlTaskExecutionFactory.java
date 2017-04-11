@@ -16,12 +16,12 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -39,7 +39,6 @@ public class SqlTaskExecutionFactory
 
     private final LocalExecutionPlanner planner;
     private final QueryMonitor queryMonitor;
-    private final DataSize operatorPreAllocatedMemory;
     private final boolean verboseStats;
     private final boolean cpuTimerEnabled;
 
@@ -55,25 +54,23 @@ public class SqlTaskExecutionFactory
         this.planner = requireNonNull(planner, "planner is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         requireNonNull(config, "config is null");
-        this.operatorPreAllocatedMemory = config.getOperatorPreAllocatedMemory();
         this.verboseStats = config.isVerboseStats();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
     }
 
-    public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, SharedBuffer sharedBuffer, PlanFragment fragment, List<TaskSource> sources)
+    public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, OutputBuffer outputBuffer, PlanFragment fragment, List<TaskSource> sources)
     {
         boolean verboseStats = getVerboseStats(session);
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
-                requireNonNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"),
                 verboseStats,
                 cpuTimerEnabled);
 
         return createSqlTaskExecution(
                 taskStateMachine,
                 taskContext,
-                sharedBuffer,
+                outputBuffer,
                 fragment,
                 sources,
                 planner,

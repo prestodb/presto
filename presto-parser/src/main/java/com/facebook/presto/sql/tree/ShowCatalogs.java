@@ -13,27 +13,50 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class ShowCatalogs
         extends Statement
 {
-    public ShowCatalogs()
+    private final Optional<String> likePattern;
+
+    public ShowCatalogs(Optional<String> likePattern)
     {
-        super(Optional.empty());
+        this(Optional.empty(), likePattern);
     }
 
-    public ShowCatalogs(NodeLocation location)
+    public ShowCatalogs(NodeLocation location, Optional<String> likePattern)
     {
-        super(Optional.of(location));
+        this(Optional.of(location), likePattern);
+    }
+
+    public ShowCatalogs(Optional<NodeLocation> location, Optional<String> likePattern)
+    {
+        super(location);
+        this.likePattern = requireNonNull(likePattern, "likePattern is null");
+    }
+
+    public Optional<String> getLikePattern()
+    {
+        return likePattern;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitShowCatalogs(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

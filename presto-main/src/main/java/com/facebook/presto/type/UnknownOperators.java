@@ -13,19 +13,21 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.function.IsNull;
+import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 
-import javax.annotation.Nullable;
-
-import static com.facebook.presto.metadata.OperatorType.BETWEEN;
-import static com.facebook.presto.metadata.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
-import static com.facebook.presto.metadata.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
-import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
-import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 
 public final class UnknownOperators
 {
@@ -34,66 +36,77 @@ public final class UnknownOperators
     }
 
     @ScalarOperator(EQUAL)
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean equal(@SqlType("unknown") @Nullable Void left, @SqlType("unknown") @Nullable Void right)
+    public static Boolean equal(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
     {
         return null;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean notEqual(@SqlType("unknown") @Nullable Void left, @SqlType("unknown") @Nullable Void right)
+    public static Boolean notEqual(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
     {
         return null;
     }
 
     @ScalarOperator(LESS_THAN)
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean lessThan(@SqlType("unknown") @Nullable Void left, @SqlType("unknown") @Nullable Void right)
+    public static Boolean lessThan(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
     {
         return null;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean lessThanOrEqual(@SqlType("unknown") @Nullable Void left, @SqlType("unknown") @Nullable Void right)
+    public static Boolean lessThanOrEqual(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
     {
         return null;
     }
 
     @ScalarOperator(GREATER_THAN)
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean greaterThan(@SqlType("unknown") @Nullable Void left, @SqlType("unknown") @Nullable Void right)
+    public static Boolean greaterThan(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
     {
         return null;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean greaterThanOrEqual(@SqlType("unknown") @Nullable Void left, @SqlType("unknown") @Nullable Void right)
+    public static Boolean greaterThanOrEqual(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
     {
         return null;
     }
 
     @ScalarOperator(BETWEEN)
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean between(@SqlType("unknown") @Nullable Void value, @SqlType("unknown") @Nullable Void min, @SqlType("unknown") @Nullable Void max)
+    public static Boolean between(@SqlType("unknown") @SqlNullable Void value, @SqlType("unknown") @SqlNullable Void min, @SqlType("unknown") @SqlNullable Void max)
     {
         return null;
     }
 
     @ScalarOperator(HASH_CODE)
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.BIGINT)
-    public static Long hashCode(@SqlType("unknown") @Nullable Void value)
+    public static Long hashCode(@SqlType("unknown") @SqlNullable Void value)
     {
         return null;
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isDistinctFrom(
+            @SqlType("unknown") @SqlNullable Void left,
+            @IsNull boolean leftNull,
+            @SqlType("unknown") @SqlNullable Void right,
+            @IsNull boolean rightNull)
+    {
+        return false;
     }
 }

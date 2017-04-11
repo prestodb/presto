@@ -19,6 +19,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.Varchars;
 import com.facebook.presto.tests.AbstractTestingPrestoClient;
 import com.facebook.presto.tests.ResultsSession;
 import com.google.common.collect.ImmutableMap;
@@ -38,11 +39,11 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
@@ -148,11 +149,14 @@ public class RedisLoader
                 return null;
             }
 
-            if (BOOLEAN.equals(type) || VARCHAR.equals(type)) {
+            if (BOOLEAN.equals(type) || Varchars.isVarcharType(type)) {
                 return value;
             }
             if (BIGINT.equals(type)) {
                 return ((Number) value).longValue();
+            }
+            if (INTEGER.equals(type)) {
+                return ((Number) value).intValue();
             }
             if (DOUBLE.equals(type)) {
                 return ((Number) value).doubleValue();

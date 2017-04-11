@@ -27,6 +27,7 @@ public class Stream
         DICTIONARY_COUNT,
         SECONDARY,
         ROW_INDEX,
+        BLOOM_FILTER,
         IN_DICTIONARY,
         ROW_GROUP_DICTIONARY,
         ROW_GROUP_DICTIONARY_LENGTH,

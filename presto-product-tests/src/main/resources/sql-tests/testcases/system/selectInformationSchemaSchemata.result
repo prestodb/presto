@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: true; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR
+-- delimiter: |; ignoreOrder: true; trimValues:true;
  system       | information_schema |
  system       | runtime            |
  system       | metadata           |

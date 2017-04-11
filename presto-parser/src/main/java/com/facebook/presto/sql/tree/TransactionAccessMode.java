@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class TransactionAccessMode
         extends TransactionMode
@@ -51,6 +54,12 @@ public final class TransactionAccessMode
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(readOnly);
@@ -72,7 +81,7 @@ public final class TransactionAccessMode
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("readOnly", readOnly)
                 .toString();
     }

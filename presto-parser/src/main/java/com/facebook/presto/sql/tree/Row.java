@@ -55,6 +55,12 @@ public final class Row
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return items;
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(items);

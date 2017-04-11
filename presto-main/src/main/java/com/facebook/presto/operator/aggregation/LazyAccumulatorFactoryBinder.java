@@ -27,12 +27,12 @@ public class LazyAccumulatorFactoryBinder
 
     public LazyAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
     {
-        binder = Suppliers.memoize(() -> new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader));
+        binder = Suppliers.memoize(() -> AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader));
     }
 
     @Override
-    public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
+    public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel)
     {
-        return binder.get().bind(argumentChannels, maskChannel, sampleWeightChannel, confidence);
+        return binder.get().bind(argumentChannels, maskChannel);
     }
 }

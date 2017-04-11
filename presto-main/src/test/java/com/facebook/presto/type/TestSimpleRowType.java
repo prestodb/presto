@@ -29,7 +29,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 public class TestSimpleRowType
         extends AbstractTestType
 {
-    private static final Type TYPE = new TypeRegistry().getType(parseTypeSignature("row<bigint,varchar>('a','b')"));
+    private static final Type TYPE = new TypeRegistry().getType(parseTypeSignature("row(a bigint,b varchar)"));
 
     public TestSimpleRowType()
     {
@@ -63,6 +63,15 @@ public class TestSimpleRowType
     @Override
     protected Object getGreaterValue(Object value)
     {
-        throw new UnsupportedOperationException();
+        ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) TYPE.createBlockBuilder(new BlockBuilderStatus(), 1);
+        ArrayElementBlockWriter arrayElementBlockWriter;
+
+        Block block = (Block) value;
+        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(arrayElementBlockWriter, block.getSingleValueBlock(0).getLong(0, 0) + 1);
+        VARCHAR.writeSlice(arrayElementBlockWriter, block.getSingleValueBlock(1).getSlice(0, 0, 1));
+        blockBuilder.closeEntry();
+
+        return TYPE.getObject(blockBuilder.build(), 0);
     }
 }

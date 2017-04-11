@@ -17,6 +17,5 @@ public enum QueryType
 {
     CREATE,
     READ,
-    MODIFY,
-    UNKNOWN
+    MODIFY
 }

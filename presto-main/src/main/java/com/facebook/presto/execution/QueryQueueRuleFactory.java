@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,18 +21,17 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Provider;
-import com.google.inject.Provides;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.GraphPath;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.FloydWarshallShortestPaths;
+import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
-import org.jgrapht.graph.DirectedPseudograph;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -49,9 +48,9 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class QueryQueueRuleFactory
-        implements Provider<List<? extends ResourceGroupSelector>>
+        implements Provider<List<QueryQueueRule>>
 {
-    private final List<? extends ResourceGroupSelector> selectors;
+    private final List<QueryQueueRule> selectors;
 
     @Inject
     public QueryQueueRuleFactory(QueryManagerConfig config, ObjectMapper mapper)
@@ -81,13 +80,13 @@ public class QueryQueueRuleFactory
                 rules.add(QueryQueueRule.createRule(rule.getUserRegex(), rule.getSourceRegex(), rule.getSessionPropertyRegexes(), rule.getQueues(), definitions));
             }
         }
-        checkIsDAG(rules.build());
+        checkIsTree(rules.build());
         this.selectors = rules.build();
     }
 
-    private static void checkIsDAG(List<QueryQueueRule> rules)
+    private static void checkIsTree(List<QueryQueueRule> rules)
     {
-        DirectedPseudograph<String, DefaultEdge> graph = new DirectedPseudograph<>(DefaultEdge.class);
+        DirectedGraph<String, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
         for (QueryQueueRule rule : rules) {
             String lastQueueName = null;
             for (QueryQueueDefinition queue : rule.getQueues()) {
@@ -97,6 +96,15 @@ public class QueryQueueRuleFactory
                     graph.addEdge(lastQueueName, currentQueueName);
                 }
                 lastQueueName = currentQueueName;
+            }
+        }
+
+        for (String vertex : graph.vertexSet()) {
+            if (graph.outDegreeOf(vertex) > 1) {
+                List<String> targets = graph.outgoingEdgesOf(vertex).stream()
+                        .map(graph::getEdgeTarget)
+                        .collect(Collectors.toList());
+                throw new IllegalArgumentException(format("Queues must form a tree. Queue %s feeds into %s", vertex, targets));
             }
         }
 
@@ -140,8 +148,7 @@ public class QueryQueueRuleFactory
     }
 
     @Override
-    @Provides
-    public List<? extends ResourceGroupSelector> get()
+    public List<QueryQueueRule> get()
     {
         return selectors;
     }

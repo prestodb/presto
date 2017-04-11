@@ -41,7 +41,6 @@ public class MemoryTrackingRemoteTaskFactory
     public RemoteTask createRemoteTask(Session session,
             TaskId taskId,
             Node node,
-            int partition,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
@@ -51,7 +50,6 @@ public class MemoryTrackingRemoteTaskFactory
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
                 node,
-                partition,
                 fragment,
                 initialSplits,
                 outputBuffers,
@@ -63,7 +61,7 @@ public class MemoryTrackingRemoteTaskFactory
     }
 
     private static final class UpdatePeakMemory
-            implements StateChangeListener<TaskInfo>
+            implements StateChangeListener<TaskStatus>
     {
         private final QueryStateMachine stateMachine;
         private long previousMemory;
@@ -74,9 +72,9 @@ public class MemoryTrackingRemoteTaskFactory
         }
 
         @Override
-        public synchronized void stateChanged(TaskInfo newState)
+        public synchronized void stateChanged(TaskStatus newStatus)
         {
-            long currentMemory = newState.getStats().getMemoryReservation().toBytes();
+            long currentMemory = newStatus.getMemoryReservation().toBytes();
             long deltaMemoryInBytes = currentMemory - previousMemory;
             previousMemory = currentMemory;
             stateMachine.updateMemoryUsage(deltaMemoryInBytes);

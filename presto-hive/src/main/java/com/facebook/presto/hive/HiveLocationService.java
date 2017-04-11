@@ -13,21 +13,20 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveWriteUtils.createTemporaryPath;
 import static com.facebook.presto.hive.HiveWriteUtils.getTableDefaultLocation;
+import static com.facebook.presto.hive.HiveWriteUtils.isS3FileSystem;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -35,29 +34,27 @@ import static java.util.Objects.requireNonNull;
 public class HiveLocationService
         implements LocationService
 {
-    private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public HiveLocationService(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
+    public HiveLocationService(HdfsEnvironment hdfsEnvironment)
     {
-        this.metastore = requireNonNull(metastore);
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment);
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
-    public LocationHandle forNewTable(String queryId, String schemaName, String tableName)
+    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, String user, String queryId, String schemaName, String tableName)
     {
-        Path targetPath = getTableDefaultLocation(metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = getTableDefaultLocation(user, metastore, hdfsEnvironment, schemaName, tableName);
 
         // verify the target directory for the table
-        if (pathExists(hdfsEnvironment, targetPath)) {
+        if (pathExists(user, hdfsEnvironment, targetPath)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
         Path writePath;
-        if (shouldUseTemporaryDirectory(targetPath)) {
-            writePath = createTemporaryPath(hdfsEnvironment, targetPath);
+        if (shouldUseTemporaryDirectory(user, targetPath)) {
+            writePath = createTemporaryPath(user, hdfsEnvironment, targetPath);
         }
         else {
             writePath = targetPath;
@@ -67,13 +64,13 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forExistingTable(String queryId, Table table)
+    public LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, String user, String queryId, Table table)
     {
-        Path targetPath = new Path(table.getSd().getLocation());
+        Path targetPath = new Path(table.getStorage().getLocation());
 
         Optional<Path> writePath;
-        if (shouldUseTemporaryDirectory(targetPath)) {
-            writePath = Optional.of(createTemporaryPath(hdfsEnvironment, targetPath));
+        if (shouldUseTemporaryDirectory(user, targetPath)) {
+            writePath = Optional.of(createTemporaryPath(user, hdfsEnvironment, targetPath));
         }
         else {
             writePath = Optional.empty();
@@ -82,21 +79,16 @@ public class HiveLocationService
         return new LocationHandle(targetPath, writePath, true);
     }
 
-    private boolean shouldUseTemporaryDirectory(Path path)
+    private boolean shouldUseTemporaryDirectory(String user, Path path)
     {
-        try {
-            // skip using temporary directory for S3
-            return !(hdfsEnvironment.getFileSystem(path) instanceof PrestoS3FileSystem);
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
-        }
+        // skip using temporary directory for S3
+        return !isS3FileSystem(user, hdfsEnvironment, path);
     }
 
     @Override
     public Path targetPath(LocationHandle locationHandle, Partition partition, String partitionName)
     {
-        return new Path(partition.getSd().getLocation());
+        return new Path(partition.getStorage().getLocation());
     }
 
     @Override

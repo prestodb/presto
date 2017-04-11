@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier;
 
-import com.facebook.presto.util.Types;
 import io.airlift.event.client.AbstractEventClient;
 import io.airlift.stats.QuantileDigest;
 import io.airlift.units.Duration;
@@ -23,6 +22,7 @@ import javax.inject.Inject;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
@@ -45,28 +45,42 @@ public class HumanReadableEventClient
     private final QuantileDigest cpuRatioSmallRegression = new QuantileDigest(0.01);
     private final QuantileDigest cpuRatioLargeRegression = new QuantileDigest(0.01);
     private final Duration regressionMinCpuTime;
+    private final boolean checkCpu;
+    private final String skipCpuCheckRegex;
 
     @Inject
     public HumanReadableEventClient(VerifierConfig config)
     {
         this.alwaysPrint = config.isAlwaysReport();
         regressionMinCpuTime = config.getRegressionMinCpuTime();
+        checkCpu = config.isCheckCpuEnabled();
+        skipCpuCheckRegex = config.getSkipCpuCheckRegex();
     }
 
     @Override
     public <T> void postEvent(T event)
             throws IOException
     {
-        VerifierQueryEvent queryEvent = Types.checkType(event, VerifierQueryEvent.class, "event");
+        VerifierQueryEvent queryEvent = (VerifierQueryEvent) event;
 
         Optional<Double> cpuRatio = getCpuRatio(queryEvent);
         if (cpuRatio.isPresent()) {
             recordCpuRatio(cpuRatio.get());
         }
 
-        if (alwaysPrint || queryEvent.isFailed() || cpuRatio.map(ratio -> ratio > SMALL_REGRESSION).orElse(false)) {
+        if (alwaysPrint || queryEvent.isFailed()
+                || (cpuRatio.map(ratio -> ratio > SMALL_REGRESSION).orElse(false) && isCheckCpu(queryEvent))) {
             printEvent(queryEvent);
         }
+    }
+
+    private boolean isCheckCpu(VerifierQueryEvent queryEvent)
+    {
+        if (Pattern.matches(skipCpuCheckRegex, queryEvent.getTestQuery()) ||
+                Pattern.matches(skipCpuCheckRegex, queryEvent.getControlQuery())) {
+            return false;
+        }
+        return checkCpu;
     }
 
     private void recordCpuRatio(double cpuRatio)
@@ -135,7 +149,13 @@ public class HumanReadableEventClient
         out.println("Schema (control): " + queryEvent.getControlSchema());
         out.println("Schema (test): " + queryEvent.getTestSchema());
         out.println("Valid: " + !queryEvent.isFailed());
+        for (int i = 0; i < queryEvent.getTestSetupQueries().size(); i++) {
+            out.println(format("Setup query (test) #%s: %s", i, queryEvent.getTestSetupQueries().get(i)));
+        }
         out.println("Query (test): " + queryEvent.getTestQuery());
+        for (int i = 0; i < queryEvent.getTestTeardownQueries().size(); i++) {
+            out.println(format("Teardown query (test) #%s: %s", i, queryEvent.getTestTeardownQueries().get(i)));
+        }
 
         if (queryEvent.isFailed()) {
             out.println("\nError message:\n" + queryEvent.getErrorMessage());

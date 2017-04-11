@@ -18,33 +18,34 @@ import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Function;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.IS_DISTINCT_FROM;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.contains;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
-import static com.google.common.collect.Lists.newArrayList;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public final class ExpressionUtils
 {
@@ -83,7 +84,7 @@ public final class ExpressionUtils
         return and(Arrays.asList(expressions));
     }
 
-    public static Expression and(Iterable<Expression> expressions)
+    public static Expression and(Collection<Expression> expressions)
     {
         return binaryExpression(LogicalBinaryExpression.Type.AND, expressions);
     }
@@ -93,22 +94,65 @@ public final class ExpressionUtils
         return or(Arrays.asList(expressions));
     }
 
-    public static Expression or(Iterable<Expression> expressions)
+    public static Expression or(Collection<Expression> expressions)
     {
         return binaryExpression(LogicalBinaryExpression.Type.OR, expressions);
     }
 
-    public static Expression binaryExpression(LogicalBinaryExpression.Type type, Iterable<Expression> expressions)
+    public static Expression binaryExpression(LogicalBinaryExpression.Type type, Collection<Expression> expressions)
     {
         requireNonNull(type, "type is null");
         requireNonNull(expressions, "expressions is null");
-        Preconditions.checkArgument(!Iterables.isEmpty(expressions), "expressions is empty");
+        Preconditions.checkArgument(!expressions.isEmpty(), "expressions is empty");
 
-        // build balanced tree for efficient recursive processing
-        Queue<Expression> queue = new ArrayDeque<>(newArrayList(expressions));
+        // Build balanced tree for efficient recursive processing that
+        // preserves the evaluation order of the input expressions.
+        //
+        // The tree is built bottom up by combining pairs of elements into
+        // binary AND expressions.
+        //
+        // Example:
+        //
+        // Initial state:
+        //  a b c d e
+        //
+        // First iteration:
+        //
+        //  /\    /\   e
+        // a  b  c  d
+        //
+        // Second iteration:
+        //
+        //    / \    e
+        //  /\   /\
+        // a  b c  d
+        //
+        //
+        // Last iteration:
+        //
+        //      / \
+        //    / \  e
+        //  /\   /\
+        // a  b c  d
+
+        Queue<Expression> queue = new ArrayDeque<>(expressions);
         while (queue.size() > 1) {
-            queue.add(new LogicalBinaryExpression(type, queue.remove(), queue.remove()));
+            Queue<Expression> buffer = new ArrayDeque<>();
+
+            // combine pairs of elements
+            while (queue.size() >= 2) {
+                buffer.add(new LogicalBinaryExpression(type, queue.remove(), queue.remove()));
+            }
+
+            // if there's and odd number of elements, just append the last one
+            if (!queue.isEmpty()) {
+                buffer.add(queue.remove());
+            }
+
+            // continue processing the pairs that were just built
+            queue = buffer;
         }
+
         return queue.remove();
     }
 
@@ -117,7 +161,7 @@ public final class ExpressionUtils
         return combinePredicates(type, Arrays.asList(expressions));
     }
 
-    public static Expression combinePredicates(LogicalBinaryExpression.Type type, Iterable<Expression> expressions)
+    public static Expression combinePredicates(LogicalBinaryExpression.Type type, Collection<Expression> expressions)
     {
         if (type == LogicalBinaryExpression.Type.AND) {
             return combineConjuncts(expressions);
@@ -131,27 +175,27 @@ public final class ExpressionUtils
         return combineConjuncts(Arrays.asList(expressions));
     }
 
-    public static Expression combineConjuncts(Iterable<Expression> expressions)
+    public static Expression combineConjuncts(Collection<Expression> expressions)
     {
         return combineConjunctsWithDefault(expressions, TRUE_LITERAL);
     }
 
-    public static Expression combineConjunctsWithDefault(Iterable<Expression> expressions, Expression emptyDefault)
+    public static Expression combineConjunctsWithDefault(Collection<Expression> expressions, Expression emptyDefault)
     {
         requireNonNull(expressions, "expressions is null");
 
-        // Flatten all the expressions into their component conjuncts
-        expressions = Iterables.concat(transform(expressions, ExpressionUtils::extractConjuncts));
+        List<Expression> conjuncts = expressions.stream()
+                .flatMap(e -> ExpressionUtils.extractConjuncts(e).stream())
+                .filter(e -> !e.equals(TRUE_LITERAL))
+                .collect(toList());
 
-        // Strip out all true literal conjuncts
-        expressions = filter(expressions, not(Predicates.<Expression>equalTo(TRUE_LITERAL)));
-        expressions = removeDuplicates(expressions);
+        conjuncts = removeDuplicates(conjuncts);
 
-        if (contains(expressions, FALSE_LITERAL)) {
+        if (conjuncts.contains(FALSE_LITERAL)) {
             return FALSE_LITERAL;
         }
 
-        return Iterables.isEmpty(expressions) ? emptyDefault : and(expressions);
+        return conjuncts.isEmpty() ? emptyDefault : and(conjuncts);
     }
 
     public static Expression combineDisjuncts(Expression... expressions)
@@ -159,32 +203,36 @@ public final class ExpressionUtils
         return combineDisjuncts(Arrays.asList(expressions));
     }
 
-    public static Expression combineDisjuncts(Iterable<Expression> expressions)
+    public static Expression combineDisjuncts(Collection<Expression> expressions)
     {
         return combineDisjunctsWithDefault(expressions, FALSE_LITERAL);
     }
 
-    public static Expression combineDisjunctsWithDefault(Iterable<Expression> expressions, Expression emptyDefault)
+    public static Expression combineDisjunctsWithDefault(Collection<Expression> expressions, Expression emptyDefault)
     {
         requireNonNull(expressions, "expressions is null");
 
-        // Flatten all the expressions into their component disjuncts
-        expressions = Iterables.concat(transform(expressions, ExpressionUtils::extractDisjuncts));
+        List<Expression> disjuncts = expressions.stream()
+                .flatMap(e -> ExpressionUtils.extractDisjuncts(e).stream())
+                .filter(e -> !e.equals(FALSE_LITERAL))
+                .collect(toList());
 
-        // Strip out all false literal disjuncts
-        expressions = filter(expressions, not(Predicates.<Expression>equalTo(FALSE_LITERAL)));
-        expressions = removeDuplicates(expressions);
+        disjuncts = removeDuplicates(disjuncts);
 
-        if (contains(expressions, TRUE_LITERAL)) {
+        if (disjuncts.contains(TRUE_LITERAL)) {
             return TRUE_LITERAL;
         }
 
-        return Iterables.isEmpty(expressions) ? emptyDefault : or(expressions);
+        return disjuncts.isEmpty() ? emptyDefault : or(disjuncts);
     }
 
     public static Expression stripNonDeterministicConjuncts(Expression expression)
     {
-        return combineConjuncts(filter(extractConjuncts(expression), DeterminismEvaluator::isDeterministic));
+        List<Expression> conjuncts = extractConjuncts(expression).stream()
+                .filter(DeterminismEvaluator::isDeterministic)
+                .collect(toList());
+
+        return combineConjuncts(conjuncts);
     }
 
     public static Expression stripDeterministicConjuncts(Expression expression)
@@ -202,14 +250,17 @@ public final class ExpressionUtils
             resultDisjunct.add(expression);
 
             for (Predicate<Symbol> nullSymbolScope : nullSymbolScopes) {
-                Iterable<Symbol> symbols = filter(DependencyExtractor.extractUnique(expression), nullSymbolScope);
+                List<Symbol> symbols = DependencyExtractor.extractUnique(expression).stream()
+                        .filter(nullSymbolScope)
+                        .collect(toImmutableList());
+
                 if (Iterables.isEmpty(symbols)) {
                     continue;
                 }
 
                 ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
                 for (Symbol symbol : symbols) {
-                    nullConjuncts.add(new IsNullPredicate(new QualifiedNameReference(symbol.toQualifiedName())));
+                    nullConjuncts.add(new IsNullPredicate(symbol.toSymbolReference()));
                 }
 
                 resultDisjunct.add(and(nullConjuncts.build()));
@@ -219,15 +270,26 @@ public final class ExpressionUtils
         };
     }
 
-    private static Iterable<Expression> removeDuplicates(Iterable<Expression> expressions)
+    /**
+     * Removes duplicate deterministic expressions. Preserves the relative order
+     * of the expressions in the list.
+     */
+    private static List<Expression> removeDuplicates(List<Expression> expressions)
     {
-        // Capture all non-deterministic predicates
-        Iterable<Expression> nonDeterministicDisjuncts = filter(expressions, not(DeterminismEvaluator::isDeterministic));
+        Set<Expression> seen = new HashSet<>();
 
-        // Capture and de-dupe all deterministic predicates
-        Iterable<Expression> deterministicDisjuncts = ImmutableSet.copyOf(filter(expressions, DeterminismEvaluator::isDeterministic));
+        ImmutableList.Builder<Expression> result = ImmutableList.builder();
+        for (Expression expression : expressions) {
+            if (!DeterminismEvaluator.isDeterministic(expression)) {
+                result.add(expression);
+            }
+            else if (!seen.contains(expression)) {
+                result.add(expression);
+                seen.add(expression);
+            }
+        }
 
-        return Iterables.concat(nonDeterministicDisjuncts, deterministicDisjuncts);
+        return result.build();
     }
 
     public static Expression normalize(Expression expression)
@@ -243,5 +305,22 @@ public final class ExpressionUtils
             }
         }
         return expression;
+    }
+
+    public static Expression rewriteIdentifiersToSymbolReferences(Expression expression)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>() {
+            @Override
+            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                return new SymbolReference(node.getName());
+            }
+
+            @Override
+            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                return new LambdaExpression(node.getArguments(), treeRewriter.rewrite(node.getBody(), context));
+            }
+        }, expression);
     }
 }

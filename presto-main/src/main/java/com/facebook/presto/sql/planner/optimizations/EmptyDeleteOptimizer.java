@@ -37,8 +37,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  * plan cannot be executed and is meaningless anyway, so we replace the
  * entire thing with a values node.
  */
+@Deprecated
 public class EmptyDeleteOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)

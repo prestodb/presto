@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -32,11 +35,6 @@ public final class Cast
         this(Optional.empty(), expression, type, false, false);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type)
-    {
-        this(Optional.of(location), expression, type, false, false);
-    }
-
     public Cast(Expression expression, String type, boolean safe)
     {
         this(Optional.empty(), expression, type, safe, false);
@@ -47,9 +45,19 @@ public final class Cast
         this(Optional.empty(), expression, type, safe, typeOnly);
     }
 
+    public Cast(NodeLocation location, Expression expression, String type)
+    {
+        this(Optional.of(location), expression, type, false, false);
+    }
+
     public Cast(NodeLocation location, Expression expression, String type, boolean safe)
     {
         this(Optional.of(location), expression, type, safe, false);
+    }
+
+    public Cast(NodeLocation location, Expression expression, String type, boolean safe, boolean typeOnly)
+    {
+        this(Optional.of(location), expression, type, safe, typeOnly);
     }
 
     private Cast(Optional<NodeLocation> location, Expression expression, String type, boolean safe, boolean typeOnly)
@@ -59,7 +67,7 @@ public final class Cast
         requireNonNull(type, "type is null");
 
         this.expression = expression;
-        this.type = type.toUpperCase(ENGLISH);
+        this.type = type.toLowerCase(ENGLISH);
         this.safe = safe;
         this.typeOnly = typeOnly;
     }
@@ -88,6 +96,12 @@ public final class Cast
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitCast(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(expression);
     }
 
     @Override

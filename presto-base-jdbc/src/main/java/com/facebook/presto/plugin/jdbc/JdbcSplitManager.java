@@ -14,13 +14,13 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.plugin.jdbc.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcSplitManager
@@ -35,9 +35,9 @@ public class JdbcSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        JdbcTableLayoutHandle layoutHandle = checkType(layout, JdbcTableLayoutHandle.class, "layout");
+        JdbcTableLayoutHandle layoutHandle = (JdbcTableLayoutHandle) layout;
         return jdbcClient.getSplits(layoutHandle);
     }
 }

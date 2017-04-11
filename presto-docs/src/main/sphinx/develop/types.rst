@@ -1,10 +1,14 @@
-===========
-Type System
-===========
+=====
+Types
+=====
 
 The ``Type`` interface in Presto is used to implement a type in the SQL language.
 Presto ships with a number of built-in types, like ``VarcharType`` and ``BigintType``.
-A ``Plugin`` can provide new types by returning them from ``getServices()``.
+The ``ParametricType`` interface is used to provide type parameters for types, to
+allow types like ``VARCHAR(10)`` or ``DECIMAL(22, 5)``. A ``Plugin`` can provide
+new ``Type`` objects by returning them from ``getTypes()`` and new ``ParametricType``
+objects by returning them from ``getParametricTypes()``.
+
 Below is a high level overview of the ``Type`` interface, for more details see the
 JavaDocs for ``Type``.
 

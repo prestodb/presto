@@ -14,10 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.BlockState;
 import com.facebook.presto.operator.aggregation.state.BlockStateSerializer;
 import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
@@ -27,6 +26,8 @@ import com.facebook.presto.operator.aggregation.state.SliceState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -34,15 +35,16 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ArbitraryAggregationFunction
         extends SqlAggregationFunction
@@ -62,11 +64,19 @@ public class ArbitraryAggregationFunction
     private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
     private static final MethodHandle BLOCK_OUTPUT_FUNCTION = methodHandle(BlockState.class, "write", Type.class, BlockState.class, BlockBuilder.class);
 
-    private static final StateCompiler compiler = new StateCompiler();
+    private static final MethodHandle LONG_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", NullableLongState.class, NullableLongState.class);
+    private static final MethodHandle DOUBLE_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", NullableDoubleState.class, NullableDoubleState.class);
+    private static final MethodHandle SLICE_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", SliceState.class, SliceState.class);
+    private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", NullableBooleanState.class, NullableBooleanState.class);
+    private static final MethodHandle BLOCK_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", BlockState.class, BlockState.class);
 
     protected ArbitraryAggregationFunction()
     {
-        super(NAME, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"));
+        super(NAME,
+                ImmutableList.of(typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature("T"),
+                ImmutableList.of(parseTypeSignature("T")));
     }
 
     @Override
@@ -76,9 +86,9 @@ public class ArbitraryAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type valueType = types.get("T");
+        Type valueType = boundVariables.getTypeVariable("T");
         return generateAggregation(valueType);
     }
 
@@ -89,38 +99,44 @@ public class ArbitraryAggregationFunction
         List<Type> inputTypes = ImmutableList.of(type);
 
         MethodHandle inputFunction;
+        MethodHandle combineFunction;
         MethodHandle outputFunction;
         Class<? extends AccumulatorState> stateInterface;
         AccumulatorStateSerializer<?> stateSerializer;
 
         if (type.getJavaType() == long.class) {
             stateInterface = NullableLongState.class;
-            stateSerializer = compiler.generateStateSerializer(stateInterface, classLoader);
+            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = LONG_INPUT_FUNCTION;
+            combineFunction = LONG_COMBINE_FUNCTION;
             outputFunction = LONG_OUTPUT_FUNCTION;
         }
         else if (type.getJavaType() == double.class) {
             stateInterface = NullableDoubleState.class;
-            stateSerializer = compiler.generateStateSerializer(stateInterface, classLoader);
+            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = DOUBLE_INPUT_FUNCTION;
+            combineFunction = DOUBLE_COMBINE_FUNCTION;
             outputFunction = DOUBLE_OUTPUT_FUNCTION;
         }
         else if (type.getJavaType() == Slice.class) {
             stateInterface = SliceState.class;
-            stateSerializer = compiler.generateStateSerializer(stateInterface, classLoader);
+            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = SLICE_INPUT_FUNCTION;
+            combineFunction = SLICE_COMBINE_FUNCTION;
             outputFunction = SLICE_OUTPUT_FUNCTION;
         }
         else if (type.getJavaType() == boolean.class) {
             stateInterface = NullableBooleanState.class;
-            stateSerializer = compiler.generateStateSerializer(stateInterface, classLoader);
+            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = BOOLEAN_INPUT_FUNCTION;
+            combineFunction = BOOLEAN_COMBINE_FUNCTION;
             outputFunction = BOOLEAN_OUTPUT_FUNCTION;
         }
         else {
             stateInterface = BlockState.class;
             stateSerializer = new BlockStateSerializer(type);
             inputFunction = BLOCK_INPUT_FUNCTION;
+            combineFunction = BLOCK_COMBINE_FUNCTION;
             outputFunction = BLOCK_OUTPUT_FUNCTION;
         }
         inputFunction = inputFunction.bindTo(type);
@@ -128,21 +144,18 @@ public class ArbitraryAggregationFunction
         Type intermediateType = stateSerializer.getSerializedType();
         List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, type, inputTypes),
+                generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 inputFunction,
-                inputParameterMetadata,
-                inputFunction,
-                null,
+                combineFunction,
                 outputFunction.bindTo(type),
                 stateInterface,
                 stateSerializer,
-                compiler.generateStateFactory(stateInterface, classLoader),
-                type,
-                false);
+                StateCompiler.generateStateFactory(stateInterface, classLoader),
+                type);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, type, true, false, factory);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, type, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)
@@ -191,5 +204,48 @@ public class ArbitraryAggregationFunction
             return;
         }
         state.setBlock((Block) type.getObject(block, position));
+    }
+
+    public static void combine(NullableLongState state, NullableLongState otherState)
+    {
+        if (!state.isNull()) {
+            return;
+        }
+        state.setNull(false);
+        state.setLong(otherState.getLong());
+    }
+
+    public static void combine(NullableDoubleState state, NullableDoubleState otherState)
+    {
+        if (!state.isNull()) {
+            return;
+        }
+        state.setNull(false);
+        state.setDouble(otherState.getDouble());
+    }
+
+    public static void combine(NullableBooleanState state, NullableBooleanState otherState)
+    {
+        if (!state.isNull()) {
+            return;
+        }
+        state.setNull(false);
+        state.setBoolean(otherState.getBoolean());
+    }
+
+    public static void combine(SliceState state, SliceState otherState)
+    {
+        if (state.getSlice() != null) {
+            return;
+        }
+        state.setSlice(otherState.getSlice());
+    }
+
+    public static void combine(BlockState state, BlockState otherState)
+    {
+        if (state.getBlock() != null) {
+            return;
+        }
+        state.setBlock(otherState.getBlock());
     }
 }

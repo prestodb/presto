@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.util.ImmutableCollectors;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -31,6 +30,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.lang.Thread.currentThread;
@@ -91,7 +91,7 @@ public class GracefulShutdownHandler
                 CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
 
                 for (TaskInfo taskInfo : activeTasks) {
-                    sqlTaskManager.addStateChangeListener(taskInfo.getTaskId(), newState -> {
+                    sqlTaskManager.addStateChangeListener(taskInfo.getTaskStatus().getTaskId(), newState -> {
                         if (newState.isDone()) {
                             countDownLatch.countDown();
                         }
@@ -142,8 +142,8 @@ public class GracefulShutdownHandler
     {
         return sqlTaskManager.getAllTaskInfo()
                 .stream()
-                .filter(taskInfo -> !taskInfo.getState().isDone())
-                .collect(ImmutableCollectors.toImmutableList());
+                .filter(taskInfo -> !taskInfo.getTaskStatus().getState().isDone())
+                .collect(toImmutableList());
     }
 
     private synchronized void setShutdownRequested(boolean shutdownRequested)

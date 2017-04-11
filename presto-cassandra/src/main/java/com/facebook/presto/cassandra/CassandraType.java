@@ -23,10 +23,11 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
@@ -41,16 +42,20 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
 public enum CassandraType
         implements FullCassandraType
 {
-    ASCII(VarcharType.VARCHAR, String.class),
+    ASCII(createUnboundedVarcharType(), String.class),
     BIGINT(BigintType.BIGINT, Long.class),
     BLOB(VarbinaryType.VARBINARY, ByteBuffer.class),
     CUSTOM(VarbinaryType.VARBINARY, ByteBuffer.class),
@@ -58,18 +63,27 @@ public enum CassandraType
     COUNTER(BigintType.BIGINT, Long.class),
     DECIMAL(DoubleType.DOUBLE, BigDecimal.class),
     DOUBLE(DoubleType.DOUBLE, Double.class),
-    FLOAT(DoubleType.DOUBLE, Float.class),
-    INET(VarcharType.VARCHAR, InetAddress.class),
-    INT(BigintType.BIGINT, Integer.class),
-    TEXT(VarcharType.VARCHAR, String.class),
+    FLOAT(RealType.REAL, Float.class),
+    INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH), InetAddress.class),
+    INT(IntegerType.INTEGER, Integer.class),
+    TEXT(createUnboundedVarcharType(), String.class),
     TIMESTAMP(TimestampType.TIMESTAMP, Date.class),
-    UUID(VarcharType.VARCHAR, java.util.UUID.class),
-    TIMEUUID(VarcharType.VARCHAR, java.util.UUID.class),
-    VARCHAR(VarcharType.VARCHAR, String.class),
-    VARINT(VarcharType.VARCHAR, BigInteger.class),
-    LIST(VarcharType.VARCHAR, null),
-    MAP(VarcharType.VARCHAR, null),
-    SET(VarcharType.VARCHAR, null);
+    UUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
+    TIMEUUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
+    VARCHAR(createUnboundedVarcharType(), String.class),
+    VARINT(createUnboundedVarcharType(), BigInteger.class),
+    LIST(createUnboundedVarcharType(), null),
+    MAP(createUnboundedVarcharType(), null),
+    SET(createUnboundedVarcharType(), null);
+
+    private static class Constants
+    {
+        private static final int UUID_STRING_MAX_LENGTH = 36;
+        // IPv4: 255.255.255.255 - 15 characters
+        // IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF - 39 characters
+        // IPv4 embedded into IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:255.255.255.255 - 45 characters
+        private static final int IP_ADDRESS_STRING_MAX_LENGTH = 45;
+    }
 
     private final Type nativeType;
     private final Class<?> javaType;
@@ -96,13 +110,6 @@ public enum CassandraType
             default:
                 return 0;
         }
-    }
-
-    public static CassandraType getSupportedCassandraType(DataType.Name name)
-    {
-        CassandraType cassandraType = getCassandraType(name);
-        checkArgument(cassandraType != null, "Unknown Cassandra type: " + name);
-        return cassandraType;
     }
 
     public static CassandraType getCassandraType(DataType.Name name)
@@ -153,22 +160,6 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType getSupportedCassandraType(String cassandraTypeName)
-    {
-        CassandraType cassandraType = getCassandraType(cassandraTypeName);
-        checkArgument(cassandraType != null, "Unknown Cassandra type: " + cassandraTypeName);
-        return cassandraType;
-    }
-
-    public static CassandraType getCassandraType(String cassandraTypeName)
-    {
-        DataType.Name name = DataType.Name.valueOf(cassandraTypeName);
-        if (name != null) {
-            return getCassandraType(name);
-        }
-        return null;
-    }
-
     public static NullableValue getColumnValue(Row row, int i, FullCassandraType fullCassandraType)
     {
         return getColumnValue(row, i, fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
@@ -197,14 +188,14 @@ public enum CassandraType
                 case DOUBLE:
                     return NullableValue.of(nativeType, row.getDouble(i));
                 case FLOAT:
-                    return NullableValue.of(nativeType, (double) row.getFloat(i));
+                    return NullableValue.of(nativeType, (long) floatToRawIntBits(row.getFloat(i)));
                 case DECIMAL:
                     return NullableValue.of(nativeType, row.getDecimal(i).doubleValue());
                 case UUID:
                 case TIMEUUID:
                     return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
                 case TIMESTAMP:
-                    return NullableValue.of(nativeType, row.getDate(i).getTime());
+                    return NullableValue.of(nativeType, row.getTimestamp(i).getTime());
                 case INET:
                     return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(i))));
                 case VARINT:
@@ -325,7 +316,7 @@ public enum CassandraType
                 case TIMEUUID:
                     return row.getUUID(i).toString();
                 case TIMESTAMP:
-                    return Long.toString(row.getDate(i).getTime());
+                    return Long.toString(row.getTimestamp(i).getTime());
                 case INET:
                     return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(i)));
                 case VARINT:
@@ -412,7 +403,7 @@ public enum CassandraType
                 return ((Long) nativeValue).intValue();
             case FLOAT:
                 // conversion can result in precision lost
-                return ((Double) nativeValue).floatValue();
+                return intBitsToFloat(((Long) nativeValue).intValue());
             case DECIMAL:
                 // conversion can result in precision lost
                 // Presto uses double for decimal, so to keep the floating point precision, convert it to string.
@@ -466,6 +457,36 @@ public enum CassandraType
         }
     }
 
+    public Object validateClusteringKey(Object value)
+    {
+        switch (this) {
+            case ASCII:
+            case TEXT:
+            case VARCHAR:
+            case BIGINT:
+            case BOOLEAN:
+            case DOUBLE:
+            case INET:
+            case INT:
+            case FLOAT:
+            case DECIMAL:
+            case TIMESTAMP:
+            case UUID:
+            case TIMEUUID:
+                return value;
+            case COUNTER:
+            case BLOB:
+            case CUSTOM:
+            case VARINT:
+            case SET:
+            case LIST:
+            case MAP:
+            default:
+                // todo should we just skip partition pruning instead of throwing an exception?
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported clustering key type: " + this);
+        }
+    }
+
     public static CassandraType toCassandraType(Type type)
     {
         if (type.equals(BooleanType.BOOLEAN)) {
@@ -474,14 +495,26 @@ public enum CassandraType
         else if (type.equals(BigintType.BIGINT)) {
             return BIGINT;
         }
+        else if (type.equals(IntegerType.INTEGER)) {
+            return INT;
+        }
         else if (type.equals(DoubleType.DOUBLE)) {
             return DOUBLE;
         }
-        else if (type.equals(VarcharType.VARCHAR)) {
+        else if (type.equals(RealType.REAL)) {
+            return FLOAT;
+        }
+        else if (isVarcharType(type)) {
             return TEXT;
         }
         else if (type.equals(DateType.DATE)) {
             return TEXT;
+        }
+        else if (type.equals(VarbinaryType.VARBINARY)) {
+            return BLOB;
+        }
+        else if (type.equals(TimestampType.TIMESTAMP)) {
+            return TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }

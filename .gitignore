@@ -4,8 +4,10 @@
 target/
 /var
 /*/var/
+/presto-product-tests/**/var/
 pom.xml.versionsBackup
 test-output/
+test-reports/
 /atlassian-ide-plugin.xml
 .idea
 .DS_Store
@@ -20,5 +22,4 @@ benchmark_outputs
 *.pyc
 *.class
 .checkstyle
-*-local.yaml
 .mvn/timing.properties

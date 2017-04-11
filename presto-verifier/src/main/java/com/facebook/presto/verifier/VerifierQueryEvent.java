@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.verifier;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
 
 import javax.annotation.concurrent.Immutable;
+
+import java.util.List;
 
 @Immutable
 @EventType("VerifierQuery")
@@ -30,13 +33,19 @@ public class VerifierQueryEvent
 
     private final String testCatalog;
     private final String testSchema;
+    private final List<String> testSetupQueries;
     private final String testQuery;
+    private final List<String> testTeardownQueries;
+    private final String testQueryId;
     private final Double testCpuTimeSecs;
     private final Double testWallTimeSecs;
 
     private final String controlCatalog;
     private final String controlSchema;
+    private final List<String> controlSetupQueries;
     private final String controlQuery;
+    private final List<String> controlTeardownQueries;
+    private final String controlQueryId;
     private final Double controlCpuTimeSecs;
     private final Double controlWallTimeSecs;
 
@@ -50,12 +59,18 @@ public class VerifierQueryEvent
             boolean failed,
             String testCatalog,
             String testSchema,
+            List<String> testSetupQueries,
             String testQuery,
+            List<String> testTeardownQueries,
+            String testQueryId,
             Double testCpuTimeSecs,
             Double testWallTimeSecs,
             String controlCatalog,
             String controlSchema,
+            List<String> controlSetupQueries,
             String controlQuery,
+            List<String> controlTeardownQueries,
+            String controlQueryId,
             Double controlCpuTimeSecs,
             Double controlWallTimeSecs,
             String errorMessage)
@@ -68,13 +83,19 @@ public class VerifierQueryEvent
 
         this.testCatalog = testCatalog;
         this.testSchema = testSchema;
+        this.testSetupQueries = ImmutableList.copyOf(testSetupQueries);
         this.testQuery = testQuery;
+        this.testTeardownQueries = ImmutableList.copyOf(testTeardownQueries);
+        this.testQueryId = testQueryId;
         this.testCpuTimeSecs = testCpuTimeSecs;
         this.testWallTimeSecs = testWallTimeSecs;
 
         this.controlCatalog = controlCatalog;
         this.controlSchema = controlSchema;
+        this.controlSetupQueries = ImmutableList.copyOf(controlSetupQueries);
         this.controlQuery = controlQuery;
+        this.controlTeardownQueries = ImmutableList.copyOf(controlTeardownQueries);
+        this.controlQueryId = controlQueryId;
         this.controlCpuTimeSecs = controlCpuTimeSecs;
         this.controlWallTimeSecs = controlWallTimeSecs;
 
@@ -130,6 +151,12 @@ public class VerifierQueryEvent
     }
 
     @EventField
+    public String getTestQueryId()
+    {
+        return testQueryId;
+    }
+
+    @EventField
     public Double getTestCpuTimeSecs()
     {
         return testCpuTimeSecs;
@@ -160,6 +187,12 @@ public class VerifierQueryEvent
     }
 
     @EventField
+    public String getControlQueryId()
+    {
+        return controlQueryId;
+    }
+
+    @EventField
     public Double getControlCpuTimeSecs()
     {
         return controlCpuTimeSecs;
@@ -175,5 +208,29 @@ public class VerifierQueryEvent
     public String getErrorMessage()
     {
         return errorMessage;
+    }
+
+    @EventField
+    public List<String> getTestSetupQueries()
+    {
+        return testSetupQueries;
+    }
+
+    @EventField
+    public List<String> getTestTeardownQueries()
+    {
+        return testTeardownQueries;
+    }
+
+    @EventField
+    public List<String> getControlSetupQueries()
+    {
+        return controlSetupQueries;
+    }
+
+    @EventField
+    public List<String> getControlTeardownQueries()
+    {
+        return controlTeardownQueries;
     }
 }

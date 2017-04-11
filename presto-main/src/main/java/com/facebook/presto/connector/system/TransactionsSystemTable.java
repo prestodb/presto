@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -26,6 +27,8 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +44,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionsSystemTable
@@ -56,14 +59,14 @@ public class TransactionsSystemTable
     public TransactionsSystemTable(TypeManager typeManager, TransactionManager transactionManager)
     {
         this.transactionsTable = tableMetadataBuilder(TRANSACTIONS_TABLE_NAME)
-                .column("transaction_id", VARCHAR)
-                .column("isolation_level", VARCHAR)
+                .column("transaction_id", createUnboundedVarcharType())
+                .column("isolation_level", createUnboundedVarcharType())
                 .column("read_only", BOOLEAN)
                 .column("auto_commit_context", BOOLEAN)
                 .column("create_time", TIMESTAMP)
                 .column("idle_time_secs", BIGINT)
-                .column("written_catalog", VARCHAR)
-                .column("catalogs", typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()))
+                .column("written_catalog", createUnboundedVarcharType())
+                .column("catalogs", typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()))))
                 .build();
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
@@ -92,21 +95,22 @@ public class TransactionsSystemTable
                     info.isAutoCommitContext(),
                     info.getCreateTime().getMillis(),
                     (long) info.getIdleTime().getValue(TimeUnit.SECONDS),
-                    info.getWrittenConnectorId().orElse(null),
+                    info.getWrittenConnectorId().map(ConnectorId::getCatalogName).orElse(null),
                     createStringsBlock(info.getConnectorIds()));
         }
         return table.build().cursor();
     }
 
-    private static Block createStringsBlock(List<String> values)
+    private static Block createStringsBlock(List<ConnectorId> values)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), values.size());
-        for (String value : values) {
+        VarcharType varchar = createUnboundedVarcharType();
+        BlockBuilder builder = varchar.createBlockBuilder(new BlockBuilderStatus(), values.size());
+        for (ConnectorId value : values) {
             if (value == null) {
                 builder.appendNull();
             }
             else {
-                VARCHAR.writeString(builder, value);
+                varchar.writeString(builder, value.getCatalogName());
             }
         }
         return builder.build();

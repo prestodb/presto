@@ -30,6 +30,7 @@ import io.airlift.airline.HelpOption;
 import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
+import io.airlift.units.Duration;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
@@ -44,6 +45,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.cli.Completion.commandCompleter;
@@ -51,17 +53,19 @@ import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
+import static com.facebook.presto.client.ClientSession.withPreparedStatements;
 import static com.facebook.presto.client.ClientSession.withProperties;
-import static com.facebook.presto.client.ClientSession.withSessionProperties;
 import static com.facebook.presto.client.ClientSession.withTransactionId;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "presto", description = "Presto interactive console")
@@ -69,6 +73,7 @@ public class Console
         implements Runnable
 {
     private static final String PROMPT_NAME = "presto";
+    private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
 
     // create a parser with all identifier options enabled, since this is only used for USE statements
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class)));
@@ -92,7 +97,7 @@ public class Console
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
         boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
 
-        if (!hasQuery || !isFromFile) {
+        if (!hasQuery && !isFromFile) {
             AnsiConsole.systemInstall();
         }
 
@@ -116,11 +121,18 @@ public class Console
             }
         }
 
+        AtomicBoolean exiting = new AtomicBoolean();
+        interruptThreadOnExit(Thread.currentThread(), exiting);
+
         try (QueryRunner queryRunner = QueryRunner.create(
                 session,
                 Optional.ofNullable(clientOptions.socksProxy),
                 Optional.ofNullable(clientOptions.keystorePath),
                 Optional.ofNullable(clientOptions.keystorePassword),
+                Optional.ofNullable(clientOptions.truststorePath),
+                Optional.ofNullable(clientOptions.truststorePassword),
+                Optional.ofNullable(clientOptions.user),
+                clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
                 Optional.ofNullable(clientOptions.krb5Principal),
                 Optional.ofNullable(clientOptions.krb5RemoteServiceName),
                 clientOptions.authenticationEnabled,
@@ -129,18 +141,37 @@ public class Console
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
             else {
-                runConsole(queryRunner, session);
+                runConsole(queryRunner, session, exiting);
             }
         }
     }
 
-    private static void runConsole(QueryRunner queryRunner, ClientSession session)
+    private String getPassword()
+    {
+        checkState(clientOptions.user != null, "Username must be specified along with password");
+        String defaultPassword = System.getenv("PRESTO_PASSWORD");
+        if (defaultPassword != null) {
+            return defaultPassword;
+        }
+
+        java.io.Console console = System.console();
+        if (console == null) {
+            throw new RuntimeException("No console from which to read password");
+        }
+        char[] password = console.readPassword("Password: ");
+        if (password != null) {
+            return new String(password);
+        }
+        return "";
+    }
+
+    private static void runConsole(QueryRunner queryRunner, ClientSession session, AtomicBoolean exiting)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
                 LineReader reader = new LineReader(getHistory(), commandCompleter(), lowerCaseCommandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             StringBuilder buffer = new StringBuilder();
-            while (true) {
+            while (!exiting.get()) {
                 // read a line of input from user
                 String prompt = PROMPT_NAME;
                 if (session.getSchema() != null) {
@@ -213,7 +244,8 @@ public class Console
                     Optional<Object> statement = getParsedStatement(split.statement());
                     if (statement.isPresent() && isSessionParameterChange(statement.get())) {
                         Map<String, String> properties = queryRunner.getSession().getProperties();
-                        session = processSessionParameterChange(statement.get(), session, properties);
+                        Map<String, String> preparedStatements = queryRunner.getSession().getPreparedStatements();
+                        session = processSessionParameterChange(statement.get(), session, properties, preparedStatements);
                         queryRunner.setSession(session);
                         tableNameCompleter.populateCache();
                     }
@@ -251,12 +283,13 @@ public class Console
         }
     }
 
-    static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session, Map<String, String> existingProperties)
+    static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session, Map<String, String> existingProperties, Map<String, String> existingPreparedStatements)
     {
         if (parsedStatement instanceof Use) {
             Use use = (Use) parsedStatement;
             session = withCatalogAndSchema(session, use.getCatalog().orElse(session.getCatalog()), use.getSchema());
-            session = withSessionProperties(session, existingProperties);
+            session = withProperties(session, existingProperties);
+            session = withPreparedStatements(session, existingPreparedStatements);
         }
         return session;
     }
@@ -292,6 +325,14 @@ public class Console
                 sessionProperties.putAll(query.getSetSessionProperties());
                 sessionProperties.keySet().removeAll(query.getResetSessionProperties());
                 session = withProperties(session, sessionProperties);
+            }
+
+            // update prepared statements if present
+            if (!query.getAddedPreparedStatements().isEmpty() || !query.getDeallocatedPreparedStatements().isEmpty()) {
+                Map<String, String> preparedStatements = new HashMap<>(session.getPreparedStatements());
+                preparedStatements.putAll(query.getAddedPreparedStatements());
+                preparedStatements.keySet().removeAll(query.getDeallocatedPreparedStatements());
+                session = withPreparedStatements(session, preparedStatements);
             }
 
             // update transaction ID if necessary
@@ -359,5 +400,18 @@ public class Console
             System.setOut(out);
             System.setErr(err);
         }
+    }
+
+    private static void interruptThreadOnExit(Thread thread, AtomicBoolean exiting)
+    {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            exiting.set(true);
+            thread.interrupt();
+            try {
+                thread.join(EXIT_DELAY.toMillis());
+            }
+            catch (InterruptedException ignored) {
+            }
+        }));
     }
 }

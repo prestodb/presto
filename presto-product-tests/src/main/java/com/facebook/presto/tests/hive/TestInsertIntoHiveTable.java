@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.tests.hive;
 
 import com.teradata.tempto.ProductTest;
@@ -21,13 +20,11 @@ import com.teradata.tempto.Requires;
 import com.teradata.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.Timestamp;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
-import static com.facebook.presto.tests.TestGroups.QUARANTINE;
-import static com.facebook.presto.tests.TestGroups.SMOKE;
-import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_KNOWN_TO_PRESTO_TEXTFILE;
+import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
@@ -56,35 +53,26 @@ public class TestInsertIntoHiveTable
         }
     }
 
-    private static class AllSimpleTypesKnownToPrestoTables
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return compose(
-                    mutableTable(ALL_HIVE_SIMPLE_TYPES_KNOWN_TO_PRESTO_TEXTFILE, TABLE_NAME, CREATED),
-                    immutableTable(ALL_HIVE_SIMPLE_TYPES_KNOWN_TO_PRESTO_TEXTFILE));
-        }
-    }
-
-    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
+    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
     @Requires(AllSimpleTypesTables.class)
     public void testInsertIntoValuesToHiveTableAllHiveSimpleTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
         assertThat(query("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
         query("INSERT INTO " + tableNameInDatabase + " VALUES(" +
-                "127, " +
-                "32767, " +
+                "TINYINT '127', " +
+                "SMALLINT '32767', " +
                 "2147483647, " +
                 "9223372036854775807, " +
-                "123.345, " +
+                "REAL '123.345', " +
                 "234.567, " +
+                "CAST(346 as DECIMAL(10,0))," +
+                "CAST(345.67800 as DECIMAL(10,5))," +
                 "timestamp '2015-05-10 12:15:35.123', " +
                 "date '2015-05-10', " +
                 "'ala ma kota', " +
-                "'ala ma kota', " +
+                "'ala ma kot', " +
+                "CAST('ala ma    ' as CHAR(10)), " +
                 "true, " +
                 "from_base64('a290IGJpbmFybnk=')" +
                 ")");
@@ -95,17 +83,20 @@ public class TestInsertIntoHiveTable
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        123.34500122070312,
+                        123.345f,
                         234.567,
-                        Timestamp.valueOf("2015-05-10 12:15:35.123"),
+                        new BigDecimal("346"),
+                        new BigDecimal("345.67800"),
+                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
+                        "ala ma    ",
                         true,
                         "kot binarny".getBytes()));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
+    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
     @Requires(AllSimpleTypesTables.class)
     public void testInsertIntoSelectToHiveTableAllHiveSimpleTypes()
     {
@@ -118,70 +109,10 @@ public class TestInsertIntoHiveTable
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        123.34500122070312,
+                        123.345f,
                         234.567,
-                        Timestamp.valueOf("2015-05-10 12:15:35.123"),
-                        Date.valueOf("2015-05-10"),
-                        "ala ma kota",
-                        "ala ma kot",
-                        true,
-                        "kot binarny".getBytes()));
-    }
-
-    @Test(groups = {HIVE_CONNECTOR, SMOKE, QUARANTINE})
-    @Requires(AllSimpleTypesKnownToPrestoTables.class)
-    public void testInsertIntoValuesToHiveTableAllHiveSimpleTypesKnownToPresto()
-    {
-        String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
-        query("INSERT INTO " + tableNameInDatabase + " VALUES(" +
-                "127, " +
-                "32767, " +
-                "2147483647, " +
-                "9223372036854775807, " +
-                "123.345, " +
-                "234.567, " +
-                "timestamp '2015-05-10 12:15:35.123', " +
-                "date '2015-05-10', " +
-                "'ala ma kota', " +
-                "'ala ma kota', " +
-                "'ala ma', " +
-                "true, " +
-                "from_base64('a290IGJpbmFybnk=')" +
-                ")");
-
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsOnly(
-                row(
-                        127,
-                        32767,
-                        2147483647,
-                        9223372036854775807L,
-                        123.34500122070312,
-                        234.567,
-                        Timestamp.valueOf("2015-05-10 12:15:35.123"),
-                        Date.valueOf("2015-05-10"),
-                        "ala ma kota",
-                        "ala ma kot",
-                        "ala ma    ",
-                        true,
-                        "kot binarny".getBytes()));
-    }
-
-    @Test(groups = {HIVE_CONNECTOR, SMOKE, QUARANTINE})
-    @Requires(AllSimpleTypesKnownToPrestoTables.class)
-    public void testInsertIntoSelectToHiveTableAllHiveSimpleTypesKnownToPresto()
-    {
-        String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
-        query("INSERT INTO " + tableNameInDatabase + " SELECT * from textfile_all_types_known_to_presto");
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsOnly(
-                row(
-                        127,
-                        32767,
-                        2147483647,
-                        9223372036854775807L,
-                        123.34500122070312,
-                        234.567,
+                        new BigDecimal("346"),
+                        new BigDecimal("345.67800"),
                         parseTimestampInUTC("2015-05-10 12:15:35.123"),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",

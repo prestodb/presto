@@ -19,9 +19,13 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestPostgreSqlIntegrationSmokeTest
@@ -38,20 +42,43 @@ public class TestPostgreSqlIntegrationSmokeTest
     public TestPostgreSqlIntegrationSmokeTest(TestingPostgreSqlServer postgreSqlServer)
             throws Exception
     {
-        super(PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS));
+        super(() -> PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS));
         this.postgreSqlServer = postgreSqlServer;
-    }
-
-    @Override
-    public void testViewAccessControl()
-    {
-        // jdbc connector does not support views
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
             throws IOException
     {
-        closeAllRuntimeException(postgreSqlServer);
+        postgreSqlServer.close();
+    }
+
+    @Test
+    public void testInsert()
+            throws Exception
+    {
+        execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
+        assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
+        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
+        assertUpdate("DROP TABLE test_insert");
+    }
+
+    @Test
+    public void testMaterializedView()
+            throws Exception
+    {
+        execute("CREATE MATERIALIZED VIEW tpch.test_mv as SELECT * FROM tpch.orders");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_mv"));
+        assertQuery("SELECT orderkey FROM test_mv", "SELECT orderkey FROM orders");
+        execute("DROP MATERIALIZED VIEW tpch.test_mv");
+    }
+
+    private void execute(String sql)
+            throws SQLException
+    {
+        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl());
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
     }
 }

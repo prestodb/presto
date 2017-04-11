@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.connector.Connector;
@@ -24,15 +23,20 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 
 public class BlackHoleConnector
         implements Connector
@@ -42,6 +46,7 @@ public class BlackHoleConnector
     public static final String ROWS_PER_PAGE_PROPERTY = "rows_per_page";
     public static final String FIELD_LENGTH_PROPERTY = "field_length";
     public static final String DISTRIBUTED_ON = "distributed_on";
+    public static final String PAGE_PROCESSING_DELAY = "page_processing_delay";
 
     private final BlackHoleMetadata metadata;
     private final BlackHoleSplitManager splitManager;
@@ -49,13 +54,16 @@ public class BlackHoleConnector
     private final BlackHolePageSinkProvider pageSinkProvider;
     private final BlackHoleNodePartitioningProvider partitioningProvider;
     private final TypeManager typeManager;
+    private final ExecutorService executorService;
 
-    public BlackHoleConnector(BlackHoleMetadata metadata,
+    public BlackHoleConnector(
+            BlackHoleMetadata metadata,
             BlackHoleSplitManager splitManager,
             BlackHolePageSourceProvider pageSourceProvider,
             BlackHolePageSinkProvider pageSinkProvider,
             BlackHoleNodePartitioningProvider partitioningProvider,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            ExecutorService executorService)
     {
         this.metadata = metadata;
         this.splitManager = splitManager;
@@ -63,6 +71,7 @@ public class BlackHoleConnector
         this.pageSinkProvider = pageSinkProvider;
         this.partitioningProvider = partitioningProvider;
         this.typeManager = typeManager;
+        this.executorService = executorService;
     }
 
     @Override
@@ -129,18 +138,34 @@ public class BlackHoleConnector
                 new PropertyMetadata<>(
                         DISTRIBUTED_ON,
                         "Distribution columns",
-                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()),
+                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()))),
                         List.class,
                         ImmutableList.of(),
                         false,
                         value -> ImmutableList.copyOf(((List<String>) value).stream()
                                 .map(name -> name.toLowerCase(ENGLISH))
-                                .collect(Collectors.toList()))));
+                                .collect(toList())),
+                        List.class::cast),
+                new PropertyMetadata<>(
+                        PAGE_PROCESSING_DELAY,
+                        "Sleep duration before processing each page",
+                        VARCHAR,
+                        Duration.class,
+                        new Duration(0, SECONDS),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString));
     }
 
     @Override
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         return partitioningProvider;
+    }
+
+    @Override
+    public void shutdown()
+    {
+        executorService.shutdownNow();
     }
 }

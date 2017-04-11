@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,31 +30,35 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class Input
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final String schema;
     private final String table;
     private final List<Column> columns;
+    private final Optional<Object> connectorInfo;
 
     @JsonCreator
     public Input(
-            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
+            @JsonProperty("connectorInfo") Optional<Object> connectorInfo,
             @JsonProperty("columns") List<Column> columns)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(schema, "schema is null");
         requireNonNull(table, "table is null");
+        requireNonNull(connectorInfo, "connectorInfo is null");
         requireNonNull(columns, "columns is null");
 
         this.connectorId = connectorId;
         this.schema = schema;
         this.table = table;
+        this.connectorInfo = connectorInfo;
         this.columns = ImmutableList.copyOf(columns);
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }
@@ -70,6 +76,12 @@ public final class Input
     }
 
     @JsonProperty
+    public Optional<Object> getConnectorInfo()
+    {
+        return connectorInfo;
+    }
+
+    @JsonProperty
     public List<Column> getColumns()
     {
         return columns;
@@ -84,19 +96,18 @@ public final class Input
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        Input that = (Input) o;
-
-        return Objects.equals(this.connectorId, that.connectorId) &&
-                Objects.equals(this.schema, that.schema) &&
-                Objects.equals(this.table, that.table) &&
-                Objects.equals(this.columns, that.columns);
+        Input input = (Input) o;
+        return Objects.equals(connectorId, input.connectorId) &&
+                Objects.equals(schema, input.schema) &&
+                Objects.equals(table, input.table) &&
+                Objects.equals(columns, input.columns) &&
+                Objects.equals(connectorInfo, input.connectorInfo);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table, columns);
+        return Objects.hash(connectorId, schema, table, columns, connectorInfo);
     }
 
     @Override

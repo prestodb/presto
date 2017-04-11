@@ -13,39 +13,46 @@
  */
 package com.facebook.presto.teradata.functions;
 
-import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestTeradataFunctions
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
     @BeforeClass
     public void setUp()
     {
-        functionAssertions = new FunctionAssertions().addScalarFunctions(TeradataStringFunctions.class);
+        functionAssertions.addFunctions(extractFunctions(new TeradataFunctionsPlugin().getFunctions()));
     }
 
     @Test
     public void testIndex()
     {
-        assertFunction("INDEX('high', 'ig')", BIGINT, 2);
-        assertFunction("INDEX('high', 'igx')", BIGINT, 0);
-        assertFunction("INDEX('Quadratically', 'a')", BIGINT, 3);
-        assertFunction("INDEX('foobar', 'foobar')", BIGINT, 1);
-        assertFunction("INDEX('foobar', 'foobar_baz')", BIGINT, 0);
-        assertFunction("INDEX('foobar', 'obar')", BIGINT, 3);
-        assertFunction("INDEX('zoo!', '!')", BIGINT, 4);
-        assertFunction("INDEX('x', '')", BIGINT, 1);
-        assertFunction("INDEX('', '')", BIGINT, 1);
+        assertFunction("INDEX('high', 'ig')", BIGINT, 2L);
+        assertFunction("INDEX('high', 'igx')", BIGINT, 0L);
+        assertFunction("INDEX('Quadratically', 'a')", BIGINT, 3L);
+        assertFunction("INDEX('foobar', 'foobar')", BIGINT, 1L);
+        assertFunction("INDEX('foobar', 'foobar_baz')", BIGINT, 0L);
+        assertFunction("INDEX('foobar', 'obar')", BIGINT, 3L);
+        assertFunction("INDEX('zoo!', '!')", BIGINT, 4L);
+        assertFunction("INDEX('x', '')", BIGINT, 1L);
+        assertFunction("INDEX('', '')", BIGINT, 1L);
         assertFunction("INDEX(NULL, '')", BIGINT, null);
         assertFunction("INDEX('', NULL)", BIGINT, null);
         assertFunction("INDEX(NULL, NULL)", BIGINT, null);
+    }
+
+    @Test
+    public void testSubstring()
+    {
+        assertFunction("SUBSTRING('Quadratically', 5)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTRING('Quadratically', 5, 6)", createVarcharType(13), "ratica");
     }
 
     @Test
@@ -63,10 +70,5 @@ public class TestTeradataFunctions
         assertFunction("CHAR2HEXINT('\uff71')", VARCHAR, "FF71");
         assertFunction("CHAR2HEXINT('\u0ca0\u76ca\u0ca0')", VARCHAR, "0CA076CA0CA0");
         assertFunction("CHAR2HEXINT('(\u30ce\u0ca0\u76ca\u0ca0)\u30ce\u5f61\u253b\u2501\u253b')", VARCHAR, "002830CE0CA076CA0CA0002930CE5F61253B2501253B");
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
     }
 }

@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DoubleOperators;
-import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.VarcharOperators;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -28,38 +32,45 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import javax.annotation.Nullable;
-
 import java.io.IOException;
 
-import static com.facebook.presto.metadata.OperatorType.CAST;
-import static com.facebook.presto.metadata.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
-import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
+import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.util.DateTimeUtils.printDate;
+import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
+import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class JsonOperators
 {
-    private static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
+    public static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
 
     private JsonOperators()
     {
     }
 
     @ScalarOperator(CAST)
-    @Nullable
-    @SqlType(VARCHAR)
+    @SqlNullable
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
     public static Slice castToVarchar(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             JsonToken nextToken = parser.nextToken();
             Slice result;
             switch (nextToken) {
@@ -96,11 +107,11 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
-    @Nullable
+    @SqlNullable
     @SqlType(BIGINT)
     public static Long castToBigint(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
             Long result;
             switch (parser.getCurrentToken()) {
@@ -134,11 +145,49 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
-    @Nullable
+    @SqlNullable
+    @SqlType(INTEGER)
+    public static Long castToInteger(@SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+            parser.nextToken();
+            Long result;
+            switch (parser.getCurrentToken()) {
+                case VALUE_NULL:
+                    result = null;
+                    break;
+                case VALUE_STRING:
+                    result = VarcharOperators.castToInteger(Slices.utf8Slice(parser.getText()));
+                    break;
+                case VALUE_NUMBER_FLOAT:
+                    result = DoubleOperators.castToInteger(parser.getDoubleValue());
+                    break;
+                case VALUE_NUMBER_INT:
+                    result = (long) toIntExact(parser.getLongValue());
+                    break;
+                case VALUE_TRUE:
+                    result = BooleanOperators.castToInteger(true);
+                    break;
+                case VALUE_FALSE:
+                    result = BooleanOperators.castToInteger(false);
+                    break;
+                default:
+                    throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER));
+            }
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to INTEGER"); // check no trailing token
+            return result;
+        }
+        catch (ArithmeticException | IOException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
     @SqlType(DOUBLE)
     public static Double castToDouble(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
             Double result;
             switch (parser.getCurrentToken()) {
@@ -174,11 +223,11 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
-    @Nullable
+    @SqlNullable
     @SqlType(BOOLEAN)
     public static Boolean castToBoolean(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
             Boolean result;
             switch (parser.getCurrentToken()) {
@@ -212,31 +261,34 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
+    @LiteralParameters("x")
     @SqlType(JSON)
-    public static Slice castFromVarchar(@SqlType(VARCHAR) Slice slice) throws IOException
+    public static Slice castFromVarchar(@SqlType("varchar(x)") Slice value)
+            throws IOException
     {
         try {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(slice.length() + 2);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
-                jsonGenerator.writeString(slice.toStringUtf8());
+            SliceOutput output = new DynamicSliceOutput(value.length() + 2);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+                jsonGenerator.writeString(value.toStringUtf8());
             }
-            return dynamicSliceOutput.slice();
+            return output.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", slice.toStringUtf8(), JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value.toStringUtf8(), JSON));
         }
     }
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromBigint(@SqlType(BIGINT) long value) throws IOException
+    public static Slice castFromInteger(@SqlType(INTEGER) long value)
+            throws IOException
     {
         try {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(20);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
+            SliceOutput output = new DynamicSliceOutput(20);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeNumber(value);
             }
-            return dynamicSliceOutput.slice();
+            return output.slice();
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -245,14 +297,15 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromDouble(@SqlType(DOUBLE) double value) throws IOException
+    public static Slice castFromBigint(@SqlType(BIGINT) long value)
+            throws IOException
     {
         try {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(32);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
+            SliceOutput output = new DynamicSliceOutput(20);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeNumber(value);
             }
-            return dynamicSliceOutput.slice();
+            return output.slice();
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -261,14 +314,66 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromBoolean(@SqlType(BOOLEAN) boolean value) throws IOException
+    public static Slice castFromDouble(@SqlType(DOUBLE) double value)
+            throws IOException
     {
         try {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(5);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
+            SliceOutput output = new DynamicSliceOutput(32);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+                jsonGenerator.writeNumber(value);
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(JSON)
+    public static Slice castFromBoolean(@SqlType(BOOLEAN) boolean value)
+            throws IOException
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(5);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeBoolean(value);
             }
-            return dynamicSliceOutput.slice();
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(JSON)
+    public static Slice castFromTimestamp(ConnectorSession session, @SqlType(TIMESTAMP) long value)
+            throws IOException
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(25);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(JSON)
+    public static Slice castFromDate(ConnectorSession session, @SqlType(DATE) long value)
+            throws IOException
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(12);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+                jsonGenerator.writeString(printDate((int) value));
+            }
+            return output.slice();
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));

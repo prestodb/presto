@@ -53,7 +53,7 @@ public class TestFilterAndProjectOperator
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -97,24 +97,22 @@ public class TestFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 () -> new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
-                ImmutableList.<Type>of(VARCHAR, BIGINT));
-
-        Operator operator = operatorFactory.createOperator(driverContext);
+                ImmutableList.of(VARCHAR, BIGINT));
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
-                .row("10", 15)
-                .row("11", 16)
-                .row("12", 17)
-                .row("13", 18)
-                .row("14", 19)
-                .row("15", 20)
-                .row("16", 21)
-                .row("17", 22)
-                .row("18", 23)
-                .row("19", 24)
+                .row("10", 15L)
+                .row("11", 16L)
+                .row("12", 17L)
+                .row("13", 18L)
+                .row("14", 19L)
+                .row("15", 20L)
+                .row("16", 21L)
+                .row("17", 22L)
+                .row("18", 23L)
+                .row("19", 24L)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     private static class Add5Projection

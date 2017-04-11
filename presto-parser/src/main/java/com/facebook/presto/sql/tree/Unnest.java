@@ -63,6 +63,12 @@ public final class Unnest
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return expressions;
+    }
+
+    @Override
     public String toString()
     {
         String result = "UNNEST(" + Joiner.on(", ").join(expressions) + ")";

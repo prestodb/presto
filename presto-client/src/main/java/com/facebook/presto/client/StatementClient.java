@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -29,7 +30,10 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -40,8 +44,10 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -80,13 +86,16 @@ public class StatementClient
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
+    private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
+    private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
     private final AtomicReference<String> startedtransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean gone = new AtomicBoolean();
     private final AtomicBoolean valid = new AtomicBoolean(true);
-    private final String timeZoneId;
+    private final TimeZoneKey timeZone;
     private final long requestTimeoutNanos;
+    private final String user;
 
     public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
@@ -98,9 +107,10 @@ public class StatementClient
         this.httpClient = httpClient;
         this.responseHandler = createFullJsonResponseHandler(queryResultsCodec);
         this.debug = session.isDebug();
-        this.timeZoneId = session.getTimeZoneId();
+        this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout().roundTo(NANOSECONDS);
+        this.user = session.getUser();
 
         Request request = buildQueryRequest(session, query);
         JsonResponse<QueryResults> response = httpClient.execute(request, responseHandler);
@@ -112,17 +122,16 @@ public class StatementClient
         processResponse(response);
     }
 
-    private static Request buildQueryRequest(ClientSession session, String query)
+    private Request buildQueryRequest(ClientSession session, String query)
     {
-        Request.Builder builder = preparePost()
-                .setUri(uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
+        Request.Builder builder = prepareRequest(preparePost(), uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
 
-        if (session.getUser() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_USER, session.getUser());
-        }
         if (session.getSource() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SOURCE, session.getSource());
+        }
+        if (session.getClientInfo() != null) {
+            builder.setHeader(PrestoHeaders.PRESTO_CLIENT_INFO, session.getClientInfo());
         }
         if (session.getCatalog() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_CATALOG, session.getCatalog());
@@ -130,13 +139,19 @@ public class StatementClient
         if (session.getSchema() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
         }
-        builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
-        builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
-        builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
+        builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZone().getId());
+        if (session.getLocale() != null) {
+            builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
+        }
 
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
             builder.addHeader(PrestoHeaders.PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
+        }
+
+        Map<String, String> statements = session.getPreparedStatements();
+        for (Entry<String, String> entry : statements.entrySet()) {
+            builder.addHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
         builder.setHeader(PrestoHeaders.PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
@@ -149,9 +164,9 @@ public class StatementClient
         return query;
     }
 
-    public String getTimeZoneId()
+    public TimeZoneKey getTimeZone()
     {
-        return timeZoneId;
+        return timeZone;
     }
 
     public boolean isDebug()
@@ -201,6 +216,16 @@ public class StatementClient
         return ImmutableSet.copyOf(resetSessionProperties);
     }
 
+    public Map<String, String> getAddedPreparedStatements()
+    {
+        return ImmutableMap.copyOf(addedPreparedStatements);
+    }
+
+    public Set<String> getDeallocatedPreparedStatements()
+    {
+        return ImmutableSet.copyOf(deallocatedPreparedStatements);
+    }
+
     public String getStartedtransactionId()
     {
         return startedtransactionId.get();
@@ -216,6 +241,15 @@ public class StatementClient
         return valid.get() && (!isGone()) && (!isClosed());
     }
 
+    private Request.Builder prepareRequest(Request.Builder builder, URI nextUri)
+    {
+        builder.setHeader(PrestoHeaders.PRESTO_USER, user);
+        builder.setHeader(USER_AGENT, USER_AGENT_VALUE)
+                .setUri(nextUri);
+
+        return builder;
+    }
+
     public boolean advance()
     {
         URI nextUri = current().getNextUri();
@@ -224,10 +258,7 @@ public class StatementClient
             return false;
         }
 
-        Request request = prepareGet()
-                .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(nextUri)
-                .build();
+        Request request = prepareRequest(prepareGet(), nextUri).build();
 
         Exception cause = null;
         long start = System.nanoTime();
@@ -277,15 +308,26 @@ public class StatementClient
 
     private void processResponse(JsonResponse<QueryResults> response)
     {
-        for (String setSession : response.getHeaders().get(PRESTO_SET_SESSION)) {
+        for (String setSession : response.getHeaders(PRESTO_SET_SESSION)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {
                 continue;
             }
             setSessionProperties.put(keyValue.get(0), keyValue.size() > 1 ? keyValue.get(1) : "");
         }
-        for (String clearSession : response.getHeaders().get(PRESTO_CLEAR_SESSION)) {
+        for (String clearSession : response.getHeaders(PRESTO_CLEAR_SESSION)) {
             resetSessionProperties.add(clearSession);
+        }
+
+        for (String entry : response.getHeaders(PRESTO_ADDED_PREPARE)) {
+            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
+            if (keyValue.size() != 2) {
+                continue;
+            }
+            addedPreparedStatements.put(urlDecode(keyValue.get(0)), urlDecode(keyValue.get(1)));
+        }
+        for (String entry : response.getHeaders(PRESTO_DEALLOCATED_PREPARE)) {
+            deallocatedPreparedStatements.add(urlDecode(entry));
         }
 
         String startedTransactionId = response.getHeader(PRESTO_STARTED_TRANSACTION_ID);
@@ -319,10 +361,7 @@ public class StatementClient
             return false;
         }
 
-        Request request = prepareDelete()
-                .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(uri)
-                .build();
+        Request request = prepareRequest(prepareDelete(), uri).build();
 
         HttpResponseFuture<StatusResponse> response = httpClient.executeAsync(request, createStatusResponseHandler());
         try {
@@ -347,12 +386,29 @@ public class StatementClient
         if (!closed.getAndSet(true)) {
             URI uri = currentResults.get().getNextUri();
             if (uri != null) {
-                Request request = prepareDelete()
-                        .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                        .setUri(uri)
-                        .build();
+                Request request = prepareRequest(prepareDelete(), uri).build();
                 httpClient.executeAsync(request, createStatusResponseHandler());
             }
+        }
+    }
+
+    private static String urlEncode(String value)
+    {
+        try {
+            return URLEncoder.encode(value, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static String urlDecode(String value)
+    {
+        try {
+            return URLDecoder.decode(value, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
         }
     }
 }

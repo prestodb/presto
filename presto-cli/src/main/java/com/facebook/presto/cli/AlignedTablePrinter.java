@@ -57,7 +57,7 @@ public class AlignedTablePrinter
     public void finish()
             throws IOException
     {
-        printRows(ImmutableList.<List<?>>of(), true);
+        printRows(ImmutableList.of(), true);
         writer.append(format("(%s row%s)%n", rowCount, (rowCount != 1) ? "s" : ""));
         writer.flush();
     }
@@ -147,11 +147,8 @@ public class AlignedTablePrinter
 
     private static String formatHexDump(byte[] bytes, int bytesPerLine)
     {
-        // hex dump: "616263"
-        String hexDump = base16().lowerCase().encode(bytes);
-
         // hex pairs: ["61", "62", "63"]
-        Iterable<String> hexPairs = HEX_SPLITTER.split(hexDump);
+        Iterable<String> hexPairs = createHexPairs(bytes);
 
         // hex lines: [["61", "62", "63], [...]]
         Iterable<List<String>> hexLines = partition(hexPairs, bytesPerLine);
@@ -161,6 +158,20 @@ public class AlignedTablePrinter
 
         // joined: "61 62 63\n..."
         return HEX_LINE_JOINER.join(lines);
+    }
+
+    static String formatHexDump(byte[] bytes)
+    {
+        return HEX_BYTE_JOINER.join(createHexPairs(bytes));
+    }
+
+    private static Iterable<String> createHexPairs(byte[] bytes)
+    {
+        // hex dump: "616263"
+        String hexDump = base16().lowerCase().encode(bytes);
+
+        // hex pairs: ["61", "62", "63"]
+        return HEX_SPLITTER.split(hexDump);
     }
 
     private static String center(String s, int maxWidth, int padding)

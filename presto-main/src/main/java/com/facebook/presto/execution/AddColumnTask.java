@@ -23,12 +23,14 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AddColumn;
-import com.facebook.presto.sql.tree.TableElement;
+import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -36,7 +38,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Locale.ENGLISH;
 
 public class AddColumnTask
         implements DataDefinitionTask<AddColumn>
@@ -48,7 +51,7 @@ public class AddColumnTask
     }
 
     @Override
-    public CompletableFuture<?> execute(AddColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(AddColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
@@ -61,17 +64,17 @@ public class AddColumnTask
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
-        TableElement element = statement.getColumn();
+        ColumnDefinition element = statement.getColumn();
         Type type = metadata.getType(parseTypeSignature(element.getType()));
         if ((type == null) || type.equals(UNKNOWN)) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type for column '%s' ", element.getName());
         }
-        if (columnHandles.containsKey(element.getName())) {
+        if (columnHandles.containsKey(element.getName().toLowerCase(ENGLISH))) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
         }
 
         metadata.addColumn(session, tableHandle.get(), new ColumnMetadata(element.getName(), type));
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 }

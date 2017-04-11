@@ -26,16 +26,19 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @Immutable
 public class OperatorStats
 {
+    private final int pipelineId;
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final String operatorType;
+
+    private final long totalDrivers;
 
     private final long addInputCalls;
     private final Duration addInputWall;
@@ -43,6 +46,7 @@ public class OperatorStats
     private final Duration addInputUser;
     private final DataSize inputDataSize;
     private final long inputPositions;
+    private final double sumSquaredInputPositions;
 
     private final long getOutputCalls;
     private final Duration getOutputWall;
@@ -62,13 +66,16 @@ public class OperatorStats
     private final DataSize systemMemoryReservation;
     private final Optional<BlockedReason> blockedReason;
 
-    private final Object info;
+    private final OperatorInfo info;
 
     @JsonCreator
     public OperatorStats(
+            @JsonProperty("pipelineId") int pipelineId,
             @JsonProperty("operatorId") int operatorId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("operatorType") String operatorType,
+
+            @JsonProperty("totalDrivers") long totalDrivers,
 
             @JsonProperty("addInputCalls") long addInputCalls,
             @JsonProperty("addInputWall") Duration addInputWall,
@@ -76,6 +83,7 @@ public class OperatorStats
             @JsonProperty("addInputUser") Duration addInputUser,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
+            @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
 
             @JsonProperty("getOutputCalls") long getOutputCalls,
             @JsonProperty("getOutputWall") Duration getOutputWall,
@@ -95,12 +103,16 @@ public class OperatorStats
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("blockedReason") Optional<BlockedReason> blockedReason,
 
-            @JsonProperty("info") Object info)
+            @JsonProperty("info") OperatorInfo info)
     {
+        this.pipelineId = pipelineId;
+
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
+
+        this.totalDrivers = totalDrivers;
 
         this.addInputCalls = addInputCalls;
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
@@ -109,6 +121,7 @@ public class OperatorStats
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
+        this.sumSquaredInputPositions = sumSquaredInputPositions;
 
         this.getOutputCalls = getOutputCalls;
         this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
@@ -133,6 +146,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public int getPipelineId()
+    {
+        return pipelineId;
+    }
+
+    @JsonProperty
     public int getOperatorId()
     {
         return operatorId;
@@ -148,6 +167,12 @@ public class OperatorStats
     public String getOperatorType()
     {
         return operatorType;
+    }
+
+    @JsonProperty
+    public long getTotalDrivers()
+    {
+        return totalDrivers;
     }
 
     @JsonProperty
@@ -184,6 +209,12 @@ public class OperatorStats
     public long getInputPositions()
     {
         return inputPositions;
+    }
+
+    @JsonProperty
+    public double getSumSquaredInputPositions()
+    {
+        return sumSquaredInputPositions;
     }
 
     @JsonProperty
@@ -272,7 +303,7 @@ public class OperatorStats
 
     @Nullable
     @JsonProperty
-    public Object getInfo()
+    public OperatorInfo getInfo()
     {
         return info;
     }
@@ -284,12 +315,15 @@ public class OperatorStats
 
     public OperatorStats add(Iterable<OperatorStats> operators)
     {
+        long totalDrivers = this.totalDrivers;
+
         long addInputCalls = this.addInputCalls;
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
         long addInputUser = this.addInputUser.roundTo(NANOSECONDS);
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
+        double sumSquaredInputPositions = this.sumSquaredInputPositions;
 
         long getOutputCalls = this.getOutputCalls;
         long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
@@ -309,12 +343,11 @@ public class OperatorStats
         long systemMemoryReservation = this.systemMemoryReservation.toBytes();
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
-        Mergeable<?> base = null;
-        if (info instanceof Mergeable) {
-            base = (Mergeable<?>) info;
-        }
+        Mergeable<OperatorInfo> base = getMergeableInfoOrNull(info);
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
+
+            totalDrivers += operator.totalDrivers;
 
             addInputCalls += operator.getAddInputCalls();
             addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
@@ -322,6 +355,7 @@ public class OperatorStats
             addInputUser += operator.getAddInputUser().roundTo(NANOSECONDS);
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
+            sumSquaredInputPositions += operator.getSumSquaredInputPositions();
 
             getOutputCalls += operator.getGetOutputCalls();
             getOutputWall += operator.getGetOutputWall().roundTo(NANOSECONDS);
@@ -343,29 +377,33 @@ public class OperatorStats
                 blockedReason = operator.getBlockedReason();
             }
 
-            Object info = operator.getInfo();
+            OperatorInfo info = operator.getInfo();
             if (base != null && info != null && base.getClass() == info.getClass()) {
                 base = mergeInfo(base, info);
             }
         }
 
         return new OperatorStats(
+                pipelineId,
                 operatorId,
                 planNodeId,
                 operatorType,
+
+                totalDrivers,
 
                 addInputCalls,
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(inputDataSize),
                 inputPositions,
+                sumSquaredInputPositions,
 
                 getOutputCalls,
                 new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize),
                 outputPositions,
 
                 new Duration(blockedWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -375,15 +413,58 @@ public class OperatorStats
                 new Duration(finishCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                new DataSize(memoryReservation, BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(memoryReservation),
+                succinctBytes(systemMemoryReservation),
                 blockedReason,
 
-                base);
+                (OperatorInfo) base);
     }
 
-    public static <T extends Mergeable<T>> Mergeable<?> mergeInfo(Object base, Object other)
+    @SuppressWarnings("unchecked")
+    private static Mergeable<OperatorInfo> getMergeableInfoOrNull(OperatorInfo info)
     {
-        return ((T) base).mergeWith(((T) other));
+        Mergeable<OperatorInfo> base = null;
+        if (info instanceof Mergeable) {
+            base = (Mergeable<OperatorInfo>) info;
+        }
+        return base;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Mergeable<T> mergeInfo(Mergeable<T> base, T other)
+    {
+        return (Mergeable<T>) base.mergeWith(other);
+    }
+
+    public OperatorStats summarize()
+    {
+        return new OperatorStats(
+                pipelineId,
+                operatorId,
+                planNodeId,
+                operatorType,
+                totalDrivers,
+                addInputCalls,
+                addInputWall,
+                addInputCpu,
+                addInputUser,
+                inputDataSize,
+                inputPositions,
+                sumSquaredInputPositions,
+                getOutputCalls,
+                getOutputWall,
+                getOutputCpu,
+                getOutputUser,
+                outputDataSize,
+                outputPositions,
+                blockedWall,
+                finishCalls,
+                finishWall,
+                finishCpu,
+                finishUser,
+                memoryReservation,
+                systemMemoryReservation,
+                blockedReason,
+                (info != null && info.isFinal()) ? info : null);
     }
 }

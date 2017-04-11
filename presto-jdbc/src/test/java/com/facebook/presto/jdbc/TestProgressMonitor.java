@@ -75,7 +75,7 @@ public class TestProgressMonitor
                 nextUriId == null ? null : URI.create(format(NEXT_URI, nextUriId)),
                 responseColumns,
                 data,
-                new StatementStats(state, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                new StatementStats(state, state.equals("QUEUED"), true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 null,
                 null);
@@ -118,8 +118,8 @@ public class TestProgressMonitor
     {
         HttpClient client = new TestingHttpClient(new TestingHttpClientProcessor(RESPONSES));
         QueryExecutor testQueryExecutor = QueryExecutor.create(client);
-        URI uri = URI.create(format("prestotest://%s", SERVER_ADDRESS));
-        return new PrestoConnection(uri, "test", testQueryExecutor);
+        String uri = format("prestotest://%s", SERVER_ADDRESS);
+        return new PrestoConnection(new PrestoDriverUri(uri), "test", testQueryExecutor);
     }
 
     private static class TestingHttpClientProcessor

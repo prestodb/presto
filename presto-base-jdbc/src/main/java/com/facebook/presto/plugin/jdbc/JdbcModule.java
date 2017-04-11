@@ -34,7 +34,7 @@ public class JdbcModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcConnectorId.class).toInstance(new JdbcConnectorId(connectorId));
-        binder.bind(JdbcMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSinkProvider.class).in(Scopes.SINGLETON);

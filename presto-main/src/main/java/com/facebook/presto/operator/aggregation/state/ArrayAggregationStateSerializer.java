@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 
@@ -56,8 +57,7 @@ public class ArrayAggregationStateSerializer
         int positionCount = stateBlock.getPositionCount();
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
         for (int i = 0; i < positionCount; i++) {
-            stateBlock.writePositionTo(i, blockBuilder);
-            blockBuilder.closeEntry();
+            elementType.appendTo(stateBlock, i, blockBuilder);
         }
         state.setBlockBuilder(blockBuilder);
     }

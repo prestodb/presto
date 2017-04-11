@@ -56,6 +56,12 @@ public class ArrayConstructor
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return values;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
  *     MetadataDelete
  */
 public class MetadataDeleteOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
 
@@ -92,7 +92,7 @@ public class MetadataDeleteOptimizer
             return new MetadataDeleteNode(idAllocator.getNextId(), delete.get().getTarget(), Iterables.getOnlyElement(node.getOutputSymbols()), tableScanNode.getLayout().get());
         }
 
-        private <T> Optional<T> findNode(PlanNode source, Class<T> clazz)
+        private static <T> Optional<T> findNode(PlanNode source, Class<T> clazz)
         {
             while (true) {
                 // allow any chain of linear exchanges

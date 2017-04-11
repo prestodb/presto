@@ -14,6 +14,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -24,15 +25,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class PageSinkManager
         implements PageSinkProvider
 {
-    private final ConcurrentMap<String, ConnectorPageSinkProvider> pageSinkProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, ConnectorPageSinkProvider> pageSinkProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSinkProvider(String connectorId, ConnectorPageSinkProvider connectorPageSinkProvider)
+    public void addConnectorPageSinkProvider(ConnectorId connectorId, ConnectorPageSinkProvider pageSinkProvider)
     {
-        pageSinkProviders.put(connectorId, connectorPageSinkProvider);
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        checkState(pageSinkProviders.put(connectorId, pageSinkProvider) == null, "PageSinkProvider for connector '%s' is already registered", connectorId);
+    }
+
+    public void removeConnectorPageSinkProvider(ConnectorId connectorId)
+    {
+        pageSinkProviders.remove(connectorId);
     }
 
     @Override
@@ -51,7 +61,7 @@ public class PageSinkManager
         return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
     }
 
-    private ConnectorPageSinkProvider providerFor(String connectorId)
+    private ConnectorPageSinkProvider providerFor(ConnectorId connectorId)
     {
         ConnectorPageSinkProvider provider = pageSinkProviders.get(connectorId);
         checkArgument(provider != null, "No page sink provider for connector '%s'", connectorId);

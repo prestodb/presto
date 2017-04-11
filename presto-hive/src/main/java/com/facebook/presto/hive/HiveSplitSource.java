@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.FileNotFoundException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -33,15 +34,13 @@ import static io.airlift.concurrent.MoreFutures.failedFuture;
 class HiveSplitSource
         implements ConnectorSplitSource
 {
-    private final String connectorId;
     private final AsyncQueue<ConnectorSplit> queue;
     private final AtomicReference<Throwable> throwable = new AtomicReference<>();
     private final HiveSplitLoader splitLoader;
     private volatile boolean closed;
 
-    HiveSplitSource(String connectorId, int maxOutstandingSplits, HiveSplitLoader splitLoader, Executor executor)
+    HiveSplitSource(int maxOutstandingSplits, HiveSplitLoader splitLoader, Executor executor)
     {
-        this.connectorId = connectorId;
         this.queue = new AsyncQueue<>(maxOutstandingSplits, executor);
         this.splitLoader = splitLoader;
     }
@@ -52,10 +51,11 @@ class HiveSplitSource
         return queue.size();
     }
 
-    CompletableFuture<?> addToQueue(Iterable<? extends ConnectorSplit> splits)
+    CompletableFuture<?> addToQueue(Iterator<? extends ConnectorSplit> splits)
     {
         CompletableFuture<?> lastResult = CompletableFuture.completedFuture(null);
-        for (ConnectorSplit split : splits) {
+        while (splits.hasNext()) {
+            ConnectorSplit split = splits.next();
             lastResult = addToQueue(split);
         }
         return lastResult;
@@ -87,12 +87,6 @@ class HiveSplitSource
             // no need to process any more jobs
             splitLoader.stop();
         }
-    }
-
-    @Override
-    public String getDataSourceName()
-    {
-        return connectorId;
     }
 
     @Override

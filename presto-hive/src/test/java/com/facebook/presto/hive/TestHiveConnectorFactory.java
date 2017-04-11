@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.GroupByHashPageIndexerFactory;
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.Map;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.airlift.testing.Assertions.assertContains;
@@ -49,17 +49,14 @@ public class TestHiveConnectorFactory
     {
         HiveConnectorFactory connectorFactory = new HiveConnectorFactory(
                 "hive-test",
-                ImmutableMap.<String, String>builder()
-                        .put("node.environment", "test")
-                        .put("hive.metastore.uri", metastoreUri)
-                        .build(),
                 HiveConnector.class.getClassLoader(),
-                null,
-                new TypeRegistry(),
-                new GroupByHashPageIndexerFactory(),
-                new InMemoryNodeManager());
+                null);
 
-        Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
+        Map<String, String> config = ImmutableMap.<String, String>builder()
+                .put("hive.metastore.uri", metastoreUri)
+                .build();
+
+        Connector connector = connectorFactory.create("hive-test", config, new TestingConnectorContext());
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true);
         assertInstanceOf(connector.getMetadata(transaction), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);

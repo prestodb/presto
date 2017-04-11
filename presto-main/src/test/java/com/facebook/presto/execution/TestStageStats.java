@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.Distribution;
@@ -62,7 +63,8 @@ public class TestStageStats
             22,
 
             new DataSize(23, BYTE),
-            24);
+            24,
+            ImmutableList.of());
 
     @Test
     public void testJson()

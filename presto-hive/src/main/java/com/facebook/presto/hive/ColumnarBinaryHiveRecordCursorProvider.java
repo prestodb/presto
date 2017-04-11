@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -23,17 +24,28 @@ import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
+import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
+import static java.util.Objects.requireNonNull;
 
 public class ColumnarBinaryHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
+    private final HdfsEnvironment hdfsEnvironment;
+
+    @Inject
+    public ColumnarBinaryHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
+    {
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+    }
+
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(
+    public Optional<RecordCursor> createRecordCursor(
             String clientId,
             Configuration configuration,
             ConnectorSession session,
@@ -42,7 +54,6 @@ public class ColumnarBinaryHiveRecordCursorProvider
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
@@ -51,15 +62,14 @@ public class ColumnarBinaryHiveRecordCursorProvider
             return Optional.empty();
         }
 
-        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(configuration, path, start, length, schema, columns);
+        RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
+                () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
 
-        return Optional.<HiveRecordCursor>of(new ColumnarBinaryHiveRecordCursor<>(
+        return Optional.of(new ColumnarBinaryHiveRecordCursor<>(
                 bytesRecordReader(recordReader),
                 length,
                 schema,
-                partitionKeys,
                 columns,
-                hiveStorageTimeZone,
                 typeManager));
     }
 

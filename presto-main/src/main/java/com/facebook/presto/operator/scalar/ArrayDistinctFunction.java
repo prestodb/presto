@@ -13,19 +13,17 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.SqlType;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
-
-import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
@@ -37,10 +35,7 @@ public final class ArrayDistinctFunction
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public static Block distinct(
-            @OperatorDependency(operator = OperatorType.EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equals,
-            @TypeParameter("E") Type type,
-            @SqlType("array(E)") Block array)
+    public static Block distinct(@TypeParameter("E") Type type, @SqlType("array(E)") Block array)
     {
         if (array.getPositionCount() < 2) {
             return array;
@@ -78,11 +73,14 @@ public final class ArrayDistinctFunction
         LongSet set = new LongOpenHashSet(array.getPositionCount());
         BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!containsNull && array.isNull(i)) {
-                containsNull = true;
-                distinctElementBlockBuilder.appendNull();
+            if (array.isNull(i)) {
+                if (!containsNull) {
+                    containsNull = true;
+                    distinctElementBlockBuilder.appendNull();
+                }
                 continue;
             }
+
             long value = BIGINT.getLong(array, i);
             if (set.add(value)) {
                 BIGINT.writeLong(distinctElementBlockBuilder, value);

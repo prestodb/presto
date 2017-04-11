@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.block.Block;
@@ -24,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -55,15 +55,18 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.units.DataSize.succinctBytes;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static parquet.hadoop.metadata.CompressionCodecName.GZIP;
+import static parquet.hadoop.metadata.CompressionCodecName.LZO;
 import static parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
 import static parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 
@@ -86,7 +89,7 @@ public class ParquetTester
     public static ParquetTester fullParquetTester()
     {
         ParquetTester parquetTester = new ParquetTester();
-        parquetTester.compressions = ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY);
+        parquetTester.compressions = ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO);
         parquetTester.versions = ImmutableSet.copyOf(WriterVersion.values());
         return parquetTester;
     }
@@ -145,7 +148,6 @@ public class ParquetTester
                                     objectInspector,
                                     writeValues.iterator());
                     assertFileContents(jobConf,
-                                    objectInspector,
                                     tempFile,
                                     readValues,
                                     type);
@@ -155,35 +157,29 @@ public class ParquetTester
     }
 
     private static void assertFileContents(JobConf jobConf,
-            ObjectInspector objectInspector,
             TempFile tempFile,
             Iterable<?> expectedValues,
             Type type)
             throws IOException, InterruptedException
     {
         Path path = new Path(tempFile.getFile().toURI());
-        ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(jobConf, path);
+        FileSystem fileSystem = path.getFileSystem(jobConf);
+        ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(fileSystem, path);
         FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
         MessageType fileSchema = fileMetaData.getSchema();
 
-        FileSystem fileSystem = path.getFileSystem(jobConf);
         long size = fileSystem.getFileStatus(path).getLen();
         FSDataInputStream inputStream = fileSystem.open(path);
         ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream);
 
-        ParquetReader parquetReader = new ParquetReader(fileSchema,
-                                                        fileMetaData.getKeyValueMetaData(),
-                                                        fileSchema,
-                                                        parquetMetadata.getBlocks(),
-                                                        jobConf,
-                                                        dataSource);
+        ParquetReader parquetReader = new ParquetReader(fileSchema, fileSchema, parquetMetadata.getBlocks(), dataSource, TYPE_MANAGER, new AggregatedMemoryContext());
         assertEquals(parquetReader.getPosition(), 0);
 
         int rowsProcessed = 0;
         Iterator<?> iterator = expectedValues.iterator();
         for (int batchSize = parquetReader.nextBatch(); batchSize >= 0; batchSize = parquetReader.nextBatch()) {
             ColumnDescriptor columnDescriptor = fileSchema.getColumns().get(0);
-            Block block = parquetReader.readBlock(columnDescriptor, type);
+            Block block = parquetReader.readPrimitive(columnDescriptor, type);
             for (int i = 0; i < batchSize; i++) {
                 assertTrue(iterator.hasNext());
                 Object expected = iterator.next();
@@ -231,7 +227,7 @@ public class ParquetTester
         }
 
         recordWriter.close(false);
-        return new DataSize(outputFile.length(), Unit.BYTE).convertToMostSuccinctDataSize();
+        return succinctBytes(outputFile.length());
     }
 
     static SettableStructObjectInspector createSettableStructObjectInspector(String name, ObjectInspector objectInspector)

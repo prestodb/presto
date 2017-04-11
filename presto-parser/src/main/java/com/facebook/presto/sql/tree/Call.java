@@ -62,6 +62,12 @@ public final class Call
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return arguments;
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

@@ -18,15 +18,15 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
 import com.google.common.base.Throwables;
-import io.airlift.slice.Slice;
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collection;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -39,7 +39,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments)
+    public void commitCreateTable(JdbcOutputTableHandle handle)
     {
         // PostgreSQL does not allow qualifying the target of a rename
         StringBuilder sql = new StringBuilder()
@@ -64,5 +64,18 @@ public class PostgreSqlClient
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setFetchSize(1000);
         return statement;
+    }
+
+    @Override
+    protected ResultSet getTables(Connection connection, String schemaName, String tableName)
+            throws SQLException
+    {
+        DatabaseMetaData metadata = connection.getMetaData();
+        String escape = metadata.getSearchStringEscape();
+        return metadata.getTables(
+                connection.getCatalog(),
+                escapeNamePattern(schemaName, escape),
+                escapeNamePattern(tableName, escape),
+                new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW"});
     }
 }

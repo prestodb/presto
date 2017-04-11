@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.units.Duration;
 
 import java.util.Objects;
 
@@ -27,18 +27,21 @@ public final class BlackHoleTableLayoutHandle
     private final int pagesPerSplit;
     private final int rowsPerPage;
     private final int fieldsLength;
+    private final Duration pageProcessingDelay;
 
     @JsonCreator
     public BlackHoleTableLayoutHandle(
             @JsonProperty("splitCount") int splitCount,
             @JsonProperty("pagesPerSplit") int pagesPerSplit,
             @JsonProperty("rowsPerPage") int rowsPerPage,
-            @JsonProperty("fieldsLength") int fieldsLength)
+            @JsonProperty("fieldsLength") int fieldsLength,
+            @JsonProperty("pageProcessingDelay") Duration pageProcessingDelay)
     {
         this.splitCount = splitCount;
         this.pagesPerSplit = pagesPerSplit;
         this.rowsPerPage = rowsPerPage;
         this.fieldsLength = fieldsLength;
+        this.pageProcessingDelay = pageProcessingDelay;
     }
 
     @JsonProperty
@@ -63,6 +66,12 @@ public final class BlackHoleTableLayoutHandle
     public int getFieldsLength()
     {
         return fieldsLength;
+    }
+
+    @JsonProperty
+    public Duration getPageProcessingDelay()
+    {
+        return pageProcessingDelay;
     }
 
     @Override

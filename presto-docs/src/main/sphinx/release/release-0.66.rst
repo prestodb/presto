@@ -58,8 +58,7 @@ produce unexpected results. For example, if we run the following query
 to add 24 hours using in the ``America/Los Angeles`` time zone::
 
     SELECT date_add('hour', 24, TIMESTAMP '2014-03-08 09:00:00');
-    =>
-    2014-03-09 10:00:00.000
+    -- 2014-03-09 10:00:00.000
 
 The timestamp appears to only advance 23 hours. This is because on
 March 9th clocks in ``America/Los Angeles`` are turned forward 1 hour,
@@ -67,8 +66,7 @@ so March 9th only has 23 hours. To advance the day part of the timestamp,
 use the ``day`` unit instead::
 
     SELECT date_add('day', 1, TIMESTAMP '2014-03-08 09:00:00');
-    =>
-    2014-03-09 09:00:00.000
+    -- 2014-03-09 09:00:00.000
 
 This works because the :func:`date_add` function treats the timestamp as
 list of fields, adds the value to the specified field and then rolls any
@@ -88,16 +86,14 @@ In addition to normal ``TIMESTAMP`` values, Presto also supports the
 For example, the following query creates a ``TIMESTAMP WITH TIME ZONE``::
 
     SELECT TIMESTAMP '2014-03-14 09:30:00 Europe/Berlin';
-    =>
-    2014-03-14 09:30:00.000 Europe/Berlin
+    -- 2014-03-14 09:30:00.000 Europe/Berlin
 
 You can also change the time zone of an existing timestamp using the
 ``AT TIME ZONE`` clause::
 
    SELECT TIMESTAMP '2014-03-14 09:30:00 Europe/Berlin'
         AT TIME ZONE 'America/Los_Angeles';
-   =>
-   2014-03-14 01:30:00.000 America/Los_Angeles
+   -- 2014-03-14 01:30:00.000 America/Los_Angeles
 
 Both timestamps represent the same instant in time;
 they differ only in the time zone used to print them.
@@ -115,15 +111,11 @@ support to the Presto engine and functions that require it:
 :func:`date_format` and :func:`date_parse`.
 For example, if we set the language to Spanish::
 
-    SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M');
-    =>
-    enero
+    SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M'); -- enero
 
 If we set the language to Japanese::
 
-    SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M');
-    =>
-    1月
+    SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M'); -- 1月
 
 The language of the session can be set on a per-query basis using the
 ``X-Presto-Language`` HTTP header, or via the

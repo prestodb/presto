@@ -1,45 +1,138 @@
 language: java
 
-jdk:
-  - oraclejdk8
-
 env:
   global:
-    - MAVEN_OPTS="-Xmx256M"
+    - MAVEN_OPTS="-Xmx512M -XX:+ExitOnOutOfMemoryError"
+    - MAVEN_SKIP_CHECKS_AND_DOCS="-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
+    - MAVEN_FAST_INSTALL="-DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1"
+    - ARTIFACTS_UPLOAD_PATH=travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
+    - TEST_FLAGS=""
   matrix:
-    - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql
-    - TEST_MODULES=presto-tests
-    - TEST_MODULES=presto-raptor,presto-redis,presto-cassandra,presto-kafka,presto-postgresql,presto-mysql
-    - RUN_PRODUCT_TESTS=true
+    - MAVEN_CHECKS=true
+    - TEST_SPECIFIC_MODULES=presto-tests
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
+    - TEST_SPECIFIC_MODULES=presto-raptor
+    - TEST_SPECIFIC_MODULES=presto-accumulo
+    - TEST_SPECIFIC_MODULES=presto-cassandra
+    - TEST_SPECIFIC_MODULES=presto-hive
+    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-docs,!presto-server,!presto-server-rpm
+    - PRODUCT_TESTS=true
+    - HIVE_TESTS=true
 
 sudo: required
 dist: trusty
 
+cache:
+  directories:
+    - $HOME/.m2/repository
+
 services:
   - docker
 
-before_install:
-  # This section can be removed once travis get equipped with docker 1.10 and docker-compose 1.6
+install:
+  - ./mvnw -v
   - |
-    sudo apt-get update
-    sudo apt-get -o "Dpkg::Options::=--force-confold" -y install docker-engine
-    sudo rm /usr/local/bin/docker-compose
-    curl -L https://github.com/docker/compose/releases/download/1.6.2/docker-compose-`uname -s`-`uname -m` > docker-compose
-    chmod +x docker-compose
-    sudo mv docker-compose /usr/local/bin
-
-install: ./mvnw install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -q -T 2
+    if [[ -v TEST_SPECIFIC_MODULES ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl $TEST_SPECIFIC_MODULES -am
+    fi
+  - |
+    if [[ -v TEST_OTHER_MODULES ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
+    fi
+  - |
+    if [[ -v HIVE_TESTS ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
+    fi
 
 script:
   - |
-    if [ -v TEST_MODULES ]; then
-      ./mvnw test -Dair.check.skip-dependency=true -pl $TEST_MODULES;
+    if [[ -v MAVEN_CHECKS ]]; then
+      ./mvnw install -DskipTests -B -T C1
     fi
   - |
-    if [ -v RUN_PRODUCT_TESTS ]; then
-      presto-product-tests/etc/singlenode/run_on_travis.sh -x quarantine,big_query
+    if [[ -v TEST_SPECIFIC_MODULES ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES $TEST_FLAGS
     fi
+  - |
+    if [[ -v TEST_OTHER_MODULES ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_OTHER_MODULES
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-ldap -g ldap_cli
+    fi
+  - |
+    if [[ -v HIVE_TESTS ]]; then
+      presto-hive-hadoop2/bin/run_on_docker.sh
+    fi
+
+before_cache:
+  # Make the cache stable between builds by removing build output
+  - rm -rf $HOME/.m2/repository/com/facebook
 
 notifications:
   slack:
     secure: V5eyoGShxFoCcYJcp858vf/T6gC9KeMxL0C1EElcpZRcKBrIVZzvhek3HLHxZOxlghqnvNVsyDtU3u5orkEaAXeXj5c2dN+4XBsAB9oeN5MtQ0Z3VLAhZDqKIW1LzcXrq4DpzM0PkGhjfjum/P94/qFYk0UckPtB6a341AuYRo8=
+
+before_deploy:
+  - mkdir /tmp/artifacts
+  - cp -n presto-server/target/presto-server-*.tar.gz /tmp/artifacts
+  - cp -n presto-server-rpm/target/presto-server-rpm-*.x86_64.rpm /tmp/artifacts
+  - cp -n presto-product-tests/target/presto-product-tests-*-executable.jar /tmp/artifacts
+  - cp -n presto-jdbc/target/presto-jdbc-*.jar /tmp/artifacts
+  - cp -n presto-cli/target/presto-cli-*-executable.jar /tmp/artifacts
+  - echo $TRAVIS_COMMIT > /tmp/artifacts/git-revision.txt
+  - echo "<script>location='https://travis-ci.org/${TRAVIS_REPO_SLUG}/builds/${TRAVIS_BUILD_ID}'</script>"
+    > /tmp/artifacts/travis_build.html
+  - ls -lah /tmp/artifacts
+
+deploy:
+  on:
+    all_branches: true
+    condition: -v DEPLOY_S3_ACCESS_KEY && -v MAVEN_CHECKS
+  provider: s3
+  access_key_id: ${DEPLOY_S3_ACCESS_KEY}
+  secret_access_key: ${DEPLOY_S3_SECRET_KEY}
+  bucket: ${DEPLOY_S3_BUCKET}
+  skip_cleanup: true
+  local-dir: /tmp/artifacts
+  upload-dir: ${ARTIFACTS_UPLOAD_PATH}
+  acl: public_read
+
+after_script:
+- |
+  if [[ -v DEPLOY_S3_ACCESS_KEY ]]; then
+    sudo pip install awscli
+    export AWS_ACCESS_KEY_ID=${DEPLOY_S3_ACCESS_KEY}
+    export AWS_SECRET_ACCESS_KEY=${DEPLOY_S3_SECRET_KEY}
+
+    JOB_ARTIFACTS_URL_PREFIX=s3://${DEPLOY_S3_BUCKET}/${ARTIFACTS_UPLOAD_PATH}/travis_jobs/${TRAVIS_JOB_NUMBER}-run
+    JOB_RUN_ATTEMPTS=$( aws s3 ls ${JOB_ARTIFACTS_URL_PREFIX} | wc -l | tr -d '[:space:]' )
+    JOB_STATUS=$( [ "$TRAVIS_TEST_RESULT" == "0" ] && echo SUCCESS || echo FAILURE )
+
+    mkdir -p /tmp/job_artifacts/
+    rsync -av -m \
+      --include='**/' \
+      --include='**/surefire-reports/**.xml' \
+      --include='**/surefire-reports/emailable-report.html' \
+      --exclude='*' \
+      . /tmp/job_artifacts/
+    wget https://api.travis-ci.org/jobs/${TRAVIS_JOB_ID}/log.txt?deansi=true -O /tmp/job_artifacts/log.txt
+
+    aws s3 sync /tmp/job_artifacts ${JOB_ARTIFACTS_URL_PREFIX}_$((JOB_RUN_ATTEMPTS + 1))-${JOB_STATUS}
+  fi

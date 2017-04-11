@@ -27,10 +27,13 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Runtime.getRuntime;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -42,6 +45,7 @@ public class TestStorageManagerConfig
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
                 .setDataDirectory(null)
+                .setMinAvailableSpace(new DataSize(0, BYTE))
                 .setOrcMaxMergeDistance(new DataSize(1, MEGABYTE))
                 .setOrcMaxReadSize(new DataSize(8, MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, MEGABYTE))
@@ -51,11 +55,14 @@ public class TestStorageManagerConfig
                 .setCompactionInterval(new Duration(1, HOURS))
                 .setShardEjectorInterval(new Duration(4, HOURS))
                 .setRecoveryThreads(10)
-                .setCompactionThreads(5)
+                .setOrganizationThreads(5)
                 .setCompactionEnabled(true)
+                .setOrganizationEnabled(true)
+                .setOrganizationInterval(new Duration(7, DAYS))
                 .setMaxShardRows(1_000_000)
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
-                .setMaxBufferSize(new DataSize(256, MEGABYTE)));
+                .setMaxBufferSize(new DataSize(256, MEGABYTE))
+                .setOneSplitPerBucketThreshold(0));
     }
 
     @Test
@@ -63,6 +70,7 @@ public class TestStorageManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("storage.data-directory", "/data")
+                .put("storage.min-available-space", "123GB")
                 .put("storage.orc.max-merge-distance", "16kB")
                 .put("storage.orc.max-read-size", "16kB")
                 .put("storage.orc.stream-buffer-size", "16kB")
@@ -71,16 +79,20 @@ public class TestStorageManagerConfig
                 .put("storage.missing-shard-discovery-interval", "4m")
                 .put("storage.compaction-enabled", "false")
                 .put("storage.compaction-interval", "4h")
+                .put("storage.organization-enabled", "false")
+                .put("storage.organization-interval", "4h")
                 .put("storage.ejector-interval", "9h")
                 .put("storage.max-recovery-threads", "12")
-                .put("storage.max-compaction-threads", "12")
+                .put("storage.max-organization-threads", "12")
                 .put("storage.max-shard-rows", "10000")
                 .put("storage.max-shard-size", "10MB")
                 .put("storage.max-buffer-size", "512MB")
+                .put("storage.one-split-per-bucket-threshold", "4")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new File("/data"))
+                .setMinAvailableSpace(new DataSize(123, GIGABYTE))
                 .setOrcMaxMergeDistance(new DataSize(16, KILOBYTE))
                 .setOrcMaxReadSize(new DataSize(16, KILOBYTE))
                 .setOrcStreamBufferSize(new DataSize(16, KILOBYTE))
@@ -89,12 +101,15 @@ public class TestStorageManagerConfig
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
                 .setCompactionEnabled(false)
                 .setCompactionInterval(new Duration(4, HOURS))
+                .setOrganizationEnabled(false)
+                .setOrganizationInterval(new Duration(4, HOURS))
                 .setShardEjectorInterval(new Duration(9, HOURS))
                 .setRecoveryThreads(12)
-                .setCompactionThreads(12)
+                .setOrganizationThreads(12)
                 .setMaxShardRows(10_000)
                 .setMaxShardSize(new DataSize(10, MEGABYTE))
-                .setMaxBufferSize(new DataSize(512, MEGABYTE));
+                .setMaxBufferSize(new DataSize(512, MEGABYTE))
+                .setOneSplitPerBucketThreshold(4);
 
         assertFullMapping(properties, expected);
     }

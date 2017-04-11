@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -22,7 +23,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -32,16 +34,18 @@ class BroadcastOutputBufferManager
     private final Consumer<OutputBuffers> outputBufferTarget;
 
     @GuardedBy("this")
-    private OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
+    private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST);
 
     public BroadcastOutputBufferManager(Consumer<OutputBuffers> outputBufferTarget)
     {
         this.outputBufferTarget = requireNonNull(outputBufferTarget, "outputBufferTarget is null");
+        outputBufferTarget.accept(outputBuffers);
     }
 
     @Override
-    public void addOutputBuffers(List<OutputBuffer> newBuffers, boolean noMoreBuffers)
+    public void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers)
     {
+        OutputBuffers newOutputBuffers;
         synchronized (this) {
             if (outputBuffers.isNoMoreBufferIds()) {
                 // a stage can move to a final state (e.g., failed) while scheduling, so ignore
@@ -52,8 +56,8 @@ class BroadcastOutputBufferManager
             OutputBuffers originalOutputBuffers = outputBuffers;
 
             // Note: it does not matter which partition id the task is using, in broadcast all tasks read from the same partition
-            for (OutputBuffer newBuffer : newBuffers) {
-                outputBuffers = outputBuffers.withBuffer(newBuffer.getBufferId(), BROADCAST_PARTITION_ID);
+            for (OutputBufferId newBuffer : newBuffers) {
+                outputBuffers = outputBuffers.withBuffer(newBuffer, BROADCAST_PARTITION_ID);
             }
 
             if (noMoreBuffers) {
@@ -64,7 +68,8 @@ class BroadcastOutputBufferManager
             if (outputBuffers == originalOutputBuffers) {
                 return;
             }
+            newOutputBuffers = this.outputBuffers;
         }
-        outputBufferTarget.accept(outputBuffers);
+        outputBufferTarget.accept(newOutputBuffers);
     }
 }

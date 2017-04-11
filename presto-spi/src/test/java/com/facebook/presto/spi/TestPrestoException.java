@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static org.testng.Assert.assertEquals;
 
 public class TestPrestoException
@@ -38,7 +39,7 @@ public class TestPrestoException
         @Override
         public ErrorCode toErrorCode()
         {
-            return new ErrorCode(0, "test");
+            return new ErrorCode(0, "test", USER_ERROR);
         }
     }
 }

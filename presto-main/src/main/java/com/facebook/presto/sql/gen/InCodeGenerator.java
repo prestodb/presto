@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -33,7 +34,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -45,15 +45,16 @@ import static com.facebook.presto.bytecode.control.LookupSwitch.lookupSwitchBuil
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
-import static com.facebook.presto.metadata.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class InCodeGenerator
@@ -83,7 +84,7 @@ public class InCodeGenerator
             return SwitchGenerationCase.SET_CONTAINS;
         }
 
-        if (!(type instanceof BigintType || type instanceof DateType)) {
+        if (!(type instanceof IntegerType || type instanceof BigintType || type instanceof DateType)) {
             return SwitchGenerationCase.HASH_SWITCH;
         }
         for (RowExpression expression : values) {
@@ -97,7 +98,7 @@ public class InCodeGenerator
             if (constant == null) {
                 continue;
             }
-            long longConstant = (Long) constant;
+            long longConstant = ((Number) constant).longValue();
             if (longConstant < Integer.MIN_VALUE || longConstant > Integer.MAX_VALUE) {
                 return SwitchGenerationCase.HASH_SWITCH;
             }
@@ -143,7 +144,7 @@ public class InCodeGenerator
                         break;
                     case HASH_SWITCH:
                         try {
-                            int hashCode = Ints.checkedCast((Long) hashCodeFunction.invoke(object));
+                            int hashCode = toIntExact(Long.hashCode((Long) hashCodeFunction.invoke(object)));
                             hashBucketsBuilder.put(hashCode, testBytecode);
                         }
                         catch (Throwable throwable) {
@@ -177,7 +178,7 @@ public class InCodeGenerator
                 // A white-list is used to select types eligible for DIRECT_SWITCH.
                 // For these types, it's safe to not use presto HASH_CODE and EQUAL operator.
                 for (Object constantValue : constantValues) {
-                    switchBuilder.addCase(Ints.checkedCast((Long) constantValue), match);
+                    switchBuilder.addCase(toIntExact((Long) constantValue), match);
                 }
                 switchBuilder.defaultCase(defaultLabel);
                 switchBlock = new BytecodeBlock()
@@ -210,7 +211,7 @@ public class InCodeGenerator
                         .comment("lookupSwitch(hashCode(<stackValue>))")
                         .dup(javaType)
                         .append(invoke(hashCodeBinding, hashCodeSignature))
-                        .longToInt()
+                        .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .append(switchBuilder.build())
                         .append(switchCaseBlocks);
                 break;
@@ -270,7 +271,7 @@ public class InCodeGenerator
         return value == (int) value;
     }
 
-    private BytecodeBlock buildInCase(BytecodeGeneratorContext generatorContext,
+    private static BytecodeBlock buildInCase(BytecodeGeneratorContext generatorContext,
             Scope scope,
             Type type,
             LabelNode caseLabel,

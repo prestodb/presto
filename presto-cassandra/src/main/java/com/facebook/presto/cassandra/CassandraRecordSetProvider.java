@@ -26,7 +26,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -49,10 +48,10 @@ public class CassandraRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        CassandraSplit cassandraSplit = checkType(split, CassandraSplit.class, "split");
+        CassandraSplit cassandraSplit = (CassandraSplit) split;
 
         List<CassandraColumnHandle> cassandraColumns = columns.stream()
-                .map(column -> checkType(column, CassandraColumnHandle.class, "columnHandle"))
+                .map(column -> (CassandraColumnHandle) column)
                 .collect(toList());
 
         String selectCql = CassandraCqlUtils.selectFrom(cassandraSplit.getCassandraTableHandle(), cassandraColumns).getQueryString();
@@ -64,7 +63,7 @@ public class CassandraRecordSetProvider
         String cql = sb.toString();
         log.debug("Creating record set: %s", cql);
 
-        return new CassandraRecordSet(cassandraSession, cassandraSplit.getSchema(), cql, cassandraColumns);
+        return new CassandraRecordSet(cassandraSession, cql, cassandraColumns);
     }
 
     @Override

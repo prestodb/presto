@@ -22,6 +22,12 @@ import com.facebook.presto.raptor.metadata.ShardCleaner;
 import com.facebook.presto.raptor.metadata.ShardCleanerConfig;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
+import com.facebook.presto.raptor.storage.organization.JobFactory;
+import com.facebook.presto.raptor.storage.organization.OrganizationJobFactory;
+import com.facebook.presto.raptor.storage.organization.ShardCompactionManager;
+import com.facebook.presto.raptor.storage.organization.ShardCompactor;
+import com.facebook.presto.raptor.storage.organization.ShardOrganizationManager;
+import com.facebook.presto.raptor.storage.organization.ShardOrganizer;
 import com.google.common.base.Ticker;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -46,6 +52,7 @@ public class StorageModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(StorageManagerConfig.class);
+        configBinder(binder).bindConfig(BucketBalancerConfig.class);
         configBinder(binder).bindConfig(ShardCleanerConfig.class);
         configBinder(binder).bindConfig(MetadataConfig.class);
 
@@ -60,9 +67,13 @@ public class StorageModule
         binder.bind(ShardRecoveryManager.class).in(Scopes.SINGLETON);
         binder.bind(BackupManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardCompactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(ShardOrganizationManager.class).in(Scopes.SINGLETON);
+        binder.bind(ShardOrganizer.class).in(Scopes.SINGLETON);
+        binder.bind(JobFactory.class).to(OrganizationJobFactory.class).in(Scopes.SINGLETON);
         binder.bind(ShardCompactor.class).in(Scopes.SINGLETON);
         binder.bind(ShardEjector.class).in(Scopes.SINGLETON);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
+        binder.bind(BucketBalancer.class).in(Scopes.SINGLETON);
         binder.bind(ReaderAttributes.class).in(Scopes.SINGLETON);
         binder.bind(AssignmentLimiter.class).in(Scopes.SINGLETON);
 
@@ -70,8 +81,11 @@ public class StorageModule
         newExporter(binder).export(BackupManager.class).as(generatedNameOf(BackupManager.class, connectorId));
         newExporter(binder).export(StorageManager.class).as(generatedNameOf(OrcStorageManager.class, connectorId));
         newExporter(binder).export(ShardCompactionManager.class).as(generatedNameOf(ShardCompactionManager.class, connectorId));
+        newExporter(binder).export(ShardOrganizer.class).as(generatedNameOf(ShardOrganizer.class, connectorId));
         newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(ShardCompactor.class, connectorId));
         newExporter(binder).export(ShardEjector.class).as(generatedNameOf(ShardEjector.class, connectorId));
         newExporter(binder).export(ShardCleaner.class).as(generatedNameOf(ShardCleaner.class, connectorId));
+        newExporter(binder).export(BucketBalancer.class).as(generatedNameOf(BucketBalancer.class, connectorId));
+        newExporter(binder).export(JobFactory.class).withGeneratedName();
     }
 }

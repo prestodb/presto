@@ -1,4 +1,4 @@
--- database: presto; groups: tpch,quarantine; tables: part,supplier,partsupp,nation,region
+-- database: presto; groups: tpch; tables: part,supplier,partsupp,nation,region
 SELECT
   s_acctbal,
   s_name,
@@ -39,3 +39,4 @@ ORDER BY
   n_name,
   s_name,
   p_partkey
+LIMIT 100

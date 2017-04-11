@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -40,6 +41,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.fail;
@@ -60,6 +62,13 @@ public class TestDateTimeOperators
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .build();
         functionAssertions = new FunctionAssertions(session);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        closeAllRuntimeException(functionAssertions);
+        functionAssertions = null;
     }
 
     private void assertFunction(String projection, Type expectedType, Object expected)
@@ -314,6 +323,17 @@ public class TestDateTimeOperators
         assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '2' hour",
                 TIMESTAMP,
                 new SqlTimestamp(new DateTime(2013, 10, 27, 2, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+    }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS DATE) IS DISTINCT FROM CAST(NULL AS DATE)", BOOLEAN, false);
+        assertFunction("DATE '2013-10-27' IS DISTINCT FROM TIMESTAMP '2013-10-27 00:00:00'", BOOLEAN, false);
+        assertFunction("DATE '2013-10-27' IS DISTINCT FROM TIMESTAMP '2013-10-28 00:00:00'", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM DATE '2013-10-27'", BOOLEAN, true);
+        assertFunction("DATE '2013-10-27' IS DISTINCT FROM NULL", BOOLEAN, true);
     }
 
     private static SqlDate toDate(DateTime dateTime)

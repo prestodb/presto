@@ -11,16 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.tests.hive;
 
 import com.teradata.tempto.fulfillment.table.TableDefinitionsRepository;
 import com.teradata.tempto.fulfillment.table.hive.HiveDataSource;
 import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
+import com.teradata.tempto.query.QueryExecutor;
 
+import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
+import static com.teradata.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static java.lang.String.format;
 
 public final class AllSimpleTypesTableDefinitions
 {
@@ -28,28 +32,34 @@ public final class AllSimpleTypesTableDefinitions
     {
     }
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_TEXTFILE = allHiveSimpleTypesTableDefinition("TEXTFILE", Optional.of("DELIMITED FIELDS TERMINATED BY '|'"));
+    private static String tableNameFormat = "%s_all_types";
 
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_PARQUET = allHiveSimpleTypesParquetTableDefinition();
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.of("DELIMITED FIELDS TERMINATED BY '|'"))
+            .setDataSource(getTextFileDataSource())
+            .build();
 
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_ORC = allHiveSimpleTypesTableDefinition("ORC", Optional.empty());
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_PARQUET = parquetTableDefinitionBuilder()
+            .setNoData()
+            .build();
 
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_RCFILE = allHiveSimpleTypesTableDefinition("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"));
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_ORC = tableDefinitionBuilder("ORC", Optional.empty())
+            .setNoData()
+            .build();
 
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_KNOWN_TO_PRESTO_TEXTFILE = allHiveSimpleTypesKnownToPrestoTextfileTableDefinition();
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_RCFILE = tableDefinitionBuilder("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"))
+            .setNoData()
+            .build();
 
-    private static HiveTableDefinition allHiveSimpleTypesTableDefinition(String fileFormat, Optional<String> rowFormat)
+    private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> rowFormat)
     {
-        String tableName = fileFormat.toLowerCase() + "_all_types";
-        HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types/data." + fileFormat.toLowerCase());
+        String tableName = format(tableNameFormat, fileFormat.toLowerCase(Locale.ENGLISH));
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
-                        "CREATE EXTERNAL TABLE %NAME%(" +
+                        "CREATE %EXTERNAL% TABLE %NAME%(" +
                         "   c_tinyint            TINYINT," +
                         "   c_smallint           SMALLINT," +
                         "   c_int                INT," +
@@ -67,62 +77,46 @@ public final class AllSimpleTypesTableDefinitions
                         "   c_binary             BINARY" +
                         ") " +
                         (rowFormat.isPresent() ? "ROW FORMAT " + rowFormat.get() + " " : " ") +
-                        "STORED AS " + fileFormat + " " +
-                        "LOCATION '%LOCATION%'")
-                .setDataSource(dataSource)
-                .build();
+                        "STORED AS " + fileFormat);
     }
 
-    private static HiveTableDefinition allHiveSimpleTypesParquetTableDefinition()
+    private static HiveTableDefinition.HiveTableDefinitionBuilder parquetTableDefinitionBuilder()
     {
-        String tableName = "parquet_all_types";
-        HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types/data.parquet");
-        return HiveTableDefinition.builder(tableName)
+        return HiveTableDefinition.builder("parquet_all_types")
                 .setCreateTableDDLTemplate("" +
-                        "CREATE EXTERNAL TABLE %NAME%(" +
+                        "CREATE %EXTERNAL% TABLE %NAME%(" +
                         "   c_tinyint            TINYINT," +
                         "   c_smallint           SMALLINT," +
                         "   c_int                INT," +
                         "   c_bigint             BIGINT," +
                         "   c_float              FLOAT," +
                         "   c_double             DOUBLE," +
+                        "   c_decimal            DECIMAL," +
+                        "   c_decimal_w_params   DECIMAL(10,5)," +
                         "   c_timestamp          TIMESTAMP," +
-                        "   c_string             STRING," +
-                        "   c_varchar            VARCHAR(10)," +
-                        "   c_char               CHAR(10)," +
-                        "   c_boolean            BOOLEAN" +
-                        ") " +
-                        "STORED AS PARQUET " +
-                        "LOCATION '%LOCATION%'")
-                .setDataSource(dataSource)
-                .build();
-    }
-
-    private static HiveTableDefinition allHiveSimpleTypesKnownToPrestoTextfileTableDefinition()
-    {
-        String tableName = "textfile_all_types_known_to_presto";
-        HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types_known_to_presto/data.textfile");
-        return HiveTableDefinition.builder(tableName)
-                .setCreateTableDDLTemplate("" +
-                        "CREATE EXTERNAL TABLE %NAME%(" +
-                        "   c_tinyint            TINYINT," +
-                        "   c_smallint           SMALLINT," +
-                        "   c_int                INT," +
-                        "   c_bigint             BIGINT," +
-                        "   c_float              FLOAT," +
-                        "   c_double             DOUBLE," +
-                        "   c_timestamp          TIMESTAMP," +
-                        "   c_date               DATE," +
                         "   c_string             STRING," +
                         "   c_varchar            VARCHAR(10)," +
                         "   c_char               CHAR(10)," +
                         "   c_boolean            BOOLEAN," +
                         "   c_binary             BINARY" +
                         ") " +
-                        "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|' " +
-                        "STORED AS TEXTFILE " +
-                        "LOCATION '%LOCATION%'")
-                .setDataSource(dataSource)
-                .build();
+                        "STORED AS PARQUET");
+    }
+
+    private static HiveDataSource getTextFileDataSource()
+    {
+        return createResourceDataSource(format(tableNameFormat, "textfile"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
+    }
+
+    public static void populateDataToHiveTable(String tableName)
+    {
+        onHive().executeQuery(format("INSERT INTO TABLE %s SELECT * FROM %s",
+                tableName,
+                format(tableNameFormat, "textfile")));
+    }
+
+    public static QueryExecutor onHive()
+    {
+        return testContext().getDependency(QueryExecutor.class, "hive");
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -28,12 +29,12 @@ import static java.util.Objects.requireNonNull;
 public class SystemColumnHandle
         implements ColumnHandle
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final String columnName;
 
     @JsonCreator
     public SystemColumnHandle(
-            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("columnName") String columnName)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
@@ -41,7 +42,7 @@ public class SystemColumnHandle
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }
@@ -78,7 +79,7 @@ public class SystemColumnHandle
         return connectorId + ":" + columnName;
     }
 
-    public static Map<String, ColumnHandle> toSystemColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata)
+    public static Map<String, ColumnHandle> toSystemColumnHandles(ConnectorId connectorId, ConnectorTableMetadata tableMetadata)
     {
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {

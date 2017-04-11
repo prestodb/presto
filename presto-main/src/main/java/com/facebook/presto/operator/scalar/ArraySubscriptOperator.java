@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
@@ -21,17 +22,17 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ArraySubscriptOperator
@@ -48,14 +49,18 @@ public class ArraySubscriptOperator
 
     protected ArraySubscriptOperator()
     {
-        super(SUBSCRIPT, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array(E)", "bigint"));
+        super(SUBSCRIPT,
+                ImmutableList.of(typeVariable("E")),
+                ImmutableList.of(),
+                parseTypeSignature("E"),
+                ImmutableList.of(parseTypeSignature("array(E)"), parseTypeSignature("bigint")));
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(types.size() == 1, "Expected one type, got %s", types);
-        Type elementType = types.get("E");
+        checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected one type, got %s", boundVariables.getTypeVariables());
+        Type elementType = boundVariables.getTypeVariable("E");
 
         MethodHandle methodHandle;
         if (elementType.getJavaType() == void.class) {
@@ -91,7 +96,7 @@ public class ArraySubscriptOperator
     public static Long longSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }
@@ -103,7 +108,7 @@ public class ArraySubscriptOperator
     public static Boolean booleanSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }
@@ -115,7 +120,7 @@ public class ArraySubscriptOperator
     public static Double doubleSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }
@@ -127,7 +132,7 @@ public class ArraySubscriptOperator
     public static Slice sliceSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }
@@ -139,7 +144,7 @@ public class ArraySubscriptOperator
     public static Object objectSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }

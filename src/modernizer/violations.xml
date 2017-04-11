@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<modernizer>
+    <violation>
+        <name>org/testng/Assert.assertEquals:(Ljava/lang/Iterable;Ljava/lang/Iterable;)V</name>
+        <version>1.8</version>
+        <comment>Use com.facebook.presto.testing.assertions.Assert.assertEquals due to TestNG #543</comment>
+    </violation>
+
+    <violation>
+        <name>org/testng/Assert.assertEquals:(Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/String;)V</name>
+        <version>1.8</version>
+        <comment>Use com.facebook.presto.testing.assertions.Assert.assertEquals due to TestNG #543</comment>
+    </violation>
+</modernizer>

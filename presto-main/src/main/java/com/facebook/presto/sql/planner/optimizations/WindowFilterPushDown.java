@@ -37,7 +37,6 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 
 import java.util.Map;
 import java.util.Optional;
@@ -46,19 +45,22 @@ import java.util.OptionalInt;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.DomainTranslator.toPredicate;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class WindowFilterPushDown
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
-    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, StandardTypes.BIGINT, ImmutableList.<String>of());
+    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, parseTypeSignature(StandardTypes.BIGINT), ImmutableList.of());
 
     private final Metadata metadata;
 
@@ -98,6 +100,7 @@ public class WindowFilterPushDown
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
+            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node)) {
@@ -120,7 +123,7 @@ public class WindowFilterPushDown
             }
 
             PlanNode source = context.rewrite(node.getSource());
-            int limit = Ints.checkedCast(node.getCount());
+            int limit = toIntExact(node.getCount());
             if (source instanceof RowNumberNode) {
                 RowNumberNode rowNumberNode = mergeLimit(((RowNumberNode) source), limit);
                 if (rowNumberNode.getPartitionBy().isEmpty()) {
@@ -235,7 +238,7 @@ public class WindowFilterPushDown
             if (upperBound > Integer.MAX_VALUE) {
                 return OptionalInt.empty();
             }
-            return OptionalInt.of(Ints.checkedCast(upperBound));
+            return OptionalInt.of(toIntExact(upperBound));
         }
 
         private static RowNumberNode mergeLimit(RowNumberNode node, int newRowCountPerPartition)
@@ -250,9 +253,7 @@ public class WindowFilterPushDown
         {
             return new TopNRowNumberNode(idAllocator.getNextId(),
                     windowNode.getSource(),
-                    windowNode.getPartitionBy(),
-                    windowNode.getOrderBy(),
-                    windowNode.getOrderings(),
+                    windowNode.getSpecification(),
                     getOnlyElement(windowNode.getWindowFunctions().keySet()),
                     limit,
                     false,
@@ -270,7 +271,7 @@ public class WindowFilterPushDown
                 return false;
             }
             Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            return isRowNumberSignature(node.getSignatures().get(rowNumberSymbol));
+            return isRowNumberSignature(node.getWindowFunctions().get(rowNumberSymbol).getSignature());
         }
 
         private static boolean isRowNumberSignature(Signature signature)

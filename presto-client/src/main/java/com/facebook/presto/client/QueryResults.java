@@ -37,17 +37,23 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.CHAR;
 import static com.facebook.presto.spi.type.StandardTypes.DATE;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.REAL;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.TIME;
 import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.StandardTypes.TINYINT;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -266,11 +272,31 @@ public class QueryResults
                     return Long.parseLong((String) value);
                 }
                 return ((Number) value).longValue();
+            case INTEGER:
+                if (value instanceof String) {
+                    return Integer.parseInt((String) value);
+                }
+                return ((Number) value).intValue();
+            case SMALLINT:
+                if (value instanceof String) {
+                    return Short.parseShort((String) value);
+                }
+                return ((Number) value).shortValue();
+            case TINYINT:
+                if (value instanceof String) {
+                    return Byte.parseByte((String) value);
+                }
+                return ((Number) value).byteValue();
             case DOUBLE:
                 if (value instanceof String) {
                     return Double.parseDouble((String) value);
                 }
                 return ((Number) value).doubleValue();
+            case REAL:
+                if (value instanceof String) {
+                    return Float.parseFloat((String) value);
+                }
+                return ((Number) value).floatValue();
             case BOOLEAN:
                 if (value instanceof String) {
                     return Boolean.parseBoolean((String) value);
@@ -285,6 +311,8 @@ public class QueryResults
             case DATE:
             case INTERVAL_YEAR_TO_MONTH:
             case INTERVAL_DAY_TO_SECOND:
+            case DECIMAL:
+            case CHAR:
                 return String.class.cast(value);
             default:
                 // for now we assume that only the explicit types above are passed

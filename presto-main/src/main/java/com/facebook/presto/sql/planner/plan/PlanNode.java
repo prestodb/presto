@@ -54,9 +54,12 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = UnnestNode.class, name = "unnest"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
         @JsonSubTypes.Type(value = UnionNode.class, name = "union"),
+        @JsonSubTypes.Type(value = IntersectNode.class, name = "intersect"),
         @JsonSubTypes.Type(value = EnforceSingleRowNode.class, name = "scalar"),
         @JsonSubTypes.Type(value = GroupIdNode.class, name = "groupid"),
         @JsonSubTypes.Type(value = ExplainAnalyzeNode.class, name = "explainAnalyze"),
+        @JsonSubTypes.Type(value = ApplyNode.class, name = "apply"),
+        @JsonSubTypes.Type(value = AssignUniqueId.class, name = "assignUniqueId"),
 })
 public abstract class PlanNode
 {
@@ -77,6 +80,8 @@ public abstract class PlanNode
     public abstract List<PlanNode> getSources();
 
     public abstract List<Symbol> getOutputSymbols();
+
+    public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
 
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {

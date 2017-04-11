@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.google.common.base.MoreObjects;
 import io.airlift.units.Duration;
 
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -104,7 +104,7 @@ public class BenchmarkQueryResult
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("suite", suite.getName())
                 .add("benchmarkQuery", benchmarkQuery.getName())
                 .add("status", status)

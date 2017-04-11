@@ -23,18 +23,16 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.ToIntFunction;
 
-import static com.facebook.presto.hive.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class HiveNodePartitioningProvider
@@ -58,7 +56,7 @@ public class HiveNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
-        HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         List<HiveType> hiveTypes = handle.getHiveTypes();
         return new HiveBucketFunction(bucketCount, hiveTypes);
     }
@@ -66,11 +64,9 @@ public class HiveNodePartitioningProvider
     @Override
     public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
 
-        Set<Node> nodesSet = nodeManager.getActiveDatasourceNodes(connectorId);
-        checkState(!nodesSet.isEmpty(), "No %s nodes available", connectorId);
-        List<Node> nodes = shuffle(nodesSet);
+        List<Node> nodes = shuffle(nodeManager.getRequiredWorkerNodes());
 
         int bucketCount = handle.getBucketCount();
         ImmutableMap.Builder<Integer, Node> distribution = ImmutableMap.builder();
@@ -86,12 +82,12 @@ public class HiveNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> checkType(value, HiveSplit.class, "value").getBucketNumber().getAsInt();
+        return value -> ((HiveSplit) value).getBucketNumber().getAsInt();
     }
 
-    private static <T> List<T> shuffle(Iterable<T> iterable)
+    private static <T> List<T> shuffle(Collection<T> items)
     {
-        List<T> list = Lists.newArrayList(iterable);
+        List<T> list = new ArrayList<>(items);
         Collections.shuffle(list);
         return list;
     }

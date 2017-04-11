@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,7 @@ import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -32,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class TableFinishOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT);
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT);
 
     public static class TableFinishOperatorFactory
             implements OperatorFactory
@@ -87,12 +89,15 @@ public class TableFinishOperator
     private State state = State.RUNNING;
     private long rowCount;
     private boolean closed;
+    private Optional<ConnectorOutputMetadata> outputMetadata = Optional.empty();
     private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
 
     public TableFinishOperator(OperatorContext operatorContext, TableFinisher tableFinisher)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
+
+        operatorContext.setInfoSupplier(() -> new TableFinishInfo(outputMetadata));
     }
 
     @Override
@@ -153,7 +158,7 @@ public class TableFinishOperator
         }
         state = State.FINISHED;
 
-        tableFinisher.finishTable(fragmentBuilder.build());
+        outputMetadata = tableFinisher.finishTable(fragmentBuilder.build());
 
         PageBuilder page = new PageBuilder(getTypes());
         page.declarePosition();
@@ -172,6 +177,6 @@ public class TableFinishOperator
 
     public interface TableFinisher
     {
-        void finishTable(Collection<Slice> fragments);
+        Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments);
     }
 }

@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: true; types: LONGNVARCHAR
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true;
 information_schema|
 sf1|
 sf100|

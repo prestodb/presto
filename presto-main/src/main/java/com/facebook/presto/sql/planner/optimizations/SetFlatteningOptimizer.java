@@ -19,7 +19,10 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExceptNode;
+import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +35,7 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public class SetFlatteningOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -61,17 +64,46 @@ public class SetFlatteningOptimizer
         {
             ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
             ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
+            flattenSetOperation(node, context, flattenedSources, flattenedSymbolMap);
+
+            return new UnionNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
+        }
+
+        @Override
+        public PlanNode visitIntersect(IntersectNode node, RewriteContext<Boolean> context)
+        {
+            ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
+            ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
+            flattenSetOperation(node, context, flattenedSources, flattenedSymbolMap);
+
+            return new IntersectNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
+        }
+
+        @Override
+        public PlanNode visitExcept(ExceptNode node, RewriteContext<Boolean> context)
+        {
+            ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
+            ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
+            flattenSetOperation(node, context, flattenedSources, flattenedSymbolMap);
+
+            return new ExceptNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
+        }
+
+        private static void flattenSetOperation(SetOperationNode node, RewriteContext<Boolean> context, ImmutableList.Builder<PlanNode> flattenedSources, ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap)
+        {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
                 PlanNode rewrittenSource = context.rewrite(subplan, context.get());
 
-                if (rewrittenSource instanceof UnionNode) {
-                    // Absorb source's subplans if it is also a UnionNode
-                    UnionNode rewrittenUnion = (UnionNode) rewrittenSource;
-                    flattenedSources.addAll(rewrittenUnion.getSources());
+                Class<?> setOperationClass = node.getClass();
+                if (setOperationClass.isInstance(rewrittenSource) && (!setOperationClass.equals(ExceptNode.class) || i == 0)) {
+                    // Absorb source's subplans if it is also a SetOperation of the same type
+                    // ExceptNodes can only flatten their first source because except is not associative
+                    SetOperationNode rewrittenSetOperation = (SetOperationNode) rewrittenSource;
+                    flattenedSources.addAll(rewrittenSetOperation.getSources());
                     for (Map.Entry<Symbol, Collection<Symbol>> entry : node.getSymbolMapping().asMap().entrySet()) {
                         Symbol inputSymbol = Iterables.get(entry.getValue(), i);
-                        flattenedSymbolMap.putAll(entry.getKey(), rewrittenUnion.getSymbolMapping().get(inputSymbol));
+                        flattenedSymbolMap.putAll(entry.getKey(), rewrittenSetOperation.getSymbolMapping().get(inputSymbol));
                     }
                 }
                 else {
@@ -81,7 +113,6 @@ public class SetFlatteningOptimizer
                     }
                 }
             }
-            return new UnionNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
         }
 
         @Override
@@ -99,14 +130,13 @@ public class SetFlatteningOptimizer
             return new AggregationNode(
                     node.getId(),
                     rewrittenNode,
-                    node.getGroupBy(),
                     node.getAggregations(),
                     node.getFunctions(),
                     node.getMasks(),
+                    node.getGroupingSets(),
                     node.getStep(),
-                    node.getSampleWeight(),
-                    node.getConfidence(),
-                    node.getHashSymbol());
+                    node.getHashSymbol(),
+                    node.getGroupIdSymbol());
         }
 
         private static boolean isDistinctOperator(AggregationNode node)

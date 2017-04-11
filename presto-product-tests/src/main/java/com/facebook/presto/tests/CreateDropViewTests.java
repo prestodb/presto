@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.tests.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requires;
+import com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -39,6 +39,16 @@ public class CreateDropViewTests
     {
         executeWith(createViewAs("SELECT * FROM nation"), view -> {
             assertThat(query(format("SELECT * FROM %s", view.getName())))
+                    .hasRowsCount(25);
+        });
+    }
+
+    @Test(groups = CREATE_DROP_VIEW)
+    public void querySimpleViewQualified()
+            throws IOException
+    {
+        executeWith(createViewAs("SELECT * FROM nation"), view -> {
+            assertThat(query(format("SELECT %s.n_regionkey FROM %s", view.getName(), view.getName())))
                     .hasRowsCount(25);
         });
     }

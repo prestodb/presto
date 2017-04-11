@@ -19,7 +19,6 @@ import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -31,7 +30,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -46,6 +47,19 @@ public class TestRawDecoder
             map.put(column, DEFAULT_FIELD_DECODER);
         }
         return map.build();
+    }
+
+    @Test
+    public void testEmptyRecord()
+    {
+        RawRowDecoder rowDecoder = new RawRowDecoder();
+        byte[] emptyRow = new byte[0];
+        DecoderTestColumnHandle column = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, null, "LONG", null, false, false, false);
+        List<DecoderColumnHandle> columns = ImmutableList.of(column);
+        Set<FieldValueProvider> providers = new HashSet<>();
+        boolean corrupt = rowDecoder.decodeRow(emptyRow, null, providers, columns, buildMap(columns));
+        assertFalse(corrupt);
+        checkIsNull(providers, column);
     }
 
     @Test
@@ -66,7 +80,7 @@ public class TestRawDecoder
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "8", "INT", null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "12", "SHORT", null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "14", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", VarcharType.VARCHAR, "15", null, null, false, false, false);
+        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(10), "15", null, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5);
         Set<FieldValueProvider> providers = new HashSet<>();
@@ -80,7 +94,7 @@ public class TestRawDecoder
         checkValue(providers, row2, 12345678);
         checkValue(providers, row3, 4567);
         checkValue(providers, row4, 123);
-        checkValue(providers, row5, "Ich bin zwei Oeltanks");
+        checkValue(providers, row5, "Ich bin zw");
     }
 
     @Test
@@ -90,10 +104,10 @@ public class TestRawDecoder
         byte[] row = str.getBytes(StandardCharsets.UTF_8);
 
         RawRowDecoder rowDecoder = new RawRowDecoder();
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", VarcharType.VARCHAR, null, null, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", VarcharType.VARCHAR, "0", null, null, false, false, false);
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", VarcharType.VARCHAR, "0:4", null, null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", VarcharType.VARCHAR, "5:8", null, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), null, null, null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "0", null, null, false, false, false);
+        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", createVarcharType(100), "0:4", null, null, false, false, false);
+        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", createVarcharType(100), "5:8", null, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
         Set<FieldValueProvider> providers = new HashSet<>();
@@ -123,8 +137,8 @@ public class TestRawDecoder
         System.arraycopy(buf.array(), 0, row, 0, buf.position());
 
         RawRowDecoder rowDecoder = new RawRowDecoder();
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", VarcharType.VARCHAR, null, "DOUBLE", null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", VarcharType.VARCHAR, "8", "FLOAT", null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), null, "DOUBLE", null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "8", "FLOAT", null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2);
         Set<FieldValueProvider> providers = new HashSet<>();

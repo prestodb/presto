@@ -26,5 +26,5 @@ import java.util.concurrent.Executor;
 @ThreadSafe
 public interface QueryQueueManager
 {
-    boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats);
+    void submit(Statement statement, QueryExecution queryExecution, Executor executor);
 }

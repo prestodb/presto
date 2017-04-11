@@ -13,13 +13,21 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.ProcedureRegistry;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.testing.ProcedureTester;
+import com.facebook.presto.tests.tpch.TpchQueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
@@ -30,25 +38,57 @@ import static org.testng.Assert.fail;
 public class TestProcedureCall
         extends AbstractTestQueryFramework
 {
-    private final ProcedureTester tester;
+    private static final String PROCEDURE_SCHEMA = "procedure_schema";
+    private ProcedureTester tester;
+    private Session session;
 
     public TestProcedureCall()
             throws Exception
     {
-        super(createQueryRunner());
-        tester = ((DistributedQueryRunner) queryRunner).getCoordinator().getProcedureTester();
+        super(TpchQueryRunner::createQueryRunner);
+    }
+
+    @BeforeClass
+    public void setUp()
+            throws Exception
+    {
+        TestingPrestoServer coordinator = ((DistributedQueryRunner) getQueryRunner()).getCoordinator();
+        tester = coordinator.getProcedureTester();
+
+        // register procedures in the bogus testing catalog
+        ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
+        TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
+        procedureRegistry.addProcedures(
+                new ConnectorId(TESTING_CATALOG),
+                procedures.getProcedures(PROCEDURE_SCHEMA));
+
+        session = testSessionBuilder()
+                .setCatalog(TESTING_CATALOG)
+                .setSchema(PROCEDURE_SCHEMA)
+                .build();
+    }
+
+    @AfterClass
+    public void tearDown()
+            throws Exception
+    {
+        tester = null;
+        session = null;
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        return session;
     }
 
     @Test
     public void testProcedureCall()
             throws Exception
     {
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
-
         assertCall("CALL test_simple()", "simple");
-        assertCall(format("CALL %s.test_simple()", schema), "simple");
-        assertCall(format("CALL %s.%s.test_simple()", catalog, schema), "simple");
+        assertCall(format("CALL %s.test_simple()", PROCEDURE_SCHEMA), "simple");
+        assertCall(format("CALL %s.%s.test_simple()", TESTING_CATALOG, PROCEDURE_SCHEMA), "simple");
 
         assertCall("CALL test_args(123, 4.5, 'hello', true)", "args", 123L, 4.5, "hello", true);
         assertCall("CALL test_args(-5, nan(), 'bye', false)", "args", -5L, Double.NaN, "bye", false);
@@ -83,7 +123,7 @@ public class TestProcedureCall
         assertCallFails("CALL test_args(x => 3, x => 4)", "line 1:24: Duplicate procedure argument: x");
         assertCallFails("CALL test_args(t => 404)", "line 1:16: Unknown argument name: t");
         assertCallFails("CALL test_nulls('hello', null)", "line 1:17: Cannot cast type bigint to varchar(5)");
-        assertCallFails("CALL test_nulls(null, 123)", "line 1:23: Cannot cast type varchar to bigint");
+        assertCallFails("CALL test_nulls(null, 123)", "line 1:23: Cannot cast type varchar to integer");
     }
 
     private void assertCall(@Language("SQL") String sql, String name, Object... arguments)

@@ -17,12 +17,12 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -39,7 +39,6 @@ public class EnforceSingleRowNode
         super(id);
 
         this.source = requireNonNull(source, "source is null");
-        checkArgument(source.getOutputSymbols().size() == 1, "Scalar node can output only one symbol but got: %s", source.getOutputSymbols());
     }
 
     @Override
@@ -64,5 +63,11 @@ public class EnforceSingleRowNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitEnforceSingleRow(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new EnforceSingleRowNode(getId(), Iterables.getOnlyElement(newChildren));
     }
 }

@@ -13,7 +13,7 @@ String Functions
 .. note::
 
     These functions assume that the input strings contain valid UTF-8 encoded
-    Unicode code points.  There are no explicit checks for valid UTF-8, and
+    Unicode code points.  There are no explicit checks for valid UTF-8 and
     the functions may return incorrect results on invalid UTF-8.
     Invalid UTF-8 data can be corrected with :func:`from_utf8`.
 
@@ -32,6 +32,10 @@ String Functions
 
     Returns the Unicode code point ``n`` as a single character string.
 
+.. function:: codepoint(string) -> integer
+
+    Returns the Unicode code point of the only character of ``string``.
+
 .. function:: concat(string1, ..., stringN) -> varchar
 
     Returns the concatenation of ``string1``, ``string2``, ``...``, ``stringN``.
@@ -41,6 +45,12 @@ String Functions
 .. function:: length(string) -> bigint
 
     Returns the length of ``string`` in characters.
+
+.. function:: levenshtein_distance(string1, string2) -> bigint
+
+    Returns the Levenshtein edit distance of ``string1`` and ``string2``,
+    i.e. the minimum number of single-character edits (insertions,
+    deletions or substitutions) needed to change ``string1`` into ``string2``.
 
 .. function:: lower(string) -> varchar
 
@@ -95,6 +105,12 @@ String Functions
     Splits ``string`` on ``delimiter`` and returns the field ``index``.
     Field indexes start with ``1``. If the index is larger than than
     the number of fields, then null is returned.
+
+.. function:: split_to_map(string, entryDelimiter, keyValueDelimiter) -> map<varchar, varchar>
+
+    Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
+    ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
+    each pair into key and value.
 
 .. function:: strpos(string, substring) -> bigint
 

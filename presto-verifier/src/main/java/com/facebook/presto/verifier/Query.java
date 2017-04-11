@@ -15,13 +15,12 @@ package com.facebook.presto.verifier;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class Query
 {

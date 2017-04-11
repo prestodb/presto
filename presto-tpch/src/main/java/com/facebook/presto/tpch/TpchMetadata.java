@@ -30,6 +30,10 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,10 +52,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.tpch.Types.checkType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class TpchMetadata
@@ -67,8 +68,14 @@ public class TpchMetadata
 
     private final String connectorId;
     private final Set<String> tableNames;
+    private final ColumnNaming columnNaming;
 
     public TpchMetadata(String connectorId)
+    {
+        this(connectorId, ColumnNaming.SIMPLIFIED);
+    }
+
+    public TpchMetadata(String connectorId, ColumnNaming columnNaming)
     {
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
@@ -76,6 +83,7 @@ public class TpchMetadata
         }
         this.tableNames = tableNames.build();
         this.connectorId = connectorId;
+        this.columnNaming = columnNaming;
     }
 
     @Override
@@ -108,7 +116,7 @@ public class TpchMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        TpchTableHandle tableHandle = checkType(table, TpchTableHandle.class, "table");
+        TpchTableHandle tableHandle = (TpchTableHandle) table;
 
         Optional<ConnectorNodePartitioning> nodePartition = Optional.empty();
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
@@ -116,7 +124,7 @@ public class TpchMetadata
 
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
         if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
-            ColumnHandle orderKeyColumn = columns.get(OrderColumn.ORDER_KEY.getColumnName());
+            ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(OrderColumn.ORDER_KEY));
             nodePartition = Optional.of(new ConnectorNodePartitioning(
                     new TpchPartitioningHandle(
                             TpchTable.ORDERS.getTableName(),
@@ -126,7 +134,7 @@ public class TpchMetadata
             localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
         }
         else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
-            ColumnHandle orderKeyColumn = columns.get(OrderColumn.ORDER_KEY.getColumnName());
+            ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));
             nodePartition = Optional.of(new ConnectorNodePartitioning(
                     new TpchPartitioningHandle(
                             TpchTable.ORDERS.getTableName(),
@@ -135,13 +143,13 @@ public class TpchMetadata
             partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
             localProperties = ImmutableList.of(
                     new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
-                    new SortingProperty<>(columns.get(LineItemColumn.LINE_NUMBER.getColumnName()), SortOrder.ASC_NULLS_FIRST));
+                    new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
         }
 
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new TpchTableLayoutHandle(tableHandle),
-                Optional.<List<ColumnHandle>>empty(),
-                TupleDomain.<ColumnHandle>all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
+                Optional.empty(),
+                TupleDomain.all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
                 nodePartition,
                 partitioningColumns,
                 Optional.empty(),
@@ -153,10 +161,10 @@ public class TpchMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        TpchTableLayoutHandle layout = checkType(handle, TpchTableLayoutHandle.class, "layout");
+        TpchTableLayoutHandle layout = (TpchTableLayoutHandle) handle;
 
         // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
+        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
                 .get(0)
                 .getTableLayout();
     }
@@ -164,19 +172,19 @@ public class TpchMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
+        TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
 
         TpchTable<?> tpchTable = TpchTable.getTable(tpchTableHandle.getTableName());
         String schemaName = scaleFactorSchemaName(tpchTableHandle.getScaleFactor());
 
-        return getTableMetadata(schemaName, tpchTable);
+        return getTableMetadata(schemaName, tpchTable, columnNaming);
     }
 
-    private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable)
+    private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable, ColumnNaming columnNaming)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType())));
+            columns.add(new ColumnMetadata(columnNaming.getName(column), getPrestoType(column.getType())));
         }
         columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, null, true));
 
@@ -201,7 +209,7 @@ public class TpchMetadata
         for (String schemaName : getSchemaNames(session, prefix.getSchemaName())) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 if (prefix.getTableName() == null || tpchTable.getTableName().equals(prefix.getTableName())) {
-                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable);
+                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable, columnNaming);
                     tableColumns.put(new SchemaTableName(schemaName, tpchTable.getTableName()), tableMetadata.getColumns());
                 }
             }
@@ -213,7 +221,7 @@ public class TpchMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-        String columnName = checkType(columnHandle, TpchColumnHandle.class, "columnHandle").getColumnName();
+        String columnName = ((TpchColumnHandle) columnHandle).getColumnName();
 
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.getName().equals(columnName)) {
@@ -275,15 +283,17 @@ public class TpchMetadata
 
     public static Type getPrestoType(TpchColumnType tpchType)
     {
-        switch (tpchType) {
-            case BIGINT:
-                return BIGINT;
+        switch (tpchType.getBase()) {
+            case IDENTIFIER:
+                return BigintType.BIGINT;
+            case INTEGER:
+                return IntegerType.INTEGER;
             case DATE:
-                return DATE;
+                return DateType.DATE;
             case DOUBLE:
-                return DOUBLE;
+                return DoubleType.DOUBLE;
             case VARCHAR:
-                return VARCHAR;
+                return createVarcharType((int) (long) tpchType.getPrecision().get());
         }
         throw new IllegalArgumentException("Unsupported type " + tpchType);
     }

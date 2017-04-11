@@ -21,69 +21,90 @@ public interface Block
 {
     /**
      * Gets the length of the value at the {@code position}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int getLength(int position);
+    default int getSliceLength(int position)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Gets a byte at {@code offset} in the value at {@code position}.
      */
-    byte getByte(int position, int offset);
+    default byte getByte(int position, int offset)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Gets a little endian short at {@code offset} in the value at {@code position}.
      */
-    short getShort(int position, int offset);
+    default short getShort(int position, int offset)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Gets a little endian int at {@code offset} in the value at {@code position}.
      */
-    int getInt(int position, int offset);
+    default int getInt(int position, int offset)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Gets a little endian long at {@code offset} in the value at {@code position}.
      */
-    long getLong(int position, int offset);
-
-    /**
-     * Gets a little endian float at {@code offset} in the value at {@code position}.
-     */
-    float getFloat(int position, int offset);
-
-    /**
-     * Gets a little endian double at {@code offset} in the value at {@code position}.
-     */
-    double getDouble(int position, int offset);
+    default long getLong(int position, int offset)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Gets a slice at {@code offset} in the value at {@code position}.
      */
-    Slice getSlice(int position, int offset, int length);
+    default Slice getSlice(int position, int offset, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Gets an object in the value at {@code position}.
      */
     default <T> T getObject(int position, Class<T> clazz)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal
      * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length);
+    default boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Compares the byte sequences at {@code offset} in the value at {@code position}
      * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength);
+    default int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Appends the byte sequences at {@code offset} in the value at {@code position}
      * to {@code blockBuilder}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder);
+    default void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Appends the value at {@code position} to {@code blockBuilder}.
@@ -94,21 +115,33 @@ public interface Block
      * Is the byte sequences at {@code offset} in the value at {@code position} equal
      * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
      * in {@code otherBlock}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length);
+    default boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Calculates the hash code the byte sequences at {@code offset} in the
      * value at {@code position}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int hash(int position, int offset, int length);
+    default long hash(int position, int offset, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Compares the byte sequences at {@code offset} in the value at {@code position}
      * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
      * in {@code otherBlock}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength);
+    default int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Gets the value at the specified position as a single element block.  The method
@@ -132,7 +165,13 @@ public interface Block
     int getSizeInBytes();
 
     /**
+     * Returns the logical size of {@code block.getRegion(position, length)} in memory.
+     */
+    int getRegionSizeInBytes(int position, int length);
+
+    /**
      * Returns the retained size of this block in memory.
+     * This method is called from the inner most execution loop and must be fast.
      */
     int getRetainedSizeInBytes();
 
@@ -185,5 +224,5 @@ public interface Block
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    void assureLoaded();
+    default void assureLoaded() {}
 }

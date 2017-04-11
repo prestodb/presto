@@ -38,7 +38,11 @@ public class QueryQueue
         checkArgument(maxQueuedQueries > 0, "maxQueuedQueries must be greater than zero");
         checkArgument(maxConcurrentQueries > 0, "maxConcurrentQueries must be greater than zero");
 
-        this.queuePermits = new AtomicInteger(maxQueuedQueries + maxConcurrentQueries);
+        int permits = maxQueuedQueries + maxConcurrentQueries;
+        // Check for overflow
+        checkArgument(permits > 0, "maxQueuedQueries + maxConcurrentQueries must be less than or equal to %s", Integer.MAX_VALUE);
+
+        this.queuePermits = new AtomicInteger(permits);
         this.asyncSemaphore = new AsyncSemaphore<>(maxConcurrentQueries,
                 queryExecutor,
                 queueEntry -> {
@@ -88,7 +92,7 @@ public class QueryQueue
 
         private QueueEntry(QueuedExecution queuedExecution, Runnable onDequeue)
         {
-            requireNonNull(queuedExecution, "queueableExecution is null");
+            requireNonNull(queuedExecution, "queuedExecution is null");
             this.queryExecution = new AtomicReference<>(queuedExecution);
             this.onDequeue = requireNonNull(onDequeue, "onDequeue is null");
         }

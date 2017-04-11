@@ -50,6 +50,12 @@ public class InListExpression
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return values;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

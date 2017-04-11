@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -20,6 +25,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
+
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 import java.net.URI;
@@ -34,20 +41,30 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeOperator
         implements SourceOperator, Closeable
 {
+    public static final ConnectorId REMOTE_CONNECTOR_ID = new ConnectorId("$remote");
+
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
         private final ExchangeClientSupplier exchangeClientSupplier;
+        private final PagesSerdeFactory serdeFactory;
         private final List<Type> types;
+        private ExchangeClient exchangeClient = null;
         private boolean closed;
 
-        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, ExchangeClientSupplier exchangeClientSupplier, List<Type> types)
+        public ExchangeOperatorFactory(
+                int operatorId,
+                PlanNodeId sourceId,
+                ExchangeClientSupplier exchangeClientSupplier,
+                PagesSerdeFactory serdeFactory,
+                List<Type> types)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
             this.exchangeClientSupplier = exchangeClientSupplier;
+            this.serdeFactory = serdeFactory;
             this.types = types;
         }
 
@@ -67,13 +84,17 @@ public class ExchangeOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
+            if (exchangeClient == null) {
+                exchangeClient = exchangeClientSupplier.get(new UpdateSystemMemory(driverContext.getPipelineContext()));
+            }
+
             return new ExchangeOperator(
                     operatorContext,
                     types,
                     sourceId,
-                    exchangeClientSupplier.get(new SystemMemoryUsageTracker(operatorContext)));
+                    serdeFactory.createPagesSerde(),
+                    exchangeClient);
         }
 
         @Override
@@ -83,20 +104,46 @@ public class ExchangeOperator
         }
     }
 
+    @NotThreadSafe
+    private static final class UpdateSystemMemory
+            implements SystemMemoryUsageListener
+    {
+        private final PipelineContext pipelineContext;
+
+        public UpdateSystemMemory(PipelineContext pipelineContext)
+        {
+            this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
+        }
+
+        @Override
+        public void updateSystemMemoryUsage(long deltaMemoryInBytes)
+        {
+            if (deltaMemoryInBytes > 0) {
+                pipelineContext.reserveSystemMemory(deltaMemoryInBytes);
+            }
+            else {
+                pipelineContext.freeSystemMemory(-deltaMemoryInBytes);
+            }
+        }
+    }
+
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final ExchangeClient exchangeClient;
     private final List<Type> types;
+    private final PagesSerde serde;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
             List<Type> types,
             PlanNodeId sourceId,
+            PagesSerde serde,
             ExchangeClient exchangeClient)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
+        this.serde = requireNonNull(serde, "serde is null");
         this.types = requireNonNull(types, "types is null");
 
         operatorContext.setInfoSupplier(exchangeClient::getStatus);
@@ -112,7 +159,7 @@ public class ExchangeOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkArgument(split.getConnectorId().equals("remote"), "split is not a remote split");
+        checkArgument(split.getConnectorId().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
         URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
         exchangeClient.addLocation(location);
@@ -175,11 +222,13 @@ public class ExchangeOperator
     @Override
     public Page getOutput()
     {
-        Page page = exchangeClient.pollPage();
-        if (page != null) {
-            operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
+        SerializedPage page = exchangeClient.pollPage();
+        if (page == null) {
+            return null;
         }
-        return page;
+
+        operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
+        return serde.deserialize(page);
     }
 
     @Override

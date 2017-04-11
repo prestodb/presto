@@ -337,7 +337,7 @@ public class EquatableValueSet
         @Override
         public int hashCode()
         {
-            return type.hash(block, 0);
+            return (int) type.hash(block, 0);
         }
 
         @Override

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import io.airlift.stats.TimeStat;
@@ -71,7 +70,7 @@ public class SqlQueryManagerStats
         }
 
         if (info.getErrorCode() != null) {
-            switch (StandardErrorCode.toErrorType(info.getErrorCode().getCode())) {
+            switch (info.getErrorCode().getType()) {
                 case USER_ERROR:
                     userErrorFailures.update(1);
                     break;

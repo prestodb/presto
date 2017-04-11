@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -25,12 +26,10 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -39,12 +38,14 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class TableWriterOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT, VARBINARY);
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
 
     public static class TableWriterOperatorFactory
             implements OperatorFactory
@@ -54,7 +55,6 @@ public class TableWriterOperator
         private final PageSinkManager pageSinkManager;
         private final WriterTarget target;
         private final List<Integer> inputChannels;
-        private final Optional<Integer> sampleWeightChannel;
         private final Session session;
         private boolean closed;
 
@@ -63,7 +63,6 @@ public class TableWriterOperator
                 PageSinkManager pageSinkManager,
                 WriterTarget writerTarget,
                 List<Integer> inputChannels,
-                Optional<Integer> sampleWeightChannel,
                 Session session)
         {
             this.operatorId = operatorId;
@@ -72,7 +71,6 @@ public class TableWriterOperator
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
-            this.sampleWeightChannel = requireNonNull(sampleWeightChannel, "sampleWeightChannel is null");
             this.session = session;
         }
 
@@ -87,7 +85,7 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, createPageSink(), inputChannels, sampleWeightChannel);
+            return new TableWriterOperator(context, createPageSink(), inputChannels);
         }
 
         private ConnectorPageSink createPageSink()
@@ -110,7 +108,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, inputChannels, sampleWeightChannel, session);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, inputChannels, session);
         }
     }
 
@@ -120,11 +118,12 @@ public class TableWriterOperator
     }
 
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext pageSinkMemoryContext;
     private final ConnectorPageSink pageSink;
-    private final Optional<Integer> sampleWeightChannel;
     private final List<Integer> inputChannels;
 
     private ListenableFuture<?> blocked = NOT_BLOCKED;
+    private CompletableFuture<Collection<Slice>> finishFuture;
     private State state = State.RUNNING;
     private long rowCount;
     private boolean committed;
@@ -132,12 +131,11 @@ public class TableWriterOperator
 
     public TableWriterOperator(OperatorContext operatorContext,
             ConnectorPageSink pageSink,
-            List<Integer> inputChannels,
-            Optional<Integer> sampleWeightChannel)
+            List<Integer> inputChannels)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.pageSinkMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
-        this.sampleWeightChannel = requireNonNull(sampleWeightChannel, "sampleWeightChannel is null");
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
     }
 
@@ -158,6 +156,8 @@ public class TableWriterOperator
     {
         if (state == State.RUNNING) {
             state = State.FINISHING;
+            finishFuture = pageSink.finish();
+            blocked = toListenableFuture(finishFuture);
         }
     }
 
@@ -199,14 +199,11 @@ public class TableWriterOperator
         for (int outputChannel = 0; outputChannel < inputChannels.size(); outputChannel++) {
             blocks[outputChannel] = page.getBlock(inputChannels.get(outputChannel));
         }
-        Block sampleWeightBlock = null;
-        if (sampleWeightChannel.isPresent()) {
-            sampleWeightBlock = page.getBlock(sampleWeightChannel.get());
-        }
 
-        CompletableFuture<?> future = pageSink.appendPage(new Page(blocks), sampleWeightBlock);
+        CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
+        pageSinkMemoryContext.setBytes(pageSink.getSystemMemoryUsage());
         if (!future.isDone()) {
-            this.blocked = MoreFutures.toListenableFuture(future);
+            this.blocked = toListenableFuture(future);
         }
         rowCount += page.getPositionCount();
     }
@@ -214,12 +211,12 @@ public class TableWriterOperator
     @Override
     public Page getOutput()
     {
-        if (state != State.FINISHING) {
+        if (state != State.FINISHING || !blocked.isDone()) {
             return null;
         }
         state = State.FINISHED;
 
-        Collection<Slice> fragments = pageSink.finish();
+        Collection<Slice> fragments = getFutureValue(finishFuture);
         committed = true;
 
         PageBuilder page = new PageBuilder(TYPES);

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.QueryId;
+
 public interface QueryPerformanceFetcher
 {
     QueryInfo getQueryInfo(QueryId queryId);

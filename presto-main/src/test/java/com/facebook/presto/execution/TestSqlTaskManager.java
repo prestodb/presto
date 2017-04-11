@@ -13,19 +13,25 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.event.query.QueryMonitorConfig;
+import com.facebook.presto.eventlistener.EventListenerManager;
+import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.memory.LocalMemoryManager;
-import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spiller.LocalSpillManager;
+import com.facebook.presto.spiller.NodeSpillConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.event.client.NullEventClient;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
@@ -38,12 +44,14 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -52,15 +60,17 @@ import static org.testng.Assert.assertNull;
 @Test
 public class TestSqlTaskManager
 {
-    private static final TaskId TASK_ID = new TaskId("query", "stage", "task");
-    public static final TaskId OUT = new TaskId("query", "stage", "out");
+    private static final TaskId TASK_ID = new TaskId("query", 0, 1);
+    public static final OutputBufferId OUT = new OutputBufferId(0);
 
     private final TaskExecutor taskExecutor;
     private final LocalMemoryManager localMemoryManager;
+    private final LocalSpillManager localSpillManager;
 
     public TestSqlTaskManager()
     {
-        localMemoryManager = new LocalMemoryManager(new MemoryManagerConfig(), new ReservedSystemMemoryConfig());
+        localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig(), new ReservedSystemMemoryConfig());
+        localSpillManager = new LocalSpillManager(new NodeSpillConfig());
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
     }
@@ -81,22 +91,24 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.<TaskSource>of(),
-                    INITIAL_EMPTY_OUTPUT_BUFFERS);
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+                    ImmutableList.of(),
+                    createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)),
-                    INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds());
-            assertEquals(taskInfo.getState(), TaskState.FINISHED);
+                    ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
+                    createInitialEmptyOutputBuffers(PARTITIONED)
+                            .withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.FINISHED);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
         }
     }
 
@@ -110,29 +122,33 @@ public class TestSqlTaskManager
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                    INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+                    createInitialEmptyOutputBuffers(PARTITIONED)
+                            .withBuffer(OUT, 0)
+                            .withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
             assertEquals(results.isBufferComplete(), false);
-            assertEquals(results.getPages().size(), 1);
-            assertEquals(results.getPages().get(0).getPositionCount(), 1);
+            assertEquals(results.getSerializedPages().size(), 1);
+            assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
-            results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
+            for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
+                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
+            }
             assertEquals(results.isBufferComplete(), true);
-            assertEquals(results.getPages().size(), 0);
+            assertEquals(results.getSerializedPages().size(), 0);
 
             // complete the task by calling abort on it
             TaskInfo info = sqlTaskManager.abortTaskResults(taskId, OUT);
-            assertEquals(info.getOutputBuffers().getState(), SharedBuffer.BufferState.FINISHED);
+            assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
 
-            taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getState()).get(1, TimeUnit.SECONDS);
-            assertEquals(taskInfo.getState(), TaskState.FINISHED);
+            taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getTaskStatus().getState()).get(1, TimeUnit.SECONDS);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.FINISHED);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
         }
     }
 
@@ -145,21 +161,23 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.<TaskSource>of(),
-                    INITIAL_EMPTY_OUTPUT_BUFFERS);
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+                    ImmutableList.of(),
+                    createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(OUT, 0)
+                        .withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.cancelTask(taskId);
-            assertEquals(taskInfo.getState(), TaskState.CANCELED);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
             assertNotNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.CANCELED);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
             assertNotNull(taskInfo.getStats().getEndTime());
         }
     }
@@ -173,21 +191,23 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.<TaskSource>of(),
-                    INITIAL_EMPTY_OUTPUT_BUFFERS);
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+                    ImmutableList.of(),
+                    createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(OUT, 0)
+                        .withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.abortTask(taskId);
-            assertEquals(taskInfo.getState(), TaskState.ABORTED);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.ABORTED);
             assertNotNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.ABORTED);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.ABORTED);
             assertNotNull(taskInfo.getStats().getEndTime());
         }
     }
@@ -202,19 +222,21 @@ public class TestSqlTaskManager
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                    INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+                    createInitialEmptyOutputBuffers(PARTITIONED)
+                            .withBuffer(OUT, 0)
+                            .withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             sqlTaskManager.abortTaskResults(taskId, OUT);
 
-            taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getState()).get(1, TimeUnit.SECONDS);
-            assertEquals(taskInfo.getState(), TaskState.FINISHED);
+            taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getTaskStatus().getState()).get(1, TimeUnit.SECONDS);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.FINISHED);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
         }
     }
 
@@ -228,21 +250,23 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.<TaskSource>of(),
-                    INITIAL_EMPTY_OUTPUT_BUFFERS);
-            assertEquals(taskInfo.getState(), TaskState.RUNNING);
+                    ImmutableList.of(),
+                    createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(OUT, 0)
+                        .withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.cancelTask(taskId);
-            assertEquals(taskInfo.getState(), TaskState.CANCELED);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getState(), TaskState.CANCELED);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
 
             Thread.sleep(100);
             sqlTaskManager.removeOldTasks();
 
             for (TaskInfo info : sqlTaskManager.getAllTaskInfo()) {
-                assertNotEquals(info.getTaskId(), taskId);
+                assertNotEquals(info.getTaskStatus().getTaskId(), taskId);
             }
         }
     }
@@ -253,11 +277,13 @@ public class TestSqlTaskManager
                 createTestingPlanner(),
                 new MockLocationFactory(),
                 taskExecutor,
-                new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test"), new NodeVersion("testVersion")),
+                new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
                 new NodeInfo("test"),
                 localMemoryManager,
                 config,
-                new MemoryManagerConfig());
+                new NodeMemoryConfig(),
+                localSpillManager,
+                new NodeSpillConfig());
     }
 
     public static class MockExchangeClientSupplier
@@ -276,31 +302,31 @@ public class TestSqlTaskManager
         @Override
         public URI createQueryLocation(QueryId queryId)
         {
-            return URI.create("fake://query/" + queryId);
+            return URI.create("http://fake.invalid/query/" + queryId);
         }
 
         @Override
         public URI createStageLocation(StageId stageId)
         {
-            return URI.create("fake://stage/" + stageId);
+            return URI.create("http://fake.invalid/stage/" + stageId);
         }
 
         @Override
         public URI createLocalTaskLocation(TaskId taskId)
         {
-            return URI.create("fake://task/" + taskId);
+            return URI.create("http://fake.invalid/task/" + taskId);
         }
 
         @Override
         public URI createTaskLocation(Node node, TaskId taskId)
         {
-            return URI.create("fake://task/" + node.getNodeIdentifier() + "/" + taskId);
+            return URI.create("http://fake.invalid/task/" + node.getNodeIdentifier() + "/" + taskId);
         }
 
         @Override
         public URI createMemoryInfoLocation(Node node)
         {
-            return URI.create("fake://" + node.getNodeIdentifier() + "/memory");
+            return URI.create("http://fake.invalid/" + node.getNodeIdentifier() + "/memory");
         }
     }
 }

@@ -11,21 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -33,6 +35,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -45,8 +48,8 @@ public class TestCountConstantOptimizer
         CountConstantOptimizer optimizer = new CountConstantOptimizer();
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
         Symbol countAggregationSymbol = new Symbol("count");
-        Signature countAggregationSignature = new Signature("count", FunctionKind.AGGREGATE, "bigint", "bigint");
-        ImmutableMap<Symbol, FunctionCall> aggregations = ImmutableMap.of(countAggregationSymbol, new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("expr")))));
+        Signature countAggregationSignature = new Signature("count", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT));
+        ImmutableMap<Symbol, FunctionCall> aggregations = ImmutableMap.of(countAggregationSymbol, new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new SymbolReference("expr"))));
         ImmutableMap<Symbol, Signature> functions = ImmutableMap.of(countAggregationSymbol, countAggregationSignature);
         ValuesNode valuesNode = new ValuesNode(planNodeIdAllocator.getNextId(), ImmutableList.of(new Symbol("col")), ImmutableList.of(ImmutableList.of()));
 
@@ -55,14 +58,13 @@ public class TestCountConstantOptimizer
                         new ProjectNode(
                                 planNodeIdAllocator.getNextId(),
                                 valuesNode,
-                                ImmutableMap.of(new Symbol("expr"), new LongLiteral("42"))),
-                        ImmutableList.of(),
+                                Assignments.of(new Symbol("expr"), new LongLiteral("42"))),
                         aggregations,
                         functions,
                         ImmutableMap.of(),
+                        ImmutableList.of(ImmutableList.of()),
                         AggregationNode.Step.INTERMEDIATE,
                         Optional.empty(),
-                        1.0,
                         Optional.empty());
 
         assertTrue(((AggregationNode) optimizer.optimize(eligiblePlan, TEST_SESSION, ImmutableMap.of(), new SymbolAllocator(), new PlanNodeIdAllocator()))
@@ -76,14 +78,13 @@ public class TestCountConstantOptimizer
                         new ProjectNode(
                                 planNodeIdAllocator.getNextId(),
                                 valuesNode,
-                                ImmutableMap.of(new Symbol("expr"), new FunctionCall(QualifiedName.of("function"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x")))))),
-                        ImmutableList.of(),
+                                Assignments.of(new Symbol("expr"), new FunctionCall(QualifiedName.of("function"), ImmutableList.of(new Identifier("x"))))),
                         aggregations,
                         functions,
                         ImmutableMap.of(),
+                        ImmutableList.of(ImmutableList.of()),
                         AggregationNode.Step.INTERMEDIATE,
                         Optional.empty(),
-                        1.0,
                         Optional.empty());
 
         assertFalse(((AggregationNode) optimizer.optimize(ineligiblePlan, TEST_SESSION, ImmutableMap.of(), new SymbolAllocator(), new PlanNodeIdAllocator()))

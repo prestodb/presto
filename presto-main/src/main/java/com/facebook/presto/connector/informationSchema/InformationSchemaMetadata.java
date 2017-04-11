@@ -38,8 +38,7 @@ import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.sc
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.Types.checkType;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.equalTo;
@@ -61,39 +60,40 @@ public class InformationSchemaMetadata
 
     public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
             .table(tableMetadataBuilder(TABLE_COLUMNS)
-                    .column("table_catalog", VARCHAR)
-                    .column("table_schema", VARCHAR)
-                    .column("table_name", VARCHAR)
-                    .column("column_name", VARCHAR)
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
+                    .column("column_name", createUnboundedVarcharType())
                     .column("ordinal_position", BIGINT)
-                    .column("column_default", VARCHAR)
-                    .column("is_nullable", VARCHAR)
-                    .column("data_type", VARCHAR)
-                    .column("comment", VARCHAR)
+                    .column("column_default", createUnboundedVarcharType())
+                    .column("is_nullable", createUnboundedVarcharType())
+                    .column("data_type", createUnboundedVarcharType())
+                    .column("comment", createUnboundedVarcharType())
+                    .column("extra_info", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLES)
-                    .column("table_catalog", VARCHAR)
-                    .column("table_schema", VARCHAR)
-                    .column("table_name", VARCHAR)
-                    .column("table_type", VARCHAR)
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
+                    .column("table_type", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_VIEWS)
-                    .column("table_catalog", VARCHAR)
-                    .column("table_schema", VARCHAR)
-                    .column("table_name", VARCHAR)
-                    .column("view_definition", VARCHAR)
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
+                    .column("view_definition", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_SCHEMATA)
-                    .column("catalog_name", VARCHAR)
-                    .column("schema_name", VARCHAR)
+                    .column("catalog_name", createUnboundedVarcharType())
+                    .column("schema_name", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_INTERNAL_PARTITIONS)
-                    .column("table_catalog", VARCHAR)
-                    .column("table_schema", VARCHAR)
-                    .column("table_name", VARCHAR)
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
                     .column("partition_number", BIGINT)
-                    .column("partition_key", VARCHAR)
-                    .column("partition_value", VARCHAR)
+                    .column("partition_key", createUnboundedVarcharType())
+                    .column("partition_value", createUnboundedVarcharType())
                     .build())
             .build();
 
@@ -106,7 +106,7 @@ public class InformationSchemaMetadata
 
     private InformationSchemaTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
     {
-        InformationSchemaTableHandle handle = checkType(tableHandle, InformationSchemaTableHandle.class, "tableHandle");
+        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) tableHandle;
         checkArgument(handle.getCatalogName().equals(catalogName), "invalid table handle: expected catalog %s but got %s", catalogName, handle.getCatalogName());
         checkArgument(TABLES.containsKey(handle.getSchemaTableName()), "table %s does not exist", handle.getSchemaTableName());
         return handle;
@@ -151,7 +151,7 @@ public class InformationSchemaMetadata
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
-        String columnName = checkType(columnHandle, InformationSchemaColumnHandle.class, "columnHandle").getColumnName();
+        String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
@@ -186,7 +186,7 @@ public class InformationSchemaMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        InformationSchemaTableHandle handle = checkType(table, InformationSchemaTableHandle.class, "table");
+        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new InformationSchemaTableLayoutHandle(handle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }

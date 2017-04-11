@@ -15,17 +15,22 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import com.facebook.presto.execution.buffer.LazyOutputBuffer;
+import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
+import com.facebook.presto.spiller.SpillSpaceTracker;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
@@ -40,6 +45,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
@@ -55,18 +62,19 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -91,22 +99,22 @@ public class MockRemoteTaskFactory
                 new PlanFragmentId("test"),
                 new TableScanNode(
                         sourceId,
-                        new TableHandle("test", new TestingTableHandle()),
+                        new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                         Optional.empty(),
                         TupleDomain.all(),
                         null),
-                ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
+                ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
-                sourceId,
-                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(symbol), ImmutableList.of()));
+                ImmutableList.of(sourceId),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)));
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : splits) {
             initialSplits.put(sourceId, sourceSplit);
         }
-        return createRemoteTask(TEST_SESSION, taskId, newNode, 0, testFragment, initialSplits.build(), OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS, partitionedSplitCountTracker, true);
+        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), createInitialEmptyOutputBuffers(BROADCAST), partitionedSplitCountTracker, true);
     }
 
     @Override
@@ -114,27 +122,25 @@ public class MockRemoteTaskFactory
             Session session,
             TaskId taskId,
             Node node,
-            int partition,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo)
     {
-        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), partition, executor, initialSplits, partitionedSplitCountTracker);
+        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, initialSplits, partitionedSplitCountTracker);
     }
 
     public static final class MockRemoteTask
             implements RemoteTask
     {
-        private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
+        private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
 
         private final URI location;
         private final TaskStateMachine taskStateMachine;
         private final TaskContext taskContext;
-        private final SharedBuffer sharedBuffer;
+        private final OutputBuffer outputBuffer;
         private final String nodeId;
-        private final int partition;
 
         private final PlanFragment fragment;
 
@@ -145,14 +151,16 @@ public class MockRemoteTaskFactory
         private final Multimap<PlanNodeId, Split> splits = HashMultimap.create();
 
         @GuardedBy("this")
-        private int runningDrivers;
+        private int runningDrivers = 0;
+
+        @GuardedBy("this")
+        private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
         public MockRemoteTask(TaskId taskId,
                 PlanFragment fragment,
                 String nodeId,
-                int partition,
                 Executor executor,
                 Multimap<PlanNodeId, Split> initialSplits,
                 PartitionedSplitCountTracker partitionedSplitCountTracker)
@@ -161,18 +169,25 @@ public class MockRemoteTaskFactory
 
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
             MemoryPool memorySystemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
-            this.taskContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor).addTaskContext(taskStateMachine, TEST_SESSION, new DataSize(1, MEGABYTE), true, true);
+            SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+            QueryContext queryContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor, new DataSize(1, MEGABYTE), spillSpaceTracker);
+            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true);
 
             this.location = URI.create("fake://task/" + taskId);
 
-            this.sharedBuffer = new SharedBuffer(taskId, TASK_INSTANCE_ID, executor, requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"));
+            this.outputBuffer = new LazyOutputBuffer(
+                    taskId,
+                    TASK_INSTANCE_ID,
+                    executor,
+                    requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"),
+                    new UpdateSystemMemory(queryContext));
+
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
-            checkArgument(partition >= 0, "partition is negative");
-            this.partition = partition;
             splits.putAll(initialSplits);
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            updateSplitQueueSpace();
         }
 
         @Override
@@ -188,12 +203,6 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public int getPartition()
-        {
-            return partition;
-        }
-
-        @Override
         public TaskInfo getTaskInfo()
         {
             TaskState state = taskStateMachine.getState();
@@ -202,18 +211,42 @@ public class MockRemoteTaskFactory
                 failures = toFailures(taskStateMachine.getFailureCauses());
             }
 
-            return new TaskInfo(
-                    taskStateMachine.getTaskId(),
-                    TASK_INSTANCE_ID,
-                    nextTaskInfoVersion.getAndIncrement(),
-                    state,
-                    location,
+            return new TaskInfo(new TaskStatus(taskStateMachine.getTaskId(), TASK_INSTANCE_ID, nextTaskInfoVersion.getAndIncrement(), state, location, failures, 0, 0, new DataSize(0, BYTE)),
                     DateTime.now(),
-                    sharedBuffer.getInfo(),
-                    ImmutableSet.<PlanNodeId>of(),
+                    outputBuffer.getInfo(),
+                    ImmutableSet.of(),
                     taskContext.getTaskStats(),
-                    failures,
-                    true);
+                    true,
+                    false);
+        }
+
+        @Override
+        public TaskStatus getTaskStatus()
+        {
+            TaskStats stats = taskContext.getTaskStats();
+            return new TaskStatus(taskStateMachine.getTaskId(),
+                    TASK_INSTANCE_ID,
+                    nextTaskInfoVersion.get(),
+                    taskStateMachine.getState(),
+                    location,
+                    ImmutableList.of(),
+                    stats.getQueuedPartitionedDrivers(),
+                    stats.getRunningPartitionedDrivers(),
+                    stats.getMemoryReservation());
+        }
+
+        private synchronized void updateSplitQueueSpace()
+        {
+            if (getQueuedPartitionedSplitCount() < 9) {
+                if (!whenSplitQueueHasSpace.isDone()) {
+                    whenSplitQueueHasSpace.set(null);
+                }
+            }
+            else {
+                if (whenSplitQueueHasSpace.isDone()) {
+                    whenSplitQueueHasSpace = SettableFuture.create();
+                }
+            }
         }
 
         public synchronized void finishSplits(int splits)
@@ -226,6 +259,7 @@ public class MockRemoteTaskFactory
             for (Map.Entry<PlanNodeId, Split> entry : toRemove) {
                 this.splits.remove(entry.getKey(), entry.getValue());
             }
+            updateSplitQueueSpace();
         }
 
         public synchronized void clearSplits()
@@ -233,12 +267,14 @@ public class MockRemoteTaskFactory
             splits.clear();
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             runningDrivers = 0;
+            updateSplitQueueSpace();
         }
 
         public synchronized void startSplits(int maxRunning)
         {
             runningDrivers = splits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
+            updateSplitQueueSpace();
         }
 
         @Override
@@ -258,6 +294,7 @@ public class MockRemoteTaskFactory
                 this.splits.putAll(splits);
             }
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            updateSplitQueueSpace();
         }
 
         @Override
@@ -265,7 +302,7 @@ public class MockRemoteTaskFactory
         {
             noMoreSplits.add(sourceId);
 
-            boolean allSourcesComplete = Stream.concat(Stream.of(fragment.getPartitionedSourceNode()), fragment.getRemoteSourceNodes().stream())
+            boolean allSourcesComplete = Stream.concat(fragment.getPartitionedSourceNodes().stream(), fragment.getRemoteSourceNodes().stream())
                     .filter(Objects::nonNull)
                     .map(PlanNode::getId)
                     .allMatch(noMoreSplits::contains);
@@ -278,19 +315,19 @@ public class MockRemoteTaskFactory
         @Override
         public void setOutputBuffers(OutputBuffers outputBuffers)
         {
-            sharedBuffer.setOutputBuffers(outputBuffers);
+            outputBuffer.setOutputBuffers(outputBuffers);
         }
 
         @Override
-        public void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
+        public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
         {
-            taskStateMachine.addStateChangeListener(newValue -> stateChangeListener.stateChanged(getTaskInfo()));
+            taskStateMachine.addStateChangeListener(newValue -> stateChangeListener.stateChanged(getTaskStatus()));
         }
 
         @Override
-        public CompletableFuture<TaskInfo> getStateChange(TaskInfo taskInfo)
+        public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
         {
-            return taskStateMachine.getStateChange(taskInfo.getState()).thenApply(ignored -> getTaskInfo());
+            return nonCancellationPropagating(whenSplitQueueHasSpace);
         }
 
         @Override
@@ -313,21 +350,44 @@ public class MockRemoteTaskFactory
                 return 0;
             }
             synchronized (this) {
-                Collection<Split> partitionedSplits = splits.get(fragment.getPartitionedSource());
-                if (partitionedSplits == null) {
-                    return 0;
+                int count = 0;
+                for (PlanNodeId partitionedSource : fragment.getPartitionedSources()) {
+                    Collection<Split> partitionedSplits = splits.get(partitionedSource);
+                    count += partitionedSplits.size();
                 }
-                return partitionedSplits.size();
+                return count;
             }
         }
 
         @Override
-        public int getQueuedPartitionedSplitCount()
+        public synchronized int getQueuedPartitionedSplitCount()
         {
             if (taskStateMachine.getState().isDone()) {
                 return 0;
             }
             return getPartitionedSplitCount() - runningDrivers;
+        }
+
+        private static final class UpdateSystemMemory
+                implements SystemMemoryUsageListener
+        {
+            private final QueryContext queryContext;
+
+            public UpdateSystemMemory(QueryContext queryContext)
+            {
+                this.queryContext = requireNonNull(queryContext, "queryContext is null");
+            }
+
+            @Override
+            public void updateSystemMemoryUsage(long deltaMemoryInBytes)
+            {
+                if (deltaMemoryInBytes > 0) {
+                    queryContext.reserveSystemMemory(deltaMemoryInBytes);
+                }
+                else {
+                    queryContext.freeSystemMemory(-deltaMemoryInBytes);
+                }
+            }
         }
     }
 }

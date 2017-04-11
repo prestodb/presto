@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
@@ -42,9 +44,11 @@ import java.util.stream.Stream;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 
 public class TestPhasedExecutionSchedule
@@ -156,7 +160,7 @@ public class TestPhasedExecutionSchedule
                 Stream.of(fragments)
                         .map(PlanFragment::getId)
                         .collect(toImmutableList()),
-                fragments[0].getPartitionFunction().getOutputLayout());
+                fragments[0].getPartitioningScheme().getOutputLayout());
 
         return createFragment(planNode);
     }
@@ -166,7 +170,7 @@ public class TestPhasedExecutionSchedule
         PlanNode planNode = new UnionNode(
                 new PlanNodeId(name + "_id"),
                 Stream.of(fragments)
-                        .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitionFunction().getOutputLayout()))
+                        .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitioningScheme().getOutputLayout()))
                         .collect(toImmutableList()),
                 ImmutableListMultimap.of(),
                 ImmutableList.of());
@@ -179,35 +183,50 @@ public class TestPhasedExecutionSchedule
         Symbol symbol = new Symbol("column");
         PlanNode tableScan = new TableScanNode(
                 new PlanNodeId(name),
-                new TableHandle("test", new TestingTableHandle()),
+                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                 Optional.empty(),
                 TupleDomain.all(),
                 null);
 
+        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of());
         PlanNode join = new JoinNode(
                 new PlanNodeId(name + "_id"),
                 INNER,
                 tableScan,
-                new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of()),
+                remote,
                 ImmutableList.of(),
-                Optional.<Symbol>empty(),
-                Optional.<Symbol>empty());
+                ImmutableList.<Symbol>builder()
+                        .addAll(tableScan.getOutputSymbols())
+                        .addAll(remote.getOutputSymbols())
+                        .build(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(REPLICATED));
 
         return createFragment(join);
     }
 
     private static PlanFragment createJoinPlanFragment(JoinNode.Type joinType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
     {
+        RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of());
+        RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of());
         PlanNode planNode = new JoinNode(
                 new PlanNodeId(name + "_id"),
                 joinType,
-                new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of()),
-                new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of()),
+                probe,
+                build,
                 ImmutableList.of(),
-                Optional.<Symbol>empty(),
-                Optional.<Symbol>empty());
+                ImmutableList.<Symbol>builder()
+                        .addAll(probe.getOutputSymbols())
+                        .addAll(build.getOutputSymbols())
+                        .build(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(PARTITIONED));
 
         return createFragment(planNode);
     }
@@ -217,7 +236,7 @@ public class TestPhasedExecutionSchedule
         Symbol symbol = new Symbol("column");
         PlanNode planNode = new TableScanNode(
                 new PlanNodeId(name),
-                new TableHandle("test", new TestingTableHandle()),
+                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                 Optional.empty(),
@@ -238,7 +257,7 @@ public class TestPhasedExecutionSchedule
                 planNode,
                 types.build(),
                 SOURCE_DISTRIBUTION,
-                planNode.getId(),
-                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, planNode.getOutputSymbols(), ImmutableList.of()));
+                ImmutableList.of(planNode.getId()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()));
     }
 }

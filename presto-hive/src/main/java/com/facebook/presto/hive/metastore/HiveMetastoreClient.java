@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
@@ -44,6 +45,15 @@ public interface HiveMetastoreClient
     List<String> getTableNamesByFilter(String databaseName, String filter)
             throws TException;
 
+    void createDatabase(Database database)
+            throws TException;
+
+    void dropDatabase(String databaseName, boolean deleteData, boolean cascade)
+            throws TException;
+
+    void alterDatabase(String databaseName, Database database)
+            throws TException;
+
     void createTable(Table table)
             throws TException;
 
@@ -68,10 +78,10 @@ public interface HiveMetastoreClient
     boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
             throws TException;
 
-    boolean dropPartitionByName(String databaseName, String tableName, String partitionName, boolean deleteData)
+    void alterPartition(String databaseName, String tableName, Partition partition)
             throws TException;
 
-    Partition getPartitionByName(String databaseName, String tableName, String partitionName)
+    Partition getPartition(String databaseName, String tableName, List<String> partitionValues)
             throws TException;
 
     List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
@@ -83,9 +93,15 @@ public interface HiveMetastoreClient
     PrincipalPrivilegeSet getPrivilegeSet(HiveObjectRef hiveObject, String userName, List<String> groupNames)
             throws TException;
 
+    List<HiveObjectPrivilege> listPrivileges(String principalName, PrincipalType principalType, HiveObjectRef hiveObjectRef)
+            throws TException;
+
     List<String> getRoleNames()
             throws TException;
 
     boolean grantPrivileges(PrivilegeBag privilegeBag)
+            throws TException;
+
+    boolean revokePrivileges(PrivilegeBag privilegeBag)
             throws TException;
 }

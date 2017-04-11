@@ -21,6 +21,7 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
 import org.skife.jdbi.v2.sqlobject.customizers.RegisterMapperFactory;
 
+import java.sql.Timestamp;
 import java.util.UUID;
 
 @RegisterArgumentFactory(UuidArgumentFactory.class)
@@ -39,4 +40,13 @@ public interface MySqlShardDao
     @SqlBatch("INSERT IGNORE INTO deleted_shards (shard_uuid, delete_time)\n" +
             "VALUES (:shardUuid, CURRENT_TIMESTAMP)")
     void insertDeletedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
+
+    // 'order by' is needed in this statement in order to make it compatible with statement-based replication
+    @SqlUpdate("DELETE FROM transactions\n" +
+            "WHERE end_time < :maxEndTime\n" +
+            "  AND successful IN (TRUE, FALSE)\n" +
+            "  AND transaction_id NOT IN (SELECT transaction_id FROM created_shards)\n" +
+            "ORDER BY end_time, transaction_id\n" +
+            "LIMIT " + CLEANUP_TRANSACTIONS_BATCH_SIZE)
+    int deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
 }

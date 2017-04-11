@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
@@ -29,6 +29,7 @@ import io.airlift.json.JsonModule;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,20 +39,10 @@ import static java.util.Objects.requireNonNull;
 public class RedisConnectorFactory
         implements ConnectorFactory
 {
-    private final TypeManager typeManager;
-    private final NodeManager nodeManager;
     private final Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier;
-    private final Map<String, String> optionalConfig;
 
-    RedisConnectorFactory(
-            TypeManager typeManager,
-            NodeManager nodeManager,
-            Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier,
-            Map<String, String> optionalConfig)
+    RedisConnectorFactory(Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.optionalConfig = requireNonNull(optionalConfig, "optionalConfig is null");
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
     }
 
@@ -68,7 +59,7 @@ public class RedisConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config)
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(config, "config is null");
@@ -79,8 +70,8 @@ public class RedisConnectorFactory
                     new RedisConnectorModule(),
                     binder -> {
                         binder.bind(RedisConnectorId.class).toInstance(new RedisConnectorId(connectorId));
-                        binder.bind(TypeManager.class).toInstance(typeManager);
-                        binder.bind(NodeManager.class).toInstance(nodeManager);
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
                         if (tableDescriptionSupplier.isPresent()) {
                             binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, RedisTableDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
@@ -96,7 +87,6 @@ public class RedisConnectorFactory
             Injector injector = app.strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
             return injector.getInstance(RedisConnector.class);

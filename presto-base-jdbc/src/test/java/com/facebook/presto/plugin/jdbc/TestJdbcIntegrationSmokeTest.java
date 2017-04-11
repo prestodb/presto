@@ -24,12 +24,6 @@ public class TestJdbcIntegrationSmokeTest
     public TestJdbcIntegrationSmokeTest()
             throws Exception
     {
-        super(createJdbcQueryRunner(ORDERS));
-    }
-
-    @Override
-    public void testViewAccessControl()
-    {
-        // jdbc connector does not support views
+        super(() -> createJdbcQueryRunner(ORDERS));
     }
 }

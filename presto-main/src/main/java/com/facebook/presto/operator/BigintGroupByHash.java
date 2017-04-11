@@ -13,38 +13,39 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.array.IntBigArray;
+import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.BigintOperators;
-import com.facebook.presto.util.array.IntBigArray;
-import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
-import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
+import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
-import static java.util.Objects.requireNonNull;
 
 public class BigintGroupByHash
         implements GroupByHash
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintGroupByHash.class).instanceSize();
+
     private static final float FILL_RATIO = 0.75f;
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final List<Type> TYPES_WITH_RAW_HASH = ImmutableList.of(BIGINT, BIGINT);
 
     private final int hashChannel;
-    private final int maskChannel;
     private final boolean outputRawHash;
 
     private int hashCapacity;
@@ -62,14 +63,15 @@ public class BigintGroupByHash
     private final LongBigArray valuesByGroupId;
 
     private int nextGroupId;
+    private long hashCollisions;
+    private double expectedHashCollisions;
 
-    public BigintGroupByHash(int hashChannel, Optional<Integer> maskChannel, boolean outputRawHash, int expectedSize)
+    public BigintGroupByHash(int hashChannel, boolean outputRawHash, int expectedSize)
     {
         checkArgument(hashChannel >= 0, "hashChannel must be at least zero");
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
         this.hashChannel = hashChannel;
-        this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
         this.outputRawHash = outputRawHash;
 
         hashCapacity = arraySize(expectedSize, FILL_RATIO);
@@ -88,9 +90,22 @@ public class BigintGroupByHash
     @Override
     public long getEstimatedSize()
     {
-        return groupIds.sizeOf() +
+        return INSTANCE_SIZE +
+                groupIds.sizeOf() +
                 values.sizeOf() +
                 valuesByGroupId.sizeOf();
+    }
+
+    @Override
+    public long getHashCollisions()
+    {
+        return hashCollisions;
+    }
+
+    @Override
+    public double getExpectedHashCollisions()
+    {
+        return expectedHashCollisions + estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
     }
 
     @Override
@@ -133,19 +148,9 @@ public class BigintGroupByHash
     {
         int positionCount = page.getPositionCount();
 
-        Block maskBlock = null;
-        if (maskChannel >= 0) {
-            maskBlock = page.getBlock(maskChannel);
-        }
-
         // get the group id for each position
         Block block = page.getBlock(hashChannel);
         for (int position = 0; position < positionCount; position++) {
-            // skip masked rows
-            if (maskBlock != null && !BOOLEAN.getBoolean(maskBlock, position)) {
-                continue;
-            }
-
             // get the group for the current row
             putIfAbsent(position, block);
         }
@@ -159,20 +164,9 @@ public class BigintGroupByHash
         // we know the exact size required for the block
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
 
-        Block maskBlock = null;
-        if (maskChannel >= 0) {
-            maskBlock = page.getBlock(maskChannel);
-        }
-
         // get the group id for each position
         Block block = page.getBlock(hashChannel);
         for (int position = 0; position < positionCount; position++) {
-            // skip masked rows
-            if (maskBlock != null && !BOOLEAN.getBoolean(maskBlock, position)) {
-                blockBuilder.appendNull();
-                continue;
-            }
-
             // get the group for the current row
             int groupId = putIfAbsent(position, block);
 
@@ -191,7 +185,7 @@ public class BigintGroupByHash
         }
 
         long value = BIGINT.getLong(block, position);
-        int hashPosition = getHashPosition(value, mask);
+        long hashPosition = getHashPosition(value, mask);
 
         // look for an empty slot or a slot containing this key
         while (true) {
@@ -215,6 +209,12 @@ public class BigintGroupByHash
         return putIfAbsent(position, block);
     }
 
+    @Override
+    public long getRawHash(int groupId)
+    {
+        return BigintType.hash(valuesByGroupId.get(groupId));
+    }
+
     private int putIfAbsent(int position, Block block)
     {
         if (block.isNull(position)) {
@@ -227,7 +227,7 @@ public class BigintGroupByHash
         }
 
         long value = BIGINT.getLong(block, position);
-        int hashPosition = getHashPosition(value, mask);
+        long hashPosition = getHashPosition(value, mask);
 
         // look for an empty slot or a slot containing this key
         while (true) {
@@ -242,12 +242,13 @@ public class BigintGroupByHash
 
             // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
+            hashCollisions++;
         }
 
         return addNewGroup(hashPosition, value);
     }
 
-    private int addNewGroup(int hashPosition, long value)
+    private int addNewGroup(long hashPosition, long value)
     {
         // record group id in hash
         int groupId = nextGroupId++;
@@ -265,9 +266,11 @@ public class BigintGroupByHash
 
     private void rehash()
     {
+        expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
+
         long newCapacityLong = hashCapacity * 2L;
         if (newCapacityLong > Integer.MAX_VALUE) {
-            throw new PrestoException(INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+            throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
         int newCapacity = (int) newCapacityLong;
 
@@ -284,9 +287,10 @@ public class BigintGroupByHash
             long value = valuesByGroupId.get(groupId);
 
             // find an empty slot for the address
-            int hashPosition = getHashPosition(value, newMask);
+            long hashPosition = getHashPosition(value, newMask);
             while (newGroupIds.get(hashPosition) != -1) {
                 hashPosition = (hashPosition + 1) & newMask;
+                hashCollisions++;
             }
 
             // record the mapping
@@ -303,19 +307,19 @@ public class BigintGroupByHash
         this.valuesByGroupId.ensureCapacity(maxFill);
     }
 
-    private static int getHashPosition(long rawHash, int mask)
+    private static long getHashPosition(long rawHash, int mask)
     {
-        return ((int) murmurHash3(rawHash)) & mask;
+        return murmurHash3(rawHash) & mask;
     }
 
     private static int calculateMaxFill(int hashSize)
     {
-        checkArgument(hashSize > 0, "hashCapacity must greater than 0");
+        checkArgument(hashSize > 0, "hashSize must be greater than 0");
         int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
         if (maxFill == hashSize) {
             maxFill--;
         }
-        checkArgument(hashSize > maxFill, "hashCapacity must be larger than maxFill");
+        checkArgument(hashSize > maxFill, "hashSize must be larger than maxFill");
         return maxFill;
     }
 }

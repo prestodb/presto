@@ -13,17 +13,21 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
 import org.apache.hadoop.hive.ql.io.HiveKey;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
@@ -44,21 +48,19 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.HiveUtil.getNonPartitionKeyColumnHandles;
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
-import static com.facebook.presto.hive.util.Types.checkType;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Map.Entry;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredJavaObject;
 import static org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredObject;
@@ -104,6 +106,7 @@ final class HiveBucketing
     {
         // This function mirrors the behavior of function hashCode in
         // HIVE-12025 ba83fd7bff serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
+        // https://github.com/apache/hive/blob/ba83fd7bff/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
 
         // HIVE-7148 proposed change to bucketing hash algorithms. If that gets implemented, this function will need to change significantly.
 
@@ -112,39 +115,44 @@ final class HiveBucketing
         }
 
         switch (type.getCategory()) {
-            case PRIMITIVE:
-                PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) type).getPrimitiveCategory();
+            case PRIMITIVE: {
+                PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
+                PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
+                Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
                 switch (primitiveCategory) {
                     case BOOLEAN:
-                        return BOOLEAN.getBoolean(block, position) ? 1 : 0;
+                        return prestoType.getBoolean(block, position) ? 1 : 0;
                     case BYTE:
-                        return SignedBytes.checkedCast(BIGINT.getLong(block, position));
+                        return SignedBytes.checkedCast(prestoType.getLong(block, position));
                     case SHORT:
-                        return Shorts.checkedCast(BIGINT.getLong(block, position));
+                        return Shorts.checkedCast(prestoType.getLong(block, position));
                     case INT:
-                        return Ints.checkedCast(BIGINT.getLong(block, position));
+                        return toIntExact(prestoType.getLong(block, position));
                     case LONG:
-                        long bigintValue = BIGINT.getLong(block, position);
+                        long bigintValue = prestoType.getLong(block, position);
                         return (int) ((bigintValue >>> 32) ^ bigintValue);
                     case FLOAT:
-                        return Float.floatToIntBits((float) DOUBLE.getDouble(block, position));
+                        return (int) prestoType.getLong(block, position);
                     case DOUBLE:
-                        long doubleValue = doubleToLongBits(DOUBLE.getDouble(block, position));
+                        long doubleValue = doubleToLongBits(prestoType.getDouble(block, position));
                         return (int) ((doubleValue >>> 32) ^ doubleValue);
                     case STRING:
-                        return hashBytes(0, VARCHAR.getSlice(block, position));
+                        return hashBytes(0, prestoType.getSlice(block, position));
+                    case VARCHAR:
+                        return hashBytes(1, prestoType.getSlice(block, position));
                     case DATE:
                         // day offset from 1970-01-01
-                        long days = DATE.getLong(block, position);
-                        return Ints.checkedCast(days);
+                        long days = prestoType.getLong(block, position);
+                        return toIntExact(days);
                     case TIMESTAMP:
-                        long millisSinceEpoch = TIMESTAMP.getLong(block, position);
+                        long millisSinceEpoch = prestoType.getLong(block, position);
                         // seconds << 30 + nanoseconds
                         long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000);
                         return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
+            }
             case LIST: {
                 TypeInfo elementTypeInfo = ((ListTypeInfo) type).getListElementTypeInfo();
                 Block elementsBlock = block.getObject(position, Block.class);
@@ -182,30 +190,71 @@ final class HiveBucketing
 
     public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table)
     {
-        Optional<HiveBucketProperty> hiveBucketProperty = HiveBucketProperty.fromStorageDescriptor(table.getSd(), table.getTableName());
+        Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (!hiveBucketProperty.isPresent()) {
             return Optional.empty();
         }
 
-        Map<String, HiveColumnHandle> map = getNonPartitionKeyColumnHandles(connectorId, table).stream()
+        Map<String, HiveColumnHandle> map = getRegularColumnHandles(connectorId, table).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
-        List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getClusteredBy().stream()
-                .map(map::get)
-                .collect(Collectors.toList());
+        ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();
+        for (String bucketColumnName : hiveBucketProperty.get().getBucketedBy()) {
+            HiveColumnHandle bucketColumnHandle = map.get(bucketColumnName);
+            if (bucketColumnHandle == null) {
+                throw new PrestoException(
+                        HIVE_INVALID_METADATA,
+                        format("Table '%s.%s' is bucketed on non-existent column '%s'", table.getDatabaseName(), table.getTableName(), bucketColumnName));
+            }
+            bucketColumns.add(bucketColumnHandle);
+        }
 
-        return Optional.of(new HiveBucketHandle(bucketColumns, hiveBucketProperty.get().getBucketCount()));
+        return Optional.of(new HiveBucketHandle(bucketColumns.build(), hiveBucketProperty.get().getBucketCount()));
     }
 
-    public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
+    public static List<HiveBucket> getHiveBucketNumbers(Table table, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
-                !table.getSd().isSetNumBuckets() || (table.getSd().getNumBuckets() <= 0) ||
-                bindings.isEmpty()) {
+        if (!table.getStorage().getBucketProperty().isPresent()) {
+            return ImmutableList.of();
+        }
+
+        Optional<Map<ColumnHandle, NullableValue>> bindings = TupleDomain.extractFixedValues(effectivePredicate);
+        if (!bindings.isPresent()) {
+            return ImmutableList.of();
+        }
+        Optional<HiveBucket> singleBucket = getHiveBucket(table, bindings.get());
+        if (singleBucket.isPresent()) {
+            return ImmutableList.of(singleBucket.get());
+        }
+
+        if (!effectivePredicate.getDomains().isPresent()) {
+            return ImmutableList.of();
+        }
+        Optional<Domain> domain = effectivePredicate.getDomains().get().entrySet().stream()
+                .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_COLUMN_NAME))
+                .findFirst()
+                .map(Entry::getValue);
+        if (!domain.isPresent()) {
+            return ImmutableList.of();
+        }
+        ValueSet values = domain.get().getValues();
+        ImmutableList.Builder<HiveBucket> builder = ImmutableList.builder();
+        int bucketCount = table.getStorage().getBucketProperty().get().getBucketCount();
+        for (int i = 0; i < bucketCount; i++) {
+            if (values.containsValue((long) i)) {
+                builder.add(new HiveBucket(i, bucketCount));
+            }
+        }
+        return builder.build();
+    }
+
+    private static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
+    {
+        if (bindings.isEmpty()) {
             return Optional.empty();
         }
 
-        List<String> bucketColumns = table.getSd().getBucketCols();
+        List<String> bucketColumns = table.getStorage().getBucketProperty().get().getBucketedBy();
         Map<String, ObjectInspector> objectInspectors = new HashMap<>();
 
         // Get column name to object inspector mapping
@@ -244,7 +293,7 @@ final class HiveBucketing
             columnBindings.add(immutableEntry(objectInspectors.get(column), bucketBindings.get(column)));
         }
 
-        return getHiveBucket(columnBindings.build(), table.getSd().getNumBuckets());
+        return getHiveBucket(columnBindings.build(), table.getStorage().getBucketProperty().get().getBucketCount());
     }
 
     public static Optional<HiveBucket> getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
@@ -263,7 +312,7 @@ final class HiveBucketing
             }
 
             ObjectInspector udfInspector = udf.initialize(objectInspectors);
-            IntObjectInspector inspector = checkType(udfInspector, IntObjectInspector.class, "udfInspector");
+            IntObjectInspector inspector = (IntObjectInspector) udfInspector;
 
             Object result = udf.evaluate(deferredObjects);
             HiveKey hiveKey = new HiveKey();

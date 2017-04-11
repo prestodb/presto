@@ -14,10 +14,8 @@
 package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
-
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class ParquetBooleanColumnReader
         extends ParquetColumnReader
@@ -27,31 +25,22 @@ public class ParquetBooleanColumnReader
         super(descriptor);
     }
 
-    public BlockBuilder createBlockBuilder()
-    {
-        return BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
-    }
-
     @Override
-    public void readValues(BlockBuilder blockBuilder, int valueNumber)
+    protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        for (int i = 0; i < valueNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                BOOLEAN.writeBoolean(blockBuilder, valuesReader.readBoolean());
-            }
-            else {
-                blockBuilder.appendNull();
-            }
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            type.writeBoolean(blockBuilder, valuesReader.readBoolean());
+        }
+        else {
+            blockBuilder.appendNull();
         }
     }
 
     @Override
-    public void skipValues(int offsetNumber)
+    protected void skipValue()
     {
-        for (int i = 0; i < offsetNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                valuesReader.readBoolean();
-            }
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            valuesReader.readBoolean();
         }
     }
 }

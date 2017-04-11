@@ -14,10 +14,11 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -28,13 +29,14 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 public class TestUnknownOperators
         extends AbstractTestFunctions
 {
-    private TestUnknownOperators()
+    @BeforeClass
+    public void setUp()
     {
         registerScalar(getClass());
     }
 
     @ScalarFunction(value = "null_function", deterministic = false)
-    @Nullable
+    @SqlNullable
     @SqlType("unknown")
     public static Void nullFunction()
     {
@@ -127,5 +129,12 @@ public class TestUnknownOperators
     {
         assertFunction("cast(NULL as boolean)", BOOLEAN, null);
         assertFunction("cast(null_function() as boolean)", BOOLEAN, null);
+    }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("NULL IS DISTINCT FROM NULL", BOOLEAN, false);
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
@@ -28,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -37,8 +37,10 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedLongArray;
 
 public class ChecksumAggregationFunction
@@ -54,7 +56,11 @@ public class ChecksumAggregationFunction
 
     public ChecksumAggregationFunction()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.VARBINARY, ImmutableList.of("T"));
+        super(NAME,
+                ImmutableList.of(comparableTypeParameter("T")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.VARBINARY),
+                ImmutableList.of(parseTypeSignature("T")));
     }
 
     @Override
@@ -64,9 +70,9 @@ public class ChecksumAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type valueType = types.get("T");
+        Type valueType = boundVariables.getTypeVariable("T");
         return generateAggregation(valueType);
     }
 
@@ -77,21 +83,18 @@ public class ChecksumAggregationFunction
         List<Type> inputTypes = ImmutableList.of(type);
 
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, type, inputTypes),
+                generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION.bindTo(type),
-                null,
-                null,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 NullableLongState.class,
-                new StateCompiler().generateStateSerializer(NullableLongState.class, classLoader),
-                new StateCompiler().generateStateFactory(NullableLongState.class, classLoader),
-                VARBINARY,
-                false);
+                StateCompiler.generateStateSerializer(NullableLongState.class, classLoader),
+                StateCompiler.generateStateFactory(NullableLongState.class, classLoader),
+                VARBINARY);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, BIGINT, VARBINARY, true, false, factory);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        return new InternalAggregationFunction(NAME, inputTypes, BIGINT, VARBINARY, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

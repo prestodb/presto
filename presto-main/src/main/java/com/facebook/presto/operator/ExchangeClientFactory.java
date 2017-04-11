@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SystemMemoryUsageListener;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,42 +29,43 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeClientFactory
         implements ExchangeClientSupplier
 {
-    private final BlockEncodingSerde blockEncodingSerde;
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;
     private final Duration minErrorDuration;
+    private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
     private final ScheduledExecutorService executor;
 
     @Inject
-    public ExchangeClientFactory(BlockEncodingSerde blockEncodingSerde,
+    public ExchangeClientFactory(
             ExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
             @ForExchange ScheduledExecutorService executor)
     {
-        this(blockEncodingSerde,
+        this(
                 config.getMaxBufferSize(),
                 config.getMaxResponseSize(),
                 config.getConcurrentRequestMultiplier(),
                 config.getMinErrorDuration(),
+                config.getMaxErrorDuration(),
                 httpClient,
                 executor);
     }
 
     public ExchangeClientFactory(
-            BlockEncodingSerde blockEncodingSerde,
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration minErrorDuration,
+            Duration maxErrorDuration,
             HttpClient httpClient,
             ScheduledExecutorService executor)
     {
-        this.blockEncodingSerde = blockEncodingSerde;
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.minErrorDuration = requireNonNull(minErrorDuration, "minErrorDuration is null");
+        this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
         // Use only 0.75 of the maxResponseSize to leave room for additional bytes from the encoding
@@ -85,11 +85,11 @@ public class ExchangeClientFactory
     public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
     {
         return new ExchangeClient(
-                blockEncodingSerde,
                 maxBufferedBytes,
                 maxResponseSize,
                 concurrentRequestMultiplier,
                 minErrorDuration,
+                maxErrorDuration,
                 httpClient,
                 executor,
                 systemMemoryUsageListener);

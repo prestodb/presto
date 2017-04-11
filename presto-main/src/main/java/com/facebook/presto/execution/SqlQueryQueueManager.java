@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +32,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.QueuedExecution.createQueuedExecution;
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -41,43 +41,50 @@ public class SqlQueryQueueManager
         implements QueryQueueManager
 {
     private final ConcurrentMap<QueueKey, QueryQueue> queryQueues = new ConcurrentHashMap<>();
-    private final List<ResourceGroupSelector> selectors;
+    private final List<QueryQueueRule> rules;
     private final MBeanExporter mbeanExporter;
 
     @Inject
-    public SqlQueryQueueManager(List<? extends ResourceGroupSelector> selectors, MBeanExporter mbeanExporter)
+    public SqlQueryQueueManager(List<QueryQueueRule> rules, MBeanExporter mbeanExporter)
     {
         this.mbeanExporter = requireNonNull(mbeanExporter, "mbeanExporter is null");
-        this.selectors = ImmutableList.copyOf(selectors);
+        this.rules = ImmutableList.copyOf(rules);
     }
 
     @Override
-    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats)
+    public void submit(Statement statement, QueryExecution queryExecution, Executor executor)
     {
-        List<QueryQueue> queues = selectQueues(statement, queryExecution.getSession(), executor);
+        List<QueryQueue> queues;
+        try {
+            queues = selectQueues(queryExecution.getSession(), executor);
+        }
+        catch (PrestoException e) {
+            queryExecution.fail(e);
+            return;
+        }
 
         for (QueryQueue queue : queues) {
             if (!queue.reserve(queryExecution)) {
                 // Reject query if we couldn't acquire a permit to enter the queue.
                 // The permits will be released when this query fails.
-                return false;
+                queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries"));
+                return;
             }
         }
 
-        queues.get(0).enqueue(createQueuedExecution(queryExecution, queues.subList(1, queues.size()), executor, stats));
-        return true;
+        queues.get(0).enqueue(createQueuedExecution(queryExecution, queues.subList(1, queues.size()), executor));
     }
 
     // Queues returned have already been created and added queryQueues
-    private List<QueryQueue> selectQueues(Statement statement, Session session, Executor executor)
+    private List<QueryQueue> selectQueues(Session session, Executor executor)
     {
-        for (ResourceGroupSelector selector : selectors) {
-            Optional<List<QueryQueueDefinition>> queues = selector.match(statement, session.toSessionRepresentation());
+        for (QueryQueueRule rule : rules) {
+            Optional<List<QueryQueueDefinition>> queues = rule.match(session.toSessionRepresentation());
             if (queues.isPresent()) {
                 return getOrCreateQueues(session, executor, queues.get());
             }
         }
-        throw new PrestoException(USER_ERROR, "Query did not match any queuing rule");
+        throw new PrestoException(QUERY_REJECTED, "Query did not match any queuing rule");
     }
 
     private List<QueryQueue> getOrCreateQueues(Session session, Executor executor, List<QueryQueueDefinition> definitions)

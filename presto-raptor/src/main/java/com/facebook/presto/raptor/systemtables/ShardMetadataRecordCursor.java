@@ -39,15 +39,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
@@ -68,9 +68,9 @@ public class ShardMetadataRecordCursor
     public static final ConnectorTableMetadata SHARD_METADATA = new ConnectorTableMetadata(
             SHARD_METADATA_TABLE_NAME,
             ImmutableList.of(
-                    new ColumnMetadata(SCHEMA_NAME, VARCHAR),
-                    new ColumnMetadata(TABLE_NAME, VARCHAR),
-                    new ColumnMetadata(SHARD_UUID, VARCHAR),
+                    new ColumnMetadata(SCHEMA_NAME, createUnboundedVarcharType()),
+                    new ColumnMetadata(TABLE_NAME, createUnboundedVarcharType()),
+                    new ColumnMetadata(SHARD_UUID, SHARD_UUID_COLUMN_TYPE),
                     new ColumnMetadata("bucket_number", BIGINT),
                     new ColumnMetadata("uncompressed_size", BIGINT),
                     new ColumnMetadata("compressed_size", BIGINT),
@@ -98,8 +98,7 @@ public class ShardMetadataRecordCursor
 
     public ShardMetadataRecordCursor(IDBI dbi, TupleDomain<Integer> tupleDomain)
     {
-        requireNonNull(dbi, "dbi is null");
-        this.dbi = dbi;
+        this.dbi = requireNonNull(dbi, "dbi is null");
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.tableIds = getTableIds(dbi, tupleDomain);
@@ -308,25 +307,32 @@ public class ShardMetadataRecordCursor
         Domain schemaNameDomain = domains.get(getColumnIndex(SHARD_METADATA, SCHEMA_NAME));
         Domain tableNameDomain = domains.get(getColumnIndex(SHARD_METADATA, TABLE_NAME));
 
+        List<String> values = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT table_id FROM tables ");
         if (schemaNameDomain != null || tableNameDomain != null) {
             sql.append("WHERE ");
             List<String> predicates = new ArrayList<>();
             if (tableNameDomain != null && tableNameDomain.isSingleValue()) {
-                predicates.add(format("table_name = '%s'", getStringValue(tableNameDomain.getSingleValue())));
+                predicates.add("table_name = ?");
+                values.add(getStringValue(tableNameDomain.getSingleValue()));
             }
             if (schemaNameDomain != null && schemaNameDomain.isSingleValue()) {
-                predicates.add(format("schema_name = '%s'", getStringValue(schemaNameDomain.getSingleValue())));
+                predicates.add("schema_name = ?");
+                values.add(getStringValue(schemaNameDomain.getSingleValue()));
             }
             sql.append(Joiner.on(" AND ").join(predicates));
         }
 
         ImmutableList.Builder<Long> tableIds = ImmutableList.builder();
         try (Connection connection = dbi.open().getConnection();
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(sql.toString())) {
-            while (resultSet.next()) {
-                tableIds.add(resultSet.getLong("table_id"));
+                PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            for (int i = 0; i < values.size(); i++) {
+                statement.setString(i + 1, values.get(i));
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    tableIds.add(resultSet.getLong("table_id"));
+                }
             }
         }
         catch (SQLException | DBIException e) {
@@ -355,6 +361,6 @@ public class ShardMetadataRecordCursor
 
     private static String getStringValue(Object value)
     {
-        return checkType(value, Slice.class, "value").toStringUtf8();
+        return ((Slice) value).toStringUtf8();
     }
 }

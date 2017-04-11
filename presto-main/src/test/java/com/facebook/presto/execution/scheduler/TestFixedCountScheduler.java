@@ -17,7 +17,6 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.spi.Node;
@@ -30,7 +29,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -58,8 +57,8 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
-                        new TaskId(new StageId("test", "1"), "1"),
-                        (Node) node, ImmutableList.of(),
+                        new TaskId("test", 1, 1),
+                        node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> { })),
                 generateRandomNodes(1));
 
@@ -67,7 +66,7 @@ public class TestFixedCountScheduler
         assertTrue(result.isFinished());
         assertTrue(result.getBlocked().isDone());
         assertEquals(result.getNewTasks().size(), 1);
-        result.getNewTasks().iterator().next().getNodeId().equals("other 0");
+        assertTrue(result.getNewTasks().iterator().next().getNodeId().equals("other 0"));
     }
 
     @Test
@@ -76,8 +75,8 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
-                        new TaskId(new StageId("test", "1"), "1"),
-                        (Node) node, ImmutableList.of(),
+                        new TaskId("test", 1, 1),
+                        node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> { })),
                 generateRandomNodes(5));
 
@@ -92,7 +91,7 @@ public class TestFixedCountScheduler
     {
         ImmutableMap.Builder<Integer, Node> nodes = ImmutableMap.builder();
         for (int i = 0; i < count; i++) {
-            nodes.put(i, new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+            nodes.put(i, new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false));
         }
         return nodes.build();
     }

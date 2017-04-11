@@ -15,9 +15,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -36,7 +36,7 @@ public class NestedLoopJoinPagesBuilder
     NestedLoopJoinPagesBuilder(OperatorContext operatorContext)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.pages = Lists.newArrayList();
+        this.pages = new ArrayList<>();
     }
 
     public void addPage(Page page)

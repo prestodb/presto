@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.connector.system.jdbc;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -25,8 +27,10 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
+import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogJdbcTable
@@ -35,15 +39,17 @@ public class CatalogJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "catalogs");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", VARCHAR)
+            .column("table_cat", createUnboundedVarcharType())
             .build();
 
     private final Metadata metadata;
+    private final AccessControl accessControl;
 
     @Inject
-    public CatalogJdbcTable(Metadata metadata)
+    public CatalogJdbcTable(Metadata metadata, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata);
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -53,10 +59,11 @@ public class CatalogJdbcTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
+        Session session = toSession(transactionHandle, connectorSession);
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String name : metadata.getCatalogNames().keySet()) {
+        for (String name : listCatalogs(session, metadata, accessControl).keySet()) {
             table.addRow(name);
         }
         return table.build().cursor();

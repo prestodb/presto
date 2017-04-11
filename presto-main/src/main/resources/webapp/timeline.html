@@ -121,7 +121,7 @@ function renderTimeline(data) {
     tasks = getTasks(data.outputStage);
     tasks = tasks.map(function(task) {
         return {
-            taskId: task.taskId.substring(task.taskId.indexOf('.') + 1),
+            taskId: task.taskStatus.taskId.substring(task.taskStatus.taskId.indexOf('.') + 1),
             time: {
                 create: task.stats.createTime,
                 firstStart: task.stats.firstStartTime,

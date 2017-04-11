@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
-import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
-import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.PrincipalType;
+import com.facebook.presto.hive.metastore.TestingHiveMetastore;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
-import org.apache.hadoop.hive.metastore.api.Database;
 
 import java.io.File;
 import java.io.IOException;
@@ -62,23 +60,21 @@ public final class HiveBenchmarkQueryRunner
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch
-        InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         // add hive
         File hiveDir = new File(tempDir, "hive_data");
-        InMemoryHiveMetastore metastore = new InMemoryHiveMetastore(hiveDir);
-        File tpchDataDir = new File(hiveDir, "tpch");
-        metastore.createDatabase(new Database("tpch", null, tpchDataDir.toURI().toString(), null));
+        TestingHiveMetastore metastore = new TestingHiveMetastore(hiveDir);
+        metastore.createDatabase(Database.builder()
+                .setDatabaseName("tpch")
+                .setOwnerName("public")
+                .setOwnerType(PrincipalType.ROLE)
+                .build());
 
         HiveConnectorFactory hiveConnectorFactory = new HiveConnectorFactory(
                 "hive",
-                ImmutableMap.of("node.environment", "test"),
                 HiveBenchmarkQueryRunner.class.getClassLoader(),
-                metastore,
-                new TypeRegistry(),
-                new GroupByHashPageIndexerFactory(),
-                nodeManager);
+                metastore);
 
         Map<String, String> hiveCatalogConfig = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://none.invalid:0")

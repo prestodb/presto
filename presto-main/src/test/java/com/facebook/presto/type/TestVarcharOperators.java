@@ -42,18 +42,6 @@ public class TestVarcharOperators
     }
 
     @Test
-    public void testCast()
-            throws Exception
-    {
-        assertFunction("cast('bar' as varchar(20))", createVarcharType(20), "bar");
-        assertFunction("cast(cast('bar' as varchar(20)) as varchar(30))", createVarcharType(30), "bar");
-        assertFunction("cast(cast('bar' as varchar(20)) as varchar)", VARCHAR, "bar");
-
-        assertFunction("cast('banana' as varchar(3))", createVarcharType(3), "ban");
-        assertFunction("cast(cast('banana' as varchar(20)) as varchar(3))", createVarcharType(3), "ban");
-    }
-
-    @Test
     public void testAdd()
             throws Exception
     {
@@ -62,6 +50,7 @@ public class TestVarcharOperators
         assertFunction("'foo' || 'bar'", VARCHAR, "foo" + "bar");
         assertFunction("'bar' || 'foo'", VARCHAR, "bar" + "foo");
         assertFunction("'bar' || 'bar'", VARCHAR, "bar" + "bar");
+        assertFunction("'bar' || 'barbaz'", VARCHAR, "bar" + "barbaz");
     }
 
     @Test
@@ -139,5 +128,16 @@ public class TestVarcharOperators
 
         assertFunction("'bar' BETWEEN 'bar' AND 'foo'", BOOLEAN, true);
         assertFunction("'bar' BETWEEN 'bar' AND 'bar'", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS VARCHAR) IS DISTINCT FROM CAST(NULL AS VARCHAR)", BOOLEAN, false);
+        assertFunction("'foo' IS DISTINCT FROM 'foo'", BOOLEAN, false);
+        assertFunction("'foo' IS DISTINCT FROM 'fo0'", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM 'foo'", BOOLEAN, true);
+        assertFunction("'foo' IS DISTINCT FROM NULL", BOOLEAN, true);
     }
 }

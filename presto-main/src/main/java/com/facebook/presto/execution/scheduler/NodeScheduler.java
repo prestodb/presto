@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -28,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 
 import javax.annotation.PreDestroy;
@@ -36,18 +38,23 @@ import javax.inject.Inject;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
@@ -55,17 +62,16 @@ public class NodeScheduler
     private final NetworkLocationCache networkLocationCache;
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
-    private final int maxSplitsPerNodePerTaskWhenFull;
+    private final int maxPendingSplitsPerTask;
     private final NodeTaskMap nodeTaskMap;
-    private final boolean doubleScheduling;
     private final boolean useNetworkTopology;
 
     @Inject
-    public NodeScheduler(NetworkTopology networkTopology, NodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
+    public NodeScheduler(NetworkTopology networkTopology, InternalNodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
         this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, config, nodeTaskMap);
     }
@@ -73,7 +79,7 @@ public class NodeScheduler
     public NodeScheduler(
             NetworkLocationCache networkLocationCache,
             NetworkTopology networkTopology,
-            NodeManager nodeManager,
+            InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap)
     {
@@ -81,12 +87,11 @@ public class NodeScheduler
         this.nodeManager = nodeManager;
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
-        this.doubleScheduling = config.isMultipleTasksPerNodeEnabled();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
-        this.maxSplitsPerNodePerTaskWhenFull = config.getMaxPendingSplitsPerNodePerTask();
+        this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        checkArgument(maxSplitsPerNode > maxSplitsPerNodePerTaskWhenFull, "maxSplitsPerNode must be > maxSplitsPerNodePerTaskWhenFull");
-        this.useNetworkTopology = !config.getNetworkTopology().equals(LEGACY_NETWORK_TOPOLOGY);
+        checkArgument(maxSplitsPerNode > maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
         if (useNetworkTopology) {
@@ -116,7 +121,7 @@ public class NodeScheduler
         return counters.build();
     }
 
-    public NodeSelector createNodeSelector(String dataSourceName)
+    public NodeSelector createNodeSelector(ConnectorId connectorId)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -126,8 +131,8 @@ public class NodeScheduler
             ImmutableSetMultimap.Builder<NetworkLocation, Node> workersByNetworkPath = ImmutableSetMultimap.builder();
 
             Set<Node> nodes;
-            if (dataSourceName != null) {
-                nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
+            if (connectorId != null) {
+                nodes = nodeManager.getActiveConnectorNodes(connectorId);
             }
             else {
                 nodes = nodeManager.getNodes(ACTIVE);
@@ -163,21 +168,20 @@ public class NodeScheduler
                     nodeManager,
                     nodeTaskMap,
                     includeCoordinator,
-                    doubleScheduling,
                     nodeMap,
                     minCandidates,
                     maxSplitsPerNode,
-                    maxSplitsPerNodePerTaskWhenFull,
+                    maxPendingSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, minCandidates, maxSplitsPerNode, maxSplitsPerNodePerTaskWhenFull);
+            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask);
         }
     }
 
-    public static List<Node> selectNodes(int limit, Iterator<Node> candidates, boolean doubleScheduling)
+    public static List<Node> selectNodes(int limit, Iterator<Node> candidates)
     {
         checkArgument(limit > 0, "limit must be at least 1");
 
@@ -186,18 +190,6 @@ public class NodeScheduler
             selected.add(candidates.next());
         }
 
-        if (doubleScheduling && !selected.isEmpty()) {
-            // Cycle the nodes until we reach the limit
-            int uniqueNodes = selected.size();
-            int i = 0;
-            while (selected.size() < limit) {
-                if (i >= uniqueNodes) {
-                    i = 0;
-                }
-                selected.add(selected.get(i));
-                i++;
-            }
-        }
         return selected;
     }
 
@@ -266,10 +258,11 @@ public class NodeScheduler
         return ImmutableList.copyOf(chosen);
     }
 
-    public static Multimap<Node, Split> selectDistributionNodes(
+    public static SplitPlacementResult selectDistributionNodes(
             NodeMap nodeMap,
             NodeTaskMap nodeTaskMap,
             int maxSplitsPerNode,
+            int maxPendingSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
             NodePartitionMap partitioning)
@@ -277,15 +270,60 @@ public class NodeScheduler
         Multimap<Node, Split> assignments = HashMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
+        Set<Node> blockedNodes = new HashSet<>();
         for (Split split : splits) {
             // node placement is forced by the partitioning
             Node node = partitioning.getNode(split);
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
-            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
+            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||
+                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerTask) {
                 assignments.put(node, split);
+                assignmentStats.addAssignedSplit(node);
+            }
+            else {
+                blockedNodes.add(node);
             }
         }
-        return ImmutableMultimap.copyOf(assignments);
+
+        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+        return new SplitPlacementResult(blocked, ImmutableMultimap.copyOf(assignments));
+    }
+
+    public static int calculateLowWatermark(int maxPendingSplitsPerTask)
+    {
+        return (int) Math.ceil(maxPendingSplitsPerTask / 2.0);
+    }
+
+    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(Set<Node> blockedNodes, List<RemoteTask> existingTasks, int spaceThreshold)
+    {
+        if (blockedNodes.isEmpty()) {
+            return immediateFuture(null);
+        }
+        Map<String, RemoteTask> nodeToTaskMap = new HashMap<>();
+        for (RemoteTask task : existingTasks) {
+            nodeToTaskMap.put(task.getNodeId(), task);
+        }
+        List<ListenableFuture<?>> blockedFutures = blockedNodes.stream()
+                .map(Node::getNodeIdentifier)
+                .map(nodeToTaskMap::get)
+                .filter(Objects::nonNull)
+                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
+                .collect(toImmutableList());
+        if (blockedFutures.isEmpty()) {
+            return immediateFuture(null);
+        }
+        return whenAnyComplete(blockedFutures);
+    }
+
+    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
+    {
+        if (existingTasks.isEmpty()) {
+            return immediateFuture(null);
+        }
+        List<ListenableFuture<?>> stateChangeFutures = existingTasks.stream()
+                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
+                .collect(toImmutableList());
+        return whenAnyComplete(stateChangeFutures);
     }
 }

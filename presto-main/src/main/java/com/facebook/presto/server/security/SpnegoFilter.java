@@ -43,6 +43,7 @@ import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.Principal;
@@ -53,6 +54,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.io.ByteStreams.copy;
+import static com.google.common.io.ByteStreams.nullOutputStream;
+import static java.lang.String.format;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.ietf.jgss.GSSCredential.ACCEPT_ONLY;
@@ -71,7 +75,7 @@ public class SpnegoFilter
     private final GSSCredential serverCredential;
 
     @Inject
-    public SpnegoFilter(SecurityConfig config)
+    public SpnegoFilter(KerberosConfig config)
     {
         System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
 
@@ -143,11 +147,13 @@ public class SpnegoFilter
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         boolean includeRealm = "true".equalsIgnoreCase(request.getHeader(INCLUDE_REALM_HEADER));
+        String requestSpnegoToken = null;
 
         if (header != null) {
             String[] parts = header.split("\\s+");
             if (parts.length == 2 && parts[0].equals(NEGOTIATE_SCHEME)) {
                 try {
+                    requestSpnegoToken = parts[1];
                     Optional<Result> authentication = authenticate(parts[1]);
                     if (authentication.isPresent()) {
                         authentication.get()
@@ -165,13 +171,13 @@ public class SpnegoFilter
                         return;
                     }
                 }
-                catch (GSSException e) {
-                    throw Throwables.propagate(e);
+                catch (GSSException | RuntimeException e) {
+                    throw new RuntimeException("Authentication error for token: " + parts[1], e);
                 }
             }
         }
 
-        sendChallenge(response, includeRealm);
+        sendChallenge(request, response, includeRealm, requestSpnegoToken);
     }
 
     private Optional<Result> authenticate(String token)
@@ -208,10 +214,32 @@ public class SpnegoFilter
         return Optional.empty();
     }
 
-    private static void sendChallenge(HttpServletResponse response, boolean includeRealm)
+    private static void sendChallenge(HttpServletRequest request, HttpServletResponse response, boolean includeRealm, String invalidSpnegoToken)
+        throws IOException
     {
-        response.setStatus(SC_UNAUTHORIZED);
+        // If we send the challenge without consuming the body of the request,
+        // the Jetty server will close the connection after sending the response.
+        // The client interprets this as a failed request and does not resend
+        // the request with the authentication header.
+        // We can avoid this behavior in the Jetty client by reading and discarding
+        // the entire body of the unauthenticated request before sending the response.
+        skipRequestBody(request);
+
+        if (invalidSpnegoToken != null) {
+            response.sendError(SC_UNAUTHORIZED, format("Authentication failed for token %s", invalidSpnegoToken));
+        }
+        else {
+            response.setStatus(SC_UNAUTHORIZED);
+        }
         response.setHeader(HttpHeaders.WWW_AUTHENTICATE, formatAuthenticationHeader(includeRealm, Optional.empty()));
+    }
+
+    private static void skipRequestBody(HttpServletRequest request)
+            throws IOException
+    {
+        try (InputStream inputStream = request.getInputStream()) {
+            copy(inputStream, nullOutputStream());
+        }
     }
 
     private static String formatAuthenticationHeader(boolean includeRealm, Optional<byte[]> token)

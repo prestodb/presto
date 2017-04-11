@@ -1,3 +1,4 @@
--- delimiter: |; ignoreOrder: true; types: LONGNVARCHAR
+-- delimiter: |; ignoreOrder: true;
 catalogs|
+schema_properties|
 table_properties|

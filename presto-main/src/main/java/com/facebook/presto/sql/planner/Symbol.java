@@ -13,18 +13,24 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Preconditions;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class Symbol
         implements Comparable<Symbol>
 {
     private final String name;
+
+    public static Symbol from(Expression expression)
+    {
+        checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
+        return new Symbol(((SymbolReference) expression).getName());
+    }
 
     @JsonCreator
     public Symbol(String name)
@@ -39,20 +45,9 @@ public class Symbol
         return name;
     }
 
-    public QualifiedName toQualifiedName()
+    public SymbolReference toSymbolReference()
     {
-        return QualifiedName.of(name);
-    }
-
-    public QualifiedNameReference toQualifiedNameReference()
-    {
-        return new QualifiedNameReference(toQualifiedName());
-    }
-
-    public static Symbol fromQualifiedName(QualifiedName name)
-    {
-        Preconditions.checkArgument(!name.getPrefix().isPresent(), "Can't create a symbol from a qualified name with prefix");
-        return new Symbol(name.getSuffix());
+        return new SymbolReference(name);
     }
 
     @Override

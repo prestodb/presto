@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.SystemTable.Distribution;
@@ -38,17 +38,16 @@ import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
 
 public class SystemSplitManager
         implements ConnectorSplitManager
 {
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final Map<SchemaTableName, SystemTable> tables;
 
-    public SystemSplitManager(NodeManager nodeManager, Set<SystemTable> tables)
+    public SystemSplitManager(InternalNodeManager nodeManager, Set<SystemTable> tables)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tables = uniqueIndex(tables, table -> table.getTableMetadata().getTable());
@@ -57,7 +56,7 @@ public class SystemSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        SystemTableLayoutHandle layoutHandle = checkType(layout, SystemTableLayoutHandle.class, "layout");
+        SystemTableLayoutHandle layoutHandle = (SystemTableLayoutHandle) layout;
         SystemTableHandle tableHandle = layoutHandle.getTable();
 
         TupleDomain<ColumnHandle> constraint = layoutHandle.getConstraint();
@@ -67,7 +66,7 @@ public class SystemSplitManager
         if (tableDistributionMode == SINGLE_COORDINATOR) {
             HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
             ConnectorSplit split = new SystemSplit(tableHandle.getConnectorId(), tableHandle, address, constraint);
-            return new FixedSplitSource(GlobalSystemConnector.NAME, ImmutableList.of(split));
+            return new FixedSplitSource(ImmutableList.of(split));
         }
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
@@ -82,6 +81,6 @@ public class SystemSplitManager
         for (Node node : nodeSet) {
             splits.add(new SystemSplit(tableHandle.getConnectorId(), tableHandle, node.getHostAndPort(), constraint));
         }
-        return new FixedSplitSource(GlobalSystemConnector.NAME, splits.build());
+        return new FixedSplitSource(splits.build());
     }
 }

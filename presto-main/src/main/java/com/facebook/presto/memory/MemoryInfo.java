@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class MemoryInfo
@@ -50,7 +52,7 @@ public class MemoryInfo
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("totalNodeMemory", totalNodeMemory)
                 .add("pools", pools)
                 .toString();

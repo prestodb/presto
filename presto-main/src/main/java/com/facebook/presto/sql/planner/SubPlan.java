@@ -23,7 +23,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMultiset;
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

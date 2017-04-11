@@ -14,29 +14,33 @@
 package com.facebook.presto.transaction;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionBuilder
 {
     private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
     private IsolationLevel isolationLevel = TransactionManager.DEFAULT_ISOLATION;
     private boolean readOnly = TransactionManager.DEFAULT_READ_ONLY;
     private boolean singleStatement;
 
-    private TransactionBuilder(TransactionManager transactionManager)
+    private TransactionBuilder(TransactionManager transactionManager, AccessControl accessControl)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
-    public static TransactionBuilder transaction(TransactionManager transactionManager)
+    public static TransactionBuilder transaction(TransactionManager transactionManager, AccessControl accessControl)
     {
-        return new TransactionBuilder(transactionManager);
+        return new TransactionBuilder(transactionManager, accessControl);
     }
 
     public TransactionBuilder withIsolationLevel(IsolationLevel isolationLevel)
@@ -101,7 +105,7 @@ public class TransactionBuilder
         }
         finally {
             if (success) {
-                transactionManager.asyncCommit(transactionId).join();
+                getFutureValue(transactionManager.asyncCommit(transactionId));
             }
             else {
                 transactionManager.asyncAbort(transactionId);
@@ -130,7 +134,7 @@ public class TransactionBuilder
         Session transactionSession;
         if (managedTransaction) {
             TransactionId transactionId = transactionManager.beginTransaction(isolationLevel, readOnly, singleStatement);
-            transactionSession = session.withTransactionId(transactionId);
+            transactionSession = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
         else {
             // Check if we can merge with the existing transaction
@@ -150,7 +154,7 @@ public class TransactionBuilder
         finally {
             if (managedTransaction) {
                 if (success) {
-                    transactionManager.asyncCommit(transactionSession.getTransactionId().get()).join();
+                    getFutureValue(transactionManager.asyncCommit(transactionSession.getTransactionId().get()));
                 }
                 else {
                     transactionManager.asyncAbort(transactionSession.getTransactionId().get());

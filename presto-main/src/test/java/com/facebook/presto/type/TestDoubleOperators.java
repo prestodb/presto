@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestDoubleOperators
@@ -30,6 +31,18 @@ public class TestDoubleOperators
     {
         assertFunction("37.7", DOUBLE, 37.7);
         assertFunction("17.1", DOUBLE, 17.1);
+    }
+
+    @Test
+    public void testTypeConstructor()
+            throws Exception
+    {
+        assertFunction("DOUBLE '12.34'", DOUBLE, 12.34);
+        assertFunction("DOUBLE '-17.6'", DOUBLE, -17.6);
+        assertFunction("DOUBLE '+754'", DOUBLE, 754.0);
+        assertFunction("DOUBLE PRECISION '12.34'", DOUBLE, 12.34);
+        assertFunction("DOUBLE PRECISION '-17.6'", DOUBLE, -17.6);
+        assertFunction("DOUBLE PRECISION '+754'", DOUBLE, 754.0);
     }
 
     @Test
@@ -193,10 +206,33 @@ public class TestDoubleOperators
     }
 
     @Test
+    public void testCastToFloat()
+            throws Exception
+    {
+        assertFunction("cast('754.1985' as real)", REAL, 754.1985f);
+        assertFunction("cast('-754.2008' as real)", REAL, -754.2008f);
+        assertFunction("cast('0.0' as real)", REAL, 0.0f);
+        assertFunction("cast('-0.0' as real)", REAL, -0.0f);
+    }
+
+    @Test
     public void testCastFromVarchar()
             throws Exception
     {
         assertFunction("cast('37.7' as double)", DOUBLE, 37.7);
         assertFunction("cast('17.1' as double)", DOUBLE, 17.1);
+        assertFunction("cast('37.7' as double precision)", DOUBLE, 37.7);
+        assertFunction("cast('17.1' as double precision)", DOUBLE, 17.1);
+    }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS DOUBLE) IS DISTINCT FROM CAST(NULL AS DOUBLE)", BOOLEAN, false);
+        assertFunction("37.7 IS DISTINCT FROM 37.7", BOOLEAN, false);
+        assertFunction("37 IS DISTINCT FROM 37.8", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM 37.7", BOOLEAN, true);
+        assertFunction("37.7 IS DISTINCT FROM NULL", BOOLEAN, true);
     }
 }

@@ -20,10 +20,16 @@ import java.util.Set;
 public abstract class GroupingElement
         extends Node
 {
-    public GroupingElement(Optional<NodeLocation> location)
+    protected GroupingElement(Optional<NodeLocation> location)
     {
         super(location);
     }
 
     public abstract List<Set<Expression>> enumerateGroupingSets();
+
+    @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitGroupingElement(this, context);
+    }
 }

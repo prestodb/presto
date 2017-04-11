@@ -5,11 +5,11 @@ Deploying Presto
 Installing Presto
 -----------------
 
-Download the Presto server tarball, :download:`server`, and unpack it.
+Download the Presto server tarball, :maven_download:`server`, and unpack it.
 The tarball will contain a single top-level directory,
 |presto_server_release|, which we will call the *installation* directory.
 
-Presto needs a *data* directory for storing logs, local metadata, etc.
+Presto needs a *data* directory for storing logs, etc.
 We recommend creating a data directory outside of the installation directory,
 which allows it to be easily preserved when upgrading Presto.
 
@@ -66,8 +66,7 @@ The JVM config file, ``etc/jvm.config``, contains a list of command line
 options used for launching the Java Virtual Machine. The format of the file
 is a list of options, one per line. These options are not interpreted by
 the shell, so options containing spaces or other special characters should
-not be quoted (as demonstrated by the ``OnOutOfMemoryError`` option in the
-example below).
+not be quoted.
 
 The following provides a good starting point for creating ``etc/jvm.config``:
 
@@ -80,7 +79,7 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:+UseGCOverheadLimit
     -XX:+ExplicitGCInvokesConcurrent
     -XX:+HeapDumpOnOutOfMemoryError
-    -XX:OnOutOfMemoryError=kill -9 %p
+    -XX:+ExitOnOutOfMemoryError
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
 inconsistent state, we write a heap dump (for debugging) and forcibly
@@ -150,10 +149,10 @@ These properties require some explanation:
   Specifies the port for the HTTP server. Presto uses HTTP for all
   communication, internal and external.
 
-* ``query.max-memory=50GB``:
+* ``query.max-memory``:
   The maximum amount of distributed memory that a query may use.
 
-* ``query.max-memory-per-node=1GB``:
+* ``query.max-memory-per-node``:
   The maximum amount of memory that a query may use on any one machine.
 
 * ``discovery-server.enabled``:
@@ -171,8 +170,14 @@ These properties require some explanation:
   the host and port of the Presto coordinator. This URI must not end
   in a slash.
 
+You may also wish to set the following properties:
+
 * ``query.queue-config-file``:
   Specifies the file to read the :doc:`/admin/queue` from.
+
+* ``jmx.rmiserver.port``:
+  Specifies the port for the JMX RMI server. Presto exports many metrics
+  that are useful for monitoring via JMX.
 
 Log Levels
 ^^^^^^^^^^
@@ -220,7 +225,7 @@ Running Presto
 --------------
 
 The installation directory contains the launcher script in ``bin/launcher``.
-Presto can be started as a daemon by running running the following:
+Presto can be started as a daemon by running the following:
 
 .. code-block:: none
 

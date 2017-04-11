@@ -31,11 +31,9 @@ import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
-import org.antlr.v4.runtime.tree.ParseTree;
 
-import java.util.Locale;
+import java.math.BigInteger;
 import java.util.Map;
-import java.util.OptionalLong;
 
 import static com.facebook.presto.type.TypeCalculationParser.ASTERISK;
 import static com.facebook.presto.type.TypeCalculationParser.MAX;
@@ -43,7 +41,7 @@ import static com.facebook.presto.type.TypeCalculationParser.MIN;
 import static com.facebook.presto.type.TypeCalculationParser.MINUS;
 import static com.facebook.presto.type.TypeCalculationParser.PLUS;
 import static com.facebook.presto.type.TypeCalculationParser.SLASH;
-import static java.lang.String.format;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCalculation
@@ -59,22 +57,15 @@ public final class TypeCalculation
 
     private TypeCalculation() {}
 
-    public static OptionalLong calculateLiteralValue(String calculation, Map<String, OptionalLong> inputs)
-    {
-        return calculateLiteralValue(calculation, inputs, true);
-    }
-
-    public static OptionalLong calculateLiteralValue(
+    public static Long calculateLiteralValue(
             String calculation,
-            Map<String, OptionalLong> inputs,
-            boolean allowComplexExpression)
+            Map<String, Long> inputs)
     {
         try {
             ParserRuleContext tree = parseTypeCalculation(calculation);
-            if (!allowComplexExpression && !isSimpleExpression(tree)) {
-                throw new IllegalArgumentException(format("Complex expressions not allowed, but got [%s]", calculation));
-            }
-            return new CalculateTypeVisitor(inputs).visit(tree);
+            CalculateTypeVisitor visitor = new CalculateTypeVisitor(inputs);
+            BigInteger result = visitor.visit(tree);
+            return result.longValueExact();
         }
         catch (StackOverflowError e) {
             throw new ParsingException("Type calculation is too large (stack overflow while parsing)");
@@ -110,11 +101,6 @@ public final class TypeCalculation
         return tree;
     }
 
-    private static boolean isSimpleExpression(ParseTree tree)
-    {
-        return new IsSimpleExpressionVisitor().visit(tree);
-    }
-
     private static class IsSimpleExpressionVisitor
             extends TypeCalculationBaseVisitor<Boolean>
     {
@@ -144,103 +130,92 @@ public final class TypeCalculation
     }
 
     private static class CalculateTypeVisitor
-            extends TypeCalculationBaseVisitor<OptionalLong>
+            extends TypeCalculationBaseVisitor<BigInteger>
     {
-        private final Map<String, OptionalLong> inputs;
+        private final Map<String, Long> inputs;
 
-        public CalculateTypeVisitor(Map<String, OptionalLong> inputs)
+        public CalculateTypeVisitor(Map<String, Long> inputs)
         {
             this.inputs = requireNonNull(inputs);
         }
 
         @Override
-        public OptionalLong visitTypeCalculation(TypeCalculationContext ctx)
+        public BigInteger visitTypeCalculation(TypeCalculationContext ctx)
         {
             return visit(ctx.expression());
         }
 
         @Override
-        public OptionalLong visitArithmeticBinary(ArithmeticBinaryContext ctx)
+        public BigInteger visitArithmeticBinary(ArithmeticBinaryContext ctx)
         {
-            OptionalLong left = visit(ctx.left);
-            OptionalLong right = visit(ctx.right);
-            if (!left.isPresent() || !right.isPresent()) {
-                return OptionalLong.empty();
-            }
+            BigInteger left = visit(ctx.left);
+            BigInteger right = visit(ctx.right);
             switch (ctx.operator.getType()) {
                 case PLUS:
-                    return OptionalLong.of(left.getAsLong() + right.getAsLong());
+                    return left.add(right);
                 case MINUS:
-                    return OptionalLong.of(left.getAsLong() - right.getAsLong());
+                    return left.subtract(right);
                 case ASTERISK:
-                    return OptionalLong.of(left.getAsLong() * right.getAsLong());
+                    return left.multiply(right);
                 case SLASH:
-                    return OptionalLong.of(left.getAsLong() / right.getAsLong());
+                    return left.divide(right);
                 default:
                     throw new IllegalStateException("Unsupported binary operator " + ctx.operator.getText());
             }
         }
 
         @Override
-        public OptionalLong visitArithmeticUnary(ArithmeticUnaryContext ctx)
+        public BigInteger visitArithmeticUnary(ArithmeticUnaryContext ctx)
         {
-            OptionalLong value = visit(ctx.expression());
-            if (!value.isPresent()) {
-                return OptionalLong.empty();
-            }
+            BigInteger value = visit(ctx.expression());
             switch (ctx.operator.getType()) {
                 case PLUS:
                     return value;
                 case MINUS:
-                    return OptionalLong.of(-value.getAsLong());
+                    return value.negate();
                 default:
                     throw new IllegalStateException("Unsupported unary operator " + ctx.operator.getText());
             }
         }
 
         @Override
-        public OptionalLong visitBinaryFunction(BinaryFunctionContext ctx)
+        public BigInteger visitBinaryFunction(BinaryFunctionContext ctx)
         {
-            OptionalLong left = visit(ctx.left);
-            OptionalLong right = visit(ctx.right);
-            if (!left.isPresent() || !right.isPresent()) {
-                return OptionalLong.empty();
-            }
-            switch(ctx.binaryFunctionName().name.getType()) {
+            BigInteger left = visit(ctx.left);
+            BigInteger right = visit(ctx.right);
+            switch (ctx.binaryFunctionName().name.getType()) {
                 case MIN:
-                    return OptionalLong.of(Math.min(left.getAsLong(), right.getAsLong()));
+                    return left.min(right);
                 case MAX:
-                    return OptionalLong.of(Math.max(left.getAsLong(), right.getAsLong()));
+                    return left.max(right);
                 default:
                     throw new IllegalArgumentException("Unsupported binary function " + ctx.binaryFunctionName().getText());
             }
         }
 
         @Override
-        public OptionalLong visitNumericLiteral(NumericLiteralContext ctx)
+        public BigInteger visitNumericLiteral(NumericLiteralContext ctx)
         {
-            return OptionalLong.of(Long.parseLong(ctx.INTEGER_VALUE().getText()));
+            return new BigInteger(ctx.INTEGER_VALUE().getText());
         }
 
         @Override
-        public OptionalLong visitNullLiteral(NullLiteralContext ctx)
+        public BigInteger visitNullLiteral(NullLiteralContext ctx)
         {
-            return OptionalLong.empty();
+            return BigInteger.ZERO;
         }
 
         @Override
-        public OptionalLong visitIdentifier(IdentifierContext ctx)
+        public BigInteger visitIdentifier(IdentifierContext ctx)
         {
             String identifier = ctx.getText();
-            OptionalLong value = inputs.get(identifier.toUpperCase(Locale.US));
-            if (value == null) {
-                throw new IllegalArgumentException("No value for " + identifier);
-            }
-            return value;
+            Long value = inputs.get(identifier);
+            checkState(value != null, "value for variable '%s' is not specified in the inputs", identifier);
+            return BigInteger.valueOf(value);
         }
 
         @Override
-        public OptionalLong visitParenthesizedExpression(ParenthesizedExpressionContext ctx)
+        public BigInteger visitParenthesizedExpression(ParenthesizedExpressionContext ctx)
         {
             return visit(ctx.expression());
         }

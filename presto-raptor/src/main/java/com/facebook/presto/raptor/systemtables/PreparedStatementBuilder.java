@@ -17,8 +17,8 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -31,12 +31,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.raptor.metadata.JdbcUtil.enableStreamingResults;
+import static com.facebook.presto.raptor.util.DatabaseUtil.enableStreamingResults;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -47,7 +48,7 @@ import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.util.Collections.nCopies;
 import static java.util.UUID.fromString;
 
-public class PreparedStatementBuilder
+public final class PreparedStatementBuilder
 {
     private PreparedStatementBuilder() {}
 
@@ -63,7 +64,7 @@ public class PreparedStatementBuilder
         checkArgument(!isNullOrEmpty(sql), "sql is null or empty");
 
         List<ValueBuffer> bindValues = new ArrayList<>(256);
-        sql = sql + getWhereClause(tupleDomain, columnNames, types, uuidColumnIndexes, bindValues);
+        sql += getWhereClause(tupleDomain, columnNames, types, uuidColumnIndexes, bindValues);
 
         PreparedStatement statement = connection.prepareStatement(sql, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY);
         enableStreamingResults(statement);
@@ -77,6 +78,7 @@ public class PreparedStatementBuilder
         return statement;
     }
 
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
     private static String getWhereClause(
             TupleDomain<Integer> tupleDomain,
             List<String> columnNames,
@@ -146,7 +148,7 @@ public class PreparedStatementBuilder
                                         bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
                                         break;
                                     case BELOW:
-                                        throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
+                                        throw new VerifyException("Low Marker should never use BELOW bound");
                                     default:
                                         throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
                                 }
@@ -155,7 +157,7 @@ public class PreparedStatementBuilder
                                 Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getHigh().getValue());
                                 switch (range.getHigh().getBound()) {
                                     case ABOVE:
-                                        throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
+                                        throw new VerifyException("High Marker should never use ABOVE bound");
                                     case EXACTLY:
                                         rangeConjuncts.add(toBindPredicate(columnName, "<="));
                                         bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
@@ -254,19 +256,19 @@ public class PreparedStatementBuilder
 
     private static int typeToSqlType(Type type)
     {
-        if (type == BIGINT) {
+        if (type.equals(BIGINT)) {
             return Types.BIGINT;
         }
-        if (type == DOUBLE) {
+        if (type.equals(DOUBLE)) {
             return Types.DOUBLE;
         }
-        if (type == BOOLEAN) {
+        if (type.equals(BOOLEAN)) {
             return Types.BOOLEAN;
         }
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             return Types.VARCHAR;
         }
-        if (type == VARBINARY) {
+        if (type.equals(VARBINARY)) {
             return Types.VARBINARY;
         }
         throw new IllegalArgumentException("Unknown type: " + type);

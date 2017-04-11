@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -47,8 +48,11 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.function.Function.identity;
 
 @NotThreadSafe
 public class PhasedExecutionSchedule
@@ -61,7 +65,7 @@ public class PhasedExecutionSchedule
     {
         List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(SqlStageExecution::getFragment).collect(toImmutableList()));
 
-        Map<PlanFragmentId, SqlStageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId()));
+        Map<PlanFragmentId, SqlStageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
 
         // create a mutable list of mutable sets of stages, so we can remove completed stages
         schedulePhases = new ArrayList<>();
@@ -111,7 +115,7 @@ public class PhasedExecutionSchedule
 
     private static boolean hasSourceDistributedStage(Set<SqlStageExecution> phase)
     {
-        return phase.stream().anyMatch(stage -> stage.getFragment().getPartitionedSource() != null);
+        return phase.stream().anyMatch(stage -> !stage.getFragment().getPartitionedSources().isEmpty());
     }
 
     @Override
@@ -174,7 +178,7 @@ public class PhasedExecutionSchedule
         public Visitor(Collection<PlanFragment> fragments, DirectedGraph<PlanFragmentId, DefaultEdge> graph)
         {
             this.fragments = fragments.stream()
-                    .collect(toImmutableMap(PlanFragment::getId));
+                    .collect(toImmutableMap(PlanFragment::getId, identity()));
             this.graph = graph;
         }
 
@@ -247,6 +251,26 @@ public class PhasedExecutionSchedule
             }
 
             return sources.build();
+        }
+
+        @Override
+        public Set<PlanFragmentId> visitExchange(ExchangeNode node, PlanFragmentId currentFragmentId)
+        {
+            checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the phased execution scheduler");
+            ImmutableSet.Builder<PlanFragmentId> allSources = ImmutableSet.builder();
+
+            // Link the source fragments together, so we only schedule one at a time.
+            Set<PlanFragmentId> previousSources = ImmutableSet.of();
+            for (PlanNode subPlanNode : node.getSources()) {
+                Set<PlanFragmentId> currentSources = subPlanNode.accept(this, currentFragmentId);
+                allSources.addAll(currentSources);
+
+                addEdges(previousSources, currentSources);
+
+                previousSources = currentSources;
+            }
+
+            return allSources.build();
         }
 
         @Override

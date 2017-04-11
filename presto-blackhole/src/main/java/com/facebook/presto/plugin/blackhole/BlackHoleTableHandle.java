@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -19,6 +18,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Objects;
@@ -35,13 +35,15 @@ public final class BlackHoleTableHandle
     private final int pagesPerSplit;
     private final int rowsPerPage;
     private final int fieldsLength;
+    private final Duration pageProcessingDelay;
 
     public BlackHoleTableHandle(
             ConnectorTableMetadata tableMetadata,
             int splitCount,
             int pagesPerSplit,
             int rowsPerPage,
-            int fieldsLength)
+            int fieldsLength,
+            Duration pageProcessingDelay)
     {
         this(tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
@@ -51,7 +53,8 @@ public final class BlackHoleTableHandle
                 splitCount,
                 pagesPerSplit,
                 rowsPerPage,
-                fieldsLength);
+                fieldsLength,
+                pageProcessingDelay);
     }
 
     @JsonCreator
@@ -62,7 +65,8 @@ public final class BlackHoleTableHandle
             @JsonProperty("splitCount") int splitCount,
             @JsonProperty("pagesPerSplit") int pagesPerSplit,
             @JsonProperty("rowsPerPage") int rowsPerPage,
-            @JsonProperty("fieldsLength") int fieldsLength)
+            @JsonProperty("fieldsLength") int fieldsLength,
+            @JsonProperty("pageProcessingDelay") Duration pageProcessingDelay)
     {
         this.schemaName = schemaName;
         this.tableName = tableName;
@@ -71,6 +75,7 @@ public final class BlackHoleTableHandle
         this.pagesPerSplit = pagesPerSplit;
         this.rowsPerPage = rowsPerPage;
         this.fieldsLength = fieldsLength;
+        this.pageProcessingDelay = pageProcessingDelay;
     }
 
     @JsonProperty
@@ -113,6 +118,12 @@ public final class BlackHoleTableHandle
     public int getFieldsLength()
     {
         return fieldsLength;
+    }
+
+    @JsonProperty
+    public Duration getPageProcessingDelay()
+    {
+        return pageProcessingDelay;
     }
 
     public ConnectorTableMetadata toTableMetadata()

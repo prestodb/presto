@@ -14,62 +14,32 @@
 package com.facebook.presto.spi.type;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.google.common.collect.Lists.transform;
+import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestTypeSignature
 {
     @Test
-    public void testBindParameters()
-            throws Exception
-    {
-        Map<String, Type> boundParameters = ImmutableMap.of("T1", DoubleType.DOUBLE, "T2", BigintType.BIGINT);
-
-        assertBindSignature("bigint", boundParameters, "bigint");
-        assertBindSignature("T1", boundParameters, "double");
-        assertBindSignature("T2", boundParameters, "bigint");
-        assertBindSignature("array(T1)", boundParameters, "array(double)");
-        assertBindSignature("array<T1>", boundParameters, "array(double)");
-        assertBindSignature("map(T1,T2)", boundParameters, "map(double,bigint)");
-        assertBindSignature("map<T1,T2>", boundParameters, "map(double,bigint)");
-        assertBindSignature("row<T1,T2>('a','b')", boundParameters, "row<double,bigint>('a','b')");
-        assertBindSignature("bla(T1,42,T2)", boundParameters, "bla(double,42,bigint)");
-
-        assertBindSignatureFails("T1(bigint)", boundParameters, "Unbounded parameters can not have parameters");
-    }
-
-    private void assertBindSignatureFails(String typeName, Map<String, Type> boundParameters, String reason)
-    {
-        try {
-            parseTypeSignature(typeName).bindParameters(boundParameters);
-            fail(reason);
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
-    }
-
-    private void assertBindSignature(String typeName, Map<String, Type> boundParameters, String expectedTypeName)
-    {
-        assertEquals(parseTypeSignature(typeName).bindParameters(boundParameters).toString(), expectedTypeName);
-    }
-
-    @Test
     public void parseSignatureWithLiterals() throws Exception
     {
         TypeSignature result = parseTypeSignature("decimal(X,42)", ImmutableSet.of("X"));
         assertEquals(result.getParameters().size(), 2);
-        assertEquals(result.getParameters().get(0).isLiteralCalculation(), true);
+        assertEquals(result.getParameters().get(0).isVariable(), true);
         assertEquals(result.getParameters().get(1).isLongLiteral(), true);
     }
 
@@ -78,39 +48,107 @@ public class TestTypeSignature
             throws Exception
     {
         assertRowSignature(
-                "row<bigint,varchar>('a','b')",
-                "row",
-                ImmutableList.of("a bigint", "b varchar"));
+                "row(a bigint,b varchar)",
+                rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
         assertRowSignature(
-                "ROW<bigint,varchar>('a','b')",
+                "ROW(a bigint,b varchar)",
                 "ROW",
                 ImmutableList.of("a bigint", "b varchar"),
-                "row<bigint,varchar>('a','b')");
+                "row(a bigint,b varchar)");
         assertRowSignature(
+                "row(a bigint,b array(bigint),c row(a bigint))",
+                rowSignature(
+                        namedParameter("a", signature("bigint")),
+                        namedParameter("b", array(signature("bigint"))),
+                        namedParameter("c", rowSignature(namedParameter("a", signature("bigint"))))));
+        assertRowSignature(
+                "row(a varchar(10),b row(a bigint))",
+                rowSignature(
+                        namedParameter("a", varchar(10)),
+                        namedParameter("b", rowSignature(namedParameter("a", signature("bigint"))))));
+        assertRowSignature(
+                "array(row(col0 bigint,col1 double))",
+                array(rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))));
+        assertRowSignature(
+                "row(col0 array(row(col0 bigint,col1 double)))",
+                rowSignature(namedParameter("col0", array(
+                        rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))))));
+        assertRowSignature(
+                "row(a decimal(p1,s1),b decimal(p2,s2))",
+                ImmutableSet.of("p1", "s1", "p2", "s2"),
+                rowSignature(namedParameter("a", decimal("p1", "s1")), namedParameter("b", decimal("p2", "s2"))));
+
+        // TODO: remove the following tests when the old style row type has been completely dropped
+        assertOldRowSignature(
+                "row<bigint,varchar>('a','b')",
+                rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
+        assertOldRowSignature(
                 "row<bigint,array(bigint),row<bigint>('a')>('a','b','c')",
-                "row",
-                ImmutableList.of("a bigint", "b array(bigint)", "c row<bigint>('a')"));
-        assertRowSignature(
+                rowSignature(
+                        namedParameter("a", signature("bigint")),
+                        namedParameter("b", array(signature("bigint"))),
+                        namedParameter("c", rowSignature(namedParameter("a", signature("bigint"))))));
+        assertOldRowSignature(
                 "row<varchar(10),row<bigint>('a')>('a','b')",
-                "row",
-                ImmutableList.of("a varchar(10)", "b row<bigint>('a')"));
-        assertRowSignature(
+                rowSignature(
+                        namedParameter("a", varchar(10)),
+                        namedParameter("b", rowSignature(namedParameter("a", signature("bigint"))))));
+        assertOldRowSignature(
                 "array(row<bigint,double>('col0','col1'))",
-                "array",
-                ImmutableList.of("row<bigint,double>('col0','col1')"));
-        assertRowSignature(
+                array(rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))));
+        assertOldRowSignature(
                 "row<array(row<bigint,double>('col0','col1'))>('col0')",
-                "row",
-                ImmutableList.of("col0 array(row<bigint,double>('col0','col1'))"));
+                rowSignature(namedParameter("col0", array(
+                        rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))))));
+        assertOldRowSignature(
+                "row<decimal(p1,s1),decimal(p2,s2)>('a','b')",
+                ImmutableSet.of("p1", "s1", "p2", "s2"),
+                rowSignature(namedParameter("a", decimal("p1", "s1")), namedParameter("b", decimal("p2", "s2"))));
+    }
+
+    private TypeSignature varchar()
+    {
+        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(VarcharType.UNBOUNDED_LENGTH));
+    }
+
+    private TypeSignature varchar(long length)
+    {
+        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(length));
+    }
+
+    private TypeSignature decimal(String precisionVariable, String scaleVariable)
+    {
+        return new TypeSignature(StandardTypes.DECIMAL, ImmutableList.of(
+                TypeSignatureParameter.of(precisionVariable), TypeSignatureParameter.of(scaleVariable)));
+    }
+
+    private static TypeSignature rowSignature(NamedTypeSignature... columns)
+    {
+        return new TypeSignature("row", transform(asList(columns), TypeSignatureParameter::of));
+    }
+
+    private static NamedTypeSignature namedParameter(String name, TypeSignature value)
+    {
+        return new NamedTypeSignature(name, value);
+    }
+
+    private static TypeSignature array(TypeSignature type)
+    {
+        return new TypeSignature(StandardTypes.ARRAY, TypeSignatureParameter.of(type));
+    }
+
+    private TypeSignature signature(String name)
+    {
+        return new TypeSignature(name);
     }
 
     @Test
     public void parseSignature()
             throws Exception
     {
-        assertSignature("bigint", "bigint", ImmutableList.<String>of());
-        assertSignature("boolean", "boolean", ImmutableList.<String>of());
-        assertSignature("varchar", "varchar", ImmutableList.<String>of());
+        assertSignature("bigint", "bigint", ImmutableList.of());
+        assertSignature("boolean", "boolean", ImmutableList.of());
+        assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)));
 
         assertSignature("array(bigint)", "array", ImmutableList.of("bigint"));
         assertSignature("array(array(bigint))", "array", ImmutableList.of("array(bigint)"));
@@ -134,6 +172,7 @@ public class TestTypeSignature
         assertSignatureFail("blah()");
         assertSignatureFail("array()");
         assertSignatureFail("map()");
+        assertSignatureFail("x", ImmutableSet.of("x"));
 
         // ensure this is not treated as a row type
         assertSignature("rowxxx<a>", "rowxxx", ImmutableList.of("a"));
@@ -142,8 +181,8 @@ public class TestTypeSignature
     @Test
     public void parseWithLiteralParameters()
     {
-        assertSignature("foo(42)", "foo", ImmutableList.<String>of("42"));
-        assertSignature("varchar(10)", "varchar", ImmutableList.<String>of("10"));
+        assertSignature("foo(42)", "foo", ImmutableList.of("42"));
+        assertSignature("varchar(10)", "varchar", ImmutableList.of("10"));
     }
 
     @Test
@@ -152,14 +191,47 @@ public class TestTypeSignature
     {
         assertEquals(VARCHAR.getTypeSignature().toString(), "varchar");
         assertEquals(createVarcharType(42).getTypeSignature().toString(), "varchar(42)");
+        assertEquals(parseTypeSignature("varchar"), createUnboundedVarcharType().getTypeSignature());
+        assertEquals(createUnboundedVarcharType().getTypeSignature(), parseTypeSignature("varchar"));
+        assertEquals(parseTypeSignature("varchar").hashCode(), createUnboundedVarcharType().getTypeSignature().hashCode());
+        assertNotEquals(createUnboundedVarcharType().getTypeSignature(), parseTypeSignature("varchar(10)"));
+    }
+
+    @Test
+    public void testIsCalculated()
+            throws Exception
+    {
+        assertFalse(parseTypeSignature("bigint").isCalculated());
+        assertTrue(parseTypeSignature("decimal(p, s)", ImmutableSet.of("p", "s")).isCalculated());
+        assertFalse(parseTypeSignature("decimal(2, 1)").isCalculated());
+        assertTrue(parseTypeSignature("array(decimal(p, s))", ImmutableSet.of("p", "s")).isCalculated());
+        assertFalse(parseTypeSignature("array(decimal(2, 1))").isCalculated());
+        assertTrue(parseTypeSignature("map(decimal(p1, s1),decimal(p2, s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
+        assertFalse(parseTypeSignature("map(decimal(2, 1),decimal(3, 1))").isCalculated());
+        assertTrue(parseTypeSignature("row(a decimal(p1,s1),b decimal(p2,s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
+        assertFalse(parseTypeSignature("row(a decimal(2,1),b decimal(3,2))").isCalculated());
     }
 
     private static void assertRowSignature(
             String typeName,
-            String base,
-            List<String> parameters)
+            Set<String> literalParameters,
+            TypeSignature expectedSignature)
     {
-        assertRowSignature(typeName, base, parameters, typeName);
+        TypeSignature signature = parseTypeSignature(typeName, literalParameters);
+        assertEquals(signature, expectedSignature);
+        assertEquals(signature.toString(), typeName);
+    }
+
+    private static void assertRowSignature(
+            String typeName,
+            TypeSignature expectedSignature)
+    {
+        assertRowSignature(typeName, ImmutableSet.of(), expectedSignature);
+    }
+
+    private static void assertSignature(String typeName, String base, List<String> parameters)
+    {
+        assertSignature(typeName, base, parameters, typeName.replace("<", "(").replace(">", ")"));
     }
 
     private static void assertRowSignature(
@@ -171,9 +243,24 @@ public class TestTypeSignature
         assertSignature(typeName, base, parameters, expected);
     }
 
-    private static void assertSignature(String typeName, String base, List<String> parameters)
+    // TODO: remove this when old style row type is removed
+    @Deprecated
+    private static void assertOldRowSignature(
+            String typeName,
+            Set<String> literalParameters,
+            TypeSignature expectedSignature)
     {
-        assertSignature(typeName, base, parameters, typeName.replace("<", "(").replace(">", ")"));
+        TypeSignature signature = parseTypeSignature(typeName, literalParameters);
+        assertEquals(signature, expectedSignature);
+    }
+
+    // TODO: remove this when old style row type is removed
+    @Deprecated
+    private static void assertOldRowSignature(
+            String typeName,
+            TypeSignature expectedSignature)
+    {
+        assertOldRowSignature(typeName, ImmutableSet.of(), expectedSignature);
     }
 
     private static void assertSignature(
@@ -195,6 +282,17 @@ public class TestTypeSignature
     {
         try {
             parseTypeSignature(typeName);
+            fail("Type signatures with zero parameters should fail to parse");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+    }
+
+    private void assertSignatureFail(String typeName, Set<String> literalCalculationParameters)
+    {
+        try {
+            parseTypeSignature(typeName, literalCalculationParameters);
             fail("Type signatures with zero parameters should fail to parse");
         }
         catch (RuntimeException e) {

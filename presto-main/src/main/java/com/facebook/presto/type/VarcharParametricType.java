@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.spi.type.VarcharType;
 
 import java.util.List;
+
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class VarcharParametricType
         implements ParametricType
@@ -35,10 +38,10 @@ public class VarcharParametricType
     public Type createType(List<TypeParameter> parameters)
     {
         if (parameters.isEmpty()) {
-            return VarcharType.createVarcharType(VarcharType.MAX_LENGTH);
+            return createUnboundedVarcharType();
         }
         if (parameters.size() != 1) {
-            throw new IllegalArgumentException("Expected at most one parameter for VARCHAR");
+            throw new IllegalArgumentException("Expected exactly one parameter for VARCHAR");
         }
 
         TypeParameter parameter = parameters.get(0);
@@ -48,9 +51,15 @@ public class VarcharParametricType
         }
 
         long length = parameter.getLongLiteral();
-        if (length < 0 || length > Integer.MAX_VALUE) {
+
+        if (length == VarcharType.UNBOUNDED_LENGTH) {
+            return VarcharType.createUnboundedVarcharType();
+        }
+
+        if (length < 0 || length > VarcharType.MAX_LENGTH) {
             throw new IllegalArgumentException("Invalid VARCHAR length " + length);
         }
+
         return VarcharType.createVarcharType((int) length);
     }
 }
