@@ -156,6 +156,12 @@ Unit              Description
 
     Returns ``timestamp2 - timestamp1`` expressed in terms of ``unit``.
 
+.. function:: parse_duration(string) ->  Interval
+
+    Parses ``string`` of format ``value unit`` into an interval, where
+    ``value`` is a numeric of type double and ``unit`` is one of the values
+    (``ns``, ``us``, ``ms``, ``s``, ``m``, ``h``, ``d``)
+
 MySQL Date Functions
 --------------------
 
