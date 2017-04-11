@@ -44,7 +44,8 @@ broken.
 They should point to your external IP address (shown by `ifconfig` on your Mac (not inside docker)).
 
 * The default memory setting of 2GB might not be sufficient for some profiles like singlenode-ldap.
-You can increase docker memory by going to Docker Preferences -> Advanced -> Memory.
+You may need 4-8 GB or even more to run certain tests. You can increase docker memory by going to
+Docker Preferences -> Advanced -> Memory.
 
 ### OS X using Docker Toolbox (macOS 10.8 "Mountain Lion" or newer) [NOT RECOMMENDED]
 
