@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet.predicate;
 
+import parquet.column.ColumnDescriptor;
 import parquet.column.statistics.Statistics;
 
 import java.util.Map;
@@ -22,13 +23,13 @@ public interface ParquetPredicate
     ParquetPredicate TRUE = new ParquetPredicate()
     {
         @Override
-        public boolean matches(long numberOfRows, Map<Integer, Statistics<?>> statisticsByColumnIndex)
+        public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics)
         {
             return true;
         }
 
         @Override
-        public boolean matches(Map<Integer, ParquetDictionaryDescriptor> dictionariesByColumnIndex)
+        public boolean matches(Map<ColumnDescriptor, ParquetDictionaryDescriptor> dictionaries)
         {
             return true;
         }
@@ -39,16 +40,14 @@ public interface ParquetPredicate
      *
      * @param numberOfRows the number of rows in the segment; this can be used with
      * Statistics to determine if a column is only null
-     * @param statisticsByColumnIndex statistics for column by ordinal position
-     * in the file; this will match the field order from the hive metastore
+     * @param statistics column statistics
      */
-    boolean matches(long numberOfRows, Map<Integer, Statistics<?>> statisticsByColumnIndex);
+    boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics);
 
     /**
      * Should the Parquet Reader process a file section with the specified dictionary.
      *
-     * @param dictionariesByColumnIndex dictionaries for column by ordinal position
-     * in the file; this will match the field order from the hive metastore
+     * @param dictionaries dictionaries per column
      */
-    boolean matches(Map<Integer, ParquetDictionaryDescriptor> dictionariesByColumnIndex);
+    boolean matches(Map<ColumnDescriptor, ParquetDictionaryDescriptor> dictionaries);
 }
