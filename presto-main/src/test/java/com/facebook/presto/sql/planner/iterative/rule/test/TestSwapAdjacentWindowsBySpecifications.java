@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
-import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsByPartitionsOrder;
+import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -38,14 +38,14 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 
-public class TestSwapAdjacentWindowsByPartitionsOrder
+public class TestSwapAdjacentWindowsBySpecifications
 {
     private final RuleTester tester = new RuleTester();
 
     private WindowNode.Frame frame;
     private Signature signature;
 
-    public TestSwapAdjacentWindowsByPartitionsOrder()
+    public TestSwapAdjacentWindowsBySpecifications()
     {
         frame = new WindowNode.Frame(WindowFrame.Type.RANGE, UNBOUNDED_PRECEDING,
                 Optional.empty(), CURRENT_ROW, Optional.empty());
@@ -63,7 +63,7 @@ public class TestSwapAdjacentWindowsByPartitionsOrder
     public void doesNotFireOnPlanWithoutWindowFunctions()
             throws Exception
     {
-        tester.assertThat(new SwapAdjacentWindowsByPartitionsOrder())
+        tester.assertThat(new SwapAdjacentWindowsBySpecifications())
                 .on(p -> p.values(p.symbol("a", BIGINT)))
                 .doesNotFire();
     }
@@ -72,7 +72,7 @@ public class TestSwapAdjacentWindowsByPartitionsOrder
     public void doesNotFireOnPlanWithSingleWindowNode()
             throws Exception
     {
-        tester.assertThat(new SwapAdjacentWindowsByPartitionsOrder())
+        tester.assertThat(new SwapAdjacentWindowsBySpecifications())
                 .on(p -> p.window(new WindowNode.Specification(
                                 ImmutableList.of(p.symbol("a", BIGINT)),
                                 ImmutableList.of(),
@@ -96,7 +96,7 @@ public class TestSwapAdjacentWindowsByPartitionsOrder
         Optional<Window> windowAB = Optional.of(new Window(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b")), Optional.empty(), Optional.empty()));
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester.assertThat(new SwapAdjacentWindowsByPartitionsOrder())
+        tester.assertThat(new SwapAdjacentWindowsBySpecifications())
                 .on(p ->
                         p.window(new WindowNode.Specification(
                                         ImmutableList.of(p.symbol("a", BIGINT)),
@@ -124,7 +124,7 @@ public class TestSwapAdjacentWindowsByPartitionsOrder
     {
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester.assertThat(new SwapAdjacentWindowsByPartitionsOrder())
+        tester.assertThat(new SwapAdjacentWindowsBySpecifications())
                 .on(p ->
                         p.window(new WindowNode.Specification(
                                         ImmutableList.of(p.symbol("a", BIGINT)),
