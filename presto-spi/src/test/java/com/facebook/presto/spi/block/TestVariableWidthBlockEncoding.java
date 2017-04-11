@@ -22,6 +22,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -68,6 +69,12 @@ public class TestVariableWidthBlockEncoding
         public <T> T getProperty(String name, Class<T> type)
         {
             throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
+        }
+
+        @Override
+        public Map<String, String> getProperties()
+        {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "No properties exist");
         }
     };
 
