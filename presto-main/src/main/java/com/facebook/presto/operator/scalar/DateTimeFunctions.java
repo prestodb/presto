@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.Days;
@@ -1072,6 +1073,20 @@ public final class DateTimeFunctions
             return builder.toFormatter();
         }
         catch (UnsupportedOperationException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    @Description("convert duration string to an interval")
+    @ScalarFunction("parse_duration")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long parseDuration(@SqlType("varchar(x)") Slice duration)
+    {
+        try {
+            return Duration.valueOf(duration.toStringUtf8()).toMillis();
+        }
+        catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
