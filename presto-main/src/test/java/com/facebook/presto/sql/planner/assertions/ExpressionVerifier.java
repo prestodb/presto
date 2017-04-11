@@ -164,13 +164,21 @@ final class ExpressionVerifier
 
     protected Boolean visitGenericLiteral(GenericLiteral actual, Expression expected)
     {
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        if (expected instanceof GenericLiteral) {
+            return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        }
+
+        return false;
     }
 
     @Override
     protected Boolean visitLongLiteral(LongLiteral actual, Expression expected)
     {
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        if (expected instanceof LongLiteral) {
+            return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        }
+
+        return false;
     }
 
     @Override
