@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.Arguments;
 import com.facebook.presto.testing.MaterializedResult;
@@ -3979,14 +3978,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT *, 1.0 * sum(x) OVER () FROM (VALUES 1) t(x)", "SELECT 1, 1.0");
     }
 
+    @SuppressWarnings("PointlessArithmeticExpression")
     @Test
     public void testWindowFunctionsExpressions()
-    {
-        testWindowFunctionsExpressions(BIGINT, createVarcharType(1), BIGINT);
-    }
-
-    @SuppressWarnings("PointlessArithmeticExpression")
-    protected void testWindowFunctionsExpressions(Type... expectedTypes)
     {
         MaterializedResult actual = computeActual("" +
                 "SELECT orderkey, orderstatus\n" +
@@ -3995,7 +3989,7 @@ public abstract class AbstractTestQueries
                 "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
                 "ORDER BY orderkey LIMIT 5");
 
-        MaterializedResult expected = resultBuilder(getSession(), expectedTypes)
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
                 .row(1L, "O", (1L * 10) + 100)
                 .row(2L, "O", (2L * 9) + 100)
                 .row(3L, "F", (3L * 8) + 100)
@@ -4003,16 +3997,11 @@ public abstract class AbstractTestQueries
                 .row(5L, "F", (5L * 6) + 100)
                 .build();
 
-        assertEquals(actual, expected);
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test
     public void testWindowFunctionsFromAggregate()
-    {
-        testWindowFunctionsFromAggregate(createVarcharType(1), createVarcharType(15), DOUBLE, BIGINT);
-    }
-
-    protected void testWindowFunctionsFromAggregate(Type... expectedTypes)
     {
         MaterializedResult actual = computeActual("" +
                 "SELECT * FROM (\n" +
@@ -4027,7 +4016,7 @@ public abstract class AbstractTestQueries
                 "WHERE rnk <= 2\n" +
                 "ORDER BY orderstatus, rnk");
 
-        MaterializedResult expected = resultBuilder(getSession(), expectedTypes)
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, DOUBLE, BIGINT)
                 .row("F", "Clerk#000000090", 2784836.61, 1L)
                 .row("F", "Clerk#000000084", 2674447.15, 2L)
                 .row("O", "Clerk#000000500", 2569878.29, 1L)
@@ -4036,7 +4025,7 @@ public abstract class AbstractTestQueries
                 .row("P", "Clerk#000001000", 643679.49, 2L)
                 .build();
 
-        assertEquals(actual, expected);
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test
@@ -4586,17 +4575,12 @@ public abstract class AbstractTestQueries
     @Test
     public void testFullyPartitionedAndPartiallySortedWindowFunction()
     {
-        testFullyPartitionedAndPartiallySortedWindowFunction(BIGINT, BIGINT, createVarcharType(15), BIGINT);
-    }
-
-    protected void testFullyPartitionedAndPartiallySortedWindowFunction(Type... expectedTypes)
-    {
         MaterializedResult actual = computeActual("" +
                 "SELECT orderkey, custkey, orderPriority, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey, orderPriority)\n" +
                 "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10)\n" +
                 "ORDER BY orderkey LIMIT 5");
 
-        MaterializedResult expected = resultBuilder(getSession(), expectedTypes)
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR, BIGINT)
                 .row(1L, 370L, "5-LOW", 1L)
                 .row(2L, 781L, "1-URGENT", 1L)
                 .row(3L, 1234L, "5-LOW", 1L)
@@ -4604,7 +4588,7 @@ public abstract class AbstractTestQueries
                 .row(5L, 445L, "5-LOW", 1L)
                 .build();
 
-        assertEquals(actual, expected);
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test
@@ -4679,11 +4663,6 @@ public abstract class AbstractTestQueries
     @Test
     public void testValueWindowFunctions()
     {
-        testValueWindowFunctions(BIGINT, createVarcharType(1), BIGINT, BIGINT);
-    }
-
-    protected void testValueWindowFunctions(Type... expectedTypes)
-    {
         MaterializedResult actual = computeActual("SELECT * FROM (\n" +
                 "  SELECT orderkey, orderstatus\n" +
                 "    , first_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) fvalue\n" +
@@ -4693,7 +4672,7 @@ public abstract class AbstractTestQueries
                 "  ) x\n" +
                 "ORDER BY orderkey LIMIT 5");
 
-        MaterializedResult expected = resultBuilder(getSession(), expectedTypes)
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT, BIGINT)
                 .row(1L, "O", 1001L, 1002L)
                 .row(2L, "O", 1001L, 1002L)
                 .row(3L, "F", 1003L, 1005L)
@@ -4701,16 +4680,11 @@ public abstract class AbstractTestQueries
                 .row(5L, "F", 1003L, 1005L)
                 .build();
 
-        assertEquals(actual, expected);
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test
     public void testWindowFrames()
-    {
-        testWindowFrames(BIGINT, createVarcharType(1), BIGINT);
-    }
-
-    protected void testWindowFrames(Type... expectedTypes)
     {
         MaterializedResult actual = computeActual("SELECT * FROM (\n" +
                 "  SELECT orderkey, orderstatus\n" +
@@ -4720,7 +4694,7 @@ public abstract class AbstractTestQueries
                 "  ) x\n" +
                 "ORDER BY orderkey LIMIT 5");
 
-        MaterializedResult expected = resultBuilder(getSession(), expectedTypes)
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
                 .row(1L, "O", 1001L)
                 .row(2L, "O", 3007L)
                 .row(3L, "F", 3014L)
@@ -4728,7 +4702,7 @@ public abstract class AbstractTestQueries
                 .row(5L, "F", 2008L)
                 .build();
 
-        assertEquals(actual, expected);
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test
