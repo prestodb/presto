@@ -24,6 +24,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -32,12 +33,12 @@ import parquet.column.ColumnDescriptor;
 import parquet.column.values.ValuesReader;
 import parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import parquet.io.ParquetDecodingException;
-import parquet.schema.DecimalMetadata;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.createDecimalType;
 import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.hive.parquet.ParquetValuesType.DEFINITION_LEVEL;
 import static com.facebook.presto.hive.parquet.ParquetValuesType.REPETITION_LEVEL;
@@ -45,7 +46,6 @@ import static com.facebook.presto.hive.parquet.ParquetValuesType.VALUES;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-import static parquet.schema.OriginalType.DECIMAL;
 
 public abstract class ParquetColumnReader
 {
@@ -97,11 +97,12 @@ public abstract class ParquetColumnReader
 
     private static Optional<ParquetColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
     {
-        if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
-            return Optional.empty();
+        Optional<Type> type = createDecimalType(descriptor);
+        if (type.isPresent()) {
+            DecimalType decimalType = (DecimalType) type.get();
+            return Optional.of(ParquetDecimalColumnReaderFactory.createReader(descriptor, decimalType.getPrecision(), decimalType.getScale()));
         }
-        DecimalMetadata decimalMetadata = descriptor.getPrimitiveType().getDecimalMetadata();
-        return Optional.of(ParquetDecimalColumnReaderFactory.createReader(descriptor, decimalMetadata.getPrecision(), decimalMetadata.getScale()));
+        return Optional.empty();
     }
 
     public ParquetColumnReader(ColumnDescriptor columnDescriptor)

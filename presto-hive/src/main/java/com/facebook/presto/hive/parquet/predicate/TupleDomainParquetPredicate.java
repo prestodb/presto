@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet.predicate;
 
 import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
+import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.hive.parquet.dictionary.ParquetDictionary;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getPrestoType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.isStatisticsOverflow;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -50,62 +52,61 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
-public class TupleDomainParquetPredicate<C>
+public class TupleDomainParquetPredicate
         implements ParquetPredicate
 {
-    private final TupleDomain<C> effectivePredicate;
-    private final List<ColumnReference<C>> columnReferences;
+    private final TupleDomain<ColumnDescriptor> effectivePredicate;
+    private final List<RichColumnDescriptor> columns;
 
-    public TupleDomainParquetPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences)
+    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<RichColumnDescriptor> columns)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
-        this.columnReferences = ImmutableList.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
     @Override
-    public boolean matches(long numberOfRows, Map<Integer, Statistics<?>> statisticsByColumnIndex)
+    public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics)
     {
         if (numberOfRows == 0) {
             return false;
         }
-        ImmutableMap.Builder<C, Domain> domains = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnDescriptor, Domain> domains = ImmutableMap.builder();
 
-        for (ColumnReference<C> columnReference : columnReferences) {
-            Statistics<?> statistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
+        for (RichColumnDescriptor column : columns) {
+            Statistics<?> columnStatistics = statistics.get(column);
 
             Domain domain;
-            if (statistics == null || statistics.isEmpty()) {
+            Type type = getPrestoType(column);
+            if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
-                domain = Domain.all(columnReference.getType());
+                domain = Domain.all(type);
             }
             else {
-                domain = getDomain(columnReference.getType(), numberOfRows, statistics);
+                domain = getDomain(type, numberOfRows, columnStatistics);
             }
-            domains.put(columnReference.getColumn(), domain);
+            domains.put(column, domain);
         }
-        TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
+        TupleDomain<ColumnDescriptor> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
         return effectivePredicate.overlaps(stripeDomain);
     }
 
     @Override
-    public boolean matches(Map<Integer, ParquetDictionaryDescriptor> dictionariesByColumnIndex)
+    public boolean matches(Map<ColumnDescriptor, ParquetDictionaryDescriptor> dictionaries)
     {
-        ImmutableMap.Builder<C, Domain> domains = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnDescriptor, Domain> domains = ImmutableMap.builder();
 
-        for (ColumnReference<C> columnReference : columnReferences) {
-            ParquetDictionaryDescriptor dictionaryDescriptor = dictionariesByColumnIndex.get(columnReference.getOrdinal());
-            Domain domain = getDomain(columnReference.getType(), dictionaryDescriptor);
+        for (RichColumnDescriptor column : columns) {
+            ParquetDictionaryDescriptor dictionaryDescriptor = dictionaries.get(column);
+            Domain domain = getDomain(getPrestoType(column), dictionaryDescriptor);
             if (domain != null) {
-                domains.put(columnReference.getColumn(), domain);
+                domains.put(column, domain);
             }
         }
-        TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
+        TupleDomain<ColumnDescriptor> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
         return effectivePredicate.overlaps(stripeDomain);
     }
@@ -293,45 +294,5 @@ public class TupleDomainParquetPredicate<C>
             return Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, function.apply(min))), hasNullValue);
         }
         return Domain.create(ValueSet.all(type), hasNullValue);
-    }
-
-    public static class ColumnReference<C>
-    {
-        private final C column;
-        private final int ordinal;
-        private final Type type;
-
-        public ColumnReference(C column, int ordinal, Type type)
-        {
-            this.column = requireNonNull(column, "column is null");
-            checkArgument(ordinal >= 0, "ordinal is negative");
-            this.ordinal = ordinal;
-            this.type = requireNonNull(type, "type is null");
-        }
-
-        public C getColumn()
-        {
-            return column;
-        }
-
-        public int getOrdinal()
-        {
-            return ordinal;
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("column", column)
-                    .add("ordinal", ordinal)
-                    .add("type", type)
-                    .toString();
-        }
     }
 }
