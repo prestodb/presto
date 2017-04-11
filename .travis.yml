@@ -64,12 +64,12 @@ script:
   - |
     if [[ -v PRODUCT_TESTS ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds
+        multinode -x quarantine,big_query,profile_specific_tests,tpcds
     fi
   - |
     if [[ -v PRODUCT_TESTS ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
+        singlenode-kerberos-hdfs-impersonation -g cli,hdfs_impersonation,authorization
     fi
   - |
     if [[ -v PRODUCT_TESTS ]]; then
