@@ -180,6 +180,19 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitSubqueryExpression(SubqueryExpression node, Void context)
         {
+            /*
+             * Column reference can resolve to (a) some subquery's scope, (b) a projection (ORDER BY scope),
+             * (c) source scope or (d) outer query scope (effectively a constant).
+             * From AggregationAnalyzer's perspective, only case (c) needs verification.
+             */
+            getReferencesToScope(node, analysis, sourceScope)
+                    .filter(expression -> !isGroupingKey(expression))
+                    .findFirst()
+                    .ifPresent(expression -> {
+                        throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, expression,
+                                "Subquery uses '%s' which must appear in GROUP BY clause", expression);
+                    });
+
             return true;
         }
 
