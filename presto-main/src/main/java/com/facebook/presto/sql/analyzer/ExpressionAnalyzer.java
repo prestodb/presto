@@ -357,9 +357,14 @@ public class ExpressionAnalyzer
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField)
         {
-            FieldId previous = columnReferences.put(node, FieldId.from(resolvedField));
+            return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getType());
+        }
+
+        private Type handleResolvedField(Expression node, FieldId fieldId, Type resolvedType)
+        {
+            FieldId previous = columnReferences.put(node, fieldId);
             checkState(previous == null, "%s already known to refer to %s", node, previous);
-            return setExpressionType(node, resolvedField.getType());
+            return setExpressionType(node, resolvedType);
         }
 
         @Override
@@ -1039,7 +1044,7 @@ public class ExpressionAnalyzer
         public Type visitFieldReference(FieldReference node, StackableAstVisitorContext<Context> context)
         {
             Type type = scope.getRelationType().getFieldByIndex(node.getFieldIndex()).getType();
-            return setExpressionType(node, type);
+            return handleResolvedField(node, new FieldId(scope.getRelationId(), node.getFieldIndex()), type);
         }
 
         @Override
