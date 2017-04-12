@@ -46,7 +46,7 @@ public class QueryStateInfo
     private final Optional<QueryProgressStats> progress;
 
     @JsonCreator
-    private QueryStateInfo(
+    public QueryStateInfo(
             @JsonProperty("queryId") QueryId queryId,
             @JsonProperty("queryState") QueryState queryState,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
