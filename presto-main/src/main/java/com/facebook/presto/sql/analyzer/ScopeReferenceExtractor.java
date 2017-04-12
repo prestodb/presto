@@ -17,11 +17,10 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.util.AstUtils;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -33,25 +32,23 @@ class ScopeReferenceExtractor
 
     public static boolean hasReferencesToScope(Node node, Analysis analysis, Scope scope)
     {
-        return !getReferencesToScope(node, analysis, scope).isEmpty();
+        return getReferencesToScope(node, analysis, scope).findAny().isPresent();
     }
 
-    public static List<Expression> getReferencesToScope(Node node, Analysis analysis, Scope scope)
+    public static Stream<Expression> getReferencesToScope(Node node, Analysis analysis, Scope scope)
     {
         Map<Expression, FieldId> columnReferences = analysis.getColumnReferenceFields();
 
-        List<Expression> referencesToScope = AstUtils.preOrder(node)
+        return AstUtils.preOrder(node)
                 .filter(columnReferences::containsKey)
                 .map(Expression.class::cast)
-                .filter(expression -> isReferenceToScope(expression, scope, columnReferences))
-                .collect(toImmutableList());
-
-        return referencesToScope;
+                .filter(expression -> isReferenceToScope(expression, scope, columnReferences));
     }
 
     private static boolean isReferenceToScope(Expression node, Scope scope, Map<Expression, FieldId> columnReferences)
     {
-        FieldId fieldId = requireNonNull(columnReferences.get(node), () -> "No FieldId for " + node);
+        FieldId fieldId = columnReferences.get(node);
+        requireNonNull(fieldId, () -> "No FieldId for " + node);
         return isFieldFromScope(fieldId, scope);
     }
 
