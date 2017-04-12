@@ -93,10 +93,6 @@ public class TestMergeWindows
 
     public TestMergeWindows()
     {
-        // this won't be necessary once ReorderWindows is turned on by default back
-        // currently it's disabled because of https://github.com/prestodb/presto/issues/7247
-        super(ImmutableMap.of("reorder_windows", "true"));
-
         specificationA = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),

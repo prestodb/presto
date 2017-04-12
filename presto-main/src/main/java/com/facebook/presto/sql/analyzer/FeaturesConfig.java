@@ -225,18 +225,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isReorderWindows()
-    {
-        return optimizerReorderWindows;
-    }
-
-    @Config("optimizer.reorder-windows")
-    public FeaturesConfig setReorderWindows(boolean reorderWindows)
-    {
-        this.optimizerReorderWindows = reorderWindows;
-        return this;
-    }
-
     public boolean isPushTableWriteThroughUnion()
     {
         return pushTableWriteThroughUnion;
