@@ -113,11 +113,11 @@ The following types are supported:
 ``TIMESTAMP WITH TIME ZONE``,
 ``DATE``
 
-.. function:: greatest(value1, value2) -> [same as input]
+.. function:: greatest(value1, value2, ..., valueN) -> [same as input]
 
     Returns the largest of the provided values.
 
-.. function:: least(value1, value2) -> [same as input]
+.. function:: least(value1, value2, ..., valueN) -> [same as input]
 
     Returns the smallest of the provided values.
 
