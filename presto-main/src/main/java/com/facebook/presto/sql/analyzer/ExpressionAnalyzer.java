@@ -143,7 +143,6 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.facebook.presto.util.MoreSets.newIdentityHashSet;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -201,6 +200,16 @@ public class ExpressionAnalyzer
     public IdentityLinkedHashMap<Expression, Type> getExpressionTypes()
     {
         return expressionTypes;
+    }
+
+    public Type setExpressionType(Expression expression, Type type)
+    {
+        requireNonNull(expression, "expression cannot be null");
+        requireNonNull(type, "type cannot be null");
+
+        expressionTypes.put(expression, type);
+
+        return type;
     }
 
     public IdentityLinkedHashMap<Expression, Type> getExpressionCoercions()
@@ -285,9 +294,7 @@ public class ExpressionAnalyzer
                     .collect(toImmutableList());
 
             Type type = new RowType(types, Optional.empty());
-            expressionTypes.put(node, type);
-
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -318,8 +325,7 @@ public class ExpressionAnalyzer
                     throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getType().getName());
             }
 
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -329,15 +335,11 @@ public class ExpressionAnalyzer
                 LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getNameToLambdaArgumentDeclarationMap().get(node.getName());
                 if (lambdaArgumentDeclaration != null) {
                     Type result = expressionTypes.get(lambdaArgumentDeclaration);
-                    checkArgument(result != null, "No type for lambda argument %s", lambdaArgumentDeclaration);
-                    expressionTypes.put(node, result);
-                    return result;
+                    return setExpressionType(node, result);
                 }
             }
             Type type = symbolTypes.get(Symbol.from(node));
-            checkArgument(type != null, "No type for symbol %s", node.getName());
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -348,8 +350,7 @@ public class ExpressionAnalyzer
                 if (lambdaArgumentDeclaration != null) {
                     lambdaArgumentReferences.put(node, lambdaArgumentDeclaration);
                     Type result = expressionTypes.get(lambdaArgumentDeclaration);
-                    expressionTypes.put(node, result);
-                    return result;
+                    return setExpressionType(node, result);
                 }
             }
             return handleResolvedField(node, scope.resolveField(node, QualifiedName.of(node.getName())));
@@ -358,8 +359,7 @@ public class ExpressionAnalyzer
         private Type handleResolvedField(Expression node, ResolvedField resolvedField)
         {
             columnReferences.add(node);
-            expressionTypes.put(node, resolvedField.getType());
-            return resolvedField.getType();
+            return setExpressionType(node, resolvedField.getType());
         }
 
         @Override
@@ -398,8 +398,7 @@ public class ExpressionAnalyzer
                 throw missingAttributeException(node);
             }
 
-            expressionTypes.put(node, rowFieldType);
-            return rowFieldType;
+            return setExpressionType(node, rowFieldType);
         }
 
         @Override
@@ -407,8 +406,7 @@ public class ExpressionAnalyzer
         {
             coerceType(context, node.getValue(), BOOLEAN, "Value of logical NOT expression");
 
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override
@@ -417,8 +415,7 @@ public class ExpressionAnalyzer
             coerceType(context, node.getLeft(), BOOLEAN, "Left side of logical expression");
             coerceType(context, node.getRight(), BOOLEAN, "Right side of logical expression");
 
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override
@@ -433,8 +430,7 @@ public class ExpressionAnalyzer
         {
             process(node.getValue(), context);
 
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override
@@ -442,8 +438,7 @@ public class ExpressionAnalyzer
         {
             process(node.getValue(), context);
 
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override
@@ -456,8 +451,7 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
             }
 
-            expressionTypes.put(node, firstType);
-            return firstType;
+            return setExpressionType(node, firstType);
         }
 
         @Override
@@ -473,8 +467,7 @@ public class ExpressionAnalyzer
                 type = process(node.getTrueValue(), context);
             }
 
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -487,12 +480,11 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context,
                     "All CASE results must be the same type: %s",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
-            expressionTypes.put(node, type);
+            setExpressionType(node, type);
 
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Type whenClauseType = process(whenClause.getResult(), context);
-                requireNonNull(whenClauseType, format("Expression types does not contain an entry for %s", whenClause));
-                expressionTypes.put(whenClause, whenClauseType);
+                setExpressionType(whenClause, whenClauseType);
             }
 
             return type;
@@ -508,12 +500,11 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context,
                     "All CASE results must be the same type: %s",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
-            expressionTypes.put(node, type);
+            setExpressionType(node, type);
 
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Type whenClauseType = process(whenClause.getResult(), context);
-                requireNonNull(whenClauseType, format("Expression types does not contain an entry for %s", whenClause));
-                expressionTypes.put(whenClause, whenClauseType);
+                setExpressionType(whenClause, whenClauseType);
             }
 
             return type;
@@ -534,8 +525,7 @@ public class ExpressionAnalyzer
         {
             Type type = coerceToSingleType(context, "All COALESCE operands must be the same type: %s", node.getOperands());
 
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -550,8 +540,7 @@ public class ExpressionAnalyzer
                         // that types can chose to implement, or piggyback on the existence of the negation operator
                         throw new SemanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);
                     }
-                    expressionTypes.put(node, type);
-                    return type;
+                    return setExpressionType(node, type);
                 case MINUS:
                     return getOperator(context, node, OperatorType.NEGATION, node.getValue());
             }
@@ -577,8 +566,7 @@ public class ExpressionAnalyzer
                 coerceType(context, node.getEscape(), escapeType, "Escape for LIKE expression");
             }
 
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return setExpressionType(node, BOOLEAN);
         }
 
         private Type getVarcharType(Expression value, StackableAstVisitorContext<Context> context)
@@ -601,65 +589,56 @@ public class ExpressionAnalyzer
         {
             Type type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
             Type arrayType = typeManager.getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
-            expressionTypes.put(node, arrayType);
-            return arrayType;
+            return setExpressionType(node, arrayType);
         }
 
         @Override
         protected Type visitStringLiteral(StringLiteral node, StackableAstVisitorContext<Context> context)
         {
             VarcharType type = VarcharType.createVarcharType(SliceUtf8.countCodePoints(node.getSlice()));
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
         protected Type visitCharLiteral(CharLiteral node, StackableAstVisitorContext<Context> context)
         {
             CharType type = CharType.createCharType(node.getValue().length());
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
         protected Type visitBinaryLiteral(BinaryLiteral node, StackableAstVisitorContext<Context> context)
         {
-            expressionTypes.put(node, VARBINARY);
-            return VARBINARY;
+            return setExpressionType(node, VARBINARY);
         }
 
         @Override
         protected Type visitLongLiteral(LongLiteral node, StackableAstVisitorContext<Context> context)
         {
             if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
-                expressionTypes.put(node, INTEGER);
-                return INTEGER;
+                return setExpressionType(node, INTEGER);
             }
 
-            expressionTypes.put(node, BIGINT);
-            return BIGINT;
+            return setExpressionType(node, BIGINT);
         }
 
         @Override
         protected Type visitDoubleLiteral(DoubleLiteral node, StackableAstVisitorContext<Context> context)
         {
-            expressionTypes.put(node, DOUBLE);
-            return DOUBLE;
+            return setExpressionType(node, DOUBLE);
         }
 
         @Override
         protected Type visitDecimalLiteral(DecimalLiteral node, StackableAstVisitorContext<Context> context)
         {
             DecimalParseResult parseResult = Decimals.parse(node.getValue());
-            expressionTypes.put(node, parseResult.getType());
-            return parseResult.getType();
+            return setExpressionType(node, parseResult.getType());
         }
 
         @Override
         protected Type visitBooleanLiteral(BooleanLiteral node, StackableAstVisitorContext<Context> context)
         {
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override
@@ -679,8 +658,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -693,8 +671,7 @@ public class ExpressionAnalyzer
             else {
                 type = TIME;
             }
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -714,8 +691,7 @@ public class ExpressionAnalyzer
             else {
                 type = TIMESTAMP;
             }
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -728,15 +704,13 @@ public class ExpressionAnalyzer
             else {
                 type = INTERVAL_DAY_TIME;
             }
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
         protected Type visitNullLiteral(NullLiteral node, StackableAstVisitorContext<Context> context)
         {
-            expressionTypes.put(node, UNKNOWN);
-            return UNKNOWN;
+            return setExpressionType(node, UNKNOWN);
         }
 
         @Override
@@ -798,7 +772,7 @@ public class ExpressionAnalyzer
                                         isDescribe);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration argument : context.getContext().getNameToLambdaArgumentDeclarationMap().values()) {
-                                        innerExpressionAnalyzer.expressionTypes.put(argument, expressionTypes.get(argument));
+                                        innerExpressionAnalyzer.setExpressionType(argument, expressionTypes.get(argument));
                                     }
                                 }
                                 return innerExpressionAnalyzer.analyze(expression, scope, context.getContext().expectingLambda(types)).getTypeSignature();
@@ -843,9 +817,7 @@ public class ExpressionAnalyzer
             resolvedFunctions.put(node, function);
 
             Type type = typeManager.getType(function.getReturnType());
-            expressionTypes.put(node, type);
-
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -863,17 +835,15 @@ public class ExpressionAnalyzer
             else if (valueType.equals(TIMESTAMP)) {
                 resultType = TIMESTAMP_WITH_TIME_ZONE;
             }
-            expressionTypes.put(node, resultType);
 
-            return resultType;
+            return setExpressionType(node, resultType);
         }
 
         @Override
         protected Type visitParameter(Parameter node, StackableAstVisitorContext<Context> context)
         {
             if (isDescribe) {
-                expressionTypes.put(node, UNKNOWN);
-                return UNKNOWN;
+                return setExpressionType(node, UNKNOWN);
             }
             if (parameters.size() == 0) {
                 throw new SemanticException(INVALID_PARAMETER_USAGE, node, "query takes no parameters");
@@ -883,8 +853,7 @@ public class ExpressionAnalyzer
             }
 
             Type resultType = process(parameters.get(node.getPosition()), context);
-            expressionTypes.put(node, resultType);
-            return resultType;
+            return setExpressionType(node, resultType);
         }
 
         @Override
@@ -899,8 +868,7 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
             }
 
-            expressionTypes.put(node, BIGINT);
-            return BIGINT;
+            return setExpressionType(node, BIGINT);
         }
 
         private boolean isDateTimeType(Type type)
@@ -927,8 +895,7 @@ public class ExpressionAnalyzer
                 throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Try expression inside lambda expression is not support yet");
             }
             Type type = process(node.getInnerExpression(), context);
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -953,8 +920,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -977,8 +943,7 @@ public class ExpressionAnalyzer
                 coerceToSingleType(context, node, "value and result of subquery must be of the same type for IN expression: %s vs %s", value, valueList);
             }
 
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override
@@ -986,7 +951,7 @@ public class ExpressionAnalyzer
         {
             Type type = coerceToSingleType(context, "All IN list values must be the same type: %s", node.getValues());
 
-            expressionTypes.put(node, type);
+            setExpressionType(node, type);
             return type; // TODO: this really should a be relation type
         }
 
@@ -1022,8 +987,7 @@ public class ExpressionAnalyzer
             }
 
             Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -1035,8 +999,7 @@ public class ExpressionAnalyzer
 
             existsSubqueries.add(node);
 
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override
@@ -1069,16 +1032,14 @@ public class ExpressionAnalyzer
                     checkState(false, "Unexpected comparison type: %s", node.getComparisonType());
             }
 
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override
         public Type visitFieldReference(FieldReference node, StackableAstVisitorContext<Context> context)
         {
             Type type = scope.getRelationType().getFieldByIndex(node.getFieldIndex()).getType();
-            expressionTypes.put(node, type);
-            return type;
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -1100,12 +1061,11 @@ public class ExpressionAnalyzer
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
                 nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName(), lambdaArgument);
-                expressionTypes.put(lambdaArgument, types.get(i));
+                setExpressionType(lambdaArgument, types.get(i));
             }
             Type returnType = process(node.getBody(), new StackableAstVisitorContext<Context>(Context.inLambda(nameToLambdaArgumentDeclarationMap)));
             FunctionType functionType = new FunctionType(types, returnType);
-            expressionTypes.put(node, functionType);
-            return functionType;
+            return setExpressionType(node, functionType);
         }
 
         @Override
@@ -1125,8 +1085,7 @@ public class ExpressionAnalyzer
             verify(functionInputTypes.get(0) == argumentTypes.get(0));
 
             FunctionType result = new FunctionType(argumentTypes.subList(1, argumentTypes.size()), functionType.getReturnType());
-            expressionTypes.put(node, result);
-            return result;
+            return setExpressionType(node, result);
         }
 
         @Override
@@ -1169,9 +1128,7 @@ public class ExpressionAnalyzer
             }
 
             Type type = typeManager.getType(operatorSignature.getReturnType());
-            expressionTypes.put(node, type);
-
-            return type;
+            return setExpressionType(node, type);
         }
 
         private void coerceType(Expression expression, Type actualType, Type expectedType, String message)
