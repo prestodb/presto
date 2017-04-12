@@ -610,7 +610,7 @@ class StatementAnalyzer
 
             Scope queryScope = Scope.builder()
                     .withParent(withScope)
-                    .withRelationType(queryBodyScope.getRelationType())
+                    .withRelationType(RelationId.of(node), queryBodyScope.getRelationType())
                     .build();
             analysis.setScope(node, queryScope);
             return queryScope;
@@ -1571,7 +1571,7 @@ class StatementAnalyzer
             // ORDER BY should "see" both output and FROM fields during initial analysis and non-aggregation query planning
             Scope orderByScope = Scope.builder()
                     .withParent(sourceScope)
-                    .withRelationType(outputScope.getRelationType())
+                    .withRelationType(outputScope.getRelationId(), outputScope.getRelationType())
                     .build();
             analysis.setScope(node, orderByScope);
             return orderByScope;
@@ -1604,12 +1604,12 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             Scope orderByAggregationScope = Scope.builder()
-                    .withRelationType(new RelationType(orderByAggregationSourceFields))
+                    .withRelationType(RelationId.anonymous(), new RelationType(orderByAggregationSourceFields))
                     .build();
 
             Scope orderByScope = Scope.builder()
                     .withParent(orderByAggregationScope)
-                    .withRelationType(outputScope.getRelationType())
+                    .withRelationType(outputScope.getRelationId(), outputScope.getRelationType())
                     .build();
             analysis.setScope(node, orderByScope);
             analysis.setOrderByAggregates(node, orderByAggregationExpressions);
@@ -1983,7 +1983,7 @@ class StatementAnalyzer
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType)
         {
             Scope scope = scopeBuilder(parentScope)
-                    .withRelationType(relationType)
+                    .withRelationType(RelationId.of(node), relationType)
                     .build();
 
             analysis.setScope(node, scope);
