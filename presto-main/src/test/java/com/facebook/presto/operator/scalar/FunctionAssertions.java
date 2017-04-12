@@ -472,7 +472,7 @@ public final class FunctionAssertions
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (analysis.getColumnReferences().contains(node)) {
+                if (analysis.isColumnReference(node)) {
                     return rewriteExpression(node, context, treeRewriter);
                 }
 

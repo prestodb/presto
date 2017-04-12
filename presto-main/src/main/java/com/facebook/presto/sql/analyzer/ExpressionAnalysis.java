@@ -88,9 +88,9 @@ public class ExpressionAnalysis
         return typeOnlyCoercions.contains(expression);
     }
 
-    public Set<Expression> getColumnReferences()
+    public boolean isColumnReference(Expression node)
     {
-        return columnReferences;
+        return columnReferences.contains(node);
     }
 
     public Set<InPredicate> getSubqueryInPredicates()
