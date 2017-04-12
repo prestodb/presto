@@ -73,25 +73,28 @@ public class CachingHiveMetastore
     @Inject
     public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
     {
-        this(requireNonNull(delegate, "delegate is null"),
-                requireNonNull(executor, "executor is null"),
-                requireNonNull(hiveClientConfig, "hiveClientConfig is null").getMetastoreCacheTtl(),
+        this(
+                delegate,
+                executor,
+                hiveClientConfig.getMetastoreCacheTtl(),
                 hiveClientConfig.getMetastoreRefreshInterval(),
                 hiveClientConfig.getMetastoreCacheMaximumSize());
     }
 
     public CachingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, Duration cacheTtl, Duration refreshInterval, long maximumSize)
     {
-        this(requireNonNull(delegate, "delegate is null"),
-                requireNonNull(executor, "executor is null"),
-                OptionalLong.of(requireNonNull(cacheTtl, "cacheTtl is null").toMillis()),
-                OptionalLong.of(requireNonNull(refreshInterval, "refreshInterval is null").toMillis()),
+        this(
+                delegate,
+                executor,
+                OptionalLong.of(cacheTtl.toMillis()),
+                refreshInterval.toMillis() >= cacheTtl.toMillis() ? OptionalLong.empty() : OptionalLong.of(refreshInterval.toMillis()),
                 maximumSize);
     }
 
     public static CachingHiveMetastore memoizeMetastore(ExtendedHiveMetastore delegate, long maximumSize)
     {
-        return new CachingHiveMetastore(requireNonNull(delegate, "delegate is null"),
+        return new CachingHiveMetastore(
+                delegate,
                 newDirectExecutorService(),
                 OptionalLong.empty(),
                 OptionalLong.empty(),
@@ -100,7 +103,8 @@ public class CachingHiveMetastore
 
     private CachingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, OptionalLong expiresAfterWriteMillis, OptionalLong refreshMills, long maximumSize)
     {
-        this.delegate = delegate;
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        requireNonNull(executor, "executor is null");
 
         databaseNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(new CacheLoader<String, List<String>>()
@@ -618,7 +622,7 @@ public class CachingHiveMetastore
         if (expiresAfterWriteMillis.isPresent()) {
             cacheBuilder = cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
         }
-        if (refreshMillis.isPresent()) {
+        if (refreshMillis.isPresent() && (!expiresAfterWriteMillis.isPresent() || expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
             cacheBuilder = cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
         }
         cacheBuilder = cacheBuilder.maximumSize(maximumSize);
