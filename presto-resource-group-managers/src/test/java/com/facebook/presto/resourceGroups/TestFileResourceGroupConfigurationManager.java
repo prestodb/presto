@@ -42,7 +42,7 @@ public class TestFileResourceGroupConfigurationManager
         assertFails("resource_groups_config_bad_root.json", "Duplicated root group: global");
         assertFails("resource_groups_config_bad_sub_group.json", "Duplicated sub group: sub");
         assertFails("resource_groups_config_bad_group_id.json", "Invalid resource group name. 'glo.bal' contains a '.'");
-        assertFails("resource_groups_config_bad_query_priority_scheduling_policy.json", "Must use \"weight\" scheduling policy when using scheduling weight");
+        assertFails("resource_groups_config_bad_query_priority_scheduling_policy.json", "Must use \"weighted\" scheduling policy when using scheduling weight");
         assertFails("resource_groups_config_bad_weighted_scheduling_policy.json", "Must specify scheduling weight for each sub group when using \"weighted\" scheduling policy");
     }
 
