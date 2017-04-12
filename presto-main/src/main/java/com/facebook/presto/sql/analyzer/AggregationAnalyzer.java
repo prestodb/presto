@@ -199,7 +199,8 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitExists(ExistsPredicate node, Void context)
         {
-            return true;
+            checkState(node.getSubquery() instanceof SubqueryExpression);
+            return process(node.getSubquery(), context);
         }
 
         @Override
