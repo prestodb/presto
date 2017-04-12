@@ -168,7 +168,7 @@ public class ExpressionInterpreter
     public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, List<Expression> parameters)
     {
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
-        analyzer.analyze(expression, Scope.builder().build());
+        analyzer.analyze(expression, Scope.create());
 
         Type actualType = analyzer.getExpressionTypes().get(expression);
         if (!metadata.getTypeManager().canCoerce(actualType, expectedType)) {
@@ -215,7 +215,7 @@ public class ExpressionInterpreter
 
         // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
-        analyzer.analyze(rewrite, Scope.builder().build());
+        analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
         rewrite = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(analyzer.getExpressionTypes()), rewrite);
@@ -227,7 +227,7 @@ public class ExpressionInterpreter
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
         analyzer = createConstantAnalyzer(metadata, session, parameters);
-        analyzer.analyze(canonicalized, Scope.builder().build());
+        analyzer.analyze(canonicalized, Scope.create());
 
         // evaluate the expression
         Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);

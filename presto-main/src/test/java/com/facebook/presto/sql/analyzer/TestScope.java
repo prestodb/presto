@@ -30,7 +30,7 @@ public class TestScope
     @Test
     public void test()
     {
-        Scope root = Scope.builder().build();
+        Scope root = Scope.create();
 
         Field outerColumn1 = Field.newQualified(QualifiedName.of("outer", "column1"), Optional.of("c1"), BIGINT, false, Optional.empty(), false);
         Field outerColumn2 = Field.newQualified(QualifiedName.of("outer", "column2"), Optional.of("c2"), BIGINT, false, Optional.empty(), false);
