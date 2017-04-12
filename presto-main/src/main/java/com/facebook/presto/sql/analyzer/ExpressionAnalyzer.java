@@ -1389,7 +1389,7 @@ public class ExpressionAnalyzer
         Analysis analysis = new Analysis(null, parameters, isDescribe);
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types);
         for (Expression expression : expressions) {
-            analyzer.analyze(expression, Scope.builder().withRelationType(tupleDescriptor).build());
+            analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), tupleDescriptor).build());
         }
 
         return new ExpressionAnalysis(
