@@ -13,18 +13,15 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.util.AstUtils;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.Objects;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -41,53 +38,25 @@ class ScopeReferenceExtractor
 
     public static List<Expression> getReferencesToScope(Node node, Analysis analysis, Scope scope)
     {
-        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-        new Visitor(analysis, scope).process(node, builder);
-        return builder.build();
+        Map<Expression, FieldId> columnReferences = analysis.getColumnReferenceFields();
+
+        List<Expression> referencesToScope = AstUtils.preOrder(node)
+                .filter(columnReferences::containsKey)
+                .map(Expression.class::cast)
+                .filter(expression -> isReferenceToScope(expression, scope, columnReferences))
+                .collect(toImmutableList());
+
+        return referencesToScope;
     }
 
-    private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Expression>>
+    private static boolean isReferenceToScope(Expression node, Scope scope, Map<Expression, FieldId> columnReferences)
     {
-        private final Analysis analysis;
-        private final Scope scope;
+        FieldId fieldId = requireNonNull(columnReferences.get(node), () -> "No FieldId for " + node);
+        return isFieldFromScope(fieldId, scope);
+    }
 
-        private Visitor(Analysis analysis, Scope scope)
-        {
-            this.analysis = requireNonNull(analysis, "analysis is null");
-            this.scope = requireNonNull(scope, "scope is null");
-        }
-
-        @Override
-        protected Void visitIdentifier(Identifier node, ImmutableList.Builder<Expression> context)
-        {
-            if (!analysis.getLambdaArgumentReferences().containsKey(node) && isReferenceToScope(node, QualifiedName.of(node.getName()))) {
-                context.add(node);
-            }
-            return null;
-        }
-
-        @Override
-        protected Void visitLambdaExpression(LambdaExpression node, ImmutableList.Builder<Expression> context)
-        {
-            return process(node.getBody(), context);
-        }
-
-        @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableList.Builder<Expression> context)
-        {
-            if (analysis.getColumnReferences().contains(node) && isReferenceToScope(node, DereferenceExpression.getQualifiedName(node))) {
-                context.add(node);
-                return null;
-            }
-
-            return super.visitDereferenceExpression(node, context);
-        }
-
-        private boolean isReferenceToScope(Expression node, QualifiedName qualifiedName)
-        {
-            Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
-            return resolvedField.isPresent() && resolvedField.get().getScope().equals(scope);
-        }
+    public static boolean isFieldFromScope(FieldId fieldId, Scope scope)
+    {
+        return Objects.equals(fieldId.getRelationId(), scope.getRelationId());
     }
 }
