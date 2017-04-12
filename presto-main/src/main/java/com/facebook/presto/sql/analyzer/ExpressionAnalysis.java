@@ -25,7 +25,6 @@ import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 
 import java.util.Set;
 
-import static com.facebook.presto.util.MoreSets.newIdentityHashSet;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionAnalysis
@@ -33,7 +32,7 @@ public class ExpressionAnalysis
     private final IdentityLinkedHashMap<Expression, Type> expressionTypes;
     private final IdentityLinkedHashMap<Expression, Type> expressionCoercions;
     private final Set<Expression> typeOnlyCoercions;
-    private final Set<Expression> columnReferences;
+    private final IdentityLinkedHashMap<Expression, FieldId> columnReferences;
     private final Set<InPredicate> subqueryInPredicates;
     private final Set<SubqueryExpression> scalarSubqueries;
     private final Set<ExistsPredicate> existsSubqueries;
@@ -47,7 +46,7 @@ public class ExpressionAnalysis
             Set<InPredicate> subqueryInPredicates,
             Set<SubqueryExpression> scalarSubqueries,
             Set<ExistsPredicate> existsSubqueries,
-            Set<Expression> columnReferences,
+            IdentityLinkedHashMap<Expression, FieldId> columnReferences,
             Set<Expression> typeOnlyCoercions,
             Set<QuantifiedComparisonExpression> quantifiedComparisons,
             IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences)
@@ -55,7 +54,7 @@ public class ExpressionAnalysis
         this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
         this.expressionCoercions = requireNonNull(expressionCoercions, "expressionCoercions is null");
         this.typeOnlyCoercions = requireNonNull(typeOnlyCoercions, "typeOnlyCoercions is null");
-        this.columnReferences = newIdentityHashSet(requireNonNull(columnReferences, "columnReferences is null"));
+        this.columnReferences = new IdentityLinkedHashMap<>(requireNonNull(columnReferences, "columnReferences is null"));
         this.subqueryInPredicates = requireNonNull(subqueryInPredicates, "subqueryInPredicates is null");
         this.scalarSubqueries = requireNonNull(scalarSubqueries, "subqueryInPredicates is null");
         this.existsSubqueries = requireNonNull(existsSubqueries, "existsSubqueries is null");
@@ -90,7 +89,7 @@ public class ExpressionAnalysis
 
     public boolean isColumnReference(Expression node)
     {
-        return columnReferences.contains(node);
+        return columnReferences.containsKey(node);
     }
 
     public Set<InPredicate> getSubqueryInPredicates()
