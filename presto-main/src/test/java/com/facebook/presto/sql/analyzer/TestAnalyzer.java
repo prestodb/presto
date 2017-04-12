@@ -1220,6 +1220,40 @@ public class TestAnalyzer
                 NOT_SUPPORTED,
                 ".* Lambda expression cannot contain subqueries",
                 "SELECT apply(1, i -> (SELECT i)) FROM (VALUES 1) t(x)");
+
+        // GROUP BY column captured in lambda
+        analyze(
+                "SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
+
+        // non-GROUP BY column captured in lambda
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:34: Subquery uses '\"a\"' which must appear in GROUP BY clause",
+                "SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +
+                        "FROM t1 u GROUP BY b");
+        // TODO #7784
+//        assertFails(
+//                MUST_BE_AGGREGATE_OR_GROUP_BY,
+//                "line 1:34: Subquery uses '\"u.a\"' which must appear in GROUP BY clause",
+//                "SELECT (SELECT apply(0, x -> x + u.a) from (values 1) x(a)) " +
+//                        "FROM t1 u GROUP BY b");
+
+        // name shadowing
+        analyze("SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
+        analyze("SELECT (SELECT apply(0, a -> a + a)) FROM t1 u GROUP BY b");
+    }
+
+    @Test
+    public void testLambdaWithSubqueryInOrderBy()
+    {
+        analyze("SELECT a FROM t1 ORDER BY (SELECT apply(0, x -> x + a))");
+        analyze("SELECT a AS output_column FROM t1 ORDER BY (SELECT apply(0, x -> x + output_column))");
+        analyze("SELECT count(*) FROM t1 GROUP BY a ORDER BY (SELECT apply(0, x -> x + a))");
+        analyze("SELECT count(*) AS output_column FROM t1 GROUP BY a ORDER BY (SELECT apply(0, x -> x + output_column))");
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:71: Subquery uses '\"b\"' which must appear in GROUP BY clause",
+                "SELECT count(*) FROM t1 GROUP BY a ORDER BY (SELECT apply(0, x -> x + b))");
     }
 
     @Test
