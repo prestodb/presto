@@ -473,6 +473,41 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testOrderByWithGroupByAndSubquerySelectExpression()
+            throws Exception
+    {
+        analyze("SELECT a FROM t1 GROUP BY a ORDER BY (SELECT a)");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:46: Subquery uses '\"b\"' which must appear in GROUP BY clause",
+                "SELECT a FROM t1 GROUP BY a ORDER BY (SELECT b)");
+
+        analyze("SELECT a AS b FROM t1 GROUP BY t1.a ORDER BY (SELECT b)");
+
+        assertFails(
+                REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION,
+                "line 2:22: Invalid reference to output projection attribute from ORDER BY aggregation",
+                "SELECT a AS b FROM t1 GROUP BY t1.a \n" +
+                        "ORDER BY MAX((SELECT b))");
+
+        analyze("SELECT a FROM t1 GROUP BY a ORDER BY MAX((SELECT x FROM (VALUES 4) t(x)))");
+
+        analyze("SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
+                "FROM (VALUES (1, 2)) t(a, b)\n" +
+                "GROUP BY b\n" +
+                "ORDER BY (SELECT x.someField)");
+
+        assertFails(
+                REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION,
+                "line 4:22: Invalid reference to output projection attribute from ORDER BY aggregation",
+                "SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
+                        "FROM (VALUES (1, 2)) t(a, b)\n" +
+                        "GROUP BY b\n" +
+                        "ORDER BY MAX((SELECT x.someField))");
+    }
+
+    @Test
     public void testMismatchedColumnAliasCount()
             throws Exception
     {
