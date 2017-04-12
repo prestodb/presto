@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
@@ -41,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -60,11 +63,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
@@ -72,12 +77,15 @@ public class PlanBuilder
 {
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
+   private final Session session;
+
     private final Map<Symbol, Type> symbols = new HashMap<>();
 
-    public PlanBuilder(PlanNodeIdAllocator idAllocator, Metadata metadata)
+    public PlanBuilder(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
     {
         this.idAllocator = idAllocator;
         this.metadata = metadata;
+        this.session = session;
     }
 
     public ValuesNode values(Symbol... columns)
@@ -196,11 +204,23 @@ public class PlanBuilder
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation);
     }
 
+    public SemiJoinNode semiJoin(PlanNode source, PlanNode filteringSource, Symbol sourceJoinSymbol, Symbol filteringSourceJoinSymbol, Symbol semiJoinOutput)
+    {
+        return new SemiJoinNode(idAllocator.getNextId(),
+                source,
+                filteringSource,
+                sourceJoinSymbol,
+                filteringSourceJoinSymbol,
+                semiJoinOutput,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
         Expression originalConstraint = null;
-        return new TableScanNode(
-                idAllocator.getNextId(),
+        return new TableScanNode(idAllocator.getNextId(),
                 new TableHandle(
                         new ConnectorId("testConnector"),
                         new TestingTableHandle()),
@@ -208,8 +228,26 @@ public class PlanBuilder
                 assignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                originalConstraint
-        );
+                originalConstraint);
+    }
+
+    public TableScanNode tableScan(String tableName, Map<String, String> symbolMap)
+    {
+        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
+        verify(tableHandle.isPresent(), "Unknown table %s", name);
+        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle.get());
+        Map<Symbol, ColumnHandle> assignments = symbolMap.entrySet().stream()
+                .filter(entry -> columns.containsKey(entry.getValue()))
+                .collect(Collectors.toMap(entry -> new Symbol(entry.getKey()), entry -> columns.get(entry.getValue())));
+        List<Symbol> symbols = ImmutableList.copyOf(assignments.keySet());
+        return new TableScanNode(idAllocator.getNextId(),
+                tableHandle.get(),
+                symbols,
+                assignments,
+                Optional.empty(),
+                TupleDomain.all(),
+                null);
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)

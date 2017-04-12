@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.apply;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
@@ -320,5 +321,24 @@ public class TestLogicalPlanner
                                                                                         tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
                                                                                 project(ImmutableMap.of("NON_NULL", expression("true")),
                                                                                         node(ValuesNode.class)))))))))));
+    }
+
+    @Test
+    public void testRemoveDistinctFromSemiJoin()
+    {
+        assertPlan(
+                "SELECT orderkey FROM orders " +
+                        "WHERE custkey " +
+                        "IN (SELECT distinct custkey FROM customer)",
+                anyTree(
+                        semiJoin("Source", "Filter", "Output",
+                                anyTree(tableScan("orders", ImmutableMap.of("Source", "custkey"))),
+                                anyNot(AggregationNode.class,
+                                        anyNot(AggregationNode.class,
+                                                tableScan("customer", ImmutableMap.of("Filter", "custkey"))
+                                ))
+                        )
+                )
+        );
     }
 }

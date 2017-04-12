@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
@@ -76,7 +77,9 @@ public class RuleAssert
     {
         checkArgument(plan == null, "plan has already been set");
 
-        PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
+        TransactionId transactionId = transactionManager.beginTransaction(TransactionManager.DEFAULT_ISOLATION, false, false);
+        this.session = session.beginTransactionId(transactionId, transactionManager, accessControl);
+        PlanBuilder builder = new PlanBuilder(idAllocator, metadata, session);
         plan = planProvider.apply(builder);
         symbols = builder.getSymbols();
         return this;

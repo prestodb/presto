@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistin
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveDistinctFromSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
@@ -190,6 +191,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 // add UnaliasSymbolReferences when it's ported
                                 new RemoveRedundantIdentityProjections(),
+                                new RemoveDistinctFromSemiJoin(),
                                 new SwapAdjacentWindowsByPartitionsOrder())),
                 inlineProjections,
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
