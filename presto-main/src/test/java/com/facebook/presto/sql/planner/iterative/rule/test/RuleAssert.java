@@ -24,6 +24,9 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
@@ -39,16 +42,18 @@ public class RuleAssert
     private final Metadata metadata;
     private Session session;
     private final Rule rule;
+    private final QueryRunner queryRunner;
 
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
     private Map<Symbol, Type> symbols;
     private PlanNode plan;
 
-    public RuleAssert(Metadata metadata, Session session, Rule rule)
+    public RuleAssert(Metadata metadata, Session session, QueryRunner queryRunner,  Rule rule)
     {
         this.metadata = metadata;
         this.session = session;
+        this.queryRunner = queryRunner;
         this.rule = rule;
     }
 
@@ -69,7 +74,9 @@ public class RuleAssert
     {
         checkArgument(plan == null, "plan has already been set");
 
-        PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
+        TransactionId transactionId = queryRunner.getTransactionManager().beginTransaction(TransactionManager.DEFAULT_ISOLATION, true, true);
+        this.session = session.beginTransactionId(transactionId, queryRunner.getTransactionManager(), queryRunner.getAccessControl());
+        PlanBuilder builder = new PlanBuilder(idAllocator, metadata, session);
         plan = planProvider.apply(builder);
         symbols = builder.getSymbols();
         return this;
