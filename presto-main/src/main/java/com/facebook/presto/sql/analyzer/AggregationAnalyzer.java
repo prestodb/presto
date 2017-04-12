@@ -63,13 +63,13 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.LambdaReferenceExtractor.hasReferencesToLambdaArgument;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
+import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.isFieldFromScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
@@ -578,10 +578,5 @@ class AggregationAnalyzer
                 .ifPresent(expression -> {
                     throw new SemanticException(REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION, expression, "Invalid reference to output projection attribute from ORDER BY aggregation");
                 });
-    }
-
-    public static boolean isFieldFromScope(FieldId fieldId, Scope scope)
-    {
-        return Objects.equals(fieldId.getRelationId(), scope.getRelationId());
     }
 }
