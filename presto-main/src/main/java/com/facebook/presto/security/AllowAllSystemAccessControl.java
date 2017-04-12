@@ -111,7 +111,7 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanShowTables(Identity identity, CatalogSchemaName schema)
+    public void checkCanShowTablesMetadata(Identity identity, CatalogSchemaName schema)
     {
     }
 
