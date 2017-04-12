@@ -51,7 +51,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowTables(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
     {
     }
 

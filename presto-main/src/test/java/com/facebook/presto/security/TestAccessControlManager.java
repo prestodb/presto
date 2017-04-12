@@ -97,7 +97,7 @@ public class TestAccessControlManager
                     accessControlManager.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
                     accessControlManager.checkCanCreateViewWithSelectFromView(transactionId, identity, tableName);
                     accessControlManager.checkCanShowSchemas(transactionId, identity, "catalog");
-                    accessControlManager.checkCanShowTables(transactionId, identity, new CatalogSchemaName("catalog", "schema"));
+                    accessControlManager.checkCanShowTablesMetadata(transactionId, identity, new CatalogSchemaName("catalog", "schema"));
                     Set<String> catalogs = ImmutableSet.of("catalog");
                     assertEquals(accessControlManager.filterCatalogs(identity, catalogs), catalogs);
                     Set<String> schemas = ImmutableSet.of("schema");

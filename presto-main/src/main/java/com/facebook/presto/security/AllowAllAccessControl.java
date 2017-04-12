@@ -79,7 +79,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowTables(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
+    public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
     {
     }
 

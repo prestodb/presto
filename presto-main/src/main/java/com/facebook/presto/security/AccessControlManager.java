@@ -272,16 +272,16 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanShowTables(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
+    public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(schema, "schema is null");
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanShowTables(identity, schema));
+        authorizationCheck(() -> systemAccessControl.get().checkCanShowTablesMetadata(identity, schema));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schema.getCatalogName());
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanShowTables(entry.getTransactionHandle(transactionId), identity, schema.getSchemaName()));
+            authorizationCheck(() -> entry.getAccessControl().checkCanShowTablesMetadata(entry.getTransactionHandle(transactionId), identity, schema.getSchemaName()));
         }
     }
 

@@ -108,14 +108,14 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename table from %s to %s%s", tableName, newTableName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyShowTables(String schemaName)
+    public static void denyShowTablesMetadata(String schemaName)
     {
-        denyShowTables(schemaName, null);
+        denyShowTablesMetadata(schemaName, null);
     }
 
-    public static void denyShowTables(String schemaName, String extraInfo)
+    public static void denyShowTablesMetadata(String schemaName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot show tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot show metadata of tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyAddColumn(String tableName)

@@ -40,7 +40,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTables;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
 
 public interface SystemAccessControl
 {
@@ -149,7 +149,7 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute SHOW TABLES in a catalog.
+     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
      *
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterTables} method must filter all results for unauthorized users,
@@ -157,9 +157,9 @@ public interface SystemAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowTables(Identity identity, CatalogSchemaName schema)
+    default void checkCanShowTablesMetadata(Identity identity, CatalogSchemaName schema)
     {
-        denyShowTables(schema.toString());
+        denyShowTablesMetadata(schema.toString());
     }
 
     /**

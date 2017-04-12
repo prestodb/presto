@@ -89,7 +89,7 @@ public interface AccessControl
     void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName);
 
     /**
-     * Check if identity is allowed to execute SHOW TABLES in a catalog.
+     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
      *
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterTables} method must filter all results for unauthorized users,
@@ -97,7 +97,7 @@ public interface AccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowTables(TransactionId transactionId, Identity identity, CatalogSchemaName schema);
+    void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, CatalogSchemaName schema);
 
     /**
      * Filter the list of tables and views to those visible to the identity.

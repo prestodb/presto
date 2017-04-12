@@ -141,7 +141,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanShowTables(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
     {
     }
 
