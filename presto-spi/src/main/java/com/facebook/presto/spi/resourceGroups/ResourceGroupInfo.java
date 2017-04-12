@@ -50,7 +50,21 @@ public class ResourceGroupInfo
             @JsonProperty("numEligibleSubGroups") int numEligibleSubGroups,
             @JsonProperty("memoryUsage") DataSize memoryUsage,
             @JsonProperty("numAggregatedRunningQueries") int numAggregatedRunningQueries,
-            @JsonProperty("numAggregatedQueuedQueries") int numAggregatedQueuedQueries,
+            @JsonProperty("numAggregatedQueuedQueries") int numAggregatedQueuedQueries)
+    {
+        this(id, softMemoryLimit, maxRunningQueries, maxQueuedQueries, state, numEligibleSubGroups, memoryUsage, numAggregatedRunningQueries, numAggregatedQueuedQueries, emptyList());
+    }
+
+    public ResourceGroupInfo(
+            ResourceGroupId id,
+            DataSize softMemoryLimit,
+            int maxRunningQueries,
+            int maxQueuedQueries,
+            ResourceGroupState state,
+            int numEligibleSubGroups,
+            DataSize memoryUsage,
+            int numAggregatedRunningQueries,
+            int numAggregatedQueuedQueries,
             List<ResourceGroupInfo> subGroups)
     {
         this.id = requireNonNull(id, "id is null");
@@ -142,7 +156,6 @@ public class ResourceGroupInfo
                 getNumEligibleSubGroups(),
                 getMemoryUsage(),
                 getNumAggregatedRunningQueries(),
-                getNumAggregatedQueuedQueries(),
-                emptyList());
+                getNumAggregatedQueuedQueries());
     }
 }
