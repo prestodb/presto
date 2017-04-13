@@ -69,21 +69,21 @@ public class TupleExpressionJacksonModule
         super(baseClass.getSimpleName() + "Module", Version.unknownVersion());
 
         TypeIdResolver typeResolver = new InternalTypeResolver(handleResolver::getId,
-                handleResolver::getColumnHandleClass,getExpressionResolver());
+                handleResolver::getColumnHandleClass, getExpressionResolver());
 
         addSerializer(baseClass, new InternalTypeSerializer(baseClass, typeResolver));
         addDeserializer(baseClass, new InternalTypeDeserializer(baseClass, typeResolver));
     }
 
-    public Map<String,Class<? extends TupleExpression>> getExpressionResolver()
+    public Map<String, Class<? extends TupleExpression>> getExpressionResolver()
     {
-        ImmutableMap.Builder<String,Class<? extends TupleExpression>> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Class<? extends TupleExpression>> builder = ImmutableMap.builder();
         builder.put("all", AllExpression.class);
         builder.put("none", NoneExpression.class);
         builder.put("or", OrExpression.class);
         builder.put("and", AndExpression.class);
-        builder.put("domain",DomainExpression.class);
-        builder.put("not",NoneExpression.class);
+        builder.put("domain", DomainExpression.class);
+        builder.put("not", NoneExpression.class);
         return builder.build();
     }
 
@@ -106,7 +106,6 @@ public class TupleExpressionJacksonModule
                 throws IOException
         {
 
-
             TupleExpression expression = (TupleExpression) (typeDeserializer.deserializeTypedFromAny(jsonParser, deserializationContext));
 
             return expression;
@@ -123,6 +122,15 @@ public class TupleExpressionJacksonModule
         {
             super(baseClass);
             this.typeSerializer = new AsPropertyTypeSerializer(typeIdResolver, null, TYPE_PROPERTY);
+        }
+
+        @SuppressWarnings("unchecked")
+        private static <T> JsonSerializer<T> createSerializer(SerializerProvider provider, Class<?> type)
+                throws JsonMappingException
+        {
+            JavaType javaType = provider.getTypeFactory().constructParametricType(type, ColumnHandle.class);
+
+            return (JsonSerializer<T>) BeanSerializerFactory.instance.createSerializer(provider, javaType);
         }
 
         @Override
@@ -144,29 +152,17 @@ public class TupleExpressionJacksonModule
                 throw Throwables.propagate(e.getCause());
             }
         }
-
-        @SuppressWarnings("unchecked")
-        private static <T> JsonSerializer<T> createSerializer(SerializerProvider provider, Class<?> type)
-                throws JsonMappingException
-        {
-            JavaType javaType = provider.getTypeFactory().constructParametricType(type,ColumnHandle.class);
-
-            return (JsonSerializer<T>) BeanSerializerFactory.instance.createSerializer(provider, javaType);
-        }
-
-
     }
 
-
-    private static  class InternalTypeResolver
+    private static class InternalTypeResolver
             extends TypeIdResolverBase
     {
         private final Function<ColumnHandle, String> nameResolver;
         private final Function<String, Class<? extends ColumnHandle>> classResolver;
-        private final Map<String,Class<? extends TupleExpression>> expressionResolver;
+        private final Map<String, Class<? extends TupleExpression>> expressionResolver;
 
         public InternalTypeResolver(Function<ColumnHandle, String> nameResolver, Function<String, Class<? extends ColumnHandle>> classResolver,
-                Map<String,Class<? extends TupleExpression>> expressionResolver)
+                Map<String, Class<? extends TupleExpression>> expressionResolver)
         {
             this.nameResolver = requireNonNull(nameResolver, "nameResolver is null");
             this.classResolver = requireNonNull(classResolver, "classResolver is null");
@@ -184,40 +180,34 @@ public class TupleExpressionJacksonModule
         public String idFromValueAndType(Object value, Class<?> suggestedType)
         {
             requireNonNull(value, "value is null");
-            if(value instanceof TupleExpression) {
-                TupleExpression expression = (TupleExpression)value;
-                if(expression instanceof DomainExpression)
-                {
+            if (value instanceof TupleExpression) {
+                TupleExpression expression = (TupleExpression) value;
+                if (expression instanceof DomainExpression) {
 
-                    return expression.getName() + "@@" + nameResolver.apply((ColumnHandle) ((DomainExpression) expression).getColumn()) ;
+                    return expression.getName() + "@@" + nameResolver.apply((ColumnHandle) ((DomainExpression) expression).getColumn());
                 }
                 return expression.getName();
-
             }
-            else
+            else {
                 return null;
+            }
         }
 
         @Override
         public JavaType typeFromId(DatabindContext context, String id)
         {
             requireNonNull(id, "id is null");
-            if(id.split(".").length ==2)
-            {
+            if (id.split(".").length == 2) {
                 String[] part = id.split("@@");
                 Class<?> typeClass = expressionResolver.get(part[0]);
                 Class<?> paramtericClass = classResolver.apply(part[1]);
-                return context.getTypeFactory().constructParametricType(typeClass,paramtericClass);
-
+                return context.getTypeFactory().constructParametricType(typeClass, paramtericClass);
             }
             else {
                 Class<?> typeClass = expressionResolver.get(id);
                 checkArgument(typeClass != null, "Unknown type ID: %s", id);
                 return context.getTypeFactory().constructType(typeClass);
-
             }
-
-
         }
 
         @Override
@@ -226,10 +216,4 @@ public class TupleExpressionJacksonModule
             return JsonTypeInfo.Id.NAME;
         }
     }
-
-
-
-
-
-
 }
