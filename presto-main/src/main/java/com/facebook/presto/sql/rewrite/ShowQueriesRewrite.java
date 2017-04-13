@@ -81,6 +81,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SortedMap;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
@@ -89,6 +90,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
+import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -216,11 +218,21 @@ final class ShowQueriesRewrite
 
                 catalogName = qualifiedTableName.getCatalogName();
 
+                accessControl.checkCanShowTablesMetadata(
+                        session.getRequiredTransactionId(),
+                        session.getIdentity(),
+                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
+
                 predicate = Optional.of(equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName())));
             }
 
             if (catalogName == null) {
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, showGrants, "Catalog must be specified when session catalog is not set");
+            }
+
+            Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
+            for (String schema : allowedSchemas) {
+                accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(catalogName, schema));
             }
 
             return simpleQuery(

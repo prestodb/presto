@@ -41,6 +41,8 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -60,10 +62,12 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
+import static com.facebook.presto.metadata.MetadataListing.listTablePrivileges;
 import static com.facebook.presto.metadata.MetadataListing.listTables;
 import static com.facebook.presto.metadata.MetadataListing.listViews;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -151,6 +155,9 @@ public class InformationSchemaPageSourceProvider
         if (table.equals(TABLE_INTERNAL_PARTITIONS)) {
             return buildPartitions(session, catalog, filters);
         }
+        if (table.equals(TABLE_TABLE_PRIVILEGES)) {
+            return buildTablePrivileges(session, catalog, filters);
+        }
 
         throw new IllegalArgumentException(format("table does not exist: %s", table));
     }
@@ -198,6 +205,27 @@ public class InformationSchemaPageSourceProvider
                     name.getSchemaName(),
                     name.getTableName(),
                     type);
+        }
+        return table.build();
+    }
+
+    private InternalTable buildTablePrivileges(Session session, String catalogName, Map<String, NullableValue> filters)
+    {
+        QualifiedTablePrefix prefix = extractQualifiedTablePrefix(catalogName, filters);
+        List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLE_PRIVILEGES));
+        for (GrantInfo grant : grants) {
+            for (PrivilegeInfo privilegeInfo : grant.getPrivilegeInfo()) {
+                table.add(
+                        grant.getGrantor().orElse(null),
+                        grant.getIdentity().getUser(),
+                        catalogName,
+                        grant.getSchemaTableName().getSchemaName(),
+                        grant.getSchemaTableName().getTableName(),
+                        privilegeInfo.getPrivilege().name(),
+                        privilegeInfo.isGrantOption(),
+                        grant.getWithHierarchy().orElse(null));
+            }
         }
         return table.build();
     }

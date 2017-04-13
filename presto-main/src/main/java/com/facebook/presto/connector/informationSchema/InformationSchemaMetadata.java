@@ -38,6 +38,7 @@ import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.sc
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.compose;
@@ -57,6 +58,7 @@ public class InformationSchemaMetadata
     public static final SchemaTableName TABLE_VIEWS = new SchemaTableName(INFORMATION_SCHEMA, "views");
     public static final SchemaTableName TABLE_SCHEMATA = new SchemaTableName(INFORMATION_SCHEMA, "schemata");
     public static final SchemaTableName TABLE_INTERNAL_PARTITIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_partitions__");
+    public static final SchemaTableName TABLE_TABLE_PRIVILEGES = new SchemaTableName(INFORMATION_SCHEMA, "table_privileges");
 
     public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
             .table(tableMetadataBuilder(TABLE_COLUMNS)
@@ -94,6 +96,16 @@ public class InformationSchemaMetadata
                     .column("partition_number", BIGINT)
                     .column("partition_key", createUnboundedVarcharType())
                     .column("partition_value", createUnboundedVarcharType())
+                    .build())
+            .table(tableMetadataBuilder(TABLE_TABLE_PRIVILEGES)
+                    .column("grantor", createUnboundedVarcharType())
+                    .column("grantee", createUnboundedVarcharType())
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
+                    .column("privilege_type", createUnboundedVarcharType())
+                    .column("is_grantable", BOOLEAN)
+                    .column("with_hierarchy", BOOLEAN)
                     .build())
             .build();
 
