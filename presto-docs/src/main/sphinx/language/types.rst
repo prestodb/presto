@@ -55,7 +55,7 @@ DECIMAL
 -------
 
     A fixed precision decimal number. Precision up to 38 digits is supported
-    but performance is best up to 17 digits.
+    but performance is best up to 18 digits.
 
     DECIMAL type takes two literal parameters:
 
