@@ -102,7 +102,9 @@ function stop_docker_compose_containers() {
     stop_application_runner_containers ${ENVIRONMENT}
 
     # stop containers started with "up", removing their volumes
-    environment_compose down -v
+    # Some containers (SQL Server) fail to stop on Travis after running the tests. We don't have an easy way to
+    # reproduce this locally. Since all the tests complete successfully, we ignore this failure.
+    environment_compose down -v || true
   fi
 
   echo "Docker compose containers stopped: [$ENVIRONMENT]"
@@ -195,7 +197,15 @@ fi
 trap terminate INT TERM EXIT
 
 # start external services
-EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
+# Tempto fails if cassandra is not running. It will
+# be removed from the list of EXTERNAL_SERVICES for
+# singlenode-sqlserver once we resolve
+# https://github.com/prestodb/tempto/issues/190
+if [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
+  EXTERNAL_SERVICES="hadoop-master cassandra sqlserver"
+else
+  EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
+fi
 environment_compose up -d ${EXTERNAL_SERVICES}
 
 # start docker logs for the external services
