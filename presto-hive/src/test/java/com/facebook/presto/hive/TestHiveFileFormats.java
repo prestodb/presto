@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
 import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static com.facebook.presto.hive.HiveTestUtils.HIVE_COERCION_POLICY;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
@@ -653,6 +654,7 @@ public class TestHiveFileFormats
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
+                HIVE_COERCION_POLICY,
                 ImmutableMap.of());
 
         RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
@@ -697,6 +699,7 @@ public class TestHiveFileFormats
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
+                HIVE_COERCION_POLICY,
                 ImmutableMap.of());
 
         assertTrue(pageSource.isPresent());

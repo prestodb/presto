@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.coercions.HiveCoercionPolicy;
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Column;
@@ -139,6 +140,7 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTestUtils.HIVE_COERCION_POLICY;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
@@ -556,7 +558,7 @@ public abstract class AbstractTestHiveClient
                 new HiveClientConfig(),
                 locationService,
                 partitionUpdateCodec);
-        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
+        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER, HIVE_COERCION_POLICY);
     }
 
     protected ConnectorSession newSession()
@@ -849,13 +851,13 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
-                            ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
-                                    .build(),
-                            ImmutableMultimap.of());
+                    ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                            .build(),
+                    ImmutableMultimap.of());
             Table oldTable = transaction.getMetastore(schemaName).getTable(schemaName, tableName).get();
             HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()
@@ -1541,7 +1543,8 @@ public abstract class AbstractTestHiveClient
                     hdfsEnvironment,
                     ImmutableSet.of(new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment)),
                     ImmutableSet.of(),
-                    TYPE_MANAGER);
+                    TYPE_MANAGER,
+                    HIVE_COERCION_POLICY);
 
             ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
             assertGetRecords(RCTEXT, tableMetadata, hiveSplit, pageSource, columnHandles);
@@ -1577,7 +1580,8 @@ public abstract class AbstractTestHiveClient
                     hdfsEnvironment,
                     ImmutableSet.of(new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment)),
                     ImmutableSet.of(),
-                    TYPE_MANAGER);
+                    TYPE_MANAGER,
+                    HIVE_COERCION_POLICY);
 
             ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
             assertGetRecords(RCBINARY, tableMetadata, hiveSplit, pageSource, columnHandles);
@@ -2894,15 +2898,22 @@ public abstract class AbstractTestHiveClient
         return ((HivePartition) partition).getPartitionId();
     }
 
-    protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
+    private static Optional<HiveRecordCursor> getRecordCursor(ConnectorPageSource pageSource)
     {
         if (pageSource instanceof RecordPageSource) {
-            RecordCursor hiveRecordCursor = ((RecordPageSource) pageSource).getCursor();
-            hiveRecordCursor = ((HiveRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
-            if (hiveRecordCursor instanceof HiveCoercionRecordCursor) {
-                hiveRecordCursor = ((HiveCoercionRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
-            }
-            assertInstanceOf(hiveRecordCursor, recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
+            return Optional.of((HiveRecordCursor) ((RecordPageSource) pageSource).getCursor());
+        }
+        else if (((HivePageSource) pageSource).getPageSource() instanceof RecordPageSource) {
+            return Optional.of((HiveRecordCursor) ((RecordPageSource) ((HivePageSource) pageSource).getPageSource()).getCursor());
+        }
+        return Optional.empty();
+    }
+
+    protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
+    {
+        Optional<HiveRecordCursor> recordCursor = getRecordCursor(pageSource);
+        if (recordCursor.isPresent()) {
+            assertInstanceOf(recordCursor.get().getRegularColumnRecordCursor(), recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
         }
         else {
             assertInstanceOf(((HivePageSource) pageSource).getPageSource(), pageSourceType(hiveStorageFormat), hiveStorageFormat.name());

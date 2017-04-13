@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.coercions.HiveCoercionPolicy;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -76,7 +77,7 @@ public class HiveSplitManager
     private final HdfsEnvironment hdfsEnvironment;
     private final DirectoryLister directoryLister;
     private final Executor executor;
-    private final CoercionPolicy coercionPolicy;
+    private final HiveCoercionPolicy coercionPolicy;
     private final int maxOutstandingSplits;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
@@ -92,7 +93,7 @@ public class HiveSplitManager
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
             @ForHiveClient ExecutorService executorService,
-            CoercionPolicy coercionPolicy)
+            HiveCoercionPolicy coercionPolicy)
     {
         this(connectorId,
                 metastoreProvider,
@@ -116,7 +117,7 @@ public class HiveSplitManager
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
             Executor executor,
-            CoercionPolicy coercionPolicy,
+            HiveCoercionPolicy coercionPolicy,
             int maxOutstandingSplits,
             int minPartitionBatchSize,
             int maxPartitionBatchSize,

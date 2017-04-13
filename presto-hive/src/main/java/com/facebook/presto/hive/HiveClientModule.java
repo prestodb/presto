@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.coercions.HiveCoercionPolicy;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
@@ -66,7 +67,7 @@ public class HiveClientModule
     {
         binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
         binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
-        binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
+        binder.bind(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
 
         binder.bind(HdfsConfigurationUpdater.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);

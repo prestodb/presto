@@ -11,9 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.coercions;
 
-public interface CoercionPolicy
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+
+public class IntegerNumberUpscaleCoercer
+        extends AbstractCoercer
 {
-    boolean canCoerce(HiveType fromType, HiveType toType);
+    public IntegerNumberUpscaleCoercer(Type fromType, Type toType)
+    {
+        super(fromType, toType);
+    }
+
+    @Override
+    protected void appendCoercedLong(BlockBuilder blockBuilder, long aLong)
+    {
+        toType.writeLong(blockBuilder, aLong);
+    }
 }
