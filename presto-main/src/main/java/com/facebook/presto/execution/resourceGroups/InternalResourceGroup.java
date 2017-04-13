@@ -569,9 +569,14 @@ public class InternalResourceGroup
                     if (!subGroup.isDirty()) {
                         iterator.remove();
                     }
-                    if (oldMemoryUsageBytes != subGroup.cachedMemoryUsageBytes) {
-                        subGroup.updateEligiblility();
-                    }
+                }
+            }
+            if (parent.isPresent()) {
+                if (isEligibleToStartNext()) {
+                    parent.get().eligibleSubGroups.addOrUpdate(this, getSubGroupSchedulingPriority(parent.get().schedulingPolicy, this));
+                }
+                else {
+                    parent.get().eligibleSubGroups.remove(this);
                 }
             }
         }
@@ -598,6 +603,14 @@ public class InternalResourceGroup
             for (InternalResourceGroup group : subGroups.values()) {
                 group.internalGenerateCpuQuota(elapsedSeconds);
             }
+            if (parent.isPresent()) {
+                if (isEligibleToStartNext()) {
+                    parent.get().eligibleSubGroups.addOrUpdate(this, getSubGroupSchedulingPriority(parent.get().schedulingPolicy, this));
+                }
+                else {
+                    parent.get().eligibleSubGroups.remove(this);
+                }
+            }
         }
     }
 
@@ -614,19 +627,17 @@ public class InternalResourceGroup
                 return true;
             }
 
-            // Remove even if the sub group still has queued queries, so that it goes to the back of the queue
-            InternalResourceGroup subGroup = eligibleSubGroups.poll();
-            if (subGroup == null) {
-                return false;
+            while (true) {
+                // Remove even if the sub group still has queued queries, so that it goes to the back of the queue
+                InternalResourceGroup subGroup = eligibleSubGroups.poll();
+                if (subGroup == null) {
+                    return false;
+                }
+                if (subGroup.internalStartNext()) {
+                    descendantQueuedQueries--;
+                    return true;
+                }
             }
-            boolean started = subGroup.internalStartNext();
-            checkState(started, "Eligible sub group had no queries to run");
-            descendantQueuedQueries--;
-            // Don't call updateEligibility here, as we're in a recursive call, and don't want to repeatedly update our ancestors.
-            if (subGroup.isEligibleToStartNext()) {
-                eligibleSubGroups.addOrUpdate(subGroup, getSubGroupSchedulingPriority(schedulingPolicy, subGroup));
-            }
-            return true;
         }
     }
 
