@@ -141,6 +141,13 @@ public class TestStatementBuilder
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
         printStatement("create table foo comment 'test' with (a = 'apple') as select * from abc");
         printStatement("create table foo as select * from abc WITH NO DATA");
+
+        printStatement("create table foo as (with t(x) as (values 1) select x from t)");
+        printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t)");
+        printStatement("create table foo as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table foo as (with t(x) as (values 1) select x from t) WITH NO DATA");
+        printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t) WITH NO DATA");
         printStatement("drop table foo");
 
         printStatement("insert into foo select * from abc");
