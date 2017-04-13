@@ -128,6 +128,8 @@ public class TaskExecutor
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
     private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
 
+    private final CounterStat[] selectedLevelCounters = new CounterStat[5];
+
     private final TimeStat splitQueuedTime = new TimeStat(NANOSECONDS);
     private final TimeStat splitWallTime = new TimeStat(NANOSECONDS);
 
@@ -175,6 +177,10 @@ public class TaskExecutor
         this.minimumNumberOfDrivers = minDrivers;
         this.waitingSplits = new PriorityBlockingQueue<>(Runtime.getRuntime().availableProcessors() * 10);
         this.tasks = new LinkedList<>();
+
+        for (int i = 0; i < 5; i++) {
+            selectedLevelCounters[i] = new CounterStat();
+        }
     }
 
     @PostConstruct
@@ -440,6 +446,7 @@ public class TaskExecutor
                         return;
                     }
 
+                    selectedLevelCounters[split.getPriorityLevel().get()].update(1);
                     String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
                     try (SetThreadName splitName = new SetThreadName(threadId)) {
                         RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread());
@@ -638,6 +645,36 @@ public class TaskExecutor
     public long getRunningTasksLevel4()
     {
         return calculateRunningTasksForLevel(4);
+    }
+
+    @Managed
+    public CounterStat getSelectedCountLevel0()
+    {
+        return selectedLevelCounters[0];
+    }
+
+    @Managed
+    public CounterStat getSelectedCountLevel1()
+    {
+        return selectedLevelCounters[1];
+    }
+
+    @Managed
+    public CounterStat getSelectedCountLevel2()
+    {
+        return selectedLevelCounters[2];
+    }
+
+    @Managed
+    public CounterStat getSelectedCountLevel3()
+    {
+        return selectedLevelCounters[3];
+    }
+
+    @Managed
+    public CounterStat getSelectedCountLevel4()
+    {
+        return selectedLevelCounters[4];
     }
 
     @Managed
