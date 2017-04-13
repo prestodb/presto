@@ -111,6 +111,7 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
@@ -1313,6 +1314,35 @@ public class TestSqlParser
                         "SELECT * FROM t " +
                         "WITH NO DATA",
                 new CreateTableAsSelect(table, query, false, properties, false, Optional.of("test")));
+    }
+
+    @Test
+    public void testCreateTableAsWith()
+            throws Exception
+    {
+        String queryParenthesizedWith = "CREATE TABLE foo " +
+                "AS " +
+                "( WITH t(x) AS (VALUES 1) " +
+                "TABLE t ) " +
+                "WITH NO DATA";
+        String queryUnparenthesizedWith = "CREATE TABLE foo " +
+                "AS " +
+                "WITH t(x) AS (VALUES 1) " +
+                "TABLE t " +
+                "WITH NO DATA";
+
+        QualifiedName table = QualifiedName.of("foo");
+        ImmutableMap<String, Expression> properties = ImmutableMap.<String, Expression>builder().build();
+
+        Query query = new Query(Optional.of(new With(false, ImmutableList.of(
+                new WithQuery("t",
+                        query(new Values(ImmutableList.of(new LongLiteral("1")))),
+                        Optional.of(ImmutableList.of("x")))))),
+                new Table(QualifiedName.of("t")),
+                Optional.empty(),
+                Optional.empty());
+        assertStatement(queryParenthesizedWith, new CreateTableAsSelect(table, query, false, properties, false, Optional.empty()));
+        assertStatement(queryUnparenthesizedWith, new CreateTableAsSelect(table, query, false, properties, false, Optional.empty()));
     }
 
     @Test
