@@ -32,8 +32,10 @@ import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compareA
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Float.parseFloat;
 
 public class DecimalCoercers
@@ -303,5 +305,141 @@ public class DecimalCoercers
             }
             toType.writeDouble(blockBuilder, coercedValue);
         }
+    }
+
+    public static Function<Block, Block> createRealToDecimalCoercer(DecimalType toType)
+    {
+        if (toType.isShort()) {
+            return new RealToShortDecimalCoercer(toType);
+        }
+        else {
+            return new RealToLongDecimalCoercer(toType);
+        }
+    }
+
+    private static class RealToShortDecimalCoercer
+            extends AbstractCoercer<RealType, DecimalType>
+    {
+        public RealToShortDecimalCoercer(DecimalType toType)
+        {
+            super(REAL, toType);
+        }
+
+        @Override
+        protected void appendCoercedLong(BlockBuilder blockBuilder, long value)
+        {
+            Long shortDecimal = doubleToShortDecimal(intBitsToFloat((int) value), toType.getPrecision(), toType.getScale());
+            if (shortDecimal == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                toType.writeLong(blockBuilder, shortDecimal);
+            }
+        }
+    }
+
+    private static class RealToLongDecimalCoercer
+            extends AbstractCoercer<RealType, DecimalType>
+    {
+        public RealToLongDecimalCoercer(DecimalType toType)
+        {
+            super(REAL, toType);
+        }
+
+        @Override
+        protected void appendCoercedLong(BlockBuilder blockBuilder, long value)
+        {
+            Slice decimal = doubleToLongDecimal(intBitsToFloat((int) value), toType.getPrecision(), toType.getScale());
+            if (decimal == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                toType.writeSlice(blockBuilder, decimal);
+            }
+        }
+    }
+
+    public static Function<Block, Block> createDoubleToDecimalCoercer(DecimalType toType)
+    {
+        if (toType.isShort()) {
+            return new DoubleToShortDecimalCoercer(toType);
+        }
+        else {
+            return new DoubleToLongDecimalCoercer(toType);
+        }
+    }
+
+    private static class DoubleToShortDecimalCoercer
+            extends AbstractCoercer<DoubleType, DecimalType>
+    {
+        public DoubleToShortDecimalCoercer(DecimalType toType)
+        {
+            super(DOUBLE, toType);
+        }
+
+        @Override
+        protected void appendCoercedDouble(BlockBuilder blockBuilder, double value)
+        {
+            Long shortDecimal = doubleToShortDecimal(value, toType.getPrecision(), toType.getScale());
+            if (shortDecimal == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                toType.writeLong(blockBuilder, shortDecimal);
+            }
+        }
+    }
+
+    private static class DoubleToLongDecimalCoercer
+            extends AbstractCoercer<DoubleType, DecimalType>
+    {
+        public DoubleToLongDecimalCoercer(DecimalType toType)
+        {
+            super(DOUBLE, toType);
+        }
+
+        @Override
+        protected void appendCoercedDouble(BlockBuilder blockBuilder, double value)
+        {
+            Slice decimal = doubleToLongDecimal(value, toType.getPrecision(), toType.getScale());
+            if (decimal == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                toType.writeSlice(blockBuilder, decimal);
+            }
+        }
+    }
+
+    private static Slice doubleToLongDecimal(double value, long precision, long scale)
+    {
+        try {
+            Slice decimal = UnscaledDecimal128Arithmetic.doubleToLongDecimal(value, precision, (int) scale);
+            if (UnscaledDecimal128Arithmetic.overflows(decimal, (int) precision)) {
+                return null;
+            }
+            return decimal;
+        }
+        catch (ArithmeticException e) {
+            return null;
+        }
+    }
+
+    private static Long doubleToShortDecimal(double value, long precision, long scale)
+    {
+        Slice longDecimal = doubleToLongDecimal(value, precision, scale);
+        if (longDecimal == null) {
+            return null;
+        }
+
+        long low = UnscaledDecimal128Arithmetic.getLong(longDecimal, 0);
+        long high = UnscaledDecimal128Arithmetic.getLong(longDecimal, 1);
+
+        checkState(high == 0 && low >= 0, "Unexpected long decimal");
+        long shortDecimal = low;
+        if (UnscaledDecimal128Arithmetic.isNegative(longDecimal)) {
+            shortDecimal = -shortDecimal;
+        }
+        return shortDecimal;
     }
 }
