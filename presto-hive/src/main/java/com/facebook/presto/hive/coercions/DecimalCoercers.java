@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import io.airlift.slice.Slice;
@@ -25,11 +26,13 @@ import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.Decimals.overflows;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compareAbsolute;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
+import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 
@@ -235,6 +238,70 @@ public class DecimalCoercers
                 coercedValue = parseFloat(Decimals.toString(value, fromType.getScale()));
             }
             toType.writeLong(blockBuilder, floatToRawIntBits(coercedValue));
+        }
+    }
+
+    public static Function<Block, Block> createDecimalToDoubleCoercer(DecimalType fromType)
+    {
+        if (fromType.isShort()) {
+            return new ShortDecimalToDoubleCoercer(fromType);
+        }
+        else {
+            return new LongDecimalToDoubleCoercer(fromType);
+        }
+    }
+
+    private static class ShortDecimalToDoubleCoercer
+            extends AbstractCoercer<DecimalType, DoubleType>
+    {
+        private final double scalingFactor;
+
+        public ShortDecimalToDoubleCoercer(DecimalType fromType)
+        {
+            super(fromType, DOUBLE);
+            this.scalingFactor = (double) longTenToNth(Math.abs(fromType.getScale()));
+        }
+
+        @Override
+        protected void appendCoercedLong(BlockBuilder blockBuilder, long value)
+        {
+            toType.writeDouble(blockBuilder, value / scalingFactor);
+        }
+    }
+
+    /**
+     * Powers of 10 which can be represented exactly in double.
+     */
+    private static final double[] DOUBLE_10_POW = {
+            1.0e0, 1.0e1, 1.0e2, 1.0e3, 1.0e4, 1.0e5,
+            1.0e6, 1.0e7, 1.0e8, 1.0e9, 1.0e10, 1.0e11,
+            1.0e12, 1.0e13, 1.0e14, 1.0e15, 1.0e16, 1.0e17,
+            1.0e18, 1.0e19, 1.0e20, 1.0e21, 1.0e22
+    };
+    private static final Slice MAX_EXACT_DOUBLE = unscaledDecimal((1L << 52) - 1);
+
+    private static class LongDecimalToDoubleCoercer
+            extends AbstractCoercer<DecimalType, DoubleType>
+    {
+        public LongDecimalToDoubleCoercer(DecimalType fromType)
+        {
+            super(fromType, DOUBLE);
+        }
+
+        @Override
+        protected void appendCoercedSlice(BlockBuilder blockBuilder, Slice value)
+        {
+            double coercedValue;
+
+            // If both decimal and scale can be represented exactly in double then compute rescaled and rounded result directly in double.
+            if (fromType.getScale() < DOUBLE_10_POW.length && compareAbsolute(value, MAX_EXACT_DOUBLE) <= 0) {
+                coercedValue = unscaledDecimalToUnscaledLongUnsafe(value) / DOUBLE_10_POW[fromType.getScale()];
+            }
+            else {
+                // TODO: optimize and convert directly to double in similar fashion as in double to decimal casts
+                coercedValue = parseDouble(Decimals.toString(value, fromType.getScale()));
+            }
+            toType.writeDouble(blockBuilder, coercedValue);
         }
     }
 }
