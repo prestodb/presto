@@ -794,7 +794,7 @@ public class TestPrestoDriver
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tab%", "table_name")) {
                 assertColumnMetadata(rs);
-                assertEquals(readRows(rs).size(), 1);
+                assertEquals(readRows(rs).size(), 2);
             }
         }
 
