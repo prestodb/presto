@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -23,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.getProcessingOptimization;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -45,8 +45,20 @@ public class FilterAndProjectOperator
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.processingOptimization = getProcessingOptimization(operatorContext.getSession());
+        this.processingOptimization = getProcessingOptimization(operatorContext, processor.isFiltering());
+
         this.pageBuilder = new PageBuilder(getTypes());
+    }
+
+    private String getProcessingOptimization(OperatorContext operatorContext, boolean hasFilter)
+    {
+        String processingOptimization = SystemSessionProperties.getProcessingOptimization(operatorContext.getSession());
+        if (!hasFilter && processingOptimization.equals(FeaturesConfig.ProcessingOptimization.DISABLED)) {
+            return FeaturesConfig.ProcessingOptimization.COLUMNAR;
+        }
+        else {
+            return processingOptimization;
+        }
     }
 
     @Override
