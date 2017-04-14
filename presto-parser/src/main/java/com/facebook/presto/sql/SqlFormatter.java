@@ -601,11 +601,11 @@ public final class SqlFormatter
         {
             builder.append("SHOW TABLES");
 
-            node.getSchema().ifPresent((value) ->
+            node.getSchema().ifPresent(value ->
                     builder.append(" FROM ")
-                            .append(value));
+                            .append(formatName(value)));
 
-            node.getLikePattern().ifPresent((value) ->
+            node.getLikePattern().ifPresent(value ->
                     builder.append(" LIKE ")
                             .append(formatStringLiteral(value)));
 
@@ -631,7 +631,7 @@ public final class SqlFormatter
         protected Void visitShowColumns(ShowColumns node, Integer context)
         {
             builder.append("SHOW COLUMNS FROM ")
-                    .append(node.getTable());
+                    .append(formatName(node.getTable()));
 
             return null;
         }
@@ -640,7 +640,7 @@ public final class SqlFormatter
         protected Void visitShowPartitions(ShowPartitions node, Integer context)
         {
             builder.append("SHOW PARTITIONS FROM ")
-                    .append(node.getTable());
+                    .append(formatName(node.getTable()));
 
             if (node.getWhere().isPresent()) {
                 builder.append(" WHERE ")
@@ -680,7 +680,7 @@ public final class SqlFormatter
         protected Void visitDelete(Delete node, Integer context)
         {
             builder.append("DELETE FROM ")
-                    .append(node.getTable().getName());
+                    .append(formatName(node.getTable().getName()));
 
             if (node.getWhere().isPresent()) {
                 builder.append(" WHERE ")
@@ -697,7 +697,7 @@ public final class SqlFormatter
             if (node.isNotExists()) {
                 builder.append("IF NOT EXISTS ");
             }
-            builder.append(node.getSchemaName());
+            builder.append(formatName(node.getSchemaName()));
 
             appendTableProperties(builder, node.getProperties());
 
@@ -711,7 +711,7 @@ public final class SqlFormatter
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(node.getSchemaName())
+            builder.append(formatName(node.getSchemaName()))
                     .append(" ")
                     .append(node.isCascade() ? "CASCADE" : "RESTRICT");
 
@@ -722,9 +722,9 @@ public final class SqlFormatter
         protected Void visitRenameSchema(RenameSchema node, Integer context)
         {
             builder.append("ALTER SCHEMA ")
-                    .append(node.getSource())
+                    .append(formatName(node.getSource()))
                     .append(" RENAME TO ")
-                    .append(node.getTarget());
+                    .append(formatName(node.getTarget()));
 
             return null;
         }
@@ -736,7 +736,7 @@ public final class SqlFormatter
             if (node.isNotExists()) {
                 builder.append("IF NOT EXISTS ");
             }
-            builder.append(node.getName());
+            builder.append(formatName(node.getName()));
 
             if (node.getComment().isPresent()) {
                 builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
