@@ -741,7 +741,7 @@ public class ParquetHiveRecordCursor
             List<Type> prestoTypeParameters = prestoType.getTypeParameters();
             List<parquet.schema.Type> fieldTypes = entryType.getFields();
             checkArgument(
-                    prestoTypeParameters.size() == fieldTypes.size(),
+                    prestoTypeParameters.size() >= fieldTypes.size(),
                     "Schema mismatch, metastore schema for row column %s has %s fields but parquet schema has %s fields",
                     columnName,
                     prestoTypeParameters.size(),
@@ -751,7 +751,7 @@ public class ParquetHiveRecordCursor
             this.fieldIndex = fieldIndex;
 
             ImmutableList.Builder<BlockConverter> converters = ImmutableList.builder();
-            for (int i = 0; i < prestoTypeParameters.size(); i++) {
+            for (int i = 0; i < fieldTypes.size(); i++) {
                 parquet.schema.Type fieldType = fieldTypes.get(i);
                 converters.add(createConverter(prestoTypeParameters.get(i), columnName + "." + fieldType.getName(), fieldType, i));
             }
@@ -796,7 +796,7 @@ public class ParquetHiveRecordCursor
             for (BlockConverter converter : converters) {
                 converter.afterValue();
             }
-            while (currentEntryBuilder.getPositionCount() < converters.size()) {
+            while (currentEntryBuilder.getPositionCount() < rowType.getTypeParameters().size()) {
                 currentEntryBuilder.appendNull();
             }
 

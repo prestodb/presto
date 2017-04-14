@@ -35,9 +35,13 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import io.airlift.concurrent.BoundedExecutor;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -248,7 +252,24 @@ public class HiveSplitManager
                 for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
                     HiveType tableType = tableColumns.get(i).getType();
                     HiveType partitionType = partitionColumns.get(i).getType();
-                    if (!tableType.equals(partitionType)) {
+                    if (isStruct(tableType) && isStruct(partitionType)) {
+                        ArrayList<TypeInfo> fromFieldTypes = getStructFields(partitionType);
+                        ArrayList<TypeInfo> toFieldTypes = getStructFields(tableType);
+                        if (!toFieldTypes.subList(0, fromFieldTypes.size()).equals(fromFieldTypes)) {
+                            throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                                            "There is a mismatch between the table and partition schemas. " +
+                                            "The structs are incompatible and cannot be coerced. " +
+                                            "The column '%s' in table '%s' is declared as type '%s', " +
+                                            "but partition '%s' declared column '%s' as type '%s'.",
+                                    tableColumns.get(i).getName(),
+                                    tableName,
+                                    tableType,
+                                    partName,
+                                    partitionColumns.get(i).getName(),
+                                    partitionType));
+                        }
+                    }
+                    else if (!tableType.equals(partitionType)) {
                         if (!coercionPolicy.canCoerce(partitionType, tableType)) {
                             throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
                                             "There is a mismatch between the table and partition schemas. " +
@@ -334,5 +355,15 @@ public class HiveSplitManager
                 throw new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down", e);
             }
         }
+    }
+
+    private static boolean isStruct(HiveType type)
+    {
+        return type.getCategory() == ObjectInspector.Category.STRUCT;
+    }
+
+    private static ArrayList<TypeInfo> getStructFields(HiveType structHiveType)
+    {
+        return ((StructTypeInfo) structHiveType.getTypeInfo()).getAllStructFieldTypeInfos();
     }
 }
