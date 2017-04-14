@@ -84,7 +84,7 @@ public class TestJoinProbeCompiler
         ImmutableList<Type> types = ImmutableList.of(VARCHAR, DOUBLE);
         ImmutableList<Type> outputTypes = ImmutableList.of(VARCHAR);
         List<Integer> outputChannels = ImmutableList.of(0);
-        LookupSourceSupplierFactory lookupSourceSupplierFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
+        LookupSourceSupplierFactory lookupSourceSupplierFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0), Optional.empty());
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> varcharChannel = ImmutableList.of(
@@ -118,7 +118,7 @@ public class TestJoinProbeCompiler
             outputTypes = ImmutableList.of(VARCHAR, BigintType.BIGINT);
         }
         LookupSource lookupSource = lookupSourceSupplierFactory.createLookupSourceSupplier(
-                taskContext.getSession().toConnectorSession(),
+                taskContext.getSession(),
                 addresses,
                 channels,
                 hashChannel,

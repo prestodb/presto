@@ -24,6 +24,7 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -384,7 +385,13 @@ public class PagesIndex
         }
 
         // if compilation fails, use interpreter
-        return new SimplePagesHashStrategy(types, outputChannels.orElse(rangeList(types.size())), ImmutableList.copyOf(channels), joinChannels, hashChannel);
+        return new SimplePagesHashStrategy(
+                types,
+                outputChannels.orElse(rangeList(types.size())),
+                ImmutableList.copyOf(channels),
+                joinChannels,
+                hashChannel,
+                Optional.empty());
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -410,9 +417,13 @@ public class PagesIndex
             //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
 
             try {
-                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, outputChannels);
+                Optional<SortExpression> sortChannel = Optional.empty();
+                if (filterFunctionFactory.isPresent()) {
+                    sortChannel = filterFunctionFactory.get().getSortChannel();
+                }
+                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
                 return lookupSourceFactory.createLookupSourceSupplier(
-                        session.toConnectorSession(),
+                        session,
                         valueAddresses,
                         channels,
                         hashChannel,
@@ -429,10 +440,11 @@ public class PagesIndex
                 outputChannels.orElse(rangeList(types.size())),
                 channels,
                 joinChannels,
-                hashChannel);
+                hashChannel,
+                filterFunctionFactory.map(JoinFilterFunctionFactory::getSortChannel).orElse(Optional.empty()));
 
         return new JoinHashSupplier(
-                session.toConnectorSession(),
+                session,
                 hashStrategy,
                 valueAddresses,
                 channels,

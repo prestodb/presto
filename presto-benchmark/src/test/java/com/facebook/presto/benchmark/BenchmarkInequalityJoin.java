@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.Page;
+import com.google.common.collect.ImmutableMap;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -36,6 +38,12 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
+/**
+ * This benchmark a case when there is almost like a cross join query
+ * but with very selective inequality join condition. In other words
+ * for each probe position there are lots of matching build positions
+ * which are filtered out by filtering function.
+ */
 @SuppressWarnings("MethodMayBeStatic")
 @State(Thread)
 @OutputTimeUnit(MILLISECONDS)
@@ -43,22 +51,26 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 @Fork(3)
 @Warmup(iterations = 10)
 @Measurement(iterations = 10)
-public class BenchmarkDecimalAggregation
+public class BenchmarkInequalityJoin
 {
     @State(Thread)
-    public static class AggregationContext
+    public static class Context
     {
-        @Param({"orderstatus, avg(totalprice)",
-                "orderstatus, min(totalprice)",
-                "orderstatus, sum(totalprice), avg(totalprice), min(totalprice), max(totalprice)"})
-        private String project;
+        private MemoryLocalQueryRunner queryRunner;
 
-        @Param({"double", "decimal(14,2)", "decimal(30,10)"})
-        private String type;
+        @Param({"true", "false"})
+        private String fastInequalityJoin;
 
-        private final MemoryLocalQueryRunner queryRunner = new MemoryLocalQueryRunner();
+        // number of buckets. The smaller number of buckets, the longer position links chain
+        @Param({"100", "1000", "10000", "60000"})
+        private int buckets;
 
-        public final MemoryLocalQueryRunner getQueryRunner()
+        // How many positions out of 1000 will be actually joined
+        // 10 means 1 - 10/1000 = 99/100 positions will be filtered out
+        @Param({"10"})
+        private int filterOutCoefficient;
+
+        public MemoryLocalQueryRunner getQueryRunner()
         {
             return queryRunner;
         }
@@ -66,17 +78,33 @@ public class BenchmarkDecimalAggregation
         @Setup
         public void setUp()
         {
+            queryRunner = new MemoryLocalQueryRunner(ImmutableMap.of(SystemSessionProperties.FAST_INEQUALITY_JOIN, fastInequalityJoin));
+
+            // t1.val1 is in range [0, 1000)
+            // t1.bucket is in [0, 1000)
             queryRunner.execute(format(
-                    "CREATE TABLE memory.default.orders AS SELECT orderstatus, cast(totalprice as %s) totalprice FROM tpch.sf1.orders",
-                    type));
+                    "CREATE TABLE memory.default.t1 AS SELECT " +
+                        "orderkey %% %d bucket, " +
+                        "(orderkey * 13) %% 1000 val1 " +
+                    "FROM tpch.tiny.lineitem",
+                    buckets));
+            // t2.val2 is in range [0, 10)
+            // t2.bucket is in [0, 1000)
+            queryRunner.execute(format(
+                    "CREATE TABLE memory.default.t2 AS SELECT " +
+                            "orderkey %% %d bucket, " +
+                            "(orderkey * 379) %% %d val2 " +
+                            "FROM tpch.tiny.lineitem",
+                    buckets,
+                    filterOutCoefficient));
         }
     }
 
     @Benchmark
-    public List<Page> benchmarkBuildHash(AggregationContext context)
+    public List<Page> benchmarkJoin(Context context)
     {
         return context.getQueryRunner()
-                .execute(String.format("SELECT %s FROM orders GROUP BY orderstatus", context.project));
+                .execute("SELECT count(*) FROM t1 JOIN t2 on (t1.bucket = t2.bucket) WHERE t1.val1 < t2.val2");
     }
 
     public static void main(String[] args)
@@ -84,7 +112,7 @@ public class BenchmarkDecimalAggregation
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkDecimalAggregation.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkInequalityJoin.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();

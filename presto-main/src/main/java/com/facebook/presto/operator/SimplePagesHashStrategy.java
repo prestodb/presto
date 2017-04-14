@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 
@@ -35,8 +36,15 @@ public class SimplePagesHashStrategy
     private final List<List<Block>> channels;
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
+    private final Optional<SortExpression> sortChannel;
 
-    public SimplePagesHashStrategy(List<Type> types, List<Integer> outputChannels, List<List<Block>> channels, List<Integer> hashChannels, Optional<Integer> precomputedHashChannel)
+    public SimplePagesHashStrategy(
+            List<Type> types,
+            List<Integer> outputChannels,
+            List<List<Block>> channels,
+            List<Integer> hashChannels,
+            Optional<Integer> precomputedHashChannel,
+            Optional<SortExpression> sortChannel)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
@@ -50,6 +58,7 @@ public class SimplePagesHashStrategy
         else {
             this.precomputedHashChannel = null;
         }
+        this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
     }
 
     @Override
@@ -208,5 +217,19 @@ public class SimplePagesHashStrategy
             }
         }
         return false;
+    }
+
+    @Override
+    public int compare(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition)
+    {
+        if (!sortChannel.isPresent()) {
+            throw new UnsupportedOperationException();
+        }
+        int channel = sortChannel.get().getChannel();
+
+        Block leftBlock = channels.get(channel).get(leftBlockIndex);
+        Block rightBlock = channels.get(channel).get(rightBlockIndex);
+
+        return types.get(channel).compareTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 }

@@ -92,4 +92,6 @@ public interface PagesHashStrategy
      * Checks if any of the hashed columns is null
      */
     boolean isPositionNull(int blockIndex, int blockPosition);
+
+    int compare(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition);
 }

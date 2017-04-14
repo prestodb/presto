@@ -21,45 +21,65 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.NullOutputOperator;
+import com.facebook.presto.testing.PageConsumerOperator;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class MemoryLocalQueryRunner
 {
-    protected LocalQueryRunner localQueryRunner = createMemoryLocalQueryRunner();
+    protected final LocalQueryRunner localQueryRunner;
+    protected final Session session;
 
-    public void execute(@Language("SQL") String query)
+    public MemoryLocalQueryRunner()
     {
-        Session session = testSessionBuilder()
-                .setSystemProperty("optimizer.optimize-hash-generation", "true")
-                .build();
-        ExecutorService executor = localQueryRunner.getExecutor();
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        this(ImmutableMap.of());
+    }
 
-        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor, new DataSize(1, GIGABYTE), spillSpaceTracker)
+    public MemoryLocalQueryRunner(Map<String, String> properties)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
+                .setCatalog("memory")
+                .setSchema("default");
+        properties.forEach(sessionBuilder::setSystemProperty);
+
+        session = sessionBuilder.build();
+        localQueryRunner = createMemoryLocalQueryRunner(session);
+    }
+
+    public List<Page> execute(@Language("SQL") String query)
+    {
+        ExecutorService executor = localQueryRunner.getExecutor();
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(2, GIGABYTE));
+        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(2, GIGABYTE));
+
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(1, GIGABYTE), memoryPool, systemMemoryPool, executor, new DataSize(4, GIGABYTE), spillSpaceTracker)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), executor),
                         session,
                         false,
                         false);
 
         // Use NullOutputFactory to avoid coping out results to avoid affecting benchmark results
-        List<Driver> drivers = localQueryRunner.createDrivers(query, new NullOutputOperator.NullOutputFactory(), taskContext);
+        ImmutableList.Builder<Page> output = ImmutableList.builder();
+        List<Driver> drivers = localQueryRunner.createDrivers(
+                query,
+                new PageConsumerOperator.PageConsumerOutputFactory(types -> output::add),
+                taskContext);
 
         boolean done = false;
         while (!done) {
@@ -72,20 +92,20 @@ public class MemoryLocalQueryRunner
             }
             done = !processed;
         }
+
+        return output.build();
     }
 
-    private static LocalQueryRunner createMemoryLocalQueryRunner()
+    private static LocalQueryRunner createMemoryLocalQueryRunner(Session session)
     {
-        Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog("memory")
-                .setSchema("default");
-
-        Session session = sessionBuilder.build();
         LocalQueryRunner localQueryRunner = LocalQueryRunner.queryRunnerWithInitialTransaction(session);
 
         // add tpch
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
-        localQueryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        localQueryRunner.createCatalog(
+                "memory",
+                new MemoryConnectorFactory(),
+                ImmutableMap.of("memory.max-data-per-node", "4GB"));
 
         return localQueryRunner;
     }
