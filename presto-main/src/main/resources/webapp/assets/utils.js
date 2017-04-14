@@ -96,7 +96,7 @@ function getStageStateColor(stage)
 function getHumanReadableState(query)
 {
     if (query.state == "RUNNING") {
-        let title = "RUNNING";
+        var title = "RUNNING";
 
         if (query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0) {
             if (query.queryStats.fullyBlocked) {
@@ -204,8 +204,8 @@ function initializeSvg(selector)
 
 function computeSources(nodeInfo)
 {
-    let sources = [];
-    let remoteSources = []; // TODO: put remoteSources in node-specific section
+    var sources = [];
+    var remoteSources = []; // TODO: put remoteSources in node-specific section
     switch (nodeInfo['@type']) {
         case 'output':
         case 'explainAnalyze':
