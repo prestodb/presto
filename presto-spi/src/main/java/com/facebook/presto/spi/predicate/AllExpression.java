@@ -23,7 +23,6 @@ import java.util.function.Function;
 public class AllExpression<C>
         extends TupleExpression<C>
 {
-
     @Override
     public boolean isAll()
     {

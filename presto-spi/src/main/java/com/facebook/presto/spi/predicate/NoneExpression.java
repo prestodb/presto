@@ -22,7 +22,6 @@ import java.util.function.Function;
 public class NoneExpression<C>
         extends TupleExpression<C>
 {
-
     @Override
     public <U> TupleExpression transform(Function<C, U> function)
     {

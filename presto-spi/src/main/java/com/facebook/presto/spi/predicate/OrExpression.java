@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.spi.predicate;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+        import com.fasterxml.jackson.annotation.JsonCreator;
+        import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
+        import java.util.ArrayList;
+        import java.util.HashMap;
+        import java.util.List;
+        import java.util.Map;
+        import java.util.Objects;
+        import java.util.function.Function;
 
 public class OrExpression<C>
         extends TupleExpression<C>
@@ -77,6 +77,18 @@ public class OrExpression<C>
     public <R, T> R accept(TupleExpressionVisitor<R, T> visitor, T context)
     {
         return visitor.visitOrExpression(this, context);
+    }
+
+    @Override
+    public boolean isAll()
+    {
+        return leftExpression.isAll() || rightExpression.isAll();
+    }
+
+    @Override
+    public boolean isNone()
+    {
+        return leftExpression.isNone() && rightExpression.isNone();
     }
 
     @Override

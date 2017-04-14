@@ -53,13 +53,23 @@ public class NotExpression<C>
     @Override
     public TupleExpression transform(Function function)
     {
-        return expression.transform(function);
+        return new NotExpression<C>(expression.transform(function));
     }
 
     @Override
     public <R, T> R accept(TupleExpressionVisitor<R, T> visitor, T context)
     {
         return visitor.visitNotExpression(this, context);
+    }
+
+    public boolean isNone()
+    {
+        return expression instanceof AllExpression || expression.isAll();
+    }
+
+    public boolean isAll()
+    {
+        return expression instanceof NoneExpression || expression.isNone();
     }
 
     @Override

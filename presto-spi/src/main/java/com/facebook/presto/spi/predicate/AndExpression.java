@@ -87,6 +87,18 @@ public class AndExpression<C>
     }
 
     @Override
+    public boolean isNone()
+    {
+        return leftExpression.isNone() || rightExpression.isNone();
+    }
+
+    @Override
+    public boolean isAll()
+    {
+        return leftExpression.isAll() && rightExpression.isAll();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(leftExpression, rightExpression);

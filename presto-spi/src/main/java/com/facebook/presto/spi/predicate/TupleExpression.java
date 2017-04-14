@@ -21,7 +21,6 @@ import java.util.function.Function;
 
 public abstract class TupleExpression<C>
 {
-
     Map<C, NullableValue> extractFixedValues()
     {
         return new HashMap<>();

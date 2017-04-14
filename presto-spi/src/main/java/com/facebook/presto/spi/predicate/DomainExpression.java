@@ -79,7 +79,7 @@ public class DomainExpression<C>
     }
 
     @Override
-    public <C, R> R accept(TupleExpressionVisitor<C, R> visitor, C context)
+    public <R, T> R accept(TupleExpressionVisitor<R, T> visitor, T context)
     {
         return visitor.visitDomainExpression(this, context);
     }
@@ -94,6 +94,18 @@ public class DomainExpression<C>
     public int hashCode()
     {
         return Objects.hash(column, domain);
+    }
+
+    @Override
+    public boolean isNone()
+    {
+        return domain.isNone();
+    }
+
+    @Override
+    public boolean isAll()
+    {
+        return domain.isAll();
     }
 
     @Override
