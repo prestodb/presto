@@ -23,17 +23,24 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ExpressionSymbolInliner
 {
-    private final Map<Symbol, ? extends Expression> mappings;
+    private final Function<Symbol, Expression> mapping;
 
+    @Deprecated
     public ExpressionSymbolInliner(Map<Symbol, ? extends Expression> mappings)
     {
-        this.mappings = mappings;
+        this.mapping = mappings::get;
+    }
+
+    public ExpressionSymbolInliner(Function<Symbol, Expression> mapping)
+    {
+        this.mapping = mapping;
     }
 
     public Expression rewrite(Expression expression)
@@ -53,7 +60,7 @@ public class ExpressionSymbolInliner
                 return node;
             }
 
-            Expression expression = mappings.get(Symbol.from(node));
+            Expression expression = mapping.apply(Symbol.from(node));
             checkState(expression != null, "Cannot resolve symbol %s", node.getName());
             return expression;
         }
