@@ -28,19 +28,19 @@ public final class CassandraTableLayoutHandle
 {
     private final CassandraTableHandle table;
     private final List<CassandraPartition> partitions;
-    private final List<String> clusteringPredicates;
+    private final String clusteringPredicates;
 
     @JsonCreator
     public CassandraTableLayoutHandle(@JsonProperty("table") CassandraTableHandle table)
     {
-        this(table, ImmutableList.of(), ImmutableList.of());
+        this(table, ImmutableList.of(), "");
     }
 
-    public CassandraTableLayoutHandle(CassandraTableHandle table, List<CassandraPartition> partitions, List<String> clusteringPredicates)
+    public CassandraTableLayoutHandle(CassandraTableHandle table, List<CassandraPartition> partitions, String clusteringPredicates)
     {
         this.table = requireNonNull(table, "table is null");
         this.partitions = ImmutableList.copyOf(requireNonNull(partitions, "partition is null"));
-        this.clusteringPredicates = ImmutableList.copyOf(requireNonNull(clusteringPredicates, "clusteringPredicates is null"));
+        this.clusteringPredicates = requireNonNull(clusteringPredicates, "clusteringPredicates is null");
     }
 
     @JsonProperty
@@ -56,7 +56,7 @@ public final class CassandraTableLayoutHandle
     }
 
     @JsonIgnore
-    public List<String> getClusteringPredicates()
+    public String getClusteringPredicates()
     {
         return clusteringPredicates;
     }

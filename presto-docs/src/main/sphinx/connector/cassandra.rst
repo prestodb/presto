@@ -230,4 +230,3 @@ Limitations
   query with a partition key as a filter.
 * ``IN`` list filters are only allowed on index (that is, partition key or clustering key) columns.
 * Range (``<`` or ``>`` and ``BETWEEN``) filters can be applied only to the partition keys.
-* Non-equality predicates on clustering keys are not pushed down (only ``=`` and ``IN`` are pushed down) .

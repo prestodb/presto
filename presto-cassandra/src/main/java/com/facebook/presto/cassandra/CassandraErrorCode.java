@@ -22,7 +22,7 @@ import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 public enum CassandraErrorCode
         implements ErrorCodeSupplier
 {
-    CASSANDRA_METADATA_ERROR(0, EXTERNAL);
+    CASSANDRA_METADATA_ERROR(0, EXTERNAL), CASSANDRA_VERSION_ERROR(1, EXTERNAL);
 
     private final ErrorCode errorCode;
 

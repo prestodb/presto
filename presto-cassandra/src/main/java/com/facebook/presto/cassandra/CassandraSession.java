@@ -19,6 +19,7 @@ import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TokenRange;
+import com.datastax.driver.core.VersionNumber;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -30,6 +31,8 @@ import java.util.Set;
 public interface CassandraSession
 {
     String PRESTO_COMMENT_METADATA = "Presto Metadata:";
+
+    VersionNumber getCassandraVersion();
 
     String getPartitioner();
 
