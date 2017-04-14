@@ -38,6 +38,7 @@ public class CassandraTestingUtils
     public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
     public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
     public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
+    public static final String TABLE_CLUSTERING_KEYS_INEQUALITY = "table_clustering_keys_inequality";
 
     private CassandraTestingUtils() {}
 
@@ -50,6 +51,7 @@ public class CassandraTestingUtils
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS), 9);
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_LARGE), 1000);
         createTableMultiPartitionClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS));
+        createTableClusteringKeysInequality(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_INEQUALITY), date, 4);
     }
 
     public static void createKeyspace(CassandraSession session, String keyspaceName)
@@ -111,6 +113,33 @@ public class CassandraTestingUtils
             session.execute(insert);
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
+    }
+
+    public static void createTableClusteringKeysInequality(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
+    {
+         session.execute("DROP TABLE IF EXISTS " + table);
+         session.execute("CREATE TABLE " + table + " (" +
+                 "key text, " +
+                 "clust_one text, " +
+                 "clust_two int, " +
+                 "clust_three timestamp, " +
+                 "data text, " +
+                 "PRIMARY KEY((key), clust_one, clust_two, clust_three) " +
+                 ")");
+         insertIntoTableClusteringKeysInequality(session, table, date, rowsCount);
+    }
+
+    public static void insertIntoTableClusteringKeysInequality(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
+    {
+        for (Integer rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
+            Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                    .value("key", "key_1")
+                    .value("clust_one", "clust_one")
+                    .value("clust_two", rowNumber)
+                    .value("clust_three", date.getTime() + rowNumber * 10);
+            session.execute(insert);
+        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
     }
 
     public static void createTableAllTypes(CassandraSession session, SchemaTableName table, Date date, int rowsCount)

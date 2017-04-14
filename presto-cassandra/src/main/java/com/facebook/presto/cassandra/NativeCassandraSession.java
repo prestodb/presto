@@ -27,6 +27,7 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.TokenRange;
+import com.datastax.driver.core.VersionNumber;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.policies.ReconnectionPolicy;
 import com.datastax.driver.core.policies.ReconnectionPolicy.ReconnectionSchedule;
@@ -62,6 +63,7 @@ import java.util.Set;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
 import static com.datastax.driver.core.querybuilder.Select.Where;
+import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
@@ -98,6 +100,19 @@ public class NativeCassandraSession
         this.cluster = requireNonNull(cluster, "cluster is null");
         this.noHostAvailableRetryTimeout = requireNonNull(noHostAvailableRetryTimeout, "noHostAvailableRetryTimeout is null");
         this.session = memoize(cluster::connect);
+    }
+
+    @Override
+    public VersionNumber getCassandraVersion()
+    {
+        ResultSet result = executeWithSession(session -> session.execute("select release_version from system.local"));
+        Row versionRow = result.one();
+        if (versionRow == null) {
+            throw new PrestoException(CASSANDRA_VERSION_ERROR, "The cluster version is not available. " +
+                    "Please make sure that the Cassandra cluster is up and running, " +
+                    "and that the contact points are specified correctly.");
+        }
+        return VersionNumber.parse(versionRow.getString("release_version"));
     }
 
     @Override

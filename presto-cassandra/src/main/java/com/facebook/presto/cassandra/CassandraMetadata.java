@@ -203,16 +203,16 @@ public class CassandraMetadata
         CassandraTableHandle handle = (CassandraTableHandle) table;
         CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, constraint.getSummary());
 
-        List<String> clusteringKeyPredicates;
+        String clusteringKeyPredicates = "";
         TupleDomain<ColumnHandle> unenforcedConstraint;
         if (partitionResult.isUnpartitioned()) {
-            clusteringKeyPredicates = ImmutableList.of();
             unenforcedConstraint = partitionResult.getUnenforcedConstraint();
         }
         else {
             CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
                     cassandraSession.getTable(getTableName(handle)).getClusteringKeyColumns(),
-                    partitionResult.getUnenforcedConstraint());
+                    partitionResult.getUnenforcedConstraint(),
+                    cassandraSession.getCassandraVersion());
             clusteringKeyPredicates = clusteringPredicatesExtractor.getClusteringKeyPredicates();
             unenforcedConstraint = clusteringPredicatesExtractor.getUnenforcedConstraints();
         }
