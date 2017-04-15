@@ -49,7 +49,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -58,7 +57,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
 
-import static com.facebook.presto.execution.executor.PrioritizedSplitRunner.calculatePriorityLevel;
+import static com.facebook.presto.execution.executor.MultilevelSplitQueue.computeLevel;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -113,7 +112,7 @@ public class TaskExecutor
     /**
      * Splits waiting for a runner thread.
      */
-    private final PriorityBlockingQueue<PrioritizedSplitRunner> waitingSplits;
+    private final MultilevelSplitQueue waitingSplits;
 
     /**
      * Splits running on a thread.
@@ -127,8 +126,6 @@ public class TaskExecutor
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
     private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
-
-    private final CounterStat[] selectedLevelCounters = new CounterStat[5];
 
     private final TimeStat splitQueuedTime = new TimeStat(NANOSECONDS);
     private final TimeStat splitWallTime = new TimeStat(NANOSECONDS);
@@ -175,12 +172,8 @@ public class TaskExecutor
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         this.minimumNumberOfDrivers = minDrivers;
-        this.waitingSplits = new PriorityBlockingQueue<>(Runtime.getRuntime().availableProcessors() * 10);
+        this.waitingSplits = new MultilevelSplitQueue();
         this.tasks = new LinkedList<>();
-
-        for (int i = 0; i < 5; i++) {
-            selectedLevelCounters[i] = new CounterStat();
-        }
     }
 
     @PostConstruct
@@ -230,7 +223,7 @@ public class TaskExecutor
 
         log.debug("Task scheduled " + taskId);
 
-        TaskHandle taskHandle = new TaskHandle(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
+        TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
         tasks.add(taskHandle);
         return taskHandle;
     }
@@ -255,9 +248,8 @@ public class TaskExecutor
         }
 
         // record completed stats
-        long threadUsageNanos = taskHandle.getThreadUsageNanos();
-        int priorityLevel = calculatePriorityLevel(threadUsageNanos);
-        completedTasksPerLevel.incrementAndGet(priorityLevel);
+        long threadUsageNanos = taskHandle.getScheduledNanos();
+        completedTasksPerLevel.incrementAndGet(computeLevel(threadUsageNanos));
 
         log.debug("Task finished or failed " + taskHandle.getTaskId());
 
@@ -310,7 +302,7 @@ public class TaskExecutor
 
     private void splitFinished(PrioritizedSplitRunner split)
     {
-        completedSplitsPerLevel.incrementAndGet(split.getPriorityLevel().get());
+        completedSplitsPerLevel.incrementAndGet(split.getPriority().getLevel());
         synchronized (this) {
             allSplits.remove(split);
 
@@ -383,7 +375,7 @@ public class TaskExecutor
     private synchronized void startSplit(PrioritizedSplitRunner split)
     {
         allSplits.add(split);
-        waitingSplits.put(split);
+        waitingSplits.offer(split);
     }
 
     private synchronized PrioritizedSplitRunner pollNextSplitWorker()
@@ -440,18 +432,12 @@ public class TaskExecutor
                     final PrioritizedSplitRunner split;
                     try {
                         split = waitingSplits.take();
-                        if (split.updatePriorityLevel()) {
-                            // priority level changed, return split to queue for re-prioritization
-                            waitingSplits.put(split);
-                            continue;
-                        }
                     }
                     catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         return;
                     }
 
-                    selectedLevelCounters[split.getPriorityLevel().get()].update(1);
                     String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
                     try (SetThreadName splitName = new SetThreadName(threadId)) {
                         RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread());
@@ -473,15 +459,15 @@ public class TaskExecutor
                         }
                         else {
                             if (blocked.isDone()) {
-                                waitingSplits.put(split);
+                                waitingSplits.offer(split);
                             }
                             else {
                                 blockedSplits.put(split, blocked);
                                 blocked.addListener(() -> {
                                     blockedSplits.remove(split);
-                                    split.updatePriorityLevel();
-                                    split.setReady();
-                                    waitingSplits.put(split);
+                                    // reset the level priority to prevent previously-blocked splits from starving existing splits
+                                    split.resetLevelPriority();
+                                    waitingSplits.offer(split);
                                 }, executor);
                             }
                         }
@@ -656,35 +642,35 @@ public class TaskExecutor
     @Nested
     public CounterStat getSelectedCountLevel0()
     {
-        return selectedLevelCounters[0];
+        return waitingSplits.getSelectedLevelCounters().get(0);
     }
 
     @Managed
     @Nested
     public CounterStat getSelectedCountLevel1()
     {
-        return selectedLevelCounters[1];
+        return waitingSplits.getSelectedLevelCounters().get(1);
     }
 
     @Managed
     @Nested
     public CounterStat getSelectedCountLevel2()
     {
-        return selectedLevelCounters[2];
+        return waitingSplits.getSelectedLevelCounters().get(2);
     }
 
     @Managed
     @Nested
     public CounterStat getSelectedCountLevel3()
     {
-        return selectedLevelCounters[3];
+        return waitingSplits.getSelectedLevelCounters().get(3);
     }
 
     @Managed
     @Nested
     public CounterStat getSelectedCountLevel4()
     {
-        return selectedLevelCounters[4];
+        return waitingSplits.getSelectedLevelCounters().get(4);
     }
 
     @Managed
@@ -775,7 +761,7 @@ public class TaskExecutor
     {
         int count = 0;
         for (TaskHandle task : tasks) {
-            if (calculatePriorityLevel(task.getThreadUsageNanos()) == level) {
+            if (computeLevel(task.getScheduledNanos()) == level) {
                 count++;
             }
         }
