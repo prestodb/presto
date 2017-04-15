@@ -5,30 +5,33 @@ Tuning Presto
 The default Presto settings should work well for most workloads. The following
 information may help you if your cluster is facing a specific performance problem.
 
-Config Properties
------------------
+When setting up a cluster for a specific workload it may be necessary to adjust the
+following properties to ensure optimal performance:
 
-These configuration options may require tuning in specific situations:
+  * :ref:`distributed-joins-enabled <tuning-pref-general>`
+  * :ref:`query.max-memory <tuning-pref-query>`
+  * :ref:`query.max-memory-per-node <tuning-pref-query>`
+  * :ref:`query.initial-hash-partitions <tuning-pref-query>`
+  * :ref:`task.concurrency <tuning-pref-task>`
 
-* ``task.max-worker-threads``:
-  Sets the number of threads used by workers to process splits. Increasing this number
-  can improve throughput if worker CPU utilization is low and all the threads are in use,
-  but will cause increased heap space usage. The number of active threads is available via
-  the ``com.facebook.presto.execution.TaskExecutor.RunningSplits`` JMX stat.
+Those and other Presto properties are described in :doc:`properties article<properties>`.
 
-* ``distributed-joins-enabled``:
-  Use hash distributed joins instead of broadcast joins. Distributed joins
-  require redistributing both tables using a hash of the join key. This can
-  be slower (sometimes substantially) than broadcast joins, but allows much
-  larger joins. Broadcast joins require that the tables on the right side of
-  the join fit in memory on each machine, whereas with distributed joins the
-  tables on the right side have to fit in distributed memory. This can also be
-  specified on a per-query basis using the ``distributed_join`` session property.
+As an example, on a 11-node cluster dedicated to Presto (1 Coordinator + 10 Workers) with 8-core CPU and 128GB of RAM per node, you might want to start tuning with following values:
 
-* ``node-scheduler.network-topology``:
-  Sets the network topology to use when scheduling splits. "legacy" will ignore
-  the topology when scheduling splits. "flat" will try to schedule splits on the same
-  host as the data is located by reserving 50% of the work queue for local splits.
+  * `query.max-memory = 200GB`
+  * `query.max-memory-per-node = 32GB`
+  * `query.initial-hash-partitions = 10`
+  * `task.concurrency = 8`
+
+If your workload consists of queries that have very quick processing time of the splits you might encounter situation when whole cluster is under utilized (very small usage of CPU, network and disks).
+For example this can happen when your queries are highly selective and most splits can be filtered out just by looking into theirs headers (like bloom filters or min/max statistics in ORC files) without reading the actual data.
+In such case you might want to increase values of the following properties:
+
+  * :ref:`node-scheduler.max-pending-splits-per-node-per-stage <tuning-pref-node>`
+  * :ref:`node-scheduler.max-splits-per-node <tuning-pref-node>`
+
+If this guide does not suit your needs, You may look for more tuning options on
+:doc:`/admin/properties` page.
 
 JVM Settings
 ------------
