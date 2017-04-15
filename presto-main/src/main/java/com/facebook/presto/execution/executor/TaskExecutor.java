@@ -77,7 +77,7 @@ public class TaskExecutor
     private static final Logger log = Logger.get(TaskExecutor.class);
 
     // each task is guaranteed a minimum number of splits
-    private static final int GUARANTEED_SPLITS_PER_TASK = 3;
+    static final int GUARANTEED_SPLITS_PER_TASK = 3;
 
     // print out split call stack if it has been running for a certain amount of time
     private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(1000, TimeUnit.SECONDS);
