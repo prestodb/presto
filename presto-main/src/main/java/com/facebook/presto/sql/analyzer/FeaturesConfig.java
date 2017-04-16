@@ -48,7 +48,6 @@ public class FeaturesConfig
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
-    private boolean optimizerReorderWindows = false;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled = false;
     private boolean legacyArrayAgg;
