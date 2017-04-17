@@ -7,13 +7,16 @@ Synopsis
 
 .. code-block:: none
 
-    EXPLAIN ANALYZE statement
+    EXPLAIN ANALYZE [VERBOSE] statement
 
 Description
 -----------
 
 Execute the statement and show the distributed execution plan of the statement
 along with the cost of each operation.
+
+The ``VERBOSE`` option will give more detailed information and low-level statistics
+They may not be understandable for users not familiar with Presto internals and implementation details.
 
 .. note::
 
@@ -68,6 +71,28 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
                     $hashvalue_10 := "combine_hash"(BIGINT '0', COALESCE("$operator$hash_code"("clerk"), 0))
                     orderdate := tpch:orderdate
                     clerk := tpch:clerk
+
+When ``VERBOSE`` option is used, some operators may report additional information, e.g. for Window Function operator you may notice:
+
+.. code-block:: none
+
+    EXPLAIN ANALYZE VERBOSE SELECT count(clerk) OVER() FROM orders WHERE orderdate > date '1995-01-01';
+
+                                              Query Plan
+    -----------------------------------------------------------------------------------------------
+      ...
+             - Window[] => [clerk:varchar(15), count:bigint]
+                     Cost: {rows: ?, bytes: ?}
+                     CPU fraction: 75.93%, Output: 8130 rows (230.24kB)
+                     Input avg.: 8130.00 lines, Input std.dev.: 0.00%
+                     Active Drivers: [ 1 / 1 ]
+                     Index size: std.dev.: 0.00 bytes , 0.00 rows
+                     Index count per driver: std.dev.: 0.00
+                     Rows per driver: std.dev.: 0.00
+                     Size of partition: std.dev.: 0.00
+                     count := count("clerk")
+     ...
+
 
 See Also
 --------
