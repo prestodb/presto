@@ -513,7 +513,7 @@ public final class SqlFormatter
                 builder.append("OR REPLACE ");
             }
             builder.append("VIEW ")
-                    .append(node.getName())
+                    .append(formatName(node.getName()))
                     .append(" AS\n");
 
             process(node.getQuery(), indent);
