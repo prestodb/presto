@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +44,8 @@ public class ExecutionFailureInfo
     private final List<String> stack;
     private final ErrorLocation errorLocation;
     private final ErrorCode errorCode;
+    // use for transport errors
+    private final HostAddress remoteHost;
 
     @JsonCreator
     public ExecutionFailureInfo(
@@ -52,7 +55,8 @@ public class ExecutionFailureInfo
             @JsonProperty("suppressed") List<ExecutionFailureInfo> suppressed,
             @JsonProperty("stack") List<String> stack,
             @JsonProperty("errorLocation") @Nullable ErrorLocation errorLocation,
-            @JsonProperty("errorCode") @Nullable ErrorCode errorCode)
+            @JsonProperty("errorCode") @Nullable ErrorCode errorCode,
+            @JsonProperty("remoteHost") @Nullable HostAddress remoteHost)
     {
         requireNonNull(type, "type is null");
         requireNonNull(suppressed, "suppressed is null");
@@ -65,6 +69,7 @@ public class ExecutionFailureInfo
         this.stack = ImmutableList.copyOf(stack);
         this.errorLocation = errorLocation;
         this.errorCode = errorCode;
+        this.remoteHost = remoteHost;
     }
 
     @NotNull
@@ -114,6 +119,13 @@ public class ExecutionFailureInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    @Nullable
+    @JsonProperty
+    public HostAddress getRemoteHost()
+    {
+        return remoteHost;
     }
 
     public FailureInfo toFailureInfo()

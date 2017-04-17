@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PrestoTransportException;
 
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 
 public class PageTransportTimeoutException
-        extends PrestoException
+        extends PrestoTransportException
 {
-    public PageTransportTimeoutException(String message, Throwable cause)
+    public PageTransportTimeoutException(HostAddress remoteHost, String message, Throwable cause)
     {
-        super(PAGE_TRANSPORT_TIMEOUT, message, cause);
+        super(PAGE_TRANSPORT_TIMEOUT, remoteHost, message, cause);
     }
 }

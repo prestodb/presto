@@ -18,7 +18,9 @@ import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
@@ -55,12 +57,16 @@ public final class Failures
         }
         // todo prevent looping with suppressed cause loops and such
         String type;
+        HostAddress remoteHost = null;
         if (failure instanceof Failure) {
             type = ((Failure) failure).getType();
         }
         else {
             Class<?> clazz = failure.getClass();
             type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
+        }
+        if (failure instanceof PrestoTransportException) {
+            remoteHost = ((PrestoTransportException) failure).getRemoteHost();
         }
 
         return new ExecutionFailureInfo(type,
@@ -69,7 +75,8 @@ public final class Failures
                 toFailures(asList(failure.getSuppressed())),
                 Lists.transform(asList(failure.getStackTrace()), toStringFunction()),
                 getErrorLocation(failure),
-                toErrorCode(failure));
+                toErrorCode(failure),
+                remoteHost);
     }
 
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
