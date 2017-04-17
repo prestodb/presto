@@ -37,6 +37,7 @@ public class CassandraTestingUtils
     public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
     public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
     public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
+    public static final String TABLE_ALL_TYPES_AND_UDT = "table_all_types_and_udt";
 
     private CassandraTestingUtils() {}
 
@@ -48,6 +49,7 @@ public class CassandraTestingUtils
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS), 9);
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_LARGE), 1000);
         createTableMultiPartitionClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS));
+        createTableAllTypesUDT(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_AND_UDT), "userdefinedtype", date);
     }
 
     public static void createKeyspace(CassandraSession session, String keyspaceName)
@@ -55,9 +57,14 @@ public class CassandraTestingUtils
         session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
     }
 
-    public static void createTableClusteringKeys(CassandraSession session, SchemaTableName table, int rowsCount)
+    public static void dropTable(CassandraSession session, SchemaTableName table)
     {
         session.execute("DROP TABLE IF EXISTS " + table);
+    }
+
+    public static void createTableClusteringKeys(CassandraSession session, SchemaTableName table, int rowsCount)
+    {
+        dropTable(session, table);
         session.execute("CREATE TABLE " + table + " (" +
                 "key text, " +
                 "clust_one text, " +
@@ -84,7 +91,7 @@ public class CassandraTestingUtils
 
     public static void createTableMultiPartitionClusteringKeys(CassandraSession session, SchemaTableName table)
     {
-        session.execute("DROP TABLE IF EXISTS " + table);
+        dropTable(session, table);
         session.execute("CREATE TABLE " + table + " (" +
                 "partition_one text, " +
                 "partition_two text, " +
@@ -113,7 +120,7 @@ public class CassandraTestingUtils
 
     public static void createTableAllTypes(CassandraSession session, SchemaTableName table, Date date)
     {
-        session.execute("DROP TABLE IF EXISTS " + table);
+        dropTable(session, table);
         session.execute("CREATE TABLE " + table + " (" +
                 " key text PRIMARY KEY, " +
                 " typeuuid uuid, " +
@@ -137,9 +144,33 @@ public class CassandraTestingUtils
         insertTestData(session, table, date);
     }
 
+    public static void createTableAllTypesUDT(CassandraSession session, SchemaTableName table, String typeName, Date date)
+    {
+        dropTable(session, table);
+        session.execute("DROP TYPE IF EXISTS " + table.getSchemaName() + "." + typeName);
+        createUDT(session, table.getSchemaName(), typeName);
+        session.execute("CREATE TABLE " + table + " (" +
+                " key text PRIMARY KEY, " +
+                " typelist frozen<list<" + typeName + ">>, " +
+                " typemap frozen<map<int, " + typeName + ">>, " +
+                " typeset frozen<set<" + typeName + ">>, " +
+                " typeuserdefined frozen <" + typeName + ">, " +
+                ")");
+        insertTestDataUDT(session, table, typeName, date);
+    }
+
+    public static void createUDT(CassandraSession session, String schemaName, String typeName)
+    {
+        session.execute("CREATE TYPE " + schemaName + "." + typeName + " (" +
+                "fieldtext text, " +
+                "fieldinteger int, " +
+                "fieldset set<text> " +
+                ")");
+    }
+
     public static void createTableAllTypesPartitionKey(CassandraSession session, SchemaTableName table, Date date)
     {
-        session.execute("DROP TABLE IF EXISTS " + table);
+        dropTable(session, table);
 
         session.execute("CREATE TABLE " + table + " (" +
                 " key text, " +
@@ -215,5 +246,17 @@ public class CassandraTestingUtils
             session.executeWithSession(s -> s.execute(insert));
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
+    }
+
+    private static void insertTestDataUDT(CassandraSession session, SchemaTableName table, String typeName, Date date)
+    {
+        session.execute("INSERT INTO " + table + "(key, typelist, typemap, typeset, typeuserdefined) " +
+                "VALUES ('key 10', " +
+                "[{fieldtext: 'fieldText', fieldinteger: 3, fieldset: {}}], " +
+                "{3: {fieldtext: 'fieldText', fieldinteger: 3, fieldset: {}}}, " +
+                "{{fieldtext: 'fieldText', fieldinteger: 3, fieldset: {}}}, " +
+                "{fieldtext: 'fieldText', fieldinteger: 3, fieldset: {}});");
+
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 1);
     }
 }

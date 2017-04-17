@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_AND_UDT;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -73,6 +74,7 @@ public class TestCassandraConnector
     private static final Date DATE = new Date();
     protected String database;
     protected SchemaTableName table;
+    protected SchemaTableName tableUdt;
     protected SchemaTableName tableUnpartitioned;
     protected SchemaTableName invalidTable;
     private ConnectorMetadata metadata;
@@ -109,6 +111,7 @@ public class TestCassandraConnector
 
         database = keyspace;
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase());
+        tableUdt = new SchemaTableName(database, TABLE_ALL_TYPES_AND_UDT.toLowerCase());
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
     }
@@ -211,6 +214,61 @@ public class TestCassandraConnector
             }
         }
         assertEquals(rowNumber, 9);
+    }
+
+    @Test
+    public void testGetUDT()
+            throws Exception
+    {
+        ConnectorTableHandle tableHandle = getTableHandle(tableUdt);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+        ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;
+
+        List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+        ConnectorTableLayoutHandle layout = getOnlyElement(layouts).getTableLayout().getHandle();
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction, SESSION, layout));
+
+        long rowNumber = 0;
+        for (ConnectorSplit split : splits) {
+            CassandraSplit cassandraSplit = (CassandraSplit) split;
+
+            long completedBytes = 0;
+            try (RecordCursor cursor = recordSetProvider.getRecordSet(transaction, SESSION, cassandraSplit, columnHandles).cursor()) {
+                while (cursor.advanceNextPosition()) {
+                    try {
+                        assertReadFields(cursor, tableMetadata.getColumns());
+                    }
+                    catch (RuntimeException e) {
+                        throw new RuntimeException("row " + rowNumber, e);
+                    }
+
+                    rowNumber++;
+
+                    String keyValue = cursor.getSlice(columnIndex.get("key")).toStringUtf8();
+                    String udtValue = cursor.getSlice(columnIndex.get("typeuserdefined")).toStringUtf8();
+                    String listValue = cursor.getSlice(columnIndex.get("typelist")).toStringUtf8();
+                    String mapValue = cursor.getSlice(columnIndex.get("typemap")).toStringUtf8();
+                    String setValue = cursor.getSlice(columnIndex.get("typeset")).toStringUtf8();
+                    assertTrue(keyValue.startsWith("key "));
+                    assertEquals(udtValue, "{fieldtext:'fieldText',fieldinteger:3,fieldset:{}}");
+                    assertEquals(listValue, "[{fieldtext:'fieldText',fieldinteger:3,fieldset:{}}]");
+                    assertEquals(mapValue, "{3:{fieldtext:'fieldText',fieldinteger:3,fieldset:{}}}");
+                    assertEquals(setValue, "[{fieldtext:'fieldText',fieldinteger:3,fieldset:{}}]");
+
+                    int rowId = Integer.parseInt(keyValue.substring(4));
+
+                    assertEquals(keyValue, String.format("key %d", rowId));
+
+                    long newCompletedBytes = cursor.getCompletedBytes();
+                    assertTrue(newCompletedBytes >= completedBytes);
+                    completedBytes = newCompletedBytes;
+                }
+            }
+        }
+        assertEquals(rowNumber, 1);
     }
 
     private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)

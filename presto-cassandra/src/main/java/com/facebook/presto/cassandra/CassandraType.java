@@ -15,6 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Row;
+import com.datastax.driver.core.UDTValue;
 import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.PrestoException;
@@ -74,7 +75,8 @@ public enum CassandraType
     VARINT(createUnboundedVarcharType(), BigInteger.class),
     LIST(createUnboundedVarcharType(), null),
     MAP(createUnboundedVarcharType(), null),
-    SET(createUnboundedVarcharType(), null);
+    SET(createUnboundedVarcharType(), null),
+    UDT(createUnboundedVarcharType(), UDTValue.class);
 
     private static class Constants
     {
@@ -155,6 +157,8 @@ public enum CassandraType
                 return VARCHAR;
             case VARINT:
                 return VARINT;
+            case UDT:
+                return UDT;
             default:
                 return null;
         }
@@ -212,6 +216,8 @@ public enum CassandraType
                 case MAP:
                     checkTypeArguments(cassandraType, 2, typeArguments);
                     return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, i, typeArguments.get(0), typeArguments.get(1))));
+                case UDT:
+                    return NullableValue.of(nativeType, utf8Slice(buildUDTValue(row, i)));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -246,6 +252,11 @@ public enum CassandraType
     private static String buildListValue(Row row, int i, CassandraType elemType)
     {
         return buildArrayValue(row.getList(i, elemType.javaType), elemType);
+    }
+
+    private static String buildUDTValue(Row row, int i)
+    {
+        return row.getUDTValue(i).toString();
     }
 
     private static String buildMapValue(Row row, int i, CassandraType keyType, CassandraType valueType)
@@ -355,6 +366,8 @@ public enum CassandraType
             case DOUBLE:
             case FLOAT:
             case DECIMAL:
+                return object.toString();
+            case UDT:
                 return object.toString();
             default:
                 throw new IllegalStateException("Handling of type " + elemType + " is not implemented");
