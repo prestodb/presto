@@ -76,6 +76,13 @@ public interface ConnectorMetadata
      * Return a list of table layouts that satisfy the given constraint.
      * <p>
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
+     * If the returned layout list is not empty, at least one of the returned layouts must satisfy the following rules:
+     * <ul>
+     * <li>the returned layout does not contain any columns</li>
+     * <li>or if the {@code desiredColumns} is provided and is an empty list, the returned layout must contain an empty column list</li>
+     * <li>or if the {@code desiredColumns} is provided and is not empty, the returned layout must contains all required columns</li>
+     * <li>otherwise the returned layout can contain any columns</li>
+     * </ul>
      */
     List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,

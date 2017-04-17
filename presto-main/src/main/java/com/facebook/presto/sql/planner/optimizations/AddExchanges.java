@@ -95,7 +95,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -585,12 +584,6 @@ public class AddExchanges
                                 .build());
             }
 
-            // Filter out layouts that cannot supply all the required columns
-            layouts = layouts.stream()
-                    .filter(layoutHasAllNeededOutputs(node))
-                    .collect(toList());
-            checkState(!layouts.isEmpty(), "No usable layouts for %s", node);
-
             List<PlanWithProperties> possiblePlans = layouts.stream()
                     .map(layout -> {
                         TableScanNode tableScan = new TableScanNode(
@@ -620,12 +613,6 @@ public class AddExchanges
                     .collect(toList());
 
             return pickPlan(possiblePlans, context);
-        }
-
-        private Predicate<TableLayoutResult> layoutHasAllNeededOutputs(TableScanNode node)
-        {
-            return layout -> !layout.getLayout().getColumns().isPresent()
-                    || layout.getLayout().getColumns().get().containsAll(Lists.transform(node.getOutputSymbols(), node.getAssignments()::get));
         }
 
         /**

@@ -79,11 +79,13 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
+import static com.facebook.presto.spi.StandardErrorCode.NO_TABLE_LAYOUTS;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
@@ -96,6 +98,7 @@ import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -305,9 +308,17 @@ public class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
         List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
 
-        return layouts.stream()
+        // connectors are allowed to return an empty list
+        if (layouts.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        List<TableLayoutResult> filteredLayouts = layouts.stream()
                 .map(layout -> new TableLayoutResult(fromConnectorLayout(connectorId, transaction, layout.getTableLayout()), layout.getUnenforcedConstraint()))
+                .filter(hasDesiredColumns(desiredColumns))
                 .collect(toImmutableList());
+        checkCondition(!filteredLayouts.isEmpty(), NO_TABLE_LAYOUTS, "No usable layouts for table");
+        return filteredLayouts;
     }
 
     @Override
@@ -920,6 +931,18 @@ public class MetadataManager
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TypeRegistry())));
         return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
+    }
+
+    private Predicate<TableLayoutResult> hasDesiredColumns(Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        // the returned layout either (1) does not contain any columns, or (2) it satisfies the following rules:
+        // a. if desiredColumns is provided and is an empty list, the returned layout must contain an empty column list
+        // b. if desiredColumns is provided and is not empty, the returned layout must contains all required columns
+        // c. otherwise, the returned layout can contain any columns
+        return layout -> !layout.getLayout().getColumns().isPresent()                                   // (1)
+                || !desiredColumns.isPresent()                                                          // (2.c)
+                || (desiredColumns.get().isEmpty() && layout.getLayout().getColumns().get().isEmpty())  // (2.a)
+                || (layout.getLayout().getColumns().get().containsAll(desiredColumns.get()));           // (2.b)
     }
 
     @VisibleForTesting
