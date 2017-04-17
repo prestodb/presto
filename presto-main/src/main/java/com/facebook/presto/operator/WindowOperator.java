@@ -449,7 +449,7 @@ public class WindowOperator
         checkArgument(page.getPositionCount() > 0, "Must have at least one position");
         checkPositionIndex(startPosition, page.getPositionCount(), "startPosition out of bounds");
 
-        return findEndPosition(startPosition, page.getPositionCount() - 1, (firstPosition, secondPosition) -> pagesHashStrategy.rowEqualsRow(firstPosition, page, secondPosition, page));
+        return findEndPosition(startPosition, page.getPositionCount(), (firstPosition, secondPosition) -> pagesHashStrategy.rowEqualsRow(firstPosition, page, secondPosition, page));
     }
 
     // Assumes input grouped on relevant pagesHashStrategy columns
@@ -458,25 +458,41 @@ public class WindowOperator
         checkArgument(pagesIndex.getPositionCount() > 0, "Must have at least one position");
         checkPositionIndex(startPosition, pagesIndex.getPositionCount(), "startPosition out of bounds");
 
-        return findEndPosition(startPosition, pagesIndex.getPositionCount() - 1, (firstPosition, secondPosition) -> pagesIndex.positionEqualsPosition(pagesHashStrategy, firstPosition, secondPosition));
+        return findEndPosition(startPosition, pagesIndex.getPositionCount(), (firstPosition, secondPosition) -> pagesIndex.positionEqualsPosition(pagesHashStrategy, firstPosition, secondPosition));
     }
 
-    // comparator is suppose to return true if positions given as parameters are equal
+    /**
+     * @param startPosition - inclusive
+     * @param endPosition - exclusive
+     * @param comparator - returns true if positions given as parameters are equal
+     * @return the end of the group position exclusive (the position the very next group starts)
+     */
     @VisibleForTesting
-    static int findEndPosition(int firstPosition, int lastPosition, BiFunction<Integer, Integer, Boolean> comparator)
+    static int findEndPosition(int startPosition, int endPosition, BiFunction<Integer, Integer, Boolean> comparator)
     {
-        checkArgument(firstPosition >= 0, "firstPosition must be greater or equal than zero: %d", firstPosition);
-        checkArgument(lastPosition >= 0, "lastPosition must be greater or equal than zero: %d", lastPosition);
+        checkArgument(startPosition >= 0, "startPosition must be greater or equal than zero: %d", startPosition);
+        checkArgument(endPosition > 0, "endPosition must be greater than zero: %d", endPosition);
+        checkArgument(startPosition < endPosition, "startPosition must be less than endPosition: %d < %d", startPosition, endPosition);
 
-        if (firstPosition >= lastPosition) {
-            return firstPosition + 1;
-        }
+        int left = startPosition;
+        int right = endPosition - 1;
+        for (int i = 0; i < endPosition - startPosition; i++) {
+            int distance = right - left;
 
-        int left = firstPosition;
-        int right = lastPosition;
+            if (distance == 0) {
+                return right + 1;
+            }
 
-        while (right - left > 1) {
-            int mid = left + (right - left) / 2;
+            if (distance == 1) {
+                if (comparator.apply(left, right)) {
+                    return right + 1;
+                }
+                else {
+                    return right;
+                }
+            }
+
+            int mid = left + distance / 2;
             if (comparator.apply(left, mid)) {
                 // explore to the right
                 left = mid;
@@ -487,11 +503,22 @@ public class WindowOperator
             }
         }
 
-        if (comparator.apply(left, right)) {
-            return right + 1;
+        // did't manage to find a solution after N iteration. Probably the input is not sorted. Lets verify it.
+        for (int first = startPosition; first < endPosition; first++) {
+            boolean previousPairsWereEqual = true;
+            for (int second = first + 1; second < endPosition; second++) {
+                boolean currentPairIsEqual = comparator.apply(first, second);
+                if (!currentPairIsEqual) {
+                    previousPairsWereEqual = false;
+                }
+
+                if (currentPairIsEqual && !previousPairsWereEqual) {
+                    throw new IllegalArgumentException("The input is not sorted");
+                }
+            }
         }
-        else {
-            return right;
-        }
+
+        // the input is sorted, but the algorithm has still failed
+        throw new IllegalArgumentException("failed to find a group ending");
     }
 }
