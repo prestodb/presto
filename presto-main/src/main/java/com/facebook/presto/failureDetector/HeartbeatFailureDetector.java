@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.failureDetector;
 
+import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -37,8 +38,11 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +56,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.failureDetector.FailureDetector.State.ALIVE;
+import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
+import static com.facebook.presto.failureDetector.FailureDetector.State.UNKNOWN;
+import static com.facebook.presto.failureDetector.FailureDetector.State.UNRESPONSIVE;
+import static com.facebook.presto.spi.HostAddress.fromUri;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -141,6 +150,31 @@ public class HeartbeatFailureDetector
                 .filter(MonitoringTask::isFailed)
                 .map(MonitoringTask::getService)
                 .collect(toImmutableSet());
+    }
+
+    @Override
+    public State getState(HostAddress hostAddress)
+    {
+        for (MonitoringTask task : tasks.values()) {
+            if (hostAddress.equals(fromUri(task.uri))) {
+                if (!task.isFailed()) {
+                    return ALIVE;
+                }
+
+                Exception lastFailureException = task.getStats().getLastFailureException();
+                if (lastFailureException instanceof SocketTimeoutException || lastFailureException instanceof UnknownHostException) {
+                    return GONE;
+                }
+
+                if (lastFailureException instanceof ConnectException) {
+                    return UNRESPONSIVE;
+                }
+
+                return UNKNOWN;
+            }
+        }
+
+        return UNKNOWN;
     }
 
     @Managed(description = "Number of failed services")
@@ -361,6 +395,7 @@ public class HeartbeatFailureDetector
         private final DecayCounter recentSuccesses = new DecayCounter(ExponentialDecay.oneMinute());
         private final AtomicReference<DateTime> lastRequestTime = new AtomicReference<>();
         private final AtomicReference<DateTime> lastResponseTime = new AtomicReference<>();
+        private final AtomicReference<Exception> lastFailureException = new AtomicReference<>();
 
         @GuardedBy("this")
         private final Map<Class<? extends Throwable>, DecayCounter> failureCountByType = new HashMap<>();
@@ -386,6 +421,7 @@ public class HeartbeatFailureDetector
         {
             recentFailures.add(1);
             lastResponseTime.set(new DateTime());
+            lastFailureException.set(exception);
 
             Throwable cause = exception;
             while (cause.getClass() == RuntimeException.class && cause.getCause() != null) {
@@ -448,6 +484,12 @@ public class HeartbeatFailureDetector
         public DateTime getLastResponseTime()
         {
             return lastResponseTime.get();
+        }
+
+        @JsonProperty
+        public Exception getLastFailureException()
+        {
+            return lastFailureException.get();
         }
 
         @JsonProperty

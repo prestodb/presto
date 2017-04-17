@@ -78,6 +78,7 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
@@ -509,6 +510,13 @@ public class ServerMainModule
                 public Set<ServiceDescriptor> getFailed()
                 {
                     return ImmutableSet.of();
+                }
+
+                @Override
+                public State getState(HostAddress hostAddress)
+                {
+                    // failure detector is not available on workers
+                    return State.UNKNOWN;
                 }
             });
         }
