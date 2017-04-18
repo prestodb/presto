@@ -101,21 +101,28 @@ public abstract class AbstractOperatorBenchmark
 
     protected abstract List<Driver> createDrivers(TaskContext taskContext);
 
-    protected void execute(TaskContext taskContext)
+    protected Map<String, Long> execute(TaskContext taskContext)
     {
         List<Driver> drivers = createDrivers(taskContext);
 
+        long peakMemory = 0;
         boolean done = false;
         while (!done) {
             boolean processed = false;
             for (Driver driver : drivers) {
                 if (!driver.isFinished()) {
                     driver.process();
+                    long lastPeakMemory = peakMemory;
+                    peakMemory = (long) taskContext.getTaskStats().getMemoryReservation().getValue(BYTE);
+                    if (peakMemory <= lastPeakMemory) {
+                        peakMemory = lastPeakMemory;
+                    }
                     processed = true;
                 }
             }
             done = !processed;
         }
+        return ImmutableMap.of("peak_memory", peakMemory);
     }
 
     @Override
@@ -136,7 +143,7 @@ public abstract class AbstractOperatorBenchmark
                         false);
 
         CpuTimer cpuTimer = new CpuTimer();
-        execute(taskContext);
+        Map<String, Long> executionStats = execute(taskContext);
         CpuDuration executionTime = cpuTimer.elapsedTime();
 
         TaskStats taskStats = taskContext.getTaskStats();
@@ -149,6 +156,7 @@ public abstract class AbstractOperatorBenchmark
 
         return ImmutableMap.<String, Long>builder()
                 // legacy computed values
+                .putAll(executionStats)
                 .put("elapsed_millis", executionTime.getWall().toMillis())
                 .put("input_rows_per_second", (long) (inputRows / executionTime.getWall().getValue(SECONDS)))
                 .put("output_rows_per_second", (long) (outputRows / executionTime.getWall().getValue(SECONDS)))
