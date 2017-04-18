@@ -68,6 +68,7 @@ public class StageStats
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
 
+    private final DataSize bufferedDataSize;
     private final DataSize outputDataSize;
     private final long outputPositions;
     private final List<OperatorStats> operatorSummaries;
@@ -99,6 +100,7 @@ public class StageStats
         this.rawInputPositions = 0;
         this.processedInputDataSize = null;
         this.processedInputPositions = 0;
+        this.bufferedDataSize = null;
         this.outputDataSize = null;
         this.outputPositions = 0;
         this.operatorSummaries = null;
@@ -138,6 +140,7 @@ public class StageStats
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
+            @JsonProperty("bufferedDataSize") DataSize bufferedDataSize,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
@@ -182,6 +185,7 @@ public class StageStats
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
+        this.bufferedDataSize = requireNonNull(bufferedDataSize, "bufferedDataSize is null");
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
@@ -330,6 +334,12 @@ public class StageStats
     public long getProcessedInputPositions()
     {
         return processedInputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getBufferedDataSize()
+    {
+        return bufferedDataSize;
     }
 
     @JsonProperty
