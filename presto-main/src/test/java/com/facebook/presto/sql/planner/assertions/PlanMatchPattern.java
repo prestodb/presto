@@ -526,6 +526,11 @@ public final class PlanMatchPattern
         return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args));
     }
 
+    public static ExpectedValueProvider<FunctionCall> distinctFunctionCall(String name, List<String> args)
+    {
+        return new FunctionCallProvider(QualifiedName.of(name), true, toSymbolAliases(args));
+    }
+
     public static ExpectedValueProvider<FunctionCall> functionCall(
             String name,
             Optional<WindowFrame> frame,

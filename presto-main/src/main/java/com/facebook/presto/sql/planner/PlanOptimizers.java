@@ -222,7 +222,11 @@ public class PlanOptimizers
                         stats,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())
                 ),
-                new MetadataQueryOptimizer(metadata),
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableList.of(new MetadataQueryOptimizer(metadata)),
+                        ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.MetadataQueryOptimizer(metadata))
+                        ),
                 new IterativeOptimizer(
                         stats,
                         ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins()), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again

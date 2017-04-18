@@ -57,6 +57,7 @@ import static java.util.Objects.requireNonNull;
  * Converts cardinality-insensitive aggregations (max, min, "distinct") over partition keys
  * into simple metadata queries
  */
+@Deprecated
 public class MetadataQueryOptimizer
         implements PlanOptimizer
 {

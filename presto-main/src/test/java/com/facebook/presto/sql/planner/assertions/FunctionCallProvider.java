@@ -73,7 +73,7 @@ class FunctionCallProvider
             return new ExpectedWindowFunctionCall(symbolReferences);
         }
 
-        return new FunctionCall(name, symbolReferences);
+        return new FunctionCall(name, distinct, symbolReferences);
     }
 
     private class ExpectedWindowFunctionCall
