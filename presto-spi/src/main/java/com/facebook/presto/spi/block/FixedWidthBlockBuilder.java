@@ -19,6 +19,8 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 
 import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
@@ -34,8 +36,9 @@ public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedWidthBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedWidthBlockBuilder.class).instanceSize();
 
+    @Nullable
     private BlockBuilderStatus blockBuilderStatus;
 
     private boolean initialized;
@@ -47,7 +50,7 @@ public class FixedWidthBlockBuilder
 
     private int currentEntrySize;
 
-    public FixedWidthBlockBuilder(int fixedSize, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public FixedWidthBlockBuilder(int fixedSize, @Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         super(fixedSize);
 
@@ -90,7 +93,11 @@ public class FixedWidthBlockBuilder
     @Override
     public int getRetainedSizeInBytes()
     {
-        return intSaturatedCast(INSTANCE_SIZE + sliceOutput.getRetainedSize() + valueIsNull.getRetainedSize());
+        long size = INSTANCE_SIZE + sliceOutput.getRetainedSize() + valueIsNull.getRetainedSize();
+        if (blockBuilderStatus != null) {
+            size += BlockBuilderStatus.INSTANCE_SIZE;
+        }
+        return intSaturatedCast(size);
     }
 
     @Override
@@ -191,7 +198,9 @@ public class FixedWidthBlockBuilder
         valueIsNull.appendByte(isNull ? 1 : 0);
 
         positionCount++;
-        blockBuilderStatus.addBytes(Byte.BYTES + fixedSize);
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Byte.BYTES + fixedSize);
+        }
     }
 
     private void checkCapacity()

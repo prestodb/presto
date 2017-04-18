@@ -17,6 +17,8 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 
@@ -30,10 +32,11 @@ public class MapBlockBuilder
         extends AbstractMapBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
 
     private final MethodHandle keyBlockHashCode;
 
+    @Nullable
     private BlockBuilderStatus blockBuilderStatus;
 
     private int positionCount;
@@ -69,7 +72,7 @@ public class MapBlockBuilder
             Type keyType,
             MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode,
-            BlockBuilderStatus blockBuilderStatus,
+            @Nullable BlockBuilderStatus blockBuilderStatus,
             BlockBuilder keyBlockBuilder,
             BlockBuilder valueBlockBuilder,
             int[] offsets,
@@ -79,7 +82,7 @@ public class MapBlockBuilder
         super(keyType, keyNativeHashCode, keyBlockNativeEquals);
 
         this.keyBlockHashCode = requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.blockBuilderStatus = blockBuilderStatus;
 
         this.positionCount = 0;
         this.offsets = requireNonNull(offsets, "offsets is null");
@@ -142,7 +145,11 @@ public class MapBlockBuilder
     @Override
     public int getRetainedSizeInBytes()
     {
-        return intSaturatedCast(INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables));
+        long size = INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables);
+        if (blockBuilderStatus != null) {
+            size += BlockBuilderStatus.INSTANCE_SIZE;
+        }
+        return intSaturatedCast(size);
     }
 
     @Override
@@ -175,7 +182,9 @@ public class MapBlockBuilder
             Arrays.fill(hashTables, oldSize, hashTables.length, -1);
         }
         buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount, keyBlockHashCode, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
-        blockBuilderStatus.addBytes(entryCount * HASH_MULTIPLIER * Integer.BYTES);
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(entryCount * HASH_MULTIPLIER * Integer.BYTES);
+        }
 
         return this;
     }
@@ -205,7 +214,9 @@ public class MapBlockBuilder
         mapIsNull[positionCount] = isNull;
         positionCount++;
 
-        blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+        }
     }
 
     @Override

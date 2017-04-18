@@ -15,6 +15,8 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -22,13 +24,13 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
-import static java.util.Objects.requireNonNull;
 
 public class ByteArrayBlockBuilder
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlockBuilder.class).instanceSize();
 
+    @Nullable
     private BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private int initialEntryCount;
@@ -41,9 +43,9 @@ public class ByteArrayBlockBuilder
 
     private int retainedSizeInBytes;
 
-    public ByteArrayBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public ByteArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.blockBuilderStatus = blockBuilderStatus;
         this.initialEntryCount = max(expectedEntries, 1);
 
         updateDataSize();
@@ -59,7 +61,9 @@ public class ByteArrayBlockBuilder
         values[positionCount] = (byte) value;
 
         positionCount++;
-        blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+        }
         return this;
     }
 
@@ -79,7 +83,9 @@ public class ByteArrayBlockBuilder
         valueIsNull[positionCount] = true;
 
         positionCount++;
-        blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+        }
         return this;
     }
 
@@ -113,7 +119,11 @@ public class ByteArrayBlockBuilder
 
     private void updateDataSize()
     {
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values));
+        long size = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+        if (blockBuilderStatus != null) {
+            size += BlockBuilderStatus.INSTANCE_SIZE;
+        }
+        retainedSizeInBytes = intSaturatedCast(size);
     }
 
     // Copied from ByteArrayBlock

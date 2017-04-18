@@ -19,6 +19,8 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -30,13 +32,12 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.util.Objects.requireNonNull;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize();
 
     private BlockBuilderStatus blockBuilderStatus;
 
@@ -55,9 +56,9 @@ public class VariableWidthBlockBuilder
 
     private long arraysRetainedSizeInBytes;
 
-    public VariableWidthBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public VariableWidthBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.blockBuilderStatus = blockBuilderStatus;
 
         initialEntryCount = expectedEntries;
         initialSliceOutputSize = (int) Math.min((long) expectedBytesPerEntry * expectedEntries, MAX_ARRAY_SIZE);
@@ -116,7 +117,11 @@ public class VariableWidthBlockBuilder
     @Override
     public int getRetainedSizeInBytes()
     {
-        return intSaturatedCast(INSTANCE_SIZE + sliceOutput.getRetainedSize() + arraysRetainedSizeInBytes);
+        long size = INSTANCE_SIZE + sliceOutput.getRetainedSize() + arraysRetainedSizeInBytes;
+        if (blockBuilderStatus != null) {
+            size += BlockBuilderStatus.INSTANCE_SIZE;
+        }
+        return intSaturatedCast(size);
     }
 
     @Override
@@ -228,7 +233,9 @@ public class VariableWidthBlockBuilder
 
         positions++;
 
-        blockBuilderStatus.addBytes(SIZE_OF_BYTE + SIZE_OF_INT + bytesWritten);
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(SIZE_OF_BYTE + SIZE_OF_INT + bytesWritten);
+        }
     }
 
     private void growCapacity()

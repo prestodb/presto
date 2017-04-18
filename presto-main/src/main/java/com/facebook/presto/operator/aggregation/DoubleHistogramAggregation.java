@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.DoubleHistogramStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -96,7 +95,7 @@ public final class DoubleHistogramAggregation
         }
         else {
             Map<Double, Double> value = state.get().getBuckets();
-            BlockBuilder blockBuilder = DoubleType.DOUBLE.createBlockBuilder(new BlockBuilderStatus(), value.size() * 2);
+            BlockBuilder blockBuilder = DoubleType.DOUBLE.createBlockBuilder(null, value.size() * 2);
             for (Map.Entry<Double, Double> entry : value.entrySet()) {
                 DoubleType.DOUBLE.writeDouble(blockBuilder, entry.getKey());
                 DoubleType.DOUBLE.writeDouble(blockBuilder, entry.getValue());

@@ -62,7 +62,7 @@ public class TypedHistogram
 
         maxFill = calculateMaxFill(hashCapacity);
         mask = hashCapacity - 1;
-        values = this.type.createBlockBuilder(new BlockBuilderStatus(), hashCapacity);
+        values = this.type.createBlockBuilder(null, hashCapacity);
         hashPositions = new IntBigArray(-1);
         hashPositions.ensureCapacity(hashCapacity);
         counts = new LongBigArray();

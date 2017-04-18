@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
@@ -28,10 +30,11 @@ public class ArrayBlockBuilder
         extends AbstractArrayBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize();
 
     private int positionCount;
 
+    @Nullable
     private BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private int initialEntryCount;
@@ -74,9 +77,9 @@ public class ArrayBlockBuilder
     /**
      * Caller of this private constructor is responsible for making sure `values` is constructed with the same `blockBuilderStatus` as the one in the argument
      */
-    private ArrayBlockBuilder(BlockBuilderStatus blockBuilderStatus, BlockBuilder values, int expectedEntries)
+    private ArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder values, int expectedEntries)
     {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.blockBuilderStatus = blockBuilderStatus;
         this.values = requireNonNull(values, "values is null");
         this.initialEntryCount = max(expectedEntries, 1);
 
@@ -189,7 +192,9 @@ public class ArrayBlockBuilder
         valueIsNull[positionCount] = isNull;
         positionCount++;
 
-        blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+        }
     }
 
     private void growCapacity()
@@ -210,7 +215,11 @@ public class ArrayBlockBuilder
 
     private void updateDataSize()
     {
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets));
+        long size = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets);
+        if (blockBuilderStatus != null) {
+            size += BlockBuilderStatus.INSTANCE_SIZE;
+        }
+        retainedSizeInBytes = intSaturatedCast(size);
     }
 
     @Override

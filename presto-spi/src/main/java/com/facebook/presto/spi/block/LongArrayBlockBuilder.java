@@ -15,6 +15,8 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -24,13 +26,13 @@ import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public class LongArrayBlockBuilder
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize();
 
+    @Nullable
     private BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private int initialEntryCount;
@@ -43,9 +45,9 @@ public class LongArrayBlockBuilder
 
     private int retainedSizeInBytes;
 
-    public LongArrayBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public LongArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.blockBuilderStatus = blockBuilderStatus;
         this.initialEntryCount = max(expectedEntries, 1);
 
         updateDataSize();
@@ -61,7 +63,9 @@ public class LongArrayBlockBuilder
         values[positionCount] = value;
 
         positionCount++;
-        blockBuilderStatus.addBytes(Byte.BYTES + Long.BYTES);
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Byte.BYTES + Long.BYTES);
+        }
         return this;
     }
 
@@ -81,7 +85,9 @@ public class LongArrayBlockBuilder
         valueIsNull[positionCount] = true;
 
         positionCount++;
-        blockBuilderStatus.addBytes(Byte.BYTES + Long.BYTES);
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Byte.BYTES + Long.BYTES);
+        }
         return this;
     }
 
@@ -115,7 +121,11 @@ public class LongArrayBlockBuilder
 
     private void updateDataSize()
     {
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values));
+        long size = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+        if (blockBuilderStatus != null) {
+            size += BlockBuilderStatus.INSTANCE_SIZE;
+        }
+        retainedSizeInBytes = intSaturatedCast(size);
     }
 
     // Copied from LongArrayBlock

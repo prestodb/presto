@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -43,7 +42,7 @@ public class TypedHeap
         this.type = type;
         this.capacity = capacity;
         this.heapIndex = new int[capacity];
-        this.heapBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), capacity);
+        this.heapBlockBuilder = type.createBlockBuilder(null, capacity);
     }
 
     public int getCapacity()
@@ -171,7 +170,7 @@ public class TypedHeap
         if (heapBlockBuilder.getSizeInBytes() < COMPACT_THRESHOLD_BYTES || heapBlockBuilder.getPositionCount() / positionCount < COMPACT_THRESHOLD_RATIO) {
             return;
         }
-        BlockBuilder newHeapBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), heapBlockBuilder.getPositionCount());
+        BlockBuilder newHeapBlockBuilder = type.createBlockBuilder(null, heapBlockBuilder.getPositionCount());
         for (int i = 0; i < positionCount; i++) {
             type.appendTo(heapBlockBuilder, heapIndex[i], newHeapBlockBuilder);
             heapIndex[i] = i;

@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -53,7 +52,7 @@ public class TypedSet
     {
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
         this.elementType = requireNonNull(elementType, "elementType must not be null");
-        this.elementBlock = elementType.createBlockBuilder(new BlockBuilderStatus(), expectedSize);
+        this.elementBlock = elementType.createBlockBuilder(null, expectedSize);
 
         hashCapacity = arraySize(expectedSize, FILL_RATIO);
         this.maxFill = calculateMaxFill(hashCapacity);

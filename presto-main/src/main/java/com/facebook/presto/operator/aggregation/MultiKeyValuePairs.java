@@ -42,8 +42,8 @@ public class MultiKeyValuePairs
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.valueType = requireNonNull(valueType, "valueType is null");
-        keyBlockBuilder = this.keyType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
-        valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
+        keyBlockBuilder = this.keyType.createBlockBuilder(null, EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
+        valueBlockBuilder = this.valueType.createBlockBuilder(null, EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
     }
 
     public MultiKeyValuePairs(Block serialized, Type keyType, Type valueType)
@@ -91,7 +91,7 @@ public class MultiKeyValuePairs
         Block values = valueBlockBuilder.build();
 
         // Merge values of the same key into an array
-        BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), keys.getPositionCount(), expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
+        BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, keys.getPositionCount(), expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
         ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
         valueArrayBlockBuilders.ensureCapacity(keys.getPositionCount());
         TypedSet keySet = new TypedSet(keyType, keys.getPositionCount());
@@ -99,7 +99,7 @@ public class MultiKeyValuePairs
             if (!keySet.contains(keys, keyValueIndex)) {
                 keySet.add(keys, keyValueIndex);
                 keyType.appendTo(keys, keyValueIndex, distinctKeyBlockBuilder);
-                BlockBuilder valueArrayBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), 10, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
+                BlockBuilder valueArrayBuilder = valueType.createBlockBuilder(null, 10, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
                 valueArrayBlockBuilders.set(keySet.positionOf(keys, keyValueIndex), valueArrayBuilder);
             }
             valueType.appendTo(values, keyValueIndex, valueArrayBlockBuilders.get(keySet.positionOf(keys, keyValueIndex)));
