@@ -72,6 +72,8 @@ let StageStatistics = React.createClass({
             <div>
                 <div>
                     Output: { stats.outputDataSize  + " / " +  formatCount(stats.outputPositions) + " rows" }
+                    <br />
+                    Buffered: { stats.bufferedDataSize }
                     <hr />
                     { stage.state }
                     <hr />

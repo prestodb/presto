@@ -231,6 +231,7 @@ public class StageStateMachine
         long processedInputDataSize = 0;
         long processedInputPositions = 0;
 
+        long bufferedDataSize = 0;
         long outputDataSize = 0;
         long outputPositions = 0;
 
@@ -272,6 +273,7 @@ public class StageStateMachine
             processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
 
+            bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
@@ -312,6 +314,7 @@ public class StageStateMachine
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
+                succinctBytes(bufferedDataSize),
                 succinctBytes(outputDataSize),
                 outputPositions,
                 ImmutableList.copyOf(operatorToStats.values()));
