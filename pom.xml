@@ -572,7 +572,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>9.3-1102-jdbc41</version>
+                <version>42.0.0</version>
             </dependency>
 
             <dependency>
@@ -702,7 +702,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-postgresql-server</artifactId>
-                <version>0.3</version>
+                <version>9.6.1-1</version>
             </dependency>
 
             <dependency>
