@@ -192,8 +192,8 @@ public class QueryStateMachine
         }
 
         QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker, metadata);
-        queryStateMachine.addStateChangeListener(newState -> log.debug("Query %s is %s", queryId, newState));
         queryStateMachine.addStateChangeListener(newState -> {
+            log.debug("Query %s is %s", queryId, newState);
             if (newState.isDone()) {
                 session.getTransactionId().ifPresent(transactionManager::trySetInactive);
             }
