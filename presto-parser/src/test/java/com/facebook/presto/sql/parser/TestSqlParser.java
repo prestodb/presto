@@ -1392,15 +1392,14 @@ public class TestSqlParser
     public void testCreateView()
             throws Exception
     {
-        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(
-                QualifiedName.of("a"),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                false));
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
 
-        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(
-                QualifiedName.of("a"),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                true));
+        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false));
+        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, true));
+
+        assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(QualifiedName.of("bar", "foo"), query, false));
+        assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome view"), query, false));
+        assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome schema", "awesome view"), query, false));
     }
 
     @Test
