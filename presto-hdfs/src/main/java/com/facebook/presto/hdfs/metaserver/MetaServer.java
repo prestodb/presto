@@ -51,9 +51,33 @@ public interface MetaServer
 
     void createDatabase(ConnectorSession session, HDFSDatabase database);
 
+    void deleteDatabase(String database);
+
+    void renameDatabase(String oldName, String newName);
+
     void createTable(ConnectorSession session, ConnectorTableMetadata table);
 
+    void deleteTable(String database, String table);
+
+    void renameTable(String database, String oldTable, String newTable);
+
+    void renameColumn(String database, String table, String oldCol, String newCol);
+
     void createTableWithFiber(ConnectorSession session, ConnectorTableMetadata tableMetadata, String fiberKey, String function, String timeKey);
+
+    void createFiber(String database, String table, long value);
+
+    void updateFiber(String database, String table, long oldV, long newV);
+
+    void deleteFiber(String database, String table, long value);
+
+    List<Long> getFibers(String database, String table);
+
+    void addBlock(long fiberId, String timeB, String timeE, String path);
+
+    void deleteBlock(long fiberId, String path);
+
+    List<String> getBlocks(long fiberId, String timeB, String timeE);
 
     void shutdown();
 }

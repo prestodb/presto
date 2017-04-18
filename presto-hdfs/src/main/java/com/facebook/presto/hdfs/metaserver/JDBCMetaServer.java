@@ -665,6 +665,306 @@ implements MetaServer
         }
     }
 
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void deleteTable(String database, String table)
+    {
+        StringBuilder sb1 = new StringBuilder();
+        sb1.append("DELETE FROM tbls WHERE db_name='")
+                .append(database)
+                .append("' AND name='")
+                .append(table)
+                .append("';");
+
+        if (jdbcDriver.executeUpdate(sb1.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+        StringBuilder sb2 = new StringBuilder();
+        sb2.append("DELETE FROM cols WHERE db_name='")
+                .append(database)
+                .append("' AND tbl_name='")
+                .append(table)
+                .append("';");
+
+        if (jdbcDriver.executeUpdate(sb2.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+    }
+
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void deleteDatabase(String database)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("DELETE FROM dbs WHERE name='")
+                .append(database)
+                .append("';");
+        if (jdbcDriver.executeUpdate(sb.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+        System.out.println(sb.toString());
+
+        StringBuilder sb2 = new StringBuilder();
+        sb2.append("DELETE FROM tbls WHERE db_name='")
+                .append(database)
+                .append("';");
+        if (jdbcDriver.executeUpdate(sb2.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+        System.out.println(sb2.toString());
+
+        StringBuilder sb3 = new StringBuilder();
+        sb3.append("DELETE FROM cols WHERE db_name='")
+                .append(database)
+                .append("';");
+        System.out.println(sb3.toString());
+        if (jdbcDriver.executeUpdate(sb3.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+    }
+
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void renameTable(String database, String oldName, String newName)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("UPDATE tbls SET name='")
+                .append(newName)
+                .append("' WHERE db_name='")
+                .append(database)
+                .append("' AND name='")
+                .append(oldName)
+                .append("';");
+
+        if (jdbcDriver.executeUpdate(sb.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+    }
+
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void renameDatabase(String oldName, String newName)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("UPDATE dbs SET name='")
+                .append(newName)
+                .append("' WHERE name='")
+                .append(oldName)
+                .append("';");
+
+        if (jdbcDriver.executeUpdate(sb.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+    }
+
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void renameColumn(String database, String table, String oldName, String newName)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("UPDATE cols SET name='")
+                .append(newName)
+                .append("' WHERE db_name='")
+                .append(database)
+                .append("' AND tbl_name='")
+                .append(table)
+                .append("' AND name='")
+                .append(oldName)
+                .append("';");
+
+        if (jdbcDriver.executeUpdate(sb.toString()) == 0) {
+            System.out.println("Error sql: " + sb.toString());
+        }
+    }
+
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void createFiber(String database, String table, long value)
+    {
+        StringBuilder sb1 = new StringBuilder();
+        StringBuilder sb2 = new StringBuilder();
+        sb1.append("SELECT id FROM tbls WHERE db_name='")
+                .append(database)
+                .append("' AND name='")
+                .append(table)
+                .append("';");
+        List<Long> resultL = new ArrayList<>();
+        String[] fields = {"id"};
+        List<JDBCRecord> records = jdbcDriver.executeQuery(sb1.toString(), fields);
+        records.forEach(record -> resultL.add(record.getLong(fields[0])));
+        Long tblId;
+        tblId = resultL.get(0);
+        sb2.append("INSERT INTO fibers(tbl_id,fiber_v) VALUES(")
+                .append(tblId)
+                .append(",")
+                .append(value)
+                .append(");");
+        if (jdbcDriver.executeUpdate(sb2.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+    }
+
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void updateFiber(String database, String table, long oldV, long newV)
+    {
+        StringBuilder sb1 = new StringBuilder();
+        StringBuilder sb2 = new StringBuilder();
+        sb1.append("SELECT id FROM tbls WHERE db_name='")
+                .append(database)
+                .append("' AND name='")
+                .append(table)
+                .append("';");
+        List<Long> resultL = new ArrayList<>();
+        String[] fields = {"id"};
+        List<JDBCRecord> records = jdbcDriver.executeQuery(sb1.toString(), fields);
+        records.forEach(record -> resultL.add(record.getLong(fields[0])));
+        Long tblId;
+        tblId = resultL.get(0);
+        sb2.append("UPDATE fibers SET fiber_v=")
+                .append(newV)
+                .append("WHERE tbl_id=")
+                .append(tblId)
+                .append(" AND fiber_v=")
+                .append(oldV)
+                .append(";");
+
+        if (jdbcDriver.executeUpdate(sb2.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+    }
+
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void deleteFiber(String database, String table, long value)
+    {
+        StringBuilder sb1 = new StringBuilder();
+        StringBuilder sb2 = new StringBuilder();
+        sb1.append("SELECT id FROM tbls WHERE db_name='")
+                .append(database)
+                .append("' AND name='")
+                .append(table)
+                .append("';");
+        List<Long> resultL = new ArrayList<>();
+        String[] fields = {"id"};
+        List<JDBCRecord> records = jdbcDriver.executeQuery(sb1.toString(), fields);
+        records.forEach(record -> resultL.add(record.getLong(fields[0])));
+        Long tblId;
+        tblId = resultL.get(0);
+        sb2.append("DELETE FROM fibers WHERE tbl_id=")
+                .append(tblId)
+                .append(" AND fiber_v=")
+                .append(value)
+                .append(";");
+
+        if (jdbcDriver.executeUpdate(sb2.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+    }
+
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public List<Long> getFibers(String database, String table)
+    {
+        StringBuilder sb1 = new StringBuilder();
+        StringBuilder sb2 = new StringBuilder();
+        sb1.append("SELECT id FROM tbls WHERE db_name='")
+                .append(database)
+                .append("' AND name='")
+                .append(table)
+                .append("';");
+        List<Long> resultL1 = new ArrayList<>();
+        String[] fields1 = {"id"};
+        List<JDBCRecord> records1 = jdbcDriver.executeQuery(sb1.toString(), fields1);
+        records1.forEach(record -> resultL1.add(record.getLong(fields1[0])));
+        Long tblId;
+        tblId = resultL1.get(0);
+        sb2.append("SELECT fiber_v FROM fibers WHERE tbl_id=")
+            .append(tblId)
+            .append(";");
+        List<Long> resultL = new ArrayList<>();
+        String[] fields = {"fiber_v"};
+        List<JDBCRecord> records = jdbcDriver.executeQuery(sb2.toString(), fields);
+        records.forEach(record -> resultL.add(record.getLong(fields[0])));
+        return resultL;
+    }
+
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void addBlock(long fiberId, String beginT, String endT, String path)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("INSERT INTO fiberfiles(fiber_id,time_b,time_e,path) VALUES(")
+                .append(fiberId)
+                .append(",'")
+                .append(beginT)
+                .append("','")
+                .append(endT)
+                .append("','")
+                .append(path)
+                .append("');");
+
+        if (jdbcDriver.executeUpdate(sb.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+    }
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public void deleteBlock(long fiberId, String path)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("DELETE FROM fiberfiles WHERE fiber_id=")
+                .append(fiberId)
+                .append(" AND path='")
+                .append(path)
+                .append("';");
+
+        if (jdbcDriver.executeUpdate(sb.toString()) == 0) {
+            log.debug("Error sql: \" + sql.toString()");
+        }
+    }
+    /**
+     * Currently unsupported in SQL client for safety.
+     * Used for unit test only
+     * */
+    public List<String> getBlocks(long fiberId, String beginT, String endT)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("SELECT path FROM fiberfiles WHERE fiber_id='")
+                .append(fiberId)
+                .append("' AND time_b='")
+                .append(beginT)
+                .append("' AND time_e='")
+                .append(endT)
+                .append("';");
+        List<String> resultL = new ArrayList<>();
+        String[] fields = {"path"};
+        List<JDBCRecord> records = jdbcDriver.executeQuery(sb.toString(), fields);
+        records.forEach(record -> resultL.add(record.getString(fields[0])));
+        return resultL;
+    }
     private HDFSColumnHandle.ColumnType getColType(String typeName)
     {
         log.debug("Get col type " + typeName);

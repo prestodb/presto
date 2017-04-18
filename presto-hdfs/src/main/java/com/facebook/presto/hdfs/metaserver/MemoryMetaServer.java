@@ -74,13 +74,75 @@ public class MemoryMetaServer
     }
 
     @Override
+    public void deleteDatabase(String database)
+    {
+    }
+
+    @Override
+    public void renameDatabase(String oldName, String newName)
+    {
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata table)
+    {
+    }
+
+    @Override
+    public void deleteTable(String database, String table)
+    {
+    }
+
+    @Override
+    public void renameTable(String database, String oldTable, String newTable)
+    {
+    }
+
+    @Override
+    public void renameColumn(String database, String table, String oldCol, String newCol)
     {
     }
 
     @Override
     public void createTableWithFiber(ConnectorSession session, ConnectorTableMetadata tableMetadata, String fiberKey, String function, String timeKey)
     {
+    }
+
+    @Override
+    public void createFiber(String database, String table, long value)
+    {
+    }
+
+    @Override
+    public void updateFiber(String database, String table, long oldV, long newV)
+    {
+    }
+
+    @Override
+    public void deleteFiber(String database, String table, long value)
+    {
+    }
+
+    @Override
+    public List<Long> getFibers(String database, String table)
+    {
+        return null;
+    }
+
+    @Override
+    public void addBlock(long fiberId, String timeB, String timeE, String path)
+    {
+    }
+
+    @Override
+    public void deleteBlock(long fiberId, String path)
+    {
+    }
+
+    @Override
+    public List<String> getBlocks(long fiberId, String timeB, String timeE)
+    {
+        return null;
     }
 
     @Override

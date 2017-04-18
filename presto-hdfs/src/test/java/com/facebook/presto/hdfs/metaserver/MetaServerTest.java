@@ -167,21 +167,21 @@ public class MetaServerTest
         names.stream().forEach(System.out::println);
     }
 
-    @Test
-    public void testGetTableHandle()
-    {
-        HDFSTableHandle tableHandle = metaServer.getTableHandle(connectorId, "test", "student").orElse(null);
-        if (tableHandle == null) {
-            fail("Get no table handle for table test.student");
-        }
-        HDFSTableHandle result = new HDFSTableHandle(connectorId, "test", "student", "hdfs://127.0.0.1:9000/warehouse/test/student");
+//    @Test
+//    public void testGetTableHandle()
+//    {
+//        HDFSTableHandle tableHandle = metaServer.getTableHandle(connectorId, "test", "student").orElse(null);
+//        if (tableHandle == null) {
+//            fail("Get no table handle for table test.student");
+//        }
+//        HDFSTableHandle result = new HDFSTableHandle(connectorId, "test", "student", "hdfs://127.0.0.1:9000/warehouse/test/student");
+//
+//        assertEquals(tableHandle, result);
+//        System.out.println(tableHandle);
+//    }
 
-        assertEquals(tableHandle, result);
-        System.out.println(tableHandle);
-    }
-
     @Test
-    public void testGetTableLayout()
+    public void testDescribe()
     {
         HDFSTableLayoutHandle tableLayoutHandle = metaServer.getTableLayout(connectorId, "test", "student").orElse(null);
         if (tableLayoutHandle == null) {
@@ -197,51 +197,123 @@ public class MetaServerTest
         System.out.println(tableLayoutHandle);
     }
 
-    @Test
-    public void testGetTableColMetadata()
-    {
-        List<ColumnMetadata> metadatas = metaServer.getTableColMetadata(connectorId, "test", "student").orElse(null);
-        if (metadatas == null) {
-            fail("Get no table column metadatas for table test.student");
-        }
-        List<ColumnMetadata> result = new ArrayList<>();
-        ColumnMetadata name = new ColumnMetadata("name", VarcharType.createVarcharType(20));
-        ColumnMetadata age = new ColumnMetadata("age", IntegerType.INTEGER);
-        ColumnMetadata salary = new ColumnMetadata("salary", DoubleType.DOUBLE);
-        ColumnMetadata time = new ColumnMetadata("time", TimestampType.TIMESTAMP);
-        ColumnMetadata comment = new ColumnMetadata("comment", CharType.createCharType(10));
-        result.add(name);
-        result.add(age);
-        result.add(salary);
-        result.add(time);
-        result.add(comment);
+//    @Test
+//    public void testGetTableColMetadata()
+//    {
+//        List<ColumnMetadata> metadatas = metaServer.getTableColMetadata(connectorId, "test", "student").orElse(null);
+//        if (metadatas == null) {
+//            fail("Get no table column metadatas for table test.student");
+//        }
+//        List<ColumnMetadata> result = new ArrayList<>();
+//        ColumnMetadata name = new ColumnMetadata("name", VarcharType.createVarcharType(20));
+//        ColumnMetadata age = new ColumnMetadata("age", IntegerType.INTEGER);
+//        ColumnMetadata salary = new ColumnMetadata("salary", DoubleType.DOUBLE);
+//        ColumnMetadata time = new ColumnMetadata("time", TimestampType.TIMESTAMP);
+//        ColumnMetadata comment = new ColumnMetadata("comment", CharType.createCharType(10));
+//        result.add(name);
+//        result.add(age);
+//        result.add(salary);
+//        result.add(time);
+//        result.add(comment);
+//
+//        assertEqualsNoOrder(metadatas.toArray(), result.toArray());
+//        metadatas.stream().forEach(System.out::println);
+//    }
 
-        assertEqualsNoOrder(metadatas.toArray(), result.toArray());
-        metadatas.stream().forEach(System.out::println);
+//    @Test
+//    public void testGetTableColumnHandle()
+//    {
+//        List<HDFSColumnHandle> columns = metaServer.getTableColumnHandle(connectorId, "test", "student").orElse(null);
+//        if (columns == null) {
+//            fail("Get no column handles from table test.student");
+//        }
+//
+//        List<HDFSColumnHandle> result = new ArrayList<>();
+//        HDFSColumnHandle name = new HDFSColumnHandle("name", VarcharType.createVarcharType(20), "", HDFSColumnHandle.ColumnType.FIBER_COL, connectorId);
+//        HDFSColumnHandle age = new HDFSColumnHandle("age", IntegerType.INTEGER, "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
+//        HDFSColumnHandle salary = new HDFSColumnHandle("salary", DoubleType.DOUBLE, "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
+//        HDFSColumnHandle time = new HDFSColumnHandle("time", TimestampType.TIMESTAMP, "", HDFSColumnHandle.ColumnType.TIME_COL, connectorId);
+//        HDFSColumnHandle comment = new HDFSColumnHandle("comment", CharType.createCharType(10), "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
+//        result.add(name);
+//        result.add(age);
+//        result.add(salary);
+//        result.add(time);
+//        result.add(comment);
+//
+//        assertEqualsNoOrder(columns.toArray(), result.toArray());
+//        columns.stream().forEach(System.out::println);
+//    }
+
+    @Test
+    public void testRenameColumn()
+    {
+        metaServer.renameColumn("test", "employee", "comment", "commentnew");
     }
 
     @Test
-    public void testGetTableColumnHandle()
+    public void testRenameTable()
     {
-        List<HDFSColumnHandle> columns = metaServer.getTableColumnHandle(connectorId, "test", "student").orElse(null);
-        if (columns == null) {
-            fail("Get no column handles from table test.student");
+        metaServer.renameTable("test", "student", "studentnew");
+    }
+
+    @Test
+    public void testCreateFiber()
+    {
+        metaServer.createFiber("test", "studentnew", 10);
+    }
+
+    @Test
+    public void testUpdateFiber()
+    {
+        metaServer.updateFiber("test", "studentnew", 10, 20);
+    }
+
+    @Test
+    public void testGetFibers()
+    {
+        List<Long> result = metaServer.getFibers("test", "studentnew");
+        for (long r : result) {
+            System.out.println("Fiber value: " + r);
         }
+    }
 
-        List<HDFSColumnHandle> result = new ArrayList<>();
-        HDFSColumnHandle name = new HDFSColumnHandle("name", VarcharType.createVarcharType(20), "", HDFSColumnHandle.ColumnType.FIBER_COL, connectorId);
-        HDFSColumnHandle age = new HDFSColumnHandle("age", IntegerType.INTEGER, "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
-        HDFSColumnHandle salary = new HDFSColumnHandle("salary", DoubleType.DOUBLE, "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
-        HDFSColumnHandle time = new HDFSColumnHandle("time", TimestampType.TIMESTAMP, "", HDFSColumnHandle.ColumnType.TIME_COL, connectorId);
-        HDFSColumnHandle comment = new HDFSColumnHandle("comment", CharType.createCharType(10), "", HDFSColumnHandle.ColumnType.REGULAR, connectorId);
-        result.add(name);
-        result.add(age);
-        result.add(salary);
-        result.add(time);
-        result.add(comment);
+    @Test
+    public void testAddBlock()
+    {
+        metaServer.addBlock(1, "2016-08-09 20:40:15.443", "2016-08-09 20:48:15.443", "hdfs://127.0.0.1:9000/test");
+    }
 
-        assertEqualsNoOrder(columns.toArray(), result.toArray());
-        columns.stream().forEach(System.out::println);
+    @Test
+    public void testGetBlocks()
+    {
+        List<String> result = metaServer.getBlocks(1, "2016-08-09 20:40:15.443", "2016-08-09 20:50:15.443");
+        for (String r : result) {
+            System.out.println("Block: " + r);
+        }
+    }
+
+    @Test
+    public void testDeleteBlock()
+    {
+        metaServer.deleteBlock(1, "hdfs://127.0.0.1:9000/test");
+    }
+
+    @Test
+    public void testDeleteFiber()
+    {
+        metaServer.deleteFiber("test", "studentnew", 20);
+    }
+
+    @Test
+    public void testDeleteTable()
+    {
+        metaServer.deleteTable("test", "employee");
+    }
+
+    @Test
+    public void testDeleteDatabase()
+    {
+        metaServer.deleteDatabase("test");
     }
 
     private class TestConnectorSession implements ConnectorSession
