@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
@@ -44,7 +45,7 @@ import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.assertThrows;
 
 public class TestDateTimeOperators
 {
@@ -86,19 +87,8 @@ public class TestDateTimeOperators
         assertFunction("DATE '2001-1-22' + INTERVAL '3' year", DATE, toDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, UTC)));
         assertFunction("INTERVAL '3' year + DATE '2001-1-22'", DATE, toDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, UTC)));
 
-        try {
-            functionAssertions.tryEvaluate("DATE '2001-1-22' + INTERVAL '3' hour", DATE);
-            fail("Expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-
-        try {
-            functionAssertions.tryEvaluate("INTERVAL '3' hour + DATE '2001-1-22'", DATE);
-            fail("Expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
+        assertThrows(PrestoException.class, () -> functionAssertions.tryEvaluate("DATE '2001-1-22' + INTERVAL '3' hour", DATE));
+        assertThrows(PrestoException.class, () -> functionAssertions.tryEvaluate("INTERVAL '3' hour + DATE '2001-1-22'", DATE));
     }
 
     @Test
@@ -208,12 +198,7 @@ public class TestDateTimeOperators
     {
         assertFunction("DATE '2001-1-22' - INTERVAL '3' day", DATE, toDate(new DateTime(2001, 1, 19, 0, 0, 0, 0, UTC)));
 
-        try {
-            functionAssertions.tryEvaluate("DATE '2001-1-22' - INTERVAL '3' hour", DATE);
-            fail("Expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
+        assertThrows(PrestoException.class, () -> functionAssertions.tryEvaluate("DATE '2001-1-22' - INTERVAL '3' hour", DATE));
     }
 
     @Test
