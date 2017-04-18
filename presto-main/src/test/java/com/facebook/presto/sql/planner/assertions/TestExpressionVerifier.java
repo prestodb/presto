@@ -57,6 +57,17 @@ public class TestExpressionVerifier
         assertTrue(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)")));
     }
 
+    @Test
+    public void testBetween()
+            throws Exception
+    {
+        ExpressionVerifier verifier = new ExpressionVerifier(SymbolAliases.builder().build());
+        assertTrue(verifier.process(expression("X BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        assertFalse(verifier.process(expression("X BETWEEN 2 AND 4"), expression("X BETWEEN 1 AND 2")));
+        assertFalse(verifier.process(expression("X BETWEEN 1 AND 2"), expression("X BETWEEN '1' AND '2'")));
+        assertFalse(verifier.process(expression("X BETWEEN 1 AND 2"), expression("X BETWEEN 4 AND 7")));
+    }
+
     private Expression expression(String sql)
     {
         return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql));

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -238,6 +239,17 @@ final class ExpressionVerifier
                 return process(actual.getLeft(), expected.getLeft()) && process(actual.getRight(), expected.getRight());
             }
         }
+        return false;
+    }
+
+    @Override
+    protected Boolean visitBetweenPredicate(BetweenPredicate actual, Expression expectedExpression)
+    {
+        if (expectedExpression instanceof BetweenPredicate) {
+            BetweenPredicate expected = (BetweenPredicate) expectedExpression;
+            return process(actual.getMin(), expected.getMin()) && process(actual.getMax(), expected.getMax());
+        }
+
         return false;
     }
 
