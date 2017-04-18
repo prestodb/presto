@@ -112,6 +112,7 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
@@ -1090,9 +1091,11 @@ public class AddExchanges
             List<PlanNode> partitionedChildren = new ArrayList<>();
             List<List<Symbol>> partitionedOutputLayouts = new ArrayList<>();
 
-            List<PlanNode> sources = node.getSources();
-            for (int i = 0; i < sources.size(); i++) {
-                PlanWithProperties child = sources.get(i).accept(this, context.withPreferredProperties(PreferredProperties.any()));
+            List<PlanWithProperties> plannedChildren = new ArrayList<>();
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanWithProperties child = node.getSources().get(i).accept(this, context.withPreferredProperties(PreferredProperties.any()));
+                plannedChildren.add(child);
                 if (child.getProperties().isSingleNode()) {
                     unpartitionedChildren.add(child.getNode());
                     unpartitionedOutputLayouts.add(node.sourceOutputLayout(i));
@@ -1106,6 +1109,13 @@ public class AddExchanges
 
             PlanNode result;
             if (!partitionedChildren.isEmpty() && unpartitionedChildren.isEmpty()) {
+                // parent does not have preference or prefers some partitioning without any explicit partitioning - just use
+                // children partitioning and don't GATHER partitioned inputs
+                // TODO: add FIXED_ARBITRARY_DISTRIBUTION support on non empty unpartitionedChildren
+                if (!parentGlobal.isPresent() || parentGlobal.get().isDistributed()) {
+                    return arbitraryDistributeUnion(node, plannedChildren, partitionedChildren, partitionedOutputLayouts);
+                }
+
                 // add a gathering exchange above partitioned inputs
                 result = new ExchangeNode(
                         idAllocator.getNextId(),
@@ -1157,6 +1167,31 @@ public class AddExchanges
                             .build());
         }
 
+        private PlanWithProperties arbitraryDistributeUnion(
+                UnionNode node,
+                List<PlanWithProperties> plannedChildren,
+                List<PlanNode> partitionedChildren,
+                List<List<Symbol>> partitionedOutputLayouts)
+        {
+            if (!hasMultipleSources(partitionedChildren)) {
+                // At most one source distributed child, we can use insert LOCAL exchange
+                // TODO: if all children have the same partitioning, pass this partitioning to the parent instead of "arbitraryPartition".
+                return new PlanWithProperties(replaceChildren(node, plannedChildren));
+            }
+            else {
+                // Presto currently can not execute stage that has multiple table scans, so in that case we have to insert REMOTE exchange
+                // with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
+                return new PlanWithProperties(
+                        new ExchangeNode(
+                                idAllocator.getNextId(),
+                                REPARTITION,
+                                REMOTE,
+                                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                                partitionedChildren,
+                                partitionedOutputLayouts));
+            }
+        }
+
         @Override
         public PlanWithProperties visitApply(ApplyNode node, Context context)
         {
@@ -1186,7 +1221,7 @@ public class AddExchanges
 
         private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, List<PlanWithProperties> children)
         {
-            PlanNode result = ChildReplacer.replaceChildren(node, children.stream().map(PlanWithProperties::getNode).collect(toList()));
+            PlanNode result = replaceChildren(node, children);
             return new PlanWithProperties(result, deriveProperties(result, children.stream().map(PlanWithProperties::getProperties).collect(toList())));
         }
 
@@ -1203,6 +1238,11 @@ public class AddExchanges
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
             return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser);
+        }
+
+        private PlanNode replaceChildren(PlanNode node, List<PlanWithProperties> children)
+        {
+            return ChildReplacer.replaceChildren(node, children.stream().map(PlanWithProperties::getNode).collect(toList()));
         }
     }
 
@@ -1297,6 +1337,11 @@ public class AddExchanges
     {
         private final PlanNode node;
         private final ActualProperties properties;
+
+        public PlanWithProperties(PlanNode node)
+        {
+            this(node, ActualProperties.builder().build());
+        }
 
         public PlanWithProperties(PlanNode node, ActualProperties properties)
         {
