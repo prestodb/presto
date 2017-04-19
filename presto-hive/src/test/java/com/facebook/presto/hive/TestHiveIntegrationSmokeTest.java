@@ -1383,6 +1383,34 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testMetadataQueryOptimizer()
+            throws Exception
+    {
+        Session session = getSession();
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_metadata_query_optimizer " +
+                "WITH (" +
+                "format = 'TEXTFILE', " +
+                "partitioned_by = ARRAY[ 'regionkey' ]" +
+                ") " +
+                "AS " +
+                "SELECT nationkey, regionkey " +
+                "FROM tpch.tiny.nation";
+
+        assertUpdate(session, createTable, "SELECT count(*) from nation");
+
+        assertQuery(session, "SELECT min(regionkey), max(regionkey) FROM test_metadata_query_optimizer", "SELECT min(regionkey), max(regionkey) FROM nation");
+        assertQuery(session, "SELECT distinct regionkey FROM test_metadata_query_optimizer", "SELECT DISTINCT regionkey FROM nation");
+        assertQuery(session, "SELECT count(distinct regionkey) FROM test_metadata_query_optimizer", "SELECT count(DISTINCT regionkey) FROM nation");
+        assertQuery(session, "SELECT count(distinct regionkey + 5) FROM test_metadata_query_optimizer", "SELECT count(DISTINCT regionkey + 5) FROM nation");
+        assertQuery(session, "SELECT count(DISTINCT regionkey) FROM (SELECT regionkey FROM test_metadata_query_optimizer ORDER BY 1 LIMIT 10)", "SELECT count(DISTINCT regionkey) FROM (SELECT regionkey FROM nation ORDER BY 1 LIMIT 10)");
+
+        assertUpdate(session, "DROP TABLE test_metadata_query_optimizer");
+
+        assertFalse(getQueryRunner().tableExists(session, "test_metadata_query_optimizer"));
+    }
+
+    @Test
     public void testShowColumnsPartitionKey()
     {
         assertUpdate("" +
