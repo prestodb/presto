@@ -648,30 +648,35 @@ public class TaskExecutor
     }
 
     @Managed
+    @Nested
     public CounterStat getSelectedCountLevel0()
     {
         return selectedLevelCounters[0];
     }
 
     @Managed
+    @Nested
     public CounterStat getSelectedCountLevel1()
     {
         return selectedLevelCounters[1];
     }
 
     @Managed
+    @Nested
     public CounterStat getSelectedCountLevel2()
     {
         return selectedLevelCounters[2];
     }
 
     @Managed
+    @Nested
     public CounterStat getSelectedCountLevel3()
     {
         return selectedLevelCounters[3];
     }
 
     @Managed
+    @Nested
     public CounterStat getSelectedCountLevel4()
     {
         return selectedLevelCounters[4];
