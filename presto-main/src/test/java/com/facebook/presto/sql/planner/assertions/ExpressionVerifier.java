@@ -247,7 +247,7 @@ final class ExpressionVerifier
     {
         if (expectedExpression instanceof BetweenPredicate) {
             BetweenPredicate expected = (BetweenPredicate) expectedExpression;
-            return process(actual.getMin(), expected.getMin()) && process(actual.getMax(), expected.getMax());
+            return process(actual.getValue(), expected.getValue()) && process(actual.getMin(), expected.getMin()) && process(actual.getMax(), expected.getMax());
         }
 
         return false;
