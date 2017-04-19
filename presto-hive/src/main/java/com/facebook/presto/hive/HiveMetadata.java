@@ -173,6 +173,7 @@ public class HiveMetadata
     private final boolean respectTableFormat;
     private final boolean bucketWritingEnabled;
     private final boolean writesToNonManagedTablesEnabled;
+    private final boolean createNonManagedTableEnabled;
     private final HiveStorageFormat defaultStorageFormat;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
@@ -188,6 +189,7 @@ public class HiveMetadata
             boolean respectTableFormat,
             boolean bucketWritingEnabled,
             boolean writesToNonManagedTablesEnabled,
+            boolean createNonManagedTableEnabled,
             HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
@@ -212,6 +214,7 @@ public class HiveMetadata
         this.respectTableFormat = respectTableFormat;
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
+        this.createNonManagedTableEnabled = createNonManagedTableEnabled;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
@@ -450,6 +453,10 @@ public class HiveMetadata
         boolean external;
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
+            if (!createNonManagedTableEnabled) {
+                throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
+            }
+
             external = true;
             targetPath = getExternalPath(session.getUser(), externalLocation);
         }
