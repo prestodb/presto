@@ -98,6 +98,9 @@ public class DumpBytecodeVisitor
             visitMethod(classDefinition, methodDefinition);
         }
 
+        // print class initializer
+        visitMethod(classDefinition, classDefinition.getClassInitializer());
+
         indentLevel--;
         printLine("}");
         printLine();

@@ -63,7 +63,7 @@ public final class LambdaDefinitionExpression
     @Override
     public String toString()
     {
-        return "(" + Joiner.on("").join(arguments) + ") -> " + body;
+        return "(" + Joiner.on(",").join(arguments) + ") -> " + body;
     }
 
     @Override

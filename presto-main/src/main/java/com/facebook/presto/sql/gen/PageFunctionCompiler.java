@@ -129,7 +129,7 @@ public class PageFunctionCompiler
             projectionClass = defineClass(classDefinition, PageProjection.class, callSiteBinder.getBindings(), getClass().getClassLoader());
         }
         catch (Exception e) {
-            throw new PrestoException(COMPILER_ERROR, e.getCause());
+            throw new PrestoException(COMPILER_ERROR, e);
         }
 
         return () -> {
