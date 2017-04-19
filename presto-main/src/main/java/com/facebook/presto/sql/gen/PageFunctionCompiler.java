@@ -148,7 +148,7 @@ public class PageFunctionCompiler
                 type(Object.class),
                 type(PageProjection.class));
 
-        FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE, FINAL), "blockBuilder", BlockBuilder.class);
+        FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE), "blockBuilder", BlockBuilder.class);
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
         generatePageProjectMethod(classDefinition, blockBuilderField);
@@ -237,7 +237,9 @@ public class PageFunctionCompiler
 
         Variable block = scope.declareVariable(Block.class, "block");
         body.append(block.set(thisVariable.getField(blockBuilder).invoke("build", Block.class)))
-            .append(thisVariable.getField(blockBuilder).invoke("reset", void.class, newInstance(BlockBuilderStatus.class)))
+            .append(thisVariable.setField(
+                    blockBuilder,
+                    thisVariable.getField(blockBuilder).invoke("newBlockBuilderLike", BlockBuilder.class, newInstance(BlockBuilderStatus.class))))
             .append(block.ret());
 
         return method;

@@ -43,7 +43,7 @@ public class InterpretedPageProjection
     private final ExpressionInterpreter evaluator;
     private final InputChannels inputChannels;
     private final boolean deterministic;
-    private final BlockBuilder blockBuilder;
+    private BlockBuilder blockBuilder;
 
     public InterpretedPageProjection(
             Expression expression,
@@ -100,7 +100,7 @@ public class InterpretedPageProjection
             project(page, selectedPositions.getOffset(), selectedPositions.size());
         }
         Block block = blockBuilder.build();
-        blockBuilder.reset(new BlockBuilderStatus());
+        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
         return block;
     }
 
