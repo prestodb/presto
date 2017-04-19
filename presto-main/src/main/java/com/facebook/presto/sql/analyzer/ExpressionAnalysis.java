@@ -23,6 +23,7 @@ import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -85,6 +86,11 @@ public class ExpressionAnalysis
     public boolean isTypeOnlyCoercion(Expression expression)
     {
         return typeOnlyCoercions.contains(expression);
+    }
+
+    public Map<Expression, FieldId> getColumnReferences()
+    {
+        return columnReferences;
     }
 
     public boolean isColumnReference(Expression node)

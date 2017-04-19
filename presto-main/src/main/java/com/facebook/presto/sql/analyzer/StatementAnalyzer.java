@@ -29,6 +29,7 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -1324,6 +1325,7 @@ class StatementAnalyzer
                     Expression orderByExpression = null;
                     if (expression instanceof Identifier) {
                         // if this is a simple name reference, try to resolve against output columns
+                        // this conforms with standard (non-legacy) behavior
 
                         QualifiedName name = QualifiedName.of(((Identifier) expression).getName());
                         Collection<Expression> expressions = byAlias.get(name);
@@ -1354,11 +1356,26 @@ class StatementAnalyzer
                     }
 
                     // otherwise, just use the expression as is
+                    boolean orderByOnExpression = false;
                     if (orderByExpression == null) {
                         orderByExpression = expression;
+                        orderByOnExpression = true;
                     }
 
                     ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
+                    if (orderByOnExpression) {
+                        // Try to resolve within orderByScope. If it is possible, then we warn - standard behavior differs from legacy one.
+                        for (Map.Entry<Expression, FieldId> columnExpression : expressionAnalysis.getColumnReferences().entrySet()) {
+                            Optional<ResolvedField> resolvedField = orderByScope.tryResolveField(columnExpression.getKey());
+                            if (resolvedField.isPresent()) {
+                                if (!FieldId.from(resolvedField.get()).equals(columnExpression.getValue())) {
+                                    warningCollector.addWarning(StandardErrorCode.WARNING_LEGACY_ORDER_BY.toErrorCode(),
+                                            null,
+                                            "Legacy ORDER BY: SQL standard resolves column " + columnExpression.getKey() + " differently to legacy mode");
+                                }
+                            }
+                        }
+                    }
                     analysis.recordSubqueries(node, expressionAnalysis);
 
                     Type type = expressionAnalysis.getType(orderByExpression);

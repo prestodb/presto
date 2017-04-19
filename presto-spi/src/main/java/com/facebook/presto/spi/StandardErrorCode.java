@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import static com.facebook.presto.spi.ErrorType.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import static com.facebook.presto.spi.ErrorType.WARNING;
 
 public enum StandardErrorCode
         implements ErrorCodeSupplier
@@ -88,6 +89,9 @@ public enum StandardErrorCode
     CLUSTER_OUT_OF_MEMORY(0x0002_0004, INSUFFICIENT_RESOURCES),
     EXCEEDED_CPU_LIMIT(0x0002_0005, INSUFFICIENT_RESOURCES),
     EXCEEDED_SPILL_LIMIT(0x0002_0006, INSUFFICIENT_RESOURCES),
+
+    WARNING_LEGACY_ORDER_BY(0x0003_0000, WARNING),
+
     /**/;
 
     // Connectors can use error codes starting at the range 0x0100_0000

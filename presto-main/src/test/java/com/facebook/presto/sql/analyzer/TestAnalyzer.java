@@ -15,10 +15,13 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.BlackholeWarningCollector;
+import com.facebook.presto.execution.SimpleWarningCollector;
+import com.facebook.presto.execution.WarningCollector;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -36,6 +39,7 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -55,9 +59,11 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_ORDER_BY;
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
@@ -107,6 +113,7 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -1342,6 +1349,51 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT cast(NULL AS HyperLogLog) = ANY (VALUES cast(NULL AS HyperLogLog))");
     }
 
+    @Test
+    public void testLegacyOrderByWarning()
+            throws Exception
+    {
+        List<QueryError> warnings = analyzeForLegacyOrderByWarnings("SELECT 10/a AS a FROM (VALUES 1,2,3) t(a) ORDER BY 10/a");
+        assertEquals(warnings.size(), 1);
+        assertEquals(warnings.get(0).getErrorCode(), StandardErrorCode.WARNING_LEGACY_ORDER_BY.toErrorCode().getCode());
+        assertEquals(warnings.get(0).getErrorType(), "WARNING");
+
+        warnings = analyzeForLegacyOrderByWarnings("SELECT 'a' as a FROM (VALUES 1) t(a) ORDER BY transform(array[1], x->a)[1]");
+        assertEquals(warnings.size(), 1);
+        assertEquals(warnings.get(0).getErrorCode(), StandardErrorCode.WARNING_LEGACY_ORDER_BY.toErrorCode().getCode());
+        assertEquals(warnings.get(0).getErrorType(), "WARNING");
+
+        warnings = analyzeForLegacyOrderByWarnings("SELECT 'a' as a FROM (VALUES 1) t(a) ORDER BY transform(array[1], a->a)[1]");
+        assertEquals(warnings.size(), 0);
+
+        // Produce no warnings, but not supported.
+        warnings = analyzeForLegacyOrderByWarnings("SELECT 1 as a FROM (VALUES 1) t(a) ORDER BY (SELECT a FROM (VALUES 2) t(b))");
+        assertEquals(warnings.size(), 0);
+    }
+
+    private List<QueryError> analyzeForLegacyOrderByWarnings(String sql)
+            throws Exception
+    {
+        Session session = testSessionBuilder()
+                .setCatalog(TPCH_CATALOG)
+                .setSchema("sf1")
+                .setSystemProperty(LEGACY_ORDER_BY, "true")
+                .build();
+
+        WarningCollector warningCollector = new SimpleWarningCollector();
+        transaction(transactionManager, createSystemAccessControl())
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(session, sessionArg -> {
+                    Analyzer analyzer = createAnalyzer(sessionArg, metadata, warningCollector);
+                    Statement statement = SQL_PARSER.createStatement(sql);
+                    analyzer.analyze(statement);
+                });
+
+        return warningCollector.getWarnings();
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception
@@ -1479,7 +1531,7 @@ public class TestAnalyzer
                 .execute(SETUP_SESSION, consumer);
     }
 
-    private static Analyzer createAnalyzer(Session session, Metadata metadata)
+    private static Analyzer createAnalyzer(Session session, Metadata metadata, WarningCollector warningCollector)
     {
         return new Analyzer(
                 session,
@@ -1488,7 +1540,7 @@ public class TestAnalyzer
                 new AllowAllAccessControl(),
                 Optional.empty(),
                 emptyList(),
-                BlackholeWarningCollector.getInstance());
+                warningCollector);
     }
 
     private void analyze(@Language("SQL") String query)
@@ -1503,7 +1555,7 @@ public class TestAnalyzer
                 .readUncommitted()
                 .readOnly()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata);
+                    Analyzer analyzer = createAnalyzer(session, metadata, BlackholeWarningCollector.getInstance());
                     Statement statement = SQL_PARSER.createStatement(query);
                     analyzer.analyze(statement);
                 });
@@ -1617,5 +1669,13 @@ public class TestAnalyzer
                 throw new UnsupportedOperationException();
             }
         };
+    }
+
+    private AccessControl createSystemAccessControl()
+            throws Exception
+    {
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        accessControlManager.loadSystemAccessControl();
+        return accessControlManager;
     }
 }
