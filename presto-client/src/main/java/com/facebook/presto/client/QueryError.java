@@ -20,6 +20,8 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
 
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
@@ -112,5 +114,30 @@ public class QueryError
                 .add("errorLocation", errorLocation)
                 .add("failureInfo", failureInfo)
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        QueryError that = (QueryError) o;
+        return errorCode == that.errorCode &&
+                Objects.equals(message, that.message) &&
+                Objects.equals(sqlState, that.sqlState) &&
+                Objects.equals(errorName, that.errorName) &&
+                Objects.equals(errorType, that.errorType) &&
+                Objects.equals(errorLocation, that.errorLocation) &&
+                Objects.equals(failureInfo, that.failureInfo);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(errorCode, message, sqlState, errorName, errorType, errorLocation, failureInfo);
     }
 }
