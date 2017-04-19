@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -100,9 +101,7 @@ public class TransformExistsApplyToScalarApply
                                                 parent.getSubquery(),
                                                 1,
                                                 false),
-                                        ImmutableMap.of(count, COUNT_CALL),
-                                        ImmutableMap.of(count, countSignature),
-                                        ImmutableMap.of(),
+                                        ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
                                         ImmutableList.of(ImmutableList.of()),
                                         AggregationNode.Step.SINGLE,
                                         Optional.empty(),
