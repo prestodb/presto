@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -39,7 +40,7 @@ public final class InvokeFunction
 {
     public static final InvokeFunction INVOKE_FUNCTION = new InvokeFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(InvokeFunction.class, "invoke", MethodHandle.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(InvokeFunction.class, "invoke", ConnectorSession.class, MethodHandle.class);
 
     private InvokeFunction()
     {
@@ -84,10 +85,10 @@ public final class InvokeFunction
                 isDeterministic());
     }
 
-    public static Object invoke(MethodHandle function)
+    public static Object invoke(ConnectorSession session, MethodHandle function)
     {
         try {
-            return function.invoke();
+            return function.invoke(session);
         }
         catch (Throwable throwable) {
             throw Throwables.propagate(throwable);

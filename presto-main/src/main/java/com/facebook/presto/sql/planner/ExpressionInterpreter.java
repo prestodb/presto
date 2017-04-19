@@ -982,18 +982,25 @@ public class ExpressionInterpreter
             }
 
             Expression body = node.getBody();
-            List<String> argumentNames = node.getArguments().stream()
-                    .map(LambdaArgumentDeclaration::getName)
-                    .collect(toImmutableList());
             FunctionType functionType = (FunctionType) expressionTypes.get(node);
-            checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
+            List<Class<?>> argumentTypes =
+                    Stream.concat(
+                            Stream.of(ConnectorSession.class),
+                            functionType.getArgumentTypes().stream()
+                                    .map(Type::getJavaType)
+                                    .map(Primitives::wrap))
+                            .collect(toImmutableList());
+            List<String> argumentNames =
+                    Stream.concat(
+                            Stream.of("$connector_session"),
+                            node.getArguments().stream()
+                                    .map(LambdaArgumentDeclaration::getName))
+                            .collect(toImmutableList());
+            checkArgument(argumentTypes.size() == argumentNames.size());
 
             return generateVarArgsToMapAdapter(
                     Primitives.wrap(functionType.getReturnType().getJavaType()),
-                    functionType.getArgumentTypes().stream()
-                            .map(Type::getJavaType)
-                            .map(Primitives::wrap)
-                            .collect(toImmutableList()),
+                    argumentTypes,
                     argumentNames,
                     map -> process(body, new LambdaSymbolResolver(map)));
         }
@@ -1010,7 +1017,7 @@ public class ExpressionInterpreter
                         toExpression(function, expressionTypes.get(node.getFunction())));
             }
 
-            return MethodHandles.insertArguments((MethodHandle) function, 0, value);
+            return MethodHandles.insertArguments((MethodHandle) function, 1, value);
         }
 
         @Override

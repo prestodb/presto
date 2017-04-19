@@ -195,8 +195,7 @@ public class BytecodeExpressionVisitor
         checkState(preGeneratedExpressions.getLambdaFieldMap().containsKey(lambda), "lambda expressions map does not contain this lambda definition");
 
         return getStatic(preGeneratedExpressions.getLambdaFieldMap().get(lambda))
-                .invoke("bindTo", MethodHandle.class, scope.getThis().cast(Object.class))
-                .invoke("bindTo", MethodHandle.class, scope.getVariable("session").cast(Object.class));
+                .invoke("bindTo", MethodHandle.class, scope.getThis().cast(Object.class));
     }
 
     @Override

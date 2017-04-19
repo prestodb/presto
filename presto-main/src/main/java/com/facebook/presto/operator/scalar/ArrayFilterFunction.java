@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -38,7 +39,9 @@ public final class ArrayFilterFunction
     @TypeParameter("T")
     @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
     @SqlType("array(T)")
-    public static Block filterLong(@TypeParameter("T") Type elementType,
+    public static Block filterLong(
+            @TypeParameter("T") Type elementType,
+            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -52,7 +55,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(input);
+                keep = (Boolean) function.invokeExact(session, input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -67,7 +70,9 @@ public final class ArrayFilterFunction
     @TypeParameter("T")
     @TypeParameterSpecialization(name = "T", nativeContainerType = double.class)
     @SqlType("array(T)")
-    public static Block filterDouble(@TypeParameter("T") Type elementType,
+    public static Block filterDouble(
+            @TypeParameter("T") Type elementType,
+            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -81,7 +86,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(input);
+                keep = (Boolean) function.invokeExact(session, input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -96,7 +101,9 @@ public final class ArrayFilterFunction
     @TypeParameter("T")
     @TypeParameterSpecialization(name = "T", nativeContainerType = boolean.class)
     @SqlType("array(T)")
-    public static Block filterBoolean(@TypeParameter("T") Type elementType,
+    public static Block filterBoolean(
+            @TypeParameter("T") Type elementType,
+            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -110,7 +117,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(input);
+                keep = (Boolean) function.invokeExact(session, input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -125,7 +132,9 @@ public final class ArrayFilterFunction
     @TypeParameter("T")
     @TypeParameterSpecialization(name = "T", nativeContainerType = Slice.class)
     @SqlType("array(T)")
-    public static Block filterSlice(@TypeParameter("T") Type elementType,
+    public static Block filterSlice(
+            @TypeParameter("T") Type elementType,
+            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -139,7 +148,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(input);
+                keep = (Boolean) function.invokeExact(session, input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -154,7 +163,9 @@ public final class ArrayFilterFunction
     @TypeParameter("T")
     @TypeParameterSpecialization(name = "T", nativeContainerType = Block.class)
     @SqlType("array(T)")
-    public static Block filterBlock(@TypeParameter("T") Type elementType,
+    public static Block filterBlock(
+            @TypeParameter("T") Type elementType,
+            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -168,7 +179,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(input);
+                keep = (Boolean) function.invokeExact(session, input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -183,7 +194,9 @@ public final class ArrayFilterFunction
     @TypeParameter("T")
     @TypeParameterSpecialization(name = "T", nativeContainerType = void.class)
     @SqlType("array(T)")
-    public static Block filterVoid(@TypeParameter("T") Type elementType,
+    public static Block filterVoid(
+            @TypeParameter("T") Type elementType,
+            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -192,7 +205,7 @@ public final class ArrayFilterFunction
         for (int position = 0; position < positionCount; position++) {
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(null);
+                keep = (Boolean) function.invokeExact(session, null);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);

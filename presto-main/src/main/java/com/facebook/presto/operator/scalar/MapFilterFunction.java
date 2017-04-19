@@ -27,6 +27,7 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -128,13 +129,14 @@ public final class MapFilterFunction
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
+        Parameter session = arg("session", ConnectorSession.class);
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", MethodHandle.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "filter",
                 type(Block.class),
-                ImmutableList.of(block, function));
+                ImmutableList.of(session, block, function));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -184,7 +186,7 @@ public final class MapFilterFunction
                 .body(new BytecodeBlock()
                         .append(loadKeyElement)
                         .append(loadValueElement)
-                        .append(keep.set(function.invoke("invokeExact", Boolean.class, keyElement, valueElement)))
+                        .append(keep.set(function.invoke("invokeExact", Boolean.class, session, keyElement, valueElement)))
                         .append(new IfStatement("if (keep != null && keep) ...")
                                 .condition(and(notEqual(keep, constantNull(Boolean.class)), keep.cast(boolean.class)))
                                 .ifTrue(new BytecodeBlock()
@@ -194,6 +196,6 @@ public final class MapFilterFunction
         body.append(blockBuilder.invoke("build", Block.class).ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapFilterFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "filter", Block.class, MethodHandle.class);
+        return methodHandle(generatedClass, "filter", ConnectorSession.class, Block.class, MethodHandle.class);
     }
 }
