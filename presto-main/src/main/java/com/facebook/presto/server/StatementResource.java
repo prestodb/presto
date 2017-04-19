@@ -478,6 +478,7 @@ public class StatementResource
                     data,
                     toStatementStats(queryInfo),
                     toQueryError(queryInfo),
+                    ImmutableList.of(),
                     queryInfo.getUpdateType(),
                     updateCount);
 

@@ -143,6 +143,7 @@ public class Query
         if (statusPrinter != null) {
             statusPrinter.printFinalInfo();
         }
+        printWarnings(errorChannel);
 
         if (client.isClosed()) {
             errorChannel.println("Query aborted by user");
@@ -153,6 +154,25 @@ public class Query
         else if (client.isFailed()) {
             renderFailure(errorChannel);
         }
+    }
+
+    private void printWarnings(PrintStream errorChannel)
+    {
+        for (QueryError warning : client.getWarnings()) {
+            errorChannel.println(formatWarning(warning));
+        }
+    }
+
+    private static String formatWarning(QueryError warning)
+    {
+        StringBuilder builder = new StringBuilder();
+        // TODO: Better error code?
+        builder.append("Warning ").append(warning.getErrorCode()).append(": ");
+        if (warning.getErrorLocation() != null) {
+            builder.append(warning.getErrorLocation()).append(": ");
+        }
+        builder.append(warning.getMessage());
+        return builder.toString();
     }
 
     private void waitForData()

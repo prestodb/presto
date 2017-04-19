@@ -16,6 +16,7 @@ package com.facebook.presto.client;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -84,6 +85,7 @@ public class StatementClient
     private final boolean debug;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
+    private final AtomicReference<List> warnings = new AtomicReference<>(ImmutableList.of());
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
@@ -204,6 +206,11 @@ public class StatementClient
     {
         checkState((!isValid()) || isFailed(), "current position is still valid");
         return currentResults.get();
+    }
+
+    public List<QueryError> getWarnings()
+    {
+        return warnings.get();
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -338,6 +345,7 @@ public class StatementClient
             clearTransactionId.set(true);
         }
 
+        warnings.set(response.getValue().getWarnings());
         currentResults.set(response.getValue());
     }
 
