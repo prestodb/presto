@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Cast;
@@ -96,11 +95,7 @@ public class TransformExistsApplyToScalarApply
                                 idAllocator.getNextId(),
                                 new AggregationNode(
                                         idAllocator.getNextId(),
-                                        new LimitNode(
-                                                idAllocator.getNextId(),
-                                                parent.getSubquery(),
-                                                1,
-                                                false),
+                                        parent.getSubquery(),
                                         ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
                                         ImmutableList.of(ImmutableList.of()),
                                         AggregationNode.Step.SINGLE,
