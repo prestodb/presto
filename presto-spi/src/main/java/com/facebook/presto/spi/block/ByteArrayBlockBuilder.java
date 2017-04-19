@@ -18,7 +18,6 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -88,22 +87,6 @@ public class ByteArrayBlockBuilder
     public Block build()
     {
         return new ByteArrayBlock(positionCount, valueIsNull, values);
-    }
-
-    @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
-    {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-
-        initialized = false;
-        initialEntryCount = calculateBlockResetSize(positionCount);
-
-        valueIsNull = new boolean[0];
-        values = new byte[0];
-
-        positionCount = 0;
-
-        updateDataSize();
     }
 
     @Override

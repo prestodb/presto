@@ -223,25 +223,6 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
-    {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-
-        initialized = false;
-        initialEntryCount = calculateBlockResetSize(getPositionCount());
-
-        valueIsNull = new boolean[0];
-        offsets = new int[1];
-
-        values.reset(blockBuilderStatus);
-
-        currentEntrySize = 0;
-        positionCount = 0;
-
-        updateDataSize();
-    }
-
-    @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         int newSize = calculateBlockResetSize(getPositionCount());

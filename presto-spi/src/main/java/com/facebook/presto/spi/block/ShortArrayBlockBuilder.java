@@ -91,22 +91,6 @@ public class ShortArrayBlockBuilder
     }
 
     @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
-    {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-
-        initialized = false;
-        initialEntryCount = calculateBlockResetSize(positionCount);
-
-        valueIsNull = new boolean[0];
-        values = new short[0];
-
-        positionCount = 0;
-
-        updateDataSize();
-    }
-
-    @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         return new ShortArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));

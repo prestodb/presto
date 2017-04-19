@@ -253,23 +253,6 @@ public class InterleavedBlockBuilder
     }
 
     @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
-    {
-        this.positionCount = 0;
-
-        this.sizeInBytes = 0;
-        this.retainedSizeInBytes = INSTANCE_SIZE;
-        for (BlockBuilder blockBuilder : blockBuilders) {
-            blockBuilder.reset(blockBuilderStatus);
-            this.sizeInBytes += blockBuilder.getSizeInBytes();
-            this.retainedSizeInBytes += blockBuilder.getRetainedSizeInBytes();
-        }
-
-        this.startSize = -1;
-        this.startRetainedSize = -1;
-    }
-
-    @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         BlockBuilder[] newBlockBuilders = new BlockBuilder[blockBuilders.length];

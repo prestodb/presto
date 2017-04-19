@@ -92,22 +92,6 @@ public class LongArrayBlockBuilder
     }
 
     @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
-    {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-
-        initialized = false;
-        initialEntryCount = calculateBlockResetSize(positionCount);
-
-        valueIsNull = new boolean[0];
-        values = new long[0];
-
-        positionCount = 0;
-
-        updateDataSize();
-    }
-
-    @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         return new LongArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));

@@ -29,7 +29,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
-import static java.util.Objects.requireNonNull;
 
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
@@ -256,21 +255,6 @@ public class FixedWidthBlockBuilder
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         return new FixedWidthBlock(fixedSize, positionCount, sliceOutput.slice(), valueIsNull.slice());
-    }
-
-    @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
-    {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-
-        initialized = false;
-        initialEntryCount = calculateBlockResetSize(positionCount);
-
-        valueIsNull = new DynamicSliceOutput(0);
-        sliceOutput = new DynamicSliceOutput(0);
-
-        positionCount = 0;
-        currentEntrySize = 0;
     }
 
     @Override

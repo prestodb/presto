@@ -296,25 +296,6 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
-    {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-
-        initialized = false;
-        initialEntryCount = calculateBlockResetSize(positions);
-        initialSliceOutputSize = calculateBlockResetSize(sliceOutput.size());
-
-        valueIsNull = new boolean[0];
-        offsets = new int[1];
-        sliceOutput = new DynamicSliceOutput(0);
-
-        positions = 0;
-        currentEntrySize = 0;
-
-        updateArraysDataSize();
-    }
-
-    @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         int expectedBytesPerEntry = positions == 0 ? positions : (getOffset(positions) - getOffset(0)) / positions;
