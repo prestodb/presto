@@ -450,6 +450,14 @@ public class StatementResource
                 }
             }
 
+            List<QueryError> warnings;
+            if (queryInfo.getState().isDone()) {
+                warnings = queryInfo.getWarnings();
+            }
+            else {
+                warnings = ImmutableList.of();
+            }
+
             // only return a next if the query is not done or there is more data to send (due to buffering)
             URI nextResultsUri = null;
             if ((!queryInfo.isFinalQueryInfo()) || (!exchangeClient.isClosed())) {
@@ -478,7 +486,7 @@ public class StatementResource
                     data,
                     toStatementStats(queryInfo),
                     toQueryError(queryInfo),
-                    ImmutableList.of(),
+                    warnings,
                     queryInfo.getUpdateType(),
                     updateCount);
 

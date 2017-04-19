@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.BlackholeWarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -123,7 +124,7 @@ final class ExplainRewrite
                     plan = queryExplainer.get().getGraphvizPlan(session, statement, planType, parameters);
                     break;
                 case TEXT:
-                    plan = queryExplainer.get().getPlan(session, statement, planType, parameters);
+                    plan = queryExplainer.get().getPlan(session, statement, planType, parameters, BlackholeWarningCollector.getInstance());
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());

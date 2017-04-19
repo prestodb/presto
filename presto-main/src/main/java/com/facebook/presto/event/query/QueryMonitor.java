@@ -15,6 +15,7 @@ package com.facebook.presto.event.query;
 
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
@@ -29,15 +30,19 @@ import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryErrorLocation;
 import com.facebook.presto.spi.eventlistener.QueryFailureInfo;
 import com.facebook.presto.spi.eventlistener.QueryIOMetadata;
 import com.facebook.presto.spi.eventlistener.QueryInputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
+import com.facebook.presto.spi.eventlistener.QueryWarningInfo;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
 import com.facebook.presto.spi.eventlistener.SplitStatistics;
@@ -143,6 +148,18 @@ public class QueryMonitor
                         objectMapper.writeValueAsString(queryInfo.getFailureInfo())));
             }
 
+            ImmutableList.Builder<QueryWarningInfo> warningsBuilder = ImmutableList.builder();
+            for (QueryError warning : queryInfo.getWarnings()) {
+                Optional<QueryErrorLocation> location = Optional.empty();
+                if (warning.getErrorLocation() != null) {
+                    location = Optional.of(new QueryErrorLocation(warning.getErrorLocation().getLineNumber(), warning.getErrorLocation().getColumnNumber()));
+                }
+                warningsBuilder.add(new QueryWarningInfo(
+                        new ErrorCode(warning.getErrorCode(), warning.getErrorName(), ErrorType.valueOf(warning.getErrorType())),
+                        warning.getMessage(),
+                        location));
+            }
+
             ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
             for (Input input : queryInfo.getInputs()) {
                 inputs.add(new QueryInputMetadata(
@@ -210,7 +227,7 @@ public class QueryMonitor
                                     environment),
                             new QueryIOMetadata(inputs.build(), output),
                             queryFailureInfo,
-                            ImmutableList.of(),
+                            warningsBuilder.build(),
                             ofEpochMilli(queryStats.getCreateTime().getMillis()),
                             ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
                             ofEpochMilli(queryStats.getEndTime().getMillis())));

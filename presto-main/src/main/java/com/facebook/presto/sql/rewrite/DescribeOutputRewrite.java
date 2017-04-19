@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.BlackholeWarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
@@ -94,7 +95,7 @@ final class DescribeOutputRewrite
             String sqlString = session.getPreparedStatement(node.getName());
             Statement statement = parser.createStatement(sqlString);
 
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, BlackholeWarningCollector.getInstance());
             Analysis analysis = analyzer.analyze(statement, true);
 
             Optional<String> limit = Optional.empty();

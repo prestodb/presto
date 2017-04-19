@@ -263,14 +263,15 @@ public class DataDefinitionExecution<T extends Statement>
                 String query,
                 Session session,
                 Statement statement,
-                List<Expression> parameters)
+                List<Expression> parameters,
+                WarningCollector warningCollector)
         {
             URI self = locationFactory.createQueryLocation(queryId);
 
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata, warningCollector);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }

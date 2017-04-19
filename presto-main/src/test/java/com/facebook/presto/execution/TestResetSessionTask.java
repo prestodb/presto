@@ -111,7 +111,8 @@ public class TestResetSessionTask
                 transactionManager,
                 accessControl,
                 executor,
-                metadata);
+                metadata,
+                BlackholeWarningCollector.getInstance());
 
         getFutureValue(new ResetSessionTask().execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),
