@@ -67,7 +67,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
-import static com.facebook.presto.sql.analyzer.LambdaReferenceExtractor.hasReferencesToLambdaArgument;
+import static com.facebook.presto.sql.analyzer.FreeLambdaReferenceExtractor.hasFreeReferencesToLambdaArgument;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.isFieldFromScope;
@@ -573,7 +573,7 @@ class AggregationAnalyzer
         {
             if (expressions.stream().anyMatch(node::equals)
                     && (!orderByScope.isPresent() || !hasOrderByReferencesToOutputColumns(node))
-                    && !hasReferencesToLambdaArgument(node, analysis)) {
+                    && !hasFreeReferencesToLambdaArgument(node, analysis)) {
                 return true;
             }
 
