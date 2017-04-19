@@ -85,4 +85,10 @@ public class DoubleInputStream
             }
         }
     }
+
+    @Override
+    public DoubleInputStream clone()
+    {
+        return new DoubleInputStream(input.clone());
+    }
 }

@@ -32,7 +32,12 @@ public class BooleanInputStream
 
     public BooleanInputStream(OrcInputStream byteStream)
     {
-        this.byteStream = new ByteInputStream(byteStream);
+        this(new ByteInputStream(byteStream));
+    }
+
+    public BooleanInputStream(ByteInputStream byteStream)
+    {
+        this.byteStream = byteStream;
     }
 
     private void readByte()
@@ -257,5 +262,11 @@ public class BooleanInputStream
     private static int bitCount(byte data)
     {
         return Integer.bitCount(data & 0xFF);
+    }
+
+    @Override
+    public BooleanInputStream clone()
+    {
+        return new BooleanInputStream(byteStream.clone());
     }
 }

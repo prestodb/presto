@@ -139,14 +139,15 @@ public class Field
        "x"        "y.a"         n
        "x.y"      "y.a"         y
      */
-    public boolean canResolve(QualifiedName name)
+    public boolean canResolve(QualifiedName qName)
     {
-        if (!this.name.isPresent()) {
+        if (!name.isPresent()) {
             return false;
         }
 
         // TODO: need to know whether the qualified name and the name of this field were quoted
-        return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
+        return name.get().equalsIgnoreCase(qName.toString()) ||
+               (matchesPrefix(qName.getPrefix()) && name.get().equalsIgnoreCase(qName.getSuffix()));
     }
 
     @Override

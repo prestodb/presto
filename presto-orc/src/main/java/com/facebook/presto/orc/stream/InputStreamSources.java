@@ -42,6 +42,11 @@ public class InputStreamSources
         requireNonNull(streamType, "streamType is null");
 
         InputStreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamKind));
+        if (streamSource == null && streamKind == StreamKind.PRESENT && !containsAny(streamDescriptor.getStreamId())) {
+            // Non of stream present for a STRUCT column, use parent's present stream
+            streamSource = streamSources.get(new StreamId(streamDescriptor.getParent(), streamKind));
+        }
+
         if (streamSource == null) {
             streamSource = missingStreamSource(streamType);
         }
@@ -52,6 +57,12 @@ public class InputStreamSources
                 streamType.getName(),
                 streamSource.getStreamType().getName());
 
-        return (InputStreamSource<S>) streamSource;
+        // Clone the object, so can be used in multiple locations.
+        return (InputStreamSource<S>) streamSource.clone();
+    }
+
+    private boolean containsAny(int streamId)
+    {
+        return streamSources.keySet().stream().anyMatch(it -> it.getColumn() == streamId);
     }
 }

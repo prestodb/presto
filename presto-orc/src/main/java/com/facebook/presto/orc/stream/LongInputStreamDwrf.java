@@ -149,4 +149,10 @@ public class LongInputStreamDwrf
             }
         }
     }
+
+    @Override
+    public LongInputStreamDwrf clone()
+    {
+        return new LongInputStreamDwrf(input.clone(), orcTypeKind, signed, usesVInt);
+    }
 }

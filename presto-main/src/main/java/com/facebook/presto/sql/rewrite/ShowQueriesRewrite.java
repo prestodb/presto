@@ -402,7 +402,7 @@ final class ShowQueriesRewrite
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
-                        .filter(column -> !column.isHidden())
+                        .filter(column -> !column.isHidden() && !column.getName().contains("."))
                         .map(column -> new ColumnDefinition(column.getName(), column.getType().getDisplayName(), Optional.ofNullable(column.getComment())))
                         .collect(toImmutableList());
 

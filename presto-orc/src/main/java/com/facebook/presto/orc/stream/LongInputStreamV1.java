@@ -29,8 +29,8 @@ public class LongInputStreamV1
 {
     private static final int MAX_LITERAL_SIZE = 128;
 
-    private final OrcInputStream input;
-    private final boolean signed;
+    protected final OrcInputStream input;
+    protected final boolean signed;
     private final long[] literals = new long[MAX_LITERAL_SIZE];
     private int numLiterals;
     private int delta;
@@ -209,5 +209,11 @@ public class LongInputStreamV1
                 vector[i] = toIntExact(next());
             }
         }
+    }
+
+    @Override
+    public LongInputStreamV1 clone()
+    {
+        return new LongInputStreamV1(input.clone(), signed);
     }
 }

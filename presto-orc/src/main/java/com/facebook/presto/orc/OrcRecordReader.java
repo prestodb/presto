@@ -36,12 +36,14 @@ import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+
 import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +65,7 @@ public class OrcRecordReader
 {
     private final OrcDataSource orcDataSource;
 
-    private final StreamReader[] streamReaders;
+    private final Map<Integer, StreamReader> streamReaders;
 
     private final long totalRowCount;
     private final long splitLength;
@@ -128,7 +130,9 @@ public class OrcRecordReader
         for (Map.Entry<Integer, Type> entry : includedColumns.entrySet()) {
             // an old file can have less columns since columns can be added
             // after the file was written
-            if (entry.getKey() < root.getFieldCount()) {
+            int index = entry.getKey() + 1;
+            OrcType type = (types.size() > index) ? types.get(index) : null;
+            if (type != null) {
                 presentColumns.add(entry.getKey());
                 presentColumnsAndTypes.put(entry.getKey(), entry.getValue());
             }
@@ -154,7 +158,7 @@ public class OrcRecordReader
         long fileRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
-        if (predicate.matches(numberOfRows, getStatisticsByColumnOrdinal(root, fileStats))) {
+        if (predicate.matches(numberOfRows, getStatisticsByColumnOrdinal(fileStats))) {
             // select stripes that start within the specified split
             for (StripeInfo info : stripeInfos) {
                 StripeInformation stripe = info.getStripe();
@@ -188,7 +192,6 @@ public class OrcRecordReader
                 orcDataSource,
                 decompressor,
                 types,
-                this.presentColumns,
                 rowsInRowGroup,
                 predicate,
                 hiveWriterVersion,
@@ -213,7 +216,7 @@ public class OrcRecordReader
         if (!stripeStats.isPresent()) {
             return true;
         }
-        return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.get().getColumnStatistics()));
+        return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(stripeStats.get().getColumnStatistics()));
     }
 
     @VisibleForTesting
@@ -310,10 +313,8 @@ public class OrcRecordReader
 
         currentBatchSize = toIntExact(min(MAX_BATCH_SIZE, currentGroupRowCount - nextRowInGroup));
 
-        for (StreamReader column : streamReaders) {
-            if (column != null) {
-                column.prepareNextRead(currentBatchSize);
-            }
+        for (StreamReader column : streamReaders.values()) {
+            column.prepareNextRead(currentBatchSize);
         }
         nextRowInGroup += currentBatchSize;
         return currentBatchSize;
@@ -322,13 +323,13 @@ public class OrcRecordReader
     public Block readBlock(Type type, int columnIndex)
             throws IOException
     {
-        return streamReaders[columnIndex].readBlock(type);
+        return streamReaders.get(columnIndex).readBlock(type);
     }
 
     public StreamReader getStreamReader(int index)
     {
-        checkArgument(index < streamReaders.length, "index does not exist");
-        return streamReaders[index];
+        checkArgument(streamReaders.containsKey(ordinal(index)), "index does not exist");
+        return streamReaders.get(ordinal(index));
     }
 
     public Map<String, Slice> getUserMetadata()
@@ -358,10 +359,8 @@ public class OrcRecordReader
 
         // give reader data streams from row group
         InputStreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
-        for (StreamReader column : streamReaders) {
-            if (column != null) {
-                column.startRowGroup(rowGroupStreamSources);
-            }
+        for (StreamReader column : streamReaders.values()) {
+            column.startRowGroup(rowGroupStreamSources);
         }
 
         return true;
@@ -390,71 +389,71 @@ public class OrcRecordReader
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             List<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
-            for (StreamReader column : streamReaders) {
-                if (column != null) {
-                    column.startStripe(dictionaryStreamSources, columnEncodings);
-                }
+            for (StreamReader column : streamReaders.values()) {
+                column.startStripe(dictionaryStreamSources, columnEncodings);
             }
 
             rowGroups = stripe.getRowGroups().iterator();
         }
     }
 
-    private static StreamReader[] createStreamReaders(OrcDataSource orcDataSource,
+    private static Map<Integer, StreamReader> createStreamReaders(OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns)
     {
-        List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
-
-        OrcType rowType = types.get(0);
-        StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount()];
-        for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
-            if (includedColumns.containsKey(columnId)) {
-                StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
-            }
-        }
-        return streamReaders;
+        StreamDescriptor streamDescriptor = createStreamDescriptor(0, "", 0, types, orcDataSource);
+        List<StreamDescriptor> streamDescriptors = streamDescriptor.getNestedStreams();
+        Map<Integer, StreamReader> readers = createStreamReaders(streamDescriptors, includedColumns, hiveStorageTimeZone);
+        readers.put(ordinal(streamDescriptor.getStreamId()), StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone));
+        return readers;
     }
 
-    private static StreamDescriptor createStreamDescriptor(String parentStreamName, String fieldName, int typeId, List<OrcType> types, OrcDataSource dataSource)
+    private static Map<Integer, StreamReader> createStreamReaders(List<StreamDescriptor> streamDescriptors,
+            Map<Integer, Type> includedColumns,
+            DateTimeZone hiveStorageTimeZone)
+    {
+        Map<Integer, StreamReader> readers = new HashMap<>();
+        for (StreamDescriptor desc : streamDescriptors) {
+            readers.put(ordinal(desc.getStreamId()), StreamReaders.createStreamReader(desc, hiveStorageTimeZone));
+            readers.putAll(createStreamReaders(desc.getNestedStreams(), includedColumns, hiveStorageTimeZone));
+        }
+        return readers;
+    }
+
+    private static StreamDescriptor createStreamDescriptor(int parent, String fieldName, int typeId, List<OrcType> types, OrcDataSource dataSource)
     {
         OrcType type = types.get(typeId);
-
+        String fullName = "";
         if (!fieldName.isEmpty()) {
-            parentStreamName += "." + fieldName;
+            fullName = fieldName + ".";
         }
 
         ImmutableList.Builder<StreamDescriptor> nestedStreams = ImmutableList.builder();
         if (type.getOrcTypeKind() == OrcTypeKind.STRUCT) {
             for (int i = 0; i < type.getFieldCount(); ++i) {
-                nestedStreams.add(createStreamDescriptor(parentStreamName, type.getFieldName(i), type.getFieldTypeIndex(i), types, dataSource));
+                nestedStreams.add(createStreamDescriptor(typeId, fullName + type.getFieldName(i), type.getFieldTypeIndex(i), types, dataSource));
             }
         }
         else if (type.getOrcTypeKind() == OrcTypeKind.LIST) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "item", type.getFieldTypeIndex(0), types, dataSource));
+            nestedStreams.add(createStreamDescriptor(typeId, fullName + "item", type.getFieldTypeIndex(0), types, dataSource));
         }
         else if (type.getOrcTypeKind() == OrcTypeKind.MAP) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "key", type.getFieldTypeIndex(0), types, dataSource));
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getFieldTypeIndex(1), types, dataSource));
+            nestedStreams.add(createStreamDescriptor(typeId, fullName + "key", type.getFieldTypeIndex(0), types, dataSource));
+            nestedStreams.add(createStreamDescriptor(typeId, fullName + "value", type.getFieldTypeIndex(1), types, dataSource));
         }
-        return new StreamDescriptor(parentStreamName, typeId, fieldName, type.getOrcTypeKind(), dataSource, nestedStreams.build());
+        return new StreamDescriptor(parent, typeId, fieldName, type.getOrcTypeKind(), dataSource, nestedStreams.build());
     }
 
-    private static Map<Integer, ColumnStatistics> getStatisticsByColumnOrdinal(OrcType rootStructType, List<ColumnStatistics> fileStats)
+    private static Map<Integer, ColumnStatistics> getStatisticsByColumnOrdinal(List<ColumnStatistics> fileStats)
     {
-        requireNonNull(rootStructType, "rootStructType is null");
-        checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
         requireNonNull(fileStats, "fileStats is null");
 
         ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();
-        for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
-            if (fileStats.size() > ordinal) {
-                ColumnStatistics element = fileStats.get(rootStructType.getFieldTypeIndex(ordinal));
-                if (element != null) {
-                    statistics.put(ordinal, element);
-                }
+        for (int index = 0; index < fileStats.size(); index++) {
+            ColumnStatistics element = fileStats.get(index);
+            if (element != null) {
+                statistics.put(ordinal(index), element);
             }
         }
         return statistics.build();
@@ -480,6 +479,11 @@ public class OrcRecordReader
         {
             return stats;
         }
+    }
+
+    public static int ordinal(int streamId)
+    {
+        return streamId - 1;
     }
 
     @VisibleForTesting

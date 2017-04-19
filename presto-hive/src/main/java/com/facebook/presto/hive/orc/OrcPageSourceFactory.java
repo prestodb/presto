@@ -26,6 +26,8 @@ import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.orc.metadata.OrcType;
+import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -34,6 +36,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
+
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -246,12 +250,37 @@ public class OrcPageSourceFactory
     {
         ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
 
-        int ordinal = 0;
-        for (String physicalColumnName : reader.getColumnNames()) {
-            physicalNameOrdinalMap.put(physicalColumnName, ordinal);
-            ordinal++;
+        List<OrcType> types = reader.getFooter().getTypes();
+        parseTypes(null, 0, types, physicalNameOrdinalMap);
+        return physicalNameOrdinalMap.build();
+    }
+
+    private static void parseTypes(String name, int index, List<OrcType> types,
+            Builder<String, Integer> physicalNameOrdinalMap)
+    {
+        OrcType type = types.get(index);
+        if (name != null) {
+            physicalNameOrdinalMap.put(name, OrcRecordReader.ordinal(index));
         }
 
-        return physicalNameOrdinalMap.build();
+        if (type.getOrcTypeKind() == OrcTypeKind.MAP) {
+            String childName = (name == null) ? "key" : name + ".key";
+            parseTypes(childName, type.getFieldTypeIndex(0), types, physicalNameOrdinalMap);
+
+            childName = (name == null) ? "value" : name + ".value";
+            parseTypes(childName, type.getFieldTypeIndex(1), types, physicalNameOrdinalMap);
+        }
+        else  if (type.getOrcTypeKind() == OrcTypeKind.LIST) {
+            String childName = (name == null) ? "item" : name + ".item";
+            parseTypes(childName, type.getFieldTypeIndex(0), types, physicalNameOrdinalMap);
+        }
+        else {
+            for (int i = 0; i < type.getFieldCount(); i++) {
+                String item = (type.getOrcTypeKind() == OrcTypeKind.LIST) ? "item" : type.getFieldName(i);
+                String childName = (name == null) ? item : name + "." + item;
+
+                parseTypes(childName, type.getFieldTypeIndex(i), types, physicalNameOrdinalMap);
+            }
+        }
     }
 }

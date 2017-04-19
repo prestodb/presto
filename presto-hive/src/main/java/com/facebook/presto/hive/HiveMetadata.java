@@ -1255,7 +1255,7 @@ public class HiveMetadata
         }
     }
 
-    private static HiveStorageFormat extractHiveStorageFormat(Table table)
+    static HiveStorageFormat extractHiveStorageFormat(Table table)
     {
         StorageFormat storageFormat = table.getStorage().getStorageFormat();
         String outputFormat = storageFormat.getOutputFormat();
@@ -1369,7 +1369,7 @@ public class HiveMetadata
         return handle -> new ColumnMetadata(
                 handle.getName(),
                 typeManager.getType(handle.getTypeSignature()),
-                columnComment.get(handle.getName()).orElse(null),
+                columnComment.getOrDefault(handle.getName(), Optional.empty()).orElse(null),
                 columnExtraInfo(handle.isPartitionKey()),
                 handle.isHidden());
     }

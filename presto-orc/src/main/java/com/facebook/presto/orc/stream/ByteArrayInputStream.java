@@ -64,4 +64,10 @@ public class ByteArrayInputStream
     {
         skipFully(inputStream, skipSize);
     }
+
+    @Override
+    public ByteArrayInputStream clone()
+    {
+        return new ByteArrayInputStream(inputStream.clone());
+    }
 }

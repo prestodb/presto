@@ -29,6 +29,7 @@ import com.google.common.collect.SetMultimap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
@@ -56,7 +57,6 @@ public final class Checkpoints
     }
 
     public static Map<StreamId, StreamCheckpoint> getStreamCheckpoints(
-            Set<Integer> columns,
             List<OrcType> columnTypes,
             boolean compressed,
             int rowGroupId,
@@ -72,8 +72,9 @@ public final class Checkpoints
         SetMultimap<Integer, StreamKind> streamKinds = streamKindsBuilder.build();
 
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
-        for (int column : columns) {
-            List<Integer> positionsList = columnIndexes.get(column).get(rowGroupId).getPositions();
+        for (Entry<Integer, List<RowGroupIndex>> entry : columnIndexes.entrySet()) {
+            List<Integer> positionsList = entry.getValue().get(rowGroupId).getPositions();
+            int column = entry.getKey();
 
             ColumnEncodingKind columnEncoding = columnEncodings.get(column).getColumnEncodingKind();
             OrcTypeKind columnType = columnTypes.get(column).getOrcTypeKind();

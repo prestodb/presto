@@ -198,4 +198,10 @@ public class DecimalInputStream
             while (b >= 0x80);
         }
     }
+
+    @Override
+    public DecimalInputStream clone()
+    {
+        return new DecimalInputStream(input.clone());
+    }
 }

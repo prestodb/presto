@@ -23,21 +23,26 @@ import static java.util.Objects.requireNonNull;
 
 public final class StreamDescriptor
 {
-    private final String streamName;
+    private final int parent;
     private final int streamId;
     private final OrcTypeKind streamType;
-    private final String fieldName;
+    private final String streamName;
     private final OrcDataSource fileInput;
     private final List<StreamDescriptor> nestedStreams;
 
-    public StreamDescriptor(String streamName, int streamId, String fieldName, OrcTypeKind streamType, OrcDataSource fileInput, List<StreamDescriptor> nestedStreams)
+    public StreamDescriptor(int parent, int streamId, String streamName, OrcTypeKind streamType, OrcDataSource fileInput, List<StreamDescriptor> nestedStreams)
     {
-        this.streamName = requireNonNull(streamName, "streamName is null");
+        this.parent = parent;
         this.streamId = streamId;
-        this.fieldName = requireNonNull(fieldName, "fieldName is null");
+        this.streamName = requireNonNull(streamName, "fieldName is null");
         this.streamType = requireNonNull(streamType, "type is null");
         this.fileInput = requireNonNull(fileInput, "fileInput is null");
         this.nestedStreams = ImmutableList.copyOf(requireNonNull(nestedStreams, "nestedStreams is null"));
+    }
+
+    public int getParent()
+    {
+        return parent;
     }
 
     public String getStreamName()
@@ -55,11 +60,6 @@ public final class StreamDescriptor
         return streamType;
     }
 
-    public String getFieldName()
-    {
-        return fieldName;
-    }
-
     public OrcDataSource getFileInput()
     {
         return fileInput;
@@ -74,7 +74,7 @@ public final class StreamDescriptor
     public String toString()
     {
         return toStringHelper(this)
-                .add("streamName", streamName)
+                .add("streamName", getStreamName())
                 .add("streamId", streamId)
                 .add("streamType", streamType)
                 .add("path", fileInput)

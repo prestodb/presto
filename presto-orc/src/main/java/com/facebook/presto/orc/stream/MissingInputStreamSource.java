@@ -44,4 +44,10 @@ public class MissingInputStreamSource<S extends ValueInputStream<?>> implements 
     {
         return null;
     }
+
+    @Override
+    public MissingInputStreamSource<S> clone()
+    {
+        return new MissingInputStreamSource<S>(streamType);
+    }
 }

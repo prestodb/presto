@@ -140,7 +140,7 @@ public class TestOrcFileRewriter
             assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 3), arrayBlockOf(BIGINT, 7, 8)));
             assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 4), arrayBlockOf(BIGINT, 9, 10)));
 
-            Block column3 = reader.readBlock(mapType, 3);
+            Block column3 = reader.readBlock(mapType, 4);
             assertEquals(column3.getPositionCount(), 5);
             for (int i = 0; i < 5; i++) {
                 assertEquals(column3.isNull(i), false);
@@ -151,7 +151,7 @@ public class TestOrcFileRewriter
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 3), mapBlockOf(createVarcharType(5), BOOLEAN, "k4", true)));
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 4), mapBlockOf(createVarcharType(5), BOOLEAN, "k5", true)));
 
-            Block column4 = reader.readBlock(arrayOfArrayType, 4);
+            Block column4 = reader.readBlock(arrayOfArrayType, 7);
             assertEquals(column4.getPositionCount(), 5);
             for (int i = 0; i < 5; i++) {
                 assertEquals(column4.isNull(i), false);
@@ -218,7 +218,7 @@ public class TestOrcFileRewriter
             assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 0), arrayBlockOf(BIGINT, 1, 2)));
             assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 1), arrayBlockOf(BIGINT, 5, 6)));
 
-            Block column3 = reader.readBlock(mapType, 3);
+            Block column3 = reader.readBlock(mapType, 4);
             assertEquals(column3.getPositionCount(), 2);
             for (int i = 0; i < 2; i++) {
                 assertEquals(column3.isNull(i), false);
@@ -226,7 +226,7 @@ public class TestOrcFileRewriter
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 0), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true)));
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 1), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", true)));
 
-            Block column4 = reader.readBlock(arrayOfArrayType, 4);
+            Block column4 = reader.readBlock(arrayOfArrayType, 7);
             assertEquals(column4.getPositionCount(), 2);
             for (int i = 0; i < 2; i++) {
                 assertEquals(column4.isNull(i), false);

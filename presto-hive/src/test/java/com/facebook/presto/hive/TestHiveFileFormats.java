@@ -488,7 +488,7 @@ public class TestHiveFileFormats
         File file = new File(this.getClass().getClassLoader().getResource("addressbook.parquet").getPath());
         FileSplit split = new FileSplit(new Path(file.getAbsolutePath()), 0, file.length(), new String[0]);
         HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT);
-        testCursorProvider(cursorProvider, split, PARQUET, testColumns, 1);
+        testCursorProvider(cursorProvider, split, PARQUET, testColumns, 1, HiveStorageFormat.PARQUET.toString());
     }
 
     @Test(dataProvider = "rowCount")
@@ -623,7 +623,8 @@ public class TestHiveFileFormats
             FileSplit split,
             HiveStorageFormat storageFormat,
             List<TestColumn> testColumns,
-            int rowCount)
+            int rowCount,
+            String formatName)
             throws IOException
     {
         Properties splitProperties = new Properties();
@@ -649,7 +650,7 @@ public class TestHiveFileFormats
                 split.getLength(),
                 splitProperties,
                 TupleDomain.all(),
-                getColumnHandles(testColumns),
+                getColumnHandles(testColumns, formatName),
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
@@ -665,7 +666,8 @@ public class TestHiveFileFormats
             HiveStorageFormat storageFormat,
             List<TestColumn> testColumns,
             ConnectorSession session,
-            int rowCount)
+            int rowCount,
+            String format)
             throws IOException
     {
         Properties splitProperties = new Properties();
@@ -679,7 +681,7 @@ public class TestHiveFileFormats
                 .map(input -> new HivePartitionKey(input.getName(), HiveType.valueOf(input.getObjectInspector().getTypeName()), (String) input.getWriteValue()))
                 .collect(toList());
 
-        List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns, format);
 
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(),
@@ -864,10 +866,10 @@ public class TestHiveFileFormats
                     split = createTestFile(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
                 }
                 if (pageSourceFactory.isPresent()) {
-                    testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, rowsCount);
+                    testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, rowsCount, formatName);
                 }
                 if (cursorProvider.isPresent()) {
-                    testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, rowsCount);
+                    testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, rowsCount, formatName);
                 }
             }
             finally {

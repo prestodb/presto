@@ -19,7 +19,11 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -56,17 +60,22 @@ public class HiveColumnHandle
     }
 
     private final String clientId;
-    private final String name;
+    private final List<String> name;
     private final HiveType hiveType;
     private final TypeSignature typeName;
     private final int hiveColumnIndex;
     private final ColumnType columnType;
     private final Optional<String> comment;
 
+    public HiveColumnHandle(String clientId, String name, HiveType hiveType, TypeSignature typeSignature, int hiveColumnIndex, ColumnType columnType, Optional<String> comment)
+    {
+        this(clientId, ImmutableList.copyOf(Splitter.on('.').split(name)), hiveType, typeSignature, hiveColumnIndex, columnType, comment);
+    }
+
     @JsonCreator
     public HiveColumnHandle(
             @JsonProperty("clientId") String clientId,
-            @JsonProperty("name") String name,
+            @JsonProperty("parts") List<String> name,
             @JsonProperty("hiveType") HiveType hiveType,
             @JsonProperty("typeSignature") TypeSignature typeSignature,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
@@ -90,9 +99,14 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
-    public String getName()
+    public List<String> getParts()
     {
         return name;
+    }
+
+    public String getName()
+    {
+        return Joiner.on('.').join(name);
     }
 
     @JsonProperty
@@ -119,7 +133,7 @@ public class HiveColumnHandle
 
     public ColumnMetadata getColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(name, typeManager.getType(typeName), null, isHidden());
+        return new ColumnMetadata(getName(), typeManager.getType(typeName), null, isHidden());
     }
 
     @JsonProperty
@@ -185,17 +199,17 @@ public class HiveColumnHandle
         // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
         // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
 
-        return new HiveColumnHandle(connectorId, UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(connectorId, ImmutableList.of(UPDATE_ROW_ID_COLUMN_NAME), HIVE_LONG, BIGINT.getTypeSignature(), -1, HIDDEN, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle(String connectorId)
     {
-        return new HiveColumnHandle(connectorId, PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(connectorId, ImmutableList.of(PATH_COLUMN_NAME), PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, HIDDEN, Optional.empty());
     }
 
     public static HiveColumnHandle bucketColumnHandle(String connectorId)
     {
-        return new HiveColumnHandle(connectorId, BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(connectorId, ImmutableList.of(BUCKET_COLUMN_NAME), BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN, Optional.empty());
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)

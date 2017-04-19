@@ -450,4 +450,10 @@ public class LongInputStreamV2
             }
         }
     }
+
+    @Override
+    public LongInputStreamV2 clone()
+    {
+        return new LongInputStreamV2(input.clone(), signed, skipCorrupt);
+    }
 }

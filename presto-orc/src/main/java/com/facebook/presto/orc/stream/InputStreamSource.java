@@ -24,4 +24,6 @@ public interface InputStreamSource<S extends ValueInputStream<?>>
     @Nullable
     S openStream()
             throws IOException;
+
+    InputStreamSource<S> clone();
 }

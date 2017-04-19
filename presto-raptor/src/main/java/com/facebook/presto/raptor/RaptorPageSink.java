@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -124,13 +125,14 @@ public class RaptorPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        List<CompletableFuture<? extends List<Slice>>> futureSlices = pageWriter.getPageBuffers().stream().map(pageBuffer -> {
+        Function<PageBuffer, CompletableFuture<? extends List<Slice>>> function = (pageBuffer) -> {
             pageBuffer.flush();
             CompletableFuture<List<ShardInfo>> futureShards = pageBuffer.getStoragePageSink().commit();
             return futureShards.thenApply(shards -> shards.stream()
                     .map(shard -> Slices.wrappedBuffer(SHARD_INFO_CODEC.toJsonBytes(shard)))
                     .collect(toList()));
-        }).collect(toList());
+        };
+        List<CompletableFuture<? extends List<Slice>>> futureSlices = pageWriter.getPageBuffers().stream().map(function).collect(toList());
 
         return allAsList(futureSlices).thenApply(lists -> lists.stream()
                 .flatMap(Collection::stream)
