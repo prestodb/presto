@@ -33,7 +33,6 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -269,7 +268,7 @@ public class TransformCorrelatedScalarAggregationToJoin
         {
             PlanNodeSearcher filterNodeSearcher = searchFrom(node)
                     .where(FilterNode.class::isInstance)
-                    .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, LimitNode.class));
+                    .skipOnlyWhen(isInstanceOfAny(ProjectNode.class));
             List<FilterNode> filterNodes = filterNodeSearcher.findAll();
 
             if (filterNodes.isEmpty()) {
@@ -297,12 +296,6 @@ public class TransformCorrelatedScalarAggregationToJoin
             List<Expression> uncorrelatedPredicates = ImmutableList.copyOf(predicates.get(false));
 
             node = updateFilterNode(filterNodeSearcher, uncorrelatedPredicates);
-
-            if (!correlatedPredicates.isEmpty()) {
-                // filterNodes condition has changed so Limit node no longer applies for EXISTS subquery
-                node = removeLimitNode(node);
-            }
-
             node = ensureJoinSymbolsAreReturned(node, correlatedPredicates);
 
             return decorrelatedNode(correlatedPredicates, node, correlation);
@@ -336,15 +329,6 @@ public class TransformCorrelatedScalarAggregationToJoin
                     oldFilterNode.getSource(),
                     ExpressionUtils.combineConjuncts(newPredicates));
             return filterNodeSearcher.replaceAll(newFilterNode);
-        }
-
-        private static PlanNode removeLimitNode(PlanNode node)
-        {
-            node = searchFrom(node)
-                    .where(LimitNode.class::isInstance)
-                    .skipOnlyWhen(ProjectNode.class::isInstance)
-                    .removeFirst();
-            return node;
         }
 
         private PlanNode ensureJoinSymbolsAreReturned(PlanNode scalarAggregationSource, List<Expression> joinPredicate)
