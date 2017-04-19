@@ -76,6 +76,16 @@ public class TestDictionaryAwarePageProjection
     }
 
     @Test
+    public void testDictionaryBlockProcessingWithUnusedFailure()
+            throws Exception
+    {
+        DictionaryBlock block = createDictionaryBlockWithUnusedEntries(10, 100);
+
+        // failures in the dictionary processing will cause a fallback to normal columnar processing
+        testProject(block, LongArrayBlock.class);
+    }
+
+    @Test
     public void testDictionaryProcessingEnableDisable()
             throws Exception
     {
@@ -105,6 +115,14 @@ public class TestDictionaryAwarePageProjection
         Block dictionary = createLongSequenceBlock(0, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> index % dictionarySize);
+        return new DictionaryBlock(blockSize, dictionary, ids);
+    }
+
+    private static DictionaryBlock createDictionaryBlockWithUnusedEntries(int dictionarySize, int blockSize)
+    {
+        Block dictionary = createLongSequenceBlock(-10, dictionarySize);
+        int[] ids = new int[blockSize];
+        Arrays.setAll(ids, index -> (index % dictionarySize) + 10);
         return new DictionaryBlock(blockSize, dictionary, ids);
     }
 
@@ -179,16 +197,24 @@ public class TestDictionaryAwarePageProjection
                 int offset = selectedPositions.getOffset();
                 int[] positions = selectedPositions.getPositions();
                 for (int index = offset; index < offset + selectedPositions.size(); index++) {
-                    blockBuilder.writeLong(block.getLong(positions[index], 0));
+                    blockBuilder.writeLong(verifyPositive(block.getLong(positions[index], 0)));
                 }
             }
             else {
                 int offset = selectedPositions.getOffset();
                 for (int position = offset; position < offset + selectedPositions.size(); position++) {
-                    blockBuilder.writeLong(block.getLong(position, 0));
+                    blockBuilder.writeLong(verifyPositive(block.getLong(position, 0)));
                 }
             }
             return blockBuilder.build();
+        }
+
+        private static long verifyPositive(long value)
+        {
+            if (value < 0) {
+                throw new IllegalArgumentException("value is negative: " + value);
+            }
+            return value;
         }
     }
 }

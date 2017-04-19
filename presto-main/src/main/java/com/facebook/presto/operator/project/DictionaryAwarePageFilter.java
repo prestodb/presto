@@ -101,8 +101,17 @@ public class DictionaryAwarePageFilter
         lastInputDictionary = dictionary;
 
         if (shouldProcessDictionary) {
-            SelectedPositions selectedDictionaryPositions = filter.filter(session, new Page(dictionary));
-            lastOutputDictionary = Optional.of(toPositionsMask(selectedDictionaryPositions, dictionary.getPositionCount()));
+            try {
+                SelectedPositions selectedDictionaryPositions = filter.filter(session, new Page(dictionary));
+                lastOutputDictionary = Optional.of(toPositionsMask(selectedDictionaryPositions, dictionary.getPositionCount()));
+            }
+            catch (Exception ignored) {
+                // Processing of dictionary failed, but we ignore the exception here
+                // and force reprocessing of the whole block using the normal code.
+                // The second pass may not fail due to filtering.
+                // todo dictionary processing should be able to tolerate failures of unused elements
+                lastOutputDictionary = Optional.empty();
+            }
         }
         else {
             lastOutputDictionary = Optional.empty();

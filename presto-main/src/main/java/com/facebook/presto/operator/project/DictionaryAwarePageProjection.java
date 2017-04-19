@@ -113,7 +113,16 @@ public class DictionaryAwarePageProjection
         lastInputDictionary = dictionary;
 
         if (shouldProcessDictionary) {
-            lastOutputDictionary = Optional.of(projection.project(session, new Page(dictionary), SelectedPositions.positionsRange(0, dictionary.getPositionCount())));
+            try {
+                lastOutputDictionary = Optional.of(projection.project(session, new Page(dictionary), SelectedPositions.positionsRange(0, dictionary.getPositionCount())));
+            }
+            catch (Exception ignored) {
+                // Processing of dictionary failed, but we ignore the exception here
+                // and force reprocessing of the whole block using the normal code.
+                // The second pass may not fail due to filtering.
+                // todo dictionary processing should be able to tolerate failures of unused elements
+                lastOutputDictionary = Optional.empty();
+            }
         }
         else {
             lastOutputDictionary = Optional.empty();
