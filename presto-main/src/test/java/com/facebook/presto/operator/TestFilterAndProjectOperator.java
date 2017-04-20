@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.testing.MaterializedResult;
@@ -90,7 +92,8 @@ public class TestFilterAndProjectOperator
                 field(1, BIGINT),
                 constant(5L, BIGINT));
 
-        ExpressionCompiler compiler = new ExpressionCompiler(createTestMetadataManager());
+        MetadataManager metadata = createTestMetadataManager();
+        ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5));
 
         OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(

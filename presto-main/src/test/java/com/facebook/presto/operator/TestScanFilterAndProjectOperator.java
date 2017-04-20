@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.testing.MaterializedResult;
@@ -56,7 +58,8 @@ import static org.testng.Assert.assertTrue;
 public class TestScanFilterAndProjectOperator
 {
     private final ExecutorService executor;
-    private final ExpressionCompiler expressionCompiler = new ExpressionCompiler(createTestMetadataManager());
+    private final MetadataManager metadata = createTestMetadataManager();
+    private final ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
     public TestScanFilterAndProjectOperator()
     {

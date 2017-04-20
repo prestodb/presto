@@ -41,6 +41,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
@@ -51,11 +52,17 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.Signatures;
 import com.google.common.base.VerifyException;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.List;
@@ -99,14 +106,73 @@ public class PageFunctionCompiler
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
+    private final LoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
+    private final LoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
+
+    private final CacheStatsMBean projectionCacheStats;
+    private final CacheStatsMBean filterCacheStats;
+
     @Inject
-    public PageFunctionCompiler(Metadata metadata)
+    public PageFunctionCompiler(Metadata metadata, CompilerConfig config)
+    {
+        this(metadata, requireNonNull(config, "config is null").getExpressionCacheSize());
+    }
+
+    public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionRegistry());
+
+        if (expressionCacheSize > 0) {
+            projectionCache = CacheBuilder.newBuilder()
+                    .recordStats()
+                    .maximumSize(expressionCacheSize)
+                    .build(CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
+            projectionCacheStats = new CacheStatsMBean(projectionCache);
+        }
+        else {
+            projectionCache = null;
+            projectionCacheStats = null;
+        }
+
+        if (expressionCacheSize > 0) {
+            filterCache = CacheBuilder.newBuilder()
+                    .recordStats()
+                    .maximumSize(expressionCacheSize)
+                    .build(CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
+            filterCacheStats = new CacheStatsMBean(filterCache);
+        }
+        else {
+            filterCache = null;
+            filterCacheStats = null;
+        }
+    }
+
+    @Nullable
+    @Managed
+    @Nested
+    public CacheStatsMBean getProjectionCache()
+    {
+        return projectionCacheStats;
+    }
+
+    @Nullable
+    @Managed
+    @Nested
+    public CacheStatsMBean getFilterCache()
+    {
+        return filterCacheStats;
     }
 
     public Supplier<PageProjection> compileProjection(RowExpression projection, Optional<String> classNameSuffix)
+    {
+        if (projectionCache == null) {
+            return compileProjectionInternal(projection, classNameSuffix);
+        }
+        return projectionCache.getUnchecked(projection);
+    }
+
+    private Supplier<PageProjection> compileProjectionInternal(RowExpression projection, Optional<String> classNameSuffix)
     {
         requireNonNull(projection, "projection is null");
 
@@ -145,7 +211,7 @@ public class PageFunctionCompiler
         };
     }
 
-    private ParameterizedType generateProjectionClassName(Optional<String> classNameSuffix)
+    private static ParameterizedType generateProjectionClassName(Optional<String> classNameSuffix)
     {
         StringBuilder className = new StringBuilder(PageProjection.class.getSimpleName());
         classNameSuffix.ifPresent(suffix -> className.append("_").append(suffix.replace('.', '_')));
@@ -310,14 +376,22 @@ public class PageFunctionCompiler
         return method;
     }
 
-    public Supplier<PageFilter> compileFilter(RowExpression filter)
+    public Supplier<PageFilter> compileFilter(RowExpression filter, Optional<String> classNameSuffix)
+    {
+        if (filterCache == null) {
+            return compileFilterInternal(filter, classNameSuffix);
+        }
+        return filterCache.getUnchecked(filter);
+    }
+
+    private Supplier<PageFilter> compileFilterInternal(RowExpression filter, Optional<String> classNameSuffix)
     {
         requireNonNull(filter, "filter is null");
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter);
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = defineFilterClass(result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder);
+        ClassDefinition classDefinition = defineFilterClass(result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, classNameSuffix);
 
         Class<? extends PageFilter> functionClass;
         try {
@@ -337,11 +411,18 @@ public class PageFunctionCompiler
         };
     }
 
-    private ClassDefinition defineFilterClass(RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder)
+    private static ParameterizedType generateFilterClassName(Optional<String> classNameSuffix)
+    {
+        StringBuilder className = new StringBuilder(PageFilter.class.getSimpleName());
+        classNameSuffix.ifPresent(suffix -> className.append("_").append(suffix.replace('.', '_')));
+        return makeClassName(className.toString());
+    }
+
+    private ClassDefinition defineFilterClass(RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(PageFilter.class.getSimpleName()),
+                generateFilterClassName(classNameSuffix),
                 type(Object.class),
                 type(PageFilter.class));
 

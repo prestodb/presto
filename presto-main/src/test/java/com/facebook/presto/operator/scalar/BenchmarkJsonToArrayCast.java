@@ -24,6 +24,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
@@ -109,7 +110,8 @@ public class BenchmarkJsonToArrayCast
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression(signature, new ArrayType(elementType), ImmutableList.of(field(0, JSON))));
 
-            pageProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager())
+            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
 
