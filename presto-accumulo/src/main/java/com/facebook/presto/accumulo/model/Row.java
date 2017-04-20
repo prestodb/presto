@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -202,7 +201,7 @@ public class Row
             return Boolean.parseBoolean(str);
         }
         else if (type.equals(DATE)) {
-            return new Date(TimeUnit.MILLISECONDS.toDays(DATE_PARSER.parseDateTime(str).getMillis()));
+            return new Date(DATE_PARSER.parseDateTime(str).getMillis());
         }
         else if (type.equals(DOUBLE)) {
             return Double.parseDouble(str);
