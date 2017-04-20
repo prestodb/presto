@@ -7163,6 +7163,22 @@ public abstract class AbstractTestQueries
     {
         String errorMsg = "Unsupported correlated subquery type";
 
+        assertQuery("SELECT orderkey, clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey) FROM orders o");
+        assertQuery("SELECT orderkey FROM orders o WHERE clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey)");
+
+        // all cases of IN (as one test query to avoid pruning, over-eager push down)
+        assertQuery(
+                "select t1.a, t1.b, " +
+                        "  t1.b in (select t2.b " +
+                        "    from (values (2, 3), (2, 4), (3, 0), (30,NULL)) t2(a, b) " +
+                        "    where t1.a - 5 <= t2.a and t2.a <= t1.a and 0 <= t2.a) " +
+                        "from (values (1,1), (2,4), (3,5), (4,NULL), (30,2), (40,NULL) ) t1(a, b) " +
+                        "order by t1.a",
+                "VALUES (1,1,FALSE), (2,4,TRUE), (3,5,FALSE), (4,NULL,NULL), (30,2,NULL), (40,NULL,FALSE)");
+
+        // subquery with limit (correlated filter below any unhandled node type)
+        assertQueryFails("SELECT orderkey FROM orders o WHERE clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey ORDER BY 1 LIMIT 1)", errorMsg);
+
         assertQueryFails("SELECT 1 IN (SELECT l.orderkey) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT 1 IN (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT * FROM lineitem l WHERE 1 IN (SELECT 2 * l.orderkey)", errorMsg);

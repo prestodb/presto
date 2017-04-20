@@ -278,6 +278,28 @@ public class TestLogicalPlanner
                                                 ))))));
     }
 
+    /**
+     * Handling of correlated IN pulls up everything possible to the generated outer join condition.
+     * This test ensures uncorrelated conditions are pushed back down.
+     */
+    @Test
+    public void testCorrelatedInUncorrelatedFiltersPushDown()
+    {
+        assertPlan(
+                "SELECT orderkey, comment IN (SELECT clerk FROM orders s WHERE s.orderkey = o.orderkey AND s.orderkey < 7) FROM lineitem o",
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(tableScan("lineitem")),
+                                anyTree(
+                                        filter("orderkey < BIGINT '7'", // pushed down
+                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))
+                                        )
+                                )
+                        )
+                )
+        );
+    }
+
     @Test
     public void testDoubleNestedCorrelatedSubqueries()
     {

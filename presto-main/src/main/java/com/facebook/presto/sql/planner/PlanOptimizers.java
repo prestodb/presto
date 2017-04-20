@@ -47,6 +47,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityPro
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
+import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToScalarApply;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
@@ -166,7 +167,10 @@ public class PlanOptimizers
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         stats,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new TransformCorrelatedInPredicateToJoin(),
+                                new ImplementFilteredAggregations())
                 ),
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAndExceptAsUnion(),
