@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
@@ -49,7 +48,13 @@ public class DynamicTupleFilterFactory
     private final List<Type> outputTypes;
     private final List<Supplier<PageProjection>> outputProjections;
 
-    public DynamicTupleFilterFactory(int filterOperatorId, PlanNodeId planNodeId, int[] tupleFilterChannels, int[] outputFilterChannels, List<Type> outputTypes, Metadata metadata)
+    public DynamicTupleFilterFactory(
+            int filterOperatorId,
+            PlanNodeId planNodeId,
+            int[] tupleFilterChannels,
+            int[] outputFilterChannels,
+            List<Type> outputTypes,
+            PageFunctionCompiler pageFunctionCompiler)
     {
         requireNonNull(planNodeId, "planNodeId is null");
         requireNonNull(tupleFilterChannels, "tupleFilterChannels is null");
@@ -58,7 +63,7 @@ public class DynamicTupleFilterFactory
         checkArgument(outputFilterChannels.length == tupleFilterChannels.length, "outputFilterChannels must have same length as tupleFilterChannels");
         requireNonNull(outputTypes, "outputTypes is null");
         checkArgument(outputTypes.size() >= outputFilterChannels.length, "Must have at least as many output channels as those used for filtering");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
 
         this.filterOperatorId = filterOperatorId;
         this.planNodeId = planNodeId;
@@ -70,7 +75,6 @@ public class DynamicTupleFilterFactory
                 .collect(toImmutableList());
 
         this.outputTypes = ImmutableList.copyOf(outputTypes);
-        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata);
         this.outputProjections = IntStream.range(0, outputTypes.size())
                 .mapToObj(field -> pageFunctionCompiler.compileProjection(Expressions.field(field, outputTypes.get(field)), Optional.empty()))
                 .collect(toImmutableList());

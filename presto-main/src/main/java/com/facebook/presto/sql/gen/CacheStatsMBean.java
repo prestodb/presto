@@ -16,13 +16,21 @@ package com.facebook.presto.sql.gen;
 import com.google.common.cache.LoadingCache;
 import org.weakref.jmx.Managed;
 
+import static java.util.Objects.requireNonNull;
+
 public class CacheStatsMBean
 {
-    private LoadingCache loadingCache;
+    private final LoadingCache<?, ?> loadingCache;
 
-    public CacheStatsMBean(LoadingCache loadingCache)
+    public CacheStatsMBean(LoadingCache<?, ?> loadingCache)
     {
-        this.loadingCache = loadingCache;
+        this.loadingCache = requireNonNull(loadingCache, "loadingCache is null");
+    }
+
+    @Managed
+    public long size()
+    {
+        return loadingCache.size();
     }
 
     @Managed

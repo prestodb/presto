@@ -41,6 +41,7 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.JoinProbeCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -120,6 +121,7 @@ public final class TaskTestUtils
                 new NodeTaskMap(finalizerService));
         NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
         return new LocalExecutionPlanner(
                 metadata,
                 new SqlParser(),
@@ -130,7 +132,8 @@ public final class TaskTestUtils
                 nodePartitioningManager,
                 new PageSinkManager(),
                 new MockExchangeClientSupplier(),
-                new ExpressionCompiler(metadata),
+                new ExpressionCompiler(metadata, pageFunctionCompiler),
+                pageFunctionCompiler,
                 new JoinFilterFunctionCompiler(metadata),
                 new IndexJoinLookupStats(),
                 new CompilerConfig(),

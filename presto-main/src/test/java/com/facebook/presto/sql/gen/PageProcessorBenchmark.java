@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -113,11 +114,14 @@ public class PageProcessorBenchmark
         List<RowExpression> projections = getProjections(type);
         types = projections.stream().map(RowExpression::getType).collect(toList());
 
+        MetadataManager metadata = createTestMetadataManager();
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
+
         inputPage = createPage(types, dictionaryBlocks);
-        pageProcessor = new ExpressionCompiler(createTestMetadataManager()).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+        pageProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
 
         recordSet = new PageRecordSet(types, inputPage);
-        cursorProcessor = new ExpressionCompiler(createTestMetadataManager()).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+        cursorProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
     }
 
     @Benchmark

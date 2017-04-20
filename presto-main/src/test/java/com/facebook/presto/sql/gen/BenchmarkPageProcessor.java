@@ -81,7 +81,8 @@ public class BenchmarkPageProcessor
     {
         inputPage = createInputPage();
 
-        compiledProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(Optional.of(FILTER), ImmutableList.of(PROJECT)).get();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        compiledProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(FILTER), ImmutableList.of(PROJECT)).get();
     }
 
     @Benchmark
