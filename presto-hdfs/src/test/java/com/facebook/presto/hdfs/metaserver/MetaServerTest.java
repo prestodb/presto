@@ -16,6 +16,7 @@ package com.facebook.presto.hdfs.metaserver;
 import com.facebook.presto.hdfs.HDFSColumnHandle;
 import com.facebook.presto.hdfs.HDFSConfig;
 import com.facebook.presto.hdfs.HDFSDatabase;
+import com.facebook.presto.hdfs.HDFSTable;
 import com.facebook.presto.hdfs.HDFSTableHandle;
 import com.facebook.presto.hdfs.HDFSTableLayoutHandle;
 import com.facebook.presto.hdfs.StorageFormat;

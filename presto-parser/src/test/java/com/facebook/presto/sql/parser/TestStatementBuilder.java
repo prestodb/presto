@@ -35,7 +35,7 @@ public class TestStatementBuilder
     public void testStatementBuilder()
             throws Exception
     {
-        printStatement("create table t1(name varchar(20), age int, salary float, timestamp long) fiber partition by (name) using function function0 timestamp by (timestamp)");
+        printStatement("create tables t1(name varchar(20), age int, salary float, timestamp long) fiber partition by (name) using function function0 timestamp by (timestamp)");
         printStatement("select * from foo");
         printStatement("explain select * from foo");
         printStatement("explain (type distributed, format graphviz) select * from foo");
