@@ -15,6 +15,8 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -82,7 +84,7 @@ public class LongDecimalWithOverflowAndLongStateFactory
             extends LongDecimalWithOverflowStateFactory.SingleLongDecimalWithOverflowState
             implements LongDecimalWithOverflowAndLongState
     {
-        public static final int SIZE = SIZE_OF_LONG * 2 + UNSCALED_DECIMAL_128_SLICE_LENGTH;
+        public static final int SIZE = ClassLayout.parseClass(Slice.class).instanceSize() + UNSCALED_DECIMAL_128_SLICE_LENGTH + SIZE_OF_LONG * 2;
 
         protected long longValue;
 
