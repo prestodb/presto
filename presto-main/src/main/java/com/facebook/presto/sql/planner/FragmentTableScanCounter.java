@@ -30,13 +30,13 @@ public final class FragmentTableScanCounter
 {
     private FragmentTableScanCounter() {}
 
-    public static boolean hasMultipleSources(List<PlanNode> nodes)
+    public static int countSources(List<PlanNode> nodes)
     {
         int count = 0;
         for (PlanNode node : nodes) {
             count += node.accept(new Visitor(), null);
         }
-        return count > 1;
+        return count;
     }
 
     public static boolean hasMultipleSources(PlanNode... nodes)
