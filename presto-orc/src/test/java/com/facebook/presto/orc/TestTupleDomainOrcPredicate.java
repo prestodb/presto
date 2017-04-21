@@ -326,7 +326,7 @@ public class TestTupleDomainOrcPredicate
     {
         BigDecimal minimumDecimal = minimum == null ? null : new BigDecimal(minimum);
         BigDecimal maximumDecimal = maximum == null ? null : new BigDecimal(maximum);
-        return new ColumnStatistics(numberOfValues, null, null, null, null, null, null ,new DecimalStatistics(minimumDecimal, maximumDecimal), null);
+        return new ColumnStatistics(numberOfValues, null, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal), null);
     }
 
     private static Long shortDecimal(String value)
