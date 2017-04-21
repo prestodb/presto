@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -40,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MergeRemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -279,7 +281,21 @@ public class UnaliasSymbolReferences
                     node.getPartitioningScheme().isReplicateNullsAndAny(),
                     node.getPartitioningScheme().getBucketToPartition());
 
-            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs);
+            Optional<OrderingScheme> orderingScheme = node.getOrderingScheme().map(scheme -> {
+                Set<Symbol> added = new HashSet<>();
+                ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+                ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+                for (Symbol symbol : scheme.getOrderBy()) {
+                    Symbol canonical = canonicalize(symbol);
+                    if (added.add(canonical)) {
+                        symbols.add(canonical);
+                        orderings.put(canonical, scheme.getOrderings().get(symbol));
+                    }
+                }
+                return new OrderingScheme(symbols.build(), orderings.build());
+            });
+
+            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs, orderingScheme);
         }
 
         private void mapExchangeNodeSymbols(ExchangeNode node)
@@ -332,6 +348,22 @@ public class UnaliasSymbolReferences
         public PlanNode visitRemoteSource(RemoteSourceNode node, RewriteContext<Void> context)
         {
             return new RemoteSourceNode(node.getId(), node.getSourceFragmentIds(), canonicalizeAndDistinct(node.getOutputSymbols()));
+        }
+
+        @Override
+        public PlanNode visitMergeRemoteSource(MergeRemoteSourceNode node, RewriteContext<Void> context)
+        {
+            Set<Symbol> added = new HashSet<>();
+            ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+            for (Symbol symbol : node.getOrderBy()) {
+                Symbol canonical = canonicalize(symbol);
+                if (added.add(canonical)) {
+                    orderBySymbols.add(canonical);
+                    orderings.put(canonical, node.getOrderings().get(symbol));
+                }
+            }
+            return new MergeRemoteSourceNode(node.getId(), node.getSourceFragmentIds(), canonicalizeAndDistinct(node.getOutputSymbols()), orderBySymbols.build(), orderings.build());
         }
 
         @Override

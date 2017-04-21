@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MergeRemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -294,6 +295,13 @@ public final class GraphvizPrinter
         public Void visitRemoteSource(RemoteSourceNode node, Void context)
         {
             printNode(node, "Exchange 1:N", NODE_COLORS.get(NodeType.EXCHANGE));
+            return null;
+        }
+
+        @Override
+        public Void visitMergeRemoteSource(MergeRemoteSourceNode node, Void context)
+        {
+            printNode(node, "Merge 1:N", NODE_COLORS.get(NodeType.EXCHANGE));
             return null;
         }
 

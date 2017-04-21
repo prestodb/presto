@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MergeRemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -154,6 +155,14 @@ public class AddLocalExchanges
         public PlanWithProperties visitSort(SortNode node, StreamPreferredProperties parentPreferences)
         {
             // sort requires that all data be in one stream
+            // this node changes the input organization completely, so we do not pass through parent preferences
+            return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+        }
+
+        @Override
+        public PlanWithProperties visitMergeRemoteSource(MergeRemoteSourceNode node, StreamPreferredProperties parentPreferences)
+        {
+            // merge requires that all data be in one stream
             // this node changes the input organization completely, so we do not pass through parent preferences
             return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
         }
@@ -393,7 +402,8 @@ public class AddLocalExchanges
                         LOCAL,
                         new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                         sources,
-                        inputLayouts);
+                        inputLayouts,
+                        Optional.empty());
                 return deriveProperties(exchangeNode, inputProperties);
             }
 
@@ -408,7 +418,8 @@ public class AddLocalExchanges
                                 node.getOutputSymbols(),
                                 Optional.empty()),
                         sources,
-                        inputLayouts);
+                        inputLayouts,
+                        Optional.empty());
                 return deriveProperties(exchangeNode, inputProperties);
             }
 
@@ -419,7 +430,8 @@ public class AddLocalExchanges
                     LOCAL,
                     new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                     sources,
-                    inputLayouts);
+                    inputLayouts,
+                    Optional.empty());
             ExchangeNode exchangeNode = result;
 
             return deriveProperties(exchangeNode, inputProperties);

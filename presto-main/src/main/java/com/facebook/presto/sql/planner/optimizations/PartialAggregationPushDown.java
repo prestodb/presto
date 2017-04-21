@@ -335,7 +335,8 @@ public class PartialAggregationPushDown
                     exchange.getScope(),
                     partitioning,
                     partials,
-                    ImmutableList.copyOf(Collections.nCopies(partials.size(), partial.getOutputSymbols())));
+                    ImmutableList.copyOf(Collections.nCopies(partials.size(), partial.getOutputSymbols())),
+                    exchange.getOrderingScheme());
         }
 
         private PlanNode split(AggregationNode node)
