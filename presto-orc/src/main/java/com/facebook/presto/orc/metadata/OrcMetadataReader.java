@@ -214,6 +214,7 @@ public class OrcMetadataReader
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup),
+                toTimestampStatistics(hiveWriterVersion, statistics.getTimestampStatistics(), isRowGroup),
                 toDecimalStatistics(statistics.getDecimalStatistics()),
                 null);
     }
@@ -389,6 +390,21 @@ public class OrcMetadataReader
         return new DateStatistics(
                 dateStatistics.hasMinimum() ? dateStatistics.getMinimum() : null,
                 dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);
+    }
+
+    private static IntegerStatistics toTimestampStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.TimestampStatistics timestampStatistics, boolean isRowGroup)
+    {
+        if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
+            return null;
+        }
+
+        if (!timestampStatistics.hasMinimum() && !timestampStatistics.hasMaximum()) {
+            return null;
+        }
+
+        return new IntegerStatistics(
+                timestampStatistics.hasMinimum() ? timestampStatistics.getMinimum() : null,
+                timestampStatistics.hasMaximum() ? timestampStatistics.getMaximum() : null);
     }
 
     private static OrcType toType(OrcProto.Type type)
