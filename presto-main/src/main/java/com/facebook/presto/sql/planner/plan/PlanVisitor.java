@@ -13,12 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-public class PlanVisitor<C, R>
+public abstract class PlanVisitor<C, R>
 {
-    protected R visitPlan(PlanNode node, C context)
-    {
-        return null;
-    }
+    protected abstract R visitPlan(PlanNode node, C context);
 
     public R visitRemoteSource(RemoteSourceNode node, C context)
     {
