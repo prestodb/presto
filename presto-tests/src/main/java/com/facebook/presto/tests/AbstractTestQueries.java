@@ -5860,6 +5860,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionWithAggregationAndTableScan()
+    {
+        assertQuery(
+                "SELECT orderkey, 1 FROM orders " +
+                        "UNION ALL " +
+                        "SELECT orderkey, count(*) FROM orders GROUP BY 1",
+                "SELECT orderkey, 1 FROM orders " +
+                        "UNION ALL " +
+                        "SELECT orderkey, count(*) FROM orders GROUP BY orderkey");
+
+        assertQuery(
+                "SELECT orderkey, count(*) FROM orders GROUP BY 1 " +
+                        "UNION ALL " +
+                        "SELECT orderkey, 1 FROM orders",
+                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey " +
+                        "UNION ALL " +
+                        "SELECT orderkey, 1 FROM orders");
+    }
+
+    @Test
     public void testUnionWithAggregationAndJoin()
     {
         assertQuery(
