@@ -247,8 +247,8 @@ public class TestLogicalPlanner
                                 anyTree(
                                         tableScan("region", ImmutableMap.of("REGIONKEY_RIGHT", "regionkey"))))
                 )
-                .withNumberOfOutputColumns(1)
-                .withOutputs(ImmutableList.of("NATIONKEY"))
+                        .withNumberOfOutputColumns(1)
+                        .withOutputs(ImmutableList.of("NATIONKEY"))
         );
     }
 
