@@ -250,11 +250,6 @@ class ContinuousTaskStatusFetcher
         taskStatus.addStateChangeListener(stateChangeListener);
     }
 
-    public ListenableFuture<TaskStatus> getStateChange(TaskStatus taskStatus)
-    {
-        return this.taskStatus.getStateChange(taskStatus);
-    }
-
     private void updateStats(long currentRequestStartNanos)
     {
         stats.statusRoundTripMillis(nanosSince(currentRequestStartNanos).toMillis());
