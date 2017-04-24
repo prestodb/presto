@@ -219,7 +219,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitOutput(OutputNode node, Context context)
         {
-            PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
+            PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.undistributed()));
 
             if (!child.getProperties().isSingleNode()) {
                 child = withDerivedProperties(
