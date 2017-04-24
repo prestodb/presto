@@ -76,11 +76,14 @@ script:
       presto-product-tests/bin/run_on_docker.sh \
         singlenode-ldap -g ldap_cli
     fi
-  - |
-    if [[ -v PRODUCT_TESTS ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
-        singlenode-sqlserver -g sqlserver
-    fi
+# SQL server image sporadically hangs during the startup
+# TODO: Uncomment it once issue is fixed
+# https://github.com/Microsoft/mssql-docker/issues/76
+#  - |
+#    if [[ -v PRODUCT_TESTS ]]; then
+#      presto-product-tests/bin/run_on_docker.sh \
+#        singlenode-sqlserver -g sqlserver
+#    fi
   - |
     if [[ -v HIVE_TESTS ]]; then
       presto-hive-hadoop2/bin/run_on_docker.sh
