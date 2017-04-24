@@ -48,12 +48,14 @@ import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.setStatic;
 import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class LambdaBytecodeGenerator
 {
@@ -64,7 +66,7 @@ public class LambdaBytecodeGenerator
     /**
      * @return a MethodHandle field that represents the lambda expression
      */
-    public static FieldDefinition preGenerateLambdaExpression(
+    public static LambdaExpressionField preGenerateLambdaExpression(
             LambdaDefinitionExpression lambdaExpression,
             String fieldName,
             ClassDefinition classDefinition,
@@ -100,7 +102,7 @@ public class LambdaBytecodeGenerator
                 lambdaExpression);
     }
 
-    private static FieldDefinition defineLambdaMethodAndField(
+    private static LambdaExpressionField defineLambdaMethodAndField(
             BytecodeExpressionVisitor innerExpressionVisitor,
             ClassDefinition classDefinition,
             String fieldAndMethodName,
@@ -119,11 +121,12 @@ public class LambdaBytecodeGenerator
                 .append(boxPrimitiveIfNecessary(scope, returnType))
                 .ret(returnType);
 
-        FieldDefinition methodHandleField = classDefinition.declareField(a(PRIVATE, STATIC, FINAL), fieldAndMethodName, type(MethodHandle.class));
+        FieldDefinition staticField = classDefinition.declareField(a(PRIVATE, STATIC, FINAL), fieldAndMethodName, type(MethodHandle.class));
+        FieldDefinition instanceField = classDefinition.declareField(a(PRIVATE, FINAL), "binded_" + fieldAndMethodName, type(MethodHandle.class));
 
         classDefinition.getClassInitializer().getBody()
                 .append(setStatic(
-                        methodHandleField,
+                        staticField,
                         invokeStatic(
                                 Reflection.class,
                                 "methodHandle",
@@ -136,7 +139,8 @@ public class LambdaBytecodeGenerator
                                                 .map(Parameter::getType)
                                                 .map(BytecodeExpressions::constantClass)
                                                 .collect(toImmutableList())))));
-        return methodHandleField;
+
+        return new LambdaExpressionField(staticField, instanceField);
     }
 
     private static RowExpressionVisitor<Scope, BytecodeNode> variableReferenceCompiler(Map<String, ParameterAndType> parameterMap)
@@ -178,5 +182,31 @@ public class LambdaBytecodeGenerator
                         .append(unboxPrimitiveIfNecessary(context, type));
             }
         };
+    }
+
+    static class LambdaExpressionField
+    {
+        private final FieldDefinition staticField;
+        // the instance field will be binded to "this" in constructor
+        private final FieldDefinition instanceField;
+
+        public LambdaExpressionField(FieldDefinition staticField, FieldDefinition instanceField)
+        {
+            this.staticField = requireNonNull(staticField, "staticField is null");
+            this.instanceField = requireNonNull(instanceField, "instanceField is null");
+        }
+
+        public FieldDefinition getInstanceField()
+        {
+            return instanceField;
+        }
+
+        public void generateInitialization(Variable thisVariable, BytecodeBlock block)
+        {
+            block.append(
+                    thisVariable.setField(
+                            instanceField,
+                            getStatic(staticField).invoke("bindTo", MethodHandle.class, thisVariable.cast(Object.class))));
+        }
     }
 }
