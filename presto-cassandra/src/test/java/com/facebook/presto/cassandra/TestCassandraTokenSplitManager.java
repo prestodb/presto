@@ -49,8 +49,7 @@ public class TestCassandraTokenSplitManager
         createKeyspace(session, KEYSPACE);
         session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, TABLE));
 
-        EmbeddedCassandra.flush(KEYSPACE, TABLE);
-        EmbeddedCassandra.refreshSizeEstimates();
+        EmbeddedCassandra.refreshSizeEstimates(KEYSPACE, TABLE);
 
         List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, TABLE);
         // even for the empty table at least one split must be produced, in case the statistics are inaccurate
@@ -59,8 +58,8 @@ public class TestCassandraTokenSplitManager
         for (int i = 0; i < PARTITION_COUNT; i++) {
             session.execute(format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, TABLE, "value" + i));
         }
-        EmbeddedCassandra.flush(KEYSPACE, TABLE);
-        EmbeddedCassandra.refreshSizeEstimates();
+
+        EmbeddedCassandra.refreshSizeEstimates(KEYSPACE, TABLE);
 
         splits = splitManager.getSplits(KEYSPACE, TABLE);
         assertEquals(splits.size(), PARTITION_COUNT / SPLIT_SIZE);

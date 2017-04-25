@@ -148,7 +148,14 @@ public final class EmbeddedCassandra
         log.info("Cassandra version: %s", version);
     }
 
-    public static void flush(String keyspace, String table)
+    public static void refreshSizeEstimates(String keyspace, String table)
+            throws Exception
+    {
+        flushTable(keyspace, table);
+        refreshSizeEstimates();
+    }
+
+    private static void flushTable(String keyspace, String table)
             throws Exception
     {
         ManagementFactory
@@ -160,7 +167,7 @@ public final class EmbeddedCassandra
                         new String[] {"java.lang.String", "[Ljava.lang.String;"});
     }
 
-    public static void refreshSizeEstimates()
+    private static void refreshSizeEstimates()
             throws Exception
     {
         ManagementFactory
