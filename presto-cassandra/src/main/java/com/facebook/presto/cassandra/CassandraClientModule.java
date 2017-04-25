@@ -156,6 +156,10 @@ public class CassandraClientModule
             ));
         }
 
-        return new NativeCassandraSession(connectorId.toString(), extraColumnMetadataCodec, clusterBuilder.build(), config.getNoHostAvailableRetryTimeout());
+        return new NativeCassandraSession(
+                connectorId.toString(),
+                extraColumnMetadataCodec,
+                new ReopeningCluster(clusterBuilder::build),
+                config.getNoHostAvailableRetryTimeout());
     }
 }
