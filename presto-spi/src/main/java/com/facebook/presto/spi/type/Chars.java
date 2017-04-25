@@ -94,10 +94,10 @@ public final class Chars
         if (maxLength < 0) {
             throw new IllegalArgumentException("Max length must be greater or equal than zero");
         }
-        return truncateToLength(trimSpaces(slice), maxLength);
+        return truncateToLength(trimTrailingSpaces(slice), maxLength);
     }
 
-    public static Slice trimSpaces(Slice slice)
+    public static Slice trimTrailingSpaces(Slice slice)
     {
         requireNonNull(slice, "slice is null");
         return slice.slice(0, sliceLengthWithoutTrailingSpaces(slice));

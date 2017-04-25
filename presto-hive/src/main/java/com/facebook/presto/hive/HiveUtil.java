@@ -96,7 +96,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpaces;
+import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -703,7 +703,7 @@ public final class HiveUtil
 
     public static Slice charPartitionKey(String value, String name, Type columnType)
     {
-        Slice partitionKey = trimSpaces(Slices.utf8Slice(value));
+        Slice partitionKey = trimTrailingSpaces(Slices.utf8Slice(value));
         CharType charType = (CharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > charType.getLength()) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
