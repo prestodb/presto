@@ -14,13 +14,8 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TokenRange;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -32,11 +27,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
-import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
 import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_METADATA_ERROR;
 import static com.facebook.presto.cassandra.TokenRing.createForPartitioner;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
@@ -49,9 +41,6 @@ import static java.util.stream.Collectors.toList;
 
 public class CassandraTokenSplitManager
 {
-    private static final String SYSTEM = "system";
-    private static final String SIZE_ESTIMATES = "size_estimates";
-
     private final CassandraSession session;
     private final int splitSize;
 
@@ -129,43 +118,10 @@ public class CassandraTokenSplitManager
 
     private long getTotalPartitionsCount(String keyspace, String table)
     {
-        List<SizeEstimate> estimates = getSizeEstimates(keyspace, table);
+        List<SizeEstimate> estimates = session.getSizeEstimates(keyspace, table);
         return estimates.stream()
                 .mapToLong(SizeEstimate::getPartitionsCount)
                 .sum();
-    }
-
-    private List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName)
-    {
-        checkSizeEstimatesTableExist();
-
-        Statement statement = select("range_start", "range_end", "mean_partition_size", "partitions_count")
-                .from(SYSTEM, SIZE_ESTIMATES)
-                .where(eq("keyspace_name", keyspaceName))
-                .and(eq("table_name", tableName));
-
-        ResultSet result = session.execute(statement);
-        ImmutableList.Builder<SizeEstimate> estimates = ImmutableList.builder();
-        for (Row row : result.all()) {
-            SizeEstimate estimate = new SizeEstimate(
-                    row.getString("range_start"),
-                    row.getString("range_end"),
-                    row.getLong("mean_partition_size"),
-                    row.getLong("partitions_count"));
-            estimates.add(estimate);
-        }
-
-        return estimates.build();
-    }
-
-    private void checkSizeEstimatesTableExist()
-    {
-        try {
-            session.getTable(new SchemaTableName(SYSTEM, SIZE_ESTIMATES));
-        }
-        catch (TableNotFoundException e) {
-            throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
-        }
     }
 
     private List<String> getEndpoints(String keyspace, TokenRange tokenRange)
@@ -210,42 +166,6 @@ public class CassandraTokenSplitManager
         public List<String> getHosts()
         {
             return hosts;
-        }
-    }
-
-    private static class SizeEstimate
-    {
-        private final String rangeStart;
-        private final String rangeEnd;
-        private final long meanPartitionSize;
-        private final long partitionsCount;
-
-        public SizeEstimate(String rangeStart, String rangeEnd, long meanPartitionSize, long partitionsCount)
-        {
-            this.rangeStart = requireNonNull(rangeStart, "rangeStart is null");
-            this.rangeEnd = requireNonNull(rangeEnd, "rangeEnd is null");
-            this.meanPartitionSize = meanPartitionSize;
-            this.partitionsCount = partitionsCount;
-        }
-
-        public String getRangeStart()
-        {
-            return rangeStart;
-        }
-
-        public String getRangeEnd()
-        {
-            return rangeEnd;
-        }
-
-        public long getMeanPartitionSize()
-        {
-            return meanPartitionSize;
-        }
-
-        public long getPartitionsCount()
-        {
-            return partitionsCount;
         }
     }
 }

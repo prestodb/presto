@@ -57,9 +57,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
+import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
 import static com.datastax.driver.core.querybuilder.Select.Where;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Suppliers.memoize;
@@ -77,6 +80,8 @@ public class NativeCassandraSession
     private static final Logger log = Logger.get(NativeCassandraSession.class);
 
     private static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
+    private static final String SYSTEM = "system";
+    private static final String SIZE_ESTIMATES = "size_estimates";
 
     private final String connectorId;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
@@ -402,6 +407,39 @@ public class NativeCassandraSession
         }
     }
 
+    @Override
+    public List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName)
+    {
+        checkSizeEstimatesTableExist();
+        Statement statement = select("range_start", "range_end", "mean_partition_size", "partitions_count")
+                .from(SYSTEM, SIZE_ESTIMATES)
+                .where(eq("keyspace_name", keyspaceName))
+                .and(eq("table_name", tableName));
+
+        ResultSet result = executeWithSession(session -> session.execute(statement));
+        ImmutableList.Builder<SizeEstimate> estimates = ImmutableList.builder();
+        for (Row row : result.all()) {
+            SizeEstimate estimate = new SizeEstimate(
+                    row.getString("range_start"),
+                    row.getString("range_end"),
+                    row.getLong("mean_partition_size"),
+                    row.getLong("partitions_count"));
+            estimates.add(estimate);
+        }
+
+        return estimates.build();
+    }
+
+    private void checkSizeEstimatesTableExist()
+    {
+        KeyspaceMetadata keyspaceMetadata = executeWithSession(session -> session.getCluster().getMetadata().getKeyspace(SYSTEM));
+        checkState(keyspaceMetadata != null, "system keyspace metadata must not be null");
+        TableMetadata table = keyspaceMetadata.getTable(SIZE_ESTIMATES);
+        if (table == null) {
+            throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
+        }
+    }
+
     private <T> T executeWithSession(SessionCallable<T> sessionCallable)
     {
         ReconnectionPolicy reconnectionPolicy = cluster.getConfiguration().getPolicies().getReconnectionPolicy();
@@ -432,7 +470,7 @@ public class NativeCassandraSession
         }
     }
 
-    interface SessionCallable<T>
+    private interface SessionCallable<T>
     {
         T executeWithSession(Session session);
     }
