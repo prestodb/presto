@@ -75,7 +75,7 @@ public final class TestingOrcPredicate
                             .collect(toList()));
         }
         if (TIMESTAMP.equals(type)) {
-            return new LongOrcPredicate(
+            return new TimestampOrcPredicate(
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
                             .collect(toList()));
@@ -193,6 +193,7 @@ public final class TestingOrcPredicate
             assertNull(columnStatistics.getDoubleStatistics());
             assertNull(columnStatistics.getStringStatistics());
             assertNull(columnStatistics.getDateStatistics());
+            assertNull(columnStatistics.getTimestampStatistics());
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -224,6 +225,7 @@ public final class TestingOrcPredicate
             assertNull(columnStatistics.getIntegerStatistics());
             assertNull(columnStatistics.getStringStatistics());
             assertNull(columnStatistics.getDateStatistics());
+            assertNull(columnStatistics.getTimestampStatistics());
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -270,6 +272,7 @@ public final class TestingOrcPredicate
             assertNull(columnStatistics.getDoubleStatistics());
             assertNull(columnStatistics.getStringStatistics());
             assertNull(columnStatistics.getDateStatistics());
+            assertNull(columnStatistics.getTimestampStatistics());
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -293,6 +296,45 @@ public final class TestingOrcPredicate
         }
     }
 
+    public static class TimestampOrcPredicate
+            extends BasicOrcPredicate<Long>
+    {
+        public TimestampOrcPredicate(Iterable<?> expectedValues)
+        {
+            super(expectedValues, Long.class);
+        }
+
+        @Override
+        protected boolean chunkMatchesStats(List<Long> chunk, ColumnStatistics columnStatistics)
+        {
+            assertNull(columnStatistics.getBooleanStatistics());
+            assertNull(columnStatistics.getDoubleStatistics());
+            assertNull(columnStatistics.getStringStatistics());
+            assertNull(columnStatistics.getDateStatistics());
+            assertNull(columnStatistics.getIntegerStatistics());
+
+            // check basic statistics
+            if (!super.chunkMatchesStats(chunk, columnStatistics)) {
+                return false;
+            }
+
+            // statistics can be missing for any reason
+            if (columnStatistics.getTimestampStatistics() != null) {
+                // verify min
+                if (!columnStatistics.getTimestampStatistics().getMin().equals(Ordering.natural().nullsLast().min(chunk))) {
+                    return false;
+                }
+
+                // verify max
+                if (!columnStatistics.getTimestampStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
     public static class StringOrcPredicate
             extends BasicOrcPredicate<String>
     {
@@ -308,6 +350,7 @@ public final class TestingOrcPredicate
             assertNull(columnStatistics.getIntegerStatistics());
             assertNull(columnStatistics.getDoubleStatistics());
             assertNull(columnStatistics.getDateStatistics());
+            assertNull(columnStatistics.getTimestampStatistics());
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -353,6 +396,7 @@ public final class TestingOrcPredicate
             assertNull(columnStatistics.getIntegerStatistics());
             assertNull(columnStatistics.getDoubleStatistics());
             assertNull(columnStatistics.getDateStatistics());
+            assertNull(columnStatistics.getTimestampStatistics());
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -398,6 +442,7 @@ public final class TestingOrcPredicate
             assertNull(columnStatistics.getIntegerStatistics());
             assertNull(columnStatistics.getDoubleStatistics());
             assertNull(columnStatistics.getStringStatistics());
+            assertNull(columnStatistics.getTimestampStatistics());
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {

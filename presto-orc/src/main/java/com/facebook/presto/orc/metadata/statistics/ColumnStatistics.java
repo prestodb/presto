@@ -21,7 +21,7 @@ public class ColumnStatistics
     private final DoubleStatistics doubleStatistics;
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
-    private final IntegerStatistics timestampStatistics;
+    private final TimestampStatistics timestampStatistics;
     private final DecimalStatistics decimalStatistics;
     private final HiveBloomFilter bloomFilter;
 
@@ -32,7 +32,7 @@ public class ColumnStatistics
             DoubleStatistics doubleStatistics,
             StringStatistics stringStatistics,
             DateStatistics dateStatistics,
-            IntegerStatistics timestampStatistics,
+            TimestampStatistics timestampStatistics,
             DecimalStatistics decimalStatistics,
             HiveBloomFilter bloomFilter)
     {
@@ -87,7 +87,7 @@ public class ColumnStatistics
         return decimalStatistics;
     }
 
-    public IntegerStatistics getTimestampStatistics()
+    public TimestampStatistics getTimestampStatistics()
     {
         return timestampStatistics;
     }

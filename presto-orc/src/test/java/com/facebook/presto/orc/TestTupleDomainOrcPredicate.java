@@ -20,6 +20,7 @@ import com.facebook.presto.orc.metadata.statistics.DecimalStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
+import com.facebook.presto.orc.metadata.statistics.TimestampStatistics;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
@@ -366,6 +367,6 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics timestampColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, null, null, null, new IntegerStatistics(minimum, maximum), null, null);
+        return new ColumnStatistics(numberOfValues, null, null, null, null, null, new TimestampStatistics(minimum, maximum), null, null);
     }
 }
