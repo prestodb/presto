@@ -37,10 +37,11 @@ public class TypeSignature
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
 
-    private static final Map<String, String> baseNameAliasToCanonical = new TreeMap<String, String>();
+    private static final Map<String, String> BASE_NAME_ALIAS_TO_CANONICAL =
+            new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
 
     static {
-        baseNameAliasToCanonical.put("int", StandardTypes.INTEGER);
+        BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
     }
 
     public TypeSignature(String base, TypeSignatureParameter... parameters)
@@ -395,7 +396,7 @@ public class TypeSignature
 
     private static String canonicalizeBaseName(String baseName)
     {
-        String canonicalBaseName = baseNameAliasToCanonical.get(baseName.toLowerCase());
+        String canonicalBaseName = BASE_NAME_ALIAS_TO_CANONICAL.get(baseName);
         if (canonicalBaseName == null) {
             return baseName;
         }

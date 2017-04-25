@@ -51,7 +51,7 @@ public class TestTypeSignature
         assertRowSignature(
                 "row(a bigint,b varchar)",
                 rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
-        assertEquals(parseTypeSignature("row(col int)"), parseTypeSignature("row(col integer)"));
+        assertEquals(parseTypeSignature("row(col iNt)"), parseTypeSignature("row(col integer)"));
         assertRowSignature(
                 "ROW(a bigint,b varchar)",
                 "ROW",
@@ -79,7 +79,7 @@ public class TestTypeSignature
                 "row(a decimal(p1,s1),b decimal(p2,s2))",
                 ImmutableSet.of("p1", "s1", "p2", "s2"),
                 rowSignature(namedParameter("a", decimal("p1", "s1")), namedParameter("b", decimal("p2", "s2"))));
-        assertEquals(parseTypeSignature("row(a int(p1))"), parseTypeSignature("row(a integer(p1))"));
+        assertEquals(parseTypeSignature("row(a Int(p1))"), parseTypeSignature("row(a integer(p1))"));
 
         // TODO: remove the following tests when the old style row type has been completely dropped
         assertOldRowSignature(
@@ -99,7 +99,7 @@ public class TestTypeSignature
         assertOldRowSignature(
                 "array(row<bigint,double>('col0','col1'))",
                 array(rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))));
-        assertEquals(parseTypeSignature("array(row<int>('col'))"), parseTypeSignature("array(row<integer>('col'))"));
+        assertEquals(parseTypeSignature("array(row<inT>('col'))"), parseTypeSignature("array(row<integer>('col'))"));
         assertOldRowSignature(
                 "row<array(row<bigint,double>('col0','col1'))>('col0')",
                 rowSignature(namedParameter("col0", array(
