@@ -21,8 +21,8 @@ import com.facebook.presto.type.LiteralParameter;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.Chars.padSpaces;
-import static com.facebook.presto.spi.type.Chars.trimSpaces;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
@@ -85,7 +85,7 @@ public final class CharacterStringCasts
     // Char(y) value that is smaller than the original Varchar(x) value. This is fine though for usage in TupleDomainTranslator.
     public static Slice varcharToCharSaturatedFloorCast(@LiteralParameter("y") Long y, @SqlType("varchar(x)") Slice slice)
     {
-        Slice trimmedSlice = trimSpaces(slice);
+        Slice trimmedSlice = trimTrailingSpaces(slice);
         int trimmedTextLength = countCodePoints(trimmedSlice);
         int numberOfTrailingSpaces = slice.length() - trimmedSlice.length();
 
