@@ -51,5 +51,7 @@ public interface CassandraSession
 
     ResultSet execute(String cql, Object... values);
 
+    List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName);
+
     ResultSet execute(Statement statement);
 }
