@@ -35,7 +35,8 @@ import static org.testng.Assert.fail;
 public class TestTypeSignature
 {
     @Test
-    public void parseSignatureWithLiterals() throws Exception
+    public void parseSignatureWithLiterals()
+            throws Exception
     {
         TypeSignature result = parseTypeSignature("decimal(X,42)", ImmutableSet.of("X"));
         assertEquals(result.getParameters().size(), 2);
@@ -50,6 +51,7 @@ public class TestTypeSignature
         assertRowSignature(
                 "row(a bigint,b varchar)",
                 rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
+        assertEquals(parseTypeSignature("row(col iNt)"), parseTypeSignature("row(col integer)"));
         assertRowSignature(
                 "ROW(a bigint,b varchar)",
                 "ROW",
@@ -77,6 +79,7 @@ public class TestTypeSignature
                 "row(a decimal(p1,s1),b decimal(p2,s2))",
                 ImmutableSet.of("p1", "s1", "p2", "s2"),
                 rowSignature(namedParameter("a", decimal("p1", "s1")), namedParameter("b", decimal("p2", "s2"))));
+        assertEquals(parseTypeSignature("row(a Int(p1))"), parseTypeSignature("row(a integer(p1))"));
 
         // TODO: remove the following tests when the old style row type has been completely dropped
         assertOldRowSignature(
@@ -96,6 +99,7 @@ public class TestTypeSignature
         assertOldRowSignature(
                 "array(row<bigint,double>('col0','col1'))",
                 array(rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))));
+        assertEquals(parseTypeSignature("array(row<inT>('col'))"), parseTypeSignature("array(row<integer>('col'))"));
         assertOldRowSignature(
                 "row<array(row<bigint,double>('col0','col1'))>('col0')",
                 rowSignature(namedParameter("col0", array(
@@ -149,9 +153,13 @@ public class TestTypeSignature
         assertSignature("bigint", "bigint", ImmutableList.of());
         assertSignature("boolean", "boolean", ImmutableList.of());
         assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)));
+        assertEquals(parseTypeSignature("int"), parseTypeSignature("integer"));
 
         assertSignature("array(bigint)", "array", ImmutableList.of("bigint"));
+        assertEquals(parseTypeSignature("array(int)"), parseTypeSignature("array(integer)"));
+
         assertSignature("array(array(bigint))", "array", ImmutableList.of("array(bigint)"));
+        assertEquals(parseTypeSignature("array(array(int))"), parseTypeSignature("array(array(integer))"));
         assertSignature(
                 "array(timestamp with time zone)",
                 "array",
