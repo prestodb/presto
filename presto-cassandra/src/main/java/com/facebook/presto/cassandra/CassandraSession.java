@@ -14,6 +14,8 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
+import com.datastax.driver.core.PreparedStatement;
+import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TokenRange;
@@ -52,6 +54,8 @@ public interface CassandraSession
     ResultSet execute(String cql, Object... values);
 
     List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName);
+
+    PreparedStatement prepare(RegularStatement statement);
 
     ResultSet execute(Statement statement);
 }
