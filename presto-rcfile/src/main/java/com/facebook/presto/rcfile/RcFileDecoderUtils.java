@@ -238,7 +238,12 @@ public final class RcFileDecoderUtils
             return calculateTruncationLength(((VarcharType) type).getLength(), slice, offset, length);
         }
         if (type instanceof CharType) {
-            return calculateTruncationLength(((CharType) type).getLength(), slice, offset, length);
+            int truncationLength = calculateTruncationLength(((CharType) type).getLength(), slice, offset, length);
+            // At run-time char(x) is represented without trailing spaces
+            while (truncationLength > 0 && slice.getByte(offset + truncationLength - 1) == ' ') {
+                truncationLength--;
+            }
+            return truncationLength;
         }
         return length;
     }
