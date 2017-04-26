@@ -15,7 +15,6 @@ package com.facebook.presto.execution.executor;
 
 import com.facebook.presto.execution.SplitConcurrencyController;
 import com.facebook.presto.execution.TaskId;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
@@ -30,8 +29,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 
-import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVELS;
-import static com.facebook.presto.execution.executor.MultilevelSplitQueue.computeLevel;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -67,22 +64,12 @@ public class TaskHandle
         this.concurrencyController = new SplitConcurrencyController(initialSplitConcurrency, splitConcurrencyAdjustFrequency);
     }
 
-    public synchronized Priority addScheduledNanos(long durationNanos)
+    public synchronized Priority addScheduledNanos(long quantaNanos)
     {
-        concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
-        scheduledNanos += durationNanos;
+        concurrencyController.update(quantaNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
+        scheduledNanos += quantaNanos;
 
-        Priority oldPriority = priority.get();
-        Priority newPriority;
-
-        if (oldPriority.getLevel() < (LEVELS.length - 1) && scheduledNanos >= LEVELS[oldPriority.getLevel() + 1]) {
-            int newLevel = computeLevel(scheduledNanos);
-            long newLevelMinPriority = splitQueue.getLevelMinPriority(newLevel, scheduledNanos);
-            newPriority = new Priority(newLevel, newLevelMinPriority + (scheduledNanos - LEVELS[oldPriority.getLevel()]));
-        }
-        else {
-            newPriority = new Priority(oldPriority.getLevel(), oldPriority.getLevelPriority() + durationNanos);
-        }
+        Priority newPriority = splitQueue.updatePriority(priority.get(), quantaNanos, scheduledNanos);
 
         priority.set(newPriority);
         return newPriority;

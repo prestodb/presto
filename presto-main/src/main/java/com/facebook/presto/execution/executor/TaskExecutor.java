@@ -151,7 +151,7 @@ public class TaskExecutor
     @Inject
     public TaskExecutor(TaskManagerConfig config)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers());
+        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), config.getLevelPriorityMultiplier().doubleValue(), config.isLevelAbsolutePriority(), Ticker.systemTicker());
     }
 
     public TaskExecutor(int runnerThreads, int minDrivers)
@@ -159,8 +159,13 @@ public class TaskExecutor
         this(runnerThreads, minDrivers, Ticker.systemTicker());
     }
 
-    @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
+    {
+        this(runnerThreads, minDrivers, 2, false, ticker);
+    }
+
+    @VisibleForTesting
+    public TaskExecutor(int runnerThreads, int minDrivers, double levelPriorityMultiplier, boolean levelAbsolutePriority, Ticker ticker)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
 
@@ -172,7 +177,7 @@ public class TaskExecutor
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         this.minimumNumberOfDrivers = minDrivers;
-        this.waitingSplits = new MultilevelSplitQueue();
+        this.waitingSplits = new MultilevelSplitQueue(levelAbsolutePriority, levelPriorityMultiplier);
         this.tasks = new LinkedList<>();
     }
 
@@ -610,31 +615,31 @@ public class TaskExecutor
     @Managed
     public long getRunningTasksLevel0()
     {
-        return calculateRunningTasksForLevel(0);
+        return getRunningTasksForLevel(0);
     }
 
     @Managed
     public long getRunningTasksLevel1()
     {
-        return calculateRunningTasksForLevel(1);
+        return getRunningTasksForLevel(1);
     }
 
     @Managed
     public long getRunningTasksLevel2()
     {
-        return calculateRunningTasksForLevel(2);
+        return getRunningTasksForLevel(2);
     }
 
     @Managed
     public long getRunningTasksLevel3()
     {
-        return calculateRunningTasksForLevel(3);
+        return getRunningTasksForLevel(3);
     }
 
     @Managed
     public long getRunningTasksLevel4()
     {
-        return calculateRunningTasksForLevel(4);
+        return getRunningTasksForLevel(4);
     }
 
     @Managed
@@ -757,11 +762,11 @@ public class TaskExecutor
     }
 
     @VisibleForTesting
-    public synchronized int calculateRunningTasksForLevel(int level)
+    public synchronized int getRunningTasksForLevel(int level)
     {
         int count = 0;
         for (TaskHandle task : tasks) {
-            if (computeLevel(task.getScheduledNanos()) == level) {
+            if (task.getLevel() == level) {
                 count++;
             }
         }
