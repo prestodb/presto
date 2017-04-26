@@ -14,13 +14,13 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
-import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.TokenRange;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -69,7 +69,7 @@ public class CassandraTokenSplitManager
 
     public List<TokenSplit> getSplits(String keyspace, String table)
     {
-        Set<TokenRange> tokenRanges = getTokenRanges();
+        Set<TokenRange> tokenRanges = session.getTokenRanges();
 
         if (tokenRanges.isEmpty()) {
             throw new PrestoException(CASSANDRA_METADATA_ERROR, "The cluster metadata is not available. " +
@@ -81,7 +81,7 @@ public class CassandraTokenSplitManager
             tokenRanges = unwrap(tokenRanges);
         }
 
-        Optional<TokenRing> tokenRing = createForPartitioner(getPartitioner());
+        Optional<TokenRing> tokenRing = createForPartitioner(session.getPartitioner());
         long totalPartitionsCount = getTotalPartitionsCount(keyspace, table);
 
         List<TokenSplit> splits = new ArrayList<>();
@@ -118,11 +118,6 @@ public class CassandraTokenSplitManager
         return unmodifiableList(splits);
     }
 
-    private Set<TokenRange> getTokenRanges()
-    {
-        return session.executeWithSession(session -> session.getCluster().getMetadata().getTokenRanges());
-    }
-
     private Set<TokenRange> unwrap(Set<TokenRange> tokenRanges)
     {
         ImmutableSet.Builder<TokenRange> result = ImmutableSet.builder();
@@ -149,7 +144,7 @@ public class CassandraTokenSplitManager
                 .where(eq("keyspace_name", keyspaceName))
                 .and(eq("table_name", tableName));
 
-        ResultSet result = session.executeWithSession(session -> session.execute(statement));
+        ResultSet result = session.execute(statement);
         ImmutableList.Builder<SizeEstimate> estimates = ImmutableList.builder();
         for (Row row : result.all()) {
             SizeEstimate estimate = new SizeEstimate(
@@ -165,25 +160,20 @@ public class CassandraTokenSplitManager
 
     private void checkSizeEstimatesTableExist()
     {
-        KeyspaceMetadata ks = session.executeWithSession(session -> session.getCluster().getMetadata().getKeyspace(SYSTEM));
-        checkState(ks != null, "system keyspace metadata must not be null");
-        TableMetadata table = ks.getTable(SIZE_ESTIMATES);
-        if (table == null) {
+        try {
+            session.getTable(new SchemaTableName(SYSTEM, SIZE_ESTIMATES));
+        }
+        catch (TableNotFoundException e) {
             throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
         }
     }
 
     private List<String> getEndpoints(String keyspace, TokenRange tokenRange)
     {
-        Set<Host> endpoints = session.executeWithSession(session -> session.getCluster().getMetadata().getReplicas(keyspace, tokenRange));
+        Set<Host> endpoints = session.getReplicas(keyspace, tokenRange);
         return unmodifiableList(endpoints.stream()
                 .map(Host::toString)
                 .collect(toList()));
-    }
-
-    private String getPartitioner()
-    {
-        return session.executeWithSession(session -> session.getCluster().getMetadata().getPartitioner());
     }
 
     private static TokenSplit createSplit(TokenRange range, List<String> endpoints)

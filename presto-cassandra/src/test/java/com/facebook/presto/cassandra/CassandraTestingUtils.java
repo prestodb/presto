@@ -77,7 +77,7 @@ public class CassandraTestingUtils
                     .value("clust_one", "clust_one")
                     .value("clust_two", "clust_two_" + rowNumber.toString())
                     .value("clust_three", "clust_three_" + rowNumber.toString());
-            session.executeWithSession(s -> s.execute(insert));
+            session.execute(insert);
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
     }
@@ -106,7 +106,7 @@ public class CassandraTestingUtils
                     .value("clust_one", "clust_one")
                     .value("clust_two", "clust_two_" + rowNumber.toString())
                     .value("clust_three", "clust_three_" + rowNumber.toString());
-            session.executeWithSession(s -> s.execute(insert));
+            session.execute(insert);
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
     }
@@ -212,7 +212,7 @@ public class CassandraTestingUtils
                     .value("typemap", ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L))
                     .value("typeset", ImmutableSet.of(false, true));
 
-            session.executeWithSession(s -> s.execute(insert));
+            session.execute(insert);
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
     }
