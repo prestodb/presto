@@ -29,11 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 
-import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
-import static com.facebook.presto.execution.executor.MultilevelSplitQueue.computeLevel;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public class TaskHandle
@@ -72,18 +69,7 @@ public class TaskHandle
         concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
         scheduledNanos += durationNanos;
 
-        Priority oldPriority = priority.get();
-        Priority newPriority;
-
-        if (oldPriority.getLevel() < (LEVEL_THRESHOLD_SECONDS.length - 1) && scheduledNanos >= SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[oldPriority.getLevel() + 1])) {
-            int newLevel = computeLevel(scheduledNanos);
-            long newLevelMinPriority = splitQueue.getLevelMinPriority(newLevel, scheduledNanos);
-            long exceededNanos = scheduledNanos - SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[oldPriority.getLevel() + 1]);
-            newPriority = new Priority(newLevel, newLevelMinPriority + exceededNanos);
-        }
-        else {
-            newPriority = new Priority(oldPriority.getLevel(), oldPriority.getLevelPriority() + durationNanos);
-        }
+        Priority newPriority = splitQueue.updatePriority(priority.get(), durationNanos, scheduledNanos);
 
         priority.set(newPriority);
         return newPriority;

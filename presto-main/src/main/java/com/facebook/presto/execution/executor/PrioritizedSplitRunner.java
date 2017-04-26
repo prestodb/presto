@@ -89,6 +89,8 @@ class PrioritizedSplitRunner
         this.globalScheduledTimeMicros = globalScheduledTimeMicros;
         this.blockedQuantaWallTime = blockedQuantaWallTime;
         this.unblockedQuantaWallTime = unblockedQuantaWallTime;
+
+        this.updateLevelPriority();
     }
 
     public TaskHandle getTaskHandle()
