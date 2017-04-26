@@ -937,6 +937,40 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testRepeat()
+            throws Exception
+    {
+        // concrete values
+        assertFunction("REPEAT(1, 5)", new ArrayType(INTEGER), ImmutableList.of(1, 1, 1, 1, 1));
+        assertFunction("REPEAT('varchar', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("varchar", "varchar", "varchar"));
+        assertFunction("REPEAT(true, 1)", new ArrayType(BOOLEAN), ImmutableList.of(true));
+        assertFunction("REPEAT(0.5, 4)", new ArrayType(DOUBLE), ImmutableList.of(0.5, 0.5, 0.5, 0.5));
+        assertFunction("REPEAT(array[1], 4)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1)));
+
+        // null values
+        assertFunction("REPEAT(null, 4)", new ArrayType(UNKNOWN), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as bigint), 4)", new ArrayType(BIGINT), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as double), 4)", new ArrayType(DOUBLE), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as varchar), 4)", new ArrayType(VARCHAR), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as boolean), 4)", new ArrayType(BOOLEAN), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as array(boolean)), 4)", new ArrayType(new ArrayType(BOOLEAN)), asList(null, null, null, null));
+
+        // 0 counts
+        assertFunction("REPEAT(cast(null as bigint), 0)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("REPEAT(1, 0)", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("REPEAT('varchar', 0)", new ArrayType(createVarcharType(7)), ImmutableList.of());
+        assertFunction("REPEAT(true, 0)", new ArrayType(BOOLEAN), ImmutableList.of());
+        assertFunction("REPEAT(0.5, 0)", new ArrayType(DOUBLE), ImmutableList.of());
+        assertFunction("REPEAT(array[1], 0)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of());
+
+        // illegal inputs
+        assertInvalidFunction("REPEAT(2, -1)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REPEAT(1, 1000000)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REPEAT('loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar', 9999)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REPEAT(array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], 9999)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
     public void testSequence()
             throws Exception
     {

@@ -102,6 +102,7 @@ import com.facebook.presto.operator.scalar.MapToMapCast;
 import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
+import com.facebook.presto.operator.scalar.RepeatFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.SequenceFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
@@ -443,6 +444,7 @@ public class FunctionRegistry
                 .aggregate(RealCorrelationAggregation.class)
                 .aggregate(BitwiseOrAggregation.class)
                 .aggregate(BitwiseAndAggregation.class)
+                .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(StringFunctions.class)
                 .scalars(VarbinaryFunctions.class)
