@@ -19,9 +19,12 @@ import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.IndexMetadata;
 import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TableMetadata;
+import com.datastax.driver.core.TokenRange;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.policies.ReconnectionPolicy;
 import com.datastax.driver.core.policies.ReconnectionPolicy.ReconnectionSchedule;
@@ -61,14 +64,14 @@ import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-// TODO: Refactor this class to make it be "single responsibility"
 public class NativeCassandraSession
         implements CassandraSession
 {
     private static final Logger log = Logger.get(NativeCassandraSession.class);
 
-    static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
-    protected final String connectorId;
+    private static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
+
+    private final String connectorId;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
     private final Cluster cluster;
     private final Supplier<Session> session;
@@ -84,8 +87,30 @@ public class NativeCassandraSession
     }
 
     @Override
+    public String getPartitioner()
+    {
+        return executeWithSession(session -> session.getCluster().getMetadata().getPartitioner());
+    }
+
+    @Override
+    public Set<TokenRange> getTokenRanges()
+    {
+        return executeWithSession(session -> session.getCluster().getMetadata().getTokenRanges());
+    }
+
+    @Override
+    public Set<Host> getReplicas(String schemaName, TokenRange tokenRange)
+    {
+        requireNonNull(schemaName, "keyspace is null");
+        requireNonNull(tokenRange, "tokenRange is null");
+        return executeWithSession(session -> session.getCluster().getMetadata().getReplicas(schemaName, tokenRange));
+    }
+
+    @Override
     public Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey)
     {
+        requireNonNull(schemaName, "keyspace is null");
+        requireNonNull(partitionKey, "partitionKey is null");
         return executeWithSession(session -> session.getCluster().getMetadata().getReplicas(schemaName, partitionKey));
     }
 
@@ -297,7 +322,19 @@ public class NativeCassandraSession
         return partitions.build();
     }
 
-    protected Iterable<Row> queryPartitionKeys(CassandraTable table, List<Object> filterPrefix)
+    @Override
+    public ResultSet execute(String cql, Object... values)
+    {
+        return executeWithSession(session -> session.execute(cql, values));
+    }
+
+    @Override
+    public ResultSet execute(Statement statement)
+    {
+        return executeWithSession(session -> session.execute(statement));
+    }
+
+    private Iterable<Row> queryPartitionKeys(CassandraTable table, List<Object> filterPrefix)
     {
         CassandraTableHandle tableHandle = table.getTableHandle();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
@@ -308,11 +345,20 @@ public class NativeCassandraSession
 
         Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
         addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
-        return executeWithSession(session -> session.execute(partitionKeys)).all();
+        return execute(partitionKeys).all();
     }
 
-    @Override
-    public <T> T executeWithSession(SessionCallable<T> sessionCallable)
+    private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
+    {
+        for (int i = 0; i < filterPrefix.size(); i++) {
+            CassandraColumnHandle column = partitionKeyColumns.get(i);
+            Object value = column.getCassandraType().getJavaValue(filterPrefix.get(i));
+            Clause clause = QueryBuilder.eq(CassandraCqlUtils.validColumnName(column.getName()), value);
+            where.and(clause);
+        }
+    }
+
+    private <T> T executeWithSession(SessionCallable<T> sessionCallable)
     {
         ReconnectionPolicy reconnectionPolicy = cluster.getConfiguration().getPolicies().getReconnectionPolicy();
         ReconnectionSchedule schedule = reconnectionPolicy.newSchedule();
@@ -342,13 +388,8 @@ public class NativeCassandraSession
         }
     }
 
-    private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
+    interface SessionCallable<T>
     {
-        for (int i = 0; i < filterPrefix.size(); i++) {
-            CassandraColumnHandle column = partitionKeyColumns.get(i);
-            Object value = column.getCassandraType().getJavaValue(filterPrefix.get(i));
-            Clause clause = QueryBuilder.eq(CassandraCqlUtils.validColumnName(column.getName()), value);
-            where.and(clause);
-        }
+        T executeWithSession(Session session);
     }
 }

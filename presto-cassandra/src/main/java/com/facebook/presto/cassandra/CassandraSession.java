@@ -15,7 +15,8 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Session;
+import com.datastax.driver.core.Statement;
+import com.datastax.driver.core.TokenRange;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -28,14 +29,20 @@ public interface CassandraSession
 {
     String PRESTO_COMMENT_METADATA = "Presto Metadata:";
 
+    String getPartitioner();
+
+    Set<TokenRange> getTokenRanges();
+
+    Set<Host> getReplicas(String schemaName, TokenRange tokenRange);
+
     Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey);
 
     List<String> getAllSchemas();
 
-    List<String> getAllTables(String schema)
+    void getSchema(String schema)
             throws SchemaNotFoundException;
 
-    void getSchema(String schema)
+    List<String> getAllTables(String schema)
             throws SchemaNotFoundException;
 
     CassandraTable getTable(SchemaTableName tableName)
@@ -43,15 +50,7 @@ public interface CassandraSession
 
     List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix);
 
-    default ResultSet execute(String cql, Object... values)
-    {
-        return executeWithSession(session -> session.execute(cql, values));
-    }
+    ResultSet execute(String cql, Object... values);
 
-    <T> T executeWithSession(SessionCallable<T> sessionCallable);
-
-    interface SessionCallable<T>
-    {
-        T executeWithSession(Session session);
-    }
+    ResultSet execute(Statement statement);
 }

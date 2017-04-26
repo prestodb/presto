@@ -14,6 +14,9 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Statement;
+import com.datastax.driver.core.TokenRange;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -120,7 +123,31 @@ public class MockCassandraSession
     }
 
     @Override
-    public <T> T executeWithSession(SessionCallable<T> sessionCallable)
+    public ResultSet execute(String cql, Object... values)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ResultSet execute(Statement statement)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String getPartitioner()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<TokenRange> getTokenRanges()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<Host> getReplicas(String schemaName, TokenRange tokenRange)
     {
         throw new UnsupportedOperationException();
     }
