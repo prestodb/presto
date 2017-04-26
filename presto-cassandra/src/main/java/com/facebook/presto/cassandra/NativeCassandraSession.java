@@ -19,6 +19,8 @@ import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.IndexMetadata;
 import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.PreparedStatement;
+import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
@@ -375,6 +377,12 @@ public class NativeCassandraSession
     public ResultSet execute(String cql, Object... values)
     {
         return executeWithSession(session -> session.execute(cql, values));
+    }
+
+    @Override
+    public PreparedStatement prepare(RegularStatement statement)
+    {
+        return executeWithSession(session -> session.prepare(statement));
     }
 
     @Override

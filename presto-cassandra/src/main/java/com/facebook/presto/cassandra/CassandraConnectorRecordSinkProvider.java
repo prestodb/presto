@@ -43,7 +43,13 @@ public class CassandraConnectorRecordSinkProvider
         checkArgument(tableHandle instanceof CassandraOutputTableHandle, "tableHandle is not an instance of CassandraOutputTableHandle");
         CassandraOutputTableHandle handle = (CassandraOutputTableHandle) tableHandle;
 
-        return new CassandraRecordSink(handle, cassandraSession);
+        return new CassandraRecordSink(
+                cassandraSession,
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getColumnNames(),
+                handle.getColumnTypes(),
+                true);
     }
 
     @Override
