@@ -39,6 +39,6 @@ Web UI changes
 SPI changes
 -----------
 
-* Add SPI methods retrieve table grants.
+* Add support for retrieving table grants.
 * Rename SPI access control check from ``checkCanShowTables`` to ``checkCanShowTablesMetadata``,
   which is used for both :doc:`/sql/show-tables` and :doc:`/sql/show-grants`.
