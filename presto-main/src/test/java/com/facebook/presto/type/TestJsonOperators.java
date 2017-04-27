@@ -23,6 +23,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -112,6 +113,34 @@ public class TestJsonOperators
         assertFunction("cast(nan() as JSON)", JSON, "\"NaN\"");
         assertFunction("cast(infinity() as JSON)", JSON, "\"Infinity\"");
         assertFunction("cast(-infinity() as JSON)", JSON, "\"-Infinity\"");
+    }
+
+    @Test
+    public void testCastToReal()
+            throws Exception
+    {
+        assertFunction("cast(JSON 'null' as REAL)", REAL, null);
+        assertFunction("cast(JSON '-128' as REAL)", REAL, -128.0f);
+        assertFunction("cast(JSON '128' as REAL)", REAL, 128.0f);
+        assertFunction("cast(JSON '12345678901234567890' as REAL)", REAL, 1.2345679e19f);
+        assertFunction("cast(JSON '128.9' as REAL)", REAL, 128.9f);
+        assertFunction("cast(JSON '1e-46' as REAL)", REAL, 0.0f); // smaller than minimum subnormal positive
+        assertFunction("cast(JSON '1e39' as REAL)", REAL, Float.POSITIVE_INFINITY); // overflow
+        assertFunction("cast(JSON '-1e39' as REAL)", REAL, Float.NEGATIVE_INFINITY); // underflow
+        assertFunction("cast(JSON 'true' as REAL)", REAL, 1.0f);
+        assertFunction("cast(JSON 'false' as REAL)", REAL, 0.0f);
+        assertFunction("cast(JSON '\"128\"' as REAL)", REAL, 128.0f);
+        assertFunction("cast(JSON '\"12345678901234567890\"' as REAL)", REAL, 1.2345679e19f);
+        assertFunction("cast(JSON '\"128.9\"' as REAL)", REAL, 128.9f);
+        assertFunction("cast(JSON '\"NaN\"' as REAL)", REAL, Float.NaN);
+        assertFunction("cast(JSON '\"Infinity\"' as REAL)", REAL, Float.POSITIVE_INFINITY);
+        assertFunction("cast(JSON '\"-Infinity\"' as REAL)", REAL, Float.NEGATIVE_INFINITY);
+        assertInvalidFunction("cast(JSON '\"true\"' as REAL)", INVALID_CAST_ARGUMENT);
+
+        assertFunction("cast(JSON ' 128.9' as REAL)", REAL, 128.9f); // leading space
+
+        assertFunction("cast(json_extract('{\"x\":1.23}', '$.x') as REAL)", REAL, 1.23f);
+        assertInvalidCast("cast(JSON '{ \"x\" : 123}' as REAL)");
     }
 
     @Test
