@@ -39,6 +39,7 @@ import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
@@ -109,6 +110,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.transform;
+import static com.hadoop.compression.lzo.LzoIndex.LZO_INDEX_SUFFIX;
 import static java.lang.Byte.parseByte;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
@@ -144,6 +146,24 @@ public final class HiveUtil
     private static final int DECIMAL_SCALE_GROUP = 2;
 
     private static final String BIG_DECIMAL_POSTFIX = "BD";
+
+    private static final String LZOP_DEFAULT_SUFFIX = new LzopCodec().getDefaultExtension();
+
+    private static final PathFilter LZOP_DEFAULT_SUFFIX_FILTER = new PathFilter() {
+        @Override
+        public boolean accept(Path path)
+        {
+            return path.toString().endsWith(LZOP_DEFAULT_SUFFIX);
+        }
+    };
+
+    private static final PathFilter LZOP_INDEX_DEFAULT_SUFFIX_FILTER = new PathFilter() {
+        @Override
+        public boolean accept(Path path)
+        {
+            return path.toString().endsWith(LZOP_DEFAULT_SUFFIX + LZO_INDEX_SUFFIX);
+        }
+    };
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -292,6 +312,21 @@ public final class HiveUtil
         catch (InvocationTargetException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    public static boolean isLzopCompressedFile(Path filePath)
+    {
+        return LZOP_DEFAULT_SUFFIX_FILTER.accept(filePath);
+    }
+
+    public static boolean isLzopIndexFile(Path filePath)
+    {
+        return LZOP_INDEX_DEFAULT_SUFFIX_FILTER.accept(filePath);
+    }
+
+    public static Path getLzopIndexPath(Path lzopPath)
+    {
+        return lzopPath.suffix(LZO_INDEX_SUFFIX);
     }
 
     public static StructObjectInspector getTableObjectInspector(Properties schema)
