@@ -289,6 +289,9 @@ public class TestMapOperators
         assertFunction("CAST(JSON '{\"1\":2.0, \"3\": 4.0}' AS MAP<BIGINT, DOUBLE>)",
                 new MapType(BIGINT, DOUBLE),
                 ImmutableMap.of(1L, 2.0, 3L, 4.0));
+        assertFunction("CAST(JSON '{\"1\":2.0, \"3\": 4.0}' AS MAP<BIGINT, REAL>)",
+                new MapType(BIGINT, REAL),
+                ImmutableMap.of(1L, 2.0f, 3L, 4.0f));
         assertFunction("CAST(JSON '{\"1\":[2, 3], \"4\": [5]}' AS MAP<BIGINT, ARRAY<BIGINT>>)",
                 new MapType(BIGINT, new ArrayType(BIGINT)),
                 ImmutableMap.of(1L, ImmutableList.of(2L, 3L), 4L, ImmutableList.of(5L)));

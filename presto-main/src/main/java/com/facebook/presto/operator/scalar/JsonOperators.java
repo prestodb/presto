@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.type.StandardTypes.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
+import static com.facebook.presto.spi.type.StandardTypes.REAL;
 import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
@@ -53,6 +54,7 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -219,6 +221,46 @@ public final class JsonOperators
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), DOUBLE));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @SqlType(REAL)
+    public static Long castToFloat(@SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+            parser.nextToken();
+            Long result;
+            switch (parser.getCurrentToken()) {
+                case VALUE_NULL:
+                    result = null;
+                    break;
+                case VALUE_STRING:
+                    result = VarcharOperators.castToFloat(Slices.utf8Slice(parser.getText()));
+                    break;
+                case VALUE_NUMBER_FLOAT:
+                    result = (long) floatToRawIntBits(parser.getFloatValue());
+                    break;
+                case VALUE_NUMBER_INT:
+                    // An alternative is calling getLongValue and then BigintOperators.castToReal.
+                    // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
+                    result = (long) floatToRawIntBits(parser.getFloatValue());
+                    break;
+                case VALUE_TRUE:
+                    result = BooleanOperators.castToReal(true);
+                    break;
+                case VALUE_FALSE:
+                    result = BooleanOperators.castToReal(false);
+                    break;
+                default:
+                    throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), REAL));
+            }
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to REAL"); // check no trailing token
+            return result;
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), REAL));
         }
     }
 
