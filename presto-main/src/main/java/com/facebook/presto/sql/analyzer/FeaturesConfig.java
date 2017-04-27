@@ -43,7 +43,7 @@ public class FeaturesConfig
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
     private boolean fastInequalityJoins = true;
-    private boolean reorderJoins;
+    private boolean reorderJoins = true;
     private boolean redistributeWrites = true;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
