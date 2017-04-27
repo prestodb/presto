@@ -836,8 +836,7 @@ public class ThriftHiveMetastore
     private RetryDriver retry()
     {
         return RetryDriver.retry()
-                .exceptionMapper(exceptionMapper)
-                .stopOn(PrestoException.class);
+                .exceptionMapper(exceptionMapper);
     }
 
     private RuntimeException propagate(Throwable throwable)
