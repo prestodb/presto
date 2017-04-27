@@ -18,6 +18,10 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.rule.CanonicalizeFilterExpressions;
+import com.facebook.presto.sql.planner.iterative.rule.CanonicalizeJoinExpressions;
+import com.facebook.presto.sql.planner.iterative.rule.CanonicalizeProjectExpressions;
+import com.facebook.presto.sql.planner.iterative.rule.CanonicalizeTableScanExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
@@ -124,7 +128,16 @@ public class PlanOptimizers
 
         builder.add(
                 new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
-                new CanonicalizeExpressions(),
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableList.of(new CanonicalizeExpressions()),
+                        ImmutableSet.of(
+                                new CanonicalizeJoinExpressions(),
+                                new CanonicalizeProjectExpressions(),
+                                new CanonicalizeFilterExpressions(),
+                                new CanonicalizeTableScanExpressions()
+                        )
+                ),
                 new IterativeOptimizer(
                         stats,
                         ImmutableSet.<Rule>builder()
