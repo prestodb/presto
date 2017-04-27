@@ -33,6 +33,7 @@ import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.datastax.driver.core.querybuilder.Select;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -49,18 +50,24 @@ import io.airlift.units.Duration;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.datastax.driver.core.querybuilder.Select.Where;
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 import static java.util.Comparator.comparing;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -99,23 +106,31 @@ public class NativeCassandraSession
     }
 
     @Override
-    public Set<Host> getReplicas(String schemaName, TokenRange tokenRange)
+    public Set<Host> getReplicas(String caseSensitiveSchemaName, TokenRange tokenRange)
     {
-        requireNonNull(schemaName, "keyspace is null");
+        requireNonNull(caseSensitiveSchemaName, "keyspace is null");
         requireNonNull(tokenRange, "tokenRange is null");
-        return executeWithSession(session -> session.getCluster().getMetadata().getReplicas(schemaName, tokenRange));
+        return executeWithSession(session ->
+                session.getCluster().getMetadata().getReplicas(validSchemaName(caseSensitiveSchemaName), tokenRange));
     }
 
     @Override
-    public Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey)
+    public Set<Host> getReplicas(String caseSensitiveSchemaName, ByteBuffer partitionKey)
     {
-        requireNonNull(schemaName, "keyspace is null");
+        requireNonNull(caseSensitiveSchemaName, "keyspace is null");
         requireNonNull(partitionKey, "partitionKey is null");
-        return executeWithSession(session -> session.getCluster().getMetadata().getReplicas(schemaName, partitionKey));
+        return executeWithSession(session ->
+                session.getCluster().getMetadata().getReplicas(validSchemaName(caseSensitiveSchemaName), partitionKey));
     }
 
     @Override
-    public List<String> getAllSchemas()
+    public String getCaseSensitiveSchemaName(String caseInsensitiveSchemaName)
+    {
+        return getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName).getName();
+    }
+
+    @Override
+    public List<String> getCaseSensitiveSchemaNames()
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         List<KeyspaceMetadata> keyspaces = executeWithSession(session -> session.getCluster().getMetadata().getKeyspaces());
@@ -126,42 +141,28 @@ public class NativeCassandraSession
     }
 
     @Override
-    public List<String> getAllTables(String schema)
+    public List<String> getCaseSensitiveTableNames(String caseInsensitiveSchemaName)
             throws SchemaNotFoundException
     {
-        KeyspaceMetadata meta = getCheckedKeyspaceMetadata(schema);
+        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName);
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (TableMetadata tableMeta : meta.getTables()) {
-            builder.add(tableMeta.getName());
+        for (TableMetadata table : keyspace.getTables()) {
+            builder.add(table.getName());
         }
         return builder.build();
     }
 
-    private KeyspaceMetadata getCheckedKeyspaceMetadata(String schema)
-            throws SchemaNotFoundException
-    {
-        KeyspaceMetadata keyspaceMetadata = executeWithSession(session -> session.getCluster().getMetadata().getKeyspace(schema));
-        if (keyspaceMetadata == null) {
-            throw new SchemaNotFoundException(schema);
-        }
-        return keyspaceMetadata;
-    }
-
     @Override
-    public void getSchema(String schema)
-            throws SchemaNotFoundException
-    {
-        getCheckedKeyspaceMetadata(schema);
-    }
-
-    @Override
-    public CassandraTable getTable(SchemaTableName tableName)
+    public CassandraTable getTable(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
-        TableMetadata tableMeta = getTableMetadata(tableName);
+        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
+        TableMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
 
         List<String> columnNames = new ArrayList<>();
-        for (ColumnMetadata columnMetadata : tableMeta.getColumns()) {
+        List<ColumnMetadata> columns = tableMeta.getColumns();
+        checkColumnNames(columns);
+        for (ColumnMetadata columnMetadata : columns) {
             columnNames.add(columnMetadata.getName());
         }
 
@@ -203,7 +204,7 @@ public class NativeCassandraSession
         }
 
         // add other columns
-        for (ColumnMetadata columnMeta : tableMeta.getColumns()) {
+        for (ColumnMetadata columnMeta : columns) {
             if (!primaryKeySet.contains(columnMeta.getName())) {
                 boolean hidden = hiddenColumns.contains(columnMeta.getName());
                 CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, false, columnNames.indexOf(columnMeta.getName()), hidden);
@@ -219,23 +220,66 @@ public class NativeCassandraSession
         return new CassandraTable(tableHandle, sortedColumnHandles);
     }
 
-    private TableMetadata getTableMetadata(SchemaTableName schemaTableName)
+    private KeyspaceMetadata getKeyspaceByCaseInsensitiveName(String caseInsensitiveSchemaName)
+            throws SchemaNotFoundException
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        KeyspaceMetadata keyspaceMetadata = getCheckedKeyspaceMetadata(schemaName);
-        TableMetadata tableMetadata = keyspaceMetadata.getTable(tableName);
-        if (tableMetadata != null) {
-            return tableMetadata;
-        }
-
-        for (TableMetadata table : keyspaceMetadata.getTables()) {
-            if (table.getName().equalsIgnoreCase(tableName)) {
-                return table;
+        List<KeyspaceMetadata> keyspaces = executeWithSession(session -> session.getCluster().getMetadata().getKeyspaces());
+        KeyspaceMetadata result = null;
+        // Ensure that the error message is deterministic
+        List<KeyspaceMetadata> sortedKeyspaces = Ordering.from(comparing(KeyspaceMetadata::getName)).immutableSortedCopy(keyspaces);
+        for (KeyspaceMetadata keyspace : sortedKeyspaces) {
+            if (keyspace.getName().equalsIgnoreCase(caseInsensitiveSchemaName)) {
+                if (result != null) {
+                    throw new PrestoException(
+                            NOT_SUPPORTED,
+                            format("More than one keyspace has been found for the case insensitive schema name: %s -> (%s, %s)",
+                                    caseInsensitiveSchemaName, result.getName(), keyspace.getName()));
+                }
+                result = keyspace;
             }
         }
-        throw new TableNotFoundException(schemaTableName);
+        if (result == null) {
+            throw new SchemaNotFoundException(caseInsensitiveSchemaName);
+        }
+        return result;
+    }
+
+    private static TableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseInsensitiveTableName)
+    {
+        TableMetadata result = null;
+        Collection<TableMetadata> tables = keyspace.getTables();
+        // Ensure that the error message is deterministic
+        List<TableMetadata> sortedTables = Ordering.from(comparing(TableMetadata::getName)).immutableSortedCopy(tables);
+        for (TableMetadata table : sortedTables) {
+            if (table.getName().equalsIgnoreCase(caseInsensitiveTableName)) {
+                if (result != null) {
+                    throw new PrestoException(
+                            NOT_SUPPORTED,
+                            format("More than one table has been found for the case insensitive table name: %s -> (%s, %s)",
+                                    caseInsensitiveTableName, result.getName(), table.getName()));
+                }
+                result = table;
+            }
+        }
+        if (result == null) {
+            throw new TableNotFoundException(new SchemaTableName(keyspace.getName(), caseInsensitiveTableName));
+        }
+        return result;
+    }
+
+    private static void checkColumnNames(List<ColumnMetadata> columns)
+    {
+        Map<String, ColumnMetadata> lowercaseNameToColumnMap = new HashMap<>();
+        for (ColumnMetadata column : columns) {
+            String lowercaseName = column.getName().toLowerCase(ENGLISH);
+            if (lowercaseNameToColumnMap.containsKey(lowercaseName)) {
+                throw new PrestoException(
+                        NOT_SUPPORTED,
+                        format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
+                                lowercaseName, lowercaseNameToColumnMap.get(lowercaseName).getName(), column.getName()));
+            }
+            lowercaseNameToColumnMap.put(lowercaseName, column);
+        }
     }
 
     private CassandraColumnHandle buildColumnHandle(TableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)

@@ -42,19 +42,17 @@ public class CassandraSplitManager
 {
     private final String connectorId;
     private final CassandraSession cassandraSession;
-    private final CachingCassandraSchemaProvider schemaProvider;
     private final int partitionSizeForBatchSelect;
     private final CassandraTokenSplitManager tokenSplitMgr;
 
     @Inject
-    public CassandraSplitManager(CassandraConnectorId connectorId,
+    public CassandraSplitManager(
+            CassandraConnectorId connectorId,
             CassandraClientConfig cassandraClientConfig,
             CassandraSession cassandraSession,
-            CachingCassandraSchemaProvider schemaProvider,
             CassandraTokenSplitManager tokenSplitMgr)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.schemaProvider = requireNonNull(schemaProvider, "schemaProvider is null");
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
         this.tokenSplitMgr = tokenSplitMgr;
@@ -75,7 +73,7 @@ public class CassandraSplitManager
         if (partitions.size() == 1) {
             CassandraPartition cassandraPartition = partitions.get(0);
             if (cassandraPartition.isUnpartitioned() || cassandraPartition.isIndexedColumnPredicatePushdown()) {
-                CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
+                CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
                 List<ConnectorSplit> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId());
                 return new FixedSplitSource(splits);
             }

@@ -33,19 +33,18 @@ public interface CassandraSession
 
     Set<TokenRange> getTokenRanges();
 
-    Set<Host> getReplicas(String schemaName, TokenRange tokenRange);
+    Set<Host> getReplicas(String caseSensitiveSchemaName, TokenRange tokenRange);
 
-    Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey);
+    Set<Host> getReplicas(String caseSensitiveSchemaName, ByteBuffer partitionKey);
 
-    List<String> getAllSchemas();
+    String getCaseSensitiveSchemaName(String caseInsensitiveSchemaName);
 
-    void getSchema(String schema)
+    List<String> getCaseSensitiveSchemaNames();
+
+    List<String> getCaseSensitiveTableNames(String caseInsensitiveSchemaName)
             throws SchemaNotFoundException;
 
-    List<String> getAllTables(String schema)
-            throws SchemaNotFoundException;
-
-    CassandraTable getTable(SchemaTableName tableName)
+    CassandraTable getTable(SchemaTableName schemaTableName)
             throws TableNotFoundException;
 
     List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix);

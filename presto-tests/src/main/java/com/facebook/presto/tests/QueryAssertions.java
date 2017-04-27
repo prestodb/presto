@@ -28,10 +28,13 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.OptionalLong;
+import java.util.function.Supplier;
 
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -149,6 +152,23 @@ public final class QueryAssertions
                     Joiner.on("\n    ").join(Iterables.limit(actualSet, 100)),
                     expectedSet.size(),
                     Joiner.on("\n    ").join(Iterables.limit(expectedSet, 100))));
+        }
+    }
+
+    public static void assertContainsEventually(Supplier<MaterializedResult> all, MaterializedResult expectedSubset, Duration timeout)
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertContains(all.get(), expectedSubset);
+                return;
+            }
+            catch (AssertionError e) {
+                if (nanosSince(start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            sleepUninterruptibly(50, MILLISECONDS);
         }
     }
 
