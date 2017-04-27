@@ -44,8 +44,6 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class CassandraClientModule
         implements Module
@@ -70,9 +68,6 @@ public class CassandraClientModule
         binder.bind(CassandraPartitionManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(CassandraClientConfig.class);
-
-        binder.bind(CachingCassandraSchemaProvider.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(CachingCassandraSchemaProvider.class).as(generatedNameOf(CachingCassandraSchemaProvider.class, connectorId));
 
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
     }
