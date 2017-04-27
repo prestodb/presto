@@ -16,17 +16,17 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-public class ArrayElementBlockWriter
-        extends AbstractArrayElementBlock
+public class SingleArrayBlockWriter
+        extends AbstractSingleArrayBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayElementBlockWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleArrayBlockWriter.class).instanceSize();
 
     private final BlockBuilder blockBuilder;
     private final int initialBlockBuilderSize;
     private int positionsWritten;
 
-    public ArrayElementBlockWriter(BlockBuilder blockBuilder, int start)
+    public SingleArrayBlockWriter(BlockBuilder blockBuilder, int start)
     {
         super(start);
         this.blockBuilder = blockBuilder;
@@ -141,7 +141,7 @@ public class ArrayElementBlockWriter
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ArrayElementBlockWriter{");
+        StringBuilder sb = new StringBuilder("SingleArrayBlockWriter{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();

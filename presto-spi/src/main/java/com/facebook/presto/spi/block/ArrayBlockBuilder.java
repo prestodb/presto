@@ -40,7 +40,7 @@ public class ArrayBlockBuilder
     private boolean[] valueIsNull = new boolean[0];
 
     private final BlockBuilder values;
-    private int currentEntrySize;
+    private boolean currentEntryOpened;
 
     private int retainedSizeInBytes;
 
@@ -128,8 +128,8 @@ public class ArrayBlockBuilder
     @Override
     public BlockBuilder writeObject(Object value)
     {
-        if (currentEntrySize != 0) {
-            throw new IllegalStateException("Expected entry size to be exactly " + 0 + " but was " + currentEntrySize);
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
 
         Block block = (Block) value;
@@ -143,36 +143,36 @@ public class ArrayBlockBuilder
             }
         }
 
-        currentEntrySize++;
+        currentEntryOpened = true;
         return this;
     }
 
     @Override
-    public ArrayElementBlockWriter beginBlockEntry()
+    public SingleArrayBlockWriter beginBlockEntry()
     {
-        if (currentEntrySize != 0) {
-            throw new IllegalStateException("Expected current entry size to be exactly 0 but was " + currentEntrySize);
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was closed");
         }
-        currentEntrySize++;
-        return new ArrayElementBlockWriter(values, values.getPositionCount());
+        currentEntryOpened = true;
+        return new SingleArrayBlockWriter(values, values.getPositionCount());
     }
 
     @Override
     public BlockBuilder closeEntry()
     {
-        if (currentEntrySize != 1) {
-            throw new IllegalStateException("Expected entry size to be exactly 1 but was " + currentEntrySize);
+        if (!currentEntryOpened) {
+            throw new IllegalStateException("Expected entry to be opened but was closed");
         }
 
         entryAdded(false);
-        currentEntrySize = 0;
+        currentEntryOpened = false;
         return this;
     }
 
     @Override
     public BlockBuilder appendNull()
     {
-        if (currentEntrySize > 0) {
+        if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before a null can be written");
         }
 
@@ -216,7 +216,7 @@ public class ArrayBlockBuilder
     @Override
     public ArrayBlock build()
     {
-        if (currentEntrySize > 0) {
+        if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         return new ArrayBlock(positionCount, valueIsNull, offsets, values.build());

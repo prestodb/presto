@@ -17,12 +17,12 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
-public abstract class AbstractArrayElementBlock
+public abstract class AbstractSingleArrayBlock
         implements Block
 {
     protected final int start;
 
-    protected AbstractArrayElementBlock(int start)
+    protected AbstractSingleArrayBlock(int start)
     {
         this.start = start;
     }
@@ -151,7 +151,7 @@ public abstract class AbstractArrayElementBlock
     @Override
     public BlockEncoding getEncoding()
     {
-        // ArrayElementBlockEncoding does not exist
+        // SingleArrayBlockEncoding does not exist
         throw new UnsupportedOperationException();
     }
 

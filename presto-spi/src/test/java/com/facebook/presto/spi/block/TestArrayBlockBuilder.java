@@ -48,7 +48,7 @@ public class TestArrayBlockBuilder
         assertEquals(pageBuilderStatus.isFull(), true);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Expected entry size to be .*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Expected current entry to be closed but was opened")
     public void testConcurrentWriting()
     {
         BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), EXPECTED_ENTRY_COUNT);
