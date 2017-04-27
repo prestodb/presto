@@ -10,6 +10,8 @@ Additional types can be provided by plugins.
     Connectors are not required to support all types.
     See connector documentation for details on supported types.
 
+.. note:: Connectors are not required to support all types.
+
 BOOLEAN
 -------
 
