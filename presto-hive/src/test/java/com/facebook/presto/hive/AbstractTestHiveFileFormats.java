@@ -478,16 +478,20 @@ public abstract class AbstractTestHiveFileFormats
         return map;
     }
 
-    protected List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns)
+    protected List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns, String formatName)
     {
         List<HiveColumnHandle> columns = new ArrayList<>();
         int nextHiveColumnIndex = 0;
         for (int i = 0; i < testColumns.size(); i++) {
             TestColumn testColumn = testColumns.get(i);
-            int columnIndex = testColumn.isPartitionKey() ? -1 : nextHiveColumnIndex++;
-
+            int columnIndex = testColumn.isPartitionKey() ? -1 : nextHiveColumnIndex;
             HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
-            columns.add(new HiveColumnHandle("client_id", testColumn.getName(), hiveType, hiveType.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+            HiveColumnHandle parent = new HiveColumnHandle("client_id", testColumn.getName(), hiveType, hiveType.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty());
+            columns.add(parent); // Only add the top level columns
+            if (columnIndex != -1) {
+                // don't increment the index for the partion key...
+                nextHiveColumnIndex = HiveUtil.appendColumnHandles(ImmutableList.builder(), parent, HiveStorageFormat.valueOf(formatName));
+            }
         }
         return columns;
     }

@@ -66,4 +66,10 @@ public class CheckpointInputStreamSource<S extends ValueInputStream<C>, C extend
                 .add("checkpoint", checkpoint)
                 .toString();
     }
+
+    @Override
+    public CheckpointInputStreamSource<S, C> clone()
+    {
+        return new CheckpointInputStreamSource(stream.clone(), checkpoint);
+    }
 }

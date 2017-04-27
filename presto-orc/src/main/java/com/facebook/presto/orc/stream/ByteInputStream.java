@@ -140,4 +140,10 @@ public class ByteInputStream
             }
         }
     }
+
+    @Override
+    public ByteInputStream clone()
+    {
+        return new ByteInputStream(input.clone());
+    }
 }

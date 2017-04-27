@@ -50,4 +50,10 @@ public class ValueInputStreamSource<S extends ValueInputStream<?>> implements In
                 .add("stream", stream)
                 .toString();
     }
+
+    @Override
+    public ValueInputStreamSource<S> clone()
+    {
+        return new ValueInputStreamSource(stream.clone());
+    }
 }

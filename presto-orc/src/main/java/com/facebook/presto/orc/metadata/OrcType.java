@@ -88,6 +88,11 @@ public class OrcType
         return fieldTypeIndexes.get(field);
     }
 
+    public List<Integer> getFieldTypeIndexes()
+    {
+        return fieldTypeIndexes;
+    }
+
     public String getFieldName(int field)
     {
         return fieldNames.get(field);

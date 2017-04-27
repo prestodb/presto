@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
 import io.airlift.slice.ChunkedSliceInput.SliceLoader;
 import io.airlift.slice.FixedLengthSliceInput;
@@ -168,7 +167,7 @@ public abstract class AbstractOrcDataSource
 
         ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-            ChunkedSliceInput sliceInput = new ChunkedSliceInput(new HdfsSliceLoader(entry.getValue()), toIntExact(streamBufferSize.toBytes()));
+            ChunkedSliceInputDecorator sliceInput = new ChunkedSliceInputDecorator(new HdfsSliceLoader(entry.getValue()), toIntExact(streamBufferSize.toBytes()));
             slices.put(entry.getKey(), sliceInput);
         }
         return slices.build();

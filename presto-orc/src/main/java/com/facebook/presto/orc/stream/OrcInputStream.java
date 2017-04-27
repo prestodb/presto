@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ChunkedSliceInputDecorator;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
@@ -76,6 +77,19 @@ public final class OrcInputStream
             this.compressedSliceInput = sliceInput;
             this.current = EMPTY_SLICE.getInput();
         }
+    }
+
+    private OrcInputStream(String source, FixedLengthSliceInput compressedSliceInput,
+            Optional<OrcDecompressor> decompressor, FixedLengthSliceInput current, byte[] buffer,
+            LocalMemoryContext bufferMemoryUsage, LocalMemoryContext fixedMemoryUsage)
+    {
+        this.source = source;
+        this.compressedSliceInput = compressedSliceInput;
+        this.decompressor = decompressor;
+        this.current = current;
+        this.buffer = buffer;
+        this.bufferMemoryUsage = bufferMemoryUsage;
+        this.fixedMemoryUsage = fixedMemoryUsage;
     }
 
     @Override
@@ -261,5 +275,12 @@ public final class OrcInputStream
                 .add("uncompressedOffset", current == null ? null : current.position())
                 .add("decompressor", decompressor.map(Object::toString).orElse("none"))
                 .toString();
+    }
+
+    @Override
+    public OrcInputStream clone()
+    {
+        return new OrcInputStream(source, ChunkedSliceInputDecorator.clone(compressedSliceInput), decompressor,
+                            ChunkedSliceInputDecorator.clone(current), buffer, bufferMemoryUsage, fixedMemoryUsage);
     }
 }

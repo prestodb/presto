@@ -17,6 +17,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
@@ -41,7 +42,7 @@ public class TestJsonHiveHandles
 
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("clientId", "hive")
-            .put("name", "column")
+            .put("parts", ImmutableList.of("column"))
             .put("hiveType", "float")
             .put("typeSignature", "double")
             .put("hiveColumnIndex", -1)

@@ -47,7 +47,6 @@ import io.airlift.slice.Slices;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -74,7 +73,6 @@ public class StripeReader
     private final Optional<OrcDecompressor> decompressor;
     private final List<OrcType> types;
     private final HiveWriterVersion hiveWriterVersion;
-    private final Set<Integer> includedOrcColumns;
     private final int rowsInRowGroup;
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
@@ -82,7 +80,6 @@ public class StripeReader
     public StripeReader(OrcDataSource orcDataSource,
             Optional<OrcDecompressor> decompressor,
             List<OrcType> types,
-            Set<Integer> includedColumns,
             int rowsInRowGroup,
             OrcPredicate predicate,
             HiveWriterVersion hiveWriterVersion,
@@ -91,7 +88,6 @@ public class StripeReader
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.includedOrcColumns = getIncludedOrcColumns(types, requireNonNull(includedColumns, "includedColumns is null"));
         this.rowsInRowGroup = rowsInRowGroup;
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
@@ -109,13 +105,11 @@ public class StripeReader
         Map<StreamId, Stream> streams = new HashMap<>();
         boolean hasRowGroupDictionary = false;
         for (Stream stream : stripeFooter.getStreams()) {
-            if (includedOrcColumns.contains(stream.getColumn())) {
-                streams.put(new StreamId(stream), stream);
+            streams.put(new StreamId(stream), stream);
 
-                ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumn()).getColumnEncodingKind();
-                if (columnEncoding == DICTIONARY && stream.getStreamKind() == StreamKind.IN_DICTIONARY) {
-                    hasRowGroupDictionary = true;
-                }
+            ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumn()).getColumnEncodingKind();
+            if (columnEncoding == DICTIONARY && stream.getStreamKind() == StreamKind.IN_DICTIONARY) {
+                hasRowGroupDictionary = true;
             }
         }
 
@@ -290,7 +284,7 @@ public class StripeReader
         ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
 
         for (int rowGroupId : selectedRowGroups) {
-            Map<StreamId, StreamCheckpoint> checkpoints = getStreamCheckpoints(includedOrcColumns, types, decompressor.isPresent(), rowGroupId, encodings, streams, columnIndexes);
+            Map<StreamId, StreamCheckpoint> checkpoints = getStreamCheckpoints(types, decompressor.isPresent(), rowGroupId, encodings, streams, columnIndexes);
             int rowOffset = rowGroupId * rowsInRowGroup;
             int rowsInGroup = Math.min(rowsInStripe - rowOffset, rowsInRowGroup);
             rowGroupBuilder.add(createRowGroup(rowGroupId, rowOffset, rowsInGroup, valueStreams, checkpoints));
@@ -428,28 +422,6 @@ public class StripeReader
             stripeOffset += streamLength;
         }
         return streamDiskRanges.build();
-    }
-
-    private static Set<Integer> getIncludedOrcColumns(List<OrcType> types, Set<Integer> includedColumns)
-    {
-        Set<Integer> includes = new LinkedHashSet<>();
-
-        OrcType root = types.get(0);
-        for (int includedColumn : includedColumns) {
-            includeOrcColumnsRecursive(types, includes, root.getFieldTypeIndex(includedColumn));
-        }
-
-        return includes;
-    }
-
-    private static void includeOrcColumnsRecursive(List<OrcType> types, Set<Integer> result, int typeId)
-    {
-        result.add(typeId);
-        OrcType type = types.get(typeId);
-        int children = type.getFieldCount();
-        for (int i = 0; i < children; ++i) {
-            includeOrcColumnsRecursive(types, result, type.getFieldTypeIndex(i));
-        }
     }
 
     /**

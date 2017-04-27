@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -30,6 +31,8 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
+
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
@@ -45,6 +48,10 @@ import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -722,19 +729,80 @@ public final class HiveUtil
 
     public static List<HiveColumnHandle> getRegularColumnHandles(String connectorId, Table table)
     {
+        HiveStorageFormat format = HiveMetadata.extractHiveStorageFormat(table);
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         int hiveColumnIndex = 0;
         for (Column field : table.getDataColumns()) {
-            // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
+            // ignore unsupported types rather than failing
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment()));
+                hiveColumnIndex = appendColumnHandles(columns,
+                        new HiveColumnHandle(connectorId, field.getName(), hiveType,
+                                            hiveType.getTypeSignature(), hiveColumnIndex,
+                                            REGULAR, field.getComment()),
+                        format);
             }
-            hiveColumnIndex++;
         }
 
         return columns.build();
+    }
+
+    public static int appendColumnHandles(Builder<HiveColumnHandle> columns, HiveColumnHandle parent, HiveStorageFormat format)
+    {
+        columns.add(parent); // add first for pre-order
+        int hiveColumnIndex = parent.getHiveColumnIndex() + 1; // use next index.
+        if (format != HiveStorageFormat.ORC && format != HiveStorageFormat.DWRF) {
+            return hiveColumnIndex;
+        }
+
+        // denormalize the column index as stored by ORC
+        TypeInfo info = parent.getHiveType().getTypeInfo();
+        if (info.getCategory() == Category.STRUCT) {
+            StructTypeInfo structTypeInfo = (StructTypeInfo) info;
+            for (int i = 0; i < structTypeInfo.getAllStructFieldNames().size(); i++) {
+                String name = structTypeInfo.getAllStructFieldNames().get(i);
+
+                TypeInfo typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(i);
+                HiveType hiveType = HiveType.valueOf(typeInfo.getTypeName());
+
+                hiveColumnIndex = appendColumnHandles(columns,
+                        new HiveColumnHandle(parent.getClientId(), ImmutableList.<String>builder().addAll(parent.getParts()).add(name).build(),
+                                hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, parent.getComment()),
+                        format);
+            }
+        }
+        else if (info.getCategory() == Category.LIST) {
+            ListTypeInfo listTypeInfo = (ListTypeInfo) info;
+
+            TypeInfo typeInfo = listTypeInfo.getListElementTypeInfo();
+            HiveType hiveType = HiveType.valueOf(typeInfo.getTypeName());
+
+            hiveColumnIndex = appendColumnHandles(columns,
+                    new HiveColumnHandle(parent.getClientId(), ImmutableList.<String>builder().addAll(parent.getParts()).add("item").build(),
+                            hiveType, hiveType.getTypeSignature(), hiveColumnIndex, ColumnType.REGULAR, parent.getComment()),
+                    format);
+        }
+        else if (info.getCategory() == Category.MAP) {
+            MapTypeInfo listTypeInfo = (MapTypeInfo) info;
+
+            TypeInfo keyInfo = listTypeInfo.getMapKeyTypeInfo();
+            HiveType keyHiveType = HiveType.valueOf(keyInfo.getTypeName());
+
+            hiveColumnIndex = appendColumnHandles(columns,
+                    new HiveColumnHandle(parent.getClientId(), ImmutableList.<String>builder().addAll(parent.getParts()).add("key").build(),
+                            keyHiveType, keyHiveType.getTypeSignature(), hiveColumnIndex, ColumnType.REGULAR, parent.getComment()),
+                    format);
+
+            TypeInfo valueInfo = listTypeInfo.getMapValueTypeInfo();
+            HiveType valueHiveType = HiveType.valueOf(valueInfo.getTypeName());
+
+            hiveColumnIndex = appendColumnHandles(columns,
+                    new HiveColumnHandle(parent.getClientId(), ImmutableList.<String>builder().addAll(parent.getParts()).add("value").build(),
+                            valueHiveType, valueHiveType.getTypeSignature(), hiveColumnIndex, ColumnType.REGULAR, parent.getComment()),
+                    format);
+        }
+        return hiveColumnIndex;
     }
 
     public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table)

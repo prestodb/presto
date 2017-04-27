@@ -47,4 +47,10 @@ public class RowGroupDictionaryLengthInputStream
         RowGroupDictionaryLengthStreamCheckpoint rowGroupDictionaryLengthStreamCheckpoint = (RowGroupDictionaryLengthStreamCheckpoint) checkpoint;
         entryCount = rowGroupDictionaryLengthStreamCheckpoint.getRowGroupDictionarySize();
     }
+
+    @Override
+    public RowGroupDictionaryLengthInputStream clone()
+    {
+        return new RowGroupDictionaryLengthInputStream(input.clone(), signed);
+    }
 }

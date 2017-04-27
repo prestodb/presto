@@ -86,4 +86,10 @@ public class FloatInputStream
             }
         }
     }
+
+    @Override
+    public FloatInputStream clone()
+    {
+        return new FloatInputStream(input.clone());
+    }
 }
