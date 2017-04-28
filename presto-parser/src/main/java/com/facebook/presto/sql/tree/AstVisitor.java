@@ -15,7 +15,7 @@ package com.facebook.presto.sql.tree;
 
 import javax.annotation.Nullable;
 
-public abstract class AstVisitor<R, C>
+public abstract class AstVisitor<C, R>
 {
     public R process(Node node)
     {

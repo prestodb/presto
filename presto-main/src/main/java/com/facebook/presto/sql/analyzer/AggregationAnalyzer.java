@@ -163,7 +163,7 @@ class AggregationAnalyzer
      * visitor returns true if all expressions are constant with respect to the group.
      */
     private class Visitor
-            extends AstVisitor<Boolean, Void>
+            extends AstVisitor<Void, Boolean>
     {
         @Override
         protected Boolean visitExpression(Expression node, Void context)

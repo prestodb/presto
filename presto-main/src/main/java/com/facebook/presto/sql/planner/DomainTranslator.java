@@ -276,7 +276,7 @@ public final class DomainTranslator
     }
 
     private static class Visitor
-            extends AstVisitor<ExtractionResult, Boolean>
+            extends AstVisitor<Boolean, ExtractionResult>
     {
         private final Metadata metadata;
         private final Session session;

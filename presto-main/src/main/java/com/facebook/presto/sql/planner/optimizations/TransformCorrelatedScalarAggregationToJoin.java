@@ -343,7 +343,7 @@ public class TransformCorrelatedScalarAggregationToJoin
         private static boolean isSupportedPredicate(Expression predicate)
         {
             AtomicBoolean isSupported = new AtomicBoolean(true);
-            new DefaultTraversalVisitor<Void, AtomicBoolean>()
+            new DefaultTraversalVisitor<AtomicBoolean, Void>()
             {
                 @Override
                 protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, AtomicBoolean context)

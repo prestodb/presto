@@ -94,7 +94,7 @@ public final class SortExpressionExtractor
     }
 
     private static class BuildFieldReferenceFinder
-            extends AstVisitor<Boolean, Void>
+            extends AstVisitor<Void, Boolean>
     {
         private final Set<Integer> buildLayout;
 

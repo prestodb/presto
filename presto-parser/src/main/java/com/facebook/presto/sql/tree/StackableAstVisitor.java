@@ -16,8 +16,8 @@ package com.facebook.presto.sql.tree;
 import java.util.LinkedList;
 import java.util.Optional;
 
-public class StackableAstVisitor<R, C>
-        extends AstVisitor<R, StackableAstVisitor.StackableAstVisitorContext<C>>
+public class StackableAstVisitor<C, R>
+        extends AstVisitor<StackableAstVisitor.StackableAstVisitorContext<C>, R>
 {
     public R process(Node node, StackableAstVisitorContext<C> context)
     {

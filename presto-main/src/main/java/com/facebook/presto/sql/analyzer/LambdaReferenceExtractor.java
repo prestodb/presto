@@ -43,7 +43,7 @@ public class LambdaReferenceExtractor
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Expression>>
+            extends DefaultExpressionTraversalVisitor<ImmutableList.Builder<Expression>, Void>
     {
         private final Analysis analysis;
 

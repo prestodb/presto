@@ -56,7 +56,7 @@ public class GroupBy
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    protected <C, R> R accept(AstVisitor<C, R> visitor, C context)
     {
         return visitor.visitGroupBy(this, context);
     }

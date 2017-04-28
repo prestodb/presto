@@ -70,7 +70,7 @@ public final class Rollup
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    protected <C, R> R accept(AstVisitor<C, R> visitor, C context)
     {
         return visitor.visitRollup(this, context);
     }
