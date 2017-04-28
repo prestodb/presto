@@ -89,7 +89,7 @@ public class ExpressionExtractor
         @Override
         public Void visitAggregation(AggregationNode node, ImmutableList.Builder<Expression> context)
         {
-            node.getAssignments().values()
+            node.getAggregations().values()
                     .forEach(aggregation -> context.add(aggregation.getCall()));
             return super.visitAggregation(node, context);
         }

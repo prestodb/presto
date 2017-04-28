@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
@@ -23,6 +22,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -306,22 +306,18 @@ public class PruneUnreferencedOutputs
                 expectedInputs.add(node.getHashSymbol().get());
             }
 
-            ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
 
                 if (context.get().contains(symbol)) {
-                    FunctionCall call = entry.getValue();
+                    Aggregation aggregation = entry.getValue();
+                    FunctionCall call = aggregation.getCall();
                     expectedInputs.addAll(DependencyExtractor.extractUnique(call));
-                    if (node.getMasks().containsKey(symbol)) {
-                        expectedInputs.add(node.getMasks().get(symbol));
-                        masks.put(symbol, node.getMasks().get(symbol));
+                    if (aggregation.getMask().isPresent()) {
+                        expectedInputs.add(aggregation.getMask().get());
                     }
-
-                    functionCalls.put(symbol, call);
-                    functions.put(symbol, node.getFunctions().get(symbol));
+                    aggregations.put(symbol, new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
                 }
             }
 
@@ -329,9 +325,7 @@ public class PruneUnreferencedOutputs
 
             return new AggregationNode(node.getId(),
                     source,
-                    functionCalls.build(),
-                    functions.build(),
-                    masks.build(),
+                    aggregations.build(),
                     node.getGroupingSets(),
                     node.getStep(),
                     node.getHashSymbol(),

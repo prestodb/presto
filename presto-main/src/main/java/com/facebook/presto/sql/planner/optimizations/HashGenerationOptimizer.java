@@ -165,8 +165,6 @@ public class HashGenerationOptimizer
                             idAllocator.getNextId(),
                             child.getNode(),
                             node.getAggregations(),
-                            node.getFunctions(),
-                            node.getMasks(),
                             node.getGroupingSets(),
                             node.getStep(),
                             hashSymbol,

@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -183,24 +184,25 @@ public class ScalarAggregationToJoinRewriter
             JoinNode leftOuterJoin,
             Symbol nonNullableAggregationSourceSymbol)
     {
-        ImmutableMap.Builder<Symbol, FunctionCall> aggregations = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
-        for (Map.Entry<Symbol, FunctionCall> entry : scalarAggregation.getAggregations().entrySet()) {
-            FunctionCall call = entry.getValue();
+        for (Map.Entry<Symbol, Aggregation> entry : scalarAggregation.getAggregations().entrySet()) {
+            FunctionCall call = entry.getValue().getCall();
             Symbol symbol = entry.getKey();
             if (call.getName().equals(COUNT)) {
-                aggregations.put(symbol, new FunctionCall(
-                        COUNT,
-                        ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())));
                 List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
-                functions.put(symbol, functionRegistry.resolveFunction(
-                        COUNT,
-                        fromTypeSignatures(scalarAggregationSourceTypeSignatures)));
+                aggregations.put(symbol, new Aggregation(
+                        new FunctionCall(
+                            COUNT,
+                            ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
+                        functionRegistry.resolveFunction(
+                                COUNT,
+                                fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
+                        entry.getValue().getMask()));
             }
             else {
                 aggregations.put(symbol, entry.getValue());
-                functions.put(symbol, scalarAggregation.getFunctions().get(symbol));
             }
         }
 
@@ -209,8 +211,6 @@ public class ScalarAggregationToJoinRewriter
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 aggregations.build(),
-                functions.build(),
-                scalarAggregation.getMasks(),
                 ImmutableList.of(groupBySymbols),
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashSymbol(),

@@ -918,8 +918,6 @@ public class PredicatePushDown
                 output = new AggregationNode(node.getId(),
                         rewrittenSource,
                         node.getAggregations(),
-                        node.getFunctions(),
-                        node.getMasks(),
                         node.getGroupingSets(),
                         node.getStep(),
                         node.getHashSymbol(),

@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -143,18 +144,23 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
-                            minValue, new FunctionCall(MIN, outputColumnReferences),
-                            maxValue, new FunctionCall(MAX, outputColumnReferences),
-                            countAllValue, new FunctionCall(COUNT, emptyList()),
-                            countNonNullValue, new FunctionCall(COUNT, outputColumnReferences)
+                            minValue, new Aggregation(
+                                    new FunctionCall(MIN, outputColumnReferences),
+                                    functionRegistry.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
+                                    Optional.empty()),
+                            maxValue, new Aggregation(
+                                    new FunctionCall(MAX, outputColumnReferences),
+                                    functionRegistry.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
+                                    Optional.empty()),
+                            countAllValue, new Aggregation(
+                                    new FunctionCall(COUNT, emptyList()),
+                                    functionRegistry.resolveFunction(COUNT, emptyList()),
+                                    Optional.empty()),
+                            countNonNullValue, new Aggregation(
+                                    new FunctionCall(COUNT, outputColumnReferences),
+                                    functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
+                                    Optional.empty())
                     ),
-                    ImmutableMap.of(
-                            minValue, functionRegistry.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
-                            maxValue, functionRegistry.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
-                            countAllValue, functionRegistry.resolveFunction(COUNT, emptyList()),
-                            countNonNullValue, functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature))
-                    ),
-                    ImmutableMap.of(),
                     ImmutableList.of(ImmutableList.of()),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),

@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
@@ -28,6 +27,7 @@ import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -520,8 +520,9 @@ class QueryPlanner
         aggregationTranslations.copyMappingsFrom(groupingTranslations);
 
         // 2.d. Rewrite aggregates
-        ImmutableMap.Builder<Symbol, FunctionCall> aggregationAssignments = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+        // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
+        Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), aggregate);
@@ -535,34 +536,27 @@ class QueryPlanner
                 rewritten = ((Cast) rewritten).getExpression();
                 needPostProjectionCoercion = true;
             }
-            aggregationAssignments.put(newSymbol, (FunctionCall) rewritten);
             aggregationTranslations.put(parametersReplaced, newSymbol);
 
-            functions.put(newSymbol, analysis.getFunctionSignature(aggregate));
+            Optional<Symbol> marker = Optional.empty();
+            if (aggregate.isDistinct()) {
+                Set<Expression> args = ImmutableSet.copyOf(aggregate.getArguments());
+                marker = Optional.ofNullable(argumentMarkers.get(args));
+                Symbol aggregateSymbol = aggregationTranslations.get(aggregate);
+                if (!marker.isPresent()) {
+                    if (args.size() == 1) {
+                        marker = Optional.of(symbolAllocator.newSymbol(getOnlyElement(args), BOOLEAN, "distinct"));
+                    }
+                    else {
+                        marker = Optional.of(symbolAllocator.newSymbol(aggregateSymbol.getName(), BOOLEAN, "distinct"));
+                    }
+                    argumentMarkers.put(args, marker.get());
+                }
+            }
+            aggregations.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker));
         }
 
         // 2.e. Mark distinct rows for each aggregate that has DISTINCT
-        // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
-        Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
-        // Map from aggregate functions to marker symbols
-        Map<Symbol, Symbol> masks = new HashMap<>();
-        for (FunctionCall aggregate : Iterables.filter(analysis.getAggregates(node), FunctionCall::isDistinct)) {
-            Set<Expression> args = ImmutableSet.copyOf(aggregate.getArguments());
-            Symbol marker = argumentMarkers.get(args);
-            Symbol aggregateSymbol = aggregationTranslations.get(aggregate);
-            if (marker == null) {
-                if (args.size() == 1) {
-                    marker = symbolAllocator.newSymbol(getOnlyElement(args), BOOLEAN, "distinct");
-                }
-                else {
-                    marker = symbolAllocator.newSymbol(aggregateSymbol.getName(), BOOLEAN, "distinct");
-                }
-                argumentMarkers.put(args, marker);
-            }
-
-            masks.put(aggregateSymbol, marker);
-        }
-
         for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
             ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
             builder.addAll(groupingSymbols.stream()
@@ -586,9 +580,7 @@ class QueryPlanner
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                aggregationAssignments.build(),
-                functions.build(),
-                masks,
+                aggregations.build(),
                 groupingSymbols,
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
@@ -790,8 +782,6 @@ class QueryPlanner
                     new AggregationNode(
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
-                            ImmutableMap.of(),
-                            ImmutableMap.of(),
                             ImmutableMap.of(),
                             ImmutableList.of(subPlan.getRoot().getOutputSymbols()),
                             AggregationNode.Step.SINGLE,

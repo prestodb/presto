@@ -103,7 +103,7 @@ public class DesugaringOptimizer
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            Map<Symbol, Aggregation> assignments = node.getAssignments().entrySet().stream()
+            Map<Symbol, Aggregation> aggregations = node.getAggregations().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> {
                         Aggregation aggregation = entry.getValue();
                         return new Aggregation((FunctionCall) desugar(aggregation.getCall()), aggregation.getSignature(), aggregation.getMask());
@@ -111,7 +111,7 @@ public class DesugaringOptimizer
             return new AggregationNode(
                     node.getId(),
                     source,
-                    assignments,
+                    aggregations,
                     node.getGroupingSets(),
                     node.getStep(),
                     node.getHashSymbol(),

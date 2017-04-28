@@ -72,7 +72,7 @@ public class AggregationMatcher
         List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
                 .entrySet()
                 .stream()
-                .filter(entry -> entry.getValue().isDistinct())
+                .filter(entry -> entry.getValue().getCall().isDistinct())
                 .map(entry -> entry.getKey())
                 .collect(Collectors.toList());
 

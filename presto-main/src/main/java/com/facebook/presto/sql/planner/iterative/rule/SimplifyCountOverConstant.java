@@ -61,15 +61,15 @@ public class SimplifyCountOverConstant
         ProjectNode child = (ProjectNode) input;
 
         boolean changed = false;
-        Map<Symbol, AggregationNode.Aggregation> assignments = new LinkedHashMap<>(parent.getAssignments());
+        Map<Symbol, AggregationNode.Aggregation> aggregations = new LinkedHashMap<>(parent.getAggregations());
 
-        for (Entry<Symbol, AggregationNode.Aggregation> entry : parent.getAssignments().entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : parent.getAggregations().entrySet()) {
             Symbol symbol = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
             if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
-                assignments.put(symbol, new AggregationNode.Aggregation(
+                aggregations.put(symbol, new AggregationNode.Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                         new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
                         aggregation.getMask()));
@@ -83,7 +83,7 @@ public class SimplifyCountOverConstant
         return Optional.of(new AggregationNode(
                 node.getId(),
                 child,
-                assignments,
+                aggregations,
                 parent.getGroupingSets(),
                 parent.getStep(),
                 parent.getHashSymbol(),

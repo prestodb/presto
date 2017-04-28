@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -45,6 +46,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -57,6 +59,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PartialAggregationPushDown
@@ -249,8 +252,6 @@ public class PartialAggregationPushDown
                     aggregation.getId(),
                     aggregation.getSource(),
                     aggregation.getAggregations(),
-                    aggregation.getFunctions(),
-                    aggregation.getMasks(),
                     ImmutableList.of(groupingSet),
                     aggregation.getStep(),
                     aggregation.getHashSymbol(),
@@ -258,9 +259,9 @@ public class PartialAggregationPushDown
             return new SymbolMapper(mapping.build()).map(pushedAggregation, source);
         }
 
-        private boolean allAggregationsOn(Map<Symbol, FunctionCall> aggregations, List<Symbol> outputSymbols)
+        private boolean allAggregationsOn(Map<Symbol, Aggregation> aggregations, List<Symbol> outputSymbols)
         {
-            Set<Symbol> inputs = DependencyExtractor.extractUnique(aggregations.values());
+            Set<Symbol> inputs = DependencyExtractor.extractUnique(aggregations.values().stream().map(Aggregation::getCall).collect(toImmutableList()));
             return outputSymbols.containsAll(inputs);
         }
 
@@ -341,33 +342,28 @@ public class PartialAggregationPushDown
         private PlanNode split(AggregationNode node)
         {
             // otherwise, add a partial and final with an exchange in between
-            Map<Symbol, Symbol> masks = node.getMasks();
-
-            Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
-            Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
-            Map<Symbol, Signature> intermediateFunctions = new HashMap<>();
-            Map<Symbol, Symbol> intermediateMask = new HashMap<>();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                Signature signature = node.getFunctions().get(entry.getKey());
+            Map<Symbol, Aggregation> intermediateAggregation = new HashMap<>();
+            Map<Symbol, Aggregation> finalAggregation = new HashMap<>();
+            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+                Aggregation originalAggregation = entry.getValue();
+                Signature signature = originalAggregation.getSignature();
                 InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
-
                 Symbol intermediateSymbol = allocator.newSymbol(signature.getName(), function.getIntermediateType());
-                intermediateCalls.put(intermediateSymbol, entry.getValue());
-                intermediateFunctions.put(intermediateSymbol, signature);
-                if (masks.containsKey(entry.getKey())) {
-                    intermediateMask.put(intermediateSymbol, masks.get(entry.getKey()));
-                }
+
+                intermediateAggregation.put(intermediateSymbol, new Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
 
                 // rewrite final aggregation in terms of intermediate function
-                finalCalls.put(entry.getKey(), new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())));
+                finalAggregation.put(entry.getKey(),
+                        new Aggregation(
+                                new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())),
+                                signature,
+                                Optional.empty()));
             }
 
             PlanNode partial = new AggregationNode(
                     idAllocator.getNextId(),
                     node.getSource(),
-                    intermediateCalls,
-                    intermediateFunctions,
-                    intermediateMask,
+                    intermediateAggregation,
                     node.getGroupingSets(),
                     PARTIAL,
                     node.getHashSymbol(),
@@ -376,9 +372,7 @@ public class PartialAggregationPushDown
             return new AggregationNode(
                     node.getId(),
                     partial,
-                    finalCalls,
-                    node.getFunctions(),
-                    ImmutableMap.of(),
+                    finalAggregation,
                     node.getGroupingSets(),
                     FINAL,
                     node.getHashSymbol(),

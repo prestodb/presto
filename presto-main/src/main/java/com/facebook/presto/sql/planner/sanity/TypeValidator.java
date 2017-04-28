@@ -23,6 +23,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -81,11 +82,11 @@ public final class TypeValidator
 
             switch (step) {
                 case SINGLE:
-                    checkFunctionSignature(node.getFunctions());
+                    checkFunctionSignature(node.getAggregations());
                     checkFunctionCall(node.getAggregations());
                     break;
                 case FINAL:
-                    checkFunctionSignature(node.getFunctions());
+                    checkFunctionSignature(node.getAggregations());
                     break;
             }
 
@@ -165,17 +166,17 @@ public final class TypeValidator
             verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
         }
 
-        private void checkFunctionSignature(Map<Symbol, Signature> functions)
+        private void checkFunctionSignature(Map<Symbol, Aggregation> aggregations)
         {
-            for (Map.Entry<Symbol, Signature> entry : functions.entrySet()) {
-                checkSignature(entry.getKey(), entry.getValue());
+            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
+                checkSignature(entry.getKey(), entry.getValue().getSignature());
             }
         }
 
-        private void checkFunctionCall(Map<Symbol, FunctionCall> functionCalls)
+        private void checkFunctionCall(Map<Symbol, Aggregation> aggregations)
         {
-            for (Map.Entry<Symbol, FunctionCall> entry : functionCalls.entrySet()) {
-                checkCall(entry.getKey(), entry.getValue());
+            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
+                checkCall(entry.getKey(), entry.getValue().getCall());
             }
         }
 

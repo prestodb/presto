@@ -101,7 +101,7 @@ public class AddIntermediateAggregations
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
-                    inputsAsOutputs(aggregation.getAssignments()),
+                    inputsAsOutputs(aggregation.getAggregations()),
                     aggregation.getGroupingSets(),
                     AggregationNode.Step.INTERMEDIATE,
                     aggregation.getHashSymbol(),
@@ -143,7 +143,7 @@ public class AddIntermediateAggregations
         return new AggregationNode(
                 idAllocator.getNextId(),
                 gatheringExchange,
-                outputsAsInputs(aggregation.getAssignments()),
+                outputsAsInputs(aggregation.getAggregations()),
                 aggregation.getGroupingSets(),
                 AggregationNode.Step.INTERMEDIATE,
                 aggregation.getHashSymbol(),

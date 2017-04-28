@@ -105,6 +105,7 @@ import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -160,7 +161,6 @@ import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
@@ -1891,7 +1891,7 @@ public class LocalExecutionPlanner
                 PhysicalOperation source,
                 Signature function,
                 FunctionCall call,
-                @Nullable Symbol mask)
+                Optional<Symbol> mask)
         {
             List<Integer> arguments = new ArrayList<>();
             for (Expression argument : call.getArguments()) {
@@ -1901,7 +1901,7 @@ public class LocalExecutionPlanner
 
             Optional<Integer> maskChannel = Optional.empty();
             if (mask != null) {
-                maskChannel = Optional.of(source.getLayout().get(mask));
+                maskChannel = mask.map(value -> source.getLayout().get(value));
             }
 
             return metadata.getFunctionRegistry().getAggregateFunctionImplementation(function).bind(arguments, maskChannel);
@@ -1912,13 +1912,13 @@ public class LocalExecutionPlanner
             int outputChannel = 0;
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
-
+                Aggregation aggregation = entry.getValue();
                 accumulatorFactories.add(buildAccumulatorFactory(source,
-                        node.getFunctions().get(symbol),
-                        entry.getValue(),
-                        node.getMasks().get(entry.getKey())));
+                        aggregation.getSignature(),
+                        aggregation.getCall(),
+                        aggregation.getMask()));
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
@@ -1938,14 +1938,15 @@ public class LocalExecutionPlanner
 
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
+                Aggregation aggregation = entry.getValue();
 
                 accumulatorFactories.add(buildAccumulatorFactory(
                         source,
-                        node.getFunctions().get(symbol),
-                        entry.getValue(),
-                        node.getMasks().get(entry.getKey())));
+                        aggregation.getSignature(),
+                        aggregation.getCall(),
+                        aggregation.getMask()));
                 aggregationOutputSymbols.add(symbol);
             }
 

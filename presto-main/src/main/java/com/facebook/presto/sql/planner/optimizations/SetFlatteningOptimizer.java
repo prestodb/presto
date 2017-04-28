@@ -131,8 +131,6 @@ public class SetFlatteningOptimizer
                     node.getId(),
                     rewrittenNode,
                     node.getAggregations(),
-                    node.getFunctions(),
-                    node.getMasks(),
                     node.getGroupingSets(),
                     node.getStep(),
                     node.getHashSymbol(),

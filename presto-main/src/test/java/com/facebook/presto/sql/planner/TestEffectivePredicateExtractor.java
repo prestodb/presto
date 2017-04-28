@@ -24,6 +24,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -154,9 +155,8 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, DE),
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
-                ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
-                ImmutableMap.of(C, fakeFunctionHandle("test", AGGREGATE), D, fakeFunctionHandle("test", AGGREGATE)),
-                ImmutableMap.of(),
+                ImmutableMap.of(C, new Aggregation(fakeFunction("test"), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
+                                D, new Aggregation(fakeFunction("test"), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
                 ImmutableList.of(ImmutableList.of(A, B, C)),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
@@ -180,8 +180,6 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new AggregationNode(
                 newId(),
                 filter(baseTableScan, FALSE_LITERAL),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.FINAL,

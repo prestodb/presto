@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -183,23 +184,21 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> functions = ImmutableMap.of(
-                aggregationSymbol, new Signature(
-                        "sum",
-                        FunctionKind.AGGREGATE,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        DOUBLE.getTypeSignature(),
-                        ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> aggregations = ImmutableMap.of(aggregationSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())));
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                aggregations,
-                functions,
-                ImmutableMap.of(),
+                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        new Signature(
+                                "sum",
+                                FunctionKind.AGGREGATE,
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                DOUBLE.getTypeSignature(),
+                                ImmutableList.of(DOUBLE.getTypeSignature()),
+                                false),
+                        Optional.empty())),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
                 SINGLE,
                 Optional.empty(),
@@ -245,23 +244,21 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> functions = ImmutableMap.of(
-                aggregationSymbol, new Signature(
-                        "sum",
-                        FunctionKind.AGGREGATE,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        DOUBLE.getTypeSignature(),
-                        ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> aggregations = ImmutableMap.of(aggregationSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference()))); // should be columnC
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                aggregations,
-                functions,
-                ImmutableMap.of(),
+                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
+                        new Signature(
+                                "sum",
+                                FunctionKind.AGGREGATE,
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                DOUBLE.getTypeSignature(),
+                                ImmutableList.of(DOUBLE.getTypeSignature()),
+                                false),
+                        Optional.empty())),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
                 SINGLE,
                 Optional.empty(),
@@ -275,23 +272,21 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> functions = ImmutableMap.of(
-                aggregationSymbol, new Signature(
-                        "sum",
-                        FunctionKind.AGGREGATE,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        BIGINT.getTypeSignature(), // should be DOUBLE
-                        ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> aggregations = ImmutableMap.of(aggregationSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())));
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                aggregations,
-                functions,
-                ImmutableMap.of(),
+                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        new Signature(
+                                "sum",
+                                FunctionKind.AGGREGATE,
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                BIGINT.getTypeSignature(), // should be DOUBLE
+                                ImmutableList.of(DOUBLE.getTypeSignature()),
+                                false),
+                        Optional.empty())),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
                 SINGLE,
                 Optional.empty(),

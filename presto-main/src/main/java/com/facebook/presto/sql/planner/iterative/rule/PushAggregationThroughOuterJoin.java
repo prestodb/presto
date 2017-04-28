@@ -115,7 +115,7 @@ public class PushAggregationThroughOuterJoin
         AggregationNode rewrittenAggregation = new AggregationNode(
                 node.getId(),
                 getInnerTable(join),
-                aggregation.getAssignments(),
+                aggregation.getAggregations(),
                 ImmutableList.of(groupingKeys),
                 aggregation.getStep(),
                 aggregation.getHashSymbol(),
@@ -131,7 +131,7 @@ public class PushAggregationThroughOuterJoin
                     join.getCriteria(),
                     ImmutableList.<Symbol>builder()
                             .addAll(join.getLeft().getOutputSymbols())
-                            .addAll(rewrittenAggregation.getAssignments().keySet())
+                            .addAll(rewrittenAggregation.getAggregations().keySet())
                             .build(),
                     join.getFilter(),
                     join.getLeftHashSymbol(),
@@ -146,7 +146,7 @@ public class PushAggregationThroughOuterJoin
                     join.getRight(),
                     join.getCriteria(),
                     ImmutableList.<Symbol>builder()
-                            .addAll(rewrittenAggregation.getAssignments().keySet())
+                            .addAll(rewrittenAggregation.getAggregations().keySet())
                             .addAll(join.getRight().getOutputSymbols())
                             .build(),
                     join.getFilter(),
@@ -220,7 +220,7 @@ public class PushAggregationThroughOuterJoin
         // Add coalesce expressions for all aggregation functions
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         for (Symbol symbol : outerJoin.getOutputSymbols()) {
-            if (aggregationNode.getAssignments().containsKey(symbol)) {
+            if (aggregationNode.getAggregations().containsKey(symbol)) {
                 assignmentsBuilder.put(symbol, new CoalesceExpression(symbol.toSymbolReference(), sourceAggregationToOverNullMapping.get(symbol).toSymbolReference()));
             }
             else {
@@ -256,7 +256,7 @@ public class PushAggregationThroughOuterJoin
         // symbols in these new aggregations.
         ImmutableMap.Builder<Symbol, Symbol> aggregationsSymbolMappingBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAssignments().entrySet()) {
+        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
             Symbol aggregationSymbol = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
