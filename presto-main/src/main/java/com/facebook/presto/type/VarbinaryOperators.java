@@ -92,7 +92,7 @@ public final class VarbinaryOperators
         // This needs to match the hash function for VARBINARY blocks
         // (i.e. AstractVariableWidthBlock.hash(...))
         // TODO: we need to get rid of hash from Block and rely on HASH_CODE operators only
-        return XxHash64.hash(value);
+        return value.longHashCode();
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)

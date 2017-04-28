@@ -20,7 +20,6 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
-import io.airlift.slice.XxHash64;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
@@ -230,7 +229,7 @@ public final class VarcharOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType("varchar(x)") Slice value)
     {
-        return XxHash64.hash(value);
+        return value.longHashCode();
     }
 
     @LiteralParameters({"x", "y"})
