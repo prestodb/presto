@@ -98,7 +98,7 @@ public class ArrayBlockBuilder
     @Override
     public int getRetainedSizeInBytes()
     {
-        return retainedSizeInBytes;
+        return retainedSizeInBytes + values.getRetainedSizeInBytes();
     }
 
     @Override
