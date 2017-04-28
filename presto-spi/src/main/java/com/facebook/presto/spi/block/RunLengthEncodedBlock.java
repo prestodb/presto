@@ -177,7 +177,7 @@ public class RunLengthEncodedBlock
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
-        value.writePositionTo(position, blockBuilder);
+        value.writePositionTo(0, blockBuilder);
     }
 
     @Override
