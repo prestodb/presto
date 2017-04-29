@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    CREATE TABLE [ IF NOT EXISTS ] table_name
+    CREATE TABLE [ IF NOT EXISTS ] table_name [ ( column_alias, ... ) ]
     [ COMMENT table_comment ]
     [ WITH ( property_name = expression [, ...] ) ]
     AS query
@@ -30,6 +30,13 @@ properties, run the following query::
 
 Examples
 --------
+
+Create a new table ``orders_column_aliased`` with the results of a query and the given column names::
+
+    CREATE TABLE orders_column_aliased (order_date, total_price)
+    AS
+    SELECT orderdate, totalprice
+    FROM orders
 
 Create a new table ``orders_by_date`` that summarizes ``orders``::
 

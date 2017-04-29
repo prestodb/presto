@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.parser.SqlBaseParser.ColumnAliasesContext;
 import com.facebook.presto.sql.parser.SqlBaseParser.TablePropertiesContext;
 import com.facebook.presto.sql.parser.SqlBaseParser.TablePropertyContext;
 import com.facebook.presto.sql.tree.AddColumn;
@@ -235,7 +236,15 @@ class AstBuilder
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
         }
-        return new CreateTableAsSelect(getLocation(context), getQualifiedName(context.qualifiedName()), (Query) visit(context.query()), context.EXISTS() != null, processTableProperties(context.tableProperties()), context.NO() == null, comment);
+        return new CreateTableAsSelect(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                (Query) visit(context.query()),
+                context.EXISTS() != null,
+                processTableProperties(context.tableProperties()),
+                context.NO() == null,
+                processColumnAliases(context.columnAliases()),
+                comment);
     }
 
     @Override
@@ -257,6 +266,18 @@ class AstBuilder
             }
         }
         return properties.build();
+    }
+
+    private Optional<List<Identifier>> processColumnAliases(ColumnAliasesContext columnAliasesContext)
+    {
+        if (columnAliasesContext == null) {
+            return Optional.empty();
+        }
+        ImmutableList.Builder<Identifier> columnAliases = ImmutableList.builder();
+        for (SqlBaseParser.IdentifierContext identifierContext : columnAliasesContext.identifier()) {
+            columnAliases.add(new Identifier(getLocation(identifierContext), identifierContext.getText()));
+        }
+        return Optional.of(columnAliases.build());
     }
 
     @Override
