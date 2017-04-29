@@ -42,6 +42,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
+import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -57,6 +58,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -237,10 +239,10 @@ public class PageFunctionCompiler
 
         Variable block = scope.declareVariable(Block.class, "block");
         body.append(block.set(thisVariable.getField(blockBuilder).invoke("build", Block.class)))
-            .append(thisVariable.setField(
-                    blockBuilder,
-                    thisVariable.getField(blockBuilder).invoke("newBlockBuilderLike", BlockBuilder.class, newInstance(BlockBuilderStatus.class))))
-            .append(block.ret());
+                .append(thisVariable.setField(
+                        blockBuilder,
+                        thisVariable.getField(blockBuilder).invoke("newBlockBuilderLike", BlockBuilder.class, newInstance(BlockBuilderStatus.class))))
+                .append(block.ret());
 
         return method;
     }
@@ -273,6 +275,8 @@ public class PageFunctionCompiler
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
+
+        declareBlockVariables(projection, page, scope, body);
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
@@ -432,6 +436,8 @@ public class PageFunctionCompiler
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
+        declareBlockVariables(filter, page, scope, body);
+
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
@@ -465,7 +471,7 @@ public class PageFunctionCompiler
                 verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
 
                 Parameter session = arg("session", ConnectorSession.class);
-                Parameter page = arg("page", Page.class);
+                List<Parameter> blocks = toBlockParameters(getInputChannels(tryExpression.getArguments()));
                 Parameter position = arg("position", int.class);
 
                 BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
@@ -477,7 +483,7 @@ public class PageFunctionCompiler
 
                 List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
                         .add(session)
-                        .add(page)
+                        .addAll(blocks)
                         .add(position)
                         .build();
 
@@ -534,10 +540,42 @@ public class PageFunctionCompiler
         body.ret();
     }
 
+    private static void declareBlockVariables(RowExpression expression, Parameter page, Scope scope, BytecodeBlock body)
+    {
+        for (int channel : getInputChannels(expression)) {
+            scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
+        }
+    }
+
+    private static List<Integer> getInputChannels(Iterable<RowExpression> expressions)
+    {
+        TreeSet<Integer> channels = new TreeSet<>();
+        for (RowExpression expression : Expressions.subExpressions(expressions)) {
+            if (expression instanceof InputReferenceExpression) {
+                channels.add(((InputReferenceExpression) expression).getField());
+            }
+        }
+        return ImmutableList.copyOf(channels);
+    }
+
+    private static List<Integer> getInputChannels(RowExpression expression)
+    {
+        return getInputChannels(ImmutableList.of(expression));
+    }
+
+    private static List<Parameter> toBlockParameters(List<Integer> inputChannels)
+    {
+        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
+        for (int channel : inputChannels) {
+            parameters.add(arg("block_" + channel, Block.class));
+        }
+        return parameters.build();
+    }
+
     private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(CallSiteBinder callSiteBinder)
     {
         return new InputReferenceCompiler(
-                (scope, field) -> scope.getVariable("page").invoke("getBlock", Block.class, constantInt(field)),
+                (scope, field) -> scope.getVariable("block_" + field),
                 (scope, field) -> scope.getVariable("position"),
                 callSiteBinder);
     }
