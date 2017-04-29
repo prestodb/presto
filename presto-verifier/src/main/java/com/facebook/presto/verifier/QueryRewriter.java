@@ -117,7 +117,7 @@ public class QueryRewriter
             throws SQLException, QueryRewriteException
     {
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getName());
-        Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.isNotExists(), statement.getProperties(), statement.isWithData(), Optional.empty());
+        Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.isNotExists(), statement.getProperties(), statement.isWithData(), statement.getColumnAliases(), Optional.empty());
         String createTableAsSql = formatSql(rewritten, Optional.empty());
         String checksumSql = checksumSql(getColumns(connection, statement), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);

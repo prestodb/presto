@@ -411,6 +411,8 @@ class StatementAnalyzer
                         .analyze(expression, createScope(scope));
             }
             analysis.setCreateTableProperties(node.getProperties());
+
+            node.getColumnAliases().ifPresent(analysis::setCreateTableColumnAliases);
             analysis.setCreateTableComment(node.getComment());
 
             accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
@@ -420,7 +422,19 @@ class StatementAnalyzer
             // analyze the query that creates the table
             Scope queryScope = process(node.getQuery(), scope);
 
-            validateColumns(node, queryScope.getRelationType());
+            if (node.getColumnAliases().isPresent()) {
+                validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
+
+                // analzie only column types in subquery if column alias exists
+                for (Field field : queryScope.getRelationType().getVisibleFields()) {
+                    if (field.getType().equals(UNKNOWN)) {
+                        throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
+                    }
+                }
+            }
+            else {
+                validateColumns(node, queryScope.getRelationType());
+            }
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -591,6 +605,25 @@ class StatementAnalyzer
                 if (field.getType().equals(UNKNOWN)) {
                     throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown: %s", fieldName.get());
                 }
+            }
+        }
+
+        private void validateColumnAliases(List<Identifier> columnAliases, int sourceColumnSize)
+        {
+            if (columnAliases.size() != sourceColumnSize) {
+                throw new SemanticException(
+                        MISMATCHED_COLUMN_ALIASES,
+                        columnAliases.get(0),
+                        "Column alias list has %s entries but subquery has %s columns",
+                        columnAliases.size(),
+                        sourceColumnSize);
+            }
+            Set<String> names = new HashSet<>();
+            for (Identifier identifier : columnAliases) {
+                if (names.contains(identifier.getName().toLowerCase())) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getName());
+                }
+                names.add(identifier.getName().toLowerCase());
             }
         }
 

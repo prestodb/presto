@@ -108,6 +108,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 public final class SqlFormatter
@@ -759,6 +760,11 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatName(node.getName()));
+
+            if (node.getColumnAliases().isPresent()) {
+                String columnList = node.getColumnAliases().get().stream().map(element -> formatName(element.getName())).collect(joining(", "));
+                builder.append(format("( %s )", columnList));
+            }
 
             if (node.getComment().isPresent()) {
                 builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
