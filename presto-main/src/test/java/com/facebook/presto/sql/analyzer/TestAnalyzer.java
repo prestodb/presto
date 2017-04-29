@@ -1060,9 +1060,19 @@ public class TestAnalyzer
     public void testCreateTableAsColumns()
             throws Exception
     {
+        // TODO: validate output
+        analyze("CREATE TABLE test(a) AS SELECT 123");
+        analyze("CREATE TABLE test(a, b) AS SELECT 1, 2");
+        analyze("CREATE TABLE test(a) AS (VALUES 1)");
+
         assertFails(COLUMN_NAME_NOT_SPECIFIED, "CREATE TABLE test AS SELECT 123");
         assertFails(DUPLICATE_COLUMN_NAME, "CREATE TABLE test AS SELECT 1 a, 2 a");
         assertFails(COLUMN_TYPE_UNKNOWN, "CREATE TABLE test AS SELECT null a");
+        assertFails(MISMATCHED_COLUMN_ALIASES, 1, 19, "CREATE TABLE test(x) AS SELECT 1, 2");
+        assertFails(MISMATCHED_COLUMN_ALIASES, 1, 19, "CREATE TABLE test(x, y) AS SELECT 1");
+        assertFails(MISMATCHED_COLUMN_ALIASES, 1, 19, "CREATE TABLE test(x, y) AS (VALUES 1)");
+        assertFails(DUPLICATE_COLUMN_NAME, 1, 24, "CREATE TABLE test(abc, AbC) AS SELECT 1, 2");
+        assertFails(COLUMN_TYPE_UNKNOWN, 1, 1, "CREATE TABLE test(x) AS SELECT null");
     }
 
     @Test

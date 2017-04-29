@@ -32,19 +32,20 @@ public class CreateTableAsSelect
     private final boolean notExists;
     private final Map<String, Expression> properties;
     private final boolean withData;
+    private final Optional<List<Identifier>> columnAliases;
     private final Optional<String> comment;
 
-    public CreateTableAsSelect(QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<String> comment)
+    public CreateTableAsSelect(QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
-        this(Optional.empty(), name, query, notExists, properties, withData, comment);
+        this(Optional.empty(), name, query, notExists, properties, withData, columnAliases, comment);
     }
 
-    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<String> comment)
+    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
-        this(Optional.of(location), name, query, notExists, properties, withData, comment);
+        this(Optional.of(location), name, query, notExists, properties, withData, columnAliases, comment);
     }
 
-    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<String> comment)
+    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -52,6 +53,7 @@ public class CreateTableAsSelect
         this.notExists = notExists;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.withData = withData;
+        this.columnAliases = columnAliases;
         this.comment = requireNonNull(comment, "comment is null");
     }
 
@@ -80,6 +82,11 @@ public class CreateTableAsSelect
         return withData;
     }
 
+    public Optional<List<Identifier>> getColumnAliases()
+    {
+        return columnAliases;
+    }
+
     public Optional<String> getComment()
     {
         return comment;
@@ -103,7 +110,7 @@ public class CreateTableAsSelect
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, properties, withData, comment);
+        return Objects.hash(name, query, properties, withData, columnAliases, comment);
     }
 
     @Override
@@ -121,6 +128,7 @@ public class CreateTableAsSelect
                 && Objects.equals(notExists, o.notExists)
                 && Objects.equals(properties, o.properties)
                 && Objects.equals(withData, o.withData)
+                && Objects.equals(columnAliases, o.columnAliases)
                 && Objects.equals(comment, o.comment);
     }
 
@@ -133,6 +141,7 @@ public class CreateTableAsSelect
                 .add("notExists", notExists)
                 .add("properties", properties)
                 .add("withData", withData)
+                .add("columnAliases", columnAliases)
                 .add("comment", comment)
                 .toString();
     }

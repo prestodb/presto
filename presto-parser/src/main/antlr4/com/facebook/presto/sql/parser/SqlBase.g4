@@ -34,7 +34,7 @@ statement
         (WITH tableProperties)?                                        #createSchema
     | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
     | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
-    | CREATE TABLE (IF NOT EXISTS)? qualifiedName
+    | CREATE TABLE (IF NOT EXISTS)? qualifiedName columnAliases?
         (COMMENT string)?
         (WITH tableProperties)? AS (query | '('query')')
         (WITH (NO)? DATA)?                                             #createTableAsSelect
