@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
@@ -47,7 +48,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -66,6 +66,7 @@ public class MemoryMetadata
     private final AtomicLong nextTableId = new AtomicLong();
     private final Map<String, Long> tableIds = new HashMap<>();
     private final Map<Long, MemoryTableHandle> tables = new HashMap<>();
+    private final Map<Long, Map<HostAddress, MemoryDataFragment>> tableDataFragments = new HashMap<>();
 
     @Inject
     public MemoryMetadata(NodeManager nodeManager, MemoryConnectorId connectorId)
@@ -138,6 +139,7 @@ public class MemoryMetadata
         Long tableId = tableIds.remove(handle.getTableName());
         if (tableId != null) {
             tables.remove(tableId);
+            tableDataFragments.remove(tableId);
         }
     }
 
@@ -150,8 +152,7 @@ public class MemoryMetadata
                 oldTableHandle.getSchemaName(),
                 newTableName.getTableName(),
                 oldTableHandle.getTableId(),
-                oldTableHandle.getColumnHandles(),
-                oldTableHandle.getHosts());
+                oldTableHandle.getColumnHandles());
         tableIds.remove(oldTableHandle.getTableName());
         tableIds.put(newTableName.getTableName(), oldTableHandle.getTableId());
         tables.remove(oldTableHandle.getTableId());
@@ -176,9 +177,9 @@ public class MemoryMetadata
         MemoryTableHandle table = new MemoryTableHandle(
                 connectorId,
                 nextId,
-                tableMetadata,
-                nodes.stream().map(Node::getHostAndPort).collect(Collectors.toList()));
+                tableMetadata);
         tables.put(table.getTableId(), table);
+        tableDataFragments.put(table.getTableId(), new HashMap<>());
 
         return new MemoryOutputTableHandle(table, ImmutableSet.copyOf(tableIds.values()));
     }
@@ -186,6 +187,10 @@ public class MemoryMetadata
     @Override
     public synchronized Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
+        requireNonNull(tableHandle, "tableHandle is null");
+        MemoryOutputTableHandle memoryOutputHandle = (MemoryOutputTableHandle) tableHandle;
+
+        updateRowsOnHosts(memoryOutputHandle.getTable(), fragments);
         return Optional.empty();
     }
 
@@ -199,7 +204,26 @@ public class MemoryMetadata
     @Override
     public synchronized Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
+        requireNonNull(insertHandle, "insertHandle is null");
+        MemoryInsertTableHandle memoryInsertHandle = (MemoryInsertTableHandle) insertHandle;
+
+        updateRowsOnHosts(memoryInsertHandle.getTable(), fragments);
         return Optional.empty();
+    }
+
+    private void updateRowsOnHosts(MemoryTableHandle table, Collection<Slice> fragments)
+    {
+        checkState(
+                tableDataFragments.containsKey(table.getTableId()),
+                "Uninitialized table [%s.%s]",
+                table.getSchemaName(),
+                table.getTableName());
+        Map<HostAddress, MemoryDataFragment> dataFragments = tableDataFragments.get(table.getTableId());
+
+        for (Slice fragment : fragments) {
+            MemoryDataFragment memoryDataFragment = MemoryDataFragment.fromSlice(fragment);
+            dataFragments.merge(memoryDataFragment.getHostAddress(), memoryDataFragment, MemoryDataFragment::merge);
+        }
     }
 
     @Override
@@ -211,8 +235,17 @@ public class MemoryMetadata
     {
         requireNonNull(handle, "handle is null");
         checkArgument(handle instanceof MemoryTableHandle);
+        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) handle;
+        checkState(
+                tableDataFragments.containsKey(memoryTableHandle.getTableId()),
+                "Inconsistent state for the table [%s.%s]",
+                memoryTableHandle.getSchemaName(),
+                memoryTableHandle.getTableName());
 
-        MemoryTableLayoutHandle layoutHandle = new MemoryTableLayoutHandle((MemoryTableHandle) handle);
+        List<MemoryDataFragment> expectedFragments = ImmutableList.copyOf(
+                tableDataFragments.get(memoryTableHandle.getTableId()).values());
+
+        MemoryTableLayoutHandle layoutHandle = new MemoryTableLayoutHandle(memoryTableHandle, expectedFragments);
         return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), constraint.getSummary()));
     }
 

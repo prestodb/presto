@@ -33,13 +33,15 @@ public class MemorySplit
     private final int totalPartsPerWorker; // how many concurrent reads there will be from one worker
     private final int partNumber; // part of the pages on one worker that this splits is responsible
     private final List<HostAddress> addresses;
+    private final long expectedRows;
 
     @JsonCreator
     public MemorySplit(
             @JsonProperty("tableHandle") MemoryTableHandle tableHandle,
             @JsonProperty("partNumber") int partNumber,
             @JsonProperty("totalPartsPerWorker") int totalPartsPerWorker,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+            @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("expectedRows") long expectedRows)
     {
         checkState(partNumber >= 0, "partNumber must be >= 0");
         checkState(totalPartsPerWorker >= 1, "totalPartsPerWorker must be >= 1");
@@ -49,6 +51,7 @@ public class MemorySplit
         this.partNumber = partNumber;
         this.totalPartsPerWorker = totalPartsPerWorker;
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
+        this.expectedRows = expectedRows;
     }
 
     @JsonProperty
@@ -86,6 +89,12 @@ public class MemorySplit
     public List<HostAddress> getAddresses()
     {
         return addresses;
+    }
+
+    @JsonProperty
+    public long getExpectedRows()
+    {
+        return expectedRows;
     }
 
     @Override

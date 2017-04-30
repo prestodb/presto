@@ -51,11 +51,17 @@ public final class MemoryPageSourceProvider
         long tableId = memorySplit.getTableHandle().getTableId();
         int partNumber = memorySplit.getPartNumber();
         int totalParts = memorySplit.getTotalPartsPerWorker();
+        long expectedRows = memorySplit.getExpectedRows();
 
         List<Integer> columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
                 .map(MemoryColumnHandle::getColumnIndex).collect(toList());
-        List<Page> pages = pagesStore.getPages(tableId, partNumber, totalParts, columnIndexes);
+        List<Page> pages = pagesStore.getPages(
+                tableId,
+                partNumber,
+                totalParts,
+                columnIndexes,
+                expectedRows);
 
         return new FixedPageSource(pages);
     }

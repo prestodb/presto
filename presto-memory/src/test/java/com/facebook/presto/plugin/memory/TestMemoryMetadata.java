@@ -14,7 +14,12 @@
 package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
@@ -56,7 +61,7 @@ public class TestMemoryMetadata
         metadata.finishCreateTable(SESSION, table, ImmutableList.of());
 
         List<SchemaTableName> tables = metadata.listTables(SESSION, null);
-        assertTrue(tables.size() == 1, "Expected only one table.");
+        assertTrue(tables.size() == 1, "Expected only one table");
         assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
     }
 
@@ -82,6 +87,32 @@ public class TestMemoryMetadata
         assertNotEquals(firstTableId, secondTableId);
         assertTrue(metadata.beginInsert(SESSION, secondTableHandle).getActiveTableIds().contains(firstTableId));
         assertTrue(metadata.beginInsert(SESSION, secondTableHandle).getActiveTableIds().contains(secondTableId));
+    }
+
+    @Test
+    public void testReadTableBeforeCreationCompleted()
+    {
+        assertThatNoTableIsCreated();
+
+        SchemaTableName tableName = new SchemaTableName("default", "temp_table");
+
+        ConnectorOutputTableHandle table = metadata.beginCreateTable(
+                SESSION,
+                new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
+                Optional.empty());
+
+        List<SchemaTableName> tableNames = metadata.listTables(SESSION, null);
+        assertTrue(tableNames.size() == 1, "Expected exactly one table");
+
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, tableName);
+        List<ConnectorTableLayoutResult> tableLayouts = metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+        assertTrue(tableLayouts.size() == 1, "Expected exactly one layout.");
+        ConnectorTableLayout tableLayout = tableLayouts.get(0).getTableLayout();
+        ConnectorTableLayoutHandle tableLayoutHandle = tableLayout.getHandle();
+        assertTrue(tableLayoutHandle instanceof MemoryTableLayoutHandle);
+        assertTrue(((MemoryTableLayoutHandle) tableLayoutHandle).getDataFragments().isEmpty(), "Data fragments should be empty");
+
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
     }
 
     private void assertThatNoTableIsCreated()

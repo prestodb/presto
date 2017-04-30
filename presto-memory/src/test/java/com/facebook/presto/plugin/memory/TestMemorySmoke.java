@@ -85,6 +85,26 @@ public class TestMemorySmoke
     }
 
     @Test
+    public void createTableWithNoData()
+            throws SQLException
+    {
+        queryRunner.execute("CREATE TABLE test_empty (a BIGINT)");
+        assertThatQueryReturnsValue("SELECT count(*) FROM test_empty", 0L);
+        assertThatQueryReturnsValue("INSERT INTO test_empty SELECT nationkey FROM tpch.tiny.nation", 25L);
+        assertThatQueryReturnsValue("SELECT count(*) FROM test_empty", 25L);
+    }
+
+    @Test
+    public void createFilteredOutTable()
+            throws SQLException
+    {
+        queryRunner.execute("CREATE TABLE filtered_out AS SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 0");
+        assertThatQueryReturnsValue("SELECT count(*) FROM filtered_out", 0L);
+        assertThatQueryReturnsValue("INSERT INTO filtered_out SELECT nationkey FROM tpch.tiny.nation", 25L);
+        assertThatQueryReturnsValue("SELECT count(*) FROM filtered_out", 25L);
+    }
+
+    @Test
     public void selectFromEmptyTable()
             throws SQLException
     {
