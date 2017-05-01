@@ -19,6 +19,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
+import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
@@ -209,6 +210,10 @@ public class PlanOptimizers
         }
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
+        builder.add(new IterativeOptimizer(
+                stats,
+                ImmutableSet.of(
+                        new CreatePartialTopN())));
 
         if (!forceSingleNode) {
             builder.add(new DetermineJoinDistributionType()); // Must run before AddExchanges

@@ -123,6 +123,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -440,18 +441,23 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTopN(TopNNode node, Context context)
         {
-            PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
-
-            if (!child.getProperties().isSingleNode()) {
-                child = withDerivedProperties(
-                        new TopNNode(idAllocator.getNextId(), child.getNode(), node.getCount(), node.getOrderBy(), node.getOrderings(), TopNNode.Step.PARTIAL),
-                        child.getProperties());
-
-                child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
-                        child.getProperties());
+            PlanWithProperties child;
+            switch (node.getStep()) {
+                case SINGLE:
+                case FINAL:
+                    child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
+                    if (!child.getProperties().isSingleNode()) {
+                        child = withDerivedProperties(
+                                gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                                child.getProperties());
+                    }
+                    break;
+                case PARTIAL:
+                    child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
+                    break;
+                default:
+                    throw new UnsupportedOperationException(format("Unsupported step for TopN [%s]", node.getStep()));
             }
-
             return rebaseAndDeriveProperties(node, child);
         }
 
