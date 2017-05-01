@@ -226,7 +226,7 @@ public class OrcTester
         orcTester.listTestsEnabled = true;
         orcTester.nullTestsEnabled = true;
         orcTester.skipBatchTestsEnabled = true;
-        orcTester.formats = ImmutableSet.of(ORC_12);
+        orcTester.formats = ImmutableSet.of(ORC_12, DWRF);
         orcTester.compressions = ImmutableSet.of(ZLIB);
         return orcTester;
     }
@@ -418,14 +418,14 @@ public class OrcTester
                 try (TempFile tempFile = new TempFile()) {
                     writeOrcColumn(tempFile.getFile(), format, compression, type, readValues.iterator());
 
-                    assertFileContents(type, tempFile, readValues, false, false, metadataReader);
+                    assertFileContents(type, tempFile, readValues, false, false, metadataReader, format);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContents(type, tempFile, readValues, true, false, metadataReader);
+                        assertFileContents(type, tempFile, readValues, true, false, metadataReader, format);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContents(type, tempFile, readValues, false, true, metadataReader);
+                        assertFileContents(type, tempFile, readValues, false, true, metadataReader, format);
                     }
                 }
             }
@@ -438,10 +438,11 @@ public class OrcTester
             List<?> expectedValues,
             boolean skipFirstBatch,
             boolean skipStripe,
-            MetadataReader metadataReader)
+            MetadataReader metadataReader,
+            Format format)
             throws IOException
     {
-        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues), type)) {
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues, format == DWRF), type)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
