@@ -5866,6 +5866,27 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionWithUnionAndAggregation()
+    {
+        assertQuery(
+                "SELECT count(*) FROM (" +
+                        "SELECT 1 FROM nation GROUP BY regionkey " +
+                        "UNION ALL " +
+                        "SELECT 1 FROM (" +
+                        "   SELECT 1 FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT 1 FROM nation))");
+        assertQuery(
+                "SELECT count(*) FROM (" +
+                        "SELECT 1 FROM (" +
+                        "   SELECT 1 FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT 1 FROM nation)" +
+                        "UNION ALL " +
+                        "SELECT 1 FROM nation GROUP BY regionkey)");
+    }
+
+    @Test
     public void testUnionWithAggregationAndTableScan()
     {
         assertQuery(
