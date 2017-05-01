@@ -482,6 +482,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
         assertUpdate("DELETE FROM test_delete WHERE rand() < 0", 0);
+        assertUpdate("DELETE FROM test_delete WHERE orderkey < 0", 0);
         assertUpdate("DROP TABLE test_delete");
 
         // delete with a predicate that optimizes to false

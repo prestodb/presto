@@ -20,6 +20,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.split.EmptySplit;
+import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
@@ -207,11 +208,14 @@ public class Driver
         for (ScheduledSplit newSplit : newSplits) {
             Split split = newSplit.getSplit();
 
+            Supplier<Optional<UpdatablePageSource>> pageSource;
             if (split.getConnectorSplit() instanceof EmptySplit) {
-                continue;
+                pageSource = () -> Optional.of(new EmptySplitPageSource());
+            }
+            else {
+                pageSource = sourceOperator.addSplit(split);
             }
 
-            Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
             deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
         }
 
