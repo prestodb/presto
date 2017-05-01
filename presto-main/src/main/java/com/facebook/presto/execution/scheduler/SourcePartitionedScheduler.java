@@ -40,7 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SourcePartitionedScheduler
@@ -86,12 +85,10 @@ public class SourcePartitionedScheduler
         // try to get the next batch if necessary
         if (pendingSplits.isEmpty()) {
             if (batchFuture == null) {
-                if (!splitSource.isFinished()) {
-                    batchFuture = splitSource.getNextBatch(splitBatchSize);
-                }
-                else {
+                if (splitSource.isFinished()) {
                     return handleNoMoreSplits();
                 }
+                batchFuture = splitSource.getNextBatch(splitBatchSize);
 
                 long start = System.nanoTime();
                 Futures.addCallback(batchFuture, new FutureCallback<List<Split>>()
@@ -158,11 +155,8 @@ public class SourcePartitionedScheduler
                 state = State.FINISHED;
                 splitSource.close();
                 return new ScheduleResult(true, ImmutableSet.of(), 0);
-            default:
-                throw new IllegalStateException(
-                        format("SourcePartitionedScheduler expected to be in INITIALIZED or SPLITS_SCHEDULED state" +
-                                " but is in [%s]", state));
         }
+        throw new IllegalStateException("SourcePartitionedScheduler expected to be in INITIALIZED or SPLITS_SCHEDULED state but is in " + state);
     }
 
     @Override
