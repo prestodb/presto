@@ -445,7 +445,7 @@ public class AddExchanges
             switch (node.getStep()) {
                 case SINGLE:
                 case FINAL:
-                    child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
+                    child = planChild(node, context.withPreferredProperties(PreferredProperties.undistributed()));
                     if (!child.getProperties().isSingleNode()) {
                         child = withDerivedProperties(
                                 gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),

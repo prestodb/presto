@@ -5781,6 +5781,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionWithTopN()
+    {
+        assertQuery("SELECT * FROM (" +
+                "   SELECT regionkey FROM nation " +
+                "   UNION ALL " +
+                "   SELECT nationkey FROM nation" +
+                ") t(a) " +
+                "ORDER BY a LIMIT 1",
+                "SELECT 0");
+    }
+
+    @Test
     public void testUnionWithJoin()
     {
         assertQuery(
