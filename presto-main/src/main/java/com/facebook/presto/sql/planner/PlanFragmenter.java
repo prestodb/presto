@@ -55,6 +55,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -255,16 +256,30 @@ public class PlanFragmenter
 
         public FragmentProperties setDistribution(PartitioningHandle distribution)
         {
-            if (partitioningHandle.isPresent() && !partitioningHandle.get().equals(distribution) && !partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
-                checkState(partitioningHandle.get().isSingleNode(),
-                        "Cannot set distribution to %s. Already set to %s",
-                        distribution,
-                        partitioningHandle);
+            if (partitioningHandle.isPresent()) {
+                chooseDistribution(distribution);
                 return this;
             }
-            partitioningHandle = Optional.of(distribution);
 
+            partitioningHandle = Optional.of(distribution);
             return this;
+        }
+
+        private void chooseDistribution(PartitioningHandle distribution)
+        {
+            checkState(partitioningHandle.isPresent(), "No partitioning to choose from");
+
+            if (partitioningHandle.get().equals(distribution) || partitioningHandle.get().isSingleNode()) {
+                return;
+            }
+            if (partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
+                partitioningHandle = Optional.of(distribution);
+                return;
+            }
+            throw new IllegalStateException(format(
+                    "Cannot set distribution to %s. Already set to %s",
+                    distribution,
+                    partitioningHandle));
         }
 
         public FragmentProperties setCoordinatorOnlyDistribution()
