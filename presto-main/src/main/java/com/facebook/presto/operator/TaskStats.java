@@ -52,6 +52,7 @@ public class TaskStats
 
     private final double cumulativeMemory;
     private final DataSize memoryReservation;
+    private final DataSize peakLocalMemoryReservation;
     private final DataSize systemMemoryReservation;
 
     private final Duration totalScheduledTime;
@@ -90,6 +91,7 @@ public class TaskStats
                 0.0,
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -124,6 +126,7 @@ public class TaskStats
 
             @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("peakLocalMemoryReservation") DataSize peakLocalMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
@@ -169,6 +172,7 @@ public class TaskStats
 
         this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.peakLocalMemoryReservation = requireNonNull(peakLocalMemoryReservation, "peakLocalMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
@@ -273,6 +277,12 @@ public class TaskStats
     public DataSize getMemoryReservation()
     {
         return memoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakLocalMemoryReservation()
+    {
+        return peakLocalMemoryReservation;
     }
 
     @JsonProperty
@@ -389,6 +399,7 @@ public class TaskStats
                 completedDrivers,
                 cumulativeMemory,
                 memoryReservation,
+                peakLocalMemoryReservation,
                 systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
@@ -423,6 +434,7 @@ public class TaskStats
                 completedDrivers,
                 cumulativeMemory,
                 memoryReservation,
+                peakLocalMemoryReservation,
                 systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,

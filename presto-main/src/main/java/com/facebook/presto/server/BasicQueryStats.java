@@ -49,6 +49,7 @@ public class BasicQueryStats
     private final double cumulativeMemory;
     private final DataSize totalMemoryReservation;
     private final DataSize peakMemoryReservation;
+    private final DataSize peakLocalMemoryReservation;
     private final Duration totalCpuTime;
 
     private final boolean fullyBlocked;
@@ -66,6 +67,7 @@ public class BasicQueryStats
             double cumulativeMemory,
             DataSize totalMemoryReservation,
             DataSize peakMemoryReservation,
+            DataSize peakLocalMemoryReservation,
             Duration totalCpuTime,
             boolean fullyBlocked,
             Set<BlockedReason> blockedReasons)
@@ -88,6 +90,7 @@ public class BasicQueryStats
         this.cumulativeMemory = cumulativeMemory;
         this.totalMemoryReservation = totalMemoryReservation;
         this.peakMemoryReservation = peakMemoryReservation;
+        this.peakLocalMemoryReservation = peakLocalMemoryReservation;
         this.totalCpuTime = totalCpuTime;
 
         this.fullyBlocked = fullyBlocked;
@@ -107,6 +110,7 @@ public class BasicQueryStats
                 queryStats.getCumulativeMemory(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakMemoryReservation(),
+                queryStats.getPeakLocalMemoryReservation(),
                 queryStats.getTotalCpuTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons());
@@ -176,6 +180,12 @@ public class BasicQueryStats
     public DataSize getPeakMemoryReservation()
     {
         return peakMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakLocalMemoryReservation()
+    {
+        return peakLocalMemoryReservation;
     }
 
     @JsonProperty

@@ -27,6 +27,7 @@ public class QueryStatistics
     private final Optional<Duration> distributedPlanningTime;
 
     private final long peakMemoryBytes;
+    private final long peakLocalMemoryBytes;
     private final long totalBytes;
     private final long totalRows;
 
@@ -42,6 +43,7 @@ public class QueryStatistics
             Optional<Duration> analysisTime,
             Optional<Duration> distributedPlanningTime,
             long peakMemoryBytes,
+            long peakLocalMemoryBytes,
             long totalBytes,
             long totalRows,
             int completedSplits,
@@ -53,10 +55,11 @@ public class QueryStatistics
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
-        this.peakMemoryBytes = requireNonNull(peakMemoryBytes, "peakMemoryBytes is null");
-        this.totalBytes = requireNonNull(totalBytes, "totalBytes is null");
-        this.totalRows = requireNonNull(totalRows, "totalRows is null");
-        this.completedSplits = requireNonNull(completedSplits, "completedSplits is null");
+        this.peakMemoryBytes = peakMemoryBytes;
+        this.peakLocalMemoryBytes = peakLocalMemoryBytes;
+        this.totalBytes = totalBytes;
+        this.totalRows = totalRows;
+        this.completedSplits = completedSplits;
         this.complete = complete;
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
     }
@@ -89,6 +92,11 @@ public class QueryStatistics
     public long getPeakMemoryBytes()
     {
         return peakMemoryBytes;
+    }
+
+    public long getPeakLocalMemoryBytes()
+    {
+        return peakLocalMemoryBytes;
     }
 
     public long getTotalBytes()

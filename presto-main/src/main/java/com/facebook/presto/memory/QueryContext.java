@@ -58,6 +58,9 @@ public class QueryContext
     private long reserved;
 
     @GuardedBy("this")
+    private long peakReserved;
+
+    @GuardedBy("this")
     private MemoryPool memoryPool;
 
     @GuardedBy("this")
@@ -94,6 +97,9 @@ public class QueryContext
         }
         ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);
         reserved += bytes;
+        if (reserved > peakReserved) {
+            peakReserved = reserved;
+        }
         // Never block queries using a trivial amount of memory
         if (reserved < GUARANTEED_MEMORY) {
             return NOT_BLOCKED;
@@ -130,6 +136,9 @@ public class QueryContext
         }
         if (memoryPool.tryReserve(queryId, bytes)) {
             reserved += bytes;
+            if (reserved > peakReserved) {
+                peakReserved = reserved;
+            }
             return true;
         }
         return false;
@@ -192,5 +201,10 @@ public class QueryContext
         TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, verboseStats, cpuTimerEnabled);
         taskContexts.add(taskContext);
         return taskContext;
+    }
+
+    public long getPeakReservedMemory()
+    {
+        return peakReserved;
     }
 }
