@@ -14,11 +14,13 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -106,6 +108,35 @@ public class SymbolMapper
                 node.getStep(),
                 node.getHashSymbol().map(this::map),
                 node.getGroupIdSymbol().map(this::map));
+    }
+
+    public TopNNode map(TopNNode node, PlanNode source)
+    {
+        return map(node, source, node.getId());
+    }
+
+    public TopNNode map(TopNNode node, PlanNode source, PlanNodeIdAllocator idAllocator)
+    {
+        return map(node, source, idAllocator.getNextId());
+    }
+
+    public TopNNode map(TopNNode node, PlanNode source, PlanNodeId newNodeId)
+    {
+        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+        for (Symbol symbol : node.getOrderBy()) {
+            Symbol canonical = map(symbol);
+            symbols.add(canonical);
+            orderings.put(canonical, node.getOrderings().get(symbol));
+        }
+
+        return new TopNNode(
+                newNodeId,
+                source,
+                node.getCount(),
+                symbols.build(),
+                orderings.build(),
+                node.isPartial());
     }
 
     private List<Symbol> mapAndDistinct(List<Symbol> outputs)
