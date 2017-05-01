@@ -1562,6 +1562,11 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    private static Optional<String> getPrestoQueryId(Table table)
+    {
+        return Optional.ofNullable(table.getParameters().get(PRESTO_QUERY_ID_NAME));
+    }
+
     private static Optional<String> getPrestoQueryId(Partition partition)
     {
         return Optional.ofNullable(partition.getParameters().get(PRESTO_QUERY_ID_NAME));
@@ -1976,7 +1981,9 @@ public class SemiTransactionalHiveMetastore
 
         public CreateTableOperation(Table table, PrincipalPrivileges privileges)
         {
-            this.table = requireNonNull(table, "table is null");
+            requireNonNull(table, "table is null");
+            checkArgument(getPrestoQueryId(table).isPresent());
+            this.table = table;
             this.privileges = requireNonNull(privileges, "privileges is null");
         }
 
@@ -1987,8 +1994,28 @@ public class SemiTransactionalHiveMetastore
 
         public void run(ExtendedHiveMetastore metastore)
         {
-            metastore.createTable(table, privileges);
-            done = true;
+            try {
+                metastore.createTable(table, privileges);
+                done = true;
+            }
+            catch (RuntimeException e) {
+                try {
+                    Optional<Table> remoteTable = metastore.getTable(table.getDatabaseName(), table.getTableName());
+                    // getPrestoQueryId(partition) is guaranteed to be non-empty. It is asserted in the constructor.
+                    if (remoteTable.isPresent() && getPrestoQueryId(remoteTable.get()).equals(getPrestoQueryId(table))) {
+                        done = true;
+                    }
+                }
+                catch (RuntimeException ignored) {
+                    // When table could not be fetched from metastore, it is not known whether the table was added.
+                    // Deleting the table when aborting commit has the risk of deleting table not added in this transaction.
+                    // Not deleting the table may leave garbage behind. The former is much more dangerous than the latter.
+                    // Therefore, the table is not considered added.
+                }
+                if (!done) {
+                    throw e;
+                }
+            }
         }
 
         public void undo(ExtendedHiveMetastore metastore)
