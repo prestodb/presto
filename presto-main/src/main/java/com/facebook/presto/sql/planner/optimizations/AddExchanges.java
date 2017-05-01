@@ -249,7 +249,11 @@ public class AddExchanges
         {
             Set<Symbol> partitioningRequirement = ImmutableSet.copyOf(node.getGroupingKeys());
 
-            PreferredProperties preferredProperties = PreferredProperties.any();
+            boolean preferSingleNode = (node.hasEmptyGroupingSet() && !node.hasNonEmptyGroupingSet()) ||
+                    (node.hasDefaultOutput() && !node.isDecomposable(metadata.getFunctionRegistry()));
+
+            PreferredProperties preferredProperties = preferSingleNode ? PreferredProperties.undistributed() : PreferredProperties.any();
+
             if (!node.getGroupingKeys().isEmpty()) {
                 preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupingKeys()))
                         .mergeWithParent(context.getPreferredProperties());
@@ -262,8 +266,7 @@ public class AddExchanges
                 return rebaseAndDeriveProperties(node, child);
             }
 
-            if ((node.hasEmptyGroupingSet() && !node.hasNonEmptyGroupingSet()) ||
-                    (node.hasDefaultOutput() && !node.isDecomposable(metadata.getFunctionRegistry()))) {
+            if (preferSingleNode) {
                 // For queries with only empty grouping sets like
                 //
                 // SELECT count(*) FROM lineitem;
