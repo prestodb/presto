@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.NodePartitioning;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -269,7 +270,9 @@ public class PlanFragmenter
         {
             checkState(partitioningHandle.isPresent(), "No partitioning to choose from");
 
-            if (partitioningHandle.get().equals(distribution) || partitioningHandle.get().isSingleNode()) {
+            if (partitioningHandle.get().equals(distribution) ||
+                    partitioningHandle.get().isSingleNode() ||
+                    isCompatibleSystemPartitioning(distribution)) {
                 return;
             }
             if (partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
@@ -280,6 +283,18 @@ public class PlanFragmenter
                     "Cannot set distribution to %s. Already set to %s",
                     distribution,
                     partitioningHandle));
+        }
+
+        private boolean isCompatibleSystemPartitioning(PartitioningHandle distribution)
+        {
+            ConnectorPartitioningHandle currentHandle = partitioningHandle.get().getConnectorHandle();
+            ConnectorPartitioningHandle distributionHandle = distribution.getConnectorHandle();
+            if ((currentHandle instanceof SystemPartitioningHandle) &&
+                    (distributionHandle instanceof SystemPartitioningHandle)) {
+                return ((SystemPartitioningHandle) currentHandle).getPartitioning() ==
+                        ((SystemPartitioningHandle) distributionHandle).getPartitioning();
+            }
+            return false;
         }
 
         public FragmentProperties setCoordinatorOnlyDistribution()
