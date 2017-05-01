@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -133,6 +134,9 @@ public class QueryStateMachine
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
+
+    private int warningCursor = 0;
+    private int warningsReadMax = 0;
 
     private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata, WarningCollector warningCollector)
     {
@@ -420,6 +424,16 @@ public class QueryStateMachine
                 outputPositions,
                 operatorStatsSummary.build());
 
+        // Build delta in every request. StatementResource caches last query results and resends them in case the client asks them again.
+        // We shouldn't lose any warnings this way.
+        List<QueryError> warnings = warningCollector.getWarnings();
+        ImmutableList.Builder<QueryError> newWarnings = ImmutableList.builder();
+        for (int i = warningCursor; i < warnings.size(); i++) {
+            newWarnings.add(warnings.get(i));
+        }
+        // warningCollector may be updated between this call and call to advanceWarningStream, store our longest read.
+        warningsReadMax = warnings.size();
+
         return new QueryInfo(queryId,
                 session.toSessionRepresentation(),
                 state,
@@ -439,7 +453,7 @@ public class QueryStateMachine
                 rootStage,
                 failureInfo,
                 errorCode,
-                warningCollector.getWarnings(),
+                newWarnings.build(),
                 inputs.get(),
                 output.get(),
                 completeInfo,
@@ -797,6 +811,11 @@ public class QueryStateMachine
                 queryInfo.isCompleteInfo(),
                 queryInfo.getResourceGroupName());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
+    }
+
+    public void advanceWarningStream()
+    {
+        warningCursor = warningsReadMax;
     }
 
     private long tickerNanos()

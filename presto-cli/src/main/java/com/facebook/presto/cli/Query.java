@@ -56,6 +56,7 @@ public class Query
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final AtomicBoolean userAbortedQuery = new AtomicBoolean();
     private final StatementClient client;
+    private int warningCursor = 0;
 
     public Query(StatementClient client)
     {
@@ -158,9 +159,11 @@ public class Query
 
     private void printWarnings(PrintStream errorChannel)
     {
-        for (QueryError warning : client.getWarnings()) {
-            errorChannel.println(formatWarning(warning));
+        List<QueryError> warnings = client.getWarnings();
+        for (int i = warningCursor; i < warnings.size(); i++) {
+            errorChannel.println(formatWarning(warnings.get(i)));
         }
+        warningCursor = warnings.size();
     }
 
     private static String formatWarning(QueryError warning)
@@ -190,6 +193,7 @@ public class Query
             status += format(": %s row%s", count, (count != 1) ? "s" : "");
         }
         out.println(status);
+        printWarnings(out);
         discardResults();
     }
 

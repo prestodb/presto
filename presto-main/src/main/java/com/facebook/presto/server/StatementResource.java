@@ -420,6 +420,7 @@ public class StatementResource
                 queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWaitTime);
                 queryInfo = queryManager.getQueryInfo(queryId);
             }
+            queryManager.advanceWarningStream(queryId);
 
             // TODO: figure out a better way to do this
             // grab the update count for non-queries
@@ -450,17 +451,9 @@ public class StatementResource
                 }
             }
 
-            List<QueryError> warnings;
-            if (queryInfo.getState().isDone()) {
-                warnings = queryInfo.getWarnings();
-            }
-            else {
-                warnings = ImmutableList.of();
-            }
-
             // only return a next if the query is not done or there is more data to send (due to buffering)
             URI nextResultsUri = null;
-            if ((!queryInfo.isFinalQueryInfo()) || (!exchangeClient.isClosed())) {
+            if (!queryInfo.isFinalQueryInfo() || !exchangeClient.isClosed()) {
                 nextResultsUri = createNextResultsUri(uriInfo);
             }
 
@@ -486,7 +479,7 @@ public class StatementResource
                     data,
                     toStatementStats(queryInfo),
                     toQueryError(queryInfo),
-                    warnings,
+                    queryInfo.getWarnings(),
                     queryInfo.getUpdateType(),
                     updateCount);
 

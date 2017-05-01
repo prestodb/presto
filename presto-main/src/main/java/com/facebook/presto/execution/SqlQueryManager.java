@@ -467,6 +467,19 @@ public class SqlQueryManager
         return stats;
     }
 
+    @Override
+    public void advanceWarningStream(QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query == null) {
+            throw new NoSuchElementException();
+        }
+
+        query.advanceWarningStream();
+    }
+
     @Managed(description = "Query scheduler executor")
     @Nested
     public ThreadPoolExecutorMBean getExecutor()

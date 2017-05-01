@@ -43,4 +43,6 @@ public interface QueryManager
     void cancelStage(StageId stageId);
 
     SqlQueryManagerStats getStats();
+
+    void advanceWarningStream(QueryId queryId);
 }

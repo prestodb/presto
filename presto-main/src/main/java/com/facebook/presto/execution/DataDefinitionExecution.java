@@ -185,6 +185,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public void advanceWarningStream()
+    {
+        stateMachine.advanceWarningStream();
+    }
+
+    @Override
     public QueryId getQueryId()
     {
         return stateMachine.getQueryId();

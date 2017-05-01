@@ -35,6 +35,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -85,7 +86,7 @@ public class StatementClient
     private final boolean debug;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
-    private final AtomicReference<List> warnings = new AtomicReference<>(ImmutableList.of());
+    private final List<QueryError> warnings = new ArrayList<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
@@ -210,7 +211,9 @@ public class StatementClient
 
     public List<QueryError> getWarnings()
     {
-        return warnings.get();
+        synchronized (warnings) {
+            return ImmutableList.copyOf(warnings);
+        }
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -345,7 +348,11 @@ public class StatementClient
             clearTransactionId.set(true);
         }
 
-        warnings.set(response.getValue().getWarnings());
+        synchronized (warnings) {
+            if (response.getValue().getWarnings() != null) {
+                warnings.addAll(response.getValue().getWarnings());
+            }
+        }
         currentResults.set(response.getValue());
     }
 

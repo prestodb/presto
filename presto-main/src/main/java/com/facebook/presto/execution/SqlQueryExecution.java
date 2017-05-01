@@ -466,6 +466,12 @@ public final class SqlQueryExecution
     }
 
     @Override
+    public void advanceWarningStream()
+    {
+        stateMachine.advanceWarningStream();
+    }
+
+    @Override
     public QueryId getQueryId()
     {
         return stateMachine.getQueryId();

@@ -212,6 +212,11 @@ public class MockQueryExecution
     }
 
     @Override
+    public void advanceWarningStream()
+    {
+    }
+
+    @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         listeners.add(stateChangeListener);

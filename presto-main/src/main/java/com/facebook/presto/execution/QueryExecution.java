@@ -63,6 +63,8 @@ public interface QueryExecution
     // XXX: This should be removed when the client protocol is improved, so that we don't need to hold onto so much query history
     void pruneInfo();
 
+    void advanceWarningStream();
+
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);

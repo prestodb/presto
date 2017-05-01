@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -80,6 +81,9 @@ public class TestQueryStateMachine
     private static final List<String> RESET_SESSION_PROPERTIES = ImmutableList.of("candy");
 
     private final ExecutorService executor = newCachedThreadPool();
+
+    private static final QueryError WARNING_1 = new QueryError("msg 1", null, 10, "warning 1", "WARNING", null, null);
+    private static final QueryError WARNING_2 = new QueryError("msg 2", null, 20, "warning 2", "WARNING", null, null);
 
     @AfterClass
     public void tearDown()
@@ -279,6 +283,40 @@ public class TestQueryStateMachine
         assertTrue(queryStats.getTotalPlanningTime().toMillis() == 500);
     }
 
+    @Test
+    public void testAdvanceWarningStream()
+    {
+        WarningCollector warningCollector = new SimpleWarningCollector();
+        QueryStateMachine stateMachine = createQueryStateMachineWithParams(Ticker.systemTicker(), warningCollector);
+
+        QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
+        assertEquals(queryInfo.getWarnings().size(), 0);
+
+        warningCollector.addWarning(WARNING_1);
+        queryInfo = stateMachine.getQueryInfo(Optional.empty());
+        assertEquals(queryInfo.getWarnings().size(), 1);
+        assertEquals(queryInfo.getWarnings().get(0), WARNING_1);
+
+        stateMachine.advanceWarningStream();
+        queryInfo = stateMachine.getQueryInfo(Optional.empty());
+        assertEquals(queryInfo.getWarnings().size(), 0);
+
+        warningCollector.addWarning(WARNING_2);
+        queryInfo = stateMachine.getQueryInfo(Optional.empty());
+        assertEquals(queryInfo.getWarnings().size(), 1);
+        assertEquals(queryInfo.getWarnings().get(0), WARNING_2);
+
+        // Retry gives the same output
+        warningCollector.addWarning(WARNING_2);
+        queryInfo = stateMachine.getQueryInfo(Optional.empty());
+        assertEquals(queryInfo.getWarnings().size(), 1);
+        assertEquals(queryInfo.getWarnings().get(0), WARNING_2);
+
+        stateMachine.advanceWarningStream();
+        queryInfo = stateMachine.getQueryInfo(Optional.empty());
+        assertEquals(queryInfo.getWarnings().size(), 0);
+    }
+
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)
     {
         assertFinalState(stateMachine, expectedState, null);
@@ -399,16 +437,21 @@ public class TestQueryStateMachine
 
     private QueryStateMachine createQueryStateMachine()
     {
-        return createQueryStateMachineWithTicker(Ticker.systemTicker());
+        return createQueryStateMachineWithParams(Ticker.systemTicker(), BlackholeWarningCollector.getInstance());
     }
 
     private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker)
+    {
+        return createQueryStateMachineWithParams(ticker, BlackholeWarningCollector.getInstance());
+    }
+
+    private QueryStateMachine createQueryStateMachineWithParams(Ticker ticker, WarningCollector warningCollector)
     {
         Metadata metadata = MetadataManager.createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, accessControl, executor, ticker, metadata,
-                BlackholeWarningCollector.getInstance());
+                warningCollector);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setOutputFieldNames(OUTPUT_FIELD_NAMES);
