@@ -911,6 +911,8 @@ public class HiveMetadata
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(TABLE_COMMENT, "Presto View")
                 .put(PRESTO_VIEW_FLAG, "true")
+                .put(PRESTO_VERSION_NAME, prestoVersion)
+                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .build();
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());

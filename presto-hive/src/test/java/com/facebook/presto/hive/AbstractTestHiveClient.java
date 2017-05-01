@@ -126,6 +126,8 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
+import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -1973,8 +1975,8 @@ public abstract class AbstractTestHiveClient
 
             // verify the node version and query ID in table
             Table table = getMetastoreClient(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
-            assertEquals(table.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
-            assertEquals(table.getParameters().get(HiveMetadata.PRESTO_QUERY_ID_NAME), queryId);
+            assertEquals(table.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
+            assertEquals(table.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
         }
     }
 
@@ -2022,8 +2024,8 @@ public abstract class AbstractTestHiveClient
             assertEquals(table.getStorage().getStorageFormat().getInputFormat(), storageFormat.getInputFormat());
 
             // verify the node version and query ID
-            assertEquals(table.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
-            assertEquals(table.getParameters().get(HiveMetadata.PRESTO_QUERY_ID_NAME), queryId);
+            assertEquals(table.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
+            assertEquals(table.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
 
             // verify the table is empty
             List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
@@ -2221,8 +2223,8 @@ public abstract class AbstractTestHiveClient
             assertEquals(partitions.size(), partitionNames.size());
             for (String partitionName : partitionNames) {
                 Partition partition = partitions.get(partitionName).get();
-                assertEquals(partition.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
-                assertEquals(partition.getParameters().get(HiveMetadata.PRESTO_QUERY_ID_NAME), queryId);
+                assertEquals(partition.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
+                assertEquals(partition.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
             }
 
             // load the new table
@@ -3089,7 +3091,9 @@ public abstract class AbstractTestHiveClient
                     .setTableName(tableName)
                     .setOwner(tableOwner)
                     .setTableType(TableType.MANAGED_TABLE.name())
-                    .setParameters(ImmutableMap.of())
+                    .setParameters(ImmutableMap.of(
+                            PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
+                            PRESTO_QUERY_ID_NAME, session.getQueryId()))
                     .setDataColumns(columns)
                     .setPartitionColumns(partitionColumns);
 
