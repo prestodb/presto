@@ -25,6 +25,8 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.EmptySplit;
+import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
@@ -123,6 +125,10 @@ public class ScanFilterAndProjectOperator
             operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
         }
         blocked.set(null);
+
+        if (split.getConnectorSplit() instanceof EmptySplit) {
+            pageSource = new EmptySplitPageSource();
+        }
 
         return () -> {
             if (pageSource instanceof UpdatablePageSource) {
