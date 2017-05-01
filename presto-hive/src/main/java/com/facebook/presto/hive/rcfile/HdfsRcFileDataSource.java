@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.rcfile;
 
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.rcfile.RcFileDataSource;
 import org.apache.hadoop.fs.FSDataInputStream;
 
@@ -27,15 +28,17 @@ public class HdfsRcFileDataSource
     private final FSDataInputStream inputStream;
     private final String path;
     private final long size;
+    private final FileFormatDataSourceStats stats;
     private long readTimeNanos;
     private long readBytes;
 
-    public HdfsRcFileDataSource(String path, FSDataInputStream inputStream, long size)
+    public HdfsRcFileDataSource(String path, FSDataInputStream inputStream, long size, FileFormatDataSourceStats stats)
     {
         this.path = requireNonNull(path, "path is null");
         this.inputStream = requireNonNull(inputStream, "inputStream is null");
         this.size = size;
         checkArgument(size >= 0, "size is negative");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -71,7 +74,10 @@ public class HdfsRcFileDataSource
 
         inputStream.readFully(position, buffer, bufferOffset, bufferLength);
 
-        readTimeNanos += System.nanoTime() - start;
+        long readDuration = System.nanoTime() - start;
+        stats.readDataBytesPerSecond(bufferLength, readDuration);
+
+        readTimeNanos += readDuration;
         readBytes += bufferLength;
     }
 

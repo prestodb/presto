@@ -110,6 +110,9 @@ public class HiveClientModule
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
 
+        binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FileFormatDataSourceStats.class).as(generatedNameOf(FileFormatDataSourceStats.class, connectorId));
+
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(DwrfPageSourceFactory.class).in(Scopes.SINGLETON);
