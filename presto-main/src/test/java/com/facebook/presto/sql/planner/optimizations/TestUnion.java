@@ -83,14 +83,13 @@ public class TestUnion
                 .where(TestUnion::isRemoteExchange)
                 .findAll();
 
-        assertEquals(remotes.size(), 2, "There should be exactly two RemoteExchanges");
-        assertEquals(((ExchangeNode) remotes.get(0)).getType(), GATHER);
-        assertEquals(((ExchangeNode) remotes.get(1)).getType(), REPARTITION);
+        assertEquals(remotes.size(), 1, "There should be exactly one RemoteExchange");
+        assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
 
         int numberOfpartialTopN = searchFrom(plan.getRoot())
                 .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep().equals(TopNNode.Step.PARTIAL))
                 .count();
-        assertEquals(numberOfpartialTopN, 1, "There should be exactly one partial TopN node");
+        assertEquals(numberOfpartialTopN, 2, "There should be exactly two partial TopN nodes");
         assertPlanIsFullyDistributed(plan);
     }
 
