@@ -149,7 +149,7 @@ public class LdapSimbaJdbcTests
     public void shouldFailForUserWithColon()
             throws SQLException, InterruptedException
     {
-        expectQueryToFail("UserWith:Colon", ldapUserPassword, MALFORMED_CREDENTIALS_ERROR);
+        expectQueryToFail("UserWith:Colon", ldapUserPassword, INVALID_CREDENTIALS_ERROR);
     }
 
     private void expectQueryToFailForUserNotInGroup(String user)
