@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -454,12 +455,12 @@ public final class DomainTranslator
          */
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(ComparisonExpression comparison)
         {
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = analyzeExpression(comparison);
+            Map<NodeRef<Expression>, Type> expressionTypes = NodeRefCollections.fromIdentityMap(analyzeExpression(comparison));
             Object left = ExpressionInterpreter.expressionOptimizer(comparison.getLeft(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
             Object right = ExpressionInterpreter.expressionOptimizer(comparison.getRight(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
 
-            Type leftType = expressionTypes.get(comparison.getLeft());
-            Type rightType = expressionTypes.get(comparison.getRight());
+            Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft()));
+            Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight()));
 
             // TODO: re-enable this check once we fix the type coercions in the optimizers
             // checkArgument(leftType.equals(rightType), "left and right type do not match in comparison expression (%s)", comparison);

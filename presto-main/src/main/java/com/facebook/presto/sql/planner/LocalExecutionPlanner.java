@@ -145,6 +145,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -1200,14 +1201,14 @@ public class LocalExecutionPlanner
             PageBuilder pageBuilder = new PageBuilder(outputTypes);
             for (List<Expression> row : node.getRows()) {
                 pageBuilder.declarePosition();
-                IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypes(
+                Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                         context.getSession(),
                         metadata,
                         sqlParser,
                         ImmutableMap.of(),
                         ImmutableList.copyOf(row),
                         emptyList(),
-                        false));
+                        false);
                 for (int i = 0; i < row.size(); i++) {
                     // evaluate the literal value
                     Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession(), expressionTypes).evaluate(0);

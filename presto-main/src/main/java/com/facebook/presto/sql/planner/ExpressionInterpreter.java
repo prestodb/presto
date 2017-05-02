@@ -68,6 +68,7 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -93,11 +94,9 @@ import com.facebook.presto.util.FastutilSetHelper;
 import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Defaults;
-import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Primitives;
 import io.airlift.joni.Regex;
 import io.airlift.json.JsonCodec;
@@ -106,6 +105,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -140,7 +140,7 @@ public class ExpressionInterpreter
     private final Metadata metadata;
     private final ConnectorSession session;
     private final boolean optimize;
-    private final IdentityLinkedHashMap<Expression, Type> expressionTypes;
+    private final Map<NodeRef<Expression>, Type> expressionTypes;
 
     private final Visitor visitor;
 
@@ -148,7 +148,7 @@ public class ExpressionInterpreter
     private final IdentityLinkedHashMap<LikePredicate, Regex> likePatternCache = new IdentityLinkedHashMap<>();
     private final IdentityLinkedHashMap<InListExpression, Set<?>> inListCache = new IdentityLinkedHashMap<>();
 
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityLinkedHashMap<Expression, Type> expressionTypes)
+    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(metadata, "metadata is null");
@@ -157,7 +157,7 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, IdentityLinkedHashMap<Expression, Type> expressionTypes)
+    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(metadata, "metadata is null");
@@ -231,7 +231,7 @@ public class ExpressionInterpreter
         analyzer.analyze(canonicalized, Scope.create());
 
         // evaluate the expression
-        Object result = expressionInterpreter(canonicalized, metadata, session, NodeRefCollections.toIdentityMap(analyzer.getExpressionTypes())).evaluate(0);
+        Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
@@ -241,13 +241,13 @@ public class ExpressionInterpreter
         new ConstantExpressionVerifierVisitor(columnReferences, expression).process(expression, null);
     }
 
-    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityLinkedHashMap<Expression, Type> expressionTypes, boolean optimize)
+    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize)
     {
         this.expression = expression;
         this.metadata = metadata;
         this.session = session.toConnectorSession();
-        this.expressionTypes = expressionTypes;
-        verify((expressionTypes.containsKey(expression)));
+        this.expressionTypes = new LinkedHashMap<>(requireNonNull(expressionTypes, "expressionTypes is null"));
+        verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
 
         this.visitor = new Visitor();
@@ -255,7 +255,7 @@ public class ExpressionInterpreter
 
     public Type getType()
     {
-        return expressionTypes.get(expression);
+        return expressionTypes.get(NodeRef.of(expression));
     }
 
     public Object evaluate(RecordCursor inputs)
@@ -325,7 +325,7 @@ public class ExpressionInterpreter
         @Override
         public Object visitFieldReference(FieldReference node, Object context)
         {
-            Type type = expressionTypes.get(node);
+            Type type = type(node);
 
             int channel = node.getFieldIndex();
             if (context instanceof PagePositionContext) {
@@ -389,7 +389,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
         {
-            Type type = expressionTypes.get(node.getBase());
+            Type type = type(node.getBase());
             // if there is no type for the base of Dereference, it must be QualifiedName
             if (type == null) {
                 return node;
@@ -407,7 +407,7 @@ public class ExpressionInterpreter
 
             RowType rowType = (RowType) type;
             Block row = (Block) base;
-            Type returnType = expressionTypes.get(node);
+            Type returnType = type(node);
             List<RowField> fields = rowType.getFields();
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
@@ -470,7 +470,7 @@ public class ExpressionInterpreter
             Object value = process(node.getValue(), context);
 
             if (value instanceof Expression) {
-                return new IsNullPredicate(toExpression(value, expressionTypes.get(node.getValue())));
+                return new IsNullPredicate(toExpression(value, type(node.getValue())));
             }
 
             return value == null;
@@ -482,7 +482,7 @@ public class ExpressionInterpreter
             Object value = process(node.getValue(), context);
 
             if (value instanceof Expression) {
-                return new IsNotNullPredicate(toExpression(value, expressionTypes.get(node.getValue())));
+                return new IsNotNullPredicate(toExpression(value, type(node.getValue())));
             }
 
             return value != null;
@@ -607,7 +607,7 @@ public class ExpressionInterpreter
 
         private Type type(Expression expression)
         {
-            return expressionTypes.get(expression);
+            return expressionTypes.get(NodeRef.of(expression));
         }
 
         @Override
@@ -659,7 +659,7 @@ public class ExpressionInterpreter
                 if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
                         valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
                     Set objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
-                    set = FastutilSetHelper.toFastutilHashSet(objectSet, expressionTypes.get(node.getValue()), metadata.getFunctionRegistry());
+                    set = FastutilSetHelper.toFastutilHashSet(objectSet, type(node.getValue()), metadata.getFunctionRegistry());
                 }
                 inListCache.put(valueList, set);
             }
@@ -682,7 +682,7 @@ public class ExpressionInterpreter
                 if (value instanceof Expression || inValue instanceof Expression) {
                     hasUnresolvedValue = true;
                     values.add(inValue);
-                    types.add(expressionTypes.get(expression));
+                    types.add(type(expression));
                     continue;
                 }
 
@@ -699,7 +699,7 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue) {
-                Type type = expressionTypes.get(node.getValue());
+                Type type = type(node.getValue());
                 List<Expression> expressionValues = toExpressions(values, types);
                 List<Expression> simplifiedExpressionValues = Stream.concat(
                         expressionValues.stream()
@@ -742,7 +742,7 @@ public class ExpressionInterpreter
                 return null;
             }
             if (value instanceof Expression) {
-                return new ArithmeticUnaryExpression(node.getSign(), toExpression(value, expressionTypes.get(node.getValue())));
+                return new ArithmeticUnaryExpression(node.getSign(), toExpression(value, type(node.getValue())));
             }
 
             switch (node.getSign()) {
@@ -781,7 +781,7 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ArithmeticBinaryExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
+                return new ArithmeticBinaryExpression(node.getType(), toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
             }
 
             return invokeOperator(OperatorType.valueOf(node.getType().name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
@@ -811,7 +811,7 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ComparisonExpression(type, toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
+                return new ComparisonExpression(type, toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
             }
 
             return invokeOperator(OperatorType.valueOf(type.name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
@@ -835,9 +835,9 @@ public class ExpressionInterpreter
 
             if (hasUnresolvedValue(value, min, max)) {
                 return new BetweenPredicate(
-                        toExpression(value, expressionTypes.get(node.getValue())),
-                        toExpression(min, expressionTypes.get(node.getMin())),
-                        toExpression(max, expressionTypes.get(node.getMax())));
+                        toExpression(value, type(node.getValue())),
+                        toExpression(min, type(node.getMin())),
+                        toExpression(max, type(node.getMax())));
             }
 
             return invokeOperator(OperatorType.BETWEEN, types(node.getValue(), node.getMin(), node.getMax()), ImmutableList.of(value, min, max));
@@ -855,8 +855,8 @@ public class ExpressionInterpreter
                 return first;
             }
 
-            Type firstType = expressionTypes.get(node.getFirst());
-            Type secondType = expressionTypes.get(node.getSecond());
+            Type firstType = type(node.getFirst());
+            Type secondType = type(node.getSecond());
 
             if (hasUnresolvedValue(first, second)) {
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
@@ -894,7 +894,7 @@ public class ExpressionInterpreter
             }
 
             if (value instanceof Expression) {
-                return new NotExpression(toExpression(value, expressionTypes.get(node.getValue())));
+                return new NotExpression(toExpression(value, type(node.getValue())));
             }
 
             return !(Boolean) value;
@@ -936,8 +936,8 @@ public class ExpressionInterpreter
             }
 
             return new LogicalBinaryExpression(node.getType(),
-                    toExpression(left, expressionTypes.get(node.getLeft())),
-                    toExpression(right, expressionTypes.get(node.getRight())));
+                    toExpression(left, type(node.getLeft())),
+                    toExpression(right, type(node.getRight())));
         }
 
         @Override
@@ -953,7 +953,7 @@ public class ExpressionInterpreter
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
                 Object value = process(expression, context);
-                Type type = expressionTypes.get(expression);
+                Type type = type(expression);
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
@@ -986,7 +986,7 @@ public class ExpressionInterpreter
             List<String> argumentNames = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
                     .collect(toImmutableList());
-            FunctionType functionType = (FunctionType) expressionTypes.get(node);
+            FunctionType functionType = (FunctionType) type(node);
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
 
             return generateVarArgsToMapAdapter(
@@ -1007,8 +1007,8 @@ public class ExpressionInterpreter
 
             if (hasUnresolvedValue(value, function)) {
                 return new BindExpression(
-                        toExpression(value, expressionTypes.get(node.getValue())),
-                        toExpression(function, expressionTypes.get(node.getFunction())));
+                        toExpression(value, type(node.getValue())),
+                        toExpression(function, type(node.getFunction())));
             }
 
             return MethodHandles.insertArguments((MethodHandle) function, 0, value);
@@ -1062,7 +1062,7 @@ public class ExpressionInterpreter
             // if pattern is a constant without % or _ replace with a comparison
             if (pattern instanceof Slice && (escape == null || escape instanceof Slice) && !isLikePattern((Slice) pattern, (Slice) escape)) {
                 Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, (Slice) escape);
-                Type valueType = expressionTypes.get(node.getValue());
+                Type valueType = type(node.getValue());
                 Type patternType = createVarcharType(unescapedPattern.length());
                 TypeManager typeManager = metadata.getTypeManager();
                 Optional<Type> commonSuperType = typeManager.getCommonSuperType(valueType, patternType);
@@ -1081,12 +1081,12 @@ public class ExpressionInterpreter
 
             Expression optimizedEscape = null;
             if (node.getEscape() != null) {
-                optimizedEscape = toExpression(escape, expressionTypes.get(node.getEscape()));
+                optimizedEscape = toExpression(escape, type(node.getEscape()));
             }
 
             return new LikePredicate(
-                    toExpression(value, expressionTypes.get(node.getValue())),
-                    toExpression(pattern, expressionTypes.get(node.getPattern())),
+                    toExpression(value, type(node.getValue())),
+                    toExpression(pattern, type(node.getPattern())),
                     optimizedEscape);
         }
 
@@ -1143,8 +1143,8 @@ public class ExpressionInterpreter
 
             // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
             // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
-            if (optimize && !FunctionRegistry.isSupportedLiteralType(expressionTypes.get(node))) {
-                return new Cast(toExpression(value, expressionTypes.get(node.getExpression())), node.getType(), node.isSafe(), node.isTypeOnly());
+            if (optimize && !FunctionRegistry.isSupportedLiteralType(type(node))) {
+                return new Cast(toExpression(value, type(node.getExpression())), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
             if (value == null) {
@@ -1156,7 +1156,7 @@ public class ExpressionInterpreter
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            Signature operator = metadata.getFunctionRegistry().getCoercion(expressionTypes.get(node.getExpression()), type);
+            Signature operator = metadata.getFunctionRegistry().getCoercion(type(node.getExpression()), type);
 
             try {
                 return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operator), ImmutableList.of(value));
@@ -1172,7 +1172,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitArrayConstructor(ArrayConstructor node, Object context)
         {
-            Type elementType = ((ArrayType) expressionTypes.get(node)).getElementType();
+            Type elementType = ((ArrayType) type(node)).getElementType();
             BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), node.getValues().size());
 
             for (Expression expression : node.getValues()) {
@@ -1189,7 +1189,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitRow(Row node, Object context)
         {
-            RowType rowType = (RowType) expressionTypes.get(node);
+            RowType rowType = (RowType) type(node);
             List<Type> parameterTypes = rowType.getTypeParameters();
             List<Expression> arguments = node.getItems();
 
@@ -1221,12 +1221,12 @@ public class ExpressionInterpreter
             if (index == null) {
                 return null;
             }
-            if ((index instanceof Long) && isArray(expressionTypes.get(node.getBase()))) {
+            if ((index instanceof Long) && isArray(type(node.getBase()))) {
                 ArraySubscriptOperator.checkArrayIndex((Long) index);
             }
 
             if (hasUnresolvedValue(base, index)) {
-                return new SubscriptExpression(toExpression(base, expressionTypes.get(node.getBase())), toExpression(index, expressionTypes.get(node.getIndex())));
+                return new SubscriptExpression(toExpression(base, type(node.getBase())), toExpression(index, type(node.getIndex())));
             }
 
             return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
@@ -1255,7 +1255,10 @@ public class ExpressionInterpreter
 
         private List<Type> types(Expression... types)
         {
-            return ImmutableList.copyOf(Iterables.transform(ImmutableList.copyOf(types), Functions.forMap(expressionTypes)));
+            return Stream.of(types)
+                    .map(NodeRef::of)
+                    .map(expressionTypes::get)
+                    .collect(toImmutableList());
         }
 
         private boolean hasUnresolvedValue(Object... values)
