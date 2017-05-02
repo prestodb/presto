@@ -14,11 +14,13 @@
 package com.facebook.presto.hive;
 
 import io.airlift.event.client.EventField;
+import io.airlift.event.client.EventField.EventFieldMapping;
 import io.airlift.event.client.EventType;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.time.Instant;
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
@@ -35,12 +37,13 @@ public class WriteCompletedEvent
     private final String storageFormat;
     private final String writerImplementation;
     private final String prestoVersion;
-    private final String serverAddress;
+    private final String host;
     private final String principal;
     private final String environment;
     private final Map<String, String> sessionProperties;
     private final Long bytes;
     private final long rows;
+    private final Instant timestamp = Instant.now();
 
     public WriteCompletedEvent(
             String queryId,
@@ -66,7 +69,7 @@ public class WriteCompletedEvent
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.writerImplementation = requireNonNull(writerImplementation, "writerImplementation is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
-        this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
+        this.host = requireNonNull(serverAddress, "serverAddress is null");
         this.principal = principal;
         this.environment = requireNonNull(environment, "environment is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
@@ -123,10 +126,10 @@ public class WriteCompletedEvent
         return prestoVersion;
     }
 
-    @EventField
-    public String getServerAddress()
+    @EventField(fieldMapping = EventFieldMapping.HOST)
+    public String getHost()
     {
-        return serverAddress;
+        return host;
     }
 
     @Nullable
@@ -159,5 +162,11 @@ public class WriteCompletedEvent
     public long getRows()
     {
         return rows;
+    }
+
+    @EventField(fieldMapping = EventFieldMapping.TIMESTAMP)
+    public Instant getTimestamp()
+    {
+        return timestamp;
     }
 }
