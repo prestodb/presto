@@ -49,7 +49,7 @@ public class TpcdsSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
         TpcdsTableHandle tableHandle = checkType(layout, TpcdsTableLayoutHandle.class, "layout").getTable();
 
