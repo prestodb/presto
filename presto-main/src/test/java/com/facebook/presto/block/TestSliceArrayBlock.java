@@ -25,8 +25,15 @@ public class TestSliceArrayBlock
     public void test()
     {
         Slice[] expectedValues = createExpectedValues(100);
-        assertVariableWithValues(expectedValues);
-        assertVariableWithValues((Slice[]) alternatingNullValues(expectedValues));
+        assertVariableWithValues(expectedValues, false);
+        assertVariableWithValues((Slice[]) alternatingNullValues(expectedValues), false);
+    }
+
+    @Test
+    public void testDistinctSlices()
+    {
+        Slice[] expectedValues = createExpectedUniqueValues(100);
+        assertVariableWithValues(expectedValues, true);
     }
 
     @Test
@@ -38,9 +45,9 @@ public class TestSliceArrayBlock
         assertBlockFilteredPositions(expectedValues, block, Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
     }
 
-    private void assertVariableWithValues(Slice[] expectedValues)
+    private void assertVariableWithValues(Slice[] expectedValues, boolean valueSlicesAreDistinct)
     {
-        SliceArrayBlock block = new SliceArrayBlock(expectedValues.length, expectedValues);
+        SliceArrayBlock block = new SliceArrayBlock(expectedValues.length, expectedValues, valueSlicesAreDistinct);
         assertBlock(block, expectedValues);
     }
 }
