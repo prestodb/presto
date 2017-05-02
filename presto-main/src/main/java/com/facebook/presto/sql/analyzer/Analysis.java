@@ -221,9 +221,9 @@ public class Analysis
         return coercions.get(NodeRef.of(expression));
     }
 
-    public void addLambdaArgumentReferences(IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences)
+    public void addLambdaArgumentReferences(Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences)
     {
-        this.lambdaArgumentReferences.putAll(NodeRefCollections.fromIdentityMap(lambdaArgumentReferences));
+        this.lambdaArgumentReferences.putAll(lambdaArgumentReferences);
     }
 
     public LambdaArgumentDeclaration getLambdaArgumentReference(Identifier identifier)
@@ -345,9 +345,9 @@ public class Analysis
         return orderByWindowFunctions.get(NodeRef.of(query));
     }
 
-    public void addColumnReferences(IdentityLinkedHashMap<Expression, FieldId> columnReferences)
+    public void addColumnReferences(Map<NodeRef<Expression>, FieldId> columnReferences)
     {
-        this.columnReferences.putAll(NodeRefCollections.fromIdentityMap(columnReferences));
+        this.columnReferences.putAll(columnReferences);
     }
 
     public Scope getScope(Node node)
@@ -405,9 +405,9 @@ public class Analysis
         return functionSignature.get(NodeRef.of(function));
     }
 
-    public void addFunctionSignatures(IdentityLinkedHashMap<FunctionCall, Signature> infos)
+    public void addFunctionSignatures(Map<NodeRef<FunctionCall>, Signature> infos)
     {
-        functionSignature.putAll(NodeRefCollections.fromIdentityMap(infos));
+        functionSignature.putAll(infos);
     }
 
     public Set<Expression> getColumnReferences()
@@ -420,9 +420,9 @@ public class Analysis
         return unmodifiableMap(NodeRefCollections.toIdentityMap(columnReferences));
     }
 
-    public void addTypes(IdentityLinkedHashMap<Expression, Type> types)
+    public void addTypes(Map<NodeRef<Expression>, Type> types)
     {
-        this.types.putAll(NodeRefCollections.fromIdentityMap(types));
+        this.types.putAll(types);
     }
 
     public void addCoercion(Expression expression, Type type, boolean isTypeOnlyCoercion)
@@ -433,10 +433,10 @@ public class Analysis
         }
     }
 
-    public void addCoercions(IdentityLinkedHashMap<Expression, Type> coercions, Set<Expression> typeOnlyCoercions)
+    public void addCoercions(Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
     {
-        this.coercions.putAll(NodeRefCollections.fromIdentityMap(coercions));
-        this.typeOnlyCoercions.addAll(NodeRefCollections.fromIdentitySet(typeOnlyCoercions));
+        this.coercions.putAll(coercions);
+        this.typeOnlyCoercions.addAll(typeOnlyCoercions);
     }
 
     public Expression getHaving(QuerySpecification query)
