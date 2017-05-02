@@ -40,7 +40,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -77,20 +76,15 @@ public abstract class AbstractTestBlock
     {
         long sizeInBytes = sizeOf(values);
         Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>(values.length);
-        boolean emptySliceExists = false;
         for (Slice value : values) {
-            if (value != null) {
-                if (value.getBase() != null) {
-                    if (uniqueRetained.put(value.getBase(), true) == null) {
-                        sizeInBytes += value.getRetainedSize();
-                    }
-                }
-                else if (value.equals(EMPTY_SLICE)) {
-                    emptySliceExists = true;
-                }
+            if (value == null) {
+                continue;
+            }
+            if (value.getBase() != null && uniqueRetained.put(value.getBase(), true) == null) {
+                sizeInBytes += value.getRetainedSize();
             }
         }
-        return sizeInBytes + (emptySliceExists ? EMPTY_SLICE.getRetainedSize() : 0);
+        return sizeInBytes;
     }
 
     private void assertRetainedSize(Block block)
@@ -376,16 +370,6 @@ public abstract class AbstractTestBlock
         Slice[] expectedValues = new Slice[positionCount];
         for (int position = 0; position < positionCount; position++) {
             expectedValues[position] = createExpectedValue(position);
-        }
-        return expectedValues;
-    }
-
-    // used to create unique slice values to test SliceArrayBlock, see the SliceArrayBlock constructor taking the valueSlicesAreDistinct parameter
-    protected static Slice[] createExpectedUniqueValues(int positionCount)
-    {
-        Slice[] expectedValues = new Slice[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            expectedValues[position] = Slices.copyOf(createExpectedValue(position));
         }
         return expectedValues;
     }
