@@ -299,10 +299,10 @@ public class Analysis
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
         NodeRef<Node> key = NodeRef.of(node);
-        this.inPredicatesSubqueries.putAll(key, expressionAnalysis.getSubqueryInPredicates());
-        this.scalarSubqueries.putAll(key, expressionAnalysis.getScalarSubqueries());
-        this.existsSubqueries.putAll(key, expressionAnalysis.getExistsSubqueries());
-        this.quantifiedComparisonSubqueries.putAll(key, expressionAnalysis.getQuantifiedComparisons());
+        this.inPredicatesSubqueries.putAll(key, NodeRefCollections.toIdentitySet(expressionAnalysis.getSubqueryInPredicates()));
+        this.scalarSubqueries.putAll(key, NodeRefCollections.toIdentitySet(expressionAnalysis.getScalarSubqueries()));
+        this.existsSubqueries.putAll(key, NodeRefCollections.toIdentitySet(expressionAnalysis.getExistsSubqueries()));
+        this.quantifiedComparisonSubqueries.putAll(key, NodeRefCollections.toIdentitySet(expressionAnalysis.getQuantifiedComparisons()));
     }
 
     public List<InPredicate> getInPredicateSubqueries(Node node)
