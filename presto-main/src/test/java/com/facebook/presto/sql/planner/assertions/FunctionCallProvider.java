@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Joiner;
@@ -85,7 +86,7 @@ class FunctionCallProvider
         }
 
         @Override
-        public boolean equals(Object object)
+        protected boolean isEqualTo(Node object)
         {
             if (this == object) {
                 return true;
@@ -105,7 +106,7 @@ class FunctionCallProvider
         }
 
         @Override
-        public int hashCode()
+        protected int hash()
         {
             /*
              * Putting this in a hash table is probably not a useful thing to do,

@@ -68,7 +68,7 @@ public class TableSubquery
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -82,7 +82,7 @@ public class TableSubquery
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return query.hashCode();
     }

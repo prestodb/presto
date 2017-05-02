@@ -69,7 +69,7 @@ public final class SimpleGroupBy
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -82,7 +82,7 @@ public final class SimpleGroupBy
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(columns);
     }

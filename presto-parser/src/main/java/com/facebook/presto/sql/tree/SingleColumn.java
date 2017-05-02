@@ -68,7 +68,7 @@ public class SingleColumn
     }
 
     @Override
-    public boolean equals(Object obj)
+    protected boolean isEqualTo(Node obj)
     {
         if (this == obj) {
             return true;
@@ -81,7 +81,7 @@ public class SingleColumn
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(alias, expression);
     }

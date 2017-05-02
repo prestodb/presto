@@ -78,7 +78,7 @@ public class BetweenPredicate
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -94,7 +94,7 @@ public class BetweenPredicate
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(value, min, max);
     }

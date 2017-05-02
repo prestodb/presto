@@ -94,7 +94,7 @@ public class Extract
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -109,7 +109,7 @@ public class Extract
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(expression, field);
     }

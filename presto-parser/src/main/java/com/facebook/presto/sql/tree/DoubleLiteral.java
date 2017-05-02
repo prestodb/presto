@@ -51,7 +51,7 @@ public class DoubleLiteral
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -71,7 +71,7 @@ public class DoubleLiteral
 
     @SuppressWarnings("UnaryPlus")
     @Override
-    public int hashCode()
+    protected int hash()
     {
         long temp = value != +0.0d ? Double.doubleToLongBits(value) : 0L;
         return (int) (temp ^ (temp >>> 32));

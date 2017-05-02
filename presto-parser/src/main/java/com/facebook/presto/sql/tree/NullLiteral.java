@@ -35,7 +35,7 @@ public class NullLiteral
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -48,7 +48,7 @@ public class NullLiteral
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return 0;
     }

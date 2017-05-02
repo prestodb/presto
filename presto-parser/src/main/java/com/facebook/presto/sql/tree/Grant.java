@@ -90,13 +90,13 @@ public class Grant
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(privileges, table, tableName, grantee, withGrantOption);
     }
 
     @Override
-    public boolean equals(Object obj)
+    protected boolean isEqualTo(Node obj)
     {
         if (this == obj) {
             return true;

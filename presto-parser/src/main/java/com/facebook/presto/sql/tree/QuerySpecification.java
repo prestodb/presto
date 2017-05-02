@@ -155,7 +155,7 @@ public class QuerySpecification
     }
 
     @Override
-    public boolean equals(Object obj)
+    protected boolean isEqualTo(Node obj)
     {
         if (this == obj) {
             return true;
@@ -174,7 +174,7 @@ public class QuerySpecification
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(select, from, where, groupBy, having, orderBy, limit);
     }
