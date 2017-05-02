@@ -82,11 +82,10 @@ public class Analysis
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
-    // TODO ListMultimap too
-    private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
-    private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
-    private final ListMultimap<Node, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
-    private final ListMultimap<Node, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<NodeRef<Node>, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<NodeRef<Node>, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<NodeRef<Node>, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<NodeRef<Node>, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
 
     private final Map<NodeRef<Table>, TableHandle> tables = new LinkedHashMap<>();
 
@@ -299,42 +298,31 @@ public class Analysis
 
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
-        this.inPredicatesSubqueries.putAll(node, expressionAnalysis.getSubqueryInPredicates());
-        this.scalarSubqueries.putAll(node, expressionAnalysis.getScalarSubqueries());
-        this.existsSubqueries.putAll(node, expressionAnalysis.getExistsSubqueries());
-        this.quantifiedComparisonSubqueries.putAll(node, expressionAnalysis.getQuantifiedComparisons());
+        NodeRef<Node> key = NodeRef.of(node);
+        this.inPredicatesSubqueries.putAll(key, expressionAnalysis.getSubqueryInPredicates());
+        this.scalarSubqueries.putAll(key, expressionAnalysis.getScalarSubqueries());
+        this.existsSubqueries.putAll(key, expressionAnalysis.getExistsSubqueries());
+        this.quantifiedComparisonSubqueries.putAll(key, expressionAnalysis.getQuantifiedComparisons());
     }
 
     public List<InPredicate> getInPredicateSubqueries(Node node)
     {
-        if (inPredicatesSubqueries.containsKey(node)) {
-            return inPredicatesSubqueries.get(node);
-        }
-        return ImmutableList.of();
+        return ImmutableList.copyOf(inPredicatesSubqueries.get(NodeRef.of(node)));
     }
 
     public List<SubqueryExpression> getScalarSubqueries(Node node)
     {
-        if (scalarSubqueries.containsKey(node)) {
-            return scalarSubqueries.get(node);
-        }
-        return ImmutableList.of();
+        return ImmutableList.copyOf(scalarSubqueries.get(NodeRef.of(node)));
     }
 
     public List<ExistsPredicate> getExistsSubqueries(Node node)
     {
-        if (existsSubqueries.containsKey(node)) {
-            return existsSubqueries.get(node);
-        }
-        return ImmutableList.of();
+        return ImmutableList.copyOf(existsSubqueries.get(NodeRef.of(node)));
     }
 
     public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries(Node node)
     {
-        if (quantifiedComparisonSubqueries.containsKey(node)) {
-            return quantifiedComparisonSubqueries.get(node);
-        }
-        return ImmutableList.of();
+        return ImmutableList.copyOf(quantifiedComparisonSubqueries.get(NodeRef.of(node)));
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
