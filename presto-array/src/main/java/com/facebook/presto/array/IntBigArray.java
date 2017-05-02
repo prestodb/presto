@@ -21,13 +21,13 @@ import static com.facebook.presto.array.BigArrays.INITIAL_SEGMENTS;
 import static com.facebook.presto.array.BigArrays.SEGMENT_SIZE;
 import static com.facebook.presto.array.BigArrays.offset;
 import static com.facebook.presto.array.BigArrays.segment;
-import static io.airlift.slice.SizeOf.sizeOfLongArray;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class IntBigArray
 {
-    private static final long SIZE_OF_SEGMENT = sizeOfLongArray(SEGMENT_SIZE);
+    private static final long SIZE_OF_SEGMENT = sizeOfIntArray(SEGMENT_SIZE);
 
     private final int initialValue;
 
