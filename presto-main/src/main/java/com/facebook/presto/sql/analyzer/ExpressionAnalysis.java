@@ -22,13 +22,13 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -72,10 +72,9 @@ public class ExpressionAnalysis
         return expressionTypes.get(NodeRef.of(expression));
     }
 
-    // TODO change return type
-    public IdentityLinkedHashMap<Expression, Type> getExpressionTypes()
+    public Map<NodeRef<Expression>, Type> getExpressionTypes()
     {
-        return NodeRefCollections.toIdentityMap(expressionTypes);
+        return unmodifiableMap(expressionTypes);
     }
 
     public Type getCoercion(Expression expression)
