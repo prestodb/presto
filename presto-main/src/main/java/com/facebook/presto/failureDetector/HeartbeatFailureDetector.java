@@ -162,11 +162,12 @@ public class HeartbeatFailureDetector
                 }
 
                 Exception lastFailureException = task.getStats().getLastFailureException();
-                if (lastFailureException instanceof SocketTimeoutException || lastFailureException instanceof UnknownHostException) {
+                if (lastFailureException instanceof ConnectException) {
                     return GONE;
                 }
 
-                if (lastFailureException instanceof ConnectException) {
+                if (lastFailureException instanceof SocketTimeoutException) {
+                    // TODO: distinguish between process unresponsiveness (e.g GC pause) and host reboot
                     return UNRESPONSIVE;
                 }
 
