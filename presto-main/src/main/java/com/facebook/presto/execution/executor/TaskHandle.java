@@ -104,8 +104,7 @@ public class TaskHandle
         runningIntermediateSplits.add(split);
     }
 
-    @VisibleForTesting
-    public synchronized int getRunningLeafSplits()
+    synchronized int getRunningLeafSplits()
     {
         return runningLeafSplits.size();
     }
