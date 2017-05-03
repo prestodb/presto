@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.execution.executor;
 
-import com.facebook.presto.execution.executor.TaskExecutor;
-import com.facebook.presto.execution.executor.TaskHandle;
+import com.facebook.presto.execution.SplitRunner;
+import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
