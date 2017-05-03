@@ -470,6 +470,70 @@ public class TestResourceGroups
         assertEquals(info.getNumAggregatedQueuedQueries(), 26);
     }
 
+    @Test
+    public void testGetBlockedQueuedQueries()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> { }, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(40);
+        // Start with zero capacity, so that nothing starts running until we've added all the queries
+        root.setMaxRunningQueries(0);
+
+        InternalResourceGroup rootA = root.getOrCreateSubGroup("a");
+        rootA.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootA.setMaxQueuedQueries(20);
+        rootA.setMaxRunningQueries(8);
+
+        InternalResourceGroup rootAX = rootA.getOrCreateSubGroup("x");
+        rootAX.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootAX.setMaxQueuedQueries(10);
+        rootAX.setMaxRunningQueries(8);
+
+        InternalResourceGroup rootAY = rootA.getOrCreateSubGroup("y");
+        rootAY.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootAY.setMaxQueuedQueries(10);
+        rootAY.setMaxRunningQueries(5);
+
+        InternalResourceGroup rootB = root.getOrCreateSubGroup("b");
+        rootB.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootB.setMaxQueuedQueries(20);
+        rootB.setMaxRunningQueries(8);
+
+        InternalResourceGroup rootBX = rootB.getOrCreateSubGroup("x");
+        rootBX.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootBX.setMaxQueuedQueries(10);
+        rootBX.setMaxRunningQueries(8);
+
+        InternalResourceGroup rootBY = rootB.getOrCreateSubGroup("y");
+        rootBY.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootBY.setMaxQueuedQueries(10);
+        rootBY.setMaxRunningQueries(5);
+
+        // Queue 40 queries (= maxQueuedQueries (40) + maxRunningQueries (0))
+        Set<MockQueryExecution> queries = fillGroupTo(rootAX, ImmutableSet.of(), 10, false);
+        queries.addAll(fillGroupTo(rootAY, ImmutableSet.of(), 10, false));
+        queries.addAll(fillGroupTo(rootBX, ImmutableSet.of(), 10, true));
+        queries.addAll(fillGroupTo(rootBY, ImmutableSet.of(), 10, true));
+
+        assertEquals(root.getWaitingQueuedQueries(), 16);
+        assertEquals(rootA.getWaitingQueuedQueries(), 0);
+        assertEquals(rootAX.getWaitingQueuedQueries(), 0);
+        assertEquals(rootAY.getWaitingQueuedQueries(), 0);
+        assertEquals(rootB.getWaitingQueuedQueries(), 0);
+        assertEquals(rootBX.getWaitingQueuedQueries(), 0);
+        assertEquals(rootBY.getWaitingQueuedQueries(), 0);
+
+        root.setMaxRunningQueries(20);
+        root.processQueuedQueries();
+        assertEquals(root.getWaitingQueuedQueries(), 0);
+        assertEquals(rootA.getWaitingQueuedQueries(), 5);
+        assertEquals(rootAX.getWaitingQueuedQueries(), 0);
+        assertEquals(rootAY.getWaitingQueuedQueries(), 0);
+        assertEquals(rootB.getWaitingQueuedQueries(), 5);
+        assertEquals(rootBX.getWaitingQueuedQueries(), 0);
+        assertEquals(rootBY.getWaitingQueuedQueries(), 0);
+    }
+
     private static Set<MockQueryExecution> fillGroupTo(InternalResourceGroup group, Set<MockQueryExecution> existingQueries, int count)
     {
         return fillGroupTo(group, existingQueries, count, false);

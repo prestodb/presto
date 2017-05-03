@@ -51,6 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -182,6 +183,31 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             return queuedQueries.size() + descendantQueuedQueries;
+        }
+    }
+
+    @Managed
+    public int getWaitingQueuedQueries()
+    {
+        synchronized (root) {
+            if (canRunMore()) {
+                return 0;
+            }
+
+            // For leaf group, when no queries can run, all queued queries are waiting for resources on this resource group.
+            if (subGroups.isEmpty()) {
+                return queuedQueries.size();
+            }
+
+            // For internal groups, when no queries can run, only queries that could run on its subgroups are waiting for resources on this group.
+            int waitingQueuedQueries = 0;
+            for (InternalResourceGroup subGroup : subGroups.values()) {
+                if (subGroup.canRunMore()) {
+                    waitingQueuedQueries += min(subGroup.getQueuedQueries(), subGroup.getMaxRunningQueries() - subGroup.getRunningQueries());
+                }
+            }
+
+            return waitingQueuedQueries;
         }
     }
 
@@ -693,7 +719,7 @@ public class InternalResourceGroup
                 double penalty = (cpuUsageMillis - softCpuLimitMillis) / (double) (hardCpuLimitMillis - softCpuLimitMillis);
                 maxRunning = (int) Math.floor(maxRunning * (1 - penalty));
                 // Always penalize by at least one
-                maxRunning = Math.min(maxRunningQueries - 1, maxRunning);
+                maxRunning = min(maxRunningQueries - 1, maxRunning);
                 // Always allow at least one running query
                 maxRunning = Math.max(1, maxRunning);
             }
