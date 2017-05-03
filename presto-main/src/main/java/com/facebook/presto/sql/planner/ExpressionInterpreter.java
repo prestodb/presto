@@ -32,7 +32,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
-import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -171,22 +170,22 @@ public class ExpressionInterpreter
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
         analyzer.analyze(expression, Scope.create());
 
-        Type actualType = NodeRefCollections.toIdentityMap(analyzer.getExpressionTypes()).get(expression);
+        Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
         if (!metadata.getTypeManager().canCoerce(actualType, expectedType)) {
             throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, String.format("Cannot cast type %s to %s",
                     expectedType.getTypeSignature(),
                     actualType.getTypeSignature()));
         }
 
-        IdentityLinkedHashMap<Expression, Type> coercions = new IdentityLinkedHashMap<>();
-        coercions.putAll(NodeRefCollections.toIdentityMap(analyzer.getExpressionCoercions()));
-        coercions.put(expression, expectedType);
+        Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
+        coercions.putAll(analyzer.getExpressionCoercions());
+        coercions.put(NodeRef.of(expression), expectedType);
         return evaluateConstantExpression(expression, coercions, metadata, session, ImmutableSet.of(), parameters);
     }
 
     public static Object evaluateConstantExpression(
             Expression expression,
-            IdentityLinkedHashMap<Expression, Type> coercions,
+            Map<NodeRef<Expression>, Type> coercions,
             Metadata metadata, Session session,
             Set<Expression> columnReferences,
             List<Expression> parameters)
@@ -204,7 +203,7 @@ public class ExpressionInterpreter
                 Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
 
                 // cast expression if coercion is registered
-                Type coerceToType = coercions.get(node);
+                Type coerceToType = coercions.get(NodeRef.of(node));
 
                 if (coerceToType != null) {
                     rewrittenExpression = new Cast(rewrittenExpression, coerceToType.getTypeSignature().toString());

@@ -211,9 +211,9 @@ public class Analysis
         relationCoercions.put(NodeRef.of(relation), types);
     }
 
-    public IdentityLinkedHashMap<Expression, Type> getCoercions()
+    public Map<NodeRef<Expression>, Type> getCoercions()
     {
-        return NodeRefCollections.toIdentityMap(coercions);
+        return unmodifiableMap(coercions);
     }
 
     public Type getCoercion(Expression expression)
