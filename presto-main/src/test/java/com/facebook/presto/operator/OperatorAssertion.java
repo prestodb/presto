@@ -23,22 +23,32 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public final class OperatorAssertion
 {
+    private static final Duration BLOCKED_DEFAULT_TIMEOUT = new Duration(100, MILLISECONDS);
+    private static final Duration UNBLOCKED_DEFAULT_TIMEOUT = new Duration(10, SECONDS);
+
     private OperatorAssertion()
     {
     }
@@ -221,6 +231,50 @@ public final class OperatorAssertion
         }
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    public static void assertOperatorIsBlocked(Operator operator)
+    {
+        assertOperatorIsBlocked(operator, BLOCKED_DEFAULT_TIMEOUT);
+    }
+
+    public static void assertOperatorIsBlocked(Operator operator, Duration timeout)
+    {
+        try {
+            operator.isBlocked().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            fail("Operator is expected to be blocked for at least " + timeout.toString());
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("interrupted", e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
+        catch (TimeoutException ignored) {
+        }
+    }
+
+    public static void assertOperatorIsUnblocked(Operator operator)
+    {
+        assertOperatorIsUnblocked(operator, UNBLOCKED_DEFAULT_TIMEOUT);
+    }
+
+    public static void assertOperatorIsUnblocked(Operator operator, Duration timeout)
+    {
+        try {
+            operator.isBlocked().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("interrupted", e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
+        catch (TimeoutException ignored) {
+            fail("Operator is expected to be unblocked within " + timeout.toString());
+        }
     }
 
     static <T> List<T> without(List<T> types, List<Integer> channels)
