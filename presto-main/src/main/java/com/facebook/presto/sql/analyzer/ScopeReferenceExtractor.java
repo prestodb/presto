@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.util.AstUtils;
 
 import java.util.Map;
@@ -37,17 +38,18 @@ class ScopeReferenceExtractor
 
     public static Stream<Expression> getReferencesToScope(Node node, Analysis analysis, Scope scope)
     {
-        Map<Expression, FieldId> columnReferences = analysis.getColumnReferenceFields();
+        Map<NodeRef<Expression>, FieldId> columnReferences = analysis.getColumnReferenceFields();
 
         return AstUtils.preOrder(node)
-                .filter(columnReferences::containsKey)
+                .filter(Expression.class::isInstance)
                 .map(Expression.class::cast)
+                .filter(expression -> columnReferences.containsKey(NodeRef.of(expression)))
                 .filter(expression -> isReferenceToScope(expression, scope, columnReferences));
     }
 
-    private static boolean isReferenceToScope(Expression node, Scope scope, Map<Expression, FieldId> columnReferences)
+    private static boolean isReferenceToScope(Expression node, Scope scope, Map<NodeRef<Expression>, FieldId> columnReferences)
     {
-        FieldId fieldId = columnReferences.get(node);
+        FieldId fieldId = columnReferences.get(NodeRef.of(node));
         requireNonNull(fieldId, () -> "No FieldId for " + node);
         return isFieldFromScope(fieldId, scope);
     }

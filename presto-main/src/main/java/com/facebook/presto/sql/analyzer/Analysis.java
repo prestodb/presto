@@ -415,9 +415,9 @@ public class Analysis
         return unmodifiableSet(NodeRefCollections.toIdentityMap(columnReferences).keySet());
     }
 
-    public Map<Expression, FieldId> getColumnReferenceFields()
+    public Map<NodeRef<Expression>, FieldId> getColumnReferenceFields()
     {
-        return unmodifiableMap(NodeRefCollections.toIdentityMap(columnReferences));
+        return unmodifiableMap(columnReferences);
     }
 
     public void addTypes(Map<NodeRef<Expression>, Type> types)
