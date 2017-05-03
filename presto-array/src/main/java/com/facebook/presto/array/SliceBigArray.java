@@ -18,6 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 public final class SliceBigArray
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceBigArray.class).instanceSize();
     private static final int SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
     private final ObjectBigArray<Slice> array;
     private long sizeOfSlices;
@@ -37,7 +38,7 @@ public final class SliceBigArray
      */
     public long sizeOf()
     {
-        return array.sizeOf() + sizeOfSlices;
+        return INSTANCE_SIZE + array.sizeOf() + sizeOfSlices;
     }
 
     /**

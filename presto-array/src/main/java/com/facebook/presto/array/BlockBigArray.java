@@ -14,9 +14,11 @@
 package com.facebook.presto.array;
 
 import com.facebook.presto.spi.block.Block;
+import org.openjdk.jol.info.ClassLayout;
 
 public final class BlockBigArray
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BlockBigArray.class).instanceSize();
     private final ObjectBigArray<Block> array;
     private long sizeOfBlocks;
 
@@ -35,7 +37,7 @@ public final class BlockBigArray
      */
     public long sizeOf()
     {
-        return array.sizeOf() + sizeOfBlocks;
+        return INSTANCE_SIZE + array.sizeOf() + sizeOfBlocks;
     }
 
     /**
