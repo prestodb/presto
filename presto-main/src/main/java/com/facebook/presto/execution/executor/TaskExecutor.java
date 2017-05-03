@@ -745,6 +745,20 @@ public class TaskExecutor
 
     @Managed
     @Nested
+    public TimeDistribution getLeafSplitWaitTime()
+    {
+        return leafSplitWaitTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeDistribution getIntermediateSplitWaitTime()
+    {
+        return intermediateSplitWaitTime;
+    }
+
+    @Managed
+    @Nested
     public CounterStat getGlobalScheduledTimeMicros()
     {
         return globalScheduledTimeMicros;
