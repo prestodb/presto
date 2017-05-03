@@ -95,7 +95,6 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
-import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -146,7 +145,6 @@ import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1045,13 +1043,13 @@ public class LocalExecutionPlanner
                 rewrittenProjections.add(symbolToInputRewriter.rewrite(assignments.get(symbol)));
             }
 
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypesFromInput(
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
                     context.getSession(),
                     metadata,
                     sqlParser,
                     sourceTypes,
                     concat(rewrittenFilter.map(ImmutableList::of).orElse(ImmutableList.of()), rewrittenProjections),
-                    emptyList()));
+                    emptyList());
 
             Optional<RowExpression> translatedFilter = rewrittenFilter.map(filter -> toRowExpression(filter, expressionTypes));
             List<RowExpression> translatedProjections = rewrittenProjections.stream()
@@ -1071,7 +1069,7 @@ public class LocalExecutionPlanner
                             cursorProcessor,
                             pageProcessor,
                             columns,
-                            Lists.transform(rewrittenProjections, forMap(expressionTypes)));
+                            getTypes(rewrittenProjections, expressionTypes));
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
@@ -1082,7 +1080,7 @@ public class LocalExecutionPlanner
                             context.getNextOperatorId(),
                             planNodeId,
                             pageProcessor,
-                            Lists.transform(rewrittenProjections, forMap(expressionTypes)));
+                            getTypes(rewrittenProjections, expressionTypes));
 
                     return new PhysicalOperation(operatorFactory, outputMappings, source);
                 }
@@ -1123,7 +1121,7 @@ public class LocalExecutionPlanner
                         () -> cursorProcessor,
                         () -> pageProcessor,
                         columns,
-                        Lists.transform(rewrittenProjections, forMap(expressionTypes)));
+                        getTypes(rewrittenProjections, expressionTypes));
 
                 return new PhysicalOperation(operatorFactory, outputMappings);
             }
@@ -1132,7 +1130,7 @@ public class LocalExecutionPlanner
                         context.getNextOperatorId(),
                         planNodeId,
                         () -> pageProcessor,
-                        Lists.transform(rewrittenProjections, forMap(expressionTypes)));
+                        getTypes(rewrittenProjections, expressionTypes));
                 return new PhysicalOperation(operatorFactory, outputMappings, source);
             }
         }
@@ -1152,7 +1150,7 @@ public class LocalExecutionPlanner
             return new PageProcessor(pageFilter, pageProjections);
         }
 
-        private RowExpression toRowExpression(Expression expression, IdentityLinkedHashMap<Expression, Type> types)
+        private RowExpression toRowExpression(Expression expression, Map<NodeRef<Expression>, Type> types)
         {
             return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, true);
         }
@@ -1607,13 +1605,13 @@ public class LocalExecutionPlanner
 
             Optional<SortExpression> sortChannel = SortExpressionExtractor.extractSortExpression(buildLayout, rewrittenFilter);
 
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypesFromInput(
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
                     session,
                     metadata,
                     sqlParser,
                     sourceTypes,
                     rewrittenFilter,
-                    emptyList() /* parameters have already been replaced */));
+                    emptyList() /* parameters have already been replaced */);
 
             RowExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
             return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size(), sortChannel);
@@ -1985,6 +1983,14 @@ public class LocalExecutionPlanner
 
             return new PhysicalOperation(operatorFactory, mappings, source);
         }
+    }
+
+    private static List<Type> getTypes(List<Expression> expressions, Map<NodeRef<Expression>, Type> expressionTypes)
+    {
+        return expressions.stream()
+                .map(NodeRef::of)
+                .map(expressionTypes::get)
+                .collect(toImmutableList());
     }
 
     private static TableFinisher createTableFinisher(Session session, TableFinishNode node, Metadata metadata)

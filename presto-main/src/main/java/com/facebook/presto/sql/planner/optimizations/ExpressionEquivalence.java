@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
@@ -29,7 +28,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -101,13 +100,13 @@ public class ExpressionEquivalence
         Expression expressionWithInputReferences = new SymbolToInputRewriter(symbolInput).rewrite(expression);
 
         // determine the type of every expression
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypesFromInput(
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
                 session,
                 metadata,
                 sqlParser,
                 inputTypes,
                 expressionWithInputReferences,
-                emptyList() /* parameters have already been replaced */));
+                emptyList() /* parameters have already been replaced */);
 
         // convert to row expression
         return translate(expressionWithInputReferences, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
