@@ -16,6 +16,8 @@ package com.facebook.presto.tests;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
@@ -30,14 +32,21 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestMetadataManager
 {
-    private final QueryRunner queryRunner;
-    private final MetadataManager metadataManager;
+    private QueryRunner queryRunner;
+    private MetadataManager metadataManager;
 
-    TestMetadataManager()
+    @BeforeClass
+    public void setUp()
             throws Exception
     {
         queryRunner = createQueryRunner();
         metadataManager = (MetadataManager) queryRunner.getMetadata();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        queryRunner.close();
     }
 
     @Test
