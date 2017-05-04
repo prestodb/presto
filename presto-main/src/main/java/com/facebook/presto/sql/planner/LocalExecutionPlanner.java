@@ -69,6 +69,9 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
+import com.facebook.presto.operator.exchange.LocalMergeExchange;
+import com.facebook.presto.operator.exchange.LocalMergeSinkOperator.LocalMergeSinkOperatorFactory;
+import com.facebook.presto.operator.exchange.LocalMergeSourceOperator.LocalMergeSourceOperatorFactory;
 import com.facebook.presto.operator.exchange.PageChannelSelector;
 import com.facebook.presto.operator.index.DynamicTupleFilterFactory;
 import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
@@ -1894,6 +1897,52 @@ public class LocalExecutionPlanner
         {
             checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
 
+            if (node.getOrderingScheme().isPresent()) {
+                return createLocalMerge(node, context);
+            }
+            else {
+                return createLocalExchange(node, context);
+            }
+        }
+
+        private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context)
+        {
+            checkState(node.getSources().size() == 1, "single source is expected");
+
+            PlanNode sourceNode = getOnlyElement(node.getSources());
+            LocalExecutionPlanContext subContext = context.createSubContext();
+            PhysicalOperation source = sourceNode.accept(this, subContext);
+
+            int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
+            LocalMergeExchange exchange = new LocalMergeExchange(operatorsCount);
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+
+            List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
+            operatorFactories.add(new LocalMergeSinkOperatorFactory(subContext.getNextOperatorId(), node.getId(), types, exchange, operatorsCount));
+            context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount());
+            // the main driver is not an input... the exchange sources are the input for the plan
+            context.setInputDriver(false);
+
+            OrderingScheme orderingScheme = node.getOrderingScheme().get();
+            List<Integer> sortChannels = orderingScheme.getOrderBy().stream()
+                    .map(argument -> node.getOutputSymbols().indexOf(argument))
+                    .collect(toImmutableList());
+            List<SortOrder> orderings = orderingScheme.getOrderBy().stream()
+                    .map(argument -> orderingScheme.getOrderings().get(argument))
+                    .collect(toImmutableList());
+            OperatorFactory operatorFactory = new LocalMergeSourceOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    new SimpleMergeSortComparator.Factory(),
+                    exchange,
+                    types,
+                    sortChannels,
+                    orderings);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
+        }
+
+        private PhysicalOperation createLocalExchange(ExchangeNode node, LocalExecutionPlanContext context)
+        {
             int driverInstanceCount;
             if (node.getType() == ExchangeNode.Type.GATHER) {
                 driverInstanceCount = 1;

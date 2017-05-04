@@ -14,12 +14,15 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -77,7 +80,9 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -154,6 +159,26 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, StreamPreferredProperties parentPreferences)
         {
+            if (SystemSessionProperties.isDistributedSortEnabled(session)) {
+                PlanWithProperties source = node.getSource().accept(this, any());
+                List<Symbol> orderBy = node.getOrderBy();
+                Map<Symbol, SortOrder> orderings = node.getOrderings();
+
+                return deriveProperties(
+                        mergingExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                new SortNode(
+                                        idAllocator.getNextId(),
+                                        roundRobinExchange(
+                                                idAllocator.getNextId(),
+                                                LOCAL,
+                                                source.getNode()),
+                                        orderBy,
+                                        orderings),
+                                new OrderingScheme(orderBy, orderings)),
+                        source.getProperties());
+            }
             // sort requires that all data be in one stream
             // this node changes the input organization completely, so we do not pass through parent preferences
             return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
