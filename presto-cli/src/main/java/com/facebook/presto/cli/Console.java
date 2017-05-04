@@ -51,6 +51,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.cli.Completion.commandCompleter;
 import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
+import static com.facebook.presto.cli.QueryPreprocessor.preprocessQuery;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
 import static com.facebook.presto.client.ClientSession.withPreparedStatements;
@@ -314,7 +315,22 @@ public class Console
 
     private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
     {
-        try (Query query = queryRunner.startQuery(sql)) {
+        String finalSql;
+        try {
+            finalSql = preprocessQuery(
+                    Optional.ofNullable(queryRunner.getSession().getCatalog()),
+                    Optional.ofNullable(queryRunner.getSession().getSchema()),
+                    sql);
+        }
+        catch (QueryPreprocessorException e) {
+            System.err.println(e.getMessage());
+            if (queryRunner.getSession().isDebug()) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        try (Query query = queryRunner.startQuery(finalSql)) {
             query.renderOutput(System.out, outputFormat, interactive);
 
             ClientSession session = queryRunner.getSession();
