@@ -459,6 +459,10 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitTopN(TopNNode node, List<StreamProperties> inputProperties)
         {
+            // Partial TopN doesn't guarantee that stream is ordered
+            if (node.getStep().equals(TopNNode.Step.PARTIAL)) {
+                return Iterables.getOnlyElement(inputProperties);
+            }
             return StreamProperties.ordered();
         }
 
