@@ -801,7 +801,7 @@ public class LocalExecutionPlanner
                     (int) node.getCount(),
                     sortChannels,
                     sortOrders,
-                    node.isPartial(),
+                    node.getStep().equals(TopNNode.Step.PARTIAL),
                     maxPartialAggregationMemorySize);
 
             return new PhysicalOperation(operator, source.getLayout(), source);
