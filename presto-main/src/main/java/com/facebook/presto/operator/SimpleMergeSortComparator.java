@@ -26,16 +26,6 @@ import static java.util.Objects.requireNonNull;
 public class SimpleMergeSortComparator
         implements MergeSortComparator
 {
-    public static class Factory
-            implements MergeSortComparatorFactory
-    {
-        @Override
-        public MergeSortComparator create(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
-        {
-            return new SimpleMergeSortComparator(sortTypes, sortChannels, sortOrders);
-        }
-    }
-
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrders;
     private final List<Type> types;
