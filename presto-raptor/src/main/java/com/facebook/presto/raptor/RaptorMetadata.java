@@ -474,6 +474,10 @@ public class RaptorMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        if (viewExists(session, tableMetadata.getTable())) {
+            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());
+        }
+
         Optional<RaptorPartitioningHandle> partitioning = layout
                 .map(ConnectorNewTableLayout::getPartitioning)
                 .map(RaptorPartitioningHandle.class::cast);
@@ -771,6 +775,10 @@ public class RaptorMetadata
     {
         String schemaName = viewName.getSchemaName();
         String tableName = viewName.getTableName();
+
+        if (getTableHandle(viewName) != null) {
+            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
+        }
 
         if (replace) {
             daoTransaction(dbi, MetadataDao.class, dao -> {

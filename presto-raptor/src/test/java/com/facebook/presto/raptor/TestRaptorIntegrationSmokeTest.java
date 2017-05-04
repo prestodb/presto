@@ -89,6 +89,30 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableViewAlreadyExists()
+            throws Exception
+    {
+        assertUpdate("CREATE VIEW view_already_exists AS SELECT 1 a");
+        assertQueryFails("CREATE TABLE view_already_exists(a integer)", "View already exists: tpch.view_already_exists");
+        assertQueryFails("CREATE TABLE View_Already_Exists(a integer)", "View already exists: tpch.view_already_exists");
+        assertQueryFails("CREATE TABLE view_already_exists AS SELECT 1 a", "View already exists: tpch.view_already_exists");
+        assertQueryFails("CREATE TABLE View_Already_Exists AS SELECT 1 a", "View already exists: tpch.view_already_exists");
+        assertUpdate("DROP VIEW view_already_exists");
+    }
+
+    @Test
+    public void testCreateViewTableAlreadyExists()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE table_already_exists (id integer)");
+        assertQueryFails("CREATE VIEW table_already_exists AS SELECT 1 a", "Table already exists: tpch.table_already_exists");
+        assertQueryFails("CREATE VIEW Table_Already_Exists AS SELECT 1 a", "Table already exists: tpch.table_already_exists");
+        assertQueryFails("CREATE OR REPLACE VIEW table_already_exists AS SELECT 1 a", "Table already exists: tpch.table_already_exists");
+        assertQueryFails("CREATE OR REPLACE VIEW Table_Already_Exists AS SELECT 1 a", "Table already exists: tpch.table_already_exists");
+        assertUpdate("DROP TABLE table_already_exists");
+    }
+
+    @Test
     public void testInsertSelectDecimal()
             throws Exception
     {
