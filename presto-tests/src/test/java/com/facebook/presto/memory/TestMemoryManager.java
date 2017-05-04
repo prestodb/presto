@@ -52,6 +52,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+// run single threaded to avoid creating multiple query runners at once
 @Test(singleThreaded = true)
 public class TestMemoryManager
 {

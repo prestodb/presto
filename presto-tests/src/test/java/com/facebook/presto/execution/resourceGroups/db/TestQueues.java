@@ -49,6 +49,8 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
+// run single threaded to avoid creating multiple query runners at once
+@Test(singleThreaded = true)
 public class TestQueues
 {
     // Copy of TestQueues with tests for db reconfiguration of resource groups
