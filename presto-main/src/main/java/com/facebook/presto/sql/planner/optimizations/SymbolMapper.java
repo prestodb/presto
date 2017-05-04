@@ -110,16 +110,6 @@ public class SymbolMapper
                 node.getGroupIdSymbol().map(this::map));
     }
 
-    public TopNNode map(TopNNode node, PlanNode source)
-    {
-        return map(node, source, node.getId());
-    }
-
-    public TopNNode map(TopNNode node, PlanNode source, PlanNodeIdAllocator idAllocator)
-    {
-        return map(node, source, idAllocator.getNextId());
-    }
-
     public TopNNode map(TopNNode node, PlanNode source, PlanNodeId newNodeId)
     {
         ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
@@ -136,7 +126,7 @@ public class SymbolMapper
                 node.getCount(),
                 symbols.build(),
                 orderings.build(),
-                node.isPartial());
+                node.getStep());
     }
 
     private List<Symbol> mapAndDistinct(List<Symbol> outputs)

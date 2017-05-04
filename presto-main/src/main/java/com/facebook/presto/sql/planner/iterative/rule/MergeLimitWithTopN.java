@@ -50,6 +50,6 @@ public class MergeLimitWithTopN
                         Math.min(parent.getCount(), child.getCount()),
                         child.getOrderBy(),
                         child.getOrderings(),
-                        parent.isPartial()));
+                        parent.isPartial() ? TopNNode.Step.PARTIAL : TopNNode.Step.SINGLE));
     }
 }
