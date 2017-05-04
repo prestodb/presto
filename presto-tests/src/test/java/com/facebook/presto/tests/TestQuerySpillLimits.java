@@ -28,6 +28,7 @@ import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
+@Test(singleThreaded = true)
 public class TestQuerySpillLimits
 {
     private static final Session SESSION = testSessionBuilder()
@@ -44,7 +45,7 @@ public class TestQuerySpillLimits
         this.spillPath = Files.createTempDir();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
