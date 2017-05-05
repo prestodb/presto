@@ -149,7 +149,12 @@ public final class TypeJsonUtils
             type.writeBoolean(blockBuilder, parser.getBooleanValue());
         }
         else if (type.getJavaType() == long.class) {
-            type.writeLong(blockBuilder, parser.getLongValue());
+            if (type.equals(REAL)) {
+                type.writeLong(blockBuilder, floatToRawIntBits(parser.getFloatValue()));
+            }
+            else {
+                type.writeLong(blockBuilder, parser.getLongValue());
+            }
         }
         else if (type.getJavaType() == double.class) {
             type.writeDouble(blockBuilder, getDoubleValue(parser));
@@ -222,6 +227,7 @@ public final class TypeJsonUtils
                 baseType.equals(StandardTypes.INTEGER) ||
                 baseType.equals(StandardTypes.BIGINT) ||
                 baseType.equals(StandardTypes.DOUBLE) ||
+                baseType.equals(StandardTypes.REAL) ||
                 baseType.equals(StandardTypes.VARCHAR) ||
                 baseType.equals(StandardTypes.DECIMAL) ||
                 baseType.equals(StandardTypes.JSON)) {
@@ -245,6 +251,7 @@ public final class TypeJsonUtils
                 baseType.equals(StandardTypes.INTEGER) ||
                 baseType.equals(StandardTypes.BIGINT) ||
                 baseType.equals(StandardTypes.DOUBLE) ||
+                baseType.equals(StandardTypes.REAL) ||
                 baseType.equals(StandardTypes.DECIMAL) ||
                 baseType.equals(StandardTypes.VARCHAR);
     }
