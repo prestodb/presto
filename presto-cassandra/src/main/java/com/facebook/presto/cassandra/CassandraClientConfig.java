@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.SocketOptions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +32,7 @@ import javax.validation.constraints.Size;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -48,6 +50,7 @@ public class CassandraClientConfig
     private int nativeProtocolPort = 9042;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
+    private Long splitsPerNode;
     private boolean allowDropTable;
     private String username;
     private String password;
@@ -66,6 +69,7 @@ public class CassandraClientConfig
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
+    private ProtocolVersion protocolVersion = ProtocolVersion.V3;
 
     @NotNull
     @Size(min = 1)
@@ -149,6 +153,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setSplitSize(int splitSize)
     {
         this.splitSize = splitSize;
+        return this;
+    }
+
+    public Optional<Long> getSplitsPerNode()
+    {
+        return Optional.ofNullable(splitsPerNode);
+    }
+
+    @Config("cassandra.splits-per-node")
+    public CassandraClientConfig setSplitsPerNode(Long splitsPerNode)
+    {
+        this.splitsPerNode = splitsPerNode;
         return this;
     }
 
@@ -377,6 +393,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setSpeculativeExecutionDelay(Duration speculativeExecutionDelay)
     {
         this.speculativeExecutionDelay = speculativeExecutionDelay;
+        return this;
+    }
+
+    public ProtocolVersion getProtocolVersion()
+    {
+        return protocolVersion;
+    }
+
+    @Config("cassandra.protocol-version")
+    public CassandraClientConfig setProtocolVersion(ProtocolVersion version)
+    {
+        this.protocolVersion = version;
         return this;
     }
 }

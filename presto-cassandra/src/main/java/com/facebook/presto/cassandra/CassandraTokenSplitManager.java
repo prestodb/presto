@@ -43,20 +43,22 @@ public class CassandraTokenSplitManager
 {
     private final CassandraSession session;
     private final int splitSize;
+    private final Optional<Long> configSplitsPerNode;
 
     @Inject
     public CassandraTokenSplitManager(CassandraSession session, CassandraClientConfig config)
     {
-        this(session, config.getSplitSize());
+        this(session, config.getSplitSize(), config.getSplitsPerNode());
     }
 
-    public CassandraTokenSplitManager(CassandraSession session, int splitSize)
+    public CassandraTokenSplitManager(CassandraSession session, int splitSize, Optional<Long> configSplitsPerNode)
     {
         this.session = requireNonNull(session, "session is null");
         this.splitSize = splitSize;
+        this.configSplitsPerNode = configSplitsPerNode;
     }
 
-    public List<TokenSplit> getSplits(String keyspace, String table)
+    public List<TokenSplit> getSplits(String keyspace, String table, Optional<Long> sessionSplitsPerNode)
     {
         Set<TokenRange> tokenRanges = session.getTokenRanges();
 
@@ -71,7 +73,7 @@ public class CassandraTokenSplitManager
         }
 
         Optional<TokenRing> tokenRing = createForPartitioner(session.getPartitioner());
-        long totalPartitionsCount = getTotalPartitionsCount(keyspace, table);
+        long totalPartitionsCount = getTotalPartitionsCount(keyspace, table, sessionSplitsPerNode);
 
         List<TokenSplit> splits = new ArrayList<>();
         for (TokenRange tokenRange : tokenRanges) {
@@ -116,8 +118,14 @@ public class CassandraTokenSplitManager
         return result.build();
     }
 
-    private long getTotalPartitionsCount(String keyspace, String table)
+    public long getTotalPartitionsCount(String keyspace, String table, Optional<Long> sessionSplitsPerNode)
     {
+        if (sessionSplitsPerNode.isPresent()) {
+            return sessionSplitsPerNode.get();
+        }
+        else if (configSplitsPerNode.isPresent()) {
+            return configSplitsPerNode.get();
+        }
         List<SizeEstimate> estimates = session.getSizeEstimates(keyspace, table);
         return estimates.stream()
                 .mapToLong(SizeEstimate::getPartitionsCount)

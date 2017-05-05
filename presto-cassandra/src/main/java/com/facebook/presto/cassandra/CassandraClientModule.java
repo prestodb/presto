@@ -14,7 +14,6 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
@@ -63,6 +62,7 @@ public class CassandraClientModule
         binder.bind(CassandraRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraPartitionManager.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraSessionProperties.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(CassandraClientConfig.class);
 
@@ -80,7 +80,7 @@ public class CassandraClientModule
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
 
         Cluster.Builder clusterBuilder = Cluster.builder()
-                .withProtocolVersion(ProtocolVersion.V3);
+                .withProtocolVersion(config.getProtocolVersion());
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
