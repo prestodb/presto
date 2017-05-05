@@ -17,6 +17,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.RegexLibrary;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -39,16 +40,14 @@ import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 public class TestRegexpFunctions
         extends AbstractTestFunctions
 {
-    private static final FeaturesConfig JONI_FEATURES_CONFIG = new FeaturesConfig()
-            .setRegexLibrary(JONI);
+    private final RegexLibrary regexLibrary;
 
-    private static final FeaturesConfig RE2J_FEATURES_CONFIG = new FeaturesConfig()
-            .setRegexLibrary(RE2J);
-
-    @Factory(dataProvider = "featuresConfig")
-    public TestRegexpFunctions(FeaturesConfig featuresConfig)
+    @Factory(dataProvider = "regexLibrary")
+    public TestRegexpFunctions(RegexLibrary regexLibrary)
     {
-        super(featuresConfig);
+        super(new FeaturesConfig().setRegexLibrary(regexLibrary));
+
+        this.regexLibrary = regexLibrary;
     }
 
     @BeforeClass
@@ -57,10 +56,10 @@ public class TestRegexpFunctions
         registerScalar(TestRegexpFunctions.class);
     }
 
-    @DataProvider(name = "featuresConfig")
-    public static Object[][] featuresConfigProvider()
+    @DataProvider(name = "regexLibrary")
+    public static Object[][] regexLibraryProvider()
     {
-        return new Object[][] {new Object[] {JONI_FEATURES_CONFIG}, new Object[] {RE2J_FEATURES_CONFIG}};
+        return new Object[][] {new Object[] {RE2J}, new Object[] {JONI}};
     }
 
     @ScalarFunction(deterministic = false) // if not non-deterministic, constant folding code accidentally fix invalid characters
@@ -72,6 +71,29 @@ public class TestRegexpFunctions
                 (byte) 0x41, 0x41, (byte) 0xed, (byte) 0xa0, (byte) 0x80, 0x41, 0x41,
                 0x41, 0x41, (byte) 0xed, (byte) 0xbf, (byte) 0xbf, 0x41, 0x41, 0x41,
         });
+    }
+
+    @Test
+    public void testLibrarySanityCheck()
+    {
+        // sanity check that we are actually testing against the intended regex library
+        switch (regexLibrary) {
+            case JONI:
+                assertFunction("REGEXP_LIKE('1112', '1++.2')", BOOLEAN, false);
+                break;
+            case RE2J:
+                assertInvalidFunction("REGEXP_LIKE('1112', '1++.2')", INVALID_FUNCTION_ARGUMENT);
+                break;
+            default:
+                throw new UnsupportedOperationException();
+        }
+    }
+
+    @Test
+    public void testExplicitLibraryChoice()
+    {
+        assertFunction("REGEXP_LIKE('1112', JONIREGEXP '1++.2')", BOOLEAN, false);
+        assertInvalidFunction("REGEXP_LIKE('1112', RE2JREGEXP '1++.2')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
