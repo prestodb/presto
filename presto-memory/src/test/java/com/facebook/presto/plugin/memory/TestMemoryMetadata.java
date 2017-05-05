@@ -115,6 +115,27 @@ public class TestMemoryMetadata
         metadata.finishCreateTable(SESSION, table, ImmutableList.of());
     }
 
+    @Test
+    public void testCreateSchema()
+    {
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
+        assertEquals(metadata.listTables(SESSION, "test"), ImmutableList.of());
+
+        SchemaTableName tableName = new SchemaTableName("test", "first_table");
+        metadata.createTable(
+                SESSION,
+                new ConnectorTableMetadata(
+                        tableName,
+                        ImmutableList.of(),
+                        ImmutableMap.of()));
+
+        assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(tableName));
+        assertEquals(metadata.listTables(SESSION, "test"), ImmutableList.of(tableName));
+        assertEquals(metadata.listTables(SESSION, "default"), ImmutableList.of());
+    }
+
     private void assertThatNoTableIsCreated()
     {
         assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(), "No table was expected");

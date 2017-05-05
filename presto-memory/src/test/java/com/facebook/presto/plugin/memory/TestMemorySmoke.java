@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.sql.SQLException;
 import java.util.List;
 
+import static com.facebook.presto.plugin.memory.MemoryQueryRunner.CATALOG;
 import static com.facebook.presto.plugin.memory.MemoryQueryRunner.createQueryRunner;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
@@ -122,6 +123,21 @@ public class TestMemorySmoke
             throws SQLException
     {
         assertQuery("SELECT nationkey, regionkey FROM nation ORDER BY nationkey", "SELECT nationkey, regionkey FROM tpch.tiny.nation ORDER BY nationkey");
+    }
+
+    @Test
+    public void createTableInNonDefaultSchema()
+    {
+        queryRunner.execute(format("CREATE SCHEMA %s.schema1", CATALOG));
+        queryRunner.execute(format("CREATE SCHEMA %s.schema2", CATALOG));
+
+        assertQueryResult(format("SHOW SCHEMAS FROM %s", CATALOG), "default", "information_schema", "schema1", "schema2");
+
+        queryRunner.execute(format("CREATE TABLE %s.schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey %% 2 = 0", CATALOG));
+        queryRunner.execute(format("CREATE TABLE %s.schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey %% 2 = 1", CATALOG));
+
+        assertQueryResult(format("SELECT count(*) FROM %s.schema1.nation", CATALOG), 13L);
+        assertQueryResult(format("SELECT count(*) FROM %s.schema2.nation", CATALOG), 12L);
     }
 
     private List<QualifiedObjectName> listMemoryTables()

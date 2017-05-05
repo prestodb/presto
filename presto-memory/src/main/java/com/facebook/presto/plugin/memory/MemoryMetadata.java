@@ -28,6 +28,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -40,6 +41,7 @@ import io.airlift.slice.Slice;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -49,8 +51,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -63,8 +67,9 @@ public class MemoryMetadata
 
     private final NodeManager nodeManager;
     private final String connectorId;
+    private final List<String> schemas = new ArrayList<>();
     private final AtomicLong nextTableId = new AtomicLong();
-    private final Map<String, Long> tableIds = new HashMap<>();
+    private final Map<SchemaTableName, Long> tableIds = new HashMap<>();
     private final Map<Long, MemoryTableHandle> tables = new HashMap<>();
     private final Map<Long, Map<HostAddress, MemoryDataFragment>> tableDataFragments = new HashMap<>();
 
@@ -73,18 +78,28 @@ public class MemoryMetadata
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.schemas.add(SCHEMA_NAME);
     }
 
     @Override
     public synchronized List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(SCHEMA_NAME);
+        return ImmutableList.copyOf(schemas);
     }
 
     @Override
-    public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        Long tableId = tableIds.get(tableName.getTableName());
+        if (schemas.contains(schemaName)) {
+            throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
+        }
+        schemas.add(schemaName);
+    }
+
+    @Override
+    public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        Long tableId = tableIds.get(schemaTableName);
         if (tableId == null) {
             return null;
         }
@@ -101,10 +116,8 @@ public class MemoryMetadata
     @Override
     public synchronized List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
-        if (schemaNameOrNull != null && !schemaNameOrNull.equals(SCHEMA_NAME)) {
-            return ImmutableList.of();
-        }
         return tables.values().stream()
+                .filter(table -> schemaNameOrNull == null || table.getSchemaName().equals(schemaNameOrNull))
                 .map(MemoryTableHandle::toSchemaTableName)
                 .collect(toList());
     }
@@ -136,7 +149,7 @@ public class MemoryMetadata
     public synchronized void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        Long tableId = tableIds.remove(handle.getTableName());
+        Long tableId = tableIds.remove(handle.toSchemaTableName());
         if (tableId != null) {
             tables.remove(tableId);
             tableDataFragments.remove(tableId);
@@ -153,8 +166,8 @@ public class MemoryMetadata
                 newTableName.getTableName(),
                 oldTableHandle.getTableId(),
                 oldTableHandle.getColumnHandles());
-        tableIds.remove(oldTableHandle.getTableName());
-        tableIds.put(newTableName.getTableName(), oldTableHandle.getTableId());
+        tableIds.remove(oldTableHandle.toSchemaTableName());
+        tableIds.put(newTableName, oldTableHandle.getTableId());
         tables.remove(oldTableHandle.getTableId());
         tables.put(oldTableHandle.getTableId(), newTableHandle);
     }
@@ -173,7 +186,7 @@ public class MemoryMetadata
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No Memory nodes available");
 
-        tableIds.put(tableMetadata.getTable().getTableName(), nextId);
+        tableIds.put(tableMetadata.getTable(), nextId);
         MemoryTableHandle table = new MemoryTableHandle(
                 connectorId,
                 nextId,

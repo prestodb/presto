@@ -30,6 +30,8 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 
 public final class MemoryQueryRunner
 {
+    public static final String CATALOG = "memory";
+
     private MemoryQueryRunner() {}
 
     public static DistributedQueryRunner createQueryRunner()
@@ -42,7 +44,7 @@ public final class MemoryQueryRunner
             throws Exception
     {
         Session session = testSessionBuilder()
-                .setCatalog("memory")
+                .setCatalog(CATALOG)
                 .setSchema("default")
                 .build();
 
@@ -50,7 +52,7 @@ public final class MemoryQueryRunner
 
         try {
             queryRunner.installPlugin(new MemoryPlugin());
-            queryRunner.createCatalog("memory", "memory", ImmutableMap.of());
+            queryRunner.createCatalog(CATALOG, "memory", ImmutableMap.of());
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
