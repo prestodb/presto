@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
@@ -30,10 +31,12 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestMemoryMetadata
@@ -63,6 +66,37 @@ public class TestMemoryMetadata
         List<SchemaTableName> tables = metadata.listTables(SESSION, null);
         assertTrue(tables.size() == 1, "Expected only one table");
         assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
+    }
+
+    @Test
+    public void tableAlreadyExists()
+    {
+        assertThatNoTableIsCreated();
+
+        SchemaTableName test1Table = new SchemaTableName("default", "test1");
+        SchemaTableName test2Table = new SchemaTableName("default", "test2");
+        metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()));
+
+        try {
+            metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()));
+            fail("Should fail because table already exists");
+        }
+        catch (PrestoException ex) {
+            assertEquals(ex.getErrorCode(), ALREADY_EXISTS.toErrorCode());
+            assertEquals(ex.getMessage(), "Table [default.test1] already exists");
+        }
+
+        ConnectorTableHandle test1TableHandle = metadata.getTableHandle(SESSION, test1Table);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, ImmutableList.of()));
+
+        try {
+            metadata.renameTable(SESSION, test1TableHandle, test2Table);
+            fail("Should fail because table already exists");
+        }
+        catch (PrestoException ex) {
+            assertEquals(ex.getErrorCode(), ALREADY_EXISTS.toErrorCode());
+            assertEquals(ex.getMessage(), "Table [default.test2] already exists");
+        }
     }
 
     @Test

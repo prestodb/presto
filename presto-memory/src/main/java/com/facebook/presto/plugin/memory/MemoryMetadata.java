@@ -159,6 +159,7 @@ public class MemoryMetadata
     @Override
     public synchronized void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
+        checkTableNotExists(newTableName);
         MemoryTableHandle oldTableHandle = (MemoryTableHandle) tableHandle;
         MemoryTableHandle newTableHandle = new MemoryTableHandle(
                 oldTableHandle.getConnectorId(),
@@ -182,6 +183,7 @@ public class MemoryMetadata
     @Override
     public synchronized MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        checkTableNotExists(tableMetadata.getTable());
         long nextId = nextTableId.getAndIncrement();
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No Memory nodes available");
@@ -195,6 +197,15 @@ public class MemoryMetadata
         tableDataFragments.put(table.getTableId(), new HashMap<>());
 
         return new MemoryOutputTableHandle(table, ImmutableSet.copyOf(tableIds.values()));
+    }
+
+    private void checkTableNotExists(SchemaTableName tableName)
+    {
+        if (tables.values().stream()
+                .map(MemoryTableHandle::toSchemaTableName)
+                .anyMatch(tableName::equals)) {
+            throw new PrestoException(ALREADY_EXISTS, format("Table [%s] already exists", tableName.toString()));
+        }
     }
 
     @Override
