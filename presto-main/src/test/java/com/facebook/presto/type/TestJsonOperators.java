@@ -34,6 +34,8 @@ public class TestJsonOperators
 {
     // Some of the tests in this class are expected to fail when coercion between primitive presto types changes behavior
 
+    // todo add cases for decimal
+
     @Test
     public void testCastToBigint()
     {
@@ -113,7 +115,7 @@ public class TestJsonOperators
             throws Exception
     {
         assertFunction("cast(cast(null as double) as JSON)", JSON, null);
-        assertFunction("cast(3.14 as JSON)", JSON, "3.14");
+        assertFunction("cast(3.14E0 as JSON)", JSON, "3.14");
         assertFunction("cast(nan() as JSON)", JSON, "\"NaN\"");
         assertFunction("cast(infinity() as JSON)", JSON, "\"Infinity\"");
         assertFunction("cast(-infinity() as JSON)", JSON, "\"-Infinity\"");

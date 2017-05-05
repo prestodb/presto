@@ -37,7 +37,7 @@ public class TestArrayExceptFunction
         assertFunction("array_except(ARRAY[CAST(1 as BIGINT), 5, 3], ARRAY[5])", new ArrayType(BIGINT), ImmutableList.of(1L, 3L));
         assertFunction("array_except(ARRAY[CAST('x' as VARCHAR), 'y', 'z'], ARRAY['x'])", new ArrayType(VARCHAR), ImmutableList.of("y", "z"));
         assertFunction("array_except(ARRAY[true, false, null], ARRAY[true])", new ArrayType(BOOLEAN), asList(false, null));
-        assertFunction("array_except(ARRAY[1.1, 5.4, 3.9], ARRAY[5, 5.4])", new ArrayType(DOUBLE), ImmutableList.of(1.1, 3.9));
+        assertFunction("array_except(ARRAY[1.1E0, 5.4E0, 3.9E0], ARRAY[5, 5.4E0])", new ArrayType(DOUBLE), ImmutableList.of(1.1, 3.9));
     }
 
     @Test
