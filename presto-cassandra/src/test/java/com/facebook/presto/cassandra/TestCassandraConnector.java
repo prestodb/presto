@@ -16,6 +16,7 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -34,6 +35,7 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorContext;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
@@ -54,10 +56,10 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -73,6 +75,16 @@ public class TestCassandraConnector
 {
     protected static final String INVALID_DATABASE = "totally_invalid_database";
     private static final Date DATE = new Date();
+    private static final ConnectorSession SESSION = new TestingConnectorSession(
+            "user",
+            Optional.of("test"),
+            Optional.empty(),
+            UTC_KEY,
+            ENGLISH,
+            System.currentTimeMillis(),
+            new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties(),
+            ImmutableMap.of(),
+            true);
     protected String database;
     protected SchemaTableName table;
     protected SchemaTableName tableUnpartitioned;

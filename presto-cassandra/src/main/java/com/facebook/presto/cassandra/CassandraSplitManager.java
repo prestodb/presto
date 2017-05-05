@@ -32,8 +32,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.cassandra.CassandraSessionProperties.getSplitsPerNode;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -74,7 +76,7 @@ public class CassandraSplitManager
             CassandraPartition cassandraPartition = partitions.get(0);
             if (cassandraPartition.isUnpartitioned() || cassandraPartition.isIndexedColumnPredicatePushdown()) {
                 CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
-                List<ConnectorSplit> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId());
+                List<ConnectorSplit> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId(), getSplitsPerNode(session));
                 return new FixedSplitSource(splits);
             }
         }
@@ -82,14 +84,14 @@ public class CassandraSplitManager
         return new FixedSplitSource(getSplitsForPartitions(cassandraTableHandle, partitions, layoutHandle.getClusteringPredicates()));
     }
 
-    private List<ConnectorSplit> getSplitsByTokenRange(CassandraTable table, String partitionId)
+    private List<ConnectorSplit> getSplitsByTokenRange(CassandraTable table, String partitionId, Optional<Long> sessionSplitsPerNode)
     {
         String schema = table.getTableHandle().getSchemaName();
         String tableName = table.getTableHandle().getTableName();
         String tokenExpression = table.getTokenExpression();
 
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
-        List<CassandraTokenSplitManager.TokenSplit> tokenSplits = tokenSplitMgr.getSplits(schema, tableName);
+        List<CassandraTokenSplitManager.TokenSplit> tokenSplits = tokenSplitMgr.getSplits(schema, tableName, sessionSplitsPerNode);
         for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {
             String condition = buildTokenCondition(tokenExpression, tokenSplit.getStartToken(), tokenSplit.getEndToken());
             List<HostAddress> addresses = new HostAddressFactory().AddressNamesToHostAddressList(tokenSplit.getHosts());

@@ -22,6 +22,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.datastax.driver.core.ProtocolVersion.V2;
+import static com.datastax.driver.core.ProtocolVersion.V3;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -38,6 +40,7 @@ public class TestCassandraClientConfig
                 .setNativeProtocolPort(9042)
                 .setPartitionSizeForBatchSelect(100)
                 .setSplitSize(1_024)
+                .setSplitsPerNode(null)
                 .setAllowDropTable(false)
                 .setUsername(null)
                 .setPassword(null)
@@ -55,7 +58,8 @@ public class TestCassandraClientConfig
                 .setWhiteListAddresses("")
                 .setNoHostAvailableRetryTimeout(new Duration(1, MINUTES))
                 .setSpeculativeExecutionLimit(1)
-                .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS)));
+                .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
+                .setProtocolVersion(V3));
     }
 
     @Test
@@ -68,6 +72,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.consistency-level", "TWO")
                 .put("cassandra.partition-size-for-batch-select", "77")
                 .put("cassandra.split-size", "1025")
+                .put("cassandra.splits-per-node", "10000")
                 .put("cassandra.allow-drop-table", "true")
                 .put("cassandra.username", "my_username")
                 .put("cassandra.password", "my_password")
@@ -86,6 +91,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.no-host-available-retry-timeout", "3m")
                 .put("cassandra.speculative-execution.limit", "10")
                 .put("cassandra.speculative-execution.delay", "101s")
+                .put("cassandra.protocol-version", "V2")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -95,6 +101,7 @@ public class TestCassandraClientConfig
                 .setConsistencyLevel(ConsistencyLevel.TWO)
                 .setPartitionSizeForBatchSelect(77)
                 .setSplitSize(1_025)
+                .setSplitsPerNode(10_000L)
                 .setAllowDropTable(true)
                 .setUsername("my_username")
                 .setPassword("my_password")
@@ -112,7 +119,8 @@ public class TestCassandraClientConfig
                 .setWhiteListAddresses("host1")
                 .setNoHostAvailableRetryTimeout(new Duration(3, MINUTES))
                 .setSpeculativeExecutionLimit(10)
-                .setSpeculativeExecutionDelay(new Duration(101, SECONDS));
+                .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
+                .setProtocolVersion(V2);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
