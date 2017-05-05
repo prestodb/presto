@@ -68,6 +68,7 @@ import static java.util.Collections.emptyList;
 public class TestMapOperators
         extends AbstractTestFunctions
 {
+    // todo add decimal cases
     @BeforeClass
     public void setUp()
     {
@@ -91,11 +92,11 @@ public class TestMapOperators
         map.put(1, 2);
         map.put(3, null);
         assertFunction("MAP(ARRAY [1, 3], ARRAY[2, NULL])", mapType(INTEGER, INTEGER), map);
-        assertFunction("MAP(ARRAY [1, 3], ARRAY [2.0, 4.0])", mapType(INTEGER, DOUBLE), ImmutableMap.of(1, 2.0, 3, 4.0));
-        assertFunction("MAP(ARRAY[1.0, 2.0], ARRAY[ ARRAY[1, 2], ARRAY[3]])",
+        assertFunction("MAP(ARRAY [1, 3], ARRAY [2.0E0, 4.0E0])", mapType(INTEGER, DOUBLE), ImmutableMap.of(1, 2.0, 3, 4.0));
+        assertFunction("MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ ARRAY[1, 2], ARRAY[3]])",
                 mapType(DOUBLE, new ArrayType(INTEGER)),
                 ImmutableMap.of(1.0, ImmutableList.of(1, 2), 2.0, ImmutableList.of(3)));
-        assertFunction("MAP(ARRAY[1.0, 2.0], ARRAY[ ARRAY[BIGINT '1', BIGINT '2'], ARRAY[ BIGINT '3' ]])",
+        assertFunction("MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ ARRAY[BIGINT '1', BIGINT '2'], ARRAY[ BIGINT '3' ]])",
                 mapType(DOUBLE, new ArrayType(BIGINT)),
                 ImmutableMap.of(1.0, ImmutableList.of(1L, 2L), 2.0, ImmutableList.of(3L)));
         assertFunction("MAP(ARRAY['puppies'], ARRAY['kittens'])", mapType(createVarcharType(7), createVarcharType(7)), ImmutableMap.of("puppies", "kittens"));
@@ -105,7 +106,7 @@ public class TestMapOperators
                 new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
                 "100",
                 new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0, 100.0])", mapType(TIMESTAMP, DOUBLE), ImmutableMap.of(
+        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0E0, 100.0E0])", mapType(TIMESTAMP, DOUBLE), ImmutableMap.of(
                 new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
                 1.0,
                 new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey()),
@@ -128,12 +129,12 @@ public class TestMapOperators
     {
         assertFunction("CARDINALITY(MAP(ARRAY ['1','3'], ARRAY [2,4]))", BIGINT, 2L);
         assertFunction("CARDINALITY(MAP(ARRAY [1, 3], ARRAY[2, NULL]))", BIGINT, 2L);
-        assertFunction("CARDINALITY(MAP(ARRAY [1, 3], ARRAY [2.0, 4.0]))", BIGINT, 2L);
-        assertFunction("CARDINALITY(MAP(ARRAY[1.0, 2.0], ARRAY[ ARRAY[1, 2], ARRAY[3]]))", BIGINT, 2L);
+        assertFunction("CARDINALITY(MAP(ARRAY [1, 3], ARRAY [2.0E0, 4.0E0]))", BIGINT, 2L);
+        assertFunction("CARDINALITY(MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ ARRAY[1, 2], ARRAY[3]]))", BIGINT, 2L);
         assertFunction("CARDINALITY(MAP(ARRAY['puppies'], ARRAY['kittens']))", BIGINT, 1L);
         assertFunction("CARDINALITY(MAP(ARRAY[TRUE], ARRAY[2]))", BIGINT, 1L);
         assertFunction("CARDINALITY(MAP(ARRAY['1'], ARRAY[from_unixtime(1)]))", BIGINT, 1L);
-        assertFunction("CARDINALITY(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0]))", BIGINT, 1L);
+        assertFunction("CARDINALITY(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0E0]))", BIGINT, 1L);
     }
 
     @Test
@@ -170,7 +171,7 @@ public class TestMapOperators
                 "{\"1234567890123456111\":111,\"1234567890123456222\":222,\"1234567890123456777\":null}");
 
         assertFunction(
-                "cast(MAP(cast(ARRAY[3.14, 1e10, 1e20] AS ARRAY<REAL>), ARRAY[null, 10, 20]) AS JSON)",
+                "cast(MAP(cast(ARRAY[3.14E0, 1e10, 1e20] AS ARRAY<REAL>), ARRAY[null, 10, 20]) AS JSON)",
                 JSON,
                 "{\"1.0E10\":10,\"1.0E20\":20,\"3.14\":null}");
 
@@ -211,11 +212,11 @@ public class TestMapOperators
                 "{\"1\":1234567890123456789,\"2\":-1234567890123456789,\"3\":null}");
 
         assertFunction(
-                "CAST(MAP(ARRAY[1, 2, 3, 5, 8], CAST(ARRAY[3.14, nan(), infinity(), -infinity(), null] AS ARRAY<REAL>)) AS JSON)",
+                "CAST(MAP(ARRAY[1, 2, 3, 5, 8], CAST(ARRAY[3.14E0, nan(), infinity(), -infinity(), null] AS ARRAY<REAL>)) AS JSON)",
                 JSON,
                 "{\"1\":3.14,\"2\":\"NaN\",\"3\":\"Infinity\",\"5\":\"-Infinity\",\"8\":null}");
         assertFunction(
-                "CAST(MAP(ARRAY[1, 2, 3, 5, 8, 13, 21], ARRAY[3.14, 1e-323, 1e308, nan(), infinity(), -infinity(), null]) AS JSON)",
+                "CAST(MAP(ARRAY[1, 2, 3, 5, 8, 13, 21], ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null]) AS JSON)",
                 JSON,
                 "{\"1\":3.14,\"13\":\"-Infinity\",\"2\":1.0E-323,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
         assertFunction("CAST(MAP(ARRAY[1, 2], ARRAY[DECIMAL '3.14', null]) AS JSON)", JSON, "{\"1\":3.14,\"2\":null}");
@@ -445,19 +446,19 @@ public class TestMapOperators
         assertFunction("element_at(MAP(CAST(ARRAY [] AS ARRAY(BIGINT)), CAST(ARRAY [] AS ARRAY(BIGINT))), 1)", BIGINT, null);
         assertFunction("element_at(MAP(ARRAY [1], ARRAY [1]), 2)", INTEGER, null);
         assertFunction("element_at(MAP(ARRAY [1], ARRAY [null]), 1)", UNKNOWN, null);
-        assertFunction("element_at(MAP(ARRAY [1.0], ARRAY [null]), 1.0)", UNKNOWN, null);
+        assertFunction("element_at(MAP(ARRAY [1.0E0], ARRAY [null]), 1.0E0)", UNKNOWN, null);
         assertFunction("element_at(MAP(ARRAY [TRUE], ARRAY [null]), TRUE)", UNKNOWN, null);
         assertFunction("element_at(MAP(ARRAY['puppies'], ARRAY [null]), 'puppies')", UNKNOWN, null);
         assertFunction("element_at(MAP(ARRAY [1, 3], ARRAY [2, 4]), 3)", INTEGER, 4);
         assertFunction("element_at(MAP(ARRAY [BIGINT '1', 3], ARRAY [BIGINT '2', 4]), 3)", BIGINT, 4L);
         assertFunction("element_at(MAP(ARRAY [1, 3], ARRAY[2, NULL]), 3)", INTEGER, null);
         assertFunction("element_at(MAP(ARRAY [BIGINT '1', 3], ARRAY[2, NULL]), 3)", INTEGER, null);
-        assertFunction("element_at(MAP(ARRAY [1, 3], ARRAY [2.0, 4.0]), 1)", DOUBLE, 2.0);
-        assertFunction("element_at(MAP(ARRAY[1.0, 2.0], ARRAY[ ARRAY[1, 2], ARRAY[3]]), 1.0)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
+        assertFunction("element_at(MAP(ARRAY [1, 3], ARRAY [2.0E0, 4.0E0]), 1)", DOUBLE, 2.0);
+        assertFunction("element_at(MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ ARRAY[1, 2], ARRAY[3]]), 1.0E0)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("element_at(MAP(ARRAY['puppies'], ARRAY['kittens']), 'puppies')", createVarcharType(7), "kittens");
         assertFunction("element_at(MAP(ARRAY[TRUE,FALSE],ARRAY[2,4]), TRUE)", INTEGER, 2);
         assertFunction("element_at(MAP(ARRAY['1', '100'], ARRAY[from_unixtime(1), from_unixtime(100)]), '1')", TIMESTAMP, new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
-        assertFunction("element_at(MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0, 100.0]), from_unixtime(1))", DOUBLE, 1.0);
+        assertFunction("element_at(MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0E0, 100.0E0]), from_unixtime(1))", DOUBLE, 1.0);
     }
 
     @Test
@@ -465,7 +466,7 @@ public class TestMapOperators
             throws Exception
     {
         assertFunction("MAP(ARRAY [1], ARRAY [null])[1]", UNKNOWN, null);
-        assertFunction("MAP(ARRAY [1.0], ARRAY [null])[1.0]", UNKNOWN, null);
+        assertFunction("MAP(ARRAY [1.0E0], ARRAY [null])[1.0E0]", UNKNOWN, null);
         assertFunction("MAP(ARRAY [TRUE], ARRAY [null])[TRUE]", UNKNOWN, null);
         assertFunction("MAP(ARRAY['puppies'], ARRAY [null])['puppies']", UNKNOWN, null);
         assertInvalidFunction("MAP(ARRAY [CAST(null as bigint)], ARRAY [1])", "map key cannot be null");
@@ -475,12 +476,12 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY [BIGINT '1', 3], ARRAY [BIGINT '2', 4])[3]", BIGINT, 4L);
         assertFunction("MAP(ARRAY [1, 3], ARRAY[2, NULL])[3]", INTEGER, null);
         assertFunction("MAP(ARRAY [BIGINT '1', 3], ARRAY[2, NULL])[3]", INTEGER, null);
-        assertFunction("MAP(ARRAY [1, 3], ARRAY [2.0, 4.0])[1]", DOUBLE, 2.0);
-        assertFunction("MAP(ARRAY[1.0, 2.0], ARRAY[ ARRAY[1, 2], ARRAY[3]])[1.0]", new ArrayType(INTEGER), ImmutableList.of(1, 2));
+        assertFunction("MAP(ARRAY [1, 3], ARRAY [2.0E0, 4.0E0])[1]", DOUBLE, 2.0);
+        assertFunction("MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ ARRAY[1, 2], ARRAY[3]])[1.0E0]", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("MAP(ARRAY['puppies'], ARRAY['kittens'])['puppies']", createVarcharType(7), "kittens");
         assertFunction("MAP(ARRAY[TRUE,FALSE],ARRAY[2,4])[TRUE]", INTEGER, 2);
         assertFunction("MAP(ARRAY['1', '100'], ARRAY[from_unixtime(1), from_unixtime(100)])['1']", TIMESTAMP, new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0, 100.0])[from_unixtime(1)]", DOUBLE, 1.0);
+        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0E0, 100.0E0])[from_unixtime(1)]", DOUBLE, 1.0);
         assertInvalidFunction("MAP(ARRAY [BIGINT '1'], ARRAY [BIGINT '2'])[3]", "Key not present in map: 3");
         assertInvalidFunction("MAP(ARRAY ['hi'], ARRAY [2])['missing']", "Key not present in map: missing");
         assertFunction("MAP(ARRAY[array[1,1]], ARRAY['a'])[ARRAY[1,1]]", createVarcharType(1), "a");
@@ -492,10 +493,10 @@ public class TestMapOperators
             throws Exception
     {
         assertFunction("MAP_KEYS(MAP(ARRAY['1', '3'], ARRAY['2', '4']))", new ArrayType(createVarcharType(1)), ImmutableList.of("1", "3"));
-        assertFunction("MAP_KEYS(MAP(ARRAY[1.0, 2.0], ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0));
+        assertFunction("MAP_KEYS(MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0));
         assertFunction("MAP_KEYS(MAP(ARRAY['puppies'], ARRAY['kittens']))", new ArrayType(createVarcharType(7)), ImmutableList.of("puppies"));
         assertFunction("MAP_KEYS(MAP(ARRAY[TRUE], ARRAY[2]))", new ArrayType(BOOLEAN), ImmutableList.of(true));
-        assertFunction("MAP_KEYS(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0]))", new ArrayType(TIMESTAMP), ImmutableList.of(new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction("MAP_KEYS(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0E0]))", new ArrayType(TIMESTAMP), ImmutableList.of(new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey())));
         assertFunction("MAP_KEYS(MAP(ARRAY[CAST('puppies' as varbinary)], ARRAY['kittens']))", new ArrayType(VARBINARY), ImmutableList.of(new SqlVarbinary("puppies".getBytes(UTF_8))));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,2],  ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,4], ARRAY[MAP(ARRAY[2], ARRAY[3]), MAP(ARRAY[5], ARRAY[6])]))", new ArrayType(INTEGER), ImmutableList.of(1, 4));
@@ -515,7 +516,7 @@ public class TestMapOperators
         assertFunction("MAP_VALUES(MAP(ARRAY [1, 3], ARRAY ['2', '4']))",
                 new ArrayType(createVarcharType(1)),
                 ImmutableList.of("2", "4"));
-        assertFunction("MAP_VALUES(MAP(ARRAY[1.0,2.0], ARRAY[ARRAY[1, 2], ARRAY[3]]))",
+        assertFunction("MAP_VALUES(MAP(ARRAY[1.0E0,2.0E0], ARRAY[ARRAY[1, 2], ARRAY[3]]))",
                 new ArrayType(new ArrayType(INTEGER)),
                 ImmutableList.of(ImmutableList.of(1, 2), ImmutableList.of(3)));
         assertFunction("MAP_VALUES(MAP(ARRAY['puppies'], ARRAY['kittens']))",
@@ -530,10 +531,10 @@ public class TestMapOperators
         assertFunction("MAP_VALUES(MAP(ARRAY['1'], ARRAY[TRUE]))",
                 new ArrayType(BOOLEAN),
                 ImmutableList.of(true));
-        assertFunction("MAP_VALUES(MAP(ARRAY['1'], ARRAY[1.0]))",
+        assertFunction("MAP_VALUES(MAP(ARRAY['1'], ARRAY[1.0E0]))",
                 new ArrayType(DOUBLE),
                 ImmutableList.of(1.0));
-        assertFunction("MAP_VALUES(MAP(ARRAY['1', '2'], ARRAY[ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]]))",
+        assertFunction("MAP_VALUES(MAP(ARRAY['1', '2'], ARRAY[ARRAY[1.0E0, 2.0E0], ARRAY[3.0E0, 4.0E0]]))",
                 new ArrayType(new ArrayType(DOUBLE)),
                 ImmutableList.of(ImmutableList.of(1.0, 2.0), ImmutableList.of(3.0, 4.0)));
     }
@@ -552,14 +553,14 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY[1, 3], ARRAY[2, 4]) = MAP(ARRAY[1], ARRAY[2])", BOOLEAN, false);
         assertFunction("MAP(ARRAY[1, 3], ARRAY[2, 4]) = MAP(ARRAY[3, 1], ARRAY[4, 2])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[1, 3], ARRAY[2, 4]) = MAP(ARRAY[3, 1], ARRAY[2, 4])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY['1', '3'], ARRAY[2.0, 4.0]) = MAP(ARRAY['3', '1'], ARRAY[4.0, 2.0])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY['1', '3'], ARRAY[2.0, 4.0]) = MAP(ARRAY['3', '1'], ARRAY[2.0, 4.0])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY['1', '3'], ARRAY[2.0E0, 4.0E0]) = MAP(ARRAY['3', '1'], ARRAY[4.0E0, 2.0E0])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY['1', '3'], ARRAY[2.0E0, 4.0E0]) = MAP(ARRAY['3', '1'], ARRAY[2.0E0, 4.0E0])", BOOLEAN, false);
         assertFunction("MAP(ARRAY[TRUE, FALSE], ARRAY['2', '4']) = MAP(ARRAY[FALSE, TRUE], ARRAY['4', '2'])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[TRUE, FALSE], ARRAY['2', '4']) = MAP(ARRAY[FALSE, TRUE], ARRAY['2', '4'])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY[1.0, 3.0], ARRAY[TRUE, FALSE]) = MAP(ARRAY[3.0, 1.0], ARRAY[FALSE, TRUE])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY[1.0, 3.0], ARRAY[TRUE, FALSE]) = MAP(ARRAY[3.0, 1.0], ARRAY[TRUE, FALSE])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY[1.0, 3.0], ARRAY[from_unixtime(1), from_unixtime(100)]) = MAP(ARRAY[3.0, 1.0], ARRAY[from_unixtime(100), from_unixtime(1)])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY[1.0, 3.0], ARRAY[from_unixtime(1), from_unixtime(100)]) = MAP(ARRAY[3.0, 1.0], ARRAY[from_unixtime(1), from_unixtime(100)])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TRUE, FALSE]) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[FALSE, TRUE])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TRUE, FALSE]) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[TRUE, FALSE])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[from_unixtime(1), from_unixtime(100)]) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[from_unixtime(100), from_unixtime(1)])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[from_unixtime(1), from_unixtime(100)]) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[from_unixtime(1), from_unixtime(100)])", BOOLEAN, false);
         assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY['kittens', 'puppies']) = MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY['puppies', 'kittens'])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY['kittens', 'puppies']) = MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY['kittens', 'puppies'])", BOOLEAN, false);
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]]) = MAP(ARRAY['kittens', 'puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]])", BOOLEAN, true);
@@ -589,14 +590,14 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY[1, 3], ARRAY[2, 4]) != MAP(ARRAY[1], ARRAY[2])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[1, 3], ARRAY[2, 4]) != MAP(ARRAY[3, 1], ARRAY[4, 2])", BOOLEAN, false);
         assertFunction("MAP(ARRAY[1, 3], ARRAY[2, 4]) != MAP(ARRAY[3, 1], ARRAY[2, 4])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY['1', '3'], ARRAY[2.0, 4.0]) != MAP(ARRAY['3', '1'], ARRAY[4.0, 2.0])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY['1', '3'], ARRAY[2.0, 4.0]) != MAP(ARRAY['3', '1'], ARRAY[2.0, 4.0])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY['1', '3'], ARRAY[2.0E0, 4.0E0]) != MAP(ARRAY['3', '1'], ARRAY[4.0E0, 2.0E0])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY['1', '3'], ARRAY[2.0E0, 4.0E0]) != MAP(ARRAY['3', '1'], ARRAY[2.0E0, 4.0E0])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[TRUE, FALSE], ARRAY['2', '4']) != MAP(ARRAY[FALSE, TRUE], ARRAY['4', '2'])", BOOLEAN, false);
         assertFunction("MAP(ARRAY[TRUE, FALSE], ARRAY['2', '4']) != MAP(ARRAY[FALSE, TRUE], ARRAY['2', '4'])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY[1.0, 3.0], ARRAY[TRUE, FALSE]) != MAP(ARRAY[3.0, 1.0], ARRAY[FALSE, TRUE])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY[1.0, 3.0], ARRAY[TRUE, FALSE]) != MAP(ARRAY[3.0, 1.0], ARRAY[TRUE, FALSE])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY[1.0, 3.0], ARRAY[from_unixtime(1), from_unixtime(100)]) != MAP(ARRAY[3.0, 1.0], ARRAY[from_unixtime(100), from_unixtime(1)])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY[1.0, 3.0], ARRAY[from_unixtime(1), from_unixtime(100)]) != MAP(ARRAY[3.0, 1.0], ARRAY[from_unixtime(1), from_unixtime(100)])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TRUE, FALSE]) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[FALSE, TRUE])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TRUE, FALSE]) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[TRUE, FALSE])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[from_unixtime(1), from_unixtime(100)]) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[from_unixtime(100), from_unixtime(1)])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[from_unixtime(1), from_unixtime(100)]) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[from_unixtime(1), from_unixtime(100)])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY['kittens','puppies']) != MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY['puppies', 'kittens'])", BOOLEAN, false);
         assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY['kittens','puppies']) != MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY['kittens', 'puppies'])", BOOLEAN, true);
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]]) != MAP(ARRAY['kittens','puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]])", BOOLEAN, false);
@@ -645,21 +646,21 @@ public class TestMapOperators
         assertFunction("MAP_CONCAT(MAP (ARRAY ['1', '2', '3', '4'], ARRAY [1, 2, 3, 4]), MAP (ARRAY ['1', '2', '3', '4'], ARRAY [10, 20, 30, 40]))", mapType(createVarcharType(1), INTEGER), ImmutableMap.of("1", 10, "2", 20, "3", 30, "4", 40));
         assertFunction("MAP_CONCAT(MAP (ARRAY ['1', '2', '3', '4'], ARRAY [1, 2, 3, 4]), MAP (ARRAY ['1', '2', '3'], ARRAY [10, 20, 30]))", mapType(createVarcharType(1), INTEGER), ImmutableMap.of("1", 10, "2", 20, "3", 30, "4", 4));
 
-        // <INTEGER, ARRAY<DOUBLE>> Tests
-        assertFunction("MAP_CONCAT(MAP (ARRAY [1, 2, 3], ARRAY [ARRAY [1.0], ARRAY [2.0], ARRAY [3.0]]), MAP (ARRAY [1, 2, 3, 4], ARRAY [ARRAY [10.0], ARRAY [20.0], ARRAY [30.0], ARRAY [40.0]]))", mapType(INTEGER, new ArrayType(DOUBLE)), ImmutableMap.of(1, ImmutableList.of(10.0), 2, ImmutableList.of(20.0), 3, ImmutableList.of(30.0), 4, ImmutableList.of(40.0)));
-        assertFunction("MAP_CONCAT(MAP (ARRAY [1, 2, 3, 4], ARRAY [ARRAY [1.0], ARRAY [2.0], ARRAY [3.0], ARRAY [4.0]]), MAP (ARRAY [1, 2, 3, 4], ARRAY [ARRAY [10.0], ARRAY [20.0], ARRAY [30.0], ARRAY [40.0]]))", mapType(INTEGER, new ArrayType(DOUBLE)), ImmutableMap.of(1, ImmutableList.of(10.0), 2, ImmutableList.of(20.0), 3, ImmutableList.of(30.0), 4, ImmutableList.of(40.0)));
-        assertFunction("MAP_CONCAT(MAP (ARRAY [1, 2, 3, 4], ARRAY [ARRAY [1.0], ARRAY [2.0], ARRAY [3.0], ARRAY [4.0]]), MAP (ARRAY [1, 2, 3], ARRAY [ARRAY [10.0], ARRAY [20.0], ARRAY [30.0]]))", mapType(INTEGER, new ArrayType(DOUBLE)), ImmutableMap.of(1, ImmutableList.of(10.0), 2, ImmutableList.of(20.0), 3, ImmutableList.of(30.0), 4, ImmutableList.of(4.0)));
+        // <BIGINT, ARRAY<DOUBLE>> Tests
+        assertFunction("MAP_CONCAT(MAP (ARRAY [1, 2, 3], ARRAY [ARRAY [1.0E0], ARRAY [2.0E0], ARRAY [3.0E0]]), MAP (ARRAY [1, 2, 3, 4], ARRAY [ARRAY [10.0E0], ARRAY [20.0E0], ARRAY [30.0E0], ARRAY [40.0E0]]))", mapType(INTEGER, new ArrayType(DOUBLE)), ImmutableMap.of(1, ImmutableList.of(10.0), 2, ImmutableList.of(20.0), 3, ImmutableList.of(30.0), 4, ImmutableList.of(40.0)));
+        assertFunction("MAP_CONCAT(MAP (ARRAY [1, 2, 3, 4], ARRAY [ARRAY [1.0E0], ARRAY [2.0E0], ARRAY [3.0E0], ARRAY [4.0E0]]), MAP (ARRAY [1, 2, 3, 4], ARRAY [ARRAY [10.0E0], ARRAY [20.0E0], ARRAY [30.0E0], ARRAY [40.0E0]]))", mapType(INTEGER, new ArrayType(DOUBLE)), ImmutableMap.of(1, ImmutableList.of(10.0), 2, ImmutableList.of(20.0), 3, ImmutableList.of(30.0), 4, ImmutableList.of(40.0)));
+        assertFunction("MAP_CONCAT(MAP (ARRAY [1, 2, 3, 4], ARRAY [ARRAY [1.0E0], ARRAY [2.0E0], ARRAY [3.0E0], ARRAY [4.0E0]]), MAP (ARRAY [1, 2, 3], ARRAY [ARRAY [10.0E0], ARRAY [20.0E0], ARRAY [30.0E0]]))", mapType(INTEGER, new ArrayType(DOUBLE)), ImmutableMap.of(1, ImmutableList.of(10.0), 2, ImmutableList.of(20.0), 3, ImmutableList.of(30.0), 4, ImmutableList.of(4.0)));
 
         // <ARRAY<DOUBLE>, VARCHAR> Tests
         assertFunction(
-                "MAP_CONCAT(MAP (ARRAY [ARRAY [1.0], ARRAY [2.0], ARRAY [3.0]], ARRAY ['1', '2', '3']), MAP (ARRAY [ARRAY [1.0], ARRAY [2.0], ARRAY [3.0], ARRAY [4.0]], ARRAY ['10', '20', '30', '40']))",
+                "MAP_CONCAT(MAP (ARRAY [ARRAY [1.0E0], ARRAY [2.0E0], ARRAY [3.0E0]], ARRAY ['1', '2', '3']), MAP (ARRAY [ARRAY [1.0E0], ARRAY [2.0E0], ARRAY [3.0E0], ARRAY [4.0E0]], ARRAY ['10', '20', '30', '40']))",
                 mapType(new ArrayType(DOUBLE), createVarcharType(2)),
                 ImmutableMap.of(ImmutableList.of(1.0), "10", ImmutableList.of(2.0), "20", ImmutableList.of(3.0), "30", ImmutableList.of(4.0), "40"));
         assertFunction(
-                "MAP_CONCAT(MAP (ARRAY [ARRAY [1.0], ARRAY [2.0], ARRAY [3.0]], ARRAY ['1', '2', '3']), MAP (ARRAY [ARRAY [1.0], ARRAY [2.0], ARRAY [3.0], ARRAY [4.0]], ARRAY ['10', '20', '30', '40']))",
+                "MAP_CONCAT(MAP (ARRAY [ARRAY [1.0E0], ARRAY [2.0E0], ARRAY [3.0E0]], ARRAY ['1', '2', '3']), MAP (ARRAY [ARRAY [1.0E0], ARRAY [2.0E0], ARRAY [3.0E0], ARRAY [4.0E0]], ARRAY ['10', '20', '30', '40']))",
                 mapType(new ArrayType(DOUBLE), createVarcharType(2)),
                 ImmutableMap.of(ImmutableList.of(1.0), "10", ImmutableList.of(2.0), "20", ImmutableList.of(3.0), "30", ImmutableList.of(4.0), "40"));
-        assertFunction("MAP_CONCAT(MAP (ARRAY [ARRAY [1.0], ARRAY [2.0], ARRAY [3.0], ARRAY [4.0]], ARRAY ['1', '2', '3', '4']), MAP (ARRAY [ARRAY [1.0], ARRAY [2.0], ARRAY [3.0]], ARRAY ['10', '20', '30']))",
+        assertFunction("MAP_CONCAT(MAP (ARRAY [ARRAY [1.0E0], ARRAY [2.0E0], ARRAY [3.0E0], ARRAY [4.0E0]], ARRAY ['1', '2', '3', '4']), MAP (ARRAY [ARRAY [1.0E0], ARRAY [2.0E0], ARRAY [3.0E0]], ARRAY ['10', '20', '30']))",
                 mapType(new ArrayType(DOUBLE), createVarcharType(2)),
                 ImmutableMap.of(ImmutableList.of(1.0), "10", ImmutableList.of(2.0), "20", ImmutableList.of(3.0), "30", ImmutableList.of(4.0), "4"));
 
@@ -683,11 +684,11 @@ public class TestMapOperators
         assertFunction("CAST(MAP(ARRAY['1', '100'], ARRAY[true, false]) AS MAP<varchar,bigint>)", mapType(VARCHAR, BIGINT), ImmutableMap.of("1", 1L, "100", 0L));
         assertFunction("CAST(MAP(ARRAY[1,2], ARRAY[1,2]) AS MAP<bigint, boolean>)", mapType(BIGINT, BOOLEAN), ImmutableMap.of(1L, true, 2L, true));
         assertFunction("CAST(MAP(ARRAY[1,2], ARRAY[array[1],array[2]]) AS MAP<bigint, array<boolean>>)", mapType(BIGINT, new ArrayType(BOOLEAN)), ImmutableMap.of(1L, ImmutableList.of(true), 2L, ImmutableList.of(true)));
-        assertFunction("CAST(MAP(ARRAY[1], ARRAY[MAP(ARRAY[1.0], ARRAY[false])]) AS MAP<varchar, MAP(bigint,bigint)>)", mapType(VARCHAR, mapType(BIGINT, BIGINT)), ImmutableMap.of("1", ImmutableMap.of(1L, 0L)));
+        assertFunction("CAST(MAP(ARRAY[1], ARRAY[MAP(ARRAY[1.0E0], ARRAY[false])]) AS MAP<varchar, MAP(bigint,bigint)>)", mapType(VARCHAR, mapType(BIGINT, BIGINT)), ImmutableMap.of("1", ImmutableMap.of(1L, 0L)));
         assertFunction("CAST(MAP(ARRAY[1,2], ARRAY[DATE '2016-01-02', DATE '2016-02-03']) AS MAP(bigint, varchar))", mapType(BIGINT, VARCHAR), ImmutableMap.of(1L, "2016-01-02", 2L, "2016-02-03"));
         assertFunction("CAST(MAP(ARRAY[1,2], ARRAY[TIMESTAMP '2016-01-02 01:02:03', TIMESTAMP '2016-02-03 03:04:05']) AS MAP(bigint, varchar))", mapType(BIGINT, VARCHAR), ImmutableMap.of(1L, "2016-01-02 01:02:03.000", 2L, "2016-02-03 03:04:05.000"));
-        assertFunction("CAST(MAP(ARRAY['123', '456'], ARRAY[1.23456, 2.34567]) AS MAP(integer, real))", mapType(INTEGER, REAL), ImmutableMap.of(123, 1.23456F, 456, 2.34567F));
-        assertFunction("CAST(MAP(ARRAY['123', '456'], ARRAY[1.23456, 2.34567]) AS MAP(smallint, decimal(6,5)))", mapType(SMALLINT, createDecimalType(6, 5)), ImmutableMap.of((short) 123, SqlDecimal.of("1.23456"), (short) 456, SqlDecimal.of("2.34567")));
+        assertFunction("CAST(MAP(ARRAY['123', '456'], ARRAY[1.23456E0, 2.34567E0]) AS MAP(integer, real))", mapType(INTEGER, REAL), ImmutableMap.of(123, 1.23456F, 456, 2.34567F));
+        assertFunction("CAST(MAP(ARRAY['123', '456'], ARRAY[1.23456E0, 2.34567E0]) AS MAP(smallint, decimal(6,5)))", mapType(SMALLINT, createDecimalType(6, 5)), ImmutableMap.of((short) 123, SqlDecimal.of("1.23456"), (short) 456, SqlDecimal.of("2.34567")));
 
         // null values
         Map<Long, Double> expected = new HashMap<>();
@@ -708,7 +709,7 @@ public class TestMapOperators
         assertFunction("map_from_entries(CAST(ARRAY[] AS ARRAY(ROW(DOUBLE, BIGINT))))", mapType(DOUBLE, BIGINT), ImmutableMap.of());
         assertFunction("map_from_entries(ARRAY[(1, 3)])", mapType(INTEGER, INTEGER), ImmutableMap.of(1, 3));
         assertFunction("map_from_entries(ARRAY[(1, 'x'), (2, 'y')])", mapType(INTEGER, createVarcharType(1)), ImmutableMap.of(1, "x", 2, "y"));
-        assertFunction("map_from_entries(ARRAY[('x', 1.0), ('y', 2.0)])", mapType(createVarcharType(1), DOUBLE), ImmutableMap.of("x", 1.0, "y", 2.0));
+        assertFunction("map_from_entries(ARRAY[('x', 1.0E0), ('y', 2.0E0)])", mapType(createVarcharType(1), DOUBLE), ImmutableMap.of("x", 1.0, "y", 2.0));
 
         assertFunction(
                 "map_from_entries(ARRAY[('x', ARRAY[1, 2]), ('y', ARRAY[3, 4])])",
@@ -763,7 +764,7 @@ public class TestMapOperators
                 entryType(createVarcharType(1), new ArrayType(INTEGER)),
                 ImmutableList.of(ImmutableList.of("x", ImmutableList.of(1, 2)), ImmutableList.of("y", ImmutableList.of(3, 4))));
         assertFunction(
-                "map_entries(MAP(ARRAY[ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]], ARRAY[5.0, 6.0]))",
+                "map_entries(MAP(ARRAY[ARRAY[1.0E0, 2.0E0], ARRAY[3.0E0, 4.0E0]], ARRAY[5.0E0, 6.0E0]))",
                 entryType(new ArrayType(DOUBLE), DOUBLE),
                 ImmutableList.of(ImmutableList.of(ImmutableList.of(1.0, 2.0), 5.0), ImmutableList.of(ImmutableList.of(3.0, 4.0), 6.0)));
         assertFunction(

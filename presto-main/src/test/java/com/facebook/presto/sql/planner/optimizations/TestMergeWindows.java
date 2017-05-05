@@ -191,7 +191,7 @@ public class TestMergeWindows
     {
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
-                "LAG(quantity, 1, 0.0) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "LAG(quantity, 1, 0.0E0) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
                 "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
                 "FROM lineitem";
 
@@ -203,7 +203,7 @@ public class TestMergeWindows
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationB)
                                                 .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
+                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(specificationA)
                                                                 .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
@@ -215,7 +215,7 @@ public class TestMergeWindows
     {
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
-                "LAG(quantity, 1, 0.0) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "LAG(quantity, 1, 0.0E0) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
                 "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
                 "FROM lineitem";
 
@@ -225,7 +225,7 @@ public class TestMergeWindows
                                         .specification(specificationA)
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
                                         .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
+                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specificationA)
                                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
