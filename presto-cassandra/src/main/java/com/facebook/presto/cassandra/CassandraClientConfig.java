@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.SocketOptions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -50,6 +51,7 @@ public class CassandraClientConfig
     private int nativeProtocolPort = 9042;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
+    private long splitsPerNode = -1;
     private boolean allowDropTable;
     private String username;
     private String password;
@@ -68,6 +70,7 @@ public class CassandraClientConfig
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
+    private ProtocolVersion protocolVersion = ProtocolVersion.V3;
 
     @Min(1)
     public int getMaxSchemaRefreshThreads()
@@ -190,6 +193,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setSplitSize(int splitSize)
     {
         this.splitSize = splitSize;
+        return this;
+    }
+
+    public long getSplitsPerNode()
+    {
+        return splitsPerNode;
+    }
+
+    @Config("cassandra.splits-per-node")
+    public CassandraClientConfig setSplitsPerNode(long splitsPerNode)
+    {
+        this.splitsPerNode = splitsPerNode;
         return this;
     }
 
@@ -417,6 +432,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setSpeculativeExecutionDelay(Duration speculativeExecutionDelay)
     {
         this.speculativeExecutionDelay = speculativeExecutionDelay;
+        return this;
+    }
+
+    public ProtocolVersion getProtocolVersion()
+    {
+        return protocolVersion;
+    }
+
+    @Config("cassandra.protocol-version")
+    public CassandraClientConfig setProtocolVersion(String version)
+    {
+        protocolVersion = ProtocolVersion.valueOf(version);
         return this;
     }
 }

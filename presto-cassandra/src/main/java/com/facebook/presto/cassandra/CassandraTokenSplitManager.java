@@ -54,17 +54,19 @@ public class CassandraTokenSplitManager
 
     private final CassandraSession session;
     private final int splitSize;
+    private final long splitsPerNode;
 
     @Inject
     public CassandraTokenSplitManager(CassandraSession session, CassandraClientConfig config)
     {
-        this(session, config.getSplitSize());
+        this(session, config.getSplitSize(), config.getSplitsPerNode());
     }
 
-    public CassandraTokenSplitManager(CassandraSession session, int splitSize)
+    public CassandraTokenSplitManager(CassandraSession session, int splitSize, long splitsPerNode)
     {
         this.session = requireNonNull(session, "session is null");
         this.splitSize = splitSize;
+        this.splitsPerNode = splitsPerNode;
     }
 
     public List<TokenSplit> getSplits(String keyspace, String table)
@@ -132,8 +134,11 @@ public class CassandraTokenSplitManager
         return result.build();
     }
 
-    private long getTotalPartitionsCount(String keyspace, String table)
+    public long getTotalPartitionsCount(String keyspace, String table)
     {
+        if (splitsPerNode > 0) {
+            return splitsPerNode;
+        }
         List<SizeEstimate> estimates = getSizeEstimates(keyspace, table);
         return estimates.stream()
                 .mapToLong(SizeEstimate::getPartitionsCount)
