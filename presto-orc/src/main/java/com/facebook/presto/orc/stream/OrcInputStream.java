@@ -140,6 +140,30 @@ public final class OrcInputStream
         return current.read(b, off, length);
     }
 
+    public void skipFully(long length)
+            throws IOException
+    {
+        while (length > 0) {
+            long result = skip(length);
+            if (result < 0) {
+                throw new OrcCorruptionException("Unexpected end of stream");
+            }
+            length -= result;
+        }
+    }
+
+    public void readFully(byte[] buffer, int offset, int length)
+            throws IOException
+    {
+        while (offset < length) {
+            int result = read(buffer, offset, length - offset);
+            if (result < 0) {
+                throw new OrcCorruptionException("Unexpected end of stream");
+            }
+            offset += result;
+        }
+    }
+
     public long getCheckpoint()
     {
         // if the decompressed buffer is empty, return a checkpoint starting at the next block

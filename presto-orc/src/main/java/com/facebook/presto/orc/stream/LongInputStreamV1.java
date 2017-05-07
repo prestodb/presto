@@ -21,12 +21,12 @@ import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 
-import static com.facebook.presto.orc.stream.OrcStreamUtils.MIN_REPEAT_SIZE;
 import static java.lang.Math.toIntExact;
 
 public class LongInputStreamV1
         implements LongInputStream
 {
+    private static final int MIN_REPEAT_SIZE = 3;
     private static final int MAX_LITERAL_SIZE = 128;
 
     private final OrcInputStream input;

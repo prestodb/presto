@@ -21,12 +21,11 @@ import com.facebook.presto.spi.type.Type;
 import java.io.IOException;
 import java.util.Arrays;
 
-import static com.facebook.presto.orc.stream.OrcStreamUtils.MIN_REPEAT_SIZE;
-import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
-
 public class ByteInputStream
         implements ValueInputStream<ByteStreamCheckpoint>
 {
+    private static final int MIN_REPEAT_SIZE = 3;
+
     private final OrcInputStream input;
     private final byte[] buffer = new byte[MIN_REPEAT_SIZE + 127];
     private int length;
@@ -70,7 +69,7 @@ public class ByteInputStream
             length = 0x100 - control;
 
             // read the literals into the buffer
-            readFully(input, buffer, 0, length);
+            input.readFully(buffer, 0, length);
         }
     }
 
