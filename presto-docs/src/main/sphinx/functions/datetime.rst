@@ -156,11 +156,31 @@ Unit              Description
 
     Returns ``timestamp2 - timestamp1`` expressed in terms of ``unit``.
 
-.. function:: parse_duration(string) ->  Interval
+Duration Function
+-----------------
+
+The ``parse_duration`` function supports the following units:
+
+======= =============
+Unit    Description
+======= =============
+``ns``  Nanoseconds
+``us``  Microseconds
+``ms``  Milliseconds
+``s``   Seconds
+``m``   Minutes
+``h``   Hours
+``d``   Days
+======= =============
+
+.. function:: parse_duration(string) -> interval
 
     Parses ``string`` of format ``value unit`` into an interval, where
-    ``value`` is a numeric of type double and ``unit`` is one of the values
-    (``ns``, ``us``, ``ms``, ``s``, ``m``, ``h``, ``d``)
+    ``value`` is fractional number of ``unit`` values::
+
+        SELECT parse_duration('42.8ms'); -- 0 00:00:00.043
+        SELECT parse_duration('3.81 d'); -- 3 19:26:24.000
+        SELECT parse_duration('5m');     -- 0 00:05:00.000
 
 MySQL Date Functions
 --------------------
