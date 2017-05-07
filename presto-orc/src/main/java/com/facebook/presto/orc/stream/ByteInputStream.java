@@ -46,7 +46,7 @@ public class ByteInputStream
 
         int control = input.read();
         if (control == -1) {
-            throw new OrcCorruptionException("Read past end of buffer RLE byte from %s", input);
+            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Read past end of buffer RLE byte");
         }
 
         offset = 0;
@@ -58,7 +58,7 @@ public class ByteInputStream
             // read the repeated value
             int value = input.read();
             if (value == -1) {
-                throw new OrcCorruptionException("Reading RLE byte got EOF");
+                throw new OrcCorruptionException(input.getOrcDataSourceId(), "Reading RLE byte got EOF");
             }
 
             // fill buffer with the value

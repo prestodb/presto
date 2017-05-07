@@ -28,7 +28,7 @@ public class FileOrcDataSource
     public FileOrcDataSource(File path, DataSize maxMergeDistance, DataSize maxReadSize, DataSize streamBufferSize)
             throws FileNotFoundException
     {
-        super(path.getPath(), path.length(), maxMergeDistance, maxReadSize, streamBufferSize);
+        super(new OrcDataSourceId(path.getPath()), path.length(), maxMergeDistance, maxReadSize, streamBufferSize);
         this.input = new RandomAccessFile(path, "r");
     }
 

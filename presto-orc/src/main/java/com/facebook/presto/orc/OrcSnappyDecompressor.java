@@ -13,19 +13,23 @@
  */
 package com.facebook.presto.orc;
 
+import io.airlift.compress.MalformedInputException;
 import io.airlift.compress.snappy.SnappyDecompressor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.util.Objects.requireNonNull;
 
 class OrcSnappyDecompressor
     implements OrcDecompressor
 {
+    private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;
     private final SnappyDecompressor decompressor = new SnappyDecompressor();
 
-    public OrcSnappyDecompressor(int maxBufferSize)
+    public OrcSnappyDecompressor(OrcDataSourceId orcDataSourceId, int maxBufferSize)
     {
+        this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
         this.maxBufferSize = maxBufferSize;
     }
 
@@ -36,10 +40,15 @@ class OrcSnappyDecompressor
         int uncompressedLength = SnappyDecompressor.getUncompressedLength(input, offset);
         checkArgument(uncompressedLength <= maxBufferSize, "Snappy requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
 
-        // Snappy decompressor is more if there's at least a long's worth of extra space
-        // in the output buffer
-        byte[] buffer = output.initialize(uncompressedLength + SIZE_OF_LONG);
-        return decompressor.decompress(input, offset, length, buffer, 0, buffer.length);
+        try {
+            // Snappy decompressor is more efficient if there's at least a long's worth of extra space
+            // in the output buffer
+            byte[] buffer = output.initialize(uncompressedLength + SIZE_OF_LONG);
+            return decompressor.decompress(input, offset, length, buffer, 0, buffer.length);
+        }
+        catch (MalformedInputException e) {
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid compressed stream");
+        }
     }
 
     @Override

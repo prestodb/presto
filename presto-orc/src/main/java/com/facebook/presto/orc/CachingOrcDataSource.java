@@ -42,6 +42,12 @@ public class CachingOrcDataSource
     }
 
     @Override
+    public OrcDataSourceId getId()
+    {
+        return dataSource.getId();
+    }
+
+    @Override
     public long getReadBytes()
     {
         return dataSource.getReadBytes();

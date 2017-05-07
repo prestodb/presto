@@ -14,17 +14,21 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.zstd.ZstdDecompressor;
+import io.airlift.compress.MalformedInputException;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 class OrcZstdDecompressor
     implements OrcDecompressor
 {
+    private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;
     private final ZstdDecompressor decompressor = new ZstdDecompressor();
 
-    public OrcZstdDecompressor(int maxBufferSize)
+    public OrcZstdDecompressor(OrcDataSourceId orcDataSourceId, int maxBufferSize)
     {
+        this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
         this.maxBufferSize = maxBufferSize;
     }
 
@@ -35,8 +39,13 @@ class OrcZstdDecompressor
         int uncompressedLength = (int) ZstdDecompressor.getDecompressedSize(input, offset, length);
         checkArgument(uncompressedLength <= maxBufferSize, "Zstd requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
 
-        byte[] buffer = output.initialize(uncompressedLength);
-        return decompressor.decompress(input, offset, length, buffer, 0, buffer.length);
+        try {
+            byte[] buffer = output.initialize(uncompressedLength);
+            return decompressor.decompress(input, offset, length, buffer, 0, buffer.length);
+        }
+        catch (MalformedInputException e) {
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid compressed stream");
+        }
     }
 
     @Override

@@ -83,7 +83,7 @@ public class OrcReader
         // figure out the size of the file using the option or filesystem
         long size = orcDataSource.getSize();
         if (size <= 0) {
-            throw new OrcCorruptionException("Malformed ORC file %s. Invalid file size %s", orcDataSource, size);
+            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid file size %s", size);
         }
 
         // Read the tail of the file
@@ -110,13 +110,13 @@ public class OrcReader
             case UNCOMPRESSED:
                 break;
             case ZLIB:
-                decompressor = Optional.of(new OrcZlibDecompressor(bufferSize));
+                decompressor = Optional.of(new OrcZlibDecompressor(orcDataSource.getId(), bufferSize));
                 break;
             case SNAPPY:
-                decompressor = Optional.of(new OrcSnappyDecompressor(bufferSize));
+                decompressor = Optional.of(new OrcSnappyDecompressor(orcDataSource.getId(), bufferSize));
                 break;
             case ZSTD:
-                decompressor = Optional.of(new OrcZstdDecompressor(bufferSize));
+                decompressor = Optional.of(new OrcZstdDecompressor(orcDataSource.getId(), bufferSize));
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported compression type: " + postScript.getCompression());
@@ -148,13 +148,13 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), metadataSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
     }
@@ -241,7 +241,7 @@ public class OrcReader
     {
         int magicLength = MAGIC.length();
         if (postScriptSize < magicLength + 1) {
-            throw new OrcCorruptionException("Malformed ORC file %s. Invalid postscript length %s", source, postScriptSize);
+            throw new OrcCorruptionException(source.getId(), "Invalid postscript length %s", postScriptSize);
         }
 
         if (!MAGIC.equals(Slices.wrappedBuffer(buffer, buffer.length - 1 - magicLength, magicLength))) {
@@ -251,7 +251,7 @@ public class OrcReader
 
             // if it isn't there, this isn't an ORC file
             if  (!MAGIC.equals(Slices.wrappedBuffer(headerMagic))) {
-                throw new OrcCorruptionException("Malformed ORC file %s. Invalid postscript.", source);
+                throw new OrcCorruptionException(source.getId(), "Invalid postscript");
             }
         }
     }

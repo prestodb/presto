@@ -400,7 +400,8 @@ public class OrcRecordReader
         }
     }
 
-    private static StreamReader[] createStreamReaders(OrcDataSource orcDataSource,
+    private static StreamReader[] createStreamReaders(
+            OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns)

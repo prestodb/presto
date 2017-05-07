@@ -255,6 +255,12 @@ public class TestCachingOrcDataSource
         public static final FakeOrcDataSource INSTANCE = new FakeOrcDataSource();
 
         @Override
+        public OrcDataSourceId getId()
+        {
+            return new OrcDataSourceId("fake");
+        }
+
+        @Override
         public long getReadBytes()
         {
             throw new UnsupportedOperationException();

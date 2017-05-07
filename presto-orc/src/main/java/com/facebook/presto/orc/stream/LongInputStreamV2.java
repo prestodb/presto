@@ -65,7 +65,7 @@ public class LongInputStreamV2
         // read the first 2 bits and determine the encoding type
         int firstByte = input.read();
         if (firstByte < 0) {
-            throw new OrcCorruptionException("Read past end of RLE integer from %s", input);
+            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Read past end of RLE integer");
         }
 
         int enc = (firstByte >>> 6) & 0x03;
@@ -188,7 +188,7 @@ public class LongInputStreamV2
         long[] unpackedPatch = new long[patchListLength];
 
         if ((patchWidth + patchGapWidth) > 64 && !skipCorrupt) {
-            throw new OrcCorruptionException("ORC file is corrupt");
+            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Invalid RLEv2 encoded stream");
         }
 
         int bitSize = LongDecode.getClosestFixedBits(patchWidth + patchGapWidth);

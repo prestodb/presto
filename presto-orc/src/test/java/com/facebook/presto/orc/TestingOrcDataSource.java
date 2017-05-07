@@ -35,6 +35,12 @@ class TestingOrcDataSource
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
+    @Override
+    public OrcDataSourceId getId()
+    {
+        return delegate.getId();
+    }
+
     public int getReadCount()
     {
         return readCount;
