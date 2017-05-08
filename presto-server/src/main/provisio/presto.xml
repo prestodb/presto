@@ -145,4 +145,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/presto-thrift">
+        <artifact id="${project.groupId}:presto-thrift-connector:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
