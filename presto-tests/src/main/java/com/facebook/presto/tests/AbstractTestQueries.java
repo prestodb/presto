@@ -2512,8 +2512,47 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinOnDecimalColumn()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1.0, 3.0)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1.0, 3.0)");
+
+        assertQuery(
+                "SELECT * FROM (VALUES (123456789123456789.123456, 2.0)) x (a, b) JOIN (VALUES (123456789123456789.123456, 3.0)) y (a, b) USING(a)",
+                "VALUES (123456789123456789.123456, 2.0, 123456789123456789.123456, 3.0)");
+    }
+
+    @Test
     public void testJoinCriteriaCoercion()
     {
+        // long, double
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DOUBLE '1.0', 3)) y (a, b) USING(a)",
+                "VALUES (1, 2.0, 1.0, 3)");
+
+        // double, long
+        assertQuery(
+                "SELECT * FROM (VALUES (1.0E0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // long decimal, bigint
+        assertQuery(
+                "SELECT * FROM (VALUES (DECIMAL '0000000000000000001', 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // bigint, long decimal
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DECIMAL '0000000000000000001', 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // bigint, short decimal
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (1.0, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // short decimal, bigint
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
                 "VALUES (1.0, 2.0, 1, 3)");
