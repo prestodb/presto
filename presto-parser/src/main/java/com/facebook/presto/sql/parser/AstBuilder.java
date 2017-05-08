@@ -1555,6 +1555,12 @@ class AstBuilder
     @Override
     public Node visitDecimalLiteral(SqlBaseParser.DecimalLiteralContext context)
     {
+        return new DecimalLiteral(getLocation(context), context.getText());
+    }
+
+    @Override
+    public Node visitDoubleLiteral(SqlBaseParser.DoubleLiteralContext context)
+    {
         return new DoubleLiteral(getLocation(context), context.getText());
     }
 
