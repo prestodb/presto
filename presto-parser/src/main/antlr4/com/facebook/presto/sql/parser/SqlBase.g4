@@ -478,6 +478,7 @@ quotedIdentifier
 
 number
     : DECIMAL_VALUE  #decimalLiteral
+    | DOUBLE_VALUE   #doubleLiteral
     | INTEGER_VALUE  #integerLiteral
     ;
 
@@ -737,7 +738,10 @@ INTEGER_VALUE
 DECIMAL_VALUE
     : DIGIT+ '.' DIGIT*
     | '.' DIGIT+
-    | DIGIT+ ('.' DIGIT*)? EXPONENT
+    ;
+
+DOUBLE_VALUE
+    : DIGIT+ ('.' DIGIT*)? EXPONENT
     | '.' DIGIT+ EXPONENT
     ;
 

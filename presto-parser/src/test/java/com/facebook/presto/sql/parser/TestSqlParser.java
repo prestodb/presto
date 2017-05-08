@@ -271,7 +271,7 @@ public class TestSqlParser
     {
         assertExpression("ARRAY []", new ArrayConstructor(ImmutableList.of()));
         assertExpression("ARRAY [1, 2]", new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
-        assertExpression("ARRAY [1.0, 2.5]", new ArrayConstructor(ImmutableList.of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
+        assertExpression("ARRAY [1.0, 2.5]", new ArrayConstructor(ImmutableList.of(new DecimalLiteral("1.0"), new DecimalLiteral("2.5"))));
         assertExpression("ARRAY ['hi']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"))));
         assertExpression("ARRAY ['hi', 'hello']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"), new StringLiteral("hello"))));
     }
@@ -297,11 +297,6 @@ public class TestSqlParser
     public void testDouble()
             throws Exception
     {
-        assertExpression("123.", new DoubleLiteral("123"));
-        assertExpression("123.0", new DoubleLiteral("123"));
-        assertExpression(".5", new DoubleLiteral(".5"));
-        assertExpression("123.5", new DoubleLiteral("123.5"));
-
         assertExpression("123E7", new DoubleLiteral("123E7"));
         assertExpression("123.E7", new DoubleLiteral("123E7"));
         assertExpression("123.0E7", new DoubleLiteral("123E7"));
@@ -493,8 +488,8 @@ public class TestSqlParser
     public void testValues()
     {
         Query valuesQuery = query(values(
-                row(new StringLiteral("a"), new LongLiteral("1"), new DoubleLiteral("2.2")),
-                row(new StringLiteral("b"), new LongLiteral("2"), new DoubleLiteral("3.3"))));
+                row(new StringLiteral("a"), new LongLiteral("1"), new DecimalLiteral("2.2")),
+                row(new StringLiteral("b"), new LongLiteral("2"), new DecimalLiteral("3.3"))));
 
         assertStatement("VALUES ('a', 1, 2.2), ('b', 2, 3.3)", valuesQuery);
 
@@ -742,6 +737,11 @@ public class TestSqlParser
         assertExpression("DECIMAL '-12'", new DecimalLiteral("-12"));
         assertExpression("DECIMAL '+.34'", new DecimalLiteral("+.34"));
         assertExpression("DECIMAL '-.34'", new DecimalLiteral("-.34"));
+
+        assertExpression("123.", new DecimalLiteral("123."));
+        assertExpression("123.0", new DecimalLiteral("123.0"));
+        assertExpression(".5", new DecimalLiteral(".5"));
+        assertExpression("123.5", new DecimalLiteral("123.5"));
     }
 
     @Test

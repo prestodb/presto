@@ -90,6 +90,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.util.DoubleLiteralFormatter.toScientificNotation;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -224,7 +225,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitDoubleLiteral(DoubleLiteral node, Void context)
         {
-            return Double.toString(node.getValue());
+            return toScientificNotation(node.getValue());
         }
 
         @Override
