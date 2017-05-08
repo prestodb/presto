@@ -73,8 +73,12 @@ public class TestJsonOperators
     {
         assertFunction("cast(cast (null as integer) as JSON)", JSON, null);
         assertFunction("cast(cast (null as bigint) as JSON)", JSON, null);
+        assertFunction("cast(cast (null as smallint) as JSON)", JSON, null);
+        assertFunction("cast(cast (null as tinyint) as JSON)", JSON, null);
         assertFunction("cast(128 as JSON)", JSON, "128");
         assertFunction("cast(BIGINT '128' as JSON)", JSON, "128");
+        assertFunction("cast(SMALLINT '128' as JSON)", JSON, "128");
+        assertFunction("cast(TINYINT '127' as JSON)", JSON, "127");
     }
 
     @Test
@@ -108,11 +112,22 @@ public class TestJsonOperators
     public void testCastFromDouble()
             throws Exception
     {
-        assertFunction("cast(cast (null as double) as JSON)", JSON, null);
+        assertFunction("cast(cast(null as double) as JSON)", JSON, null);
         assertFunction("cast(3.14 as JSON)", JSON, "3.14");
         assertFunction("cast(nan() as JSON)", JSON, "\"NaN\"");
         assertFunction("cast(infinity() as JSON)", JSON, "\"Infinity\"");
         assertFunction("cast(-infinity() as JSON)", JSON, "\"-Infinity\"");
+    }
+
+    @Test
+    public void testCastFromReal()
+            throws Exception
+    {
+        assertFunction("cast(cast(null as REAL) as JSON)", JSON, null);
+        assertFunction("cast(REAL '3.14' as JSON)", JSON, "3.14");
+        assertFunction("cast(cast(nan() as REAL) as JSON)", JSON, "\"NaN\"");
+        assertFunction("cast(cast(infinity() as REAL) as JSON)", JSON, "\"Infinity\"");
+        assertFunction("cast(cast(-infinity() as REAL) as JSON)", JSON, "\"-Infinity\"");
     }
 
     @Test
