@@ -114,6 +114,7 @@
         <module>presto-resource-group-managers</module>
         <module>presto-benchto-benchmarks</module>
         <module>presto-thrift-connector-api</module>
+        <module>presto-thrift-testing-server</module>
     </modules>
 
     <dependencyManagement>
@@ -349,6 +350,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-thrift-connector-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-testing-server</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
