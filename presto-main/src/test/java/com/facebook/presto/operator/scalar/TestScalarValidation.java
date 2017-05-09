@@ -367,6 +367,18 @@ public class TestScalarValidation
         }
     }
 
+    @Test
+    public void testValidTypeParametersForConstructors()
+    {
+        extractScalars(ConstructorWithValidTypeParameters.class);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter not to take parameters, but got K on method .*")
+    public void testInvalidTypeParametersForConstructors()
+    {
+        extractScalars(ConstructorWithInvalidTypeParameters.class);
+    }
+
     private static void extractParametricScalar(Class<?> clazz)
     {
         new FunctionListBuilder().scalar(clazz);

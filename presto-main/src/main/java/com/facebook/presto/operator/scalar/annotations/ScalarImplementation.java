@@ -352,6 +352,7 @@ public class ScalarImplementation
         private final MethodHandle methodHandle;
         private final List<ImplementationDependency> dependencies = new ArrayList<>();
         private final LinkedHashSet<TypeParameter> typeParameters = new LinkedHashSet<>();
+        private final ImmutableSet<String> typeParameterNames;
         private final Set<String> literalParameters = new HashSet<>();
         private final Map<String, Class<?>> specializedTypeParameters;
         private final Optional<MethodHandle> constructorMethodHandle;
@@ -366,6 +367,10 @@ public class ScalarImplementation
 
             Stream.of(method.getAnnotationsByType(TypeParameter.class))
                     .forEach(typeParameters::add);
+
+            typeParameterNames = typeParameters.stream()
+                    .map(TypeParameter::value)
+                    .collect(toImmutableSet());
 
             LiteralParameters literalParametersAnnotation = method.getAnnotation(LiteralParameters.class);
             if (literalParametersAnnotation != null) {
@@ -405,9 +410,6 @@ public class ScalarImplementation
 
         private void parseArguments(Method method)
         {
-            ImmutableSet<String> typeParameterNames = typeParameters.stream()
-                    .map(TypeParameter::value)
-                    .collect(toImmutableSet());
             for (int i = 0; i < method.getParameterCount(); i++) {
                 Annotation[] annotations = method.getParameterAnnotations()[i];
                 Class<?> parameterType = method.getParameterTypes()[i];
@@ -511,7 +513,7 @@ public class ScalarImplementation
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
                 if (annotation instanceof TypeParameter) {
-                    checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the constructor [%s]", constructor);
+                    checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), method, typeParameterNames);
                 }
                 constructorDependencies.add(parseDependency(annotation));
             }
