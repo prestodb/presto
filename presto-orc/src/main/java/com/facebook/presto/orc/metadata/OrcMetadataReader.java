@@ -398,7 +398,7 @@ public class OrcMetadataReader
         /*
         Skip the file and stripe TimestampStatistics when the ORC File is written using old ORC Writer. 
         TimestampStatistics in ORC are fixed in this patch https://issues.apache.org/jira/browse/HIVE-8732.
-        */
+         */
         if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
             return null;
         }
