@@ -155,7 +155,8 @@ public class TestOrcPageSourceMemoryTracking
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
 
-        ConnectorPageSource pageSource = testPreparer.newPageSource();
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        ConnectorPageSource pageSource = testPreparer.newPageSource(stats);
 
         assertEquals(pageSource.getSystemMemoryUsage(), 0);
 
@@ -221,6 +222,7 @@ public class TestOrcPageSourceMemoryTracking
         assertTrue(pageSource.isFinished());
         assertEquals(pageSource.getSystemMemoryUsage(), 0);
         pageSource.close();
+        assertEquals((int) stats.getLoadedBlockBytes().getAllTime().getCount(), 50);
     }
 
     @Test
@@ -360,9 +362,9 @@ public class TestOrcPageSourceMemoryTracking
             fileSplit = createTestFile(tempFilePath, new OrcOutputFormat(), serde, null, testColumns, NUM_ROWS);
         }
 
-        public ConnectorPageSource newPageSource()
+        public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats)
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, new FileFormatDataSourceStats());
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, stats);
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
@@ -385,7 +387,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public SourceOperator newTableScanOperator(DriverContext driverContext)
         {
-            ConnectorPageSource pageSource = newPageSource();
+            ConnectorPageSource pageSource = newPageSource(new FileFormatDataSourceStats());
             SourceOperatorFactory sourceOperatorFactory = new TableScanOperatorFactory(
                     0,
                     new PlanNodeId("0"),
@@ -400,7 +402,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public SourceOperator newScanFilterAndProjectOperator(DriverContext driverContext)
         {
-            ConnectorPageSource pageSource = newPageSource();
+            ConnectorPageSource pageSource = newPageSource(new FileFormatDataSourceStats());
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             for (int i = 0; i < types.size(); i++) {
                 projectionsBuilder.add(field(i, types.get(i)));

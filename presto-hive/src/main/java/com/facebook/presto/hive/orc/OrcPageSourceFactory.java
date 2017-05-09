@@ -190,7 +190,8 @@ public class OrcPageSourceFactory
                     orcDataSource,
                     physicalColumns,
                     typeManager,
-                    systemMemoryUsage);
+                    systemMemoryUsage,
+                    stats);
         }
         catch (Exception e) {
             try {
