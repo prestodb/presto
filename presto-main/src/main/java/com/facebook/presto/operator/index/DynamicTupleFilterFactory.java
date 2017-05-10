@@ -32,7 +32,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory.synchronousFilterAndProjectOperator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -80,7 +80,7 @@ public class DynamicTupleFilterFactory
     {
         Page filterTuple = getFilterTuple(tuplePage);
         Supplier<PageProcessor> processor = createPageProcessor(filterTuple);
-        return new FilterAndProjectOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes);
+        return synchronousFilterAndProjectOperator(filterOperatorId, planNodeId, processor, outputTypes);
     }
 
     @VisibleForTesting

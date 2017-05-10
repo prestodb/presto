@@ -32,7 +32,6 @@ import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
-import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.GroupIdOperator;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
@@ -185,6 +184,7 @@ import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionE
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
+import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory.synchronousFilterAndProjectOperator;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -1087,7 +1087,7 @@ public class LocalExecutionPlanner
                 else {
                     Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections);
 
-                    OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                    OperatorFactory operatorFactory = synchronousFilterAndProjectOperator(
                             context.getNextOperatorId(),
                             planNodeId,
                             pageProcessor,
@@ -1137,7 +1137,7 @@ public class LocalExecutionPlanner
                 return new PhysicalOperation(operatorFactory, outputMappings);
             }
             else {
-                OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                OperatorFactory operatorFactory = synchronousFilterAndProjectOperator(
                         context.getNextOperatorId(),
                         planNodeId,
                         () -> pageProcessor,

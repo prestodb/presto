@@ -20,12 +20,15 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.project.PageProcessorOutput.EMPTY_PAGE_PROCESSOR_OUTPUT;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class FilterAndProjectOperator
@@ -35,16 +38,22 @@ public class FilterAndProjectOperator
     private final List<Type> types;
     private final LocalMemoryContext outputMemoryContext;
 
-    private final PageProcessor processor;
+    private final ListenableFuture<PageProcessor> processor;
     private PageProcessorOutput currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
     private boolean finishing;
 
-    public FilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types, PageProcessor processor)
+    public FilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types, ListenableFuture<PageProcessor> processor)
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return processor;
     }
 
     @Override
@@ -88,8 +97,9 @@ public class FilterAndProjectOperator
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
         checkState(!currentOutput.hasNext(), "Page buffer is full");
+        checkState(processor.isDone(), "Page processor is not ready");
 
-        currentOutput = processor.process(operatorContext.getSession().toConnectorSession(), page);
+        currentOutput = getFutureValue(processor).process(operatorContext.getSession().toConnectorSession(), page);
         outputMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
     }
 
@@ -107,11 +117,29 @@ public class FilterAndProjectOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final Supplier<PageProcessor> processor;
+        private final Supplier<ListenableFuture<PageProcessor>> processor;
         private final List<Type> types;
         private boolean closed;
 
-        public FilterAndProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, Supplier<PageProcessor> processor, List<Type> types)
+        public static FilterAndProjectOperatorFactory synchronousFilterAndProjectOperator(
+                int operatorId,
+                PlanNodeId planNodeId,
+                Supplier<PageProcessor> processor,
+                List<Type> types)
+        {
+            return new FilterAndProjectOperatorFactory(operatorId, planNodeId, () -> immediateFuture(processor.get()), types);
+        }
+
+        public static FilterAndProjectOperatorFactory asynchronousFilterAndProjectOperator(
+                int operatorId,
+                PlanNodeId planNodeId,
+                Supplier<ListenableFuture<PageProcessor>> processor,
+                List<Type> types)
+        {
+            return new FilterAndProjectOperatorFactory(operatorId, planNodeId, processor, types);
+        }
+
+        private FilterAndProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, Supplier<ListenableFuture<PageProcessor>> processor, List<Type> types)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
