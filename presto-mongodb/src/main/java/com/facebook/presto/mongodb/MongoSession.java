@@ -33,6 +33,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.MongoClient;
 import com.mongodb.client.FindIterable;
@@ -66,6 +67,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -105,6 +107,7 @@ public class MongoSession
     private final int cursorBatchSize;
 
     private final LoadingCache<SchemaTableName, MongoTable> tableCache;
+    private final LoadingCache<String, Map<String, String>> schemaNamesCache;
     private final String implicitPrefix;
 
     public MongoSession(TypeManager typeManager, MongoClient client, MongoClientConfig config)
@@ -127,6 +130,18 @@ public class MongoSession
                         return loadTableSchema(key);
                     }
                 });
+
+        this.schemaNamesCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(1, HOURS)
+                .refreshAfterWrite(1, MINUTES)
+                .build(new CacheLoader<String, Map<String, String>>()
+                {
+                    @Override
+                    public Map<String, String> load(String key) throws Exception
+                    {
+                        return loadAllSchemas();
+                    }
+                });
     }
 
     public void shutdown()
@@ -136,7 +151,13 @@ public class MongoSession
 
     public List<String> getAllSchemas()
     {
-        return ImmutableList.copyOf(client.listDatabaseNames());
+        return ImmutableList.copyOf(getCacheValue(schemaNamesCache, "", RuntimeException.class).keySet());
+    }
+
+    private Map<String, String> loadAllSchemas()
+            throws Exception
+    {
+        return Maps.uniqueIndex(client.listDatabaseNames(), MongoSession::toLowerCase);
     }
 
     public Set<String> getAllTables(String schema)
@@ -144,11 +165,13 @@ public class MongoSession
     {
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
-        builder.addAll(ImmutableList.copyOf(client.getDatabase(schema).listCollectionNames()).stream()
+        String caseSensitiveSchemaName = getCaseSensitiveSchemaName(schema);
+
+        builder.addAll(ImmutableList.copyOf(client.getDatabase(caseSensitiveSchemaName).listCollectionNames()).stream()
                             .filter(name -> !name.equals(schemaCollection))
                             .filter(name -> !SYSTEM_TABLES.contains(name))
                             .collect(toSet()));
-        builder.addAll(getTableMetadataNames(schema));
+        builder.addAll(getTableMetadataNames(caseSensitiveSchemaName));
 
         return builder.build();
     }
@@ -171,6 +194,17 @@ public class MongoSession
         getCollection(tableName).drop();
 
         tableCache.invalidate(tableName);
+    }
+
+    public String getCaseSensitiveSchemaName(String caseInsensitiveName)
+    {
+        String caseSensitiveSchemaName = getCacheValue(schemaNamesCache, "", RuntimeException.class).get(caseInsensitiveName.toLowerCase(ENGLISH));
+        return caseSensitiveSchemaName == null ? caseInsensitiveName : caseSensitiveSchemaName;
+    }
+
+    private static String toLowerCase(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     private MongoTable loadTableSchema(SchemaTableName tableName)
