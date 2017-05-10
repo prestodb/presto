@@ -200,7 +200,7 @@ public class StatementResource
 
         DataSize resultsSize = DESIRED_RESULT_BYTES;
 
-        if (desiredResults == 0) {
+        if (desiredResults != 0) {
             resultsSize = new DataSize(desiredResults, MEGABYTE);
         }
 
