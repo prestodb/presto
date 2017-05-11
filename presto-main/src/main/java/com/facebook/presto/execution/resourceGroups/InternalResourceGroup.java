@@ -45,10 +45,10 @@ import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.FULL;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
@@ -215,9 +215,7 @@ public class InternalResourceGroup
     public void setSoftMemoryLimit(DataSize limit)
     {
         synchronized (root) {
-            if (limit.toBytes() > hardMemoryLimitBytes) {
-                setHardMemoryLimit(limit);
-            }
+            checkState(limit.toBytes() <= hardMemoryLimitBytes, "soft limit must not be greater than hard limit");
             boolean oldCanRun = canRunMore();
             this.softMemoryLimitBytes = limit.toBytes();
             if (canRunMore() != oldCanRun) {
@@ -238,9 +236,7 @@ public class InternalResourceGroup
     public void setHardMemoryLimit(DataSize limit)
     {
         synchronized (root) {
-            if (limit.toBytes() < softMemoryLimitBytes) {
-                setSoftMemoryLimit(limit);
-            }
+            checkState(limit.toBytes() >= softMemoryLimitBytes, "hard limit must not be less than soft limit");
             boolean oldCanRun = canRunMore();
             this.hardMemoryLimitBytes = limit.toBytes();
             if (canRunMore() != oldCanRun) {
@@ -461,7 +457,7 @@ public class InternalResourceGroup
     }
 
     @Override
-    public Duration getQueuedTimeout()
+    public Duration getQueuedTimeLimit()
     {
         synchronized (root) {
             return queuedTimeout;
@@ -469,7 +465,7 @@ public class InternalResourceGroup
     }
 
     @Override
-    public void setQueuedTimeout(Duration queuedTimeout)
+    public void setQueuedTimeLimit(Duration queuedTimeout)
     {
         synchronized (root) {
             this.queuedTimeout = queuedTimeout;
@@ -477,7 +473,7 @@ public class InternalResourceGroup
     }
 
     @Override
-    public Duration getRunningTimeout()
+    public Duration getRunningTimeLimit()
     {
         synchronized (root) {
             return runningTimeout;
@@ -485,7 +481,7 @@ public class InternalResourceGroup
     }
 
     @Override
-    public void setRunningTimeout(Duration runningTimeout)
+    public void setRunningTimeLimit(Duration runningTimeout)
     {
         synchronized (root) {
             this.runningTimeout = runningTimeout;
@@ -602,6 +598,7 @@ public class InternalResourceGroup
         synchronized (root) {
             if (!runningQueries.contains(query) && !queuedQueries.contains(query)) {
                 // Query has already been cleaned up
+                checkState(activeQueries.remove(query) == false, "activeQueries should not contain query %s", query.getQueryId());
                 return;
             }
             // Only count the CPU time if the query succeeded, or the failure was the fault of the user
@@ -761,14 +758,14 @@ public class InternalResourceGroup
 
     protected void enforceTimeouts()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock to find next query");
+        checkState(Thread.holdsLock(root), "Must hold lock to enforce timeouts");
         synchronized (root) {
             for (InternalResourceGroup group : subGroups.values()) {
                 group.enforceTimeouts();
             }
             long runningTimeoutMillis = runningTimeout.toMillis();
             long queuedTimeoutMillis = queuedTimeout.toMillis();
-            //log.info("Group %s: %d, %d", id, queuedTimeoutMillis, runningTimeoutMillis);
+            // Copy of activeQueries since queryFinished gets called by cancelQuery which modifies activeQueries
             for (QueryExecution query : ImmutableList.copyOf(activeQueries)) {
                 if (runningQueries.contains(query)) {
                     if (Optional.ofNullable(query.getQueryInfo().getQueryStats().getExecutionTime())

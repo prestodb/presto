@@ -95,11 +95,11 @@ public interface ResourceGroup
      */
     void setJmxExport(boolean export);
 
-    Duration getQueuedTimeout();
+    Duration getQueuedTimeLimit();
 
-    void setQueuedTimeout(Duration queuedTimeout);
+    void setQueuedTimeLimit(Duration queuedTimeout);
 
-    Duration getRunningTimeout();
+    Duration getRunningTimeLimit();
 
-    void setRunningTimeout(Duration runningTimeout);
+    void setRunningTimeLimit(Duration runningTimeout);
 }

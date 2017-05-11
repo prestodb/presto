@@ -169,25 +169,25 @@ public class TestingResourceGroup
         jmxExport = export;
     }
     @Override
-    public Duration getQueuedTimeout()
+    public Duration getQueuedTimeLimit()
     {
         return queuedTimeout;
     }
 
     @Override
-    public void setQueuedTimeout(Duration queuedTimeout)
+    public void setQueuedTimeLimit(Duration queuedTimeout)
     {
         this.queuedTimeout = queuedTimeout;
     }
 
     @Override
-    public Duration getRunningTimeout()
+    public Duration getRunningTimeLimit()
     {
         return runningTimeout;
     }
 
     @Override
-    public void setRunningTimeout(Duration runningTimeout)
+    public void setRunningTimeLimit(Duration runningTimeout)
     {
         this.runningTimeout = runningTimeout;
     }

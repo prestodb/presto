@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Queue;
 
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED_FIFO;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -67,7 +68,7 @@ public abstract class AbstractResourceConfigurationManager
                 checkArgument(group.getSoftCpuLimit().get().compareTo(group.getHardCpuLimit().get()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
             }
             if (group.getSchedulingPolicy().isPresent()) {
-                if (group.getSchedulingPolicy().get() == WEIGHTED) {
+                if (group.getSchedulingPolicy().get() == WEIGHTED || group.getSchedulingPolicy().get() == WEIGHTED_FIFO) {
                     for (ResourceGroupSpec subGroup : group.getSubGroups()) {
                         checkArgument(subGroup.getSchedulingWeight().isPresent(), "Must specify scheduling weight for each sub group when using \"weighted\" scheduling policy");
                     }
@@ -193,8 +194,8 @@ public abstract class AbstractResourceConfigurationManager
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setMaxRunningQueries(match.getMaxRunning());
-        match.getQueuedTimeout().ifPresent(timeout -> group.setQueuedTimeout(timeout));
-        match.getRunningTimeout().ifPresent(timeout -> group.setRunningTimeout(timeout));
+        match.getQueuedTimeout().ifPresent(timeout -> group.setQueuedTimeLimit(timeout));
+        match.getRunningTimeout().ifPresent(timeout -> group.setRunningTimeLimit(timeout));
         if (match.getSchedulingPolicy().isPresent()) {
             group.setSchedulingPolicy(match.getSchedulingPolicy().get());
         }

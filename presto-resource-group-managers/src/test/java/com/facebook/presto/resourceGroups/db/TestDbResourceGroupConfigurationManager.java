@@ -185,7 +185,7 @@ public class TestDbResourceGroupConfigurationManager
         assertEquals(group.getJmxExport(), jmxExport);
         assertEquals(group.getSoftCpuLimit(), softCpuLimit);
         assertEquals(group.getHardCpuLimit(), hardCpuLimit);
-        assertEquals(group.getQueuedTimeout(), queuedTimeout);
-        assertEquals(group.getRunningTimeout(), runningTimeout);
+        assertEquals(group.getQueuedTimeLimit(), queuedTimeout);
+        assertEquals(group.getRunningTimeLimit(), runningTimeout);
     }
 }

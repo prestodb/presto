@@ -59,7 +59,7 @@ public class TestQueues
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
     private static final String HUGE_MEMORY_QUERY = "SELECT COUNT(*) FROM lineitem a join lineitem b on a.orderkey = b.orderkey";
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 30_000)
     public void testRunningQuery()
             throws Exception
     {
@@ -75,7 +75,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 30_000)
     public void testBasic()
             throws Exception
     {
@@ -121,7 +121,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 30_000)
     public void testTwoQueriesAtSameTime()
             throws Exception
     {
@@ -137,7 +137,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 30_000)
     public void testTooManyQueries()
             throws Exception
     {
@@ -175,7 +175,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 30_000)
     public void testRejection()
             throws Exception
     {
@@ -206,7 +206,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 30_000)
     public void testRunningTimeout()
             throws Exception
     {
@@ -219,7 +219,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 30_000)
     public void testQueuedTimeout()
             throws Exception
     {
@@ -235,7 +235,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 30_000)
     public void testHardMemoryLimit()
         throws Exception
     {
@@ -250,7 +250,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 30_000)
     public void testWeightedFifoSchedulingPolicy()
             throws Exception
     {
@@ -317,7 +317,7 @@ public class TestQueues
     private static void setupWeightedFifo(DistributedQueryRunner queryRunner, H2ResourceGroupsDao dao)
             throws Exception
     {
-        dao.insertResourceGroup(6, "bi", "1MB", "1GB", 100, 2, "weighted_fifo", null, null, null, null, null, null, null);
+        dao.insertResourceGroup(6, "bi", "1MB", "1GB", 100, 2, "weighted_fifo", 100, null, null, null, null, null, null);
         dao.insertResourceGroup(7, "etl-hi", "1MB", "1GB", 100, 2, "weighted_fifo", 100, null, null, null, null, null, 6L);
         dao.insertResourceGroup(8, "etl-med", "1MB", "1GB", 100, 2, "weighted_fifo", 50, null, null, null, null, null, 6L);
         dao.insertResourceGroup(9, "etl-lo", "1MB", "1GB", 100, 2, "weighted_fifo", 20, null, null, null, null, null, 6L);
