@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
@@ -78,11 +77,12 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.Reflection.constructorMethodHandle;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Arrays.asList;
@@ -517,12 +517,7 @@ public class ScalarImplementation
                 }
                 constructorDependencies.add(parseDependency(annotation));
             }
-            try {
-                return Optional.of(lookup().unreflectConstructor(constructor));
-            }
-            catch (IllegalAccessException e) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, e);
-            }
+            return Optional.of(constructorMethodHandle(FUNCTION_IMPLEMENTATION_ERROR, constructor));
         }
 
         private Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method)
@@ -544,13 +539,7 @@ public class ScalarImplementation
 
         private MethodHandle getMethodHandle(Method method)
         {
-            MethodHandle methodHandle;
-            try {
-                methodHandle = lookup().unreflect(method);
-            }
-            catch (IllegalAccessException e) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, e);
-            }
+            MethodHandle methodHandle = methodHandle(FUNCTION_IMPLEMENTATION_ERROR, method);
             if (!isStatic(method.getModifiers())) {
                 // Re-arrange the parameters, so that the "this" parameter is after the meta parameters
                 int[] permutedIndices = new int[methodHandle.type().parameterCount()];
