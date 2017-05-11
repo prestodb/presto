@@ -67,14 +67,13 @@ public class TupleExpressionOrcPredicate<C>
 {
     private final TupleExpression<C> effectivePredicate;
     private final Map<C, ColumnReference<C>> columnReferences;
-
     private final boolean orcBloomFiltersEnabled;
 
     public TupleExpressionOrcPredicate(TupleExpression<C> effectivePredicate, Map<C, ColumnReference<C>> columnReferences, boolean orcBloomFiltersEnabled)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
-        this.columnReferences = columnReferences;
-        this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
+        this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
+        this.orcBloomFiltersEnabled = requireNonNull(orcBloomFiltersEnabled, "orcBloomFiltersEnabled is null");
     }
 
     @Override
