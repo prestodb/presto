@@ -337,7 +337,11 @@ class AggregationAnalyzer
 
                     // ensure that no output fields are referenced from ORDER BY clause
                     if (orderByScope.isPresent()) {
-                        node.getArguments().stream().forEach(AggregationAnalyzer.this::verifyNoOrderByReferencesToOutputColumns);
+                        node.getArguments().stream()
+                                .forEach(argument -> verifyNoOrderByReferencesToOutputColumns(
+                                        argument,
+                                        REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION,
+                                        "Invalid reference to output projection attribute from ORDER BY aggregation"));
                     }
 
                     return true;
@@ -583,12 +587,12 @@ class AggregationAnalyzer
         return hasReferencesToScope(node, analysis, orderByScope.get());
     }
 
-    private void verifyNoOrderByReferencesToOutputColumns(Node node)
+    private void verifyNoOrderByReferencesToOutputColumns(Node node, SemanticErrorCode errorCode, String errorString)
     {
         getReferencesToScope(node, analysis, orderByScope.get())
                 .findFirst()
                 .ifPresent(expression -> {
-                    throw new SemanticException(REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION, expression, "Invalid reference to output projection attribute from ORDER BY aggregation");
+                    throw new SemanticException(errorCode, expression, errorString);
                 });
     }
 }
