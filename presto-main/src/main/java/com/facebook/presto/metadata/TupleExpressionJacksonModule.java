@@ -105,9 +105,7 @@ public class TupleExpressionJacksonModule
         public TupleExpression deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-
             TupleExpression expression = (TupleExpression) (typeDeserializer.deserializeTypedFromAny(jsonParser, deserializationContext));
-
             return expression;
         }
     }
@@ -129,7 +127,6 @@ public class TupleExpressionJacksonModule
                 throws JsonMappingException
         {
             JavaType javaType = provider.getTypeFactory().constructParametricType(type, ColumnHandle.class);
-
             return (JsonSerializer<T>) BeanSerializerFactory.instance.createSerializer(provider, javaType);
         }
 
@@ -166,7 +163,7 @@ public class TupleExpressionJacksonModule
         {
             this.nameResolver = requireNonNull(nameResolver, "nameResolver is null");
             this.classResolver = requireNonNull(classResolver, "classResolver is null");
-            this.expressionResolver = expressionResolver;
+            this.expressionResolver = requireNonNull(expressionResolver, "expression resolver is null");
         }
 
         @Override
@@ -183,7 +180,6 @@ public class TupleExpressionJacksonModule
             if (value instanceof TupleExpression) {
                 TupleExpression expression = (TupleExpression) value;
                 if (expression instanceof DomainExpression) {
-
                     return expression.getName() + "@@" + nameResolver.apply((ColumnHandle) ((DomainExpression) expression).getColumn());
                 }
                 return expression.getName();
