@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.predicate;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -100,6 +101,8 @@ public interface ValueSet
     Object getSingleValue();
 
     boolean containsValue(Object value);
+
+    boolean containsValue(Block block, int position);
 
     /**
      * @return value predicates for equatable Types (but not orderable)
