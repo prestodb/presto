@@ -101,6 +101,14 @@ public final class MethodHandleUtil
         return MethodHandles.foldArguments(fhUST, g);
     }
 
+    /**
+     * Returns a MethodHandle corresponding to the specified method.
+     * <p>
+     * Warning: The way Oracle JVM implements producing MethodHandle for a method involves creating
+     * JNI global weak references. G1 processes such references serially. As a result, calling this
+     * method in a tight loop can create significant GC pressure and significantly increase
+     * application pause time.
+     */
     public static MethodHandle methodHandle(Class<?> clazz, String name, Class<?>... parameterTypes)
     {
         try {
