@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.spi.predicate;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonCreator;
 
 import java.util.Objects;
 import java.util.function.Function;
 
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.NONE)
-
 public class AllExpression<C>
         extends TupleExpression<C>
 {
+    @JsonCreator
+    public AllExpression()
+    {}
+
     @Override
     public boolean isAll()
     {
@@ -65,9 +67,6 @@ public class AllExpression<C>
         if (this == obj) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        return true;
+        return obj != null && getClass() == obj.getClass();
     }
 }

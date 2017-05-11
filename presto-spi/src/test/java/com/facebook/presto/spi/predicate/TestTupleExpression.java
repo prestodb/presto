@@ -28,9 +28,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-/**
- * Created by praveen-3307 on 14/4/17.
- */
 public class TestTupleExpression
 {
     private static final ColumnHandle A = new TestingColumnHandle("a");
@@ -44,50 +41,50 @@ public class TestTupleExpression
     public void testNone()
             throws Exception
     {
-        TupleExpression expression1 = new DomainExpression<ColumnHandle>(A, Domain.none(INTEGER));
-        TupleExpression expression2 = new DomainExpression<ColumnHandle>(B, Domain.singleValue(BIGINT, 1L));
-        TupleExpression expression3 = new DomainExpression<ColumnHandle>(C, Domain.all(VARCHAR));
-        TupleExpression expression4 = new DomainExpression<ColumnHandle>(D, Domain.none(TINYINT));
-        TupleExpression expression5 = new DomainExpression<ColumnHandle>(E, Domain.all(DOUBLE));
+        TupleExpression integerNoneExpression = new DomainExpression<ColumnHandle>(A, Domain.none(INTEGER));
+        TupleExpression longSingleValuedExpression = new DomainExpression<ColumnHandle>(B, Domain.singleValue(BIGINT, 1L));
+        TupleExpression varcharAllExpression = new DomainExpression<ColumnHandle>(C, Domain.all(VARCHAR));
+        TupleExpression tinyNoneExpression = new DomainExpression<ColumnHandle>(D, Domain.none(TINYINT));
+        TupleExpression doubleAllExpression = new DomainExpression<ColumnHandle>(E, Domain.all(DOUBLE));
         assertTrue(new NoneExpression<ColumnHandle>().isNone());
-        assertTrue(expression1.isNone());
-        assertTrue(new AndExpression<ColumnHandle>(expression2, new NoneExpression<ColumnHandle>()).isNone());
-        assertFalse(new OrExpression<ColumnHandle>(expression2, new NoneExpression<ColumnHandle>()).isNone());
+        assertTrue(integerNoneExpression.isNone());
+        assertTrue(new AndExpression<ColumnHandle>(longSingleValuedExpression, new NoneExpression<ColumnHandle>()).isNone());
+        assertFalse(new OrExpression<ColumnHandle>(longSingleValuedExpression, new NoneExpression<ColumnHandle>()).isNone());
         assertTrue(new NotExpression<ColumnHandle>(new AllExpression()).isNone());
-        assertTrue(new NotExpression<ColumnHandle>(expression5).isNone());
-        assertTrue(new AndExpression<ColumnHandle>(expression3, expression4).isNone());
-        assertFalse(new OrExpression<ColumnHandle>(expression3, expression4).isNone());
+        assertTrue(new NotExpression<ColumnHandle>(doubleAllExpression).isNone());
+        assertTrue(new AndExpression<ColumnHandle>(varcharAllExpression, tinyNoneExpression).isNone());
+        assertFalse(new OrExpression<ColumnHandle>(varcharAllExpression, tinyNoneExpression).isNone());
     }
 
     @Test
     public void testAll()
             throws Exception
     {
-        TupleExpression expression1 = new DomainExpression<ColumnHandle>(A, Domain.all(INTEGER));
-        TupleExpression expression2 = new DomainExpression<ColumnHandle>(B, Domain.singleValue(BIGINT, 1L));
-        TupleExpression expression3 = new DomainExpression<ColumnHandle>(C, Domain.none(VARCHAR));
-        TupleExpression expression4 = new DomainExpression<ColumnHandle>(D, Domain.all(TINYINT));
-        TupleExpression expression5 = new DomainExpression<ColumnHandle>(E, Domain.none(DOUBLE));
+        TupleExpression integerAllExpression = new DomainExpression<ColumnHandle>(A, Domain.all(INTEGER));
+        TupleExpression bigintSingleValueExpression = new DomainExpression<ColumnHandle>(B, Domain.singleValue(BIGINT, 1L));
+        TupleExpression varcharNoneExpression = new DomainExpression<ColumnHandle>(C, Domain.none(VARCHAR));
+        TupleExpression tinyAllExpression = new DomainExpression<ColumnHandle>(D, Domain.all(TINYINT));
+        TupleExpression doubleNoneExpression = new DomainExpression<ColumnHandle>(E, Domain.none(DOUBLE));
         assertTrue(new AllExpression<ColumnHandle>().isAll());
-        assertTrue(expression1.isAll());
-        assertFalse(new AndExpression<ColumnHandle>(expression2, new AllExpression<ColumnHandle>()).isAll());
-        assertTrue(new OrExpression<ColumnHandle>(expression2, new AllExpression<ColumnHandle>()).isAll());
+        assertTrue(integerAllExpression.isAll());
+        assertFalse(new AndExpression<ColumnHandle>(bigintSingleValueExpression, new AllExpression<ColumnHandle>()).isAll());
+        assertTrue(new OrExpression<ColumnHandle>(bigintSingleValueExpression, new AllExpression<ColumnHandle>()).isAll());
         assertTrue(new NotExpression<ColumnHandle>(new NoneExpression()).isAll());
-        assertTrue(new NotExpression<ColumnHandle>(expression5).isAll());
-        assertFalse(new AndExpression<ColumnHandle>(expression3, expression4).isAll());
-        assertTrue(new OrExpression<ColumnHandle>(expression3, expression4).isAll());
+        assertTrue(new NotExpression<ColumnHandle>(doubleNoneExpression).isAll());
+        assertFalse(new AndExpression<ColumnHandle>(varcharNoneExpression, tinyAllExpression).isAll());
+        assertTrue(new OrExpression<ColumnHandle>(varcharNoneExpression, tinyAllExpression).isAll());
     }
 
     @Test
     public void testTransform()
             throws Exception
     {
-        TupleExpression expression1 = new DomainExpression<Integer>(1, Domain.singleValue(BIGINT, 1L));
-        TupleExpression expression2 = new DomainExpression<Integer>(2, Domain.singleValue(BIGINT, 2L));
-        TupleExpression expression3 = new DomainExpression<Integer>(3, Domain.singleValue(BIGINT, 3L));
+        TupleExpression integerExpression1 = new DomainExpression<Integer>(1, Domain.singleValue(BIGINT, 1L));
+        TupleExpression integerExpression2 = new DomainExpression<Integer>(2, Domain.singleValue(BIGINT, 2L));
+        TupleExpression integerExpression3 = new DomainExpression<Integer>(3, Domain.singleValue(BIGINT, 3L));
 
         TupleExpression combinedExpression = new NotExpression<Integer>(
-                new OrExpression<Integer>(expression3, new AndExpression<Integer>(expression1, expression2)));
+                new OrExpression<Integer>(integerExpression3, new AndExpression<Integer>(integerExpression1, integerExpression2)));
 
         TupleExpression<String> transformed = combinedExpression.transform(Object::toString);
 
@@ -106,12 +103,12 @@ public class TestTupleExpression
     public void testExtractFixedValues()
             throws Exception
     {
-        TupleExpression expression1 = new DomainExpression<ColumnHandle>(A, Domain.all(DOUBLE));
-        TupleExpression expression2 = new DomainExpression<ColumnHandle>(B, Domain.singleValue(VARCHAR, utf8Slice("value")));
-        TupleExpression expression3 = new DomainExpression<ColumnHandle>(C, Domain.onlyNull(BIGINT));
-        TupleExpression expression4 = new DomainExpression<ColumnHandle>(D, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), true));
-        TupleExpression combinedExpression = new AndExpression(new OrExpression(expression1, expression2),
-                new OrExpression(expression3, expression4));
+        TupleExpression doubleAllExpression = new DomainExpression<ColumnHandle>(A, Domain.all(DOUBLE));
+        TupleExpression varcharSingleValueExpression = new DomainExpression<ColumnHandle>(B, Domain.singleValue(VARCHAR, utf8Slice("value")));
+        TupleExpression bigintNullExpression = new DomainExpression<ColumnHandle>(C, Domain.onlyNull(BIGINT));
+        TupleExpression bigintRangedExpression = new DomainExpression<ColumnHandle>(D, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), true));
+        TupleExpression combinedExpression = new AndExpression(new OrExpression(doubleAllExpression, varcharSingleValueExpression),
+                new OrExpression(bigintNullExpression, bigintRangedExpression));
         assertEquals(
                 combinedExpression.extractFixedValues(),
                 ImmutableMap.of(
