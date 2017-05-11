@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.predicate;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -88,6 +89,12 @@ public class AllOrNoneValueSet
         if (!Primitives.wrap(type.getJavaType()).isInstance(value)) {
             throw new IllegalArgumentException(String.format("Value class %s does not match required Type class %s", value.getClass().getName(), Primitives.wrap(type.getJavaType()).getClass().getName()));
         }
+        return all;
+    }
+
+    @Override
+    public boolean containsValue(Block block, int position)
+    {
         return all;
     }
 

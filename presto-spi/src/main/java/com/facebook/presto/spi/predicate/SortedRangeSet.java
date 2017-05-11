@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.predicate;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -159,6 +160,12 @@ public final class SortedRangeSet
     public boolean containsValue(Object value)
     {
         return includesMarker(Marker.exactly(type, value));
+    }
+
+    @Override
+    public boolean containsValue(Block block, int position)
+    {
+        return includesMarker(Marker.exactly(type, block, position));
     }
 
     boolean includesMarker(Marker marker)

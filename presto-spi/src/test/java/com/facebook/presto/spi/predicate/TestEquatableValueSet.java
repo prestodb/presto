@@ -332,7 +332,7 @@ public class TestEquatableValueSet
     public void testUnmodifiableValueEntryIterator()
             throws Exception
     {
-        Iterator<EquatableValueSet.ValueEntry> iterator = EquatableValueSet.of(ID, 1L).getEntries().iterator();
+        Iterator<ValueEntry> iterator = EquatableValueSet.of(ID, 1L).getEntries().iterator();
         iterator.next();
         iterator.remove();
     }
