@@ -198,7 +198,7 @@ Specifier Description
 ``%V``    Week (``01`` .. ``53``), where Sunday is the first day of the week; used with ``%X``
 ``%v``    Week (``01`` .. ``53``), where Monday is the first day of the week; used with ``%x``
 ``%W``    Weekday name (``Sunday`` .. ``Saturday``)
-``%w``    Day of the week (``0`` .. ``6``), where Sunday is the first day of the week
+``%w``    Day of the week (``1`` .. ``7``), where Monday is the first day of the week
 ``%X``    Year for the week where Sunday is the first day of the week, numeric, four digits; used with ``%V``
 ``%x``    Year for the week, where Monday is the first day of the week, numeric, four digits; used with ``%v``
 ``%Y``    Year, numeric, four digits
