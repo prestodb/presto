@@ -760,7 +760,8 @@ public class PlanPrinter
 
         private Void visitScanFilterAndProjectInfo(
                 PlanNodeId planNodeId,
-                Optional<FilterNode> filterNode, Optional<ProjectNode> projectNode,
+                Optional<FilterNode> filterNode,
+                Optional<ProjectNode> projectNode,
                 int indent)
         {
             checkState(projectNode.isPresent() || filterNode.isPresent());
