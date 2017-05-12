@@ -24,6 +24,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.cli.FormatUtils.formatCount;
@@ -37,6 +40,7 @@ import static com.facebook.presto.cli.KeyReader.readKey;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -56,6 +60,8 @@ public class StatusPrinter
     private final ConsolePrinter console;
 
     private boolean debug;
+
+    private final ProgressStatsHistory progressStatsHistory = new ProgressStatsHistory(start, new Duration(60, SECONDS));
 
     public StatusPrinter(StatementClient client, PrintStream out)
     {
@@ -213,7 +219,8 @@ Parallelism: 2.5
     private void printQueryInfo(QueryResults results)
     {
         StatementStats stats = results.getStats();
-        Duration wallTime = nanosSince(start);
+        long now = System.nanoTime();
+        Duration wallTime = succinctNanos(now - start);
 
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
         int progressPercentage = (int) min(99, stats.getProgressPercentage().orElse(0.0));
@@ -286,6 +293,8 @@ Parallelism: 2.5
             verify(terminalWidth >= 75); // otherwise handled above
             int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
 
+            progressStatsHistory.addStatementProgressStats(new ProgressStats(now, stats.getProcessedBytes(), stats.getProcessedRows()));
+
             if (stats.isScheduled()) {
                 String progressBar = formatProgressBar(progressWidth,
                         stats.getCompletedSplits(),
@@ -297,8 +306,8 @@ Parallelism: 2.5
                         formatTime(wallTime),
                         formatCount(stats.getProcessedRows()),
                         formatDataSize(bytes(stats.getProcessedBytes()), true),
-                        formatCountRate(stats.getProcessedRows(), wallTime, false),
-                        formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true),
+                        progressStatsHistory.formatStatementInstantRowCountRate(),
+                        progressStatsHistory.formatStatementInstantDataRate(),
                         progressBar,
                         progressPercentage);
 
@@ -312,8 +321,8 @@ Parallelism: 2.5
                         formatTime(wallTime),
                         formatCount(stats.getProcessedRows()),
                         formatDataSize(bytes(stats.getProcessedBytes()), true),
-                        formatCountRate(stats.getProcessedRows(), wallTime, false),
-                        formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true),
+                        progressStatsHistory.formatStatementInstantRowCountRate(),
+                        progressStatsHistory.formatStatementInstantDataRate(),
                         progressBar);
 
                 reprintLine(progressLine);
@@ -362,7 +371,7 @@ Parallelism: 2.5
 
     private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
     {
-        Duration elapsedTime = nanosSince(start);
+        long now = System.nanoTime();
 
         // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s  QUEUED    RUN   DONE
         // 0......Q     26M   9077M  9993G    9077M   9077M  9077M  9077M
@@ -382,8 +391,9 @@ Parallelism: 2.5
             rowsPerSecond = formatCountRate(0, new Duration(0, SECONDS), false);
         }
         else {
-            bytesPerSecond = formatDataRate(bytes(stage.getProcessedBytes()), elapsedTime, false);
-            rowsPerSecond = formatCountRate(stage.getProcessedRows(), elapsedTime, false);
+            progressStatsHistory.addStageProgressStats(id, new ProgressStats(now, stage.getProcessedBytes(), stage.getProcessedRows()));
+            bytesPerSecond = progressStatsHistory.formatStageInstantDataRate(id);
+            rowsPerSecond = progressStatsHistory.formatStageInstantRowCountRate(id);
         }
 
         String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
@@ -442,5 +452,105 @@ Parallelism: 2.5
             return 0;
         }
         return min(100, (count * 100.0) / total);
+    }
+
+    private static class ProgressStats
+    {
+        private final long timestampNanos;
+        private final long processedBytes;
+        private final long processedRows;
+
+        public ProgressStats(long timestampNanos, long processedBytes, long processedRows)
+        {
+            this.timestampNanos = timestampNanos;
+            this.processedBytes = processedBytes;
+            this.processedRows = processedRows;
+        }
+
+        public long getTimestampNanos()
+        {
+            return timestampNanos;
+        }
+
+        public long getProcessedBytes()
+        {
+            return processedBytes;
+        }
+
+        public long getProcessedRows()
+        {
+            return processedRows;
+        }
+    }
+
+    private static class ProgressStatsHistory
+    {
+        private final Map<String, LinkedList<ProgressStats>> stageProgressStatsHistory = new HashMap<>();
+        private final LinkedList<ProgressStats> statementProgressStatsHistory = new LinkedList<>();
+        private final Duration statsHistoryInterval;
+        private final long start;
+
+        public ProgressStatsHistory(long timestampNanos, Duration statsHistoryInterval)
+        {
+            this.start = timestampNanos;
+            this.statementProgressStatsHistory.add(new ProgressStats(start, 0, 0));
+            this.statsHistoryInterval = statsHistoryInterval;
+        }
+
+        public void addStatementProgressStats(ProgressStats progressStats)
+        {
+            statementProgressStatsHistory.add(progressStats);
+            removeOutdatedStats(statementProgressStatsHistory);
+        }
+
+        public String formatStatementInstantDataRate()
+        {
+            return getFormattedDataRate(statementProgressStatsHistory);
+        }
+
+        public String formatStatementInstantRowCountRate()
+        {
+            return getFormattedRowCountRate(statementProgressStatsHistory);
+        }
+
+        public void addStageProgressStats(String id, ProgressStats progressStats)
+        {
+            if (!stageProgressStatsHistory.containsKey(id)) {
+                stageProgressStatsHistory.put(id, new LinkedList<>());
+                stageProgressStatsHistory.get(id).add(new ProgressStats(start, 0, 0));
+            }
+            LinkedList<ProgressStats> stageHistory = stageProgressStatsHistory.get(id);
+            stageHistory.add(progressStats);
+            removeOutdatedStats(stageHistory);
+        }
+
+        public String formatStageInstantDataRate(String id)
+        {
+            return getFormattedDataRate(stageProgressStatsHistory.get(id));
+        }
+
+        public String formatStageInstantRowCountRate(String id)
+        {
+            return getFormattedRowCountRate(stageProgressStatsHistory.get(id));
+        }
+
+        private void removeOutdatedStats(LinkedList<ProgressStats> progressStatsHistory)
+        {
+            while (succinctNanos(progressStatsHistory.getLast().getTimestampNanos() - progressStatsHistory.getFirst().getTimestampNanos()).compareTo(statsHistoryInterval) > 0) {
+                progressStatsHistory.removeFirst();
+            }
+        }
+
+        private static String getFormattedDataRate(LinkedList<ProgressStats> progressStatsHistory)
+        {
+            Duration elapsedTime = succinctNanos(progressStatsHistory.getLast().getTimestampNanos() - progressStatsHistory.getFirst().getTimestampNanos());
+            return formatDataRate(bytes(progressStatsHistory.getLast().getProcessedBytes() - progressStatsHistory.getFirst().getProcessedBytes()), elapsedTime, false);
+        }
+
+        private static String getFormattedRowCountRate(LinkedList<ProgressStats> progressStatsHistory)
+        {
+            Duration elapsedTime = succinctNanos(progressStatsHistory.getLast().getTimestampNanos() - progressStatsHistory.getFirst().getTimestampNanos());
+            return formatCountRate(progressStatsHistory.getLast().getProcessedRows() - progressStatsHistory.getFirst().getProcessedRows(), elapsedTime, false);
+        }
     }
 }
