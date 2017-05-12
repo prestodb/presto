@@ -1561,7 +1561,12 @@ public class LocalExecutionPlanner
             Optional<Integer> buildHashChannel = buildHashSymbol.map(channelGetter(buildSource));
 
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
-                    .map(filterExpression -> compileJoinFilterFunction(filterExpression, probeLayout, buildSource.getLayout(), context.getTypes(), context.getSession()));
+                    .map(filterExpression -> compileJoinFilterFunction(
+                            filterExpression,
+                            probeLayout,
+                            buildSource.getLayout(),
+                            context.getTypes(),
+                            context.getSession()));
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
