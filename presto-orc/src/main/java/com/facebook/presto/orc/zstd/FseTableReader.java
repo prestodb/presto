@@ -48,7 +48,7 @@ class FseTableReader
         int remaining = (1 << tableLog) + 1;
         threshold = 1 << tableLog;
 
-        while ((remaining > 1) && symbolNumber < maxSymbol) {
+        while (remaining > 1 && symbolNumber <= maxSymbol) {
             if (previousIsZero) {
                 int n0 = symbolNumber;
                 while ((bitStream & 0xFFFF) == 0xFFFF) {
