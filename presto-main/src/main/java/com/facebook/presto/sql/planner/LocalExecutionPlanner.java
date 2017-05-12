@@ -1563,6 +1563,7 @@ public class LocalExecutionPlanner
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(
                             filterExpression,
+                            node.getSortExpression(),
                             probeLayout,
                             buildSource.getLayout(),
                             context.getTypes(),
@@ -1596,6 +1597,7 @@ public class LocalExecutionPlanner
 
         private JoinFilterFunctionFactory compileJoinFilterFunction(
                 Expression filterExpression,
+                Optional<Expression> sortExpression,
                 Map<Symbol, Integer> probeLayout,
                 Map<Symbol, Integer> buildLayout,
                 Map<Symbol, Type> types,
@@ -1607,8 +1609,10 @@ public class LocalExecutionPlanner
                     .collect(toImmutableMap(Map.Entry::getValue, entry -> types.get(entry.getKey())));
 
             Expression rewrittenFilter = new SymbolToInputRewriter(joinSourcesLayout).rewrite(filterExpression);
+            Optional<Expression> rewrittenSortExpression = sortExpression.map(
+                    expression -> new SymbolToInputRewriter(buildLayout).rewrite(expression));
 
-            Optional<SortExpression> sortChannel = SortExpressionExtractor.extractSortExpression(buildLayout, rewrittenFilter);
+            Optional<SortExpression> sortChannel = rewrittenSortExpression.map(SortExpression::fromExpression);
 
             IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
                     session,
