@@ -58,7 +58,7 @@ public class LongLiteral
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -77,7 +77,7 @@ public class LongLiteral
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return (int) (value ^ (value >>> 32));
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.SymbolReference;
 
 class AnySymbolReference
@@ -24,7 +25,7 @@ class AnySymbolReference
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         /*
          * See AnySymbol.hashCode() for an explanation of why this is the way it is.
@@ -35,7 +36,7 @@ class AnySymbolReference
     }
 
     @Override
-    public boolean equals(Object obj)
+    protected boolean isEqualTo(Node obj)
     {
         if (obj == this) {
             return true;

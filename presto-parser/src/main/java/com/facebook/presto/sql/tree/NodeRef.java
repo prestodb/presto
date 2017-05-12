@@ -13,45 +13,31 @@
  */
 package com.facebook.presto.sql.tree;
 
-import java.util.Objects;
-import java.util.Optional;
-
+import static java.lang.String.format;
+import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 
-public class DecimalLiteral
-        extends Literal
+public final class NodeRef<T extends Node>
 {
-    private final String value;
-
-    public DecimalLiteral(String value)
+    public static <T extends Node> NodeRef<T> of(T node)
     {
-        this(Optional.empty(), value);
+        return new NodeRef<>(node);
     }
 
-    public DecimalLiteral(NodeLocation location, String value)
+    private final T node;
+
+    private NodeRef(T node)
     {
-        this(Optional.of(location), value);
+        this.node = requireNonNull(node, "node is null");
     }
 
-    public DecimalLiteral(Optional<NodeLocation> location, String value)
+    public T getNode()
     {
-        super(location);
-        this.value = requireNonNull(value, "value is null");
-    }
-
-    public String getValue()
-    {
-        return value;
+        return node;
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDecimalLiteral(this, context);
-    }
-
-    @Override
-    protected boolean isEqualTo(Node o)
+    public boolean equals(Object o)
     {
         if (this == o) {
             return true;
@@ -59,13 +45,22 @@ public class DecimalLiteral
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        DecimalLiteral that = (DecimalLiteral) o;
-        return Objects.equals(value, that.value);
+        NodeRef<?> other = (NodeRef<?>) o;
+        return node == other.node;
     }
 
     @Override
-    protected int hash()
+    public int hashCode()
     {
-        return Objects.hash(value);
+        return identityHashCode(node);
+    }
+
+    @Override
+    public String toString()
+    {
+        return format(
+                "@%s: %s",
+                Integer.toHexString(identityHashCode(node)),
+                node);
     }
 }

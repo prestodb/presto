@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier;
@@ -406,6 +407,8 @@ class SubqueryPlanner
     private List<Expression> coercionsFor(Expression expression)
     {
         return analysis.getCoercions().keySet().stream()
+                .map(NodeRef::getNode)
+                // TODO why is this comparing by equality?
                 .filter(coercionExpression -> coercionExpression.equals(expression))
                 .collect(toImmutableList());
     }

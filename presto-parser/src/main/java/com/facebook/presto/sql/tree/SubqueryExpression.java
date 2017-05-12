@@ -58,7 +58,7 @@ public class SubqueryExpression
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -72,7 +72,7 @@ public class SubqueryExpression
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return query.hashCode();
     }

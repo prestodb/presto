@@ -95,7 +95,7 @@ public class BindExpression
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -109,7 +109,7 @@ public class BindExpression
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(value, function);
     }

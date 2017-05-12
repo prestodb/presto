@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.base.Equivalence;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +22,21 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class Node
 {
+    public static final Equivalence<Node> NODE_VALUE_EQUIVALENCE = new Equivalence<Node>()
+    {
+        @Override
+        protected int doHash(Node node)
+        {
+            return node.hash();
+        }
+
+        @Override
+        protected boolean doEquivalent(Node a, Node b)
+        {
+            return a.isEqualTo(b);
+        }
+    };
+
     private final Optional<NodeLocation> location;
 
     protected Node(Optional<NodeLocation> location)
@@ -42,12 +59,22 @@ public abstract class Node
 
     public abstract List<? extends Node> getChildren();
 
-    // Force subclasses to have a proper equals and hashcode implementation
-    @Override
-    public abstract int hashCode();
+    public final int hashCode()
+    {
+        // Prevent Nodes from being accidentally used in an equality-based collection
+        throw new UnsupportedOperationException("Node doesn't implement hashCode, use Node.NODE_VALUE_EQUIVALENCE instead");
+    }
 
     @Override
-    public abstract boolean equals(Object obj);
+    public final boolean equals(Object obj)
+    {
+        // Prevent Nodes from being accidentally used in an equality-based collection
+        throw new UnsupportedOperationException("Node doesn't implement equals, use Node.NODE_VALUE_EQUIVALENCE instead");
+    }
+
+    protected abstract int hash();
+
+    protected abstract boolean isEqualTo(Node obj);
 
     @Override
     public abstract String toString();

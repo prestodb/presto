@@ -28,7 +28,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -100,7 +100,7 @@ public class ExpressionEquivalence
         Expression expressionWithInputReferences = new SymbolToInputRewriter(symbolInput).rewrite(expression);
 
         // determine the type of every expression
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
                 session,
                 metadata,
                 sqlParser,

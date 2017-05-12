@@ -56,7 +56,7 @@ public class InListExpression
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -70,7 +70,7 @@ public class InListExpression
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return values.hashCode();
     }

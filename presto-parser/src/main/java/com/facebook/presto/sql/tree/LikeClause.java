@@ -74,7 +74,7 @@ public final class LikeClause
     }
 
     @Override
-    public boolean equals(Object obj)
+    protected boolean isEqualTo(Node obj)
     {
         if (this == obj) {
             return true;
@@ -88,7 +88,7 @@ public final class LikeClause
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(tableName, propertiesOption);
     }

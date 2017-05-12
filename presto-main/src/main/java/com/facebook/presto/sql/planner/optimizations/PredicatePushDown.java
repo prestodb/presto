@@ -50,9 +50,9 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -786,7 +786,7 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                     session,
                     metadata,
                     sqlParser,
@@ -794,7 +794,7 @@ public class PredicatePushDown
                     expression,
                     emptyList() /* parameters have already been replaced */);
             ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-            return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));
+            return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
         }
 
         /**
@@ -802,7 +802,7 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(final Collection<Symbol> nullSymbols, Expression expression)
         {
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                     session,
                     metadata,
                     sqlParser,

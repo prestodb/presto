@@ -112,7 +112,7 @@ public class DereferenceExpression
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -126,7 +126,7 @@ public class DereferenceExpression
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(base, fieldName);
     }

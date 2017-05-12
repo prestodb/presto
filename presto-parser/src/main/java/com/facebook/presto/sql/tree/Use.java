@@ -70,13 +70,13 @@ public final class Use
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(catalog, schema);
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;

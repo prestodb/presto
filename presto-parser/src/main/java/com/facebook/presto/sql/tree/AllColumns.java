@@ -73,7 +73,7 @@ public class AllColumns
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -87,7 +87,7 @@ public class AllColumns
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return prefix.hashCode();
     }

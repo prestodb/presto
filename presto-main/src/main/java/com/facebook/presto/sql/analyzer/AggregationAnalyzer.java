@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.Parameter;
@@ -91,7 +92,7 @@ class AggregationAnalyzer
     // fields and expressions in the group by clause
     private final Set<FieldId> groupingFields;
     private final List<Expression> expressions;
-    private final Map<Expression, FieldId> columnReferences;
+    private final Map<NodeRef<Expression>, FieldId> columnReferences;
 
     private final Metadata metadata;
     private final Analysis analysis;
@@ -141,6 +142,7 @@ class AggregationAnalyzer
         this.columnReferences = analysis.getColumnReferenceFields();
 
         this.groupingFields = groupByExpressions.stream()
+                .map(NodeRef::of)
                 .filter(columnReferences::containsKey)
                 .map(columnReferences::get)
                 .collect(toImmutableSet());
@@ -432,7 +434,7 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
-            if (columnReferences.containsKey(node)) {
+            if (columnReferences.containsKey(NodeRef.<Expression>of(node))) {
                 return isGroupingKey(node);
             }
 
@@ -442,7 +444,7 @@ class AggregationAnalyzer
 
         private boolean isGroupingKey(Expression node)
         {
-            FieldId fieldId = columnReferences.get(node);
+            FieldId fieldId = columnReferences.get(NodeRef.of(node));
             requireNonNull(fieldId, () -> "No FieldId for " + node);
 
             if (orderByScope.isPresent() && isFieldFromScope(fieldId, orderByScope.get())) {
@@ -459,7 +461,7 @@ class AggregationAnalyzer
                 return true;
             }
 
-            FieldId fieldId = requireNonNull(columnReferences.get(node), "No FieldId for FieldReference");
+            FieldId fieldId = requireNonNull(columnReferences.get(NodeRef.<Expression>of(node)), "No FieldId for FieldReference");
             boolean inGroup = groupingFields.contains(fieldId);
             if (!inGroup) {
                 Field field = sourceScope.getRelationType().getFieldByIndex(node.getFieldIndex());

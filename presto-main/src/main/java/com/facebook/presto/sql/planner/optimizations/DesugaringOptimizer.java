@@ -36,8 +36,8 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 
 import java.util.Map;
 import java.util.Optional;
@@ -197,7 +197,7 @@ public class DesugaringOptimizer
             if (expression instanceof SymbolReference) {
                 return expression;
             }
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression, emptyList() /* parameters already replaced */);
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression, emptyList() /* parameters already replaced */);
 
             expression = new LambdaCaptureDesugaringRewriter(types, symbolAllocator).rewrite(expression);
             expression = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(expressionTypes), expression);

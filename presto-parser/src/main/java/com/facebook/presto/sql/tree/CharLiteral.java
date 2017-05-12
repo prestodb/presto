@@ -63,7 +63,7 @@ public class CharLiteral
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean isEqualTo(Node o)
     {
         if (this == o) {
             return true;
@@ -76,7 +76,7 @@ public class CharLiteral
     }
 
     @Override
-    public int hashCode()
+    protected int hash()
     {
         return Objects.hash(value);
     }
