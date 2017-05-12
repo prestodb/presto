@@ -92,7 +92,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
-        extends DefaultTraversalVisitor<RelationPlan, Void>
+        extends DefaultTraversalVisitor<Void, RelationPlan>
 {
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;

@@ -16,8 +16,8 @@ package com.facebook.presto.sql.tree;
 import java.util.Map.Entry;
 import java.util.Set;
 
-public abstract class DefaultTraversalVisitor<R, C>
-        extends AstVisitor<R, C>
+public abstract class DefaultTraversalVisitor<C, R>
+        extends AstVisitor<C, R>
 {
     @Override
     protected R visitExtract(Extract node, C context)

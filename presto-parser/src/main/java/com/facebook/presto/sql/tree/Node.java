@@ -30,7 +30,7 @@ public abstract class Node
     /**
      * Accessible for {@link AstVisitor}, use {@link AstVisitor#process(Node, Object)} instead.
      */
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    protected <C, R> R accept(AstVisitor<C, R> visitor, C context)
     {
         return visitor.visitNode(this, context);
     }

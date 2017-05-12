@@ -23,7 +23,7 @@ import java.util.Optional;
 public final class ExpressionTreeRewriter<C>
 {
     private final ExpressionRewriter<C> rewriter;
-    private final AstVisitor<Expression, ExpressionTreeRewriter.Context<C>> visitor;
+    private final AstVisitor<Context<C>, Expression> visitor;
 
     public static <C, T extends Expression> T rewriteWith(ExpressionRewriter<C> rewriter, T node)
     {
@@ -57,7 +57,7 @@ public final class ExpressionTreeRewriter<C>
     }
 
     private class RewritingVisitor
-            extends AstVisitor<Expression, ExpressionTreeRewriter.Context<C>>
+            extends AstVisitor<Context<C>, Expression>
     {
         @Override
         protected Expression visitExpression(Expression node, Context<C> context)

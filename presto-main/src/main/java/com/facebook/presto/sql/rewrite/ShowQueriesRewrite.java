@@ -147,7 +147,7 @@ final class ShowQueriesRewrite
     }
 
     private static class Visitor
-            extends AstVisitor<Node, Void>
+            extends AstVisitor<Void, Node>
     {
         private final Metadata metadata;
         private final Session session;

@@ -58,7 +58,7 @@ final class ExplainRewrite
     }
 
     private static final class Visitor
-            extends AstVisitor<Node, Void>
+            extends AstVisitor<Void, Node>
     {
         private final Session session;
         private final SqlParser parser;

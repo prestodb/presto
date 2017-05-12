@@ -64,7 +64,7 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  */
 final class ExpressionVerifier
-        extends AstVisitor<Boolean, Expression>
+        extends AstVisitor<Expression, Boolean>
 {
     private final SymbolAliases symbolAliases;
 

@@ -104,7 +104,7 @@ public final class ExpressionFormatter
     }
 
     public static class Formatter
-            extends AstVisitor<String, Void>
+            extends AstVisitor<Void, String>
     {
         private final Optional<List<Expression>> parameters;
 

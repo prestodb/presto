@@ -264,7 +264,7 @@ public class ExpressionAnalyzer
     }
 
     private class Visitor
-            extends StackableAstVisitor<Type, Context>
+            extends StackableAstVisitor<Context, Type>
     {
         private final Scope scope;
 

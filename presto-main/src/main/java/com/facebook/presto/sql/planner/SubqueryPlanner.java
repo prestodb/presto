@@ -509,7 +509,7 @@ class SubqueryPlanner
     }
 
     private static class ColumnReferencesExtractor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableSet.Builder<Expression>>
+            extends DefaultExpressionTraversalVisitor<ImmutableSet.Builder<Expression>, Void>
     {
         private final Set<Expression> columnReferences;
 

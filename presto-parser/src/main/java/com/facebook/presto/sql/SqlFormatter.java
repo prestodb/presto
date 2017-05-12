@@ -122,7 +122,7 @@ public final class SqlFormatter
     }
 
     private static class Formatter
-            extends AstVisitor<Void, Integer>
+            extends AstVisitor<Integer, Void>
     {
         private final StringBuilder builder;
         private final Optional<List<Expression>> parameters;

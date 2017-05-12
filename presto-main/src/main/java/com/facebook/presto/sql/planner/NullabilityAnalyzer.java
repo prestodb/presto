@@ -50,7 +50,7 @@ public final class NullabilityAnalyzer
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, AtomicBoolean>
+            extends DefaultExpressionTraversalVisitor<AtomicBoolean, Void>
     {
         @Override
         protected Void visitCast(Cast node, AtomicBoolean result)

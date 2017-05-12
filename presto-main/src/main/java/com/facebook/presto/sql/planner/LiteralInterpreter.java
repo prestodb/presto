@@ -215,7 +215,7 @@ public final class LiteralInterpreter
     }
 
     private static class LiteralVisitor
-            extends AstVisitor<Object, ConnectorSession>
+            extends AstVisitor<ConnectorSession, Object>
     {
         private final Metadata metadata;
 

@@ -58,7 +58,7 @@ public final class Insert
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    public <C, R> R accept(AstVisitor<C, R> visitor, C context)
     {
         return visitor.visitInsert(this, context);
     }

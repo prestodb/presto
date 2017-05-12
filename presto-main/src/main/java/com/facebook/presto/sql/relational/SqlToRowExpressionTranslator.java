@@ -151,7 +151,7 @@ public final class SqlToRowExpressionTranslator
     }
 
     private static class Visitor
-            extends AstVisitor<RowExpression, Void>
+            extends AstVisitor<Void, RowExpression>
     {
         private final FunctionKind functionKind;
         private final IdentityLinkedHashMap<Expression, Type> types;

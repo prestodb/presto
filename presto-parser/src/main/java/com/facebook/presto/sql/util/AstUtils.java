@@ -28,7 +28,7 @@ public class AstUtils
 {
     public static boolean nodeContains(Node node, Node subNode)
     {
-        return new DefaultTraversalVisitor<Boolean, AtomicBoolean>()
+        return new DefaultTraversalVisitor<AtomicBoolean, Boolean>()
         {
             @Override
             public Boolean process(Node node, AtomicBoolean findResultHolder)

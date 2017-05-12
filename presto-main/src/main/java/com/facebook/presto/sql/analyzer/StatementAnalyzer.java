@@ -235,7 +235,7 @@ class StatementAnalyzer
      * (if provided) as ancestor.
      */
     private class Visitor
-            extends DefaultTraversalVisitor<Scope, Optional<Scope>>
+            extends DefaultTraversalVisitor<Optional<Scope>, Scope>
     {
         private final Optional<Scope> outerQueryScope;
 

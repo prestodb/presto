@@ -48,7 +48,7 @@ public final class ShowCatalogs
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    public <C, R> R accept(AstVisitor<C, R> visitor, C context)
     {
         return visitor.visitShowCatalogs(this, context);
     }

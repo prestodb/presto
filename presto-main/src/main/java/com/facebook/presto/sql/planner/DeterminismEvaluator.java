@@ -39,7 +39,7 @@ public final class DeterminismEvaluator
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, AtomicBoolean>
+            extends DefaultExpressionTraversalVisitor<AtomicBoolean, Void>
     {
         @Override
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
