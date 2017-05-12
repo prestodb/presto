@@ -39,7 +39,7 @@
 
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-cdh4</artifactId>
+            <artifactId>hadoop-apache1</artifactId>
             <scope>provided</scope>
         </dependency>
 
