@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.operator.aggregation.TypedHistogram;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import org.openjdk.jol.info.ClassLayout;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,6 +51,7 @@ public class HistogramStateFactory
             extends AbstractGroupedAccumulatorState
             implements HistogramState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
         private final ObjectBigArray<TypedHistogram> typedHistogram = new ObjectBigArray<>();
         private long size;
 
@@ -88,13 +90,14 @@ public class HistogramStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return size + typedHistogram.sizeOf();
+            return INSTANCE_SIZE + size + typedHistogram.sizeOf();
         }
     }
 
     public static class SingleState
             implements HistogramState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
         private TypedHistogram typedHistogram;
 
         @Override
@@ -117,10 +120,11 @@ public class HistogramStateFactory
         @Override
         public long getEstimatedSize()
         {
-            if (typedHistogram == null) {
-                return 0;
+            long estimatedSize = INSTANCE_SIZE;
+            if (typedHistogram != null) {
+                estimatedSize += typedHistogram.getEstimatedSize();
             }
-            return typedHistogram.getEstimatedSize();
+            return estimatedSize;
         }
     }
 }
