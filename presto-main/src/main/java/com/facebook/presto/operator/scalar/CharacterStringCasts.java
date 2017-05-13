@@ -31,6 +31,9 @@ import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 
@@ -135,8 +138,8 @@ public final class CharacterStringCasts
     {
         ImmutableList.Builder<Integer> codePoints = ImmutableList.builder();
         for (int offset = 0; offset < slice.length(); ) {
-            int codePoint = SliceUtf8.getCodePointAt(slice, offset);
-            offset += SliceUtf8.lengthOfCodePoint(slice, offset);
+            int codePoint = getCodePointAt(slice, offset);
+            offset += lengthOfCodePoint(slice, offset);
             codePoints.add(codePoint);
         }
         return codePoints.build();
@@ -151,8 +154,8 @@ public final class CharacterStringCasts
         Slice result = Slices.wrappedBuffer(new byte[length]);
         int offset = 0;
         for (int codePoint : codePoints) {
-            SliceUtf8.setCodePointAt(codePoint, result, offset);
-            offset += SliceUtf8.lengthOfCodePoint(codePoint);
+            setCodePointAt(codePoint, result, offset);
+            offset += lengthOfCodePoint(codePoint);
         }
 
         return result;
