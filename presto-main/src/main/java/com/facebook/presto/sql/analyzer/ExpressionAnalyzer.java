@@ -1057,6 +1057,11 @@ public class ExpressionAnalyzer
 
             List<Type> types = context.getContext().getFunctionInputTypes();
             List<LambdaArgumentDeclaration> lambdaArguments = node.getArguments();
+
+            if (types.size() != lambdaArguments.size()) {
+                throw new SemanticException(INVALID_PARAMETER_USAGE, node,
+                        format("Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size()));
+            }
             verify(types.size() == lambdaArguments.size());
 
             Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap = new HashMap<>();
