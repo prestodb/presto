@@ -52,6 +52,7 @@ public class LongDecimalWithOverflowAndLongStateFactory
             extends LongDecimalWithOverflowStateFactory.GroupedLongDecimalWithOverflowState
             implements LongDecimalWithOverflowAndLongState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedLongDecimalWithOverflowAndLongState.class).instanceSize();
         private final LongBigArray longs = new LongBigArray();
 
         @Override
@@ -76,7 +77,7 @@ public class LongDecimalWithOverflowAndLongStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return unscaledDecimals.sizeOf() + overflows.sizeOf() + numberOfElements * SingleLongDecimalWithOverflowAndLongState.SIZE;
+            return INSTANCE_SIZE + unscaledDecimals.sizeOf() + overflows.sizeOf() + numberOfElements * SingleLongDecimalWithOverflowAndLongState.SIZE;
         }
     }
 

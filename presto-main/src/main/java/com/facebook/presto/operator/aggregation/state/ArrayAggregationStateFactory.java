@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import org.openjdk.jol.info.ClassLayout;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,6 +51,7 @@ public class ArrayAggregationStateFactory
             extends AbstractGroupedAccumulatorState
             implements ArrayAggregationState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedArrayAggregationState.class).instanceSize();
         private final ObjectBigArray<BlockBuilder> blockBuilders = new ObjectBigArray<BlockBuilder>();
         private long size;
 
@@ -62,7 +64,7 @@ public class ArrayAggregationStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return size + blockBuilders.sizeOf();
+            return INSTANCE_SIZE + size + blockBuilders.sizeOf();
         }
 
         @Override
@@ -94,17 +96,17 @@ public class ArrayAggregationStateFactory
     public static class SingleArrayAggregationState
             implements ArrayAggregationState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleArrayAggregationState.class).instanceSize();
         private BlockBuilder blockBuilder;
 
         @Override
         public long getEstimatedSize()
         {
-            if (blockBuilder == null) {
-                return 0L;
+            long estimatedSize = INSTANCE_SIZE;
+            if (blockBuilder != null) {
+                estimatedSize += blockBuilder.getRetainedSizeInBytes();
             }
-            else {
-                return blockBuilder.getRetainedSizeInBytes();
-            }
+            return estimatedSize;
         }
 
         @Override

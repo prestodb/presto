@@ -15,11 +15,12 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import io.airlift.slice.SizeOf;
 import io.airlift.stats.QuantileDigest;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static java.util.Objects.requireNonNull;
 
 public class DigestAndPercentileArrayStateFactory
@@ -53,6 +54,7 @@ public class DigestAndPercentileArrayStateFactory
             extends AbstractGroupedAccumulatorState
             implements DigestAndPercentileArrayState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedDigestAndPercentileArrayState.class).instanceSize();
         private final ObjectBigArray<QuantileDigest> digests = new ObjectBigArray<>();
         private final ObjectBigArray<List<Double>> percentilesArray = new ObjectBigArray<>();
         private long size;
@@ -97,13 +99,14 @@ public class DigestAndPercentileArrayStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return size + digests.sizeOf() + percentilesArray.sizeOf();
+            return INSTANCE_SIZE + size + digests.sizeOf() + percentilesArray.sizeOf();
         }
     }
 
     public static class SingleDigestAndPercentileArrayState
             implements DigestAndPercentileArrayState
     {
+        public static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleDigestAndPercentileArrayState.class).instanceSize();
         private QuantileDigest digest;
         private List<Double> percentiles;
 
@@ -140,10 +143,14 @@ public class DigestAndPercentileArrayStateFactory
         @Override
         public long getEstimatedSize()
         {
-            if (digest == null) {
-                return SIZE_OF_DOUBLE;
+            long estimatedSize = INSTANCE_SIZE;
+            if (digest != null) {
+                estimatedSize += digest.estimatedInMemorySizeInBytes();
             }
-            return digest.estimatedInMemorySizeInBytes() + SIZE_OF_DOUBLE;
+            if (percentiles != null) {
+                estimatedSize += SizeOf.sizeOfDoubleArray(percentiles.size());
+            }
+            return estimatedSize;
         }
     }
 }
