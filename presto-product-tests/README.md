@@ -321,19 +321,20 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
         ```
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
         ```
+    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres` and `cassandra` hostnames respectively).
+    To check IPs for those containers run:
 
-    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres` and `cassandra` hostnames respectively). To check IPs for those containers run:
-
-        ```
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q cassandra) | grep -i IPAddress
+    ```
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q cassandra) | grep -i IPAddress
+    ```
 
     Alternatively you can use below script to obtain hosts ip mapping
 
-        ```
-        presto-product-tests/bin/hosts.sh singlenode
-        ```
+    ```
+    presto-product-tests/bin/hosts.sh singlenode
+    ```
 
     Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
 
