@@ -148,14 +148,13 @@ public final class CharacterStringCasts
                 .mapToInt(SliceUtf8::lengthOfCodePoint)
                 .sum();
 
-        byte[] result = new byte[length];
+        Slice result = Slices.wrappedBuffer(new byte[length]);
         int offset = 0;
         for (int codePoint : codePoints) {
-            byte[] codePointUtf8 = SliceUtf8.codePointToUtf8(codePoint).getBytes();
-            System.arraycopy(codePointUtf8, 0, result, offset, codePointUtf8.length);
-            offset += codePointUtf8.length;
+            SliceUtf8.setCodePointAt(codePoint, result, offset);
+            offset += SliceUtf8.lengthOfCodePoint(codePoint);
         }
 
-        return Slices.wrappedBuffer(result);
+        return result;
     }
 }
