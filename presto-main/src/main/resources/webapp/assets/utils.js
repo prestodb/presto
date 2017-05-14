@@ -139,7 +139,11 @@ function getProgressBarPercentage(query)
     var progress = query.queryStats.progressPercentage;
 
     // progress bars should appear 'full' when query progress is not meaningful
-    return !progress ? 100 : Math.round(progress);
+    if (!progress || query.state !== "RUNNING") {
+        return 100;
+    }
+
+    return Math.round(progress);
 }
 
 function getProgressBarTitle(query)
