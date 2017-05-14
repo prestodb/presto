@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-var SPARKLINE_PROPERTIES = {
+const SPARKLINE_PROPERTIES = {
     width:'100%',
     height: '75px',
     fillColor:'#3F4552',
@@ -20,9 +20,9 @@ var SPARKLINE_PROPERTIES = {
     spotColor: '#1EDCFF',
     tooltipClassname: 'sparkline-tooltip',
     disableHiddenCheck: true,
-}
+};
 
-var ClusterHUD = React.createClass({
+let ClusterHUD = React.createClass({
     getInitialState: function() {
         return {
             runningQueries: [],
@@ -43,7 +43,7 @@ var ClusterHUD = React.createClass({
     resetTimer: function() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
-        if (this.state.query == null || !this.state.ended) {
+        if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
     },
@@ -77,8 +77,8 @@ var ClusterHUD = React.createClass({
     },
     componentDidUpdate: function() {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender == null || (Date.now() - this.state.lastRender) >= 1000) {
-            var renderTimestamp = Date.now();
+        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
+            const renderTimestamp = Date.now();
             $('#running-queries-sparkline').sparkline(this.state.runningQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
             $('#blocked-queries-sparkline').sparkline(this.state.blockedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
             $('#queued-queries-sparkline').sparkline(this.state.queuedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
