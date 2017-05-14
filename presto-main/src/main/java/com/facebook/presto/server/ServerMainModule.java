@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.MBeanNamespaceManager;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
@@ -415,6 +416,9 @@ public class ServerMainModule
         newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
+
+        // namespace manager
+        binder.bind(MBeanNamespaceManager.class).in(Scopes.SINGLETON);
 
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);

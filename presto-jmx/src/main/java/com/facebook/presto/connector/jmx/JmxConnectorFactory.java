@@ -19,6 +19,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
@@ -54,8 +55,9 @@ public class JmxConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> config, ConnectorContext context)
     {
+        //TODO jmx mbeanserver?
         try {
             Bootstrap app = new Bootstrap(
                     binder -> {

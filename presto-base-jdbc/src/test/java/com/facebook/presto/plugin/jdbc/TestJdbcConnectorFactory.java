@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,6 @@ public class TestJdbcConnectorFactory
                 new TestingH2JdbcModule(),
                 getClass().getClassLoader());
 
-        connectorFactory.create("test", TestingH2JdbcModule.createProperties(), new TestingConnectorContext());
+        connectorFactory.create(new ConnectorRegistry("test"), TestingH2JdbcModule.createProperties(), new TestingConnectorContext());
     }
 }

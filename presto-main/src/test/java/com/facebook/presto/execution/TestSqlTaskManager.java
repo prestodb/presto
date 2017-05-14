@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.MBeanNamespaceManager;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
@@ -278,7 +279,7 @@ public class TestSqlTaskManager
                 createTestingPlanner(),
                 new MockLocationFactory(),
                 taskExecutor,
-                new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
+                new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(new MBeanNamespaceManager()), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
                 new NodeInfo("test"),
                 localMemoryManager,
                 config,

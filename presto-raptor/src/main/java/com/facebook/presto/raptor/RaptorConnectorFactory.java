@@ -15,13 +15,13 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.backup.BackupModule;
 import com.facebook.presto.raptor.storage.StorageModule;
-import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -37,7 +37,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorConnectorFactory
@@ -68,16 +67,18 @@ public class RaptorConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> config, ConnectorContext context)
     {
+        requireNonNull(connectorRegistry, "connectorRegistry is null");
+        String connectorId = requireNonNull(connectorRegistry.getConnectorId(), "connectorId is null");
+
         NodeManager nodeManager = context.getNodeManager();
         try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new MBeanModule(),
                     binder -> {
-                        MBeanServer mbeanServer = new RebindSafeMBeanServer(getPlatformMBeanServer());
-                        binder.bind(MBeanServer.class).toInstance(mbeanServer);
+                        binder.bind(MBeanServer.class).toInstance(connectorRegistry.getMBeanServer());
                         binder.bind(NodeManager.class).toInstance(nodeManager);
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());

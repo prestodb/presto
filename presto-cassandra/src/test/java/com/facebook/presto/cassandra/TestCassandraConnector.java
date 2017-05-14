@@ -30,6 +30,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
@@ -93,7 +94,7 @@ public class TestCassandraConnector
                 connectorId
         );
 
-        Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
+        Connector connector = connectorFactory.create(new ConnectorRegistry(connectorId), ImmutableMap.of(
                 "cassandra.contact-points", EmbeddedCassandra.getHost(),
                 "cassandra.native-protocol-port", Integer.toString(EmbeddedCassandra.getPort())),
                 new TestingConnectorContext());

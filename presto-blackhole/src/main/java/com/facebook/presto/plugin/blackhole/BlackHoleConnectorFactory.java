@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 
 import java.util.Map;
@@ -41,7 +42,7 @@ public class BlackHoleConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
+    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> requiredConfig, ConnectorContext context)
     {
         ListeningScheduledExecutorService executorService = listeningDecorator(newSingleThreadScheduledExecutor(daemonThreadsNamed("blackhole")));
         return new BlackHoleConnector(

@@ -14,6 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.MBeanNamespaceManager;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
@@ -221,6 +222,7 @@ public class LocalQueryRunner
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
     private final SpillerFactory spillerFactory;
+    private final MBeanNamespaceManager namespaceManager;
 
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
@@ -292,6 +294,7 @@ public class LocalQueryRunner
 
         this.expressionCompiler = new ExpressionCompiler(metadata);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
+        this.namespaceManager = new MBeanNamespaceManager();
 
         this.connectorManager = new ConnectorManager(
                 metadata,
@@ -308,7 +311,8 @@ public class LocalQueryRunner
                 typeRegistry,
                 pageSorter,
                 pageIndexerFactory,
-                transactionManager);
+                transactionManager,
+                namespaceManager);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),

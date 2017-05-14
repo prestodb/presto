@@ -26,6 +26,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -42,7 +43,6 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
 
-import java.lang.management.ManagementFactory;
 import java.util.Map;
 import java.util.Optional;
 
@@ -78,9 +78,10 @@ public class HiveConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
+        String connectorId = requireNonNull(connectorRegistry.getConnectorId(), "connectorId is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
@@ -96,8 +97,7 @@ public class HiveConnectorFactory
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     binder -> {
-                        MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
-                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
+                        binder.bind(MBeanServer.class).toInstance(connectorRegistry.getMBeanServer());
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                     }
             );

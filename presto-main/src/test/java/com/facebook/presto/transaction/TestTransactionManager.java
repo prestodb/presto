@@ -25,6 +25,7 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +46,7 @@ import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnec
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
@@ -75,7 +77,7 @@ public class TestTransactionManager
             CatalogManager catalogManager = new CatalogManager();
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
-            Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
+            Connector c1 = new TpchConnectorFactory().create(new ConnectorRegistry(CATALOG_NAME, getPlatformMBeanServer()), ImmutableMap.of(), new TestingConnectorContext());
             registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
@@ -106,7 +108,7 @@ public class TestTransactionManager
             CatalogManager catalogManager = new CatalogManager();
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
-            Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
+            Connector c1 = new TpchConnectorFactory().create(new ConnectorRegistry(CATALOG_NAME, getPlatformMBeanServer()), ImmutableMap.of(), new TestingConnectorContext());
             registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
@@ -137,7 +139,7 @@ public class TestTransactionManager
             CatalogManager catalogManager = new CatalogManager();
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
-            Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
+            Connector c1 = new TpchConnectorFactory().create(new ConnectorRegistry(CATALOG_NAME, getPlatformMBeanServer()), ImmutableMap.of(), new TestingConnectorContext());
             registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);

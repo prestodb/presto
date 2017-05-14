@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.presto.MBeanNamespaceManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.index.IndexManager;
@@ -36,6 +37,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -93,6 +95,7 @@ public class ConnectorManager
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
     private final TransactionManager transactionManager;
+    private final MBeanNamespaceManager namespaceManager;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -118,7 +121,9 @@ public class ConnectorManager
             TypeManager typeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            MBeanNamespaceManager namespaceManager
+            )
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -135,6 +140,7 @@ public class ConnectorManager
         this.pageIndexerFactory = pageIndexerFactory;
         this.nodeInfo = nodeInfo;
         this.transactionManager = transactionManager;
+        this.namespaceManager = namespaceManager;
     }
 
     @PreDestroy
@@ -301,7 +307,13 @@ public class ConnectorManager
                 pageIndexerFactory);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            return factory.create(connectorId.getCatalogName(), properties, context);
+            try {
+                return factory.create(new ConnectorRegistry(connectorId.getCatalogName(), namespaceManager.createMBeanServer(connectorId.getCatalogName())), properties, context);
+            }
+            catch (Throwable t) {
+                log.error(t, "Failed to create connector: %s", connectorId);
+                throw new RuntimeException(t);
+            }
         }
     }
 

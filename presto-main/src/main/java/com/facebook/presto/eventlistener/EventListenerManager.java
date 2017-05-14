@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.eventlistener;
 
+import com.facebook.presto.MBeanNamespaceManager;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
 import java.io.File;
@@ -46,6 +48,13 @@ public class EventListenerManager
 
     private final Map<String, EventListenerFactory> eventListenerFactories = new ConcurrentHashMap<>();
     private final AtomicReference<Optional<EventListener>> configuredEventListener = new AtomicReference<>(Optional.empty());
+    private final MBeanNamespaceManager namespaceManager;
+
+    @Inject
+    public EventListenerManager(MBeanNamespaceManager namespaceManager)
+    {
+        this.namespaceManager = namespaceManager;
+    }
 
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
     {
@@ -72,6 +81,7 @@ public class EventListenerManager
 
     @VisibleForTesting
     protected void setConfiguredEventListener(String name, Map<String, String> properties)
+            throws Exception
     {
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
@@ -81,10 +91,15 @@ public class EventListenerManager
         EventListenerFactory eventListenerFactory = eventListenerFactories.get(name);
         checkState(eventListenerFactory != null, "Event listener %s is not registered", name);
 
-        EventListener eventListener = eventListenerFactory.create(ImmutableMap.copyOf(properties));
+        EventListener eventListener = eventListenerFactory.create(namespaceManager.createMBeanServer(name), ImmutableMap.copyOf(properties));
         this.configuredEventListener.set(Optional.of(eventListener));
 
         log.info("-- Loaded event listener %s --", name);
+    }
+
+    protected MBeanNamespaceManager getMBeanNamespaceManager()
+    {
+        return namespaceManager;
     }
 
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)

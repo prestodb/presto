@@ -18,6 +18,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableSet;
 
@@ -54,8 +55,9 @@ public class GlobalSystemConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> config, ConnectorContext context)
     {
-        return new GlobalSystemConnector(connectorId, tables, procedures);
+        requireNonNull(connectorRegistry, "connectorRegistry is null");
+        return new GlobalSystemConnector(connectorRegistry.getConnectorId(), tables, procedures);
     }
 }

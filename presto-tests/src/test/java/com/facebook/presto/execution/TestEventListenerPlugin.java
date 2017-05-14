@@ -22,6 +22,8 @@ import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.collect.ImmutableList;
 
+import javax.management.MBeanServer;
+
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
@@ -62,7 +64,7 @@ public class TestEventListenerPlugin
         }
 
         @Override
-        public EventListener create(Map<String, String> config)
+        public EventListener create(MBeanServer mBeanServer, Map<String, String> config)
         {
             return new TestingEventListener(eventsBuilder);
         }

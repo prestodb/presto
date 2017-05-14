@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -29,6 +30,6 @@ public class TestMySqlPlugin
     {
         Plugin plugin = new MySqlPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:mysql://test"), new TestingConnectorContext());
+        factory.create(new ConnectorRegistry("test"), ImmutableMap.of("connection-url", "jdbc:mysql://test"), new TestingConnectorContext());
     }
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchConnectorFactory
         implements ConnectorFactory
@@ -66,8 +68,10 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
+    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> properties, ConnectorContext context)
     {
+        requireNonNull(connectorRegistry, "connectorRegistry is null");
+        String connectorId = requireNonNull(connectorRegistry.getConnectorId(), "connectorId is null");
         int splitsPerNode = getSplitsPerNode(properties);
         boolean predicatePushdownEnabled = isPredicatePushdownEnabled(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault("tpch.column-naming", ColumnNaming.SIMPLIFIED.name()).toUpperCase());

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -63,8 +64,10 @@ public class IndexedTpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
+    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> properties, ConnectorContext context)
     {
+        requireNonNull(connectorRegistry, "connectorRegistry is null");
+        String connectorId = requireNonNull(connectorRegistry.getConnectorId(), "connectorId is null");
         int splitsPerNode = getSplitsPerNode(properties);
         TpchIndexedData indexedData = new TpchIndexedData(connectorId, indexSpec);
         NodeManager nodeManager = context.getNodeManager();
