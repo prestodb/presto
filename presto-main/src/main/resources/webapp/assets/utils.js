@@ -260,6 +260,17 @@ function computeSources(nodeInfo)
 // Utility functions
 // =================
 
+function updateClusterInfo() {
+    $.get("/v1/info", function (info) {
+        $('#version-number').text(info.nodeVersion.version);
+        $('#environment').text(info.environment);
+        $('#uptime').text(info.uptime);
+        $('#status-indicator').removeClass("status-light-red").removeClass("status-light-green").addClass("status-light-green");
+    }).error(function() {
+        $('#status-indicator').removeClass("status-light-red").removeClass("status-light-green").addClass("status-light-red");
+    });
+}
+
 function truncateString(inputString, length) {
     if (inputString && inputString.length > length) {
         return inputString.substring(0, length) + "...";

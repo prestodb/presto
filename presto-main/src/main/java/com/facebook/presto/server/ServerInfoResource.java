@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spi.NodeState;
+import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -26,8 +28,11 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -37,13 +42,18 @@ import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 @Path("/v1/info")
 public class ServerInfoResource
 {
-    private final ServerInfo serverInfo;
+    private final NodeVersion version;
+    private final String environment;
+    private final boolean coordinator;
     private final GracefulShutdownHandler shutdownHandler;
+    private final long startTime = System.nanoTime();
 
     @Inject
-    public ServerInfoResource(ServerInfo serverInfo, GracefulShutdownHandler shutdownHandler)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler)
     {
-        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
+        this.version = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
+        this.coordinator = requireNonNull(requireNonNull(serverConfig, "serverConfig is null").isCoordinator());
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
     }
 
@@ -51,7 +61,7 @@ public class ServerInfoResource
     @Produces(APPLICATION_JSON)
     public ServerInfo getServerInfo()
     {
-        return serverInfo;
+        return new ServerInfo(version, environment, coordinator, Optional.of(nanosSince(startTime)));
     }
 
     @PUT
@@ -99,7 +109,7 @@ public class ServerInfoResource
     @Produces(TEXT_PLAIN)
     public Response getServerCoordinator()
     {
-        if (serverInfo.isCoordinator()) {
+        if (coordinator) {
             return Response.ok().build();
         }
         // return 404 to allow load balancers to only send traffic to the coordinator
