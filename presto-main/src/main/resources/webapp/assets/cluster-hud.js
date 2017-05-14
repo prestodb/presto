@@ -36,6 +36,11 @@ let ClusterHUD = React.createClass({
             cpuTimeRate: [],
 
             lastRender: null,
+            lastRefresh: null,
+
+            lastInputRows: null,
+            lastInputBytes: null,
+            lastCpuTime: null,
 
             initialized: false,
         };
@@ -50,6 +55,21 @@ let ClusterHUD = React.createClass({
     refreshLoop: function() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         $.get('/v1/cluster', function (clusterState) {
+
+            let newRowInputRate = [];
+            let newByteInputRate = [];
+            let newCpuTimeRate = [];
+            if (this.state.lastRefresh !== null) {
+                const rowsInputSinceRefresh = clusterState.totalInputRows - this.state.lastInputRows;
+                const bytesInputSinceRefresh = clusterState.totalInputBytes - this.state.lastInputBytes;
+                const cpuTimeSinceRefresh = clusterState.totalCpuTimeSecs - this.state.lastCpuTime;
+                const secsSinceRefresh = (Date.now() - this.state.lastRefresh) / 1000.0;
+
+                newRowInputRate = addExponentiallyWeightedToHistory(rowsInputSinceRefresh / secsSinceRefresh, this.state.rowInputRate);
+                newByteInputRate = addExponentiallyWeightedToHistory(bytesInputSinceRefresh / secsSinceRefresh, this.state.byteInputRate);
+                newCpuTimeRate = addExponentiallyWeightedToHistory(cpuTimeSinceRefresh / secsSinceRefresh, this.state.cpuTimeRate);
+            }
+
             this.setState({
                 // instantaneous stats
                 runningQueries: addToHistory(clusterState.runningQueries, this.state.runningQueries),
@@ -60,11 +80,19 @@ let ClusterHUD = React.createClass({
                 // moving averages
                 runningDrivers: addExponentiallyWeightedToHistory(clusterState.runningDrivers, this.state.runningDrivers),
                 reservedMemory: addExponentiallyWeightedToHistory(clusterState.reservedMemory, this.state.reservedMemory),
-                rowInputRate: addExponentiallyWeightedToHistory(clusterState.rowInputRate, this.state.rowInputRate),
-                byteInputRate: addExponentiallyWeightedToHistory(clusterState.byteInputRate, this.state.byteInputRate),
-                cpuTimeRate: addExponentiallyWeightedToHistory(clusterState.cpuTimeRate, this.state.cpuTimeRate),
+
+                // moving averages for diffs
+                rowInputRate: newRowInputRate,
+                byteInputRate: newByteInputRate,
+                cpuTimeRate: newCpuTimeRate,
+
+                lastInputRows: clusterState.totalInputRows,
+                lastInputBytes: clusterState.totalInputBytes,
+                lastCpuTime: clusterState.totalCpuTimeSecs,
 
                 initialized: true,
+
+                lastRefresh: Date.now()
             });
             this.resetTimer();
         }.bind(this))

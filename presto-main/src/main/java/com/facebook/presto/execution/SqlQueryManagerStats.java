@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class SqlQueryManagerStats
 {
@@ -37,6 +38,9 @@ public class SqlQueryManagerStats
     private final CounterStat internalFailures = new CounterStat();
     private final CounterStat externalFailures = new CounterStat();
     private final CounterStat insufficientResourcesFailures = new CounterStat();
+    private final CounterStat consumedInputRows = new CounterStat();
+    private final CounterStat consumedInputBytes = new CounterStat();
+    private final CounterStat consumedCpuTimeSecs = new CounterStat();
     private final TimeStat executionTime = new TimeStat(MILLISECONDS);
     private final DistributionStat wallInputBytesRate = new DistributionStat();
     private final DistributionStat cpuInputByteRate = new DistributionStat();
@@ -58,8 +62,12 @@ public class SqlQueryManagerStats
 
         long rawInputBytes = info.getQueryStats().getRawInputDataSize().toBytes();
 
-        long executionWallMillis = info.getQueryStats().getEndTime().getMillis() - info.getQueryStats().getCreateTime().getMillis();
-        executionTime.add(executionWallMillis, MILLISECONDS);
+        consumedCpuTimeSecs.update((long) info.getQueryStats().getTotalCpuTime().getValue(SECONDS));
+        consumedInputBytes.update(info.getQueryStats().getRawInputDataSize().toBytes());
+        consumedInputRows.update(info.getQueryStats().getRawInputPositions());
+        executionTime.add(info.getQueryStats().getExecutionTime());
+
+        long executionWallMillis = info.getQueryStats().getExecutionTime().toMillis();
         if (executionWallMillis > 0) {
             wallInputBytesRate.add(rawInputBytes * 1000 / executionWallMillis);
         }
@@ -121,6 +129,27 @@ public class SqlQueryManagerStats
     public CounterStat getFailedQueries()
     {
         return failedQueries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getConsumedInputRows()
+    {
+        return consumedInputRows;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getConsumedInputBytes()
+    {
+        return consumedInputBytes;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getConsumedCpuTimeSecs()
+    {
+        return consumedCpuTimeSecs;
     }
 
     @Managed
