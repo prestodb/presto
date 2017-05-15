@@ -107,7 +107,7 @@ let LivePlan = React.createClass({
     resetTimer: function() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
-        if (this.state.query == null || !this.state.ended) {
+        if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
     },
@@ -195,7 +195,7 @@ let LivePlan = React.createClass({
                 graph.setEdge("node-" + source, nodeId, {arrowheadStyle: "fill: #fff; stroke-width: 0;"});
             });
 
-            if (node.type == 'remoteSource') {
+            if (node.type === 'remoteSource') {
                 graph.setNode(nodeId, {label: '', shape: "circle"});
 
                 node.remoteSources.forEach(sourceId => {
@@ -223,7 +223,7 @@ let LivePlan = React.createClass({
         svg.attr("width", graph.graph().width);
     },
     findStage: function (stageId, currentStage) {
-        if (stageId == -1) {
+        if (stageId === -1) {
             return null;
         }
 
@@ -233,7 +233,7 @@ let LivePlan = React.createClass({
 
         for (let i = 0; i < currentStage.subStages.length; i++) {
             const stage = this.findStage(stageId, currentStage.subStages[i]);
-            if (stage != null) {
+            if (stage !== null) {
                 return stage;
             }
         }
@@ -243,7 +243,7 @@ let LivePlan = React.createClass({
     render: function() {
         const query = this.state.query;
 
-        if (query == null || this.state.initialized == false) {
+        if (query === null || this.state.initialized === false) {
             let label = (<div className="loader">Loading...</div>);
             if (this.state.initialized) {
                 label = "Query not found";
