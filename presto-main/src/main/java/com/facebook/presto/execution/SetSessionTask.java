@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.TASK_WRITER_COUNT;
 import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static com.facebook.presto.metadata.SessionPropertyManager.serializeSessionProperty;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
@@ -83,6 +84,12 @@ public class SetSessionTask
         }
 
         String value = serializeSessionProperty(type, objectValue);
+
+        if ((propertyName.toString().equals(TASK_WRITER_COUNT)) && (Integer.bitCount(Integer.parseInt(value)) != 1)) {
+            throw new PrestoException(
+                    StandardErrorCode.INVALID_SESSION_PROPERTY,
+                    format("%s must be a power of 2: %s", TASK_WRITER_COUNT, statement.getValue()));
+        }
 
         // verify the SQL value can be decoded by the property
         stateMachine.addSetSessionProperties(propertyName.toString(), value);
