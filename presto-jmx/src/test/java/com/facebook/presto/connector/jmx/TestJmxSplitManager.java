@@ -26,7 +26,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -70,7 +69,7 @@ public class TestJmxSplitManager
 
     private final JmxConnector jmxConnector =
             (JmxConnector) new JmxConnectorFactory(getPlatformMBeanServer())
-                    .create(new ConnectorRegistry(CONNECTOR_ID, getPlatformMBeanServer()), ImmutableMap.of(
+                    .create(CONNECTOR_ID, ImmutableMap.of(
                             "jmx.dump-tables", TEST_BEANS,
                             "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
                             "jmx.max-entries", "1000"),

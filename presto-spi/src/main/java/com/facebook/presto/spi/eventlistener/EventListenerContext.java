@@ -11,17 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.connector;
+package com.facebook.presto.spi.eventlistener;
 
-import com.facebook.presto.spi.ConnectorHandleResolver;
+import javax.management.MBeanServer;
 
-import java.util.Map;
+import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 
-public interface ConnectorFactory
+public interface EventListenerContext
 {
-    String getName();
+    default MBeanServer getMBeanServer()
 
-    ConnectorHandleResolver getHandleResolver();
-
-    Connector create(String connectorId, Map<String, String> config, ConnectorContext context);
+    {
+        return getPlatformMBeanServer();
+    }
 }

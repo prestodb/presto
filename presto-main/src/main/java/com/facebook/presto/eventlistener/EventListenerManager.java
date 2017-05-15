@@ -15,6 +15,7 @@ package com.facebook.presto.eventlistener;
 
 import com.facebook.presto.MBeanNamespaceManager;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.eventlistener.EventListenerContext;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
@@ -23,6 +24,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+
+import javax.management.MBeanServer;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -91,7 +94,17 @@ public class EventListenerManager
         EventListenerFactory eventListenerFactory = eventListenerFactories.get(name);
         checkState(eventListenerFactory != null, "Event listener %s is not registered", name);
 
-        EventListener eventListener = eventListenerFactory.create(namespaceManager.createMBeanServer(name), ImmutableMap.copyOf(properties));
+        EventListener eventListener = eventListenerFactory.create(ImmutableMap.copyOf(properties),
+                new EventListenerContext()
+                {
+                    // To avoid conflict with connector with same catalog name.
+                    private final MBeanServer mBeanServer = namespaceManager.createMBeanServer(name + "EventListener");
+                    @Override
+                    public MBeanServer getMBeanServer()
+                    {
+                        return mBeanServer;
+                    }
+                });
         this.configuredEventListener.set(Optional.of(eventListener));
 
         log.info("-- Loaded event listener %s --", name);

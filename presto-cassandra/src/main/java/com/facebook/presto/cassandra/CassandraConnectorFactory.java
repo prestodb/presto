@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -58,11 +57,9 @@ public class CassandraConnectorFactory
     }
 
     @Override
-    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> config, ConnectorContext context)
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
-        requireNonNull(connectorRegistry, "connectorRegistry is null");
-        String connectorId = connectorRegistry.getConnectorId();
 
         try {
             Bootstrap app = new Bootstrap(
@@ -74,7 +71,7 @@ public class CassandraConnectorFactory
                         @Override
                         public void configure(Binder binder)
                         {
-                            binder.bind(MBeanServer.class).toInstance(connectorRegistry.getMBeanServer());
+                            binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(context.getMBeanServer()));
                         }
                     });
 

@@ -15,7 +15,6 @@ package com.facebook.presto.plugin.sqlserver;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -30,6 +29,6 @@ public class TestSqlServerPlugin
     {
         Plugin plugin = new SqlServerPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create(new ConnectorRegistry("test"), ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
     }
 }

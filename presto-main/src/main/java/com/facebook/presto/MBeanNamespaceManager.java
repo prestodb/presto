@@ -13,27 +13,37 @@
  */
 package com.facebook.presto;
 
-import java.util.Set;
+import javax.management.MBeanServer;
+
 import java.util.concurrent.ConcurrentHashMap;
 
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
+import static java.util.Objects.requireNonNull;
 
 public final class MBeanNamespaceManager
 {
-    Set<String> registeredEntries = new ConcurrentHashMap().keySet();
+    ConcurrentHashMap<String, NamespacedMBeanServer> registeredEntries = new ConcurrentHashMap();
 
-    public NamespacedMBeanServer createMBeanServer(String proposedId)
+    public NamespacedMBeanServer createMBeanServer(String namespace, MBeanServer parent)
     {
-        if (registeredEntries.contains(proposedId)) {
+        requireNonNull(namespace, "namespace is null");
+        requireNonNull(parent, "parent is null");
+        if (registeredEntries.containsKey(namespace)) {
             // already registered
-            throw new RuntimeException(String.format("MBean namespace %s already registered!", proposedId));
+            throw new RuntimeException(String.format("MBean namespace %s already registered!", namespace));
         }
-        registeredEntries.add(proposedId);
         try {
-            return new NamespacedMBeanServer(proposedId, getPlatformMBeanServer());
+            NamespacedMBeanServer namespaceManager = new NamespacedMBeanServer(namespace, parent);
+            registeredEntries.put(namespace, namespaceManager);
+            return namespaceManager;
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create namespaced MBeanServer", e);
         }
+    }
+    public NamespacedMBeanServer createMBeanServer(String namespace)
+    {
+        requireNonNull(namespace, "namespace is null");
+       return createMBeanServer(namespace, getPlatformMBeanServer());
     }
 }

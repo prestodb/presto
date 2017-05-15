@@ -30,6 +30,10 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.type.TypeRegistry;
 
+import javax.management.MBeanServer;
+
+import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
+
 public class TestingConnectorContext
         implements ConnectorContext
 {
@@ -66,5 +70,11 @@ public class TestingConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public MBeanServer getMBeanServer()
+    {
+        return getPlatformMBeanServer();
     }
 }

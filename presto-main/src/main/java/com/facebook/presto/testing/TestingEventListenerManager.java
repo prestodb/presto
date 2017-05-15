@@ -16,12 +16,15 @@ package com.facebook.presto.testing;
 import com.facebook.presto.MBeanNamespaceManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.eventlistener.EventListenerContext;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+
+import javax.management.MBeanServer;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -40,7 +43,16 @@ public class TestingEventListenerManager
     @Override
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
     {
-        configuredEventListener.set(Optional.of(eventListenerFactory.create(getMBeanNamespaceManager().createMBeanServer("testEventListener"), ImmutableMap.of())));
+        configuredEventListener.set(Optional.of(eventListenerFactory.create(ImmutableMap.of(),
+                new EventListenerContext()
+                {
+                    private final MBeanServer mBeanServer = getMBeanNamespaceManager().createMBeanServer("TestEventListener");
+                    @Override
+                    public MBeanServer getMBeanServer()
+                    {
+                        return mBeanServer;
+                    }
+                })));
     }
 
     @Override

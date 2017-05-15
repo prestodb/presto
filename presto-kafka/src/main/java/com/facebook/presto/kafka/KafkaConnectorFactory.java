@@ -19,7 +19,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
@@ -60,9 +59,8 @@ public class KafkaConnectorFactory
     }
 
     @Override
-    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> config, ConnectorContext context)
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
-        String connectorId = requireNonNull(connectorRegistry.getConnectorId(), "connectorId is null");
         requireNonNull(config, "config is null");
 
         try {

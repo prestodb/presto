@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
@@ -43,10 +42,9 @@ public class ExampleConnectorFactory
     }
 
     @Override
-    public Connector create(final ConnectorRegistry connectorRegistry, Map<String, String> requiredConfig, ConnectorContext context)
+    public Connector create(final String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
-        String connectorId = requireNonNull(connectorRegistry.getConnectorId(), "connectorId is null");
         try {
             // A plugin is not required to use Guice; it is just very convenient
             Bootstrap app = new Bootstrap(

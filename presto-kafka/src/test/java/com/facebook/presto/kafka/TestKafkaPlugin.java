@@ -15,7 +15,6 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -36,7 +35,7 @@ public class TestKafkaPlugin
         assertInstanceOf(factory, KafkaConnectorFactory.class);
 
         Connector c = factory.create(
-                new ConnectorRegistry("test-connector"),
+                "test-connector",
                 ImmutableMap.<String, String>builder()
                         .put("kafka.table-names", "test")
                         .put("kafka.nodes", "localhost:9092")

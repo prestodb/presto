@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
-import javax.management.MBeanServer;
-
 import java.util.Map;
 
 public interface EventListenerFactory
 {
     String getName();
 
-    EventListener create(MBeanServer mBeanServer, Map<String, String> config);
+    EventListener create(Map<String, String> config, EventListenerContext context);
 }

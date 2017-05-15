@@ -18,6 +18,10 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.type.TypeManager;
 
+import javax.management.MBeanServer;
+
+import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
+
 public interface ConnectorContext
 {
     default NodeManager getNodeManager()
@@ -38,5 +42,10 @@ public interface ConnectorContext
     default PageIndexerFactory getPageIndexerFactory()
     {
         throw new UnsupportedOperationException();
+    }
+
+    default MBeanServer getMBeanServer()
+    {
+       return getPlatformMBeanServer();
     }
 }

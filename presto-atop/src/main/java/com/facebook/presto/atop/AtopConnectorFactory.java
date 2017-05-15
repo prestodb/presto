@@ -20,7 +20,6 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
@@ -58,9 +57,8 @@ public class AtopConnectorFactory
     }
 
     @Override
-    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> requiredConfig, ConnectorContext context)
+    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
-        String connectorId = connectorRegistry.getConnectorId();
         requireNonNull(requiredConfig, "requiredConfig is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

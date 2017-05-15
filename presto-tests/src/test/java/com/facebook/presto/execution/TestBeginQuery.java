@@ -24,7 +24,6 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -176,7 +175,7 @@ public class TestBeginQuery
                 }
 
                 @Override
-                public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> config, ConnectorContext context)
+                public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
                 {
                     return new TestConnector(metadata);
                 }

@@ -37,7 +37,6 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -304,11 +303,13 @@ public class ConnectorManager
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
                 typeManager,
                 pageSorter,
-                pageIndexerFactory);
+                pageIndexerFactory,
+                namespaceManager.createMBeanServer(connectorId.getCatalogName())
+                );
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             try {
-                return factory.create(new ConnectorRegistry(connectorId.getCatalogName(), namespaceManager.createMBeanServer(connectorId.getCatalogName())), properties, context);
+                return factory.create(connectorId.getCatalogName(), properties, context);
             }
             catch (Throwable t) {
                 log.error(t, "Failed to create connector: %s", connectorId);

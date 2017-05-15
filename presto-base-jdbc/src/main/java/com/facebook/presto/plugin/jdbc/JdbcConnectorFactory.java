@@ -18,7 +18,6 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorRegistry;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -58,11 +57,9 @@ public class JdbcConnectorFactory
     }
 
     @Override
-    public Connector create(ConnectorRegistry connectorRegistry, Map<String, String> requiredConfig, ConnectorContext context)
+    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
-        requireNonNull(connectorRegistry, "connectorRegistry is null");
         requireNonNull(requiredConfig, "requiredConfig is null");
-        String connectorId = connectorRegistry.getConnectorId();
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(new JdbcModule(connectorId), module);
