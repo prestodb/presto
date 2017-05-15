@@ -27,6 +27,7 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 @DefunctConfig({
@@ -63,6 +64,9 @@ public class TaskManagerConfig
     private int httpTimeoutThreads = 3;
 
     private int taskNotificationThreads = 5;
+
+    private boolean levelAbsolutePriority = false;
+    private BigDecimal levelPriorityMultiplier = new BigDecimal(2.0);
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -155,6 +159,34 @@ public class TaskManagerConfig
     public TaskManagerConfig setShareIndexLoading(boolean shareIndexLoading)
     {
         this.shareIndexLoading = shareIndexLoading;
+        return this;
+    }
+
+    @Deprecated
+    @NotNull
+    public boolean isLevelAbsolutePriority()
+    {
+        return levelAbsolutePriority;
+    }
+
+    @Deprecated
+    @Config("task.level-absolute-priority")
+    public TaskManagerConfig setLevelAbsolutePriority(boolean levelAbsolutePriority)
+    {
+        this.levelAbsolutePriority = levelAbsolutePriority;
+        return this;
+    }
+
+    public BigDecimal getLevelPriorityMultiplier()
+    {
+        return levelPriorityMultiplier;
+    }
+
+    @Config("task.level-priority-multiplier")
+    @Min(0)
+    public TaskManagerConfig setLevelPriorityMultiplier(BigDecimal levelPriorityMultiplier)
+    {
+        this.levelPriorityMultiplier = levelPriorityMultiplier;
         return this;
     }
 
