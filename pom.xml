@@ -457,6 +457,12 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
+                <artifactId>jaxrs-testing</artifactId>
+                <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
                 <artifactId>jmx</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
