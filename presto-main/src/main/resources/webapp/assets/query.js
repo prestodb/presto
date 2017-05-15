@@ -658,10 +658,10 @@ let QueryDetail = React.createClass({
                 lastRefresh = nowMillis - parseDuration(query.queryStats.elapsedTime);
             }
 
-            const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000;
-            if (elapsedSecsSinceLastRefresh != 0) {
-                const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / elapsedSecsSinceLastRefresh;
-                const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / elapsedSecsSinceLastRefresh;
+            const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000.0;
+            if (elapsedSecsSinceLastRefresh >= 0) {
+                const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
+                const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
                 const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
                 const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
                 this.setState({
