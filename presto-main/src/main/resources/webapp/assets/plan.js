@@ -314,7 +314,6 @@ let LivePlan = React.createClass({
                         { this.renderProgressBar() }
                     </div>
                 </div>
-                <hr className="h3-hr"/>
                 <div className="row">
                     <div className="col-xs-12">
                         { livePlanGraph }
