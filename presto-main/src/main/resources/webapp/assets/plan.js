@@ -148,7 +148,7 @@ let LivePlan = React.createClass({
     },
     refreshLoop: function() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        const queryId = window.location.search.substring(1);
+        const queryId = getFirstParameter(window.location.search);
         $.get('/v1/query/' + queryId, function (query) {
             this.setState({
                 query: query,

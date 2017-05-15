@@ -304,6 +304,16 @@ function formatState(state, fullyBlocked) {
     }
 }
 
+function getFirstParameter(searchString) {
+    var searchText = searchString.substring(1);
+
+    if (searchText.indexOf('&') != -1) {
+        return searchText.substring(0, searchText.indexOf('&'));
+    }
+
+    return searchText;
+}
+
 function getHostname(url) {
     var hostname = new URL(url).hostname;
     if ((hostname.charAt(0) == '[') && (hostname.charAt(hostname.length - 1) == ']')) {

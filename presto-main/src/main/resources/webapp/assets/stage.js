@@ -547,7 +547,7 @@ let StagePerformance = React.createClass({
     },
     refreshLoop: function() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        const queryString = window.location.search.substring(1).split('.');
+        const queryString = getFirstParameter(window.location.search).split('.');
         const queryId = queryString[0];
 
         let selectedStageId = this.state.selectedStageId;
