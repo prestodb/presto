@@ -55,6 +55,7 @@ public final class MemoryPageSourceProvider
         List<Integer> columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
                 .map(MemoryColumnHandle::getColumnIndex).collect(toList());
+        pagesStore.initialize(tableId);
         List<Page> pages = pagesStore.getPages(tableId, partNumber, totalParts, columnIndexes);
 
         return new FixedPageSource(pages);

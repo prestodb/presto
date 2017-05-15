@@ -56,6 +56,17 @@ public class TestMemorySmoke
     }
 
     @Test
+    public void createAndInsertTable()
+            throws SQLException
+    {
+        queryRunner.execute("CREATE TABLE test_insert (id integer)");
+        queryRunner.execute("INSERT INTO test_insert VALUES (1)");
+        assertThatQueryReturnsSameValueAs("SELECT * FROM test_insert", "SELECT 1");
+
+        queryRunner.execute(format("DROP TABLE test_insert"));
+    }
+
+    @Test
     public void createTableWhenTableIsAlreadyCreated()
             throws SQLException
     {
