@@ -48,6 +48,7 @@ public class TestQueryStats
             12,
             13,
             15,
+            30,
             16,
 
             17.0,
@@ -106,6 +107,7 @@ public class TestQueryStats
         assertEquals(actual.getTotalDrivers(), 12);
         assertEquals(actual.getQueuedDrivers(), 13);
         assertEquals(actual.getRunningDrivers(), 15);
+        assertEquals(actual.getBlockedDrivers(), 30);
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getCumulativeMemory(), 17.0);

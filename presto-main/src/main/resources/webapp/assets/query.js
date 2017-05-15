@@ -101,6 +101,9 @@ let TaskList = React.createClass({
                         <Td column="splitsRunning" value={ task.stats.runningDrivers }>
                             { task.stats.runningDrivers }
                         </Td>
+                        <Td column="splitsBlocked" value={ task.stats.blockedDrivers }>
+                            { task.stats.blockedDrivers }
+                        </Td>
                         <Td column="splitsDone" value={ task.stats.completedDrivers }>
                             { task.stats.completedDrivers }
                         </Td>
@@ -128,6 +131,7 @@ let TaskList = React.createClass({
                     'state',
                     'splitsPending',
                     'splitsRunning',
+                    'splitsBlocked',
                     'splitsDone',
                     'rows',
                     'rowsSec',
@@ -144,6 +148,7 @@ let TaskList = React.createClass({
                         <Th column="state">State</Th>
                         <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Pending splits"></span></Th>
                         <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Running splits"></span></Th>
+                        <Th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Blocked splits"></span></Th>
                         <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Completed splits"></span></Th>
                         <Th column="rows">Rows</Th>
                         <Th column="rowsSec">Rows/s</Th>
@@ -415,14 +420,10 @@ let StageDetail = React.createClass({
                                             </tr>
                                             <tr>
                                                 <td className="stage-table-stat-title">
-                                                    Finished
+                                                    Blocked
                                                 </td>
                                                 <td className="stage-table-stat-text">
-                                                    { stage.tasks.filter(task => {
-                                                        return task.taskStatus.state == "FINISHED" ||
-                                                            task.taskStatus.state == "CANCELED" ||
-                                                            task.taskStatus.state == "ABORTED" ||
-                                                            task.taskStatus.state == "FAILED" }).length }
+                                                    { stage.tasks.filter(task => task.stats.fullyBlocked).length }
                                                 </td>
                                             </tr>
                                             <tr>

@@ -48,6 +48,7 @@ public class TaskStats
     private final int queuedPartitionedDrivers;
     private final int runningDrivers;
     private final int runningPartitionedDrivers;
+    private final int blockedDrivers;
     private final int completedDrivers;
 
     private final double cumulativeMemory;
@@ -87,6 +88,7 @@ public class TaskStats
                 0,
                 0,
                 0,
+                0,
                 0.0,
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
@@ -120,6 +122,7 @@ public class TaskStats
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeMemory") double cumulativeMemory,
@@ -163,6 +166,9 @@ public class TaskStats
         this.runningDrivers = runningDrivers;
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+
+        checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
+        this.blockedDrivers = blockedDrivers;
 
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
@@ -255,6 +261,12 @@ public class TaskStats
     public int getRunningDrivers()
     {
         return runningDrivers;
+    }
+
+    @JsonProperty
+    public int getBlockedDrivers()
+    {
+        return blockedDrivers;
     }
 
     @JsonProperty
@@ -386,6 +398,7 @@ public class TaskStats
                 queuedPartitionedDrivers,
                 runningDrivers,
                 runningPartitionedDrivers,
+                blockedDrivers,
                 completedDrivers,
                 cumulativeMemory,
                 memoryReservation,
@@ -420,6 +433,7 @@ public class TaskStats
                 queuedPartitionedDrivers,
                 runningDrivers,
                 runningPartitionedDrivers,
+                blockedDrivers,
                 completedDrivers,
                 cumulativeMemory,
                 memoryReservation,

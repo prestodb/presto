@@ -43,6 +43,7 @@ public class TestTaskStats
             5,
             8,
             6,
+            24,
             10,
 
             11.0,
@@ -92,6 +93,7 @@ public class TestTaskStats
         assertEquals(actual.getQueuedPartitionedDrivers(), 5);
         assertEquals(actual.getRunningDrivers(), 8);
         assertEquals(actual.getRunningPartitionedDrivers(), 6);
+        assertEquals(actual.getBlockedDrivers(), 24);
         assertEquals(actual.getCompletedDrivers(), 10);
 
         assertEquals(actual.getCumulativeMemory(), 11.0);

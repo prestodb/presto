@@ -43,6 +43,7 @@ public class TestStageStats
             7,
             8,
             10,
+            26,
             11,
 
             12.0,
@@ -93,6 +94,7 @@ public class TestStageStats
         assertEquals(actual.getTotalDrivers(), 7);
         assertEquals(actual.getQueuedDrivers(), 8);
         assertEquals(actual.getRunningDrivers(), 10);
+        assertEquals(actual.getBlockedDrivers(), 26);
         assertEquals(actual.getCompletedDrivers(), 11);
 
         assertEquals(actual.getCumulativeMemory(), 12.0);

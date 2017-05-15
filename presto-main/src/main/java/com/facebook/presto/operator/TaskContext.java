@@ -31,6 +31,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -282,6 +283,7 @@ public class TaskContext
         int queuedPartitionedDrivers = 0;
         int runningDrivers = 0;
         int runningPartitionedDrivers = 0;
+        int blockedDrivers = 0;
         int completedDrivers = 0;
 
         long totalScheduledTime = 0;
@@ -308,6 +310,7 @@ public class TaskContext
             queuedPartitionedDrivers += pipeline.getQueuedPartitionedDrivers();
             runningDrivers += pipeline.getRunningDrivers();
             runningPartitionedDrivers += pipeline.getRunningPartitionedDrivers();
+            blockedDrivers += pipeline.getBlockedDrivers();
             completedDrivers += pipeline.getCompletedDrivers();
 
             totalScheduledTime += pipeline.getTotalScheduledTime().roundTo(NANOSECONDS);
@@ -354,13 +357,15 @@ public class TaskContext
             lastMemoryReservation = currentMemory;
         }
 
-        boolean fullyBlocked = pipelineStats.stream()
-                .filter(pipeline -> pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0)
-                .allMatch(PipelineStats::isFullyBlocked);
-        ImmutableSet<BlockedReason> blockedReasons = pipelineStats.stream()
-                .filter(pipeline -> pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0)
+        Set<PipelineStats> runningPipelineStats = pipelineStats.stream()
+                .filter(pipeline -> pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0 || pipeline.getBlockedDrivers() > 0)
+                .collect(toImmutableSet());
+        ImmutableSet<BlockedReason> blockedReasons = runningPipelineStats.stream()
                 .flatMap(pipeline -> pipeline.getBlockedReasons().stream())
                 .collect(toImmutableSet());
+
+        boolean fullyBlocked = !runningPipelineStats.isEmpty() && runningPipelineStats.stream().allMatch(PipelineStats::isFullyBlocked);
+
         return new TaskStats(
                 taskStateMachine.getCreatedTime(),
                 executionStartTime.get(),
@@ -374,6 +379,7 @@ public class TaskContext
                 queuedPartitionedDrivers,
                 runningDrivers,
                 runningPartitionedDrivers,
+                blockedDrivers,
                 completedDrivers,
                 cumulativeMemory.get(),
                 succinctBytes(memoryReservation.get()),

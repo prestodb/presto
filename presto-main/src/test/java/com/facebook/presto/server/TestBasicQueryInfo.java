@@ -66,6 +66,7 @@ public class TestBasicQueryInfo
                                 16,
                                 17,
                                 18,
+                                34,
                                 19,
                                 20.0,
                                 DataSize.valueOf("21GB"),
