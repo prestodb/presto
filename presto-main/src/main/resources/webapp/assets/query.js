@@ -1121,7 +1121,7 @@ let QueryDetail = React.createClass({
                                     <td className="info-title">
                                         Resource Group
                                     </td>
-                                    <td className="info-text">
+                                    <td className="info-text wrap-text">
                                         { query.resourceGroupName }
                                     </td>
                                 </tr>
