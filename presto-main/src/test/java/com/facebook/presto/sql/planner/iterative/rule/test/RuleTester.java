@@ -49,7 +49,7 @@ public class RuleTester
 
     public RuleAssert assertThat(Rule rule)
     {
-        return new RuleAssert(metadata, session, rule);
+        return new RuleAssert(metadata, session, queryRunner, rule);
     }
 
     @Override
