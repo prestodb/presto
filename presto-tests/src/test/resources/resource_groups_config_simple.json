@@ -3,12 +3,14 @@
     {
       "name": "global",
       "softMemoryLimit": "1MB",
+      "hardMemoryLimit": "10MB",
       "maxRunning": 100,
       "maxQueued": 1000,
       "subGroups": [
         {
           "name": "user-${USER}",
           "softMemoryLimit": "1MB",
+          "hardMemoryLimit": "10MB",
           "maxRunning": 3,
           "maxQueued": 3
         }
