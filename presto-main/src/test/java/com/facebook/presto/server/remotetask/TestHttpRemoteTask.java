@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.server.HttpRemoteTaskFactory;
 import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.TestingHandleResolver;
@@ -66,6 +67,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
@@ -73,6 +75,7 @@ import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -101,8 +104,21 @@ public class TestHttpRemoteTask
     public void testRemoteTaskMismatch()
             throws Exception
     {
+        runTest(TestCase.TASK_MISMATCH);
+    }
+
+    @Test(timeOut = 30000)
+    public void testRejectedExecution()
+            throws Exception
+    {
+        runTest(TestCase.REJECTED_EXECUTION);
+    }
+
+    private void runTest(TestCase testCase)
+            throws Exception
+    {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
-        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos);
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, testCase);
 
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
 
@@ -130,8 +146,19 @@ public class TestHttpRemoteTask
 
         httpRemoteTaskFactory.stop();
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
-        assertEquals(getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode(), REMOTE_TASK_MISMATCH.toErrorCode());
         assertTrue(remoteTask.getTaskInfo().getTaskStatus().getState().isDone(), format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()));
+
+        ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
+        switch (testCase) {
+            case TASK_MISMATCH:
+                assertEquals(actualErrorCode, REMOTE_TASK_MISMATCH.toErrorCode());
+                break;
+            case REJECTED_EXECUTION:
+                assertEquals(actualErrorCode, REMOTE_TASK_ERROR.toErrorCode());
+                break;
+            default:
+                throw new UnsupportedOperationException();
+        }
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
@@ -213,12 +240,20 @@ public class TestHttpRemoteTask
         }).start();
     }
 
+    private enum TestCase
+    {
+        TASK_MISMATCH,
+        REJECTED_EXECUTION
+    }
+
     @Path("/task/{nodeId}")
     public static class TestingTaskResource
     {
         private static final String INITIAL_TASK_INSTANCE_ID = "task-instance-id";
         private static final String NEW_TASK_INSTANCE_ID = "task-instance-id-x";
+
         private final AtomicLong lastActivityNanos;
+        private final TestCase testCase;
 
         private TaskInfo initialTaskInfo;
         private TaskStatus initialTaskStatus;
@@ -228,9 +263,10 @@ public class TestHttpRemoteTask
 
         private long statusFetchCounter;
 
-        public TestingTaskResource(AtomicLong lastActivityNanos)
+        public TestingTaskResource(AtomicLong lastActivityNanos, TestCase testCase)
         {
             this.lastActivityNanos = requireNonNull(lastActivityNanos, "lastActivityNanos is null");
+            this.testCase = requireNonNull(testCase, "testCase is null");
         }
 
         @GET
@@ -312,9 +348,20 @@ public class TestHttpRemoteTask
         private TaskStatus buildTaskStatus()
         {
             statusFetchCounter++;
-            if (statusFetchCounter == 10) {
                 // Change the task instance id after 10th fetch to simulate worker restart
-                taskInstanceId = NEW_TASK_INSTANCE_ID;
+            switch (testCase) {
+                case TASK_MISMATCH:
+                    if (statusFetchCounter == 10) {
+                        taskInstanceId = NEW_TASK_INSTANCE_ID;
+                    }
+                    break;
+                case REJECTED_EXECUTION:
+                    if (statusFetchCounter >= 10) {
+                        throw new RejectedExecutionException();
+                    }
+                    break;
+                default:
+                    throw new UnsupportedOperationException();
             }
 
             return new TaskStatus(
