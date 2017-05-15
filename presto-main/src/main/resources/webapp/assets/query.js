@@ -608,7 +608,8 @@ let QueryDetail = React.createClass({
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
         if (this.state.query == null || !this.state.ended) {
-            this.timeoutId = setTimeout(this.refreshLoop, 1000);
+            // task.info-update-interval is set to 3 seconds by default
+            this.timeoutId = setTimeout(this.refreshLoop, 3000);
         }
     },
     refreshLoop: function() {
