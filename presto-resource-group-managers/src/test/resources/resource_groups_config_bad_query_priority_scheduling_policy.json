@@ -3,6 +3,7 @@
     {
       "name": "requests",
       "softMemoryLimit": "80%",
+      "hardMemoryLimit": "100%",
       "maxRunning": 10,
       "maxQueued": 100,
       "schedulingPolicy": "query_priority",
@@ -11,6 +12,7 @@
         {
           "name": "regular",
           "softMemoryLimit": "80%",
+          "hardMemoryLimit": "100%",
           "maxRunning": 10,
           "maxQueued": 100,
           "schedulingWeight": 1000,
@@ -20,6 +22,7 @@
         {
           "name": "low-pri",
           "softMemoryLimit": "80%",
+          "hardMemoryLimit": "100%",
           "maxRunning": 1,
           "maxQueued": 10,
           "schedulingWeight": 1,
