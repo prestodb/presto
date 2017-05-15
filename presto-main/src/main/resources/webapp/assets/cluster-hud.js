@@ -33,7 +33,7 @@ let ClusterHUD = React.createClass({
             reservedMemory: [],
             rowInputRate: [],
             byteInputRate: [],
-            cpuTimeRate: [],
+            perWorkerCpuTimeRate: [],
 
             lastRender: null,
             lastRefresh: null,
@@ -58,7 +58,7 @@ let ClusterHUD = React.createClass({
 
             let newRowInputRate = [];
             let newByteInputRate = [];
-            let newCpuTimeRate = [];
+            let newPerWorkerCpuTimeRate = [];
             if (this.state.lastRefresh !== null) {
                 const rowsInputSinceRefresh = clusterState.totalInputRows - this.state.lastInputRows;
                 const bytesInputSinceRefresh = clusterState.totalInputBytes - this.state.lastInputBytes;
@@ -67,7 +67,7 @@ let ClusterHUD = React.createClass({
 
                 newRowInputRate = addExponentiallyWeightedToHistory(rowsInputSinceRefresh / secsSinceRefresh, this.state.rowInputRate);
                 newByteInputRate = addExponentiallyWeightedToHistory(bytesInputSinceRefresh / secsSinceRefresh, this.state.byteInputRate);
-                newCpuTimeRate = addExponentiallyWeightedToHistory(cpuTimeSinceRefresh / secsSinceRefresh, this.state.cpuTimeRate);
+                newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory((cpuTimeSinceRefresh / clusterState.activeWorkers) / secsSinceRefresh, this.state.perWorkerCpuTimeRate);
             }
 
             this.setState({
@@ -84,7 +84,7 @@ let ClusterHUD = React.createClass({
                 // moving averages for diffs
                 rowInputRate: newRowInputRate,
                 byteInputRate: newByteInputRate,
-                cpuTimeRate: newCpuTimeRate,
+                perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
 
                 lastInputRows: clusterState.totalInputRows,
                 lastInputBytes: clusterState.totalInputBytes,
@@ -117,7 +117,7 @@ let ClusterHUD = React.createClass({
 
             $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
             $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
-            $('#cpu-time-rate-sparkline').sparkline(this.state.cpuTimeRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: precisionRound}));
+            $('#cpu-time-rate-sparkline').sparkline(this.state.perWorkerCpuTimeRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: precisionRound}));
 
             this.setState({
                 lastRender: renderTimestamp
@@ -244,8 +244,8 @@ let ClusterHUD = React.createClass({
                     </div>
                     <div className="col-xs-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Moving average of CPU time utilized per second">
-                                Parallelism
+                            <span className="text" data-toggle="tooltip" data-placement="right" title="Moving average of CPU time utilized per second per worker">
+                                Worker Parallelism
                             </span>
                         </div>
                     </div>
@@ -270,7 +270,7 @@ let ClusterHUD = React.createClass({
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { formatCount(this.state.cpuTimeRate[this.state.cpuTimeRate.length - 1]) }
+                                { formatCount(this.state.perWorkerCpuTimeRate[this.state.perWorkerCpuTimeRate.length - 1]) }
                             </span>
                             <span className="sparkline" id="cpu-time-rate-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
