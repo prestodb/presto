@@ -108,6 +108,13 @@ public class TestHttpRemoteTask
     }
 
     @Test(timeOut = 30000)
+    public void testRejectedExecutionWhenVersionIsHigh()
+            throws Exception
+    {
+        runTest(TestCase.TASK_MISMATCH_WHEN_VERSION_IS_HIGH);
+    }
+
+    @Test(timeOut = 30000)
     public void testRejectedExecution()
             throws Exception
     {
@@ -151,6 +158,7 @@ public class TestHttpRemoteTask
         ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
         switch (testCase) {
             case TASK_MISMATCH:
+            case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
                 assertEquals(actualErrorCode, REMOTE_TASK_MISMATCH.toErrorCode());
                 break;
             case REJECTED_EXECUTION:
@@ -243,6 +251,7 @@ public class TestHttpRemoteTask
     private enum TestCase
     {
         TASK_MISMATCH,
+        TASK_MISMATCH_WHEN_VERSION_IS_HIGH,
         REJECTED_EXECUTION
     }
 
@@ -331,6 +340,18 @@ public class TestHttpRemoteTask
             this.initialTaskStatus = initialTaskInfo.getTaskStatus();
             this.taskState = initialTaskStatus.getState();
             this.version = initialTaskStatus.getVersion();
+            switch (testCase) {
+                case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
+                    // Make the initial version large enough.
+                    // This way, the version number can't be reached if it is reset to 0.
+                    version = 1_000_000;
+                    break;
+                case TASK_MISMATCH:
+                case REJECTED_EXECUTION:
+                    break; // do nothing
+                default:
+                    throw new UnsupportedOperationException();
+            }
         }
 
         private TaskInfo buildTaskInfo()
@@ -351,8 +372,10 @@ public class TestHttpRemoteTask
                 // Change the task instance id after 10th fetch to simulate worker restart
             switch (testCase) {
                 case TASK_MISMATCH:
+                case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
                     if (statusFetchCounter == 10) {
                         taskInstanceId = NEW_TASK_INSTANCE_ID;
+                        version = 0;
                     }
                     break;
                 case REJECTED_EXECUTION:
