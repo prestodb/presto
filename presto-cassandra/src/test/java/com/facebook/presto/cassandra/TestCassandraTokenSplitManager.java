@@ -39,7 +39,15 @@ public class TestCassandraTokenSplitManager
     {
         EmbeddedCassandra.start();
         session = EmbeddedCassandra.getSession();
-        splitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE);
+        splitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE, -1);
+    }
+
+    @Test
+    public void testCassandraTokenSplitManagerTotalPartitionCountOverride()
+            throws Exception
+    {
+        CassandraTokenSplitManager cassandraTokenSplitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE, 12_345);
+        assertEquals(12_345, cassandraTokenSplitManager.getTotalPartitionsCount(KEYSPACE, TABLE));
     }
 
     @Test
