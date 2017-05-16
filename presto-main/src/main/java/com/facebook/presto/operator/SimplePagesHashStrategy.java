@@ -210,9 +210,7 @@ public class SimplePagesHashStrategy
     public boolean isPositionNull(int blockIndex, int blockPosition)
     {
         for (int hashChannel : hashChannels) {
-            List<Block> channel = channels.get(hashChannel);
-            Block block = channel.get(blockIndex);
-            if (block.isNull(blockPosition)) {
+            if (isChannelPositionNull(hashChannel, blockIndex, blockPosition)) {
                 return true;
             }
         }
@@ -222,14 +220,32 @@ public class SimplePagesHashStrategy
     @Override
     public int compareSortChannelPositions(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition)
     {
-        if (!sortChannel.isPresent()) {
-            throw new UnsupportedOperationException();
-        }
-        int channel = sortChannel.get().getChannel();
+        int channel = getSortChannel();
 
         Block leftBlock = channels.get(channel).get(leftBlockIndex);
         Block rightBlock = channels.get(channel).get(rightBlockIndex);
 
         return types.get(channel).compareTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+    }
+
+    @Override
+    public boolean isSortChannelPositionNull(int blockIndex, int blockPosition)
+    {
+        return isChannelPositionNull(getSortChannel(), blockIndex, blockPosition);
+    }
+
+    private boolean isChannelPositionNull(int channelIndex, int blockIndex, int blockPosition)
+    {
+        List<Block> channel = channels.get(channelIndex);
+        Block block = channel.get(blockIndex);
+        return block.isNull(blockPosition);
+    }
+
+    private int getSortChannel()
+    {
+        if (!sortChannel.isPresent()) {
+            throw new UnsupportedOperationException();
+        }
+        return sortChannel.get().getChannel();
     }
 }
