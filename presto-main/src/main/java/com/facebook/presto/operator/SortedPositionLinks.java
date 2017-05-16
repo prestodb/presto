@@ -64,10 +64,10 @@ public final class SortedPositionLinks
         private final PagesHashStrategy pagesHashStrategy;
         private final LongArrayList addresses;
 
-        public Builder(int size, IntComparator comparator, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+        public Builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
         {
             this.size = size;
-            this.comparator = comparator;
+            this.comparator = new PositionComparator(pagesHashStrategy, addresses);
             this.pagesHashStrategy = pagesHashStrategy;
             this.addresses = addresses;
             positionLinks = new Int2ObjectOpenHashMap<>();
@@ -168,9 +168,9 @@ public final class SortedPositionLinks
         this.sizeInBytes = positionLinks.getSizeInBytes() + sizeOf(sortedPositionLinks);
     }
 
-    public static Builder builder(int size, IntComparator comparator, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+    public static Builder builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
     {
-        return new Builder(size, comparator, pagesHashStrategy, addresses);
+        return new Builder(size, pagesHashStrategy, addresses);
     }
 
     @Override
@@ -249,5 +249,38 @@ public final class SortedPositionLinks
     private boolean applyLessThanFunction(long leftPosition, int rightPosition, Page rightPage)
     {
         return lessThanFunction.filter((int) leftPosition, rightPosition, rightPage);
+    }
+
+    private static class PositionComparator
+            implements IntComparator
+    {
+        private final PagesHashStrategy pagesHashStrategy;
+        private final LongArrayList addresses;
+
+        PositionComparator(PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+        {
+            this.pagesHashStrategy = pagesHashStrategy;
+            this.addresses = addresses;
+        }
+
+        @Override
+        public int compare(int leftPosition, int rightPosition)
+        {
+            long leftPageAddress = addresses.getLong(leftPosition);
+            int leftBlockIndex = decodeSliceIndex(leftPageAddress);
+            int leftBlockPosition = decodePosition(leftPageAddress);
+
+            long rightPageAddress = addresses.getLong(rightPosition);
+            int rightBlockIndex = decodeSliceIndex(rightPageAddress);
+            int rightBlockPosition = decodePosition(rightPageAddress);
+
+            return pagesHashStrategy.compareSortChannelPositions(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
+        }
+
+        @Override
+        public int compare(Integer leftPosition, Integer rightPosition)
+        {
+            return compare(leftPosition.intValue(), rightPosition.intValue());
+        }
     }
 }
