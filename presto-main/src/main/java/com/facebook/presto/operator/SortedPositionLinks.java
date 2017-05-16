@@ -18,11 +18,14 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntComparator;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
+import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
@@ -52,22 +55,40 @@ import static java.util.Objects.requireNonNull;
 public final class SortedPositionLinks
         implements PositionLinks
 {
-    public static class Builder implements PositionLinks.Builder
+    public static class Builder
+            implements PositionLinks.Builder
     {
         private final Int2ObjectMap<IntArrayList> positionLinks;
         private final int size;
         private final IntComparator comparator;
+        private final PagesHashStrategy pagesHashStrategy;
+        private final LongArrayList addresses;
 
-        public Builder(int size, IntComparator comparator)
+        public Builder(int size, IntComparator comparator, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
         {
-            this.comparator = comparator;
             this.size = size;
+            this.comparator = comparator;
+            this.pagesHashStrategy = pagesHashStrategy;
+            this.addresses = addresses;
             positionLinks = new Int2ObjectOpenHashMap<>();
         }
 
         @Override
         public int link(int from, int to)
         {
+            // don't add _from_ row to chain if its sort channel value is null
+            if (isNull(from)) {
+                // _to_ row sort channel value might be null. However, in such
+                // case it will be the only element in the chain, so sorted position
+                // links enumeration will produce correct results.
+                return to;
+            }
+
+            // don't add _to_ row to chain if its sort channel value is null
+            if (isNull(to)) {
+                return from;
+            }
+
             // make sure that from value is the smaller one
             if (comparator.compare(from, to) > 0) {
                 // _from_ is larger so, just add to current chain _to_
@@ -85,6 +106,14 @@ public final class SortedPositionLinks
                 checkState(positionLinks.putIfAbsent(from, links) == null, "sorted links is corrupted");
                 return from;
             }
+        }
+
+        private boolean isNull(int position)
+        {
+            long pageAddress = addresses.getLong(position);
+            int blockIndex = decodeSliceIndex(pageAddress);
+            int blockPosition = decodePosition(pageAddress);
+            return pagesHashStrategy.isSortChannelPositionNull(blockIndex, blockPosition);
         }
 
         @Override
@@ -139,9 +168,9 @@ public final class SortedPositionLinks
         this.sizeInBytes = positionLinks.getSizeInBytes() + sizeOf(sortedPositionLinks);
     }
 
-    public static Builder builder(int size, IntComparator comparator)
+    public static Builder builder(int size, IntComparator comparator, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
     {
-        return new Builder(size, comparator);
+        return new Builder(size, comparator, pagesHashStrategy, addresses);
     }
 
     @Override

@@ -57,7 +57,9 @@ public class JoinHashSupplier
                 isFastInequalityJoin(session)) {
             positionLinksBuilder = SortedPositionLinks.builder(
                     addresses.size(),
-                    new PositionComparator(pagesHashStrategy, addresses));
+                    new PositionComparator(pagesHashStrategy, addresses),
+                    pagesHashStrategy,
+                    addresses);
         }
         else {
             positionLinksBuilder = ArrayPositionLinks.builder(addresses.size());
