@@ -56,6 +56,7 @@ public class Query
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final AtomicBoolean userAbortedQuery = new AtomicBoolean();
     private final StatementClient client;
+    private int warningCursor = 0;
 
     public Query(StatementClient client)
     {
@@ -143,6 +144,7 @@ public class Query
         if (statusPrinter != null) {
             statusPrinter.printFinalInfo();
         }
+        printWarnings(errorChannel);
 
         if (client.isClosed()) {
             errorChannel.println("Query aborted by user");
@@ -153,6 +155,27 @@ public class Query
         else if (client.isFailed()) {
             renderFailure(errorChannel);
         }
+    }
+
+    private void printWarnings(PrintStream errorChannel)
+    {
+        List<QueryError> warnings = client.getWarnings();
+        for (int i = warningCursor; i < warnings.size(); i++) {
+            errorChannel.println(formatWarning(warnings.get(i)));
+        }
+        warningCursor = warnings.size();
+    }
+
+    private static String formatWarning(QueryError warning)
+    {
+        StringBuilder builder = new StringBuilder();
+        // TODO: Better error code?
+        builder.append("Warning ").append(warning.getErrorCode()).append(": ");
+        if (warning.getErrorLocation() != null) {
+            builder.append(warning.getErrorLocation()).append(": ");
+        }
+        builder.append(warning.getMessage());
+        return builder.toString();
     }
 
     private void waitForData()
@@ -170,6 +193,7 @@ public class Query
             status += format(": %s row%s", count, (count != 1) ? "s" : "");
         }
         out.println(status);
+        printWarnings(out);
         discardResults();
     }
 

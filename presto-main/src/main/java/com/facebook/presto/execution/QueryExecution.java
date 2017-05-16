@@ -63,12 +63,14 @@ public interface QueryExecution
     // XXX: This should be removed when the client protocol is improved, so that we don't need to hold onto so much query history
     void pruneInfo();
 
+    void advanceWarningStream();
+
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters);
+        T createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector);
     }
 }

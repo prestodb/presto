@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.planner.optimizations.Predicates;
@@ -74,6 +75,7 @@ class SubqueryPlanner
     private final Metadata metadata;
     private final Session session;
     private final List<Expression> parameters;
+    private final WarningCollector warningCollector;
 
     SubqueryPlanner(
             Analysis analysis,
@@ -82,7 +84,8 @@ class SubqueryPlanner
             IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap,
             Metadata metadata,
             Session session,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -91,6 +94,7 @@ class SubqueryPlanner
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
         requireNonNull(parameters, "parameters is null");
+        requireNonNull(warningCollector, "warningCollector is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
@@ -99,6 +103,7 @@ class SubqueryPlanner
         this.metadata = metadata;
         this.session = session;
         this.parameters = parameters;
+        this.warningCollector = warningCollector;
     }
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
@@ -463,7 +468,7 @@ class SubqueryPlanner
 
     private PlanBuilder createPlanBuilder(Node node)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session, warningCollector)
                 .process(node, null);
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
 

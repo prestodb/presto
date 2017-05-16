@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.BlackholeWarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.type.Type;
@@ -99,7 +100,7 @@ final class DescribeInputRewrite
             Statement statement = parser.createStatement(sqlString);
 
             // create  analysis for the query we are describing.
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, BlackholeWarningCollector.getInstance());
             Analysis analysis = analyzer.analyze(statement, true);
 
             // get all parameters in query

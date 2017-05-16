@@ -327,6 +327,7 @@ public class SqlQueryManager
         Session session = null;
         QueryExecution queryExecution;
         Statement statement;
+        WarningCollector warningCollector = new SimpleWarningCollector();
         try {
             session = sessionSupplier.createSession(queryId, transactionManager, accessControl, sessionPropertyManager);
             if (query.length() > maxQueryLength) {
@@ -349,7 +350,7 @@ public class SqlQueryManager
                     throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE only supported for statements that are queries");
                 }
             }
-            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters);
+            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters, warningCollector);
         }
         catch (ParsingException | PrestoException | SemanticException e) {
             // This is intentionally not a method, since after the state change listener is registered
@@ -464,6 +465,19 @@ public class SqlQueryManager
     public SqlQueryManagerStats getStats()
     {
         return stats;
+    }
+
+    @Override
+    public void advanceWarningStream(QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query == null) {
+            throw new NoSuchElementException();
+        }
+
+        query.advanceWarningStream();
     }
 
     @Managed(description = "Query scheduler executor")

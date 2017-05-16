@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -91,6 +92,7 @@ public class QueryStateMachine
     private final TransactionManager transactionManager;
     private final Ticker ticker;
     private final Metadata metadata;
+    private final WarningCollector warningCollector;
 
     private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
@@ -133,7 +135,10 @@ public class QueryStateMachine
 
     private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
 
-    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata)
+    private int warningCursor = 0;
+    private int warningsReadMax = 0;
+
+    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata, WarningCollector warningCollector)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
@@ -144,6 +149,7 @@ public class QueryStateMachine
         this.ticker = ticker;
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.createNanos = tickerNanos();
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
 
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
@@ -161,9 +167,10 @@ public class QueryStateMachine
             TransactionManager transactionManager,
             AccessControl accessControl,
             Executor executor,
-            Metadata metadata)
+            Metadata metadata,
+            WarningCollector warningCollector)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata);
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata, warningCollector);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -176,7 +183,8 @@ public class QueryStateMachine
             AccessControl accessControl,
             Executor executor,
             Ticker ticker,
-            Metadata metadata)
+            Metadata metadata,
+            WarningCollector warningCollector)
     {
         session.getTransactionId().ifPresent(transactionControl ? transactionManager::trySetActive : transactionManager::checkAndSetActive);
 
@@ -191,7 +199,7 @@ public class QueryStateMachine
             querySession = session;
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker, metadata);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker, metadata, warningCollector);
         queryStateMachine.addStateChangeListener(newState -> {
             log.debug("Query %s is %s", queryId, newState);
             if (newState.isDone()) {
@@ -221,7 +229,7 @@ public class QueryStateMachine
             Metadata metadata,
             Throwable throwable)
     {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker, metadata);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker, metadata, BlackholeWarningCollector.getInstance());
         queryStateMachine.transitionToFailed(throwable);
         return queryStateMachine;
     }
@@ -416,6 +424,16 @@ public class QueryStateMachine
                 outputPositions,
                 operatorStatsSummary.build());
 
+        // Build delta in every request. StatementResource caches last query results and resends them in case the client asks them again.
+        // We shouldn't lose any warnings this way.
+        List<QueryError> warnings = warningCollector.getWarnings();
+        ImmutableList.Builder<QueryError> newWarnings = ImmutableList.builder();
+        for (int i = warningCursor; i < warnings.size(); i++) {
+            newWarnings.add(warnings.get(i));
+        }
+        // warningCollector may be updated between this call and call to advanceWarningStream, store our longest read.
+        warningsReadMax = warnings.size();
+
         return new QueryInfo(queryId,
                 session.toSessionRepresentation(),
                 state,
@@ -435,6 +453,7 @@ public class QueryStateMachine
                 rootStage,
                 failureInfo,
                 errorCode,
+                newWarnings.build(),
                 inputs.get(),
                 output.get(),
                 completeInfo,
@@ -786,11 +805,17 @@ public class QueryStateMachine
                 Optional.of(prunedOutputStage),
                 queryInfo.getFailureInfo(),
                 queryInfo.getErrorCode(),
+                queryInfo.getWarnings(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
                 queryInfo.isCompleteInfo(),
                 queryInfo.getResourceGroupName());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
+    }
+
+    public void advanceWarningStream()
+    {
+        warningCursor = warningsReadMax;
     }
 
     private long tickerNanos()

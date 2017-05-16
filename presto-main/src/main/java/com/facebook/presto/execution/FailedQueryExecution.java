@@ -152,6 +152,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public void advanceWarningStream()
+    {
+        // no-op
+    }
+
+    @Override
     public Optional<ResourceGroupId> getResourceGroup()
     {
         return resourceGroup;

@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
@@ -62,6 +63,7 @@ public class QueryInfo
     private final FailureInfo failureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
+    private final List<QueryError> warnings;
     private final Set<Input> inputs;
     private final Optional<Output> output;
     private final boolean completeInfo;
@@ -88,6 +90,7 @@ public class QueryInfo
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("warnings") List<QueryError> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("completeInfo") boolean completeInfo,
@@ -109,6 +112,7 @@ public class QueryInfo
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
         requireNonNull(resourceGroupName, "resourceGroupName is null");
+        requireNonNull(warnings, "warnings is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -130,6 +134,7 @@ public class QueryInfo
         this.failureInfo = failureInfo;
         this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
+        this.warnings = ImmutableList.copyOf(warnings);
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
         this.completeInfo = completeInfo;
@@ -258,6 +263,12 @@ public class QueryInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    @JsonProperty
+    public List<QueryError> getWarnings()
+    {
+        return warnings;
     }
 
     @JsonProperty

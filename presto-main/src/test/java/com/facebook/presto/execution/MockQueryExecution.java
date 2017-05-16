@@ -106,6 +106,7 @@ public class MockQueryExecution
                 Optional.empty(),
                 null,
                 null,
+                ImmutableList.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 state.isDone(),
@@ -207,6 +208,11 @@ public class MockQueryExecution
 
     @Override
     public void pruneInfo()
+    {
+    }
+
+    @Override
+    public void advanceWarningStream()
     {
     }
 
