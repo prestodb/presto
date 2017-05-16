@@ -15,6 +15,7 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
@@ -41,10 +42,12 @@ public class QueryRunner
     private final JsonCodec<QueryResults> queryResultsCodec;
     private final AtomicReference<ClientSession> session;
     private final HttpClient httpClient;
+    private final JsonCodec<QuerySubmission> querySubmissionCodec;
 
     public QueryRunner(
             ClientSession session,
             JsonCodec<QueryResults> queryResultsCodec,
+            JsonCodec<QuerySubmission> querySubmissionCodec,
             Optional<HostAndPort> socksProxy,
             Optional<String> keystorePath,
             Optional<String> keystorePassword,
@@ -59,6 +62,7 @@ public class QueryRunner
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.queryResultsCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
+        this.querySubmissionCodec = requireNonNull(querySubmissionCodec, "querySubmissionCodec is null");
         this.httpClient = new JettyHttpClient(
                 getHttpClientConfig(
                         socksProxy,
@@ -91,7 +95,7 @@ public class QueryRunner
 
     public StatementClient startInternalQuery(String query)
     {
-        return new StatementClient(httpClient, queryResultsCodec, session.get(), query);
+        return new StatementClient(httpClient, queryResultsCodec, querySubmissionCodec, session.get(), query);
     }
 
     @Override
@@ -117,6 +121,7 @@ public class QueryRunner
         return new QueryRunner(
                 session,
                 jsonCodec(QueryResults.class),
+                jsonCodec(QuerySubmission.class),
                 socksProxy,
                 keystorePath,
                 keystorePassword,
