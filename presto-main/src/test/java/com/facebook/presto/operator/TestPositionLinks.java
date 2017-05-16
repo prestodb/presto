@@ -17,7 +17,6 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.google.common.collect.ImmutableList;
-import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.Test;
 
@@ -124,20 +123,6 @@ public class TestPositionLinks
     {
         SortedPositionLinks.Builder builder = SortedPositionLinks.builder(
                 1000,
-                new IntComparator()
-                {
-                    @Override
-                    public int compare(int left, int right)
-                    {
-                        return BIGINT.compareTo(TEST_PAGE.getBlock(0), left, TEST_PAGE.getBlock(0), right);
-                    }
-
-                    @Override
-                    public int compare(Integer left, Integer right)
-                    {
-                        return compare(left.intValue(), right.intValue());
-                    }
-                },
                 pagesHashStrategy(),
                 addresses());
 
