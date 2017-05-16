@@ -2141,6 +2141,27 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithNonDeterministicLessThan()
+    {
+        MaterializedRow actualRow = getOnlyElement(computeActual(
+                "SELECT count(*) FROM " +
+                        "customer c1 JOIN customer c2 ON c1.nationkey=c2.nationkey " +
+                        "WHERE c1.custkey - RANDOM(c1.custkey) < c2.custkey").getMaterializedRows());
+        assertEquals(actualRow.getFieldCount(), 1);
+        long actualCount = (Long) actualRow.getField(0); // this should be around ~69000
+
+        MaterializedRow expectedAtLeastRow = getOnlyElement(computeActual(
+                "SELECT count(*) FROM " +
+                        "customer c1 JOIN customer c2 ON c1.nationkey=c2.nationkey " +
+                        "WHERE c1.custkey < c2.custkey").getMaterializedRows());
+        assertEquals(expectedAtLeastRow.getFieldCount(), 1);
+        long expectedAtLeastCount = (Long) expectedAtLeastRow.getField(0); // this is exactly 45022
+
+        // Technically non-deterministic unit test but has hopefully a next to impossible chance of a false positive
+        assertTrue(actualCount > expectedAtLeastCount);
+    }
+
+    @Test
     public void testSimpleJoin()
     {
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");

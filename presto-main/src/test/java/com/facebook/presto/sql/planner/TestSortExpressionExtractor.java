@@ -60,6 +60,19 @@ public class TestSortExpressionExtractor
         assertGetSortExpression(
                 new ComparisonExpression(
                         ComparisonExpressionType.GREATER_THAN,
+                        new SymbolReference("b2"),
+                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new SymbolReference("p1")))),
+                "b2");
+
+        assertGetSortExpression(
+                new ComparisonExpression(
+                        ComparisonExpressionType.GREATER_THAN,
+                        new SymbolReference("b2"),
+                        new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new SymbolReference("p1")))));
+
+        assertGetSortExpression(
+                new ComparisonExpression(
+                        ComparisonExpressionType.GREATER_THAN,
                         new SymbolReference("b1"),
                         new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, new SymbolReference("b2"), new SymbolReference("p1"))));
 

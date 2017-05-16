@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Currently this class handles only simple expressions like:
  *
- * A.a < B.x.
+ * A.a < B.x
  *
  * It could be extended to handle any expressions like:
  *
@@ -52,6 +52,10 @@ public final class SortExpressionExtractor
 
     public static Optional<Expression> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
     {
+        if (!DeterminismEvaluator.isDeterministic(filter)) {
+            return Optional.empty();
+        }
+
         if (filter instanceof ComparisonExpression) {
             ComparisonExpression comparison = (ComparisonExpression) filter;
             switch (comparison.getType()) {
