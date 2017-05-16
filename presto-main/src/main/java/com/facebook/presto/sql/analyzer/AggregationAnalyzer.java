@@ -375,7 +375,12 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitBindExpression(BindExpression node, Void context)
         {
-            return process(node.getValue(), context) && process(node.getFunction(), context);
+            for (Expression value : node.getValues()) {
+                if (!process(value, context)) {
+                    return false;
+                }
+            }
+            return process(node.getFunction(), context);
         }
 
         @Override

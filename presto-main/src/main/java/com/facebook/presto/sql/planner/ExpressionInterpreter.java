@@ -1002,16 +1002,23 @@ public class ExpressionInterpreter
         @Override
         protected Object visitBindExpression(BindExpression node, Object context)
         {
-            Object value = process(node.getValue(), context);
+            List<Object> values = node.getValues().stream()
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
             Object function = process(node.getFunction(), context);
 
-            if (hasUnresolvedValue(value, function)) {
+            if (hasUnresolvedValue(values) || hasUnresolvedValue(function)) {
+                ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+                for (int i = 0; i < values.size(); i++) {
+                    builder.add(toExpression(values.get(i), type(node.getValues().get(i))));
+                }
+
                 return new BindExpression(
-                        toExpression(value, type(node.getValue())),
+                        builder.build(),
                         toExpression(function, type(node.getFunction())));
             }
 
-            return MethodHandles.insertArguments((MethodHandle) function, 0, value);
+            return MethodHandles.insertArguments((MethodHandle) function, 0, values.toArray());
         }
 
         @Override

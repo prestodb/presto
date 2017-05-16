@@ -45,6 +45,7 @@ public class TestArrayTransformFunction
     public void testBasic()
             throws Exception
     {
+        assertFunction("transform(ARRAY [5, 6], x -> 9)", new ArrayType(INTEGER), ImmutableList.of(9, 9));
         assertFunction("transform(ARRAY [5, 6], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(6, 7));
         assertFunction("transform(ARRAY [5 + RANDOM(1), 6], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(6, 7));
     }

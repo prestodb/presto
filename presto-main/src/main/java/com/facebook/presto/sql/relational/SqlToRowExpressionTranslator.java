@@ -353,14 +353,20 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitBindExpression(BindExpression node, Void context)
         {
-            RowExpression value = process(node.getValue(), context);
+            ImmutableList.Builder<Type> valueTypesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
+            for (Expression value : node.getValues()) {
+                RowExpression valueRowExpression = process(value, context);
+                valueTypesBuilder.add(valueRowExpression.getType());
+                argumentsBuilder.add(valueRowExpression);
+            }
             RowExpression function = process(node.getFunction(), context);
+            argumentsBuilder.add(function);
 
             return call(
-                    bindSignature(getType(node), value.getType(), function.getType()),
+                    bindSignature(getType(node), valueTypesBuilder.build(), function.getType()),
                     getType(node),
-                    value,
-                    function);
+                    argumentsBuilder.build());
         }
 
         @Override

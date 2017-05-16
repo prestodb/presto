@@ -129,15 +129,23 @@ public class ExpressionOptimizer
                         return call(signature, call.getType(), arguments);
                     }
                     case BIND: {
-                        checkState(call.getArguments().size() == 2, BIND + " function should have 2 arguments. Got " + call.getArguments().size());
-                        RowExpression optimizedValue = call.getArguments().get(0).accept(this, context);
-                        RowExpression optimizedFunction = call.getArguments().get(1).accept(this, context);
-                        if (optimizedValue instanceof ConstantExpression && optimizedFunction instanceof ConstantExpression) {
-                            // Here, optimizedValue and optimizedFunction should be merged together into a new ConstantExpression.
+                        checkState(call.getArguments().size() >= 1, BIND + " function should have at least 1 argument. Got " + call.getArguments().size());
+
+                        boolean allConstantExpression = true;
+                        ImmutableList.Builder<RowExpression> optimizedArgumentsBuilder = ImmutableList.builder();
+                        for (RowExpression argument : call.getArguments()) {
+                            RowExpression optimizedArgument = argument.accept(this, context);
+                            if (!(optimizedArgument instanceof ConstantExpression)) {
+                                allConstantExpression = false;
+                            }
+                            optimizedArgumentsBuilder.add(optimizedArgument);
+                        }
+                        if (allConstantExpression) {
+                            // Here, optimizedArguments should be merged together into a new ConstantExpression.
                             // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
                             throw new UnsupportedOperationException();
                         }
-                        return call(signature, call.getType(), ImmutableList.of(optimizedValue, optimizedFunction));
+                        return call(signature, call.getType(), optimizedArgumentsBuilder.build());
                     }
                     case NULL_IF:
                     case SWITCH:

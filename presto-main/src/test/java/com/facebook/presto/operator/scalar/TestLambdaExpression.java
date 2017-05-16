@@ -127,8 +127,8 @@ public class TestLambdaExpression
     {
         assertFunction("apply(90, \"$internal$bind\"(9, (x, y) -> x + y))", INTEGER, 99);
         assertFunction("invoke(\"$internal$bind\"(8, x -> x + 1))", INTEGER, 9);
-        assertFunction("apply(900, \"$internal$bind\"(90, \"$internal$bind\"(9, (x, y, z) -> x + y + z)))", INTEGER, 999);
-        assertFunction("invoke(\"$internal$bind\"(90, \"$internal$bind\"(9, (x, y) -> x + y)))", INTEGER, 99);
+        assertFunction("apply(900, \"$internal$bind\"(90, 9, (x, y, z) -> x + y + z))", INTEGER, 999);
+        assertFunction("invoke(\"$internal$bind\"(90, 9, (x, y) -> x + y))", INTEGER, 99);
     }
 
     @Test

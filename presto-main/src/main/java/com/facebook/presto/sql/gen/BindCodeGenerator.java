@@ -19,6 +19,7 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -47,15 +48,20 @@ public class BindCodeGenerator
 
         Variable wasNull = scope.getVariable("wasNull");
 
-        Class<?> valueType = Primitives.wrap(arguments.get(0).getType().getJavaType());
-        Variable valueVariable = scope.createTempVariable(valueType);
-        block.append(context.generate(arguments.get(0)));
-        block.append(boxPrimitiveIfNecessary(scope, valueType));
-        block.putVariable(valueVariable);
-        block.append(wasNull.set(constantFalse()));
+        ImmutableList.Builder<BytecodeExpression> captureVariablesBuilder = ImmutableList.builder();
+        int numValues = arguments.size() - 1;
+        for (int i = 0; i < numValues; i++) {
+            Class<?> valueType = Primitives.wrap(arguments.get(i).getType().getJavaType());
+            Variable valueVariable = scope.createTempVariable(valueType);
+            block.append(context.generate(arguments.get(i)));
+            block.append(boxPrimitiveIfNecessary(scope, valueType));
+            block.putVariable(valueVariable);
+            block.append(wasNull.set(constantFalse()));
+            captureVariablesBuilder.add(valueVariable.cast(Object.class));
+        }
 
         Variable functionVariable = scope.createTempVariable(MethodHandle.class);
-        block.append(context.generate(arguments.get(1)));
+        block.append(context.generate(arguments.get(numValues)));
         block.append(
                 new IfStatement()
                         .condition(wasNull)
@@ -69,7 +75,7 @@ public class BindCodeGenerator
                                                 MethodHandle.class,
                                                 functionVariable,
                                                 constantInt(0),
-                                                newArray(type(Object[].class), ImmutableList.of(valueVariable.cast(Object.class)))))));
+                                                newArray(type(Object[].class), captureVariablesBuilder.build())))));
 
         return block;
     }

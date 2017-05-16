@@ -1087,18 +1087,24 @@ public class ExpressionAnalyzer
         {
             verify(context.getContext().isExpectingLambda(), "bind expression found when lambda is not expected");
 
-            List<Type> functionInputTypes = ImmutableList.<Type>builder()
-                    .add(process(node.getValue(), new StackableAstVisitorContext<>(context.getContext().notExpectingLambda())))
-                    .addAll(context.getContext().getFunctionInputTypes())
-                    .build();
+            StackableAstVisitorContext<Context> innerContext = new StackableAstVisitorContext<>(context.getContext().notExpectingLambda());
+            ImmutableList.Builder<Type> functionInputTypesBuilder = ImmutableList.builder();
+            for (Expression value : node.getValues()) {
+                functionInputTypesBuilder.add(process(value, innerContext));
+            }
+            functionInputTypesBuilder.addAll(context.getContext().getFunctionInputTypes());
+            List<Type> functionInputTypes = functionInputTypesBuilder.build();
 
             FunctionType functionType = (FunctionType) process(node.getFunction(), new StackableAstVisitorContext<>(context.getContext().expectingLambda(functionInputTypes)));
 
             List<Type> argumentTypes = functionType.getArgumentTypes();
+            int numCapturedValues = node.getValues().size();
             verify(argumentTypes.size() == functionInputTypes.size());
-            verify(functionInputTypes.get(0) == argumentTypes.get(0));
+            for (int i = 0; i < numCapturedValues; i++) {
+                verify(functionInputTypes.get(i) == argumentTypes.get(i));
+            }
 
-            FunctionType result = new FunctionType(argumentTypes.subList(1, argumentTypes.size()), functionType.getReturnType());
+            FunctionType result = new FunctionType(argumentTypes.subList(numCapturedValues, argumentTypes.size()), functionType.getReturnType());
             return setExpressionType(node, result);
         }
 
