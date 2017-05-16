@@ -173,7 +173,8 @@ public class ProjectionPushDown
                     exchange.getScope(),
                     partitioningScheme,
                     newSourceBuilder.build(),
-                    inputsBuilder.build());
+                    inputsBuilder.build(),
+                    exchange.isOrderSensitive());
         }
     }
 

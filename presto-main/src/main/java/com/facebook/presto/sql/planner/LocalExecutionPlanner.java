@@ -588,6 +588,9 @@ public class LocalExecutionPlanner
         {
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
 
+            if (node.isOrderSensitive()) {
+                context.setDriverInstanceCount(1);
+            }
             if (!context.getDriverInstanceCount().isPresent()) {
                 context.setDriverInstanceCount(getTaskConcurrency(session));
             }
