@@ -221,7 +221,7 @@ public class JoinCompiler
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
         generateIsPositionNull(classDefinition, joinChannelFields);
-        generateCompareMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
+        generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
 
         return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
@@ -689,7 +689,7 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private static void generateCompareMethod(
+    private static void generateCompareSortChannelPositionsMethod(
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             List<Type> types,
@@ -702,7 +702,7 @@ public class JoinCompiler
         Parameter rightBlockPosition = arg("rightBlockPosition", int.class);
         MethodDefinition compareMethod = classDefinition.declareMethod(
                 a(PUBLIC),
-                "compare",
+                "compareSortChannelPositions",
                 type(int.class),
                 leftBlockIndex,
                 leftBlockPosition,

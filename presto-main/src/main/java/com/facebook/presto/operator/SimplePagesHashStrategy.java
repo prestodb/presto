@@ -220,7 +220,7 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public int compare(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition)
+    public int compareSortChannelPositions(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition)
     {
         if (!sortChannel.isPresent()) {
             throw new UnsupportedOperationException();
