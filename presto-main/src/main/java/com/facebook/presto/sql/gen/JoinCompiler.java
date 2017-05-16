@@ -222,6 +222,7 @@ public class JoinCompiler
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
         generateIsPositionNull(classDefinition, joinChannelFields);
         generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
+        generateIsSortChannelPositionNull(classDefinition, channelFields, sortChannel);
 
         return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
@@ -736,6 +737,43 @@ public class JoinCompiler
         compareMethod
                 .getBody()
                 .append(comparison);
+    }
+
+    private static void generateIsSortChannelPositionNull(
+            ClassDefinition classDefinition,
+            List<FieldDefinition> channelFields,
+            Optional<SortExpression> sortChannel)
+    {
+        Parameter blockIndex = arg("blockIndex", int.class);
+        Parameter blockPosition = arg("blockPosition", int.class);
+        MethodDefinition isSortChannelPositionNullMethod = classDefinition.declareMethod(
+                a(PUBLIC),
+                "isSortChannelPositionNull",
+                type(boolean.class),
+                blockIndex,
+                blockPosition);
+
+        if (!sortChannel.isPresent()) {
+            isSortChannelPositionNullMethod.getBody()
+                    .append(newInstance(UnsupportedOperationException.class))
+                    .throwObject();
+            return;
+        }
+
+        Variable thisVariable = isSortChannelPositionNullMethod.getThis();
+
+        int index = sortChannel.get().getChannel();
+
+        BytecodeExpression block = thisVariable
+                .getField(channelFields.get(index))
+                .invoke("get", Object.class, blockIndex)
+                .cast(Block.class);
+
+        BytecodeNode isNull = block.invoke("isNull", boolean.class, blockPosition).ret();
+
+        isSortChannelPositionNullMethod
+                .getBody()
+                .append(isNull);
     }
 
     private static BytecodeNode typeEquals(
