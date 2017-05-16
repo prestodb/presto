@@ -109,6 +109,8 @@ public class HiveClientConfig
     private boolean hdfsImpersonationEnabled;
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
+    private boolean multiFileBucketingEnabled = false;
+    private boolean emptyBucketedPartitionsEnabled = false;
 
     private boolean skipDeletionForAlter;
 
@@ -900,5 +902,31 @@ public class HiveClientConfig
     public boolean getWritesToNonManagedTablesEnabled()
     {
         return writesToNonManagedTablesEnabled;
+    }
+
+    public boolean isMultiFileBucketingEnabled()
+    {
+        return multiFileBucketingEnabled;
+    }
+
+    @Config("hive.multi-file-bucketing.enabled")
+    @ConfigDescription("Allow multiple files per bucket for clustered table")
+    public HiveClientConfig setMultiFileBucketingEnabled(boolean multiFileBucketingEnabled)
+    {
+        this.multiFileBucketingEnabled = multiFileBucketingEnabled;
+        return this;
+    }
+
+    public boolean isEmptyBucketedPartitionsEnabled()
+    {
+        return emptyBucketedPartitionsEnabled;
+    }
+
+    @Config("hive.empty-bucketed-partitions.enabled")
+    @ConfigDescription("Allow partitions without files for clustered table")
+    public HiveClientConfig setEmptyBucketedPartitionsEnabled(boolean emptyBucketedPartitionsEnabled)
+    {
+        this.emptyBucketedPartitionsEnabled = emptyBucketedPartitionsEnabled;
+        return this;
     }
 }

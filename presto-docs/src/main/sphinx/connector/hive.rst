@@ -168,7 +168,18 @@ Property Name                                      Description                  
 ``security.config-file``                           Path of config file to use when ``hive.security=file``.
                                                    See :ref:`hive-file-based-authorization` for details.
 
+<<<<<<< c3a42c03b7dc3f89e1ee169705e3319d0d3a3326
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
+=======
+``hive.multi-file-bucketing.enabled``              Enable support for multiple files per bucket for Hive        ``false``
+                                                   clustered tables. See :ref:`clustered-tables`
+<<<<<<< e65d33ff45c1750c77f6c9a01d8e6acf42891dbc
+>>>>>>> Add doc for multi-file hive buckets support
+=======
+
+``hive.empty-bucketed-partitions.enabled``         Enable support for clustered tables with empty partitions.   ``false``
+                                                   See :ref:`clustered-tables`
+>>>>>>> Add doc for Hive empty buckets support
 ================================================== ============================================================ ==========
 
 Amazon S3 Configuration
@@ -405,6 +416,35 @@ for the table. The referenced data directory is not deleted::
 Drop a schema::
 
     DROP SCHEMA hive.web
+
+
+.. _clustered-tables:
+
+Clustered Hive tables support
+-----------------------------
+
+By default Presto supports only one data file per bucket per partition for clustered tables (Hive tables declared with ``CLUSTERED BY`` clause).
+If number of files does not match number of buckets exception would be thrown.
+
+To enable support for cases where there are more than one file per bucket, when multiple INSERTs were done to a single partition of the clustered table, you can use:
+
+ * ``hive.multi-file-bucketing.enabled`` config property
+ * ``multi_file_bucketing_enabled`` session property (using ``SET SESSION <connector_name>.multi_file_bucketing_enabled``)
+
+Config property changes behaviour globally and session property can be used on per query basis.
+The default value of session property is taken from config property.
+
+If support for multiple files per bucket is enabled Presto will group the files in partition directory.
+It will sort filenames lexicographically. Then it will treat part of filename up to first underscore character as bucket key.
+This pattern matches naming convention of files in directory when Hive is used to inject data into table.
+
+Presto will still validate if number of file groups matches number of buckets declared for table and fail if it does not.
+
+Similarly by default empty partitions (partitions with no files) are not allowed for clustered Hive tables.
+To enable support for empty paritions you can use:
+
+ * ``hive.empty-bucketed-partitions.enabled`` config property
+ * ``empty_bucketed_partitions_enabled`` session property (using ``SET SESSION <connector_name>.empty_bucketed_partitions_enabled``)
 
 Hive Connector Limitations
 --------------------------
