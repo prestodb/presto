@@ -368,9 +368,14 @@ public final class ExpressionFormatter
         @Override
         protected String visitBindExpression(BindExpression node, Void context)
         {
-            return "\"$INTERNAL$BIND\"(" +
-                    process(node.getValue(), context) + ", " +
-                    process(node.getFunction(), context) + ")";
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("\"$INTERNAL$BIND\"(");
+            for (Expression value : node.getValues()) {
+                builder.append(process(value, context) + ", ");
+            }
+            builder.append(process(node.getFunction(), context) + ")");
+            return builder.toString();
         }
 
         @Override

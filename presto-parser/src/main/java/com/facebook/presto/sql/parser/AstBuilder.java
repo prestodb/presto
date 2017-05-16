@@ -166,6 +166,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -1278,14 +1279,20 @@ class AstBuilder
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
         }
         if (name.toString().equalsIgnoreCase("$internal$bind")) {
-            check(context.expression().size() == 2, "The '$internal$bind' function must have exactly two arguments", context);
+            check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
             check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
 
+            int numValues = context.expression().size() - 1;
+            List<Expression> arguments = context.expression().stream()
+                    .map(this::visit)
+                    .map(Expression.class::cast)
+                    .collect(toImmutableList());
+
             return new BindExpression(
                     getLocation(context),
-                    (Expression) visit(context.expression(0)),
-                    (Expression) visit(context.expression(1)));
+                    arguments.subList(0, numValues),
+                    arguments.get(numValues));
         }
 
         return new FunctionCall(

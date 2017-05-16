@@ -292,7 +292,9 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitBindExpression(BindExpression node, C context)
     {
-        process(node.getValue(), context);
+        for (Expression value : node.getValues()) {
+            process(value, context);
+        }
         process(node.getFunction(), context);
 
         return null;
