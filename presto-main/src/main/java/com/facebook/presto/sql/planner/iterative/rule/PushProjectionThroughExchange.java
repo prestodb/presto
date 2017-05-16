@@ -180,6 +180,7 @@ public class PushProjectionThroughExchange
                 partitioningScheme,
                 newSourceBuilder.build(),
                 inputsBuilder.build(),
+                exchange.isOrderSensitive(),
                 exchange.getOrderingScheme());
 
         if (!result.getOutputSymbols().equals(project.getOutputSymbols())) {

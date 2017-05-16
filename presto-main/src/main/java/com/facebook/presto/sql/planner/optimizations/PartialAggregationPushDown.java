@@ -337,6 +337,7 @@ public class PartialAggregationPushDown
                     partitioning,
                     partials,
                     ImmutableList.copyOf(Collections.nCopies(partials.size(), partial.getOutputSymbols())),
+                    exchange.isOrderSensitive(),
                     exchange.getOrderingScheme());
         }
 

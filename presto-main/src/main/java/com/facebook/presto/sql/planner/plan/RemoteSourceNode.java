@@ -33,6 +33,7 @@ public class RemoteSourceNode
 {
     private final List<PlanFragmentId> sourceFragmentIds;
     private final List<Symbol> outputs;
+    private final boolean orderSensitive;
     private final Optional<OrderingScheme> orderingScheme;
 
     @JsonCreator
@@ -40,6 +41,7 @@ public class RemoteSourceNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
             @JsonProperty("outputs") List<Symbol> outputs,
+            @JsonProperty("orderSensitive") boolean orderSensitive,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme)
     {
         super(id);
@@ -48,12 +50,13 @@ public class RemoteSourceNode
 
         this.sourceFragmentIds = sourceFragmentIds;
         this.outputs = ImmutableList.copyOf(outputs);
+        this.orderSensitive = orderSensitive;
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
     }
 
-    public RemoteSourceNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs, Optional<OrderingScheme> orderingScheme)
+    public RemoteSourceNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs, boolean orderSensitive, Optional<OrderingScheme> orderingScheme)
     {
-        this(id, ImmutableList.of(sourceFragmentId), outputs, orderingScheme);
+        this(id, ImmutableList.of(sourceFragmentId), outputs, orderSensitive, orderingScheme);
     }
 
     @Override
@@ -79,6 +82,12 @@ public class RemoteSourceNode
     public Optional<OrderingScheme> getOrderingScheme()
     {
         return orderingScheme;
+    }
+
+    @JsonProperty("orderSensitive")
+    public boolean isOrderSensitive()
+    {
+        return orderSensitive;
     }
 
     @Override

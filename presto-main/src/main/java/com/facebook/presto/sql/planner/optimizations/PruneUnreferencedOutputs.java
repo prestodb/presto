@@ -173,6 +173,7 @@ public class PruneUnreferencedOutputs
                     partitioningScheme,
                     rewrittenSources.build(),
                     inputsBySource,
+                    node.isOrderSensitive(),
                     node.getOrderingScheme());
         }
 
