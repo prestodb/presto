@@ -61,6 +61,42 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testConcat()
+            throws Exception
+    {
+        assertInvalidFunction("CONCAT(X'')", "There must be two or more concatenation arguments");
+
+        assertFunction("CAST('foo' AS VARBINARY) || CAST ('bar' AS VARBINARY)", VARBINARY, sqlVarbinary("foo" + "bar"));
+        assertFunction("CAST('foo' AS VARBINARY) || CAST ('bar' AS VARBINARY) || CAST ('baz' AS VARBINARY)", VARBINARY, sqlVarbinary("foo" + "bar" + "baz"));
+        assertFunction("CAST(' foo ' AS VARBINARY) || CAST ('  bar  ' AS VARBINARY) || CAST ('   baz   ' AS VARBINARY)", VARBINARY, sqlVarbinary(" foo " + "  bar  " + "   baz   "));
+        assertFunction("CAST('foo' AS VARBINARY) || CAST ('bar' AS VARBINARY) || CAST ('bazbaz' AS VARBINARY)", VARBINARY, sqlVarbinary("foo" + "bar" + "bazbaz"));
+
+        assertFunction("X'000102' || X'AAABAC' || X'FDFEFF'", VARBINARY, sqlVarbinaryHex("000102" + "AAABAC" + "FDFEFF"));
+        assertFunction("X'CAFFEE' || X'F7' || X'DE58'", VARBINARY, sqlVarbinaryHex("CAFFEE" + "F7" + "DE58"));
+
+        assertFunction("X'58' || X'F7'", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("X'' || X'58' || X'F7'", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("X'58' || X'' || X'F7'", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("X'58' || X'F7' || X''", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("X'' || X'58' || X'' || X'F7' || X''", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("X'' || X'' || X'' || X'' || X'' || X''", VARBINARY, sqlVarbinaryHex(""));
+
+        assertFunction("CONCAT(CAST('foo' AS VARBINARY), CAST ('bar' AS VARBINARY))", VARBINARY, sqlVarbinary("foo" + "bar"));
+        assertFunction("CONCAT(CAST('foo' AS VARBINARY), CAST ('bar' AS VARBINARY), CAST ('baz' AS VARBINARY))", VARBINARY, sqlVarbinary("foo" + "bar" + "baz"));
+        assertFunction("CONCAT(CAST('foo' AS VARBINARY), CAST ('bar' AS VARBINARY), CAST ('bazbaz' AS VARBINARY))", VARBINARY, sqlVarbinary("foo" + "bar" + "bazbaz"));
+
+        assertFunction("CONCAT(X'000102', X'AAABAC', X'FDFEFF')", VARBINARY, sqlVarbinaryHex("000102" + "AAABAC" + "FDFEFF"));
+        assertFunction("CONCAT(X'CAFFEE', X'F7', X'DE58')", VARBINARY, sqlVarbinaryHex("CAFFEE" + "F7" + "DE58"));
+
+        assertFunction("CONCAT(X'58', X'F7')", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("CONCAT(X'', X'58', X'F7')", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("CONCAT(X'58', X'', X'F7')", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("CONCAT(X'58', X'F7', X'')", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("CONCAT(X'', X'58', X'', X'F7', X'')", VARBINARY, sqlVarbinaryHex("58F7"));
+        assertFunction("CONCAT(X'', X'', X'', X'', X'', X'')", VARBINARY, sqlVarbinaryHex(""));
+    }
+
+    @Test
     public void testToBase64()
             throws Exception
     {

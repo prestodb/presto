@@ -101,7 +101,6 @@ public class TestStringFunctions
     @Test
     public void testConcat()
     {
-        assertInvalidFunction("CONCAT()", "There must be two or more concatenation arguments");
         assertInvalidFunction("CONCAT('')", "There must be two or more concatenation arguments");
         assertFunction("CONCAT('hello', ' world')", VARCHAR, "hello world");
         assertFunction("CONCAT('', '')", VARCHAR, "");
