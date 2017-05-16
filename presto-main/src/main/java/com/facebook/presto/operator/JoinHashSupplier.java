@@ -115,7 +115,7 @@ public class JoinHashSupplier
             int rightBlockIndex = decodeSliceIndex(rightPageAddress);
             int rightBlockPosition = decodePosition(rightPageAddress);
 
-            return pagesHashStrategy.compare(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
+            return pagesHashStrategy.compareSortChannelPositions(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
         }
 
         @Override
