@@ -15,11 +15,15 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.IntComparator;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
@@ -120,7 +124,8 @@ public class TestPositionLinks
     {
         SortedPositionLinks.Builder builder = SortedPositionLinks.builder(
                 1000,
-                new IntComparator() {
+                new IntComparator()
+                {
                     @Override
                     public int compare(int left, int right)
                     {
@@ -132,7 +137,9 @@ public class TestPositionLinks
                     {
                         return compare(left.intValue(), right.intValue());
                     }
-                });
+                },
+                pagesHashStrategy(),
+                addresses());
 
         assertEquals(builder.link(4, 5), 4);
         assertEquals(builder.link(6, 4), 4);
@@ -145,5 +152,25 @@ public class TestPositionLinks
         assertEquals(builder.link(12, 10), 10);
 
         return builder;
+    }
+
+    private static PagesHashStrategy pagesHashStrategy()
+    {
+        return new SimplePagesHashStrategy(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(),
+                ImmutableList.of(ImmutableList.of(TEST_PAGE.getBlock(0))),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.of(new SortExpression(0)));
+    }
+
+    private static LongArrayList addresses()
+    {
+        LongArrayList addresses = new LongArrayList();
+        for (int i = 0; i < TEST_PAGE.getPositionCount(); ++i) {
+            addresses.add(encodeSyntheticAddress(0, i));
+        }
+        return addresses;
     }
 }
