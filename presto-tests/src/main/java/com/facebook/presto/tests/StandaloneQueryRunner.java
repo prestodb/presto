@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -82,7 +83,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(sql);
+            return prestoClient.execute(sql).getResult();
         }
         finally {
             lock.readLock().unlock();
@@ -94,7 +95,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(session, sql);
+            return prestoClient.execute(session, sql).getResult();
         }
         finally {
             lock.readLock().unlock();
@@ -130,6 +131,12 @@ public final class StandaloneQueryRunner
     public Metadata getMetadata()
     {
         return server.getMetadata();
+    }
+
+    @Override
+    public CostCalculator getCostCalculator()
+    {
+        return server.getCostCalculator();
     }
 
     @Override

@@ -78,12 +78,12 @@ public abstract class AbstractTestingPrestoClient<T>
 
     protected abstract ResultsSession<T> getResultSession(Session session);
 
-    public T execute(@Language("SQL") String sql)
+    public ResultWithQueryId<T> execute(@Language("SQL") String sql)
     {
         return execute(defaultSession, sql);
     }
 
-    public T execute(Session session, @Language("SQL") String sql)
+    public ResultWithQueryId<T> execute(Session session, @Language("SQL") String sql)
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
@@ -106,7 +106,8 @@ public abstract class AbstractTestingPrestoClient<T>
                     resultsSession.setUpdateCount(results.getUpdateCount());
                 }
 
-                return resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
+                T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
+                return new ResultWithQueryId<>(results.getId(), result);
             }
 
             QueryError error = client.finalResults().getError();

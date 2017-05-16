@@ -13,25 +13,37 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.util.Optional;
 
 public class TpchTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final TpchTableHandle table;
+    private final Optional<TupleDomain<ColumnHandle>> predicate;
 
     @JsonCreator
-    public TpchTableLayoutHandle(@JsonProperty("table") TpchTableHandle table)
+    public TpchTableLayoutHandle(@JsonProperty("table") TpchTableHandle table, @JsonProperty("predicate") Optional<TupleDomain<ColumnHandle>> predicate)
     {
         this.table = table;
+        this.predicate = predicate;
     }
 
     @JsonProperty
     public TpchTableHandle getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public Optional<TupleDomain<ColumnHandle>> getPredicate()
+    {
+        return predicate;
     }
 
     public String getConnectorId()

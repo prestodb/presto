@@ -494,6 +494,18 @@ public class TestingHiveMetastore
         return Optional.ofNullable(relations.get(schemaTableName));
     }
 
+    @Override
+    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        return Optional.of(ImmutableMap.of());
+    }
+
+    @Override
+    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        return Optional.of(ImmutableMap.of());
+    }
+
     private synchronized Table getRequiredTable(SchemaTableName tableName)
     {
         Table oldTable = relations.get(tableName);
