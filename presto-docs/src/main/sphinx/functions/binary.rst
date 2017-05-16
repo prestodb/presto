@@ -1,6 +1,11 @@
-================
-Binary Functions
-================
+==============================
+Binary Functions and Operators
+==============================
+
+Binary Operators
+----------------
+
+The ``||`` operator performs concatenation.
 
 Binary Functions
 ----------------
@@ -9,6 +14,13 @@ Binary Functions
     :noindex:
 
     Returns the length of ``binary`` in bytes.
+
+.. function:: concat(binary1, ..., binaryN) -> varbinary
+    :noindex:
+
+    Returns the concatenation of ``binary1``, ``binary2``, ``...``, ``binaryN``.
+    This function provides the same functionality as the
+    SQL-standard concatenation operator (``||``).
 
 .. function:: to_base64(binary) -> varchar
 

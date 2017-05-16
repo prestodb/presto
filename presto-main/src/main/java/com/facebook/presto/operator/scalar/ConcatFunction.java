@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -52,6 +53,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -60,19 +62,24 @@ import static java.lang.Math.addExact;
 public final class ConcatFunction
         extends SqlScalarFunction
 {
-    public static final ConcatFunction CONCAT = new ConcatFunction();
+    // TODO design new variadic functions binding mechanism that will allow to produce VARCHAR(x) where x < MAX_LENGTH.
+    public static final ConcatFunction VARCHAR_CONCAT = new ConcatFunction(createUnboundedVarcharType().getTypeSignature(), "concatenates given strings");
 
-    public ConcatFunction()
+    public static final ConcatFunction VARBINARY_CONCAT = new ConcatFunction(VARBINARY.getTypeSignature(), "concatenates given varbinary values");
+
+    private String description;
+
+    private ConcatFunction(TypeSignature type, String description)
     {
-        // TODO design new variadic functions binding mechanism that will allow to produce VARCHAR(x) where x < MAX_LENGTH.
         super(new Signature(
                 "concat",
                 FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                createUnboundedVarcharType().getTypeSignature(),
-                ImmutableList.of(createUnboundedVarcharType().getTypeSignature()),
+                type,
+                ImmutableList.of(type),
                 true));
+        this.description = description;
     }
 
     @Override
@@ -90,7 +97,7 @@ public final class ConcatFunction
     @Override
     public String getDescription()
     {
-        return "concatenates given strings";
+        return description;
     }
 
     @Override
@@ -100,18 +107,18 @@ public final class ConcatFunction
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments");
         }
 
-        Class<?> clazz = generateConcat(arity);
+        Class<?> clazz = generateConcat(getSignature().getReturnType(), arity);
         MethodHandle methodHandle = methodHandle(clazz, "concat", Collections.nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(arity, false));
 
         return new ScalarFunctionImplementation(false, nullableParameters, methodHandle, isDeterministic());
     }
 
-    private static Class<?> generateConcat(int arity)
+    private static Class<?> generateConcat(TypeSignature type, int arity)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeClassName("Concat" + arity + "ScalarFunction"),
+                CompilerUtils.makeClassName(type.getBase() + "_concat" + arity + "ScalarFunction"),
                 type(Object.class));
 
         // Generate constructor
