@@ -90,6 +90,7 @@ public interface SchemaDao
             "  row_count BIGINT NOT NULL,\n" +
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
+            "  xxhash64 BIGINT,\n" +
             "  UNIQUE (shard_uuid),\n" +
             // include a covering index organized by table_id
             "  UNIQUE (table_id, bucket_number, shard_id, shard_uuid, create_time, row_count, compressed_size, uncompressed_size),\n" +

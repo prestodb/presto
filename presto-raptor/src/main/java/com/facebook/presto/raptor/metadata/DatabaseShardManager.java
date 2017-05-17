@@ -758,8 +758,8 @@ public class DatabaseShardManager
             throws SQLException
     {
         String sql = "" +
-                "INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size, bucket_number)\n" +
-                "VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)";
+                "INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size, xxhash64, bucket_number)\n" +
+                "VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement statement = connection.prepareStatement(sql, RETURN_GENERATED_KEYS)) {
             for (ShardInfo shard : shards) {
@@ -768,7 +768,8 @@ public class DatabaseShardManager
                 statement.setLong(3, shard.getRowCount());
                 statement.setLong(4, shard.getCompressedSize());
                 statement.setLong(5, shard.getUncompressedSize());
-                bindOptionalInt(statement, 6, shard.getBucketNumber());
+                statement.setLong(6, shard.getXxhash64());
+                bindOptionalInt(statement, 7, shard.getBucketNumber());
                 statement.addBatch();
             }
             statement.executeBatch();
