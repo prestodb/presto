@@ -96,7 +96,7 @@ public class TestEventListener
             throws Exception
     {
         // Change the value of expectedSplits if the number of splits generated in the plan changes
-        int expectedSplits = 1;
+        int expectedSplits = 2;
 
         // We expect the following events
         // QueryCreatedEvents = 1, QueryCompletedEvents = 1, SplitCompletedEvents = expectedSplits
@@ -128,8 +128,8 @@ public class TestEventListener
             throws Exception
     {
         // Change the value of expectedSplits if the number of splits generated in the plan changes
-        // For the current plan, expectedSplits = SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
-        int expectedSplits = SPLITS_PER_NODE + 1 + 1;
+        // For the current plan, expectedSplits = SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation split + Output split
+        int expectedSplits = SPLITS_PER_NODE + 1 + 1 + 1;
 
         // We expect the following events:
         // QueryCreatedEvents = 1, QueryCompletedEvents = 1, SplitCompletedEvents = expectedSplits
@@ -165,7 +165,7 @@ public class TestEventListener
 
         // Sum of row count processed by all leaf stages is equal to the number of rows in the table
         long actualCompletedPositions = splitCompletedEvents.stream()
-                .filter(e -> !e.getStageId().endsWith(".0"))    // filter out the root stage
+                .filter(e -> !(e.getStageId().endsWith(".0") || e.getStageId().endsWith(".1"))) // filter out the root stage
                 .mapToLong(e -> e.getStatistics().getCompletedPositions())
                 .sum();
 

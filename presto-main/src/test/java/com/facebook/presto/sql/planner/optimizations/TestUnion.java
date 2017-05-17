@@ -83,8 +83,9 @@ public class TestUnion
                 .where(TestUnion::isRemoteExchange)
                 .findAll();
 
-        assertEquals(remotes.size(), 1, "There should be exactly one RemoteExchange");
-        assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
+        assertEquals(remotes.size(), 2, "There should be exactly two RemoteExchanges");
+        assertEquals(((ExchangeNode) remotes.get(0)).getType(), GATHER);
+        assertEquals(((ExchangeNode) remotes.get(1)).getType(), GATHER);
 
         int numberOfpartialTopN = searchFrom(plan.getRoot())
                 .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep().equals(TopNNode.Step.PARTIAL))
@@ -110,9 +111,10 @@ public class TestUnion
                 .where(TestUnion::isRemoteExchange)
                 .findAll();
 
-        assertEquals(remotes.size(), 2, "There should be exactly two RemoteExchanges");
+        assertEquals(remotes.size(), 3, "There should be exactly three RemoteExchanges");
         assertEquals(((ExchangeNode) remotes.get(0)).getType(), GATHER);
-        assertEquals(((ExchangeNode) remotes.get(1)).getType(), REPARTITION);
+        assertEquals(((ExchangeNode) remotes.get(1)).getType(), GATHER);
+        assertEquals(((ExchangeNode) remotes.get(2)).getType(), REPARTITION);
     }
 
     @Test
@@ -122,7 +124,7 @@ public class TestUnion
                 "SELECT orderstatus, sum(orderkey) FROM (SELECT orderkey, orderstatus FROM orders UNION ALL SELECT orderkey, orderstatus FROM orders) x GROUP BY (orderstatus)",
                 LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
                 false);
-        assertAtMostOneAggregationBetweenRemoteExchanges(plan);
+        assertAtMostNAggregationsBetweenRemoteExchanges(plan, 1);
         assertPlanIsFullyDistributed(plan);
     }
 
@@ -133,7 +135,7 @@ public class TestUnion
                 "SELECT orderstatus, sum(orderkey) FROM (SELECT orderkey, orderstatus FROM orders UNION ALL SELECT orderkey, orderstatus FROM orders) x GROUP BY ROLLUP (orderstatus)",
                 LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
                 false);
-        assertAtMostOneAggregationBetweenRemoteExchanges(plan);
+        assertAtMostNAggregationsBetweenRemoteExchanges(plan, 1);
         assertPlanIsFullyDistributed(plan);
     }
 
@@ -144,7 +146,7 @@ public class TestUnion
                 "SELECT regionkey, count(*) FROM (SELECT regionkey FROM nation UNION ALL SELECT * FROM (VALUES 2, 100) t(regionkey)) GROUP BY regionkey",
                 LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
                 false);
-        assertAtMostOneAggregationBetweenRemoteExchanges(plan);
+        assertAtMostNAggregationsBetweenRemoteExchanges(plan, 2);
         // TODO: Enable this check once distributed UNION can handle both partitioned and single node sources at the same time
         //assertPlanIsFullyDistributed(plan);
     }
@@ -176,7 +178,7 @@ public class TestUnion
                 .stream()
                 .collect(toList());
 
-        assertEquals(gathers.size(), 1, "Only a single REMOTE GATHER was expected");
+        assertTrue(gathers.size() <= 2, "At most two REMOTE GATHER were expected");
     }
 
     private boolean shouldBeDistributed(PlanNode planNode)
@@ -194,7 +196,7 @@ public class TestUnion
         return false;
     }
 
-    private static void assertAtMostOneAggregationBetweenRemoteExchanges(Plan plan)
+    private static void assertAtMostNAggregationsBetweenRemoteExchanges(Plan plan, int n)
     {
         List<PlanNode> fragments = searchFrom(plan.getRoot())
                 .where(TestUnion::isRemoteExchange)
@@ -209,7 +211,7 @@ public class TestUnion
                     .skipOnlyWhen(TestUnion::isNotRemoteExchange)
                     .findAll();
 
-            assertFalse(aggregations.size() > 1, "More than a single AggregationNode between remote exchanges");
+            assertFalse(aggregations.size() > n, "More than " + Integer.toString(n) + " AggregationNode between remote exchanges");
         }
     }
 
