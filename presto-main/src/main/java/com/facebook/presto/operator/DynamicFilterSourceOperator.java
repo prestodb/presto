@@ -20,12 +20,17 @@ import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeUtils;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.predicate.TupleDomain.columnWiseUnion;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,7 +46,6 @@ public class DynamicFilterSourceOperator
         private final PlanNodeId planNodeId;
         private final List<Type> types;
         private final List<Integer> filterChannels;
-        private final TupleDomainSource tupleDomainSource;
 
         private boolean closed;
 
@@ -50,8 +54,7 @@ public class DynamicFilterSourceOperator
                 PlanNodeId planNodeId,
                 List<Type> types,
                 List<Integer> filterChannels,
-                Optional<Integer> hashChannel,
-                TupleDomainSource tupleDomainSource)
+                Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -60,7 +63,6 @@ public class DynamicFilterSourceOperator
                     .addAll(hashChannel.map(ImmutableList::of).orElse(ImmutableList.of()))
                     .addAll(filterChannels)
                     .build();
-            this.tupleDomainSource = requireNonNull(tupleDomainSource, "tupleDomainSource is null");
         }
 
         @Override
@@ -75,7 +77,7 @@ public class DynamicFilterSourceOperator
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, DynamicFilterSourceOperator.class.getSimpleName());
 
-            return new DynamicFilterSourceOperator(operatorContext, types, filterChannels, tupleDomainSource);
+            return new DynamicFilterSourceOperator(operatorContext, types, filterChannels);
         }
 
         @Override
@@ -91,12 +93,36 @@ public class DynamicFilterSourceOperator
         }
     }
 
+    @Immutable
+    public static class DynamicFilterSummary
+            implements Mergeable<DynamicFilterSummary>, OperatorInfo
+    {
+        private final TupleDomain<Integer> tupleDomain;
+
+        @JsonCreator
+        public DynamicFilterSummary(@JsonProperty("tupleDomain") TupleDomain<Integer> tupleDomain)
+        {
+            this.tupleDomain = tupleDomain;
+        }
+
+        @JsonProperty
+        public TupleDomain<Integer> getTupleDomain()
+        {
+            return tupleDomain;
+        }
+
+        @Override
+        public DynamicFilterSummary mergeWith(DynamicFilterSummary other)
+        {
+            return new DynamicFilterSummary(columnWiseUnion(tupleDomain, other.tupleDomain));
+        }
+    }
+
     private static final int DEFAULT_POSITIONS_LIMIT = 1000;
 
     private final OperatorContext operatorContext;
     private final List<Type> types;
     private final List<Integer> filterChannels;
-    private final TupleDomainSource tupleDomainSource;
     private final int positionsLimit;
 
     private Page page;
@@ -104,21 +130,20 @@ public class DynamicFilterSourceOperator
     private long positionCount;
     private List<ImmutableList.Builder<Object>> valuesBuilder;
     private boolean[] nullsAllowed;
+    private DynamicFilterSummary summary;
 
     public DynamicFilterSourceOperator(
             OperatorContext operatorContext,
             List<Type> types,
-            List<Integer> filterChannels,
-            TupleDomainSource tupleDomainSource)
+            List<Integer> filterChannels)
     {
-        this(operatorContext, types, filterChannels, tupleDomainSource, DEFAULT_POSITIONS_LIMIT);
+        this(operatorContext, types, filterChannels, DEFAULT_POSITIONS_LIMIT);
     }
 
     public DynamicFilterSourceOperator(
             OperatorContext operatorContext,
             List<Type> types,
             List<Integer> filterChannels,
-            TupleDomainSource tupleDomainSource,
             int positionsLimit)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -126,10 +151,11 @@ public class DynamicFilterSourceOperator
         this.filterChannels = ImmutableList.copyOf(filterChannels);
         this.valuesBuilder = filterChannels.stream().map(channel -> ImmutableList.builder()).collect(toImmutableList());
         this.nullsAllowed = new boolean[filterChannels.size()];
-        this.tupleDomainSource = requireNonNull(tupleDomainSource, "tupleDomainSource is null");
 
         checkArgument(positionsLimit > 0, "positionsLimit must be greater than zero");
         this.positionsLimit = positionsLimit;
+
+        operatorContext.setInfoSupplier(() -> summary);
     }
 
     @Override
@@ -208,7 +234,7 @@ public class DynamicFilterSourceOperator
     {
         // we don't want to filter if there're too many values
         if (positionCount > positionsLimit) {
-            tupleDomainSource.addDomain(TupleDomain.all());
+            summary = new DynamicFilterSummary(TupleDomain.all());
             return;
         }
 
@@ -226,6 +252,6 @@ public class DynamicFilterSourceOperator
             domainsBuilder.put(channel, domain);
         }
 
-        tupleDomainSource.addDomain(TupleDomain.withColumnDomains(domainsBuilder.build()));
+        summary = new DynamicFilterSummary(TupleDomain.withColumnDomains(domainsBuilder.build()));
     }
 }
