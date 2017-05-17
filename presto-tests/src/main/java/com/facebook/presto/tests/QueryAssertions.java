@@ -93,7 +93,7 @@ public final class QueryAssertions
             expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
         }
         catch (RuntimeException ex) {
-            fail("Execution of 'expected' query failed: " + actual, ex);
+            fail("Execution of 'expected' query failed: " + expected, ex);
         }
         log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), nanosSince(start));
 
