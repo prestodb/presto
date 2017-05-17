@@ -19,6 +19,31 @@ plugin and enabled by adding ``resource-groups.configuration-manager=file`` to
 ``etc/resource-groups.properties`` and setting ``resource-groups.config-file`` to the
 location of a JSON config file with the properties described below.
 
+To use an implementation that is backed by a database ``resource-groups.configuration-manager=db``
+can be added to ``etc/resource-groups.properties`` and set the ``resource-groups.config-db-url`` to
+the jdbc url of the config database.
+
+For example:
+``resource-groups.config-db-url=jdbc:mysql://myhost.mydomain.com:3306/mydatabase?user=admin_user&password=admin_password``.
+
+The tables ``resource_groups``, ``selectors`` and ``resource_groups_global_properties`` will be created if they do not exist.
+Once created a resource group and selector must be added in order to connect:
+
+    ``insert into resource_groups (resource_group_id, name, soft_memory_limit, max_queued, max_running)``
+    ``values (1, 'global', '95%', 100, 100);``
+    ``insert into selectors (resource_group_id, user_regex, source_regex)``
+    ``values (1, 'user_name1|user_name2', 'presto-cli|verifier.*');``
+
+To use the ``cpuQuotaPeriod`` (see below) the following sql can be run to set it to 1 hour:
+
+    ``insert into resource_groups_global_properties (name, value) values ('cpu_quota_period', '1h');``
+
+Note: This requires the ``soft_cpu_limit`` and ``hard_cpu_limit`` to be set for all resource groups (details below).
+For example:
+
+    ``insert into resource_groups (resource_group_id, name, soft_memory_limit, max_queued, max_running,``
+    ``soft_cpu_limit, hard_cpu_limit) values (1, 'global', '95%', 100, 100, '5m', '10m');``
+
 Resource Group Properties
 -------------------------
 
@@ -60,6 +85,10 @@ Resource Group Properties
   Defaults to ``false``.
 
 * ``subGroups`` (optional): list of sub groups.
+
+* ``runningTimeLimit`` (optional): Time limit for queries to run within a resource group
+
+* ``queuedTimeLimit`` (optional): Time limit for a query to be queued within a resource group
 
 Selector Properties
 -------------------
