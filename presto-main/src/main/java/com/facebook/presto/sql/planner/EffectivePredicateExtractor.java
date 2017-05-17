@@ -81,6 +81,7 @@ public class EffectivePredicateExtractor
             entry -> {
                 SymbolReference reference = entry.getKey().toSymbolReference();
                 Expression expression = entry.getValue();
+                // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
                 return new ComparisonExpression(ComparisonExpressionType.EQUAL, reference, expression);
             };
