@@ -16,7 +16,7 @@
 grammar TypeCalculation;
 
 typeCalculation
-    : expression
+    : expression EOF
     ;
 
 expression
