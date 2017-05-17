@@ -51,7 +51,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -5132,11 +5131,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testNullOnLhsOfInPredicateDisallowed()
+    public void testNullOnLhsOfInPredicateAllowed()
     {
-        String errorMessage = "\\QNULL values are not allowed on the probe side of SemiJoin operator\\E.*";
-        assertQueryFails("SELECT NULL IN (SELECT 1)", errorMessage);
-        assertQueryFails("SELECT x FROM (VALUES NULL) t(x) WHERE x IN (SELECT 1)", errorMessage);
+        assertQuery("SELECT NULL IN (1, 2, 3)", "SELECT NULL");
+        assertQuery("SELECT NULL IN (SELECT 1)", "SELECT NULL");
+        assertQuery("SELECT NULL IN (SELECT 1 WHERE FALSE)", "SELECT FALSE");
+        assertQuery("SELECT x FROM (VALUES NULL) t(x) WHERE x IN (SELECT 1)", "SELECT 33 WHERE FALSE");
+        assertQuery("SELECT NULL IN (SELECT CAST(NULL AS BIGINT))", "SELECT NULL");
+        assertQuery("SELECT NULL IN (SELECT NULL WHERE FALSE)", "SELECT FALSE");
+        assertQuery("SELECT NULL IN ((SELECT 1) UNION ALL (SELECT NULL))", "SELECT NULL");
+        assertQuery("SELECT x IN (SELECT TRUE) FROM (SELECT * FROM (VALUES CAST(NULL AS BOOLEAN)) t(x) WHERE (x OR NULL) IS NULL)", "SELECT NULL");
+        assertQuery("SELECT x IN (SELECT 1) FROM (SELECT * FROM (VALUES CAST(NULL AS INTEGER)) t(x) WHERE (x + 10 IS NULL) OR X = 2)", "SELECT NULL");
+        assertQuery("SELECT x IN (SELECT 1 WHERE FALSE) FROM (SELECT * FROM (VALUES CAST(NULL AS INTEGER)) t(x) WHERE (x + 10 IS NULL) OR X = 2)", "SELECT FALSE");
     }
 
     @Test
@@ -6283,7 +6289,7 @@ public abstract class AbstractTestQueries
         // test multi level IN subqueries
         assertQuery("SELECT 1 IN (SELECT 1), 2 IN (SELECT 1) WHERE 1 IN (SELECT 1)");
 
-         // test with subqueries on left
+        // test with subqueries on left
         assertQuery("SELECT (select 1) IN (SELECT 1)");
         assertQuery("SELECT (select 2) IN (1, (SELECT 2))");
         assertQuery("SELECT (2 + (select 1)) IN (SELECT 1)");
@@ -6370,6 +6376,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testAntiJoinNullHandling()
+    {
+        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
+                        "SELECT 3 FROM (VALUES 1) WHERE NULL NOT IN (SELECT * FROM empty)",
+                "VALUES 3");
+
+        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
+                        "SELECT x FROM (VALUES NULL) t(x) WHERE x NOT IN (SELECT * FROM empty)",
+                "VALUES NULL");
+    }
+
+    @Test
     public void testSemiJoinLimitPushDown()
     {
         assertQuery("" +
@@ -6384,10 +6402,13 @@ public abstract class AbstractTestQueries
                 "  LIMIT 10)");
     }
 
-    //Disabled till #6622 is fixed
-    @Test(enabled = false)
+    @Test
     public void testSemiJoinNullHandling()
     {
+        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
+                        "SELECT 3 FROM (VALUES 1) WHERE NULL IN (SELECT * FROM empty)",
+                "SELECT 0 WHERE FALSE");
+
         assertQuery("" +
                 "SELECT orderkey\n" +
                 "  IN (\n" +
@@ -8394,17 +8415,7 @@ public abstract class AbstractTestQueries
                         parameter("quantifier").of("ALL", "ANY"),
                         parameter("value").of("1", "NULL"),
                         parameter("operator").of("=", "!=", "<", ">", "<=", ">="));
-        //the following are disabled till #6622 is fixed
-        List<String> excludedInPredicateQueries = ImmutableList.of(
-                "SELECT NULL != ALL (SELECT * FROM (SELECT 1 WHERE false))",
-                "SELECT NULL = ANY (SELECT * FROM (SELECT 1 WHERE false))",
-                "SELECT NULL != ALL (SELECT * FROM (SELECT CAST(NULL AS INTEGER)))",
-                "SELECT NULL = ANY (SELECT * FROM (SELECT CAST(NULL AS INTEGER)))",
-                "SELECT NULL = ANY (SELECT * FROM (VALUES (1), (NULL)))",
-                "SELECT NULL != ALL (SELECT * FROM (VALUES (1), (NULL)))"
-        );
-        Predicate<String> isExcluded = excludedInPredicateQueries::contains;
-        return toArgumentsArrays(queries.filter(isExcluded.negate()).map(Arguments::of));
+        return toArgumentsArrays(queries.map(Arguments::of));
     }
 
     @Test
