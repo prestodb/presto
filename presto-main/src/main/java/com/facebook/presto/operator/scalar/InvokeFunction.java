@@ -25,6 +25,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -78,6 +79,8 @@ public final class InvokeFunction
         return new ScalarFunctionImplementation(
                 true,
                 ImmutableList.of(false),
+                ImmutableList.of(false),
+                ImmutableList.of(Optional.of(MethodHandle.class)),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(wrap(returnType.getJavaType()))),

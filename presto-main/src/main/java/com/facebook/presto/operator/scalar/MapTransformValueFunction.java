@@ -44,6 +44,7 @@ import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -117,6 +118,8 @@ public final class MapTransformValueFunction
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(false, false),
+                ImmutableList.of(false, false),
+                ImmutableList.of(Optional.empty(), Optional.of(MethodHandle.class)),
                 generateTransform(keyType, valueType, transformedValueType, resultMapType),
                 isDeterministic());
     }
