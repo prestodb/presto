@@ -227,7 +227,7 @@ public final class JsonOperators
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(REAL)
-    public static Long castToFloat(@SqlType(JSON) Slice json)
+    public static Long castToReal(@SqlType(JSON) Slice json)
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
