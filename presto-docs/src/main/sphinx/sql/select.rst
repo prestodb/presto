@@ -763,12 +763,6 @@ standard rules for nulls. The subquery must produce exactly one column::
     FROM nation
     WHERE regionkey IN (SELECT regionkey FROM region)
 
-.. note::
-
-    Currently, the expression on the left hand side of ``IN`` must
-    not be ``NULL`` for any of the queried rows. Otherwise, the query will fail.
-    This limitation is needed to ensure correct results and may be dropped in the future.
-
 Scalar Subquery
 ^^^^^^^^^^^^^^^
 

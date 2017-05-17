@@ -70,7 +70,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
@@ -82,7 +81,6 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -838,30 +836,12 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
 
-            Expression sourceEffectivePredicate = EffectivePredicateExtractor.extract(node.getSource(), symbolAllocator.getTypes());
-
             List<Expression> sourceConjuncts = new ArrayList<>();
-            List<Expression> filteringSourceConjuncts = new ArrayList<>();
             List<Expression> postJoinConjuncts = new ArrayList<>();
 
             // TODO: see if there are predicates that can be inferred from the semi join output
 
-            // Push inherited and source predicates to filtering source via a contrived join predicate (but needs to avoid touching NULL values in the filtering source)
-            Expression joinPredicate = equalsExpression(node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol());
-            EqualityInference joinInference = createEqualityInference(inheritedPredicate, sourceEffectivePredicate, joinPredicate);
-            for (Expression conjunct : Iterables.concat(EqualityInference.nonInferrableConjuncts(inheritedPredicate), EqualityInference.nonInferrableConjuncts(sourceEffectivePredicate))) {
-                Expression rewrittenConjunct = joinInference.rewriteExpression(conjunct, equalTo(node.getFilteringSourceJoinSymbol()));
-                if (rewrittenConjunct != null && DeterminismEvaluator.isDeterministic(rewrittenConjunct)) {
-                    // Alter conjunct to include an OR filteringSourceJoinSymbol IS NULL disjunct
-                    Expression rewrittenConjunctOrNull = expressionOrNullSymbols(Predicate.isEqual(node.getFilteringSourceJoinSymbol())).apply(rewrittenConjunct);
-                    filteringSourceConjuncts.add(rewrittenConjunctOrNull);
-                }
-            }
-            EqualityInference.EqualityPartition joinInferenceEqualityPartition = joinInference.generateEqualitiesPartitionedBy(equalTo(node.getFilteringSourceJoinSymbol()));
-
-            filteringSourceConjuncts.addAll(joinInferenceEqualityPartition.getScopeEqualities().stream()
-                    .map(expressionOrNullSymbols(Predicate.isEqual(node.getFilteringSourceJoinSymbol())))
-                    .collect(Collectors.toList()));
+            PlanNode rewrittenFilteringSource = context.defaultRewrite(node.getFilteringSource(), BooleanLiteral.TRUE_LITERAL);
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             EqualityInference inheritedInference = createEqualityInference(inheritedPredicate);
@@ -883,7 +863,6 @@ public class PredicatePushDown
             postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
             PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(sourceConjuncts));
-            PlanNode rewrittenFilteringSource = context.rewrite(node.getFilteringSource(), combineConjuncts(filteringSourceConjuncts));
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {

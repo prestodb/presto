@@ -153,9 +153,3 @@ Expression              Meaning
 ====================    ===========
 
 ``ANY`` and ``SOME`` have the same meaning and can be used interchangeably.
-
-.. note::
-
-    Currently, the expression ``A`` in ``A = ANY (...)`` or ``A <> ALL (...)``
-    must not be ``NULL`` for any of the queried rows. Otherwise, the query will fail.
-    This limitation is needed to ensure correct results and may be dropped in the future.
