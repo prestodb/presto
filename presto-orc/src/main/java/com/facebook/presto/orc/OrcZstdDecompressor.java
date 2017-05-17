@@ -16,7 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.zstd.ZstdDecompressor;
 import io.airlift.compress.MalformedInputException;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 class OrcZstdDecompressor
@@ -36,11 +36,13 @@ class OrcZstdDecompressor
     public int decompress(byte[] input, int offset, int length, OutputBuffer output)
             throws OrcCorruptionException
     {
-        int uncompressedLength = (int) ZstdDecompressor.getDecompressedSize(input, offset, length);
-        checkArgument(uncompressedLength <= maxBufferSize, "Zstd requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
-
         try {
-            byte[] buffer = output.initialize(uncompressedLength);
+            long uncompressedLength = ZstdDecompressor.getDecompressedSize(input, offset, length);
+            if (uncompressedLength > maxBufferSize) {
+                throw new OrcCorruptionException(orcDataSourceId, "Zstd requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
+            }
+
+            byte[] buffer = output.initialize(toIntExact(uncompressedLength));
             return decompressor.decompress(input, offset, length, buffer, 0, buffer.length);
         }
         catch (MalformedInputException e) {

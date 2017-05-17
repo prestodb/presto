@@ -16,7 +16,6 @@ package com.facebook.presto.orc;
 import io.airlift.compress.MalformedInputException;
 import io.airlift.compress.snappy.SnappyDecompressor;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Objects.requireNonNull;
 
@@ -37,10 +36,12 @@ class OrcSnappyDecompressor
     public int decompress(byte[] input, int offset, int length, OutputBuffer output)
             throws OrcCorruptionException
     {
-        int uncompressedLength = SnappyDecompressor.getUncompressedLength(input, offset);
-        checkArgument(uncompressedLength <= maxBufferSize, "Snappy requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
-
         try {
+            int uncompressedLength = SnappyDecompressor.getUncompressedLength(input, offset);
+            if (uncompressedLength > maxBufferSize) {
+                throw new OrcCorruptionException(orcDataSourceId, "Snappy requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
+            }
+
             // Snappy decompressor is more efficient if there's at least a long's worth of extra space
             // in the output buffer
             byte[] buffer = output.initialize(uncompressedLength + SIZE_OF_LONG);
