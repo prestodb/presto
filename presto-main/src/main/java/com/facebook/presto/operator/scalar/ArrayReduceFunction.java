@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -38,7 +37,7 @@ public final class ArrayReduceFunction
 {
     public static final ArrayReduceFunction ARRAY_REDUCE_FUNCTION = new ArrayReduceFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayReduceFunction.class, "reduce", Type.class, ConnectorSession.class, Block.class, Object.class, MethodHandle.class, MethodHandle.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayReduceFunction.class, "reduce", Type.class, Block.class, Object.class, MethodHandle.class, MethodHandle.class);
 
     private ArrayReduceFunction()
     {
@@ -82,14 +81,13 @@ public final class ArrayReduceFunction
                 ImmutableList.of(false, true, false, false),
                 methodHandle.asType(
                         methodHandle.type()
-                                .changeParameterType(2, Primitives.wrap(intermediateType.getJavaType()))
+                                .changeParameterType(1, Primitives.wrap(intermediateType.getJavaType()))
                                 .changeReturnType(Primitives.wrap(outputType.getJavaType()))),
                 isDeterministic());
     }
 
     public static Object reduce(
             Type inputType,
-            ConnectorSession session,
             Block block,
             Object initialIntermediateValue,
             MethodHandle inputFunction,
@@ -100,14 +98,14 @@ public final class ArrayReduceFunction
         for (int position = 0; position < positionCount; position++) {
             Object input = readNativeValue(inputType, block, position);
             try {
-                intermediateValue = inputFunction.invoke(session, intermediateValue, input);
+                intermediateValue = inputFunction.invoke(intermediateValue, input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
             }
         }
         try {
-            return outputFunction.invoke(session, intermediateValue);
+            return outputFunction.invoke(intermediateValue);
         }
         catch (Throwable throwable) {
             throw Throwables.propagate(throwable);

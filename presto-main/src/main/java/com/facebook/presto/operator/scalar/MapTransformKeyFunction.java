@@ -213,7 +213,7 @@ public final class MapTransformKeyFunction
         BytecodeNode throwDuplicatedKeyException;
         if (!transformedKeyType.equals(UNKNOWN)) {
             writeKeyElement = new BytecodeBlock()
-                    .append(transformedKeyElement.set(function.invoke("invokeExact", transformedKeyJavaType, session, keyElement, valueElement)))
+                    .append(transformedKeyElement.set(function.invoke("invokeExact", transformedKeyJavaType, keyElement, valueElement)))
                     .append(new IfStatement()
                             .condition(equal(transformedKeyElement, constantNull(transformedKeyJavaType)))
                             .ifTrue(throwNullKeyException)

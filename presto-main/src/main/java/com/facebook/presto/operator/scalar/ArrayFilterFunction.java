@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -41,7 +40,6 @@ public final class ArrayFilterFunction
     @SqlType("array(T)")
     public static Block filterLong(
             @TypeParameter("T") Type elementType,
-            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -55,7 +53,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(session, input);
+                keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -72,7 +70,6 @@ public final class ArrayFilterFunction
     @SqlType("array(T)")
     public static Block filterDouble(
             @TypeParameter("T") Type elementType,
-            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -86,7 +83,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(session, input);
+                keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -103,7 +100,6 @@ public final class ArrayFilterFunction
     @SqlType("array(T)")
     public static Block filterBoolean(
             @TypeParameter("T") Type elementType,
-            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -117,7 +113,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(session, input);
+                keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -134,7 +130,6 @@ public final class ArrayFilterFunction
     @SqlType("array(T)")
     public static Block filterSlice(
             @TypeParameter("T") Type elementType,
-            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -148,7 +143,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(session, input);
+                keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -165,7 +160,6 @@ public final class ArrayFilterFunction
     @SqlType("array(T)")
     public static Block filterBlock(
             @TypeParameter("T") Type elementType,
-            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -179,7 +173,7 @@ public final class ArrayFilterFunction
 
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(session, input);
+                keep = (Boolean) function.invokeExact(input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -196,7 +190,6 @@ public final class ArrayFilterFunction
     @SqlType("array(T)")
     public static Block filterVoid(
             @TypeParameter("T") Type elementType,
-            ConnectorSession session,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") MethodHandle function)
     {
@@ -205,7 +198,7 @@ public final class ArrayFilterFunction
         for (int position = 0; position < positionCount; position++) {
             Boolean keep;
             try {
-                keep = (Boolean) function.invokeExact(session, null);
+                keep = (Boolean) function.invokeExact(null);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
