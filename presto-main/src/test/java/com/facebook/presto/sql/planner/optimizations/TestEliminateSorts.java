@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
@@ -63,9 +65,10 @@ public class TestEliminateSorts
 
         PlanMatchPattern pattern =
                 output(
-                        window(windowSpec,
-                                ImmutableList.of(functionCall("row_number", Optional.empty(), ImmutableList.of())),
-                                anyTree(LINEITEM_TABLESCAN_Q)));
+                        exchange(
+                                ExchangeNode.Scope.REMOTE,
+                                ExchangeNode.Type.GATHER,
+                                        window(windowSpec, ImmutableList.of(functionCall("row_number", Optional.empty(), ImmutableList.of())), anyTree(LINEITEM_TABLESCAN_Q))));
 
         assertUnitPlan(sql, pattern);
     }
