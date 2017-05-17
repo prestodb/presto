@@ -68,7 +68,7 @@ public class TestLocalQueries
             throws Exception
     {
         // FIXME Add tests for more complex scenario with more stats
-        MaterializedResult result = computeActual("SHOW STATS nation");
+        MaterializedResult result = computeActual("SHOW STATS FOR nation");
 
         MaterializedResult expectedStatistics = resultBuilder(getSession(), VARCHAR, DOUBLE)
                 .row(null, 25.0)

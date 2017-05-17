@@ -1820,7 +1820,6 @@ public class TestSqlParser
 
         for (String fullName : tableNames) {
             QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
-            assertStatement(format("SHOW STATS %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
             assertStatement(format("SHOW STATS FOR %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
             assertStatement(format("SHOW STATS ON %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
         }
