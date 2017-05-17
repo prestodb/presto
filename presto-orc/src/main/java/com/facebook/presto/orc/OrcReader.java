@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
+import com.facebook.presto.orc.metadata.ExceptionWrappingMetadataReader;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
@@ -52,7 +53,7 @@ public class OrcReader
     private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
 
     private final OrcDataSource orcDataSource;
-    private final MetadataReader metadataReader;
+    private final ExceptionWrappingMetadataReader metadataReader;
     private final DataSize maxMergeDistance;
     private final DataSize maxReadSize;
     private final HiveWriterVersion hiveWriterVersion;
@@ -67,7 +68,7 @@ public class OrcReader
     {
         orcDataSource = wrapWithCacheIfTiny(requireNonNull(orcDataSource, "orcDataSource is null"), maxMergeDistance);
         this.orcDataSource = orcDataSource;
-        this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
+        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), requireNonNull(metadataReader, "metadataReader is null"));
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxReadSize = requireNonNull(maxReadSize, "maxReadSize is null");
 
