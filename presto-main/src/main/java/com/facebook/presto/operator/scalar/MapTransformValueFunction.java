@@ -27,7 +27,6 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -136,14 +135,13 @@ public final class MapTransformValueFunction
         definition.declareDefaultConstructor(a(PRIVATE));
 
         // define transform method
-        Parameter session = arg("session", ConnectorSession.class);
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", MethodHandle.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "transform",
                 type(Block.class),
-                ImmutableList.of(session, block, function));
+                ImmutableList.of(block, function));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -215,13 +213,13 @@ public final class MapTransformValueFunction
                 .body(new BytecodeBlock()
                         .append(loadKeyElement)
                         .append(loadValueElement)
-                        .append(transformedValueElement.set(function.invoke("invokeExact", transformedValueJavaType, session, keyElement, valueElement)))
+                        .append(transformedValueElement.set(function.invoke("invokeExact", transformedValueJavaType, keyElement, valueElement)))
                         .append(keySqlType.invoke("appendTo", void.class, block, position, blockBuilder))
                         .append(writeTransformedValueElement)));
 
         body.append(blockBuilder.invoke("build", Block.class).ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformValueFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "transform", ConnectorSession.class, Block.class, MethodHandle.class);
+        return methodHandle(generatedClass, "transform", Block.class, MethodHandle.class);
     }
 }

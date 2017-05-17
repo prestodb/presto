@@ -68,7 +68,7 @@ public class BindCodeGenerator
                                                 "insertArguments",
                                                 MethodHandle.class,
                                                 functionVariable,
-                                                constantInt(1),
+                                                constantInt(0),
                                                 newArray(type(Object[].class), ImmutableList.of(valueVariable.cast(Object.class)))))));
 
         return block;

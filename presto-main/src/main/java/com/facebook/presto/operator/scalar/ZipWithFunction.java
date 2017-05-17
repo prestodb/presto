@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -42,7 +41,7 @@ public final class ZipWithFunction
 {
     public static final ZipWithFunction ZIP_WITH_FUNCTION = new ZipWithFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ZipWithFunction.class, "zipWith", Type.class, Type.class, Type.class, ConnectorSession.class, Block.class, Block.class, MethodHandle.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ZipWithFunction.class, "zipWith", Type.class, Type.class, Type.class, Block.class, Block.class, MethodHandle.class);
 
     private ZipWithFunction()
     {
@@ -87,7 +86,7 @@ public final class ZipWithFunction
                 isDeterministic());
     }
 
-    public static Block zipWith(Type leftElementType, Type rightElementType, Type outputElementType, ConnectorSession session, Block leftBlock, Block rightBlock, MethodHandle function)
+    public static Block zipWith(Type leftElementType, Type rightElementType, Type outputElementType, Block leftBlock, Block rightBlock, MethodHandle function)
     {
         checkCondition(leftBlock.getPositionCount() == rightBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Arrays must have the same length");
         BlockBuilder resultBuilder = outputElementType.createBlockBuilder(new BlockBuilderStatus(), leftBlock.getPositionCount());
@@ -96,7 +95,7 @@ public final class ZipWithFunction
             Object right = readNativeValue(rightElementType, rightBlock, position);
             Object output;
             try {
-                output = function.invoke(session, left, right);
+                output = function.invoke(left, right);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);

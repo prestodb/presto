@@ -24,6 +24,8 @@ import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 
+import java.lang.invoke.MethodHandle;
+
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.bytecode.instruction.Constant.loadDouble;
@@ -191,7 +193,8 @@ public class BytecodeExpressionVisitor
     {
         checkState(preGeneratedExpressions.getLambdaFieldMap().containsKey(lambda), "lambda expressions map does not contain this lambda definition");
 
-        return scope.getThis().getField(preGeneratedExpressions.getLambdaFieldMap().get(lambda).getInstanceField());
+        return scope.getThis().getField(preGeneratedExpressions.getLambdaFieldMap().get(lambda).getInstanceField())
+                .invoke("bindTo", MethodHandle.class, scope.getVariable("session").cast(Object.class));
     }
 
     @Override
