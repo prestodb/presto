@@ -188,7 +188,9 @@ public class PlanOptimizers
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         stats,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PushAggregationThroughOuterJoin())
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new PushAggregationThroughOuterJoin())
                 ),
                 inlineProjections,
                 new SimplifyExpressions(metadata, sqlParser), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
