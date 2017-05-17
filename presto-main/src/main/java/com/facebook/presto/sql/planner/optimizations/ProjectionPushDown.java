@@ -163,7 +163,7 @@ public class ProjectionPushDown
                     exchange.getPartitioningScheme().getPartitioning(),
                     outputBuilder.build(),
                     exchange.getPartitioningScheme().getHashColumn(),
-                    exchange.getPartitioningScheme().isReplicateNulls(),
+                    exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                     exchange.getPartitioningScheme().getBucketToPartition());
 
             return new ExchangeNode(

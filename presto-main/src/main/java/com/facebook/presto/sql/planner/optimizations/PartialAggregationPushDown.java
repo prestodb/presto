@@ -108,7 +108,7 @@ public class PartialAggregationPushDown
             // the cardinality of the stream (i.e., gather or repartition)
             ExchangeNode exchange = (ExchangeNode) child;
             if ((exchange.getType() != GATHER && exchange.getType() != REPARTITION) ||
-                    exchange.getPartitioningScheme().isReplicateNulls()) {
+                    exchange.getPartitioningScheme().isReplicateNullsAndAny()) {
                 return context.defaultRewrite(node);
             }
 
@@ -186,7 +186,7 @@ public class PartialAggregationPushDown
                     exchange.getPartitioningScheme().getPartitioning(),
                     partial.getOutputSymbols(),
                     exchange.getPartitioningScheme().getHashColumn(),
-                    exchange.getPartitioningScheme().isReplicateNulls(),
+                    exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                     exchange.getPartitioningScheme().getBucketToPartition());
 
             return new ExchangeNode(
