@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -79,6 +80,8 @@ public final class ArrayReduceFunction
         return new ScalarFunctionImplementation(
                 true,
                 ImmutableList.of(false, true, false, false),
+                ImmutableList.of(false, false, false, false),
+                ImmutableList.of(Optional.empty(), Optional.empty(), Optional.of(MethodHandle.class), Optional.of(MethodHandle.class)),
                 methodHandle.asType(
                         methodHandle.type()
                                 .changeParameterType(1, Primitives.wrap(intermediateType.getJavaType()))

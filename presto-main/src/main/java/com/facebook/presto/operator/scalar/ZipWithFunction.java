@@ -27,6 +27,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -82,6 +83,8 @@ public final class ZipWithFunction
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(false, false, false),
+                ImmutableList.of(false, false, false),
+                ImmutableList.of(Optional.empty(), Optional.empty(), Optional.of(MethodHandle.class)),
                 METHOD_HANDLE.bindTo(leftElementType).bindTo(rightElementType).bindTo(outputElementType),
                 isDeterministic());
     }

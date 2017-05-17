@@ -108,6 +108,7 @@ public final class ArrayTransformFunction
                 false,
                 ImmutableList.of(false, false),
                 ImmutableList.of(false, false),
+                ImmutableList.of(Optional.empty(), Optional.of(MethodHandle.class)),
                 methodHandle(generatedClass, "transform", PageBuilder.class, Block.class, MethodHandle.class),
                 Optional.of(methodHandle(generatedClass, "createPageBuilder")),
                 isDeterministic());

@@ -33,6 +33,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.Constraint;
+import com.facebook.presto.type.FunctionType;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,6 +78,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -94,6 +96,7 @@ public class ScalarImplementation
     private final boolean nullable;
     private final List<Boolean> nullableArguments;
     private final List<Boolean> nullFlags;
+    private final List<Optional<Class>> lambdaInterface;
     private final MethodHandle methodHandle;
     private final List<ImplementationDependency> dependencies;
     private final Optional<MethodHandle> constructor;
@@ -106,6 +109,7 @@ public class ScalarImplementation
             boolean nullable,
             List<Boolean> nullableArguments,
             List<Boolean> nullFlags,
+            List<Optional<Class>> lambdaInterface,
             MethodHandle methodHandle,
             List<ImplementationDependency> dependencies,
             Optional<MethodHandle> constructor,
@@ -117,6 +121,7 @@ public class ScalarImplementation
         this.nullable = nullable;
         this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
         this.nullFlags = ImmutableList.copyOf(requireNonNull(nullFlags, "nullFlags is null"));
+        this.lambdaInterface = ImmutableList.copyOf(requireNonNull(lambdaInterface, "lambdaInterface is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.dependencies = ImmutableList.copyOf(requireNonNull(dependencies, "dependencies is null"));
         this.constructor = requireNonNull(constructor, "constructor is null");
@@ -215,6 +220,11 @@ public class ScalarImplementation
     public List<Boolean> getNullFlags()
     {
         return nullFlags;
+    }
+
+    public List<Optional<Class>> getLambdaInterface()
+    {
+        return lambdaInterface;
     }
 
     public MethodHandle getMethodHandle()
@@ -346,6 +356,7 @@ public class ScalarImplementation
         private final boolean nullable;
         private final List<Boolean> nullableArguments = new ArrayList<>();
         private final List<Boolean> nullFlags = new ArrayList<>();
+        private final List<Optional<Class>> lambdaInterface = new ArrayList<>();
         private final TypeSignature returnType;
         private final List<TypeSignature> argumentTypes = new ArrayList<>();
         private final List<Class<?>> argumentNativeContainerTypes = new ArrayList<>();
@@ -437,6 +448,7 @@ public class ScalarImplementation
                             .map(SqlType.class::cast)
                             .findFirst()
                             .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", method)));
+                    TypeSignature typeSignature = parseTypeSignature(type.value(), literalParameters);
                     boolean nullableArgument = Stream.of(annotations).anyMatch(SqlNullable.class::isInstance);
                     checkArgument(nullableArgument || !containsLegacyNullable(annotations), "Method [%s] has parameter annotated with @Nullable but not @SqlNullable", method);
 
@@ -470,14 +482,22 @@ public class ScalarImplementation
                         specializedTypeParameters.put(type.value(), nativeParameterType);
                     }
                     argumentNativeContainerTypes.add(parameterType);
-                    argumentTypes.add(parseTypeSignature(type.value(), literalParameters));
+                    argumentTypes.add(typeSignature);
 
                     if (hasNullFlag) {
                         // skip @IsNull parameter
                         i++;
                     }
+
                     nullableArguments.add(nullableArgument);
                     nullFlags.add(hasNullFlag);
+                    if (typeSignature.getBase().equals(FunctionType.NAME)) {
+                        checkCondition(parameterType.equals(MethodHandle.class) || parameterType.isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", i, methodHandle);
+                        lambdaInterface.add(Optional.of(parameterType));
+                    }
+                    else {
+                        lambdaInterface.add(Optional.empty());
+                    }
                 }
             }
         }
@@ -658,6 +678,7 @@ public class ScalarImplementation
                     nullable,
                     nullableArguments,
                     nullFlags,
+                    lambdaInterface,
                     methodHandle,
                     dependencies,
                     constructorMethodHandle,
