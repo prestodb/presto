@@ -14,7 +14,11 @@
 package com.facebook.presto.raptor.backup;
 
 import com.facebook.presto.raptor.storage.BackupStats;
+import com.facebook.presto.raptor.storage.StorageService;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Throwables;
+import com.google.common.io.Files;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Flatten;
@@ -30,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -40,23 +45,27 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class BackupManager
 {
+    private static final Logger log = Logger.get(BackupManager.class);
+
     private final Optional<BackupStore> backupStore;
+    private final StorageService storageService;
     private final ExecutorService executorService;
 
     private final AtomicInteger pendingBackups = new AtomicInteger();
     private final BackupStats stats = new BackupStats();
 
     @Inject
-    public BackupManager(Optional<BackupStore> backupStore, BackupConfig config)
+    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, BackupConfig config)
     {
-        this(backupStore, config.getBackupThreads());
+        this(backupStore, storageService, config.getBackupThreads());
     }
 
-    public BackupManager(Optional<BackupStore> backupStore, int backupThreads)
+    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, int backupThreads)
     {
         checkArgument(backupThreads > 0, "backupThreads must be > 0");
 
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
+        this.storageService = requireNonNull(storageService, "storageService is null");
         this.executorService = newFixedThreadPool(backupThreads, daemonThreadsNamed("background-shard-backup-%s"));
     }
 
@@ -104,6 +113,29 @@ public class BackupManager
 
                 backupStore.get().backupShard(uuid, source);
                 stats.addCopyShardDataRate(new DataSize(source.length(), BYTE), Duration.nanosSince(start));
+
+                File restored = new File(storageService.getStagingFile(uuid) + ".validate");
+                backupStore.get().restoreShard(uuid, restored);
+
+                if (!Files.equal(source, restored)) {
+                    stats.incrementBackupCorruption();
+
+                    File quarantineBase = storageService.getQuarantineFile(uuid);
+                    File quarantineOriginal = new File(quarantineBase.getPath() + ".original");
+                    File quarantineRestored = new File(quarantineBase.getPath() + ".restored");
+
+                    log.error("Backup is corrupt after write. Quarantining local file: %s", quarantineBase);
+                    if (!source.renameTo(quarantineOriginal) || !restored.renameTo(quarantineRestored)) {
+                        log.warn("Quarantine of corrupt backup shard failed: %s", uuid);
+                    }
+
+                    throw new PrestoException(RAPTOR_BACKUP_CORRUPTION, "Backup is corrupt after write: " + uuid);
+                }
+
+                if (!restored.delete()) {
+                    log.warn("Failed to delete staging file: %s", restored);
+                }
+
                 stats.incrementBackupSuccess();
             }
             catch (Throwable t) {

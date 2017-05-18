@@ -34,6 +34,7 @@ public class BackupStats
 
     private final CounterStat backupSuccess = new CounterStat();
     private final CounterStat backupFailure = new CounterStat();
+    private final CounterStat backupCorruption = new CounterStat();
 
     public void addCopyShardDataRate(DataSize size, Duration duration)
     {
@@ -56,6 +57,11 @@ public class BackupStats
     public void incrementBackupFailure()
     {
         backupFailure.update(1);
+    }
+
+    public void incrementBackupCorruption()
+    {
+        backupCorruption.update(1);
     }
 
     @Managed
@@ -98,5 +104,12 @@ public class BackupStats
     public CounterStat getBackupFailure()
     {
         return backupFailure;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getBackupCorruption()
+    {
+        return backupCorruption;
     }
 }

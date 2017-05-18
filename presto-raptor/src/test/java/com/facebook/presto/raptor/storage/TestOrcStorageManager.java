@@ -56,6 +56,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -96,6 +97,7 @@ import static java.lang.String.format;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertDirectory;
@@ -377,13 +379,18 @@ public class TestOrcStorageManager
 
         // verify shard exists in staging
         String[] files = staging.list();
-        assertEquals(files.length, 1);
-        assertTrue(files[0].endsWith(".orc"));
+        assertNotNull(files);
+        String stagingFile = Arrays.stream(files)
+                .filter(file -> file.endsWith(".orc"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("file not found in staging"));
 
         // rollback should cleanup staging files
         sink.rollback();
 
-        assertEquals(staging.list(), new String[] {});
+        files = staging.list();
+        assertNotNull(files);
+        assertTrue(Arrays.stream(files).noneMatch(stagingFile::equals));
     }
 
     @Test
@@ -601,7 +608,7 @@ public class TestOrcStorageManager
                 storageService,
                 backupStore,
                 READER_ATTRIBUTES,
-                new BackupManager(backupStore, 1),
+                new BackupManager(backupStore, storageService, 1),
                 recoveryManager,
                 shardRecorder,
                 new TypeRegistry(),
