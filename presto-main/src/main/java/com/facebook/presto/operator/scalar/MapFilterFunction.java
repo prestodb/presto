@@ -37,6 +37,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
+import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
@@ -114,7 +115,7 @@ public final class MapFilterFunction
                 false,
                 ImmutableList.of(false, false),
                 ImmutableList.of(false, false),
-                ImmutableList.of(Optional.empty(), Optional.of(MethodHandle.class)),
+                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
                 generateFilter(keyType, valueType, mapType),
                 isDeterministic());
     }
@@ -132,7 +133,7 @@ public final class MapFilterFunction
         definition.declareDefaultConstructor(a(PRIVATE));
 
         Parameter block = arg("block", Block.class);
-        Parameter function = arg("function", MethodHandle.class);
+        Parameter function = arg("function", BinaryFunctionInterface.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "filter",
@@ -187,7 +188,7 @@ public final class MapFilterFunction
                 .body(new BytecodeBlock()
                         .append(loadKeyElement)
                         .append(loadValueElement)
-                        .append(keep.set(function.invoke("invokeExact", Boolean.class, keyElement, valueElement)))
+                        .append(keep.set(function.invoke("apply", Object.class, keyElement.cast(Object.class), valueElement.cast(Object.class)).cast(Boolean.class)))
                         .append(new IfStatement("if (keep != null && keep) ...")
                                 .condition(and(notEqual(keep, constantNull(Boolean.class)), keep.cast(boolean.class)))
                                 .ifTrue(new BytecodeBlock()
@@ -197,6 +198,6 @@ public final class MapFilterFunction
         body.append(blockBuilder.invoke("build", Block.class).ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapFilterFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "filter", Block.class, MethodHandle.class);
+        return methodHandle(generatedClass, "filter", Block.class, BinaryFunctionInterface.class);
     }
 }

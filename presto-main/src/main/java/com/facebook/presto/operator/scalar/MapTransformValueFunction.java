@@ -39,6 +39,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
+import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
@@ -119,7 +120,7 @@ public final class MapTransformValueFunction
                 false,
                 ImmutableList.of(false, false),
                 ImmutableList.of(false, false),
-                ImmutableList.of(Optional.empty(), Optional.of(MethodHandle.class)),
+                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
                 generateTransform(keyType, valueType, transformedValueType, resultMapType),
                 isDeterministic());
     }
@@ -139,7 +140,7 @@ public final class MapTransformValueFunction
 
         // define transform method
         Parameter block = arg("block", Block.class);
-        Parameter function = arg("function", MethodHandle.class);
+        Parameter function = arg("function", BinaryFunctionInterface.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "transform",
@@ -216,13 +217,13 @@ public final class MapTransformValueFunction
                 .body(new BytecodeBlock()
                         .append(loadKeyElement)
                         .append(loadValueElement)
-                        .append(transformedValueElement.set(function.invoke("invokeExact", transformedValueJavaType, keyElement, valueElement)))
+                        .append(transformedValueElement.set(function.invoke("apply", Object.class, keyElement.cast(Object.class), valueElement.cast(Object.class)).cast(transformedValueJavaType)))
                         .append(keySqlType.invoke("appendTo", void.class, block, position, blockBuilder))
                         .append(writeTransformedValueElement)));
 
         body.append(blockBuilder.invoke("build", Block.class).ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformValueFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "transform", Block.class, MethodHandle.class);
+        return methodHandle(generatedClass, "transform", Block.class, BinaryFunctionInterface.class);
     }
 }
