@@ -60,8 +60,7 @@ public final class PreparedStatementBuilder
             List<Type> types,
             Set<Integer> uuidColumnIndexes,
             TupleDomain<Integer> tupleDomain,
-            Optional<String> additionalFixedCondition
-            )
+            Optional<String> additionalFixedCondition)
             throws SQLException
     {
         checkArgument(!isNullOrEmpty(sql), "sql is null or empty");
@@ -88,24 +87,20 @@ public final class PreparedStatementBuilder
             List<Type> types,
             Set<Integer> uuidColumnIndexes,
             List<ValueBuffer> bindValues,
-            Optional<String> additionalCondition
-            )
+            Optional<String> additionalFixedCondition)
     {
-        if (tupleDomain.isNone() && !additionalCondition.isPresent()) {
-            return "";
+        ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
+        if (!tupleDomain.isNone()) {
+            Map<Integer, Domain> domainMap = tupleDomain.getDomains().get();
+            for (Map.Entry<Integer, Domain> entry : domainMap.entrySet()) {
+                int index = entry.getKey();
+                String columnName = columnNames.get(index);
+                Type type = types.get(index);
+                conjunctsBuilder.add(toPredicate(index, columnName, type, entry.getValue(), uuidColumnIndexes, bindValues));
+            }
         }
 
-        ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
-        Map<Integer, Domain> domainMap = tupleDomain.getDomains().get();
-        for (Map.Entry<Integer, Domain> entry : domainMap.entrySet()) {
-            int index = entry.getKey();
-            String columnName = columnNames.get(index);
-            Type type = types.get(index);
-            conjunctsBuilder.add(toPredicate(index, columnName, type, entry.getValue(), uuidColumnIndexes, bindValues));
-        }
-        if (additionalCondition.isPresent()) {
-            conjunctsBuilder.add(additionalCondition.get());
-        }
+        additionalFixedCondition.ifPresent(condition -> conjunctsBuilder.add(condition));
         List<String> conjuncts = conjunctsBuilder.build();
 
         if (conjuncts.isEmpty()) {
