@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.iterative.rule.test;
+package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
