@@ -29,6 +29,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.raptor.util.DatabaseUtil.enableStreamingResults;
@@ -58,13 +59,15 @@ public final class PreparedStatementBuilder
             List<String> columnNames,
             List<Type> types,
             Set<Integer> uuidColumnIndexes,
-            TupleDomain<Integer> tupleDomain)
+            TupleDomain<Integer> tupleDomain,
+            Optional<String> additionalFixedCondition
+            )
             throws SQLException
     {
         checkArgument(!isNullOrEmpty(sql), "sql is null or empty");
 
         List<ValueBuffer> bindValues = new ArrayList<>(256);
-        sql += getWhereClause(tupleDomain, columnNames, types, uuidColumnIndexes, bindValues);
+        sql += getWhereClause(tupleDomain, columnNames, types, uuidColumnIndexes, bindValues, additionalFixedCondition);
 
         PreparedStatement statement = connection.prepareStatement(sql, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY);
         enableStreamingResults(statement);
@@ -84,9 +87,11 @@ public final class PreparedStatementBuilder
             List<String> columnNames,
             List<Type> types,
             Set<Integer> uuidColumnIndexes,
-            List<ValueBuffer> bindValues)
+            List<ValueBuffer> bindValues,
+            Optional<String> additionalCondition
+            )
     {
-        if (tupleDomain.isNone()) {
+        if (tupleDomain.isNone() && !additionalCondition.isPresent()) {
             return "";
         }
 
@@ -97,6 +102,9 @@ public final class PreparedStatementBuilder
             String columnName = columnNames.get(index);
             Type type = types.get(index);
             conjunctsBuilder.add(toPredicate(index, columnName, type, entry.getValue(), uuidColumnIndexes, bindValues));
+        }
+        if (additionalCondition.isPresent()) {
+            conjunctsBuilder.add(additionalCondition.get());
         }
         List<String> conjuncts = conjunctsBuilder.build();
 
