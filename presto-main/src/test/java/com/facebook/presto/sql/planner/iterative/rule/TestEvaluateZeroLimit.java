@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.iterative.rule.test;
+package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
-import com.facebook.presto.sql.planner.plan.SampleNode.Type;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -22,13 +21,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
-public class TestRemoveFullSample
+public class TestEvaluateZeroLimit
 {
     private RuleTester tester;
 
@@ -49,11 +47,10 @@ public class TestRemoveFullSample
     public void testDoesNotFire()
             throws Exception
     {
-        tester.assertThat(new RemoveFullSample())
+        tester.assertThat(new EvaluateZeroLimit())
                 .on(p ->
-                        p.sample(
-                                0.15,
-                                Type.BERNOULLI,
+                        p.limit(
+                                1,
                                 p.values(p.symbol("a", BIGINT))))
                 .doesNotFire();
     }
@@ -62,11 +59,10 @@ public class TestRemoveFullSample
     public void test()
             throws Exception
     {
-        tester.assertThat(new RemoveFullSample())
+        tester.assertThat(new EvaluateZeroLimit())
                 .on(p ->
-                        p.sample(
-                                1.0,
-                                Type.BERNOULLI,
+                        p.limit(
+                                0,
                                 p.filter(
                                         expression("b > 5"),
                                         p.values(
@@ -75,6 +71,6 @@ public class TestRemoveFullSample
                                                         expressions("1", "10"),
                                                         expressions("2", "11"))))))
                 // TODO: verify contents
-                .matches(filter("b > 5", values(ImmutableMap.of("a", 0, "b", 1))));
+                .matches(values(ImmutableMap.of()));
     }
 }

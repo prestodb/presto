@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.iterative.rule.test;
+package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.SampleNode.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,12 +22,13 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
-public class TestEvaluateZeroSample
+public class TestRemoveFullSample
 {
     private RuleTester tester;
 
@@ -48,7 +49,7 @@ public class TestEvaluateZeroSample
     public void testDoesNotFire()
             throws Exception
     {
-        tester.assertThat(new EvaluateZeroSample())
+        tester.assertThat(new RemoveFullSample())
                 .on(p ->
                         p.sample(
                                 0.15,
@@ -61,10 +62,10 @@ public class TestEvaluateZeroSample
     public void test()
             throws Exception
     {
-        tester.assertThat(new EvaluateZeroSample())
+        tester.assertThat(new RemoveFullSample())
                 .on(p ->
                         p.sample(
-                                0,
+                                1.0,
                                 Type.BERNOULLI,
                                 p.filter(
                                         expression("b > 5"),
@@ -74,6 +75,6 @@ public class TestEvaluateZeroSample
                                                         expressions("1", "10"),
                                                         expressions("2", "11"))))))
                 // TODO: verify contents
-                .matches(values(ImmutableMap.of()));
+                .matches(filter("b > 5", values(ImmutableMap.of("a", 0, "b", 1))));
     }
 }

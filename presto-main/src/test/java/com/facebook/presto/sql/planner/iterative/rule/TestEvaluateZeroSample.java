@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.iterative.rule.test;
+package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.plan.SampleNode.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -26,7 +27,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.ex
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
-public class TestEvaluateZeroLimit
+public class TestEvaluateZeroSample
 {
     private RuleTester tester;
 
@@ -47,10 +48,11 @@ public class TestEvaluateZeroLimit
     public void testDoesNotFire()
             throws Exception
     {
-        tester.assertThat(new EvaluateZeroLimit())
+        tester.assertThat(new EvaluateZeroSample())
                 .on(p ->
-                        p.limit(
-                                1,
+                        p.sample(
+                                0.15,
+                                Type.BERNOULLI,
                                 p.values(p.symbol("a", BIGINT))))
                 .doesNotFire();
     }
@@ -59,10 +61,11 @@ public class TestEvaluateZeroLimit
     public void test()
             throws Exception
     {
-        tester.assertThat(new EvaluateZeroLimit())
+        tester.assertThat(new EvaluateZeroSample())
                 .on(p ->
-                        p.limit(
+                        p.sample(
                                 0,
+                                Type.BERNOULLI,
                                 p.filter(
                                         expression("b > 5"),
                                         p.values(
