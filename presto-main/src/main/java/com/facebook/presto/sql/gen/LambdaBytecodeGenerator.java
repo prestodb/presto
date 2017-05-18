@@ -19,6 +19,7 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
@@ -37,9 +38,14 @@ import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,13 +62,19 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.setStatic;
+import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
+import static com.facebook.presto.sql.gen.LambdaCapture.LAMBDA_CAPTURE_METHOD;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static org.objectweb.asm.Type.getMethodType;
+import static org.objectweb.asm.Type.getType;
 
 public class LambdaBytecodeGenerator
 {
@@ -73,7 +85,7 @@ public class LambdaBytecodeGenerator
     /**
      * @return a MethodHandle field that represents the lambda expression
      */
-    public static LambdaExpressionField preGenerateLambdaExpression(
+    public static CompiledLambda preGenerateLambdaExpression(
             LambdaDefinitionExpression lambdaExpression,
             String fieldName,
             ClassDefinition classDefinition,
@@ -109,7 +121,7 @@ public class LambdaBytecodeGenerator
                 lambdaExpression);
     }
 
-    private static LambdaExpressionField defineLambdaMethodAndField(
+    private static CompiledLambda defineLambdaMethodAndField(
             RowExpressionCompiler innerExpressionCompiler,
             ClassDefinition classDefinition,
             String fieldAndMethodName,
@@ -147,13 +159,25 @@ public class LambdaBytecodeGenerator
                                                 .map(BytecodeExpressions::constantClass)
                                                 .collect(toImmutableList())))));
 
-        return new LambdaExpressionField(staticField, instanceField);
+        Handle lambdaAsmHandle = new Handle(
+                Opcodes.H_INVOKEVIRTUAL,
+                method.getThis().getType().getClassName(),
+                method.getName(),
+                method.getMethodDescriptor());
+
+        return new CompiledLambda(
+                lambdaAsmHandle,
+                method.getReturnType(),
+                method.getParameterTypes(),
+                staticField,
+                instanceField);
     }
 
     public static BytecodeNode generateLambda(
             BytecodeGeneratorContext context,
             List<RowExpression> captureExpressions,
             LambdaDefinitionExpression lambda,
+            CompiledLambda compiledLambda,
             Class lambdaInterface)
     {
         BytecodeBlock block = new BytecodeBlock().setDescription("Partial apply");
@@ -197,10 +221,45 @@ public class LambdaBytecodeGenerator
                                                     newArray(type(Object[].class), bytecodeCaptureVariables)))));
         }
         else {
-            throw new UnsupportedOperationException();
+            List<BytecodeExpression> captureVariables = ImmutableList.<BytecodeExpression>builder()
+                    .add(scope.getThis(), scope.getVariable("session"))
+                    .addAll(captureVariableBuilder.build())
+                    .build();
+
+            Type instantiatedMethodAsmType = getMethodType(
+                    compiledLambda.getReturnType().getAsmType(),
+                    compiledLambda.getParameterTypes().stream()
+                        .skip(captureExpressions.size() + 1) // skip capture variables and ConnectorSession
+                        .map(ParameterizedType::getAsmType)
+                        .collect(toImmutableList()).toArray(new Type[0]));
+
+            block.append(
+                    invokeDynamic(
+                            LAMBDA_CAPTURE_METHOD,
+                            ImmutableList.of(
+                                    getType(getSingleApplyMethod(lambdaInterface)),
+                                    compiledLambda.getLambdaAsmHandle(),
+                                    instantiatedMethodAsmType
+                            ),
+                            "apply",
+                            type(lambdaInterface),
+                            captureVariables)
+            );
         }
 
         return block;
+    }
+
+    private static Method getSingleApplyMethod(Class lambdaFunctionInterface)
+    {
+        checkCondition(lambdaFunctionInterface.isAnnotationPresent(FunctionalInterface.class), COMPILER_ERROR, "Lambda function interface is required to be annotated with FunctionalInterface");
+
+        List<Method> applyMethods = Arrays.stream(lambdaFunctionInterface.getMethods())
+                .filter(method -> method.getName().equals("apply"))
+                .collect(toImmutableList());
+
+        checkCondition(applyMethods.size() == 1, COMPILER_ERROR, "Expect to have exactly 1 method with name 'apply' in interface " + lambdaFunctionInterface.getName());
+        return applyMethods.get(0);
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> variableReferenceCompiler(Map<String, ParameterAndType> parameterMap)
@@ -244,16 +303,44 @@ public class LambdaBytecodeGenerator
         };
     }
 
-    static class LambdaExpressionField
+    static class CompiledLambda
     {
         private final FieldDefinition staticField;
         // the instance field will be binded to "this" in constructor
         private final FieldDefinition instanceField;
 
-        public LambdaExpressionField(FieldDefinition staticField, FieldDefinition instanceField)
+        // lambda method information
+        private final Handle lambdaAsmHandle;
+        private final ParameterizedType returnType;
+        private final List<ParameterizedType> parameterTypes;
+
+        public CompiledLambda(
+                Handle lambdaAsmHandle,
+                ParameterizedType returnType,
+                List<ParameterizedType> parameterTypes,
+                FieldDefinition staticField,
+                FieldDefinition instanceField)
         {
             this.staticField = requireNonNull(staticField, "staticField is null");
             this.instanceField = requireNonNull(instanceField, "instanceField is null");
+            this.lambdaAsmHandle = requireNonNull(lambdaAsmHandle, "lambdaMethodAsmHandle is null");
+            this.returnType = requireNonNull(returnType, "returnType is null");
+            this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "returnType is null"));
+        }
+
+        public Handle getLambdaAsmHandle()
+        {
+            return lambdaAsmHandle;
+        }
+
+        public ParameterizedType getReturnType()
+        {
+            return returnType;
+        }
+
+        public List<ParameterizedType> getParameterTypes()
+        {
+            return parameterTypes;
         }
 
         public FieldDefinition getInstanceField()

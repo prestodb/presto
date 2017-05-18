@@ -29,7 +29,7 @@ import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.LambdaExpressionField;
+import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
@@ -171,8 +171,8 @@ public class JoinFilterFunctionCompiler
 
         body.append(thisVariable.setField(sessionField, sessionParameter));
         cachedInstanceBinder.generateInitializations(thisVariable, body);
-        for (LambdaExpressionField field : preGeneratedExpressions.getLambdaFieldMap().values()) {
-            field.generateInitialization(thisVariable, body);
+        for (CompiledLambda compiledLambda : preGeneratedExpressions.getCompiledLambdaMap().values()) {
+            compiledLambda.generateInitialization(thisVariable, body);
         }
         body.ret();
     }
@@ -237,7 +237,7 @@ public class JoinFilterFunctionCompiler
     {
         Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(filter));
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
-        ImmutableMap.Builder<LambdaDefinitionExpression, LambdaExpressionField> lambdaFieldMap = ImmutableMap.builder();
+        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
         int counter = 0;
         for (RowExpression expression : lambdaAndTryExpressions) {
@@ -256,7 +256,7 @@ public class JoinFilterFunctionCompiler
                         cachedInstanceBinder,
                         fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
                         metadata.getFunctionRegistry(),
-                        new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build()));
+                        new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build()));
 
                 List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
                         .add(session)
@@ -279,8 +279,8 @@ public class JoinFilterFunctionCompiler
             }
             else if (expression instanceof LambdaDefinitionExpression) {
                 LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
-                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
-                LambdaExpressionField lambdaExpressionField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
+                CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                         lambdaExpression,
                         "lambda_" + counter,
                         containerClassDefinition,
@@ -288,7 +288,7 @@ public class JoinFilterFunctionCompiler
                         callSiteBinder,
                         cachedInstanceBinder,
                         metadata.getFunctionRegistry());
-                lambdaFieldMap.put(lambdaExpression, lambdaExpressionField);
+                compiledLambdaMap.put(lambdaExpression, compiledLambda);
             }
             else {
                 throw new VerifyException(format("unexpected expression: %s", expression.toString()));
@@ -296,7 +296,7 @@ public class JoinFilterFunctionCompiler
             counter++;
         }
 
-        return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
+        return new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)

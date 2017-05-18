@@ -24,6 +24,7 @@ import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
@@ -36,6 +37,7 @@ import static com.facebook.presto.bytecode.instruction.Constant.loadInt;
 import static com.facebook.presto.bytecode.instruction.Constant.loadLong;
 import static com.facebook.presto.bytecode.instruction.Constant.loadString;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateLambda;
 import static com.facebook.presto.sql.relational.Signatures.BIND;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
@@ -133,7 +135,7 @@ public class RowExpressionCompiler
                         generator = new RowConstructorCodeGenerator();
                         break;
                     case BIND:
-                        generator = new BindCodeGenerator(preGeneratedExpressions.getLambdaFieldMap(), context.getLambdaInterface().get());
+                        generator = new BindCodeGenerator(preGeneratedExpressions.getCompiledLambdaMap(), context.getLambdaInterface().get());
                         break;
                     default:
                         generator = new FunctionCallCodeGenerator();
@@ -206,14 +208,27 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Context context)
         {
-            checkState(preGeneratedExpressions.getLambdaFieldMap().containsKey(lambda), "lambda expressions map does not contain this lambda definition");
+            checkState(preGeneratedExpressions.getCompiledLambdaMap().containsKey(lambda), "lambda expressions map does not contain this lambda definition");
             if (MethodHandle.class.equals(context.getLambdaInterface().get())) {
 
-                return context.getScope().getThis().getField(preGeneratedExpressions.getLambdaFieldMap().get(lambda).getInstanceField())
+                return context.getScope().getThis().getField(preGeneratedExpressions.getCompiledLambdaMap().get(lambda).getInstanceField())
                         .invoke("bindTo", MethodHandle.class, context.getScope().getVariable("session").cast(Object.class));
             }
             else {
-                throw new UnsupportedOperationException();
+                BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
+                        RowExpressionCompiler.this,
+                        context.getScope(),
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        registry,
+                        preGeneratedExpressions);
+
+                return generateLambda(
+                        generatorContext,
+                        ImmutableList.of(),
+                        lambda,
+                        preGeneratedExpressions.getCompiledLambdaMap().get(lambda),
+                        context.getLambdaInterface().get());
             }
         }
 

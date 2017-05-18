@@ -131,6 +131,7 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.any;
+import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionInterpreter
@@ -1378,6 +1379,9 @@ public class ExpressionInterpreter
             Class<?>[] parameterArray = handle.type().parameterArray();
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object argument = argumentValues.get(i);
+                if (function.getLambdaInterface().get(i).isPresent() && !MethodHandle.class.equals(function.getLambdaInterface().get(i).get())) {
+                    argument = asInterfaceInstance(function.getLambdaInterface().get(i).get(), (MethodHandle) argument);
+                }
                 if (function.getNullFlags().get(i)) {
                     boolean isNull = argument == null;
                     if (isNull) {

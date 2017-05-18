@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.LambdaExpressionField;
+import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.google.common.collect.ImmutableMap;
@@ -26,12 +26,12 @@ import static java.util.Objects.requireNonNull;
 public class PreGeneratedExpressions
 {
     private final Map<CallExpression, MethodDefinition> tryMethodMap;
-    private final Map<LambdaDefinitionExpression, LambdaExpressionField> lambdaFieldMap;
+    private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
 
-    public PreGeneratedExpressions(Map<CallExpression, MethodDefinition> tryMethodMap, Map<LambdaDefinitionExpression, LambdaExpressionField> lambdaFieldMap)
+    public PreGeneratedExpressions(Map<CallExpression, MethodDefinition> tryMethodMap, Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
     {
         this.tryMethodMap = ImmutableMap.copyOf(requireNonNull(tryMethodMap, "tryMethodMap is null"));
-        this.lambdaFieldMap = ImmutableMap.copyOf(requireNonNull(lambdaFieldMap, "lambdaFieldMap is null"));
+        this.compiledLambdaMap = ImmutableMap.copyOf(requireNonNull(compiledLambdaMap, "compiledLambdaMap is null"));
     }
 
     public Map<CallExpression, MethodDefinition> getTryMethodMap()
@@ -39,8 +39,8 @@ public class PreGeneratedExpressions
         return tryMethodMap;
     }
 
-    public Map<LambdaDefinitionExpression, LambdaExpressionField> getLambdaFieldMap()
+    public Map<LambdaDefinitionExpression, CompiledLambda> getCompiledLambdaMap()
     {
-        return lambdaFieldMap;
+        return compiledLambdaMap;
     }
 }
