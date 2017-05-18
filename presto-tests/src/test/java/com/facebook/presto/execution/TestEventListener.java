@@ -95,8 +95,14 @@ public class TestEventListener
     public void testConstantQuery()
             throws Exception
     {
-        // QueryCreated: 1, QueryCompleted: 1, Splits: 1
-        runQueryAndWaitForEvents("SELECT 1", 3);
+        // Change the value of expectedSplits if the number of splits generated in the plan changes
+        int expectedSplits = 1;
+
+        // We expect the following events
+        // QueryCreatedEvents = 1, QueryCompletedEvents = 1, SplitCompletedEvents = expectedSplits
+        int expectedEvents = 1 + 1 + expectedSplits;
+
+        runQueryAndWaitForEvents("SELECT 1", expectedEvents);
 
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
@@ -121,9 +127,14 @@ public class TestEventListener
     public void testNormalQuery()
             throws Exception
     {
-        // We expect the following events
-        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
-        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
+        // Change the value of expectedSplits if the number of splits generated in the plan changes
+        // For the current plan, expectedSplits = SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
+        int expectedSplits = SPLITS_PER_NODE + 1 + 1;
+
+        // We expect the following events:
+        // QueryCreatedEvents = 1, QueryCompletedEvents = 1, SplitCompletedEvents = expectedSplits
+        int expectedEvents = 1 + 1 + expectedSplits;
+
         runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
 
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
@@ -141,10 +152,10 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getConnectorId(), "tpch");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 2);
+        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), expectedSplits);
 
         List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
-        assertEquals(splitCompletedEvents.size(), SPLITS_PER_NODE + 2); // leaf splits + aggregation split
+        assertEquals(splitCompletedEvents.size(), expectedSplits);
 
         // All splits must have the same query ID
         Set<String> actual = splitCompletedEvents.stream()
