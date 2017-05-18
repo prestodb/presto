@@ -165,16 +165,16 @@ public interface AccessControl
     void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName);
 
     /**
-     * Check if identity is allowed to grant a privilege on the specified table.
+     * Check if identity is allowed to grant a privilege to the grantee on the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName);
+    void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String grantee, boolean withGrantOption);
 
     /**
-     * Check if identity is allowed to revoke a privilege on the specified table.
+     * Check if identity is allowed to revoke a privilege from the revokee on the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName);
+    void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String revokee, boolean grantOptionFor);
 
     /**
      * Check if identity is allowed to set the specified system property.
