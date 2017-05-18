@@ -148,7 +148,7 @@ public class RuleAssert
         return transaction(transactionManager, accessControl)
                 .singleStatement()
                 .execute(session, session -> {
-                    // metatdata.getCatalogHandle() registers the catalog for the transaction
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
                     session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
