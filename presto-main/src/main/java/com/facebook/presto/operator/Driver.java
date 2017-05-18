@@ -270,10 +270,10 @@ public class Driver
 
                 // check if operator is blocked
                 Operator current = operators.get(0);
-                ListenableFuture<?> blocked = getBlockedFuture(current);
-                if (!blocked.isDone()) {
-                    current.getOperatorContext().recordBlocked(blocked);
-                    return blocked;
+                Optional<ListenableFuture<?>> blocked = getBlockedFuture(current);
+                if (blocked.isPresent()) {
+                    current.getOperatorContext().recordBlocked(blocked.get());
+                    return blocked.get();
                 }
 
                 // there is only one operator so just finish it
@@ -289,10 +289,10 @@ public class Driver
                 Operator next = operators.get(i + 1);
 
                 // skip blocked operators
-                if (!getBlockedFuture(current).isDone()) {
+                if (getBlockedFuture(current).isPresent()) {
                     continue;
                 }
-                if (!getBlockedFuture(next).isDone()) {
+                if (getBlockedFuture(next).isPresent()) {
                     continue;
                 }
 
@@ -330,10 +330,10 @@ public class Driver
                 List<Operator> blockedOperators = new ArrayList<>();
                 List<ListenableFuture<?>> blockedFutures = new ArrayList<>();
                 for (Operator operator : operators) {
-                    ListenableFuture<?> blocked = getBlockedFuture(operator);
-                    if (!blocked.isDone()) {
+                    Optional<ListenableFuture<?>> blocked = getBlockedFuture(operator);
+                    if (blocked.isPresent()) {
                         blockedOperators.add(operator);
-                        blockedFutures.add(blocked);
+                        blockedFutures.add(blocked.get());
                     }
                 }
 
@@ -457,13 +457,17 @@ public class Driver
         }
     }
 
-    private static ListenableFuture<?> getBlockedFuture(Operator operator)
+    private static Optional<ListenableFuture<?>> getBlockedFuture(Operator operator)
     {
         ListenableFuture<?> blocked = operator.isBlocked();
-        if (blocked.isDone()) {
-            blocked = operator.getOperatorContext().isWaitingForMemory();
+        if (!blocked.isDone()) {
+            return Optional.of(blocked);
         }
-        return blocked;
+        blocked = operator.getOperatorContext().isWaitingForMemory();
+        if (!blocked.isDone()) {
+            return Optional.of(blocked);
+        }
+        return Optional.empty();
     }
 
     private static Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, Object... args)
