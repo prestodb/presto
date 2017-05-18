@@ -53,6 +53,11 @@ public interface ShardManager
     void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards, OptionalLong updateTime);
 
     /**
+     * Get shard metadata for a shard.
+     */
+    ShardMetadata getShard(UUID shardUuid);
+
+    /**
      * Get shard metadata for shards on a given node.
      */
     Set<ShardMetadata> getNodeShards(String nodeIdentifier);

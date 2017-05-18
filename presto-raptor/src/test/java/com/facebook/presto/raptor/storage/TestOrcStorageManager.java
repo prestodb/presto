@@ -215,7 +215,7 @@ public class TestOrcStorageManager
         assertTrue(file.getParentFile().delete());
         assertFalse(file.exists());
 
-        recoveryManager.restoreFromBackup(shardUuid, OptionalLong.empty());
+        recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 
         try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_ATTRIBUTES)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);

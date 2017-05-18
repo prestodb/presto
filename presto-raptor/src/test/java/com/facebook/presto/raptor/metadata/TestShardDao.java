@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
@@ -34,6 +33,7 @@ import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWith
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -115,21 +115,19 @@ public class TestShardDao
     public void testInsertShard()
     {
         long tableId = createTable("test");
-        long shardId = dao.insertShard(UUID.randomUUID(), tableId, null, 13, 42, 84, 1234L);
+        UUID shardUuid = UUID.randomUUID();
+        long shardId = dao.insertShard(shardUuid, tableId, null, 13, 42, 84, 1234);
 
-        String sql = "SELECT table_id, row_count, compressed_size, uncompressed_size, xxhash64 " +
-                "FROM shards WHERE shard_id = ?";
-        List<Map<String, Object>> shards = dbi.withHandle(handle -> handle.select(sql, shardId));
-
-        assertEquals(shards.size(), 1);
-        Map<String, Object> shard = shards.get(0);
-
-        assertEquals(shard.get("table_id"), tableId);
-        assertEquals(shard.get("row_count"), 13L);
-        assertEquals(shard.get("compressed_size"), 42L);
-        assertEquals(shard.get("uncompressed_size"), 84L);
-        assertEquals(shard.get("xxhash64"), 1234L);
-    }
+        ShardMetadata shard = dao.getShard(shardUuid);
+        assertNotNull(shard);
+        assertEquals(shard.getTableId(), tableId);
+        assertEquals(shard.getShardId(), shardId);
+        assertEquals(shard.getShardUuid(), shardUuid);
+        assertEquals(shard.getRowCount(), 13);
+        assertEquals(shard.getCompressedSize(), 42);
+        assertEquals(shard.getUncompressedSize(), 84);
+        assertEquals(shard.getXxhash64(), OptionalLong.of(1234));
+   }
 
     @Test
     public void testInsertShardNodeUsingShardUuid()

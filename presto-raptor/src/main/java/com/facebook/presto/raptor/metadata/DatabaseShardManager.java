@@ -519,6 +519,12 @@ public class DatabaseShardManager
     }
 
     @Override
+    public ShardMetadata getShard(UUID shardUuid)
+    {
+        return dao.getShard(shardUuid);
+    }
+
+    @Override
     public Set<ShardMetadata> getNodeShards(String nodeIdentifier)
     {
         return dao.getNodeShards(nodeIdentifier, null);

@@ -61,6 +61,10 @@ public interface ShardDao
     @Mapper(RaptorNode.Mapper.class)
     List<RaptorNode> getNodes();
 
+    @SqlQuery("SELECT " + SHARD_METADATA_COLUMNS + " FROM shards WHERE shard_uuid = :shardUuid")
+    @Mapper(ShardMetadata.Mapper.class)
+    ShardMetadata getShard(@Bind("shardUuid") UUID shardUuid);
+
     @SqlQuery("SELECT " + SHARD_METADATA_COLUMNS + "\n" +
             "FROM (\n" +
             "    SELECT s.*\n" +
