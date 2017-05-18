@@ -40,11 +40,11 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -64,8 +64,8 @@ public class MemoryMetadata
     private final NodeManager nodeManager;
     private final String connectorId;
     private final AtomicLong nextTableId = new AtomicLong();
-    private final Map<String, Long> tableIds = new ConcurrentHashMap<>();
-    private final Map<Long, MemoryTableHandle> tables = new ConcurrentHashMap<>();
+    private final Map<String, Long> tableIds = new HashMap<>();
+    private final Map<Long, MemoryTableHandle> tables = new HashMap<>();
 
     @Inject
     public MemoryMetadata(NodeManager nodeManager, MemoryConnectorId connectorId)
