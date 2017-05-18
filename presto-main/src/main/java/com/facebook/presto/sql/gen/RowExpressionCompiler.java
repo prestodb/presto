@@ -26,6 +26,7 @@ import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
@@ -72,7 +73,12 @@ public class RowExpressionCompiler
 
     public BytecodeNode compile(RowExpression rowExpression, Scope scope)
     {
-        return rowExpression.accept(new Visitor(), new Context(scope));
+        return compile(rowExpression, scope, Optional.empty());
+    }
+
+    public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Class> lambdaInterface)
+    {
+        return rowExpression.accept(new Visitor(), new Context(scope, lambdaInterface));
     }
 
     private class Visitor
@@ -127,7 +133,7 @@ public class RowExpressionCompiler
                         generator = new RowConstructorCodeGenerator();
                         break;
                     case BIND:
-                        generator = new BindCodeGenerator();
+                        generator = new BindCodeGenerator(preGeneratedExpressions.getLambdaFieldMap(), context.getLambdaInterface().get());
                         break;
                     default:
                         generator = new FunctionCallCodeGenerator();
@@ -139,7 +145,8 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry);
+                    registry,
+                    preGeneratedExpressions);
 
             return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
         }
@@ -200,9 +207,14 @@ public class RowExpressionCompiler
         public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Context context)
         {
             checkState(preGeneratedExpressions.getLambdaFieldMap().containsKey(lambda), "lambda expressions map does not contain this lambda definition");
+            if (MethodHandle.class.equals(context.getLambdaInterface().get())) {
 
-            return context.getScope().getThis().getField(preGeneratedExpressions.getLambdaFieldMap().get(lambda).getInstanceField())
-                    .invoke("bindTo", MethodHandle.class, context.getScope().getVariable("session").cast(Object.class));
+                return context.getScope().getThis().getField(preGeneratedExpressions.getLambdaFieldMap().get(lambda).getInstanceField())
+                        .invoke("bindTo", MethodHandle.class, context.getScope().getVariable("session").cast(Object.class));
+            }
+            else {
+                throw new UnsupportedOperationException();
+            }
         }
 
         @Override
@@ -215,15 +227,22 @@ public class RowExpressionCompiler
     private static class Context
     {
         private final Scope scope;
+        private final Optional<Class> lambdaInterface;
 
-        public Context(Scope scope)
+        public Context(Scope scope, Optional<Class> lambdaInterface)
         {
             this.scope = scope;
+            this.lambdaInterface = lambdaInterface;
         }
 
         public Scope getScope()
         {
             return scope;
+        }
+
+        public Optional<Class> getLambdaInterface()
+        {
+            return lambdaInterface;
         }
     }
 }

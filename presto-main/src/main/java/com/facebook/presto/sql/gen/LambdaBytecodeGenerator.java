@@ -21,6 +21,8 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.ConnectorSession;
@@ -28,6 +30,7 @@ import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
+import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.util.Reflection;
@@ -36,8 +39,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -47,6 +52,8 @@ import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
@@ -141,6 +148,59 @@ public class LambdaBytecodeGenerator
                                                 .collect(toImmutableList())))));
 
         return new LambdaExpressionField(staticField, instanceField);
+    }
+
+    public static BytecodeNode generateLambda(
+            BytecodeGeneratorContext context,
+            List<RowExpression> captureExpressions,
+            LambdaDefinitionExpression lambda,
+            Class lambdaInterface)
+    {
+        BytecodeBlock block = new BytecodeBlock().setDescription("Partial apply");
+        Scope scope = context.getScope();
+
+        Variable wasNull = scope.getVariable("wasNull");
+
+        // generate values to be captured
+        ImmutableList.Builder<BytecodeExpression> captureVariableBuilder = ImmutableList.builder();
+        for (RowExpression captureExpression : captureExpressions) {
+            Class<?> valueType = Primitives.wrap(captureExpression.getType().getJavaType());
+            Variable valueVariable = scope.createTempVariable(valueType);
+            block.append(context.generate(captureExpression));
+            block.append(boxPrimitiveIfNecessary(scope, valueType));
+            block.putVariable(valueVariable);
+            block.append(wasNull.set(constantFalse()));
+            captureVariableBuilder.add(valueVariable);
+        }
+
+        if (MethodHandle.class.equals(lambdaInterface)) {
+            // generate captured lambda expression as MethodHandle
+            List<BytecodeExpression> bytecodeCaptureVariables = captureVariableBuilder.build().stream()
+                    .map(variable -> variable.cast(Object.class))
+                    .collect(toImmutableList());
+
+            Variable functionVariable = scope.createTempVariable(MethodHandle.class);
+            block.append(context.generate(lambda, Optional.of(lambdaInterface)));
+            block.append(
+                    new IfStatement()
+                            .condition(wasNull)
+                            // ifTrue: do nothing i.e. Leave the null MethodHandle on the stack, and leave the wasNull variable set to true
+                            .ifFalse(
+                                    new BytecodeBlock()
+                                            .putVariable(functionVariable)
+                                            .append(invokeStatic(
+                                                    MethodHandles.class,
+                                                    "insertArguments",
+                                                    MethodHandle.class,
+                                                    functionVariable,
+                                                    constantInt(0),
+                                                    newArray(type(Object[].class), bytecodeCaptureVariables)))));
+        }
+        else {
+            throw new UnsupportedOperationException();
+        }
+
+        return block;
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> variableReferenceCompiler(Map<String, ParameterAndType> parameterMap)

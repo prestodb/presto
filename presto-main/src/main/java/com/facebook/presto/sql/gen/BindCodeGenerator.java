@@ -14,69 +14,40 @@
 
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.LambdaExpressionField;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Primitives;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.util.List;
-
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
-import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
+import java.util.Map;
 
 public class BindCodeGenerator
         implements BytecodeGenerator
 {
+    private Map<LambdaDefinitionExpression, LambdaExpressionField> lambdaFieldsMap;
+    private Class lambdaInterface;
+
+    public BindCodeGenerator(Map<LambdaDefinitionExpression, LambdaExpressionField> lambdaFieldsMap, Class lambdaInterface)
+    {
+        this.lambdaFieldsMap = lambdaFieldsMap;
+        this.lambdaInterface = lambdaInterface;
+    }
+
     @Override
     public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
     {
-        BytecodeBlock block = new BytecodeBlock().setDescription("Partial apply");
-        Scope scope = context.getScope();
-
-        Variable wasNull = scope.getVariable("wasNull");
-
-        ImmutableList.Builder<BytecodeExpression> captureVariablesBuilder = ImmutableList.builder();
-        int numValues = arguments.size() - 1;
-        for (int i = 0; i < numValues; i++) {
-            Class<?> valueType = Primitives.wrap(arguments.get(i).getType().getJavaType());
-            Variable valueVariable = scope.createTempVariable(valueType);
-            block.append(context.generate(arguments.get(i)));
-            block.append(boxPrimitiveIfNecessary(scope, valueType));
-            block.putVariable(valueVariable);
-            block.append(wasNull.set(constantFalse()));
-            captureVariablesBuilder.add(valueVariable.cast(Object.class));
-        }
-
-        Variable functionVariable = scope.createTempVariable(MethodHandle.class);
-        block.append(context.generate(arguments.get(numValues)));
-        block.append(
-                new IfStatement()
-                        .condition(wasNull)
-                        // ifTrue: do nothing i.e. Leave the null MethodHandle on the stack, and leave the wasNull variable set to true
-                        .ifFalse(
-                                new BytecodeBlock()
-                                        .putVariable(functionVariable)
-                                        .append(invokeStatic(
-                                                MethodHandles.class,
-                                                "insertArguments",
-                                                MethodHandle.class,
-                                                functionVariable,
-                                                constantInt(0),
-                                                newArray(type(Object[].class), captureVariablesBuilder.build())))));
-
-        return block;
+        // Bind expression is used to generate captured lambda.
+        // It takes the captured values and the uncaptured lambda, and produces captured lambda as the output.
+        // The uncaptured lambda is just a method, and does not have a stack representation during execution.
+        // As a result, the bind expression generates the captured lambda in one step.
+        int numCaptures = arguments.size() - 1;
+        return LambdaBytecodeGenerator.generateLambda(
+                context,
+                arguments.subList(0, numCaptures),
+                (LambdaDefinitionExpression) arguments.get(numCaptures),
+                lambdaInterface);
     }
 }
