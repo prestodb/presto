@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 
@@ -194,6 +195,8 @@ public class DesugaringOptimizer
 
         private Expression desugar(Expression expression)
         {
+            checkState(!(expression instanceof GroupingOperation), "GroupingOperation should have been re-written to a FunctionCall before execution");
+
             if (expression instanceof SymbolReference) {
                 return expression;
             }

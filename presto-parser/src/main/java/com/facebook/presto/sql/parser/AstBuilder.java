@@ -66,6 +66,7 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
@@ -1390,6 +1391,16 @@ class AstBuilder
     public Node visitCurrentRowBound(SqlBaseParser.CurrentRowBoundContext context)
     {
         return new FrameBound(getLocation(context), FrameBound.Type.CURRENT_ROW);
+    }
+
+    @Override
+    public Node visitGroupingOperation(SqlBaseParser.GroupingOperationContext context)
+    {
+        List<QualifiedName> arguments = context.qualifiedName().stream()
+                .map(AstBuilder::getQualifiedName)
+                .collect(toList());
+
+        return new GroupingOperation(Optional.of(getLocation(context)), arguments);
     }
 
     // ************** literals **************

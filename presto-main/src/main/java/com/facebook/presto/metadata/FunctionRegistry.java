@@ -85,11 +85,13 @@ import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.EmptyMapConstructor;
 import com.facebook.presto.operator.scalar.FailureFunction;
+import com.facebook.presto.operator.scalar.GroupingOperationFunction;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpCasts;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonOperators;
+import com.facebook.presto.operator.scalar.ListLiteralCast;
 import com.facebook.presto.operator.scalar.MapCardinalityFunction;
 import com.facebook.presto.operator.scalar.MapDistinctFromOperator;
 import com.facebook.presto.operator.scalar.MapEqualOperator;
@@ -524,6 +526,8 @@ public class FunctionRegistry
                 .scalar(MapToMapCast.class)
                 .scalars(EmptyMapConstructor.class)
                 .scalar(TypeOfFunction.class)
+                .scalars(ListLiteralCast.class)
+                .scalars(GroupingOperationFunction.class)
                 .function(ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)

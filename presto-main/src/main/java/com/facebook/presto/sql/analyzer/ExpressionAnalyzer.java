@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -105,6 +106,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.operator.scalar.GroupingOperationFunction.MAX_NUMBER_GROUPING_ARGUMENTS;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -122,10 +124,11 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
-import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregatesOrWindowFunctions;
+import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
@@ -789,19 +792,7 @@ public class ExpressionAnalyzer
             }
 
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
-            Signature function;
-            try {
-                function = functionRegistry.resolveFunction(node.getName(), argumentTypes);
-            }
-            catch (PrestoException e) {
-                if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                    throw new SemanticException(SemanticErrorCode.FUNCTION_NOT_FOUND, node, e.getMessage());
-                }
-                if (e.getErrorCode().getCode() == StandardErrorCode.AMBIGUOUS_FUNCTION_CALL.toErrorCode().getCode()) {
-                    throw new SemanticException(SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL, node, e.getMessage());
-                }
-                throw e;
-            }
+            Signature function = resolveFunction(node, argumentTypes, functionRegistry);
 
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
@@ -1050,7 +1041,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLambdaExpression(LambdaExpression node, StackableAstVisitorContext<Context> context)
         {
-            verifyNoAggregatesOrWindowFunctions(functionRegistry, node.getBody(), "Lambda expression");
+            verifyNoAggregateWindowOrGroupingFunctions(functionRegistry, node.getBody(), "Lambda expression");
             if (!context.getContext().isExpectingLambda()) {
                 throw new SemanticException(STANDALONE_LAMBDA, node, "Lambda expression should always be used inside a function");
             }
@@ -1103,6 +1094,18 @@ public class ExpressionAnalyzer
         protected Type visitNode(Node node, StackableAstVisitorContext<Context> context)
         {
             throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
+        }
+
+        public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<Context> context)
+        {
+            if (node.getGroupingColumns().size() > MAX_NUMBER_GROUPING_ARGUMENTS) {
+                throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, node, "GROUPING supports up to 63 column arguments");
+            }
+            for (Expression columnArgument : node.getGroupingColumns()) {
+                process(columnArgument, context);
+            }
+            expressionTypes.put(node, INTEGER);
+            return INTEGER;
         }
 
         private Type getOperator(StackableAstVisitorContext<Context> context, Expression node, OperatorType operatorType, Expression... arguments)
@@ -1278,6 +1281,22 @@ public class ExpressionAnalyzer
         {
             checkState(isExpectingLambda());
             return functionInputTypes;
+        }
+    }
+
+    public static Signature resolveFunction(FunctionCall node, List<TypeSignatureProvider> argumentTypes, FunctionRegistry functionRegistry)
+    {
+        try {
+            return functionRegistry.resolveFunction(node.getName(), argumentTypes);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
+                throw new SemanticException(SemanticErrorCode.FUNCTION_NOT_FOUND, node, e.getMessage());
+            }
+            if (e.getErrorCode().getCode() == StandardErrorCode.AMBIGUOUS_FUNCTION_CALL.toErrorCode().getCode()) {
+                throw new SemanticException(SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL, node, e.getMessage());
+            }
+            throw e;
         }
     }
 

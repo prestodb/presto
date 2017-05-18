@@ -65,6 +65,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -143,6 +144,9 @@ import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifyOrderBy
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressionsOfType;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
@@ -150,6 +154,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNK
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
@@ -876,6 +881,7 @@ class StatementAnalyzer
             sourceExpressions.addAll(outputExpressions);
             node.getHaving().ifPresent(sourceExpressions::add);
 
+            analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
             List<FunctionCall> aggregations = analyzeAggregations(node, sourceScope, orderByScope, groupByExpressions, sourceExpressions, orderByExpressions);
             analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
@@ -885,7 +891,7 @@ class StatementAnalyzer
                 // Original ORDER BY scope "sees" FROM query fields. However, during planning
                 // and when aggregation is present, ORDER BY expressions should only be resolvable against
                 // output scope, group by expressions and aggregation expressions.
-                computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), outputScope, aggregations, groupByExpressions);
+                computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), outputScope, aggregations, groupByExpressions, analysis.getGroupingOperations(node));
             }
 
             return outputScope;
@@ -1067,7 +1073,7 @@ class StatementAnalyzer
                     analysis.addCoercion(expression, BOOLEAN, false);
                 }
 
-                Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), expression, "JOIN clause");
+                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionRegistry(), expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
                 analysis.setJoinCriteria(node, expression);
@@ -1185,14 +1191,11 @@ class StatementAnalyzer
 
         private List<FunctionCall> analyzeWindowFunctions(QuerySpecification node, List<Expression> expressions)
         {
-            WindowFunctionExtractor extractor = new WindowFunctionExtractor();
-
             for (Expression expression : expressions) {
-                extractor.process(expression, null);
                 new WindowFunctionValidator().process(expression, analysis);
             }
 
-            List<FunctionCall> windowFunctions = extractor.getWindowFunctions();
+            List<FunctionCall> windowFunctions = extractWindowFunctions(expressions);
 
             for (FunctionCall windowFunction : windowFunctions) {
                 // filter with window function is not supported yet
@@ -1202,24 +1205,15 @@ class StatementAnalyzer
 
                 Window window = windowFunction.getWindow().get();
 
-                WindowFunctionExtractor nestedExtractor = new WindowFunctionExtractor();
-                for (Expression argument : windowFunction.getArguments()) {
-                    nestedExtractor.process(argument, null);
-                }
+                ImmutableList.Builder<Node> toExtract = ImmutableList.builder();
+                toExtract.addAll(windowFunction.getArguments());
+                toExtract.addAll(window.getPartitionBy());
+                window.getOrderBy().ifPresent(orderBy -> toExtract.addAll(orderBy.getSortItems()));
+                window.getFrame().ifPresent(toExtract::add);
 
-                for (Expression expression : window.getPartitionBy()) {
-                    nestedExtractor.process(expression, null);
-                }
+                List<FunctionCall> nestedWindowFunctions = extractWindowFunctions(toExtract.build());
 
-                if (window.getOrderBy().isPresent()) {
-                    nestedExtractor.process(window.getOrderBy().get(), null);
-                }
-
-                if (window.getFrame().isPresent()) {
-                    nestedExtractor.process(window.getFrame().get(), null);
-                }
-
-                if (!nestedExtractor.getWindowFunctions().isEmpty()) {
+                if (!nestedWindowFunctions.isEmpty()) {
                     throw new SemanticException(NESTED_WINDOW, node, "Cannot nest window functions inside window function '%s': %s",
                             windowFunction,
                             windowFunctions);
@@ -1503,7 +1497,7 @@ class StatementAnalyzer
                     groupByExpression = groupingColumn;
                 }
 
-                Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), groupByExpression, "GROUP BY clause");
+                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionRegistry(), groupByExpression, "GROUP BY clause");
                 Type type = analysis.getType(groupByExpression);
                 if (!type.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
@@ -1577,7 +1571,7 @@ class StatementAnalyzer
             return orderByScope;
         }
 
-        private Scope computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope outputScope, List<FunctionCall> aggregations, List<List<Expression>> groupByExpressions)
+        private Scope computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope outputScope, List<FunctionCall> aggregations, List<List<Expression>> groupByExpressions, List<GroupingOperation> groupingOperations)
         {
             // This scope is only used for planning. When aggregation is present then
             // only output fields, groups and aggregation expressions should be visible from ORDER BY expression
@@ -1586,6 +1580,7 @@ class StatementAnalyzer
                     .flatMap(List::stream)
                     .forEach(orderByAggregationExpressionsBuilder::add);
             orderByAggregationExpressionsBuilder.addAll(aggregations);
+            orderByAggregationExpressionsBuilder.addAll(groupingOperations);
 
             // Don't add aggregate expression that contains references to output column because the names would clash in TranslationMap during planning.
             List<Expression> orderByExpressionsReferencingOutputScope = AstUtils.preOrder(node)
@@ -1670,7 +1665,7 @@ class StatementAnalyzer
 
         public void analyzeWhere(Node node, Scope scope, Expression predicate)
         {
-            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), predicate, "WHERE clause");
+            Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionRegistry(), predicate, "WHERE clause");
 
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
             analysis.recordSubqueries(node, expressionAnalysis);
@@ -1696,6 +1691,21 @@ class StatementAnalyzer
             return createScope(scope);
         }
 
+        private void analyzeGroupingOperations(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
+        {
+            List<GroupingOperation> groupingOperations = extractExpressionsOfType(Iterables.concat(outputExpressions, orderByExpressions), GroupingOperation.class);
+            boolean isGroupingOperationPresent = !groupingOperations.isEmpty();
+
+            if (isGroupingOperationPresent && !node.getGroupBy().isPresent()) {
+                throw new SemanticException(
+                        INVALID_PROCEDURE_ARGUMENTS,
+                        node,
+                        "A GROUPING() operation can only be used with a corresponding GROUPING SET/CUBE/ROLLUP/GROUP BY clause");
+            }
+
+            analysis.setGroupingOperations(node, groupingOperations);
+        }
+
         private List<FunctionCall> analyzeAggregations(
                 QuerySpecification node,
                 Scope sourceScope,
@@ -1706,11 +1716,8 @@ class StatementAnalyzer
         {
             checkState(orderByExpressions.isEmpty() || orderByScope.isPresent(), "non-empty orderByExpressions list without orderByScope provided");
 
-            AggregateExtractor extractor = new AggregateExtractor(metadata.getFunctionRegistry());
-            for (Expression expression : Iterables.concat(outputExpressions, orderByExpressions)) {
-                extractor.process(expression);
-            }
-            analysis.setAggregates(node, extractor.getAggregates());
+            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), metadata.getFunctionRegistry());
+            analysis.setAggregates(node, aggregates);
 
             // is this an aggregation query?
             if (!groupingSets.isEmpty()) {
@@ -1733,24 +1740,24 @@ class StatementAnalyzer
                 }
             }
 
-            return extractor.getAggregates();
+            return aggregates;
         }
 
         private boolean hasAggregates(QuerySpecification node)
         {
-            AggregateExtractor extractor = new AggregateExtractor(metadata.getFunctionRegistry());
+            ImmutableList.Builder<Node> toExtractBuilder = ImmutableList.builder();
 
-            node.getSelect()
-                    .getSelectItems().stream()
+            toExtractBuilder.addAll(node.getSelect().getSelectItems().stream()
                     .filter(SingleColumn.class::isInstance)
-                    .forEach(extractor::process);
+                    .collect(toImmutableList()));
 
-            getSortItemsFromOrderBy(node.getOrderBy()).forEach(extractor::process);
+            toExtractBuilder.addAll(getSortItemsFromOrderBy(node.getOrderBy()));
 
-            node.getHaving()
-                    .ifPresent(extractor::process);
+            node.getHaving().ifPresent(toExtractBuilder::add);
 
-            return !extractor.getAggregates().isEmpty();
+            List<FunctionCall> aggregates = extractAggregateFunctions(toExtractBuilder.build(), metadata.getFunctionRegistry());
+
+            return !aggregates.isEmpty();
         }
 
         private RelationType analyzeView(Query query, QualifiedObjectName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)

@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -67,16 +68,20 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.LambdaReferenceExtractor.hasReferencesToLambdaArgument;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.isFieldFromScope;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -307,28 +312,23 @@ class AggregationAnalyzer
         {
             if (metadata.isAggregationFunction(node.getName())) {
                 if (!node.getWindow().isPresent()) {
-                    AggregateExtractor aggregateExtractor = new AggregateExtractor(metadata.getFunctionRegistry());
-                    WindowFunctionExtractor windowExtractor = new WindowFunctionExtractor();
+                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), metadata.getFunctionRegistry());
+                    List<FunctionCall> windowFunctions = extractWindowFunctions(node.getArguments());
 
-                    for (Expression argument : node.getArguments()) {
-                        aggregateExtractor.process(argument, null);
-                        windowExtractor.process(argument, null);
-                    }
-
-                    if (!aggregateExtractor.getAggregates().isEmpty()) {
+                    if (!aggregateFunctions.isEmpty()) {
                         throw new SemanticException(NESTED_AGGREGATION,
                                 node,
                                 "Cannot nest aggregations inside aggregation '%s': %s",
                                 node.getName(),
-                                aggregateExtractor.getAggregates());
+                                aggregateFunctions);
                     }
 
-                    if (!windowExtractor.getWindowFunctions().isEmpty()) {
+                    if (!windowFunctions.isEmpty()) {
                         throw new SemanticException(NESTED_WINDOW,
                                 node,
                                 "Cannot nest window functions inside aggregation '%s': %s",
                                 node.getName(),
-                                windowExtractor.getWindowFunctions());
+                                windowFunctions);
                     }
 
                     if (node.getFilter().isPresent() && node.isDistinct()) {
@@ -340,7 +340,11 @@ class AggregationAnalyzer
 
                     // ensure that no output fields are referenced from ORDER BY clause
                     if (orderByScope.isPresent()) {
-                        node.getArguments().stream().forEach(AggregationAnalyzer.this::verifyNoOrderByReferencesToOutputColumns);
+                        node.getArguments().stream()
+                                .forEach(argument -> verifyNoOrderByReferencesToOutputColumns(
+                                        argument,
+                                        REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION,
+                                        "Invalid reference to output projection attribute from ORDER BY aggregation"));
                     }
 
                     return true;
@@ -568,6 +572,31 @@ class AggregationAnalyzer
             return process(parameters.get(node.getPosition()), context);
         }
 
+        public Boolean visitGroupingOperation(GroupingOperation node, Void context)
+        {
+            // ensure that no output fields are referenced from ORDER BY clause
+            if (orderByScope.isPresent()) {
+                node.getGroupingColumns().forEach(groupingColumn -> verifyNoOrderByReferencesToOutputColumns(
+                        groupingColumn,
+                        REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING,
+                        "Invalid reference to output projection attribute from ORDER BY grouping"
+                ));
+            }
+
+            Optional<Expression> argumentNotInGroupBy = node.getGroupingColumns().stream()
+                    .filter(argument -> !columnReferences.containsKey(argument) || !isGroupingKey(argument))
+                    .findAny();
+            if (argumentNotInGroupBy.isPresent()) {
+                throw new SemanticException(
+                        INVALID_PROCEDURE_ARGUMENTS,
+                        node,
+                        "The arguments to GROUPING() must be expressions referenced by the GROUP BY at the associated query level. Mismatch due to %s.",
+                        argumentNotInGroupBy.get()
+                );
+            }
+            return true;
+        }
+
         @Override
         public Boolean process(Node node, @Nullable Void context)
         {
@@ -586,12 +615,12 @@ class AggregationAnalyzer
         return hasReferencesToScope(node, analysis, orderByScope.get());
     }
 
-    private void verifyNoOrderByReferencesToOutputColumns(Node node)
+    private void verifyNoOrderByReferencesToOutputColumns(Node node, SemanticErrorCode errorCode, String errorString)
     {
         getReferencesToScope(node, analysis, orderByScope.get())
                 .findFirst()
                 .ifPresent(expression -> {
-                    throw new SemanticException(REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION, expression, "Invalid reference to output projection attribute from ORDER BY aggregation");
+                    throw new SemanticException(errorCode, expression, errorString);
                 });
     }
 }
