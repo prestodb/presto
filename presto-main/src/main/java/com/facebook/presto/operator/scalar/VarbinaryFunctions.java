@@ -146,6 +146,26 @@ public final class VarbinaryFunctions
         return slice;
     }
 
+    @Description("encode value as a big endian varbinary according to IEEE 754 single-precision floating-point format")
+    @ScalarFunction("to_ieee754_32")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toIEEE754Binary32(@SqlType(StandardTypes.REAL) long value)
+    {
+        Slice slice = Slices.allocate(Float.BYTES);
+        slice.setInt(0, Integer.reverseBytes((int) value));
+        return slice;
+    }
+
+    @Description("encode value as a big endian varbinary according to IEEE 754 double-precision floating-point format")
+    @ScalarFunction("to_ieee754_64")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toIEEE754Binary64(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        Slice slice = Slices.allocate(Double.BYTES);
+        slice.setLong(0, Long.reverseBytes(Double.doubleToLongBits(value)));
+        return slice;
+    }
+
     @Description("decode bigint value from a 64-bit 2's complement big endian varbinary")
     @ScalarFunction("from_big_endian_64")
     @SqlType(StandardTypes.BIGINT)
