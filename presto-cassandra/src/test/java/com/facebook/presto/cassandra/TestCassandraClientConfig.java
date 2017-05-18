@@ -21,7 +21,6 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -33,9 +32,6 @@ public class TestCassandraClientConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(CassandraClientConfig.class)
-                .setMaxSchemaRefreshThreads(1)
-                .setSchemaCacheTtl(new Duration(1, TimeUnit.HOURS))
-                .setSchemaRefreshInterval(new Duration(2, TimeUnit.MINUTES))
                 .setFetchSize(5_000)
                 .setConsistencyLevel(ConsistencyLevel.ONE)
                 .setContactPoints("")
@@ -66,9 +62,6 @@ public class TestCassandraClientConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("cassandra.max-schema-refresh-threads", "2")
-                .put("cassandra.schema-cache-ttl", "2h")
-                .put("cassandra.schema-refresh-interval", "30m")
                 .put("cassandra.contact-points", "host1,host2")
                 .put("cassandra.native-protocol-port", "9999")
                 .put("cassandra.fetch-size", "10000")
@@ -96,9 +89,6 @@ public class TestCassandraClientConfig
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
-                .setMaxSchemaRefreshThreads(2)
-                .setSchemaCacheTtl(new Duration(2, TimeUnit.HOURS))
-                .setSchemaRefreshInterval(new Duration(30, TimeUnit.MINUTES))
                 .setContactPoints("host1", "host2")
                 .setNativeProtocolPort(9999)
                 .setFetchSize(10_000)

@@ -49,16 +49,6 @@ Property Name                                      Description
 ``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol
                                                    (defaults to ``9042``).
 
-``cassandra.max-schema-refresh-threads``           Maximum number of schema cache refresh threads. This property
-                                                   corresponds to the maximum number of parallel requests.
-
-``cassandra.schema-cache-ttl``                     Maximum time that information about a schema will be cached
-                                                   (defaults to ``1h``).
-
-``cassandra.schema-refresh-interval``              The schema information cache will be refreshed in the background
-                                                   when accessed if the cached data is at least this old
-                                                   (defaults to ``2m``).
-
 ``cassandra.consistency-level``                    Consistency levels in Cassandra refer to the level of consistency
                                                    to be used for both read and write operations.  More information
                                                    about consistency levels can be found in the
