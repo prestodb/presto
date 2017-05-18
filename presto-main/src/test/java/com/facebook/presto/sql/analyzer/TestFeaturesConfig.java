@@ -68,7 +68,8 @@ public class TestFeaturesConfig
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughJoin(true)
                 .setParseDecimalLiteralsAsDouble(false)
-                .setDistributedSortEnabled(false));
+                .setDistributedSortEnabled(false)
+                .setRedistributeSort(true));
     }
 
     @Test
@@ -109,6 +110,7 @@ public class TestFeaturesConfig
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .put("deprecated.parse-decimal-literals-as-double", "true")
                 .put("experimental.distributed-sort", "true")
+                .put("experimental.redistribute-sort", "false")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
@@ -145,6 +147,7 @@ public class TestFeaturesConfig
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .put("deprecated.parse-decimal-literals-as-double", "true")
                 .put("experimental.distributed-sort", "true")
+                .put("experimental.redistribute-sort", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -181,7 +184,8 @@ public class TestFeaturesConfig
                 .setExchangeCompressionEnabled(true)
                 .setEnableIntermediateAggregations(true)
                 .setParseDecimalLiteralsAsDouble(true)
-                .setDistributedSortEnabled(true);
+                .setDistributedSortEnabled(true)
+                .setRedistributeSort(false);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
