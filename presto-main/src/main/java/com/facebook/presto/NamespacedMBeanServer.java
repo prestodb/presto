@@ -53,7 +53,7 @@ public class NamespacedMBeanServer implements MBeanServer
     private final MBeanServer outer;
     private final String namespace;
     private static final Pattern BAD_PACKAGENAME_PATTERN = Pattern.compile("[//:?*]");
-    private static final String SEPARATOR = ";";
+    public static final String SEPARATOR = ";";
     private final Map<ObjectName, ObjectName> nameInOuterNamespaceOf;
     private final Map<ObjectName, ObjectName> nameInCurrentNamespaceOf;
 

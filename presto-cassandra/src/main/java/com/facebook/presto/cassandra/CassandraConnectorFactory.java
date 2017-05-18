@@ -71,7 +71,7 @@ public class CassandraConnectorFactory
                         @Override
                         public void configure(Binder binder)
                         {
-                            binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(context.getMBeanServer()));
+                            binder.bind(MBeanServer.class).toInstance((context.getMBeanServer()));
                         }
                     });
 

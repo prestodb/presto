@@ -95,7 +95,7 @@ public class HiveConnectorFactory
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     binder -> {
-                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(context.getMBeanServer()));
+                        binder.bind(MBeanServer.class).toInstance(context.getMBeanServer());
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                     }
             );

@@ -15,7 +15,6 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.backup.BackupModule;
 import com.facebook.presto.raptor.storage.StorageModule;
-import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageSorter;
@@ -75,7 +74,7 @@ public class RaptorConnectorFactory
                     new JsonModule(),
                     new MBeanModule(),
                     binder -> {
-                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(context.getMBeanServer()));
+                        binder.bind(MBeanServer.class).toInstance(context.getMBeanServer());
                         binder.bind(NodeManager.class).toInstance(nodeManager);
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());

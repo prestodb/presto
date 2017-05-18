@@ -212,6 +212,7 @@ public class TestingPrestoServer
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
+                    binder.bindConstant().annotatedWith(MBeanNamespaceManager.BaseNamespace.class).to(baseDataDir.getFileName().toString());
                 });
 
         if (discoveryUri != null) {

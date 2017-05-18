@@ -14,6 +14,8 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.MBeanNamespaceManager;
+import com.facebook.presto.NamespacedMBeanServer;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorAwareNodeManager;
@@ -32,15 +34,18 @@ import com.facebook.presto.type.TypeRegistry;
 
 import javax.management.MBeanServer;
 
-import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
+import java.security.SecureRandom;
 
 public class TestingConnectorContext
         implements ConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new ConnectorId("test"));
     private final TypeManager typeManager = new TypeRegistry();
+    private final MBeanNamespaceManager namespaceManager = new MBeanNamespaceManager();
+    private final SecureRandom random = new SecureRandom();
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler());
+    private final NamespacedMBeanServer mBeanServer = namespaceManager.createMBeanServer("test" + random.nextInt());
 
     public TestingConnectorContext()
     {
@@ -75,6 +80,6 @@ public class TestingConnectorContext
     @Override
     public MBeanServer getMBeanServer()
     {
-        return getPlatformMBeanServer();
+        return mBeanServer;
     }
 }

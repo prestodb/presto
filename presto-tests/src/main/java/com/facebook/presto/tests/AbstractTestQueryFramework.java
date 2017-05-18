@@ -70,7 +70,7 @@ public abstract class AbstractTestQueryFramework
     public void init()
             throws Exception
     {
-        queryRunner = queryRunnerSupplier.get();
+        queryRunner = queryRunner != null ? queryRunner : queryRunnerSupplier.get();
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
         costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
@@ -81,7 +81,7 @@ public abstract class AbstractTestQueryFramework
             throws Exception
     {
         closeAllRuntimeException(queryRunner, h2QueryRunner);
-        queryRunner = null;
+        //queryRunner = null;
         h2QueryRunner = null;
         sqlParser = null;
         queryRunnerSupplier = null;

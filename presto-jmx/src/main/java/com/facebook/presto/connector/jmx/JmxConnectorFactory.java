@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.connector.jmx.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
@@ -56,12 +55,11 @@ public class JmxConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
-        //TODO jmx mbeanserver?
         try {
             Bootstrap app = new Bootstrap(
                     binder -> {
                         configBinder(binder).bindConfig(JmxConnectorConfig.class);
-                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(mbeanServer));
+                        binder.bind(MBeanServer.class).toInstance(mbeanServer);
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(JmxConnector.class).in(Scopes.SINGLETON);
                         binder.bind(JmxHistoricalData.class).in(Scopes.SINGLETON);
