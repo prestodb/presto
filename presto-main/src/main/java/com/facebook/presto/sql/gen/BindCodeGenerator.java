@@ -17,22 +17,24 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.LambdaExpressionField;
+import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public class BindCodeGenerator
         implements BytecodeGenerator
 {
-    private Map<LambdaDefinitionExpression, LambdaExpressionField> lambdaFieldsMap;
+    private Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
     private Class lambdaInterface;
 
-    public BindCodeGenerator(Map<LambdaDefinitionExpression, LambdaExpressionField> lambdaFieldsMap, Class lambdaInterface)
+    public BindCodeGenerator(Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap, Class lambdaInterface)
     {
-        this.lambdaFieldsMap = lambdaFieldsMap;
+        this.compiledLambdaMap = compiledLambdaMap;
         this.lambdaInterface = lambdaInterface;
     }
 
@@ -44,10 +46,15 @@ public class BindCodeGenerator
         // The uncaptured lambda is just a method, and does not have a stack representation during execution.
         // As a result, the bind expression generates the captured lambda in one step.
         int numCaptures = arguments.size() - 1;
+        LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) arguments.get(numCaptures);
+        checkState(compiledLambdaMap.containsKey(lambda), "lambda expressions map does not contain this lambda definition");
+        CompiledLambda compiledLambda = compiledLambdaMap.get(lambda);
+
         return LambdaBytecodeGenerator.generateLambda(
                 context,
                 arguments.subList(0, numCaptures),
-                (LambdaDefinitionExpression) arguments.get(numCaptures),
+                lambda,
+                compiledLambda,
                 lambdaInterface);
     }
 }
