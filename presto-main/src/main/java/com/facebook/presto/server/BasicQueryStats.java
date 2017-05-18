@@ -23,6 +23,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,6 +55,8 @@ public class BasicQueryStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
+    private final OptionalDouble progressPercentage;
+
     public BasicQueryStats(
             DateTime createTime,
             DateTime endTime,
@@ -68,7 +71,8 @@ public class BasicQueryStats
             DataSize peakMemoryReservation,
             Duration totalCpuTime,
             boolean fullyBlocked,
-            Set<BlockedReason> blockedReasons)
+            Set<BlockedReason> blockedReasons,
+            OptionalDouble progressPercentage)
     {
         this.createTime = createTime;
         this.endTime = endTime;
@@ -92,6 +96,8 @@ public class BasicQueryStats
 
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
+
+        this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
     }
 
     public BasicQueryStats(QueryStats queryStats)
@@ -109,7 +115,8 @@ public class BasicQueryStats
                 queryStats.getPeakMemoryReservation(),
                 queryStats.getTotalCpuTime(),
                 queryStats.isFullyBlocked(),
-                queryStats.getBlockedReasons());
+                queryStats.getBlockedReasons(),
+                queryStats.getProgressPercentage());
     }
 
     @JsonProperty
@@ -194,5 +201,11 @@ public class BasicQueryStats
     public Set<BlockedReason> getBlockedReasons()
     {
         return blockedReasons;
+    }
+
+    @JsonProperty
+    public OptionalDouble getProgressPercentage()
+    {
+        return progressPercentage;
     }
 }
