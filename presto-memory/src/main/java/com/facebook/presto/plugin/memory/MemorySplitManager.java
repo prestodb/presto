@@ -52,7 +52,7 @@ public final class MemorySplitManager
                                 layout.getTable(),
                                 i,
                                 splitsPerNode,
-                                ImmutableList.of(dataFragment.getHostAddress()),
+                                dataFragment.getHostAddress(),
                                 dataFragment.getRows()));
             }
         }
