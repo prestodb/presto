@@ -33,11 +33,11 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.CallSiteBinder;
+import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
@@ -108,8 +108,8 @@ public final class ArrayTransformFunction
                 false,
                 ImmutableList.of(false, false),
                 ImmutableList.of(false, false),
-                ImmutableList.of(Optional.empty(), Optional.of(MethodHandle.class)),
-                methodHandle(generatedClass, "transform", PageBuilder.class, Block.class, MethodHandle.class),
+                ImmutableList.of(Optional.empty(), Optional.of(UnaryFunctionInterface.class)),
+                methodHandle(generatedClass, "transform", PageBuilder.class, Block.class, UnaryFunctionInterface.class),
                 Optional.of(methodHandle(generatedClass, "createPageBuilder")),
                 isDeterministic());
     }
@@ -134,7 +134,7 @@ public final class ArrayTransformFunction
         // define transform method
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
         Parameter block = arg("block", Block.class);
-        Parameter function = arg("function", MethodHandle.class);
+        Parameter function = arg("function", UnaryFunctionInterface.class);
 
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
@@ -189,7 +189,7 @@ public final class ArrayTransformFunction
                 .update(incrementVariable(position, (byte) 1))
                 .body(new BytecodeBlock()
                         .append(loadInputElement)
-                        .append(outputElement.set(function.invoke("invokeExact", outputJavaType, inputElement)))
+                        .append(outputElement.set(function.invoke("apply", Object.class, inputElement.cast(Object.class)).cast(outputJavaType)))
                         .append(writeOutputElement)));
 
         body.append(pageBuilder.invoke("declarePositions", void.class, positionCount));

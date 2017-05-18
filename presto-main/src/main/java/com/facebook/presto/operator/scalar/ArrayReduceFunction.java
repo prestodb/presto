@@ -21,6 +21,8 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
+import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
@@ -38,7 +40,7 @@ public final class ArrayReduceFunction
 {
     public static final ArrayReduceFunction ARRAY_REDUCE_FUNCTION = new ArrayReduceFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayReduceFunction.class, "reduce", Type.class, Block.class, Object.class, MethodHandle.class, MethodHandle.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayReduceFunction.class, "reduce", Type.class, Block.class, Object.class, BinaryFunctionInterface.class, UnaryFunctionInterface.class);
 
     private ArrayReduceFunction()
     {
@@ -81,7 +83,7 @@ public final class ArrayReduceFunction
                 true,
                 ImmutableList.of(false, true, false, false),
                 ImmutableList.of(false, false, false, false),
-                ImmutableList.of(Optional.empty(), Optional.empty(), Optional.of(MethodHandle.class), Optional.of(MethodHandle.class)),
+                ImmutableList.of(Optional.empty(), Optional.empty(), Optional.of(BinaryFunctionInterface.class), Optional.of(UnaryFunctionInterface.class)),
                 methodHandle.asType(
                         methodHandle.type()
                                 .changeParameterType(1, Primitives.wrap(intermediateType.getJavaType()))
@@ -93,22 +95,22 @@ public final class ArrayReduceFunction
             Type inputType,
             Block block,
             Object initialIntermediateValue,
-            MethodHandle inputFunction,
-            MethodHandle outputFunction)
+            BinaryFunctionInterface inputFunction,
+            UnaryFunctionInterface outputFunction)
     {
         int positionCount = block.getPositionCount();
         Object intermediateValue = initialIntermediateValue;
         for (int position = 0; position < positionCount; position++) {
             Object input = readNativeValue(inputType, block, position);
             try {
-                intermediateValue = inputFunction.invoke(intermediateValue, input);
+                intermediateValue = inputFunction.apply(intermediateValue, input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
             }
         }
         try {
-            return outputFunction.invoke(intermediateValue);
+            return outputFunction.apply(intermediateValue);
         }
         catch (Throwable throwable) {
             throw Throwables.propagate(throwable);
