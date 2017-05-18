@@ -259,7 +259,6 @@ public class TestEliminateCrossJoins
         };
     }
 
-
     private PlanNode projectNode(PlanNode source, String symbol, Expression expression)
     {
         return new ProjectNode(
