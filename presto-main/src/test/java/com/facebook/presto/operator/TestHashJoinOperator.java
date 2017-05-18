@@ -648,8 +648,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*", dataProvider = "hashEnabledValues")
-    public void testMemoryLimit(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*", dataProvider = "testMemoryLimitProvider")
+    public void testMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
             throws Exception
     {
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE));
@@ -657,6 +657,16 @@ public class TestHashJoinOperator
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
         buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty());
+    }
+
+    @DataProvider
+    public static Object[][] testMemoryLimitProvider()
+    {
+        return new Object[][] {
+                {true, true},
+                {true, false},
+                {false, true},
+                {false, false}};
     }
 
     private TaskContext createTaskContext()
