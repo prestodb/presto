@@ -25,9 +25,9 @@ import java.net.URI;
 import java.util.Optional;
 
 import static com.facebook.presto.client.NodeVersion.UNKNOWN;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static org.eclipse.jetty.http.HttpHeader.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryExecutor
@@ -42,7 +42,7 @@ public class TestQueryExecutor
 
         QueryExecutor executor = QueryExecutor.create(new TestingHttpClient(input -> new TestingResponse(
                         OK,
-                        ImmutableListMultimap.of(CONTENT_TYPE.toString(), "application/json"),
+                        ImmutableListMultimap.of(CONTENT_TYPE, "application/json"),
                         SERVER_INFO_CODEC.toJsonBytes(serverInfo))));
 
         assertEquals(executor.getServerInfo(new URI("http://example.com")).getUptime().get(), Duration.valueOf("2m"));
