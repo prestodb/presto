@@ -13,27 +13,27 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.backup.BackupCopyStats;
 import io.airlift.stats.CounterStat;
-import io.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.function.Supplier;
 
 @ThreadSafe
 public class ShardRecoveryStats
 {
     private final CounterStat activeShardRecovery = new CounterStat();
     private final CounterStat backgroundShardRecovery = new CounterStat();
+
     private final CounterStat shardRecoverySuccess = new CounterStat();
     private final CounterStat shardRecoveryFailure = new CounterStat();
     private final CounterStat shardRecoveryBackupNotFound = new CounterStat();
 
-    private final DistributionStat shardRecoveryShardSizeBytes = new DistributionStat();
-    private final DistributionStat shardRecoveryTimeInMilliSeconds = new DistributionStat();
-    private final DistributionStat shardRecoveryBytesPerSecond = new DistributionStat();
+    private final BackupCopyStats recoverCopyStats = new BackupCopyStats();
 
     public void incrementBackgroundShardRecovery()
     {
@@ -60,11 +60,9 @@ public class ShardRecoveryStats
         shardRecoverySuccess.update(1);
     }
 
-    public void addShardRecoveryDataRate(DataSize rate, DataSize size, Duration duration)
+    public void run(Runnable runnable, Supplier<DataSize> supplier)
     {
-        shardRecoveryBytesPerSecond.add(Math.round(rate.toBytes()));
-        shardRecoveryShardSizeBytes.add(size.toBytes());
-        shardRecoveryTimeInMilliSeconds.add(duration.toMillis());
+        recoverCopyStats.run(runnable, supplier);
     }
 
     @Managed
@@ -83,43 +81,8 @@ public class ShardRecoveryStats
 
     @Managed
     @Nested
-    public CounterStat getShardRecoverySuccess()
-    {
-        return shardRecoverySuccess;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getShardRecoveryFailure()
-    {
-        return shardRecoveryFailure;
-    }
-
-    @Managed
-    @Nested
     public CounterStat getShardRecoveryBackupNotFound()
     {
         return shardRecoveryBackupNotFound;
-    }
-
-    @Managed
-    @Nested
-    public DistributionStat getShardRecoveryBytesPerSecond()
-    {
-        return shardRecoveryBytesPerSecond;
-    }
-
-    @Managed
-    @Nested
-    public DistributionStat getShardRecoveryTimeInMilliSeconds()
-    {
-        return shardRecoveryTimeInMilliSeconds;
-    }
-
-    @Managed
-    @Nested
-    public DistributionStat getShardRecoveryShardSizeBytes()
-    {
-        return shardRecoveryShardSizeBytes;
     }
 }

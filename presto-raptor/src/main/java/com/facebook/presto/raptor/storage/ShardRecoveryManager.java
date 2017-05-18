@@ -56,12 +56,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
+import static com.facebook.presto.raptor.backup.BackupCopyStats.dataRate;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.DataSize.succinctDataSize;
 import static io.airlift.units.Duration.nanosSince;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
@@ -222,10 +222,9 @@ public class ShardRecoveryManager
         long start = System.nanoTime();
 
         try {
-            backupStore.get().restoreShard(shardUuid, stagingFile);
+            stats.run(() -> backupStore.get().restoreShard(shardUuid, stagingFile), () -> new DataSize(stagingFile.length(), BYTE));
         }
         catch (PrestoException e) {
-            stats.incrementShardRecoveryFailure();
             stagingFile.delete();
             throw e;
         }
@@ -233,7 +232,6 @@ public class ShardRecoveryManager
         Duration duration = nanosSince(start);
         DataSize size = succinctBytes(stagingFile.length());
         DataSize rate = dataRate(size, duration).convertToMostSuccinctDataSize();
-        stats.addShardRecoveryDataRate(rate, size, duration);
 
         log.info("Copied shard %s from backup in %s (%s at %s/s)", shardUuid, duration, size, rate);
 
@@ -407,15 +405,6 @@ public class ShardRecoveryManager
         {
             return queuedMissingShards.get(shard);
         }
-    }
-
-    static DataSize dataRate(DataSize size, Duration duration)
-    {
-        double rate = size.toBytes() / duration.getValue(SECONDS);
-        if (Double.isNaN(rate) || Double.isInfinite(rate)) {
-            rate = 0;
-        }
-        return succinctDataSize(rate, BYTE);
     }
 
     private static File temporarySuffix(File file)

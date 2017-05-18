@@ -60,14 +60,6 @@ public class BackupOperationStats
         return timeouts;
     }
 
-    public void run(Runnable runnable)
-    {
-        run(() -> {
-            runnable.run();
-            return null;
-        });
-    }
-
     public <V> V run(Supplier<V> supplier)
     {
         try (TimeStat.BlockTimer ignored = time.time()) {

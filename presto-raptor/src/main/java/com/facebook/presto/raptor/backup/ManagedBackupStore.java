@@ -14,12 +14,14 @@
 package com.facebook.presto.raptor.backup;
 
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.io.File;
 import java.util.UUID;
 
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
 public class ManagedBackupStore
@@ -28,8 +30,8 @@ public class ManagedBackupStore
     private final BackupStore store;
     private final Logger log;
 
-    private final BackupOperationStats backupShard = new BackupOperationStats();
-    private final BackupOperationStats restoreShard = new BackupOperationStats();
+    private final BackupCopyStats backupShard = new BackupCopyStats();
+    private final BackupCopyStats restoreShard = new BackupCopyStats();
     private final BackupOperationStats deleteShard = new BackupOperationStats();
     private final BackupOperationStats shardExists = new BackupOperationStats();
 
@@ -43,14 +45,14 @@ public class ManagedBackupStore
     public void backupShard(UUID uuid, File source)
     {
         log.debug("Creating shard backup: %s", uuid);
-        backupShard.run(() -> store.backupShard(uuid, source));
+        backupShard.run(() -> store.backupShard(uuid, source), () -> new DataSize(source.length(), BYTE));
     }
 
     @Override
     public void restoreShard(UUID uuid, File target)
     {
         log.debug("Restoring shard backup: %s", uuid);
-        restoreShard.run(() -> store.restoreShard(uuid, target));
+        restoreShard.run(() -> store.restoreShard(uuid, target), () -> new DataSize(target.length(), BYTE));
     }
 
     @Override
@@ -68,14 +70,14 @@ public class ManagedBackupStore
 
     @Managed
     @Nested
-    public BackupOperationStats getBackupShard()
+    public BackupCopyStats getBackupShard()
     {
         return backupShard;
     }
 
     @Managed
     @Nested
-    public BackupOperationStats getRestoreShard()
+    public BackupCopyStats getRestoreShard()
     {
         return restoreShard;
     }
