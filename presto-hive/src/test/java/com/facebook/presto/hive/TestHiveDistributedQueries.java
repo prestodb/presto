@@ -118,14 +118,14 @@ public class TestHiveDistributedQueries
                 .setCatalogSessionProperty(catalog, RCFILE_OPTIMIZED_READER_ENABLED, Boolean.toString(rcFileOptimizedReaderEnabled))
                 .build();
 
-        assertUpdate(session, "CREATE TABLE test_table_with_char WITH (format = 'RCTEXT') AS SELECT CAST('khaki' AS CHAR(7)) char_column", 1);
+        assertUpdate(session, "CREATE TABLE test_table_with_char_rc WITH (format = 'RCTEXT') AS SELECT CAST('khaki' AS CHAR(7)) char_column", 1);
         try {
             assertQuery(session,
-                    "SELECT * FROM test_table_with_char WHERE char_column = 'khaki  '",
+                    "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki  '",
                     "VALUES (CAST('khaki' AS CHAR(7)))");
         }
         finally {
-            assertUpdate(session, "DROP TABLE test_table_with_char");
+            assertUpdate(session, "DROP TABLE test_table_with_char_rc");
         }
     }
 }
