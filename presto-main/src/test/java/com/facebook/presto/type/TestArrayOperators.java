@@ -962,6 +962,7 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction("SEQUENCE(2, -1, 1)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(-1, -10, 1)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(1, 1000000)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -981,6 +982,7 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-04-14', interval '-1' day)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(date '2016-04-14', date '2016-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(date '2000-04-14', date '2030-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -1005,6 +1007,7 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction("SEQUENCE(date '2016-06-12', date '2016-04-12', interval '1' month)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(date '2000-04-12', date '3000-06-12', interval '1' month)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Override
