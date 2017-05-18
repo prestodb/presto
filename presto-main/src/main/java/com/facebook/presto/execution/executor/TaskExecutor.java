@@ -228,7 +228,7 @@ public class TaskExecutor
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
 
-        log.info("Task scheduled " + taskId);
+        log.debug("Task scheduled " + taskId);
 
         TaskHandle taskHandle = new TaskHandle(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
         tasks.add(taskHandle);
@@ -259,7 +259,7 @@ public class TaskExecutor
         int priorityLevel = calculatePriorityLevel(threadUsageNanos);
         completedTasksPerLevel.incrementAndGet(priorityLevel);
 
-        log.info("Task finished or failed " + taskHandle.getTaskId());
+        log.debug("Task finished or failed " + taskHandle.getTaskId());
 
         // replace blocked splits that were terminated
         addNewEntrants();
