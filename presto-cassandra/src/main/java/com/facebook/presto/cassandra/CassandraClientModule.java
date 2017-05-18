@@ -35,15 +35,12 @@ import javax.inject.Singleton;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class CassandraClientModule
         implements Module
@@ -70,16 +67,6 @@ public class CassandraClientModule
         configBinder(binder).bindConfig(CassandraClientConfig.class);
 
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
-    }
-
-    @ForCassandra
-    @Singleton
-    @Provides
-    public static ExecutorService createCachingCassandraSchemaExecutor(CassandraConnectorId clientId, CassandraClientConfig cassandraClientConfig)
-    {
-        return newFixedThreadPool(
-                cassandraClientConfig.getMaxSchemaRefreshThreads(),
-                daemonThreadsNamed("cassandra-" + clientId + "-%s"));
     }
 
     @Singleton
