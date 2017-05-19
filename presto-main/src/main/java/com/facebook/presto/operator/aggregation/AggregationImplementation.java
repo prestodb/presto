@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.operator.ParametricImplementation;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
@@ -45,6 +46,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsAnnotation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
@@ -110,6 +114,7 @@ public class AggregationImplementation
     private final List<ImplementationDependency> combineDependencies;
     private final List<ImplementationDependency> outputDependencies;
     private final List<ImplementationDependency> stateSerializerFactoryDependencies;
+    private final List<ParameterType> inputParameterMetadataTypes;
 
     public AggregationImplementation(
             Signature signature,
@@ -123,7 +128,8 @@ public class AggregationImplementation
             List<ImplementationDependency> inputDependencies,
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies,
-            List<ImplementationDependency> stateSerializerFactoryDependencies)
+            List<ImplementationDependency> stateSerializerFactoryDependencies,
+            List<ParameterType> inputParameterMetadataTypes)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
@@ -137,6 +143,7 @@ public class AggregationImplementation
         this.outputDependencies = requireNonNull(outputDependencies, "outputDependencies cannot be null");
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
         this.stateSerializerFactoryDependencies = requireNonNull(stateSerializerFactoryDependencies, "stateSerializerFactoryDependencies cannot be null");
+        this.inputParameterMetadataTypes = requireNonNull(inputParameterMetadataTypes, "inputParameterMetadataTypes cannot be null");
     }
 
     @Override
@@ -201,6 +208,11 @@ public class AggregationImplementation
         return stateSerializerFactoryDependencies;
     }
 
+    public List<ParameterType> getInputParameterMetadataTypes()
+    {
+        return inputParameterMetadataTypes;
+    }
+
     public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkState(argumentNativeContainerTypes.size() == boundSignature.getArgumentTypes().size(), "Number of argument assigned to AggregationImplementation is different than number parsed from annotations.");
@@ -244,6 +256,7 @@ public class AggregationImplementation
             List<LongVariableConstraint> longVariableConstraints = parseLongVariableConstraints(inputFunction);
             List<TypeVariableConstraint> typeVariableConstraints = parseTypeVariableConstraints(inputFunction, inputDependencies);
             List<AggregateNativeContainerType> signatureArgumentsTypes = parseSignatureArgumentsTypes(inputFunction);
+            List<ParameterType> parameterTypes = parseParameterMetadataTypes(inputFunction);
 
             List<TypeSignature> inputTypes = getInputTypesSignatures(inputFunction);
             TypeSignature outputType = TypeSignature.parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value());
@@ -257,7 +270,78 @@ public class AggregationImplementation
                     inputTypes,
                     false);
 
-            return new AggregationImplementation(signature, aggregationDefinition, stateClass, inputFunction, outputFunction, combineFunction, stateSerializerFactoryFunction, signatureArgumentsTypes, inputDependencies, combineDependencies, outputDependencies, stateSerializerFactoryDependencies);
+            return new AggregationImplementation(signature,
+                    aggregationDefinition,
+                    stateClass,
+                    inputFunction,
+                    outputFunction,
+                    combineFunction,
+                    stateSerializerFactoryFunction,
+                    signatureArgumentsTypes,
+                    inputDependencies,
+                    combineDependencies,
+                    outputDependencies,
+                    stateSerializerFactoryDependencies,
+                    parameterTypes);
+        }
+
+        private static List<ParameterType> parseParameterMetadataTypes(Method method)
+        {
+            ImmutableList.Builder<ParameterType> builder = ImmutableList.builder();
+
+            Annotation[][] annotations = method.getParameterAnnotations();
+            String methodName = method.getDeclaringClass() + "." + method.getName();
+
+            checkArgument(method.getParameterCount() > 0, "At least @AggregationState argument is required for each of aggregation functions.");
+
+            int i = 0;
+            if (annotations[0].length == 0) {
+                // Backward compatibility - first argument without annotations is interpreted as State argument
+                builder.add(STATE);
+                i++;
+            }
+
+            for (; i < annotations.length; ++i) {
+                Annotation baseTypeAnnotation = baseTypeAnnotation(annotations[i], methodName);
+                if (isImplementationDependencyAnnotation(baseTypeAnnotation)) {
+                    // Implementation dependencies are bound in specializing phase.
+                    // For that reason there are omitted in parameter metadata, as they
+                    // are no longer visible while processing aggregations.
+                }
+                else if (baseTypeAnnotation instanceof AggregationState) {
+                    builder.add(STATE);
+                }
+                else if (baseTypeAnnotation instanceof SqlType) {
+                    boolean isParameterBlock = isParameterBlock(annotations[i]);
+                    boolean isParameterNullable = isParameterNullable(annotations[i]);
+                    builder.add(inputChannelParameterType(isParameterNullable, isParameterBlock, methodName));
+                }
+                else if (baseTypeAnnotation instanceof BlockIndex) {
+                    builder.add(BLOCK_INDEX);
+                }
+                else {
+                    throw new IllegalArgumentException("Unsupported annotation: " + annotations[i]);
+                }
+            }
+            return builder.build();
+        }
+
+        private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)
+        {
+            List<Annotation> baseTypes = Arrays.asList(annotations).stream()
+                    .filter(annotation -> isAggregationMetaAnnotation(annotation) || annotation instanceof SqlType)
+                    .collect(toImmutableList());
+
+            checkArgument(baseTypes.size() == 1, "Parameter of %s must have exactly one of @SqlType, @BlockIndex", methodName);
+
+            boolean nullable = isParameterNullable(annotations);
+            boolean isBlock = isParameterBlock(annotations);
+
+            Annotation annotation = baseTypes.get(0);
+            checkArgument((!isBlock && !nullable) || (annotation instanceof SqlType),
+                    "%s contains a parameter with @BlockPosition and/or @NullablePosition that is not @SqlType", methodName);
+
+            return annotation;
         }
 
         public static List<AggregateNativeContainerType> parseSignatureArgumentsTypes(Method inputFunction)

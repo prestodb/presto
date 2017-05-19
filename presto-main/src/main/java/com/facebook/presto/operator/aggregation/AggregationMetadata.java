@@ -31,6 +31,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -192,22 +193,7 @@ public class AggregationMetadata
 
         public static ParameterMetadata fromSqlType(Type sqlType, boolean isBlock, boolean isNullable, String methodName)
         {
-            if (isBlock) {
-                if (isNullable) {
-                    return new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, sqlType);
-                }
-                else {
-                    return new ParameterMetadata(BLOCK_INPUT_CHANNEL, sqlType);
-                }
-            }
-            else {
-                if (isNullable) {
-                    throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
-                }
-                else {
-                    return new ParameterMetadata(INPUT_CHANNEL, sqlType);
-                }
-            }
+            return new ParameterMetadata(inputChannelParameterType(isNullable, isBlock, methodName), sqlType);
         }
 
         public static ParameterMetadata forBlockIndexParameter()
@@ -236,7 +222,27 @@ public class AggregationMetadata
             BLOCK_INPUT_CHANNEL,
             NULLABLE_BLOCK_INPUT_CHANNEL,
             BLOCK_INDEX,
-            STATE
+            STATE;
+
+            static ParameterType inputChannelParameterType(boolean isNullable, boolean isBlock, String methodName)
+            {
+                if (isBlock) {
+                    if (isNullable) {
+                        return NULLABLE_BLOCK_INPUT_CHANNEL;
+                    }
+                    else {
+                        return BLOCK_INPUT_CHANNEL;
+                    }
+                }
+                else {
+                    if (isNullable) {
+                        throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
+                    }
+                    else {
+                        return INPUT_CHANNEL;
+                    }
+                }
+            }
         }
     }
 }

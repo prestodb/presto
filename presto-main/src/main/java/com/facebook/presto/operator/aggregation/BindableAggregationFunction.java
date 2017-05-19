@@ -20,45 +20,31 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.ParametricImplementations;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nullable;
-
-import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.isAggregationMetaAnnotation;
-import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.isParameterBlock;
-import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.isParameterNullable;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromSqlType;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
-import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
@@ -112,6 +98,7 @@ public class BindableAggregationFunction
         Class<?> stateClass = concreteImplementation.getStateClass();
         Method inputFunction = concreteImplementation.getInputFunction();
         Method outputFunction = concreteImplementation.getOutputFunction();
+        Method combineFunction = concreteImplementation.getCombineFunction();
 
         checkCondition(
                 definitionClass.getAnnotation(AggregationFunction.class) != null,
@@ -126,7 +113,6 @@ public class BindableAggregationFunction
         AggregationMetadata metadata;
         AccumulatorStateSerializer<?> stateSerializer = getAccumulatorStateSerializer(concreteImplementation, variables, typeManager, functionRegistry, stateClass, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
-        Method combineFunction = concreteImplementation.getCombineFunction();
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
         MethodHandle inputHandle = bindDependencies(inputFunction, concreteImplementation.getInputDependencies(), variables, typeManager, functionRegistry);
@@ -135,7 +121,7 @@ public class BindableAggregationFunction
 
         metadata = new AggregationMetadata(
                 generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
-                getParameterMetadata(inputFunction, inputTypes),
+                buildParameterMetadata(concreteImplementation.getInputParameterMetadataTypes(), inputTypes),
                 inputHandle,
                 combineHandle,
                 outputHandle,
@@ -197,66 +183,25 @@ public class BindableAggregationFunction
                 .collect(toImmutableList());
     }
 
-    private static List<ParameterMetadata> getParameterMetadata(@Nullable Method method, List<Type> inputTypes)
+    private static List<ParameterMetadata> buildParameterMetadata(List<ParameterType> parameterMetadataTypes, List<Type> inputTypes)
     {
-        if (method == null) {
-            return null;
-        }
-
         ImmutableList.Builder<ParameterMetadata> builder = ImmutableList.builder();
-
-        Annotation[][] annotations = method.getParameterAnnotations();
-        String methodName = method.getDeclaringClass() + "." + method.getName();
-
-        checkArgument(annotations.length > 0, "At least @AggregationState argument is required for each of aggregation functions.");
-
         int inputId = 0;
-        int i = 0;
-        if (annotations[0].length == 0) {
-            // Backward compatibility - first argument without annotations is interpreted as State argument
-            builder.add(new ParameterMetadata(STATE));
-            i++;
+
+        for (ParameterType parameterMetadataType : parameterMetadataTypes) {
+            switch (parameterMetadataType) {
+                case STATE:
+                case BLOCK_INDEX:
+                    builder.add(new ParameterMetadata(parameterMetadataType));
+                    break;
+                case INPUT_CHANNEL:
+                case BLOCK_INPUT_CHANNEL:
+                case NULLABLE_BLOCK_INPUT_CHANNEL:
+                    builder.add(new ParameterMetadata(parameterMetadataType, inputTypes.get(inputId++)));
+                    break;
+            }
         }
 
-        for (; i < annotations.length; i++) {
-            Annotation baseTypeAnnotation = baseTypeAnnotation(annotations[i], methodName);
-            if (isImplementationDependencyAnnotation(baseTypeAnnotation)) {
-                // skip, this is bound at this point
-            }
-            else if (baseTypeAnnotation instanceof AggregationState) {
-                builder.add(new ParameterMetadata(STATE));
-            }
-            else if (baseTypeAnnotation instanceof SqlType) {
-                builder.add(fromSqlType(inputTypes.get(inputId++), isParameterBlock(annotations[i]), isParameterNullable(annotations[i]), methodName));
-            }
-            else if (baseTypeAnnotation instanceof BlockIndex) {
-                builder.add(new ParameterMetadata(BLOCK_INDEX));
-            }
-            else if (baseTypeAnnotation instanceof AggregationState) {
-                builder.add(new ParameterMetadata(STATE));
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported annotation: " + annotations[i]);
-            }
-        }
         return builder.build();
-    }
-
-    private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)
-    {
-        List<Annotation> baseTypes = Arrays.asList(annotations).stream()
-                .filter(annotation -> isAggregationMetaAnnotation(annotation) || annotation instanceof SqlType)
-                .collect(toImmutableList());
-
-        checkArgument(baseTypes.size() == 1, "Parameter of %s must have exactly one of @SqlType, @BlockIndex", methodName);
-
-        boolean nullable = isParameterNullable(annotations);
-        boolean isBlock = isParameterBlock(annotations);
-
-        Annotation annotation = baseTypes.get(0);
-        checkArgument((!isBlock && !nullable) || (annotation instanceof SqlType),
-                "%s contains a parameter with @BlockPosition and/or @NullablePosition that is not @SqlType", methodName);
-
-        return annotation;
     }
 }
