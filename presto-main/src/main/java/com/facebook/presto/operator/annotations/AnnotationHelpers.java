@@ -16,6 +16,7 @@ package com.facebook.presto.operator.annotations;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.spi.function.IsNull;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
@@ -163,6 +164,16 @@ public class AnnotationHelpers
             builder.put(typeParameters, constructor);
         }
         return builder.build();
+    }
+
+    public static Set<String> parseLiteralParameters(Method method)
+    {
+        LiteralParameters literalParametersAnnotation = method.getAnnotation(LiteralParameters.class);
+        if (literalParametersAnnotation == null) {
+            return ImmutableSet.of();
+        }
+
+        return ImmutableSet.copyOf(literalParametersAnnotation.value());
     }
 
     public static boolean containsLegacyNullable(Annotation[] annotations)

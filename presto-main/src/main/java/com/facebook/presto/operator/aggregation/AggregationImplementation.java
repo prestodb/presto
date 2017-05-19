@@ -26,7 +26,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -35,9 +34,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.facebook.presto.util.Reflection;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
@@ -55,6 +52,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsAnnotation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.parseLiteralParameters;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -384,7 +382,7 @@ public class AggregationImplementation
         {
             ImmutableList.Builder<ImplementationDependency> builder = ImmutableList.builder();
             List<TypeParameter> typeParameters = Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class));
-            Set<String> literalParameters = getLiteralParameters(inputFunction);
+            Set<String> literalParameters = parseLiteralParameters(inputFunction);
 
             for (int i = 0; i < inputFunction.getParameterCount(); i++) {
                 Class<?> parameterType = inputFunction.getParameterTypes()[i];
@@ -431,7 +429,7 @@ public class AggregationImplementation
         {
             // FIXME Literal parameters should be part of class annotations.
             ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
-            Set<String> literalParameters = getLiteralParameters(inputFunction);
+            Set<String> literalParameters = parseLiteralParameters(inputFunction);
 
             Annotation[][] parameterAnnotations = inputFunction.getParameterAnnotations();
             for (Annotation[] annotations : parameterAnnotations) {
@@ -474,22 +472,6 @@ public class AggregationImplementation
             // backward compatibility @AggregationState annotation didn't exists before
             // some third party aggregates may assume that State will be id-th parameter
             return id;
-        }
-
-        public static Set<String> getLiteralParameters(Method inputFunction)
-        {
-            ImmutableSet.Builder<String> literalParametersBuilder = ImmutableSet.builder();
-
-            Annotation[] literalParameters = inputFunction.getAnnotations();
-            for (Annotation annotation : literalParameters) {
-                if (annotation instanceof LiteralParameters) {
-                    for (String literal : ((LiteralParameters) annotation).value()) {
-                        literalParametersBuilder.add(literal);
-                    }
-                }
-            }
-
-            return literalParametersBuilder.build();
         }
 
         public static boolean isAggregationMetaAnnotation(Annotation annotation)
