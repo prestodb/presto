@@ -61,61 +61,42 @@ public class BindableAggregationFunction
     }
 
     @Override
-    public String getDescription()
-    {
-        return details.getDescription().orElse("");
-    }
-
-    @Override
     public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Optional<AggregationImplementation> implementation = Optional.empty();
-
+        // Bind variables
         Signature boundSignature = applyBoundVariables(getSignature(), variables, arity);
-        if (implementations.getExactImplementations().containsKey(boundSignature)) {
-            implementation = Optional.of(implementations.getExactImplementations().get(boundSignature));
-        }
-        else {
-            for (AggregationImplementation genericImpl : implementations.getGenericImplementations()) {
-                if (genericImpl.areTypesAssignable(boundSignature, variables, typeManager, functionRegistry)) {
-                    if (implementation.isPresent()) {
-                        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getSignature()));
-                    }
-                    implementation = Optional.of(genericImpl);
-                }
-            }
-        }
 
-        if (!implementation.isPresent()) {
-            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getSignature()));
-        }
+        // Find implementation matching arguments
+        AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature, variables, typeManager, functionRegistry);
 
-        AggregationImplementation concreteImplementation = implementation.get();
-        Class<?> definitionClass = concreteImplementation.getDefinitionClass();
-        Class<?> stateClass = concreteImplementation.getStateClass();
-
-        checkCondition(
-                definitionClass.getAnnotation(AggregationFunction.class) != null,
-                FUNCTION_IMPLEMENTATION_ERROR,
-                format("Class that defines aggregation function must be annotated with @AggregationFunction"));
-
+        // Build argument and return Types from signatures
         List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
         Type outputType = typeManager.getType(boundSignature.getReturnType());
 
+        // Create classloader for additional aggregation dependencies
+        Class<?> definitionClass = concreteImplementation.getDefinitionClass();
         DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
-        AggregationMetadata metadata;
+        // Build state factory and serializer
+        Class<?> stateClass = concreteImplementation.getStateClass();
         AccumulatorStateSerializer<?> stateSerializer = getAccumulatorStateSerializer(concreteImplementation, variables, typeManager, functionRegistry, stateClass, classLoader);
-        Type intermediateType = stateSerializer.getSerializedType();
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
+        // Bind provided dependencies to aggregation method handlers
         MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), variables, typeManager, functionRegistry);
         MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), variables, typeManager, functionRegistry);
         MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), variables, typeManager, functionRegistry);
 
-        metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
-                buildParameterMetadata(concreteImplementation.getInputParameterMetadataTypes(), inputTypes),
+        // Build metadata of input parameters
+        List<ParameterMetadata> parametersMetadata = buildParameterMetadata(concreteImplementation.getInputParameterMetadataTypes(), inputTypes);
+
+        // Generate Aggregation name
+        String aggregationName = generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes));
+
+        // Collect all collected data in Metadata
+        AggregationMetadata metadata = new AggregationMetadata(
+                aggregationName,
+                parametersMetadata,
                 inputHandle,
                 combineHandle,
                 outputHandle,
@@ -124,17 +105,45 @@ public class BindableAggregationFunction
                 stateFactory,
                 outputType);
 
-        AccumulatorFactoryBinder factory = new LazyAccumulatorFactoryBinder(metadata, classLoader);
-
+        // Create specialized InternalAggregregationFunction for Presto
         return new InternalAggregationFunction(getSignature().getName(),
                 inputTypes,
-                intermediateType,
+                stateSerializer.getSerializedType(),
                 outputType,
                 details.isDecomposable(),
-                factory);
+                new LazyAccumulatorFactoryBinder(metadata, classLoader));
     }
 
-    private AccumulatorStateSerializer<?> getAccumulatorStateSerializer(AggregationImplementation implementation, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry, Class<?> stateClass, DynamicClassLoader classLoader)
+    @Override
+    public String getDescription()
+    {
+        return details.getDescription().orElse("");
+    }
+
+    private AggregationImplementation findMatchingImplementation(Signature boundSignature, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    {
+        Optional<AggregationImplementation> foundImplementation = Optional.empty();
+        if (implementations.getExactImplementations().containsKey(boundSignature)) {
+            foundImplementation = Optional.of(implementations.getExactImplementations().get(boundSignature));
+        }
+        else {
+            for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
+                if (candidate.areTypesAssignable(boundSignature, variables, typeManager, functionRegistry)) {
+                    if (foundImplementation.isPresent()) {
+                        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getSignature()));
+                    }
+                    foundImplementation = Optional.of(candidate);
+                }
+            }
+        }
+
+        if (!foundImplementation.isPresent()) {
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getSignature()));
+        }
+        return foundImplementation.get();
+    }
+
+    private static AccumulatorStateSerializer<?> getAccumulatorStateSerializer(AggregationImplementation implementation, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry, Class<?> stateClass, DynamicClassLoader classLoader)
     {
         AccumulatorStateSerializer<?> stateSerializer;
         Optional<MethodHandle> stateSerializerFactory = implementation.getStateSerializerFactory();
