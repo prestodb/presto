@@ -158,7 +158,7 @@ public class FeaturesConfig
     }
 
     @Config("fast-inequality-joins")
-    @ConfigDescription("Experimental: Use faster handling of inequality joins if it is possible")
+    @ConfigDescription("Use faster handling of inequality joins if it is possible")
     public FeaturesConfig setFastInequalityJoins(boolean fastInequalityJoins)
     {
         this.fastInequalityJoins = fastInequalityJoins;

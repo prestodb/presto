@@ -241,7 +241,7 @@ public final class SystemSessionProperties
                         false),
                 booleanSessionProperty(
                         FAST_INEQUALITY_JOIN,
-                        "Experimental: Use faster handling of inequality join if it is possible",
+                        "Use faster handling of inequality join if it is possible",
                         featuresConfig.isFastInequalityJoins(),
                         false),
                 booleanSessionProperty(
