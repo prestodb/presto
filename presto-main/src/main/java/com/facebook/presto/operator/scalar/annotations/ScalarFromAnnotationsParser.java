@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar.annotations;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.operator.ParametricImplementations;
+import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.AnnotationHelpers;
 import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -93,7 +93,7 @@ public final class ScalarFromAnnotationsParser
 
     private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Map<Set<TypeParameter>, Constructor<?>> constructors)
     {
-        ParametricImplementations.Builder<ScalarImplementation> implementationsBuilder = ParametricImplementations.builder();
+        ParametricImplementationsGroup.Builder<ScalarImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
         ScalarImplementationHeader header = scalar.getHeader();
         checkArgument(!header.getName().isEmpty());
 
@@ -102,7 +102,7 @@ public final class ScalarFromAnnotationsParser
             implementationsBuilder.addImplementation(implementation);
         }
 
-        ParametricImplementations<ScalarImplementation> implementations = implementationsBuilder.build();
+        ParametricImplementationsGroup<ScalarImplementation> implementations = implementationsBuilder.build();
         Signature scalarSignature = implementations.getSignature();
 
         header.getOperatorType().ifPresent(operatorType ->

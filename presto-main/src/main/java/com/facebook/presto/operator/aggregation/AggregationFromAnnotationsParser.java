@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.ParametricImplementations;
+import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.AnnotationHelpers;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -78,7 +78,7 @@ public class AggregationFromAnnotationsParser
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
                         AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
-                        ParametricImplementations<AggregationImplementation> implementations = ParametricImplementations.of(onlyImplementation);
+                        ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
                         builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
                     }
                 }
@@ -90,7 +90,7 @@ public class AggregationFromAnnotationsParser
 
     public static ParametricAggregation parseFunctionDefinition(Class<?> aggregationDefinition)
     {
-        ParametricImplementations.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementations.builder();
+        ParametricImplementationsGroup.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
         AggregationHeader header = parseHeader(aggregationDefinition);
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
@@ -102,7 +102,7 @@ public class AggregationFromAnnotationsParser
             implementationsBuilder.addImplementation(implementation);
         }
 
-        ParametricImplementations<AggregationImplementation> implementations = implementationsBuilder.build();
+        ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
         return new ParametricAggregation(implementations.getSignature(), header, implementations);
     }
 
