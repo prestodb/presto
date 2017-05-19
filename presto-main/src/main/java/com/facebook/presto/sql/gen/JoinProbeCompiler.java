@@ -25,6 +25,7 @@ import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.JumpInstruction;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.JoinProbe;
+import com.facebook.presto.operator.JoinProbeBase;
 import com.facebook.presto.operator.JoinProbeFactory;
 import com.facebook.presto.operator.LookupJoinOperator;
 import com.facebook.presto.operator.LookupJoinOperatorFactory;
@@ -185,8 +186,7 @@ public class JoinProbeCompiler
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("JoinProbe"),
-                type(Object.class),
-                type(JoinProbe.class));
+                type(JoinProbeBase.class));
 
         // declare fields
         FieldDefinition lookupSourceField = classDefinition.declareField(a(PRIVATE, FINAL), "lookupSource", LookupSource.class);
@@ -216,7 +216,7 @@ public class JoinProbeCompiler
         generateGetPosition(classDefinition, positionField);
         generateGetPage(classDefinition, pageField);
 
-        return defineClass(classDefinition, JoinProbe.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        return defineClass(classDefinition, JoinProbeBase.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
     private static void generateConstructor(ClassDefinition classDefinition,
@@ -242,7 +242,7 @@ public class JoinProbeCompiler
                 .getBody()
                 .comment("super();")
                 .append(thisVariable)
-                .invokeConstructor(Object.class);
+                .invokeConstructor(JoinProbeBase.class);
 
         constructor.comment("this.lookupSource = lookupSource;")
                 .append(thisVariable.setField(lookupSourceField, lookupSource));

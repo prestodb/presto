@@ -24,7 +24,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class SimpleJoinProbe
-        implements JoinProbe
+        extends JoinProbeBase
 {
     public static class SimpleJoinProbeFactory
             implements JoinProbeFactory
