@@ -53,7 +53,6 @@ public class BindCodeGenerator
         return LambdaBytecodeGenerator.generateLambda(
                 context,
                 arguments.subList(0, numCaptures),
-                lambda,
                 compiledLambda,
                 lambdaInterface);
     }
