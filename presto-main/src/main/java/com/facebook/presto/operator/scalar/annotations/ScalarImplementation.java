@@ -57,6 +57,7 @@ import static com.facebook.presto.operator.annotations.FunctionsParserHelper.con
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsLegacyNullable;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLongVariableConstraints;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
@@ -261,7 +262,7 @@ public class ScalarImplementation implements ParametricImplementation
         private final Map<String, Class<?>> specializedTypeParameters;
         private final Optional<MethodHandle> constructorMethodHandle;
         private final List<ImplementationDependency> constructorDependencies = new ArrayList<>();
-        private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
+        private final List<LongVariableConstraint> longVariableConstraints;
 
         private Parser(String functionName, Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
         {
@@ -289,9 +290,7 @@ public class ScalarImplementation implements ParametricImplementation
                 checkArgument(!nullable, "Method [%s] annotated with @SqlNullable has primitive return type %s", method, actualReturnType.getSimpleName());
             }
 
-            Stream.of(method.getAnnotationsByType(Constraint.class))
-                    .map(annotation -> new LongVariableConstraint(annotation.variable(), annotation.expression()))
-                    .forEach(longVariableConstraints::add);
+            longVariableConstraints = parseLongVariableConstraints(method);
 
             this.specializedTypeParameters = getDeclaredSpecializedTypeParameters(method);
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.spi.function.Description;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.Constraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -58,6 +60,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class FunctionsParserHelper
@@ -208,5 +211,12 @@ public class FunctionsParserHelper
     {
         Description description = base.getAnnotation(Description.class);
         return (description == null) ? Optional.empty() : Optional.of(description.value());
+    }
+
+    public static List<LongVariableConstraint> parseLongVariableConstraints(Method inputFunction)
+    {
+        return Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
+                .map(annotation -> new LongVariableConstraint(annotation.variable(), annotation.expression()))
+                .collect(toImmutableList());
     }
 }
