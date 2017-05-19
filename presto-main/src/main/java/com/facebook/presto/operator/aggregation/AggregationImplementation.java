@@ -34,10 +34,13 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
+import com.facebook.presto.util.Reflection;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.annotation.Annotation;
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -55,6 +58,7 @@ import static com.facebook.presto.operator.annotations.AnnotationHelpers.createT
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -105,10 +109,10 @@ public class AggregationImplementation
 
     private final Class<?> definitionClass;
     private final Class<?> stateClass;
-    private final Method inputFunction;
-    private final Method outputFunction;
-    private final Method combineFunction;
-    private final Optional<Method> stateSerializerFactory;
+    private final MethodHandle inputFunction;
+    private final MethodHandle outputFunction;
+    private final MethodHandle combineFunction;
+    private final Optional<MethodHandle> stateSerializerFactory;
     private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
     private final List<ImplementationDependency> inputDependencies;
     private final List<ImplementationDependency> combineDependencies;
@@ -120,10 +124,10 @@ public class AggregationImplementation
             Signature signature,
             Class<?> definitionClass,
             Class<?> stateClass,
-            Method inputFunction,
-            Method outputFunction,
-            Method combineFunction,
-            Optional<Method> stateSerializerFactory,
+            MethodHandle inputFunction,
+            MethodHandle outputFunction,
+            MethodHandle combineFunction,
+            Optional<MethodHandle> stateSerializerFactory,
             List<AggregateNativeContainerType> argumentNativeContainerTypes,
             List<ImplementationDependency> inputDependencies,
             List<ImplementationDependency> combineDependencies,
@@ -168,22 +172,22 @@ public class AggregationImplementation
         return stateClass;
     }
 
-    public Method getInputFunction()
+    public MethodHandle getInputFunction()
     {
         return inputFunction;
     }
 
-    public Method getOutputFunction()
+    public MethodHandle getOutputFunction()
     {
         return outputFunction;
     }
 
-    public Method getCombineFunction()
+    public MethodHandle getCombineFunction()
     {
         return combineFunction;
     }
 
-    public Optional<Method> getStateSerializerFactory()
+    public Optional<MethodHandle> getStateSerializerFactory()
     {
         return stateSerializerFactory;
     }
@@ -252,7 +256,7 @@ public class AggregationImplementation
             List<ImplementationDependency> inputDependencies = parseImplementationDependencies(inputFunction);
             List<ImplementationDependency> outputDependencies = parseImplementationDependencies(outputFunction);
             List<ImplementationDependency> combineDependencies = parseImplementationDependencies(combineFunction);
-            List<ImplementationDependency> stateSerializerFactoryDependencies = stateSerializerFactoryFunction.isPresent() ? parseImplementationDependencies(stateSerializerFactoryFunction.get()) : ImmutableList.of();
+            List<ImplementationDependency> stateSerializerFactoryDependencies = stateSerializerFactoryFunction.map(function -> parseImplementationDependencies(function)).orElse(ImmutableList.of());
             List<LongVariableConstraint> longVariableConstraints = parseLongVariableConstraints(inputFunction);
             List<TypeVariableConstraint> typeVariableConstraints = parseTypeVariableConstraints(inputFunction, inputDependencies);
             List<AggregateNativeContainerType> signatureArgumentsTypes = parseSignatureArgumentsTypes(inputFunction);
@@ -270,13 +274,15 @@ public class AggregationImplementation
                     inputTypes,
                     false);
 
+            Optional<MethodHandle> stateSerializerFactoryFunctionHandle = stateSerializerFactoryFunction.map(Reflection::methodHandle);
+
             return new AggregationImplementation(signature,
                     aggregationDefinition,
                     stateClass,
-                    inputFunction,
-                    outputFunction,
-                    combineFunction,
-                    stateSerializerFactoryFunction,
+                    methodHandle(inputFunction),
+                    methodHandle(outputFunction),
+                    methodHandle(combineFunction),
+                    stateSerializerFactoryFunctionHandle,
                     signatureArgumentsTypes,
                     inputDependencies,
                     combineDependencies,
@@ -478,7 +484,7 @@ public class AggregationImplementation
             for (Annotation annotation : literalParameters) {
                 if (annotation instanceof LiteralParameters) {
                     for (String literal : ((LiteralParameters) annotation).value()) {
-                       literalParametersBuilder.add(literal);
+                        literalParametersBuilder.add(literal);
                     }
                 }
             }

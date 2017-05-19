@@ -41,7 +41,6 @@ import com.google.common.primitives.Primitives;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -56,6 +55,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.operator.ParametricFunctionHelpers.bindDependencies;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsLegacyNullable;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
@@ -141,18 +141,9 @@ public class ScalarImplementation implements ParametricImplementation
                 }
             }
         }
-        MethodHandle methodHandle = this.methodHandle;
-        for (ImplementationDependency dependency : dependencies) {
-            methodHandle = MethodHandles.insertArguments(methodHandle, 0, dependency.resolve(boundVariables, typeManager, functionRegistry));
-        }
-        MethodHandle constructor = null;
-        if (this.constructor.isPresent()) {
-            constructor = this.constructor.get();
-            for (ImplementationDependency dependency : constructorDependencies) {
-                constructor = MethodHandles.insertArguments(constructor, 0, dependency.resolve(boundVariables, typeManager, functionRegistry));
-            }
-        }
-        return Optional.of(new MethodHandleAndConstructor(methodHandle, Optional.ofNullable(constructor)));
+        MethodHandle boundMethodHandle = bindDependencies(this.methodHandle, dependencies, boundVariables, typeManager, functionRegistry);
+        Optional<MethodHandle> boundConstructor = this.constructor.map(handle -> bindDependencies(handle, constructorDependencies, boundVariables, typeManager, functionRegistry));
+        return Optional.of(new MethodHandleAndConstructor(boundMethodHandle, boundConstructor));
     }
 
     private static Class<?> getNullAwareReturnType(Class<?> clazz, boolean nullable)

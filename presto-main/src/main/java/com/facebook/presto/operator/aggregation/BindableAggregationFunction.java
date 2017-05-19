@@ -22,7 +22,6 @@ import com.facebook.presto.operator.ParametricImplementations;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
-import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
@@ -33,18 +32,16 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.ParametricFunctionHelpers.bindDependencies;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
-import static com.facebook.presto.util.Failures.checkCondition;
-import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
@@ -96,9 +93,6 @@ public class BindableAggregationFunction
         AggregationImplementation concreteImplementation = implementation.get();
         Class<?> definitionClass = concreteImplementation.getDefinitionClass();
         Class<?> stateClass = concreteImplementation.getStateClass();
-        Method inputFunction = concreteImplementation.getInputFunction();
-        Method outputFunction = concreteImplementation.getOutputFunction();
-        Method combineFunction = concreteImplementation.getCombineFunction();
 
         checkCondition(
                 definitionClass.getAnnotation(AggregationFunction.class) != null,
@@ -115,9 +109,9 @@ public class BindableAggregationFunction
         Type intermediateType = stateSerializer.getSerializedType();
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
-        MethodHandle inputHandle = bindDependencies(inputFunction, concreteImplementation.getInputDependencies(), variables, typeManager, functionRegistry);
-        MethodHandle combineHandle = bindDependencies(combineFunction, concreteImplementation.getCombineDependencies(), variables, typeManager, functionRegistry);
-        MethodHandle outputHandle = bindDependencies(outputFunction, concreteImplementation.getOutputDependencies(), variables, typeManager, functionRegistry);
+        MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), variables, typeManager, functionRegistry);
+        MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), variables, typeManager, functionRegistry);
+        MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), variables, typeManager, functionRegistry);
 
         metadata = new AggregationMetadata(
                 generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
@@ -140,21 +134,10 @@ public class BindableAggregationFunction
                 factory);
     }
 
-    // TODO Extract for scalar use case
-    private static MethodHandle bindDependencies(Method function, List<ImplementationDependency> dependencies, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
-            throws IllegalAccessException
-    {
-        MethodHandle handle = methodHandle(function);
-        for (ImplementationDependency dependency : dependencies) {
-            handle = handle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
-        }
-        return handle;
-    }
-
     private AccumulatorStateSerializer<?> getAccumulatorStateSerializer(AggregationImplementation implementation, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry, Class<?> stateClass, DynamicClassLoader classLoader)
     {
         AccumulatorStateSerializer<?> stateSerializer;
-        Optional<Method> stateSerializerFactory = implementation.getStateSerializerFactory();
+        Optional<MethodHandle> stateSerializerFactory = implementation.getStateSerializerFactory();
         if (stateSerializerFactory.isPresent()) {
             try {
                 MethodHandle factoryHandle = bindDependencies(stateSerializerFactory.get(), implementation.getStateSerializerFactoryDependencies(), variables, typeManager, functionRegistry);

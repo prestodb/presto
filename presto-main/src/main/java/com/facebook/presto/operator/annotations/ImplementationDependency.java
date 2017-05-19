@@ -40,7 +40,7 @@ public interface ImplementationDependency
                 annotation instanceof OperatorDependency;
     }
 
-    public static class Factory
+    class Factory
     {
         private Factory()
         {}
