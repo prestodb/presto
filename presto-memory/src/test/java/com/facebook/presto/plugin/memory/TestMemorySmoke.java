@@ -28,7 +28,6 @@ import static com.facebook.presto.plugin.memory.MemoryQueryRunner.createQueryRun
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestMemorySmoke
@@ -54,18 +53,13 @@ public class TestMemorySmoke
         assertEquals(listMemoryTables().size(), tablesBeforeCreate);
     }
 
-    @Test
+    // it has to be RuntimeException as FailureInfo$FailureException is private
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:1: Destination table 'memory.default.nation' already exists")
     public void createTableWhenTableIsAlreadyCreated()
             throws SQLException
     {
         String createTableSql = "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation";
-        try {
-            queryRunner.execute(createTableSql);
-            fail("Expected exception to be thrown here!");
-        }
-        catch (RuntimeException ex) { // it has to be RuntimeException as FailureInfo$FailureException is private
-            assertTrue(ex.getMessage().equals("line 1:1: Destination table 'memory.default.nation' already exists"));
-        }
+        queryRunner.execute(createTableSql);
     }
 
     @Test
