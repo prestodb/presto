@@ -33,6 +33,7 @@ import java.util.List;
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_INSERT;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_PARTITION_KEY;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
@@ -225,8 +226,7 @@ public class TestCassandraIntegrationSmokeTest
                 .row("column_1", "bigint", "", "")
                 .build());
 
-        // TODO replace with the Presto INSERT INTO once implemented
-        session.execute("INSERT INTO keyspace_1.table_1 (column_1) VALUES (1)");
+        execute("INSERT INTO keyspace_1.table_1 (column_1) VALUES (1)");
 
         assertEquals(execute("SELECT column_1 FROM cassandra.keyspace_1.table_1").getRowCount(), 1);
         assertUpdate("DROP TABLE cassandra.keyspace_1.table_1");
@@ -257,8 +257,7 @@ public class TestCassandraIntegrationSmokeTest
                 .row("column_2", "bigint", "", "")
                 .build());
 
-        // TODO replace with the Presto INSERT INTO once implemented
-        session.execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");
+        execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");
 
         assertEquals(execute("SELECT column_2 FROM cassandra.keyspace_2.table_2").getRowCount(), 1);
         assertUpdate("DROP TABLE cassandra.keyspace_2.table_2");
@@ -339,6 +338,111 @@ public class TestCassandraIntegrationSmokeTest
                 "More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)");
 
         session.execute("DROP KEYSPACE keyspace_5");
+    }
+
+    @Test
+    public void testInsert()
+    {
+        String sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
+                "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                " FROM " + TABLE_ALL_TYPES_INSERT;
+        assertEquals(execute(sql).getRowCount(), 0);
+
+        // TODO Following types are not supported now. We need to change null into the value after fixing it
+        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, timeuuid, decimal, uuid, varint
+        // timestamp can be inserted but the expected and actual values are not same
+        execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
+                "key," +
+                "typeuuid," +
+                "typeinteger," +
+                "typelong," +
+                "typebytes," +
+                "typetimestamp," +
+                "typeansi," +
+                "typeboolean," +
+                "typedecimal," +
+                "typedouble," +
+                "typefloat," +
+                "typeinet," +
+                "typevarchar," +
+                "typevarint," +
+                "typetimeuuid," +
+                "typelist," +
+                "typemap," +
+                "typeset" +
+                ") VALUES (" +
+                "'key1', " +
+                "null, " +
+                "1, " +
+                "1000, " +
+                "null, " +
+                "timestamp '1970-01-01 08:34:05.0', " +
+                "'ansi1', " +
+                "true, " +
+                "null, " +
+                "0.3, " +
+                "cast('0.4' as real), " +
+                "null, " +
+                "'varchar1', " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null " +
+                ")");
+
+        MaterializedResult result = execute(sql);
+        int rowCount = result.getRowCount();
+        assertEquals(rowCount, 1);
+        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
+                "key1",
+                null,
+                1,
+                1000L,
+                null,
+                Timestamp.valueOf("1970-01-01 14:04:05.0"),
+                "ansi1",
+                true,
+                null,
+                0.3,
+                (float) 0.4,
+                null,
+                "varchar1",
+                null,
+                null,
+                null,
+                null,
+                null
+        ));
+
+        // insert null for all datatypes
+        execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
+                "key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal," +
+                "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                ") VALUES (" +
+                "'key2', null, null, null, null, null, null, null, null," +
+                "null, null, null, null, null, null, null, null, null)");
+        sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
+                "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                " FROM " + TABLE_ALL_TYPES_INSERT + " WHERE key = 'key2'";
+        result = execute(sql);
+        rowCount = result.getRowCount();
+        assertEquals(rowCount, 1);
+        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
+                "key2", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+
+        // insert into only a subset of columns
+        execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
+                "key, typeinteger, typeansi, typeboolean) VALUES (" +
+                "'key3', 999, 'ansi', false)");
+        sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
+                "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                " FROM " + TABLE_ALL_TYPES_INSERT + " WHERE key = 'key3'";
+        result = execute(sql);
+        rowCount = result.getRowCount();
+        assertEquals(rowCount, 1);
+        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
+                "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
     }
 
     private void assertSelect(String tableName, boolean createdByPresto)
