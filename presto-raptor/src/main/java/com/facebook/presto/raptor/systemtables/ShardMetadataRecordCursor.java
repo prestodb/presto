@@ -48,6 +48,7 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,6 +60,7 @@ public class ShardMetadataRecordCursor
         implements RecordCursor
 {
     private static final String SHARD_UUID = "shard_uuid";
+    private static final String XXHASH64 = "xxhash64";
     private static final String SCHEMA_NAME = "table_schema";
     private static final String TABLE_NAME = "table_name";
     private static final String MIN_TIMESTAMP = "min_timestamp";
@@ -75,6 +77,7 @@ public class ShardMetadataRecordCursor
                     new ColumnMetadata("uncompressed_size", BIGINT),
                     new ColumnMetadata("compressed_size", BIGINT),
                     new ColumnMetadata("row_count", BIGINT),
+                    new ColumnMetadata(XXHASH64, createVarcharType(16)),
                     new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP),
                     new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP)));
 
@@ -129,6 +132,7 @@ public class ShardMetadataRecordCursor
                 .add("shards" + "." + COLUMNS.get(4).getName())
                 .add("shards" + "." + COLUMNS.get(5).getName())
                 .add("shards" + "." + COLUMNS.get(6).getName())
+                .add("shards" + "." + COLUMNS.get(7).getName())
                 .add("min_timestamp")
                 .add("max_timestamp")
                 .build();
@@ -178,7 +182,10 @@ public class ShardMetadataRecordCursor
                     return false;
                 }
             }
-            completedBytes += resultSetValues.extractValues(resultSet, ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)));
+            completedBytes += resultSetValues.extractValues(
+                    resultSet,
+                    ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
+                    ImmutableSet.of(getColumnIndex(SHARD_METADATA, XXHASH64)));
             return true;
         }
         catch (SQLException | DBIException e) {

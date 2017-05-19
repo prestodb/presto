@@ -29,6 +29,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -52,7 +53,7 @@ public class ResultSetValues
         this.nulls = new boolean[types.size()];
     }
 
-    int extractValues(ResultSet resultSet, Set<Integer> uuidColumns)
+    int extractValues(ResultSet resultSet, Set<Integer> uuidColumns, Set<Integer> hexColumns)
             throws SQLException
     {
         checkArgument(resultSet != null, "resultSet is null");
@@ -87,6 +88,11 @@ public class ResultSetValues
                     byte[] bytes = resultSet.getBytes(i + 1);
                     nulls[i] = resultSet.wasNull();
                     strings[i] = nulls[i] ? null : uuidFromBytes(bytes).toString().toLowerCase(ENGLISH);
+                }
+                else if (hexColumns.contains(i)) {
+                    long value = resultSet.getLong(i + 1);
+                    nulls[i] = resultSet.wasNull();
+                    strings[i] = nulls[i] ? null : format("%016x", value);
                 }
                 else {
                     String value = resultSet.getString(i + 1);
