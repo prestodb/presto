@@ -43,6 +43,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -59,6 +60,8 @@ import static com.facebook.presto.operator.annotations.AnnotationHelpers.contain
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.parseLiteralParameters;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -310,25 +313,22 @@ public class ScalarImplementation implements ParametricImplementation
         private void parseArguments(Method method)
         {
             for (int i = 0; i < method.getParameterCount(); i++) {
-                Annotation[] annotations = method.getParameterAnnotations()[i];
-                Class<?> parameterType = method.getParameterTypes()[i];
+                Parameter parameter = method.getParameters()[i];
+                Class<?> parameterType = parameter.getType();
+
                 // Skip injected parameters
                 if (parameterType == ConnectorSession.class) {
                     continue;
                 }
-                if (containsImplementationDependencyAnnotation(annotations)) {
-                    checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", method);
-                    checkArgument(argumentTypes.isEmpty(), "Meta parameter must come before parameters [%s]", method);
-                    Annotation annotation = annotations[0];
-                    if (annotation instanceof TypeParameter) {
-                        checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), method, typeParameterNames);
-                    }
-                    if (annotation instanceof LiteralParameter) {
-                        checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", method);
-                    }
-                    dependencies.add(createDependency(annotation, literalParameters));
+
+                Optional<Annotation> implementationDependency = getImplementationDependencyAnnotation(parameter);
+                if (implementationDependency.isPresent()) {
+                    // check if only declared typeParameters and literalParameters are used
+                    validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameters, literalParameters);
+                    dependencies.add(createDependency(implementationDependency.get(), literalParameters));
                 }
                 else {
+                    Annotation[] annotations = parameter.getAnnotations();
                     checkArgument(!Stream.of(annotations).anyMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that does not follow a @SqlType parameter", method);
 
                     SqlType type = Stream.of(annotations)

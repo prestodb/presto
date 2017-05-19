@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -48,11 +49,12 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsAnnotation;
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.parseLiteralParameters;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -368,24 +370,18 @@ public class AggregationImplementation
 
             for (int i = 0; i < inputFunction.getParameterCount(); i++) {
                 Class<?> parameterType = inputFunction.getParameterTypes()[i];
-                Annotation[] annotations = inputFunction.getParameterAnnotations()[i];
+                Parameter parameter = inputFunction.getParameters()[i];
 
                 // Skip injected parameters
                 if (parameterType == ConnectorSession.class) {
                     continue;
                 }
 
-                if (containsImplementationDependencyAnnotation(annotations)) {
-                    checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", inputFunction);
-                    Annotation annotation = annotations[0];
-                    if (annotation instanceof TypeParameter) {
-                        checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the method [%s]", inputFunction);
-                    }
-                    if (annotation instanceof LiteralParameter) {
-                        checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", inputFunction);
-                    }
+                getImplementationDependencyAnnotation(parameter).ifPresent(annotation -> {
+                    // check if only declared typeParameters and literalParameters are used
+                    validateImplementationDependencyAnnotation(inputFunction, annotation, typeParameters, literalParameters);
                     builder.add(createDependency(annotation, literalParameters));
-                }
+                });
             }
             return builder.build();
         }
