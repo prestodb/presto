@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
@@ -66,13 +65,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
@@ -222,35 +219,22 @@ public class PlanBuilder
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        Expression originalConstraint = null;
-        return new TableScanNode(idAllocator.getNextId(),
-                new TableHandle(
-                        new ConnectorId("testConnector"),
-                        new TestingTableHandle()),
-                symbols,
-                assignments,
-                Optional.empty(),
-                TupleDomain.all(),
-                originalConstraint);
+        TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
+        return tableScan(tableHandle, symbols, assignments);
     }
 
-    public TableScanNode tableScan(String tableName, Map<String, String> symbolMap)
+    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
-        verify(tableHandle.isPresent(), "Unknown table %s", name);
-        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle.get());
-        Map<Symbol, ColumnHandle> assignments = symbolMap.entrySet().stream()
-                .filter(entry -> columns.containsKey(entry.getValue()))
-                .collect(Collectors.toMap(entry -> new Symbol(entry.getKey()), entry -> columns.get(entry.getValue())));
-        List<Symbol> symbols = ImmutableList.copyOf(assignments.keySet());
-        return new TableScanNode(idAllocator.getNextId(),
-                tableHandle.get(),
+        Expression originalConstraint = null;
+        return new TableScanNode(
+                idAllocator.getNextId(),
+                tableHandle,
                 symbols,
                 assignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null);
+                originalConstraint
+        );
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)

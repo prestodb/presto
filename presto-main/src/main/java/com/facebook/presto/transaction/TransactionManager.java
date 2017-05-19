@@ -390,6 +390,12 @@ public class TransactionManager
             CatalogMetadata catalogMetadata = this.catalogMetadata.get(connectorId);
             if (catalogMetadata == null) {
                 Catalog catalog = catalogsByConnectorId.get(connectorId);
+                if (catalog == null) {
+                    // For rule tester, getConnectorId has never been called because the plan was generated outside this transaction.
+                    getConnectorId(connectorId.getCatalogName());
+                    catalog = catalogsByConnectorId.get(connectorId);
+                }
+
                 verify(catalog != null, "Unknown connectorId: %s", connectorId);
 
                 ConnectorTransactionMetadata metadata = createConnectorTransactionMetadata(catalog.getConnectorId(), catalog);
