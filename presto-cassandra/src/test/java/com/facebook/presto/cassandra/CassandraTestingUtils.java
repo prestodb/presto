@@ -33,6 +33,7 @@ import static org.testng.Assert.assertEquals;
 public class CassandraTestingUtils
 {
     public static final String TABLE_ALL_TYPES = "table_all_types";
+    public static final String TABLE_ALL_TYPES_INSERT = "table_all_types_insert";
     public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
     public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
     public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
@@ -43,7 +44,8 @@ public class CassandraTestingUtils
     public static void createTestTables(CassandraSession cassandraSession, String keyspace, Date date)
     {
         createKeyspace(cassandraSession, keyspace);
-        createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES), date);
+        createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES), date, 9);
+        createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_INSERT), date, 0);
         createTableAllTypesPartitionKey(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_PARTITION_KEY), date);
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS), 9);
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_LARGE), 1000);
@@ -111,7 +113,7 @@ public class CassandraTestingUtils
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
     }
 
-    public static void createTableAllTypes(CassandraSession session, SchemaTableName table, Date date)
+    public static void createTableAllTypes(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
     {
         session.execute("DROP TABLE IF EXISTS " + table);
         session.execute("CREATE TABLE " + table + " (" +
@@ -134,7 +136,7 @@ public class CassandraTestingUtils
                 " typemap map<int, bigint>, " +
                 " typeset set<boolean>, " +
                 ")");
-        insertTestData(session, table, date);
+        insertTestData(session, table, date, rowsCount);
     }
 
     public static void createTableAllTypesPartitionKey(CassandraSession session, SchemaTableName table, Date date)
@@ -186,12 +188,12 @@ public class CassandraTestingUtils
                 " ))" +
                 ")");
 
-        insertTestData(session, table, date);
+        insertTestData(session, table, date, 9);
     }
 
-    private static void insertTestData(CassandraSession session, SchemaTableName table, Date date)
+    private static void insertTestData(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
     {
-        for (Integer rowNumber = 1; rowNumber < 10; rowNumber++) {
+        for (Integer rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
             Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
                     .value("key", "key " + rowNumber.toString())
                     .value("typeuuid", UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)))
@@ -214,6 +216,6 @@ public class CassandraTestingUtils
 
             session.execute(insert);
         }
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
     }
 }
