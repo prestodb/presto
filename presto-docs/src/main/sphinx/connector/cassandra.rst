@@ -76,14 +76,6 @@ Property Name                                      Description
 
 .. _Cassandra consistency: http://www.datastax.com/documentation/cassandra/2.0/cassandra/dml/dml_config_consistency_c.html
 
-.. note::
-
-    An outdated cache may result in wrong results. For example, a primary key
-    added after the latest refresh will not be visible in the results.
-    If your use case entails frequent addition of data to Cassandra, consider lowering the
-    value of ``cassandra.schema-cache-ttl`` (sometimes even to ``0s``). Be aware that this
-    may cause a significant performance degradation.
-
 The following advanced configuration properties are available:
 
 ============================================================= ======================================================================
@@ -233,11 +225,9 @@ Partition keys can only be of the following types:
 Limitations
 -----------
 
-* ``cassandra.schema-refresh-interval`` cannot be set to the value ``0s``.
 * Queries without filters containing the partition key result in fetching all partitions.
   This causes a full scan of the entire data set, therefore it's much slower compared to a similar
-  query with partition key in filter.
+  query with a partition key as a filter.
 * ``IN`` list filters are only allowed on index (that is, partition key or clustering key) columns.
 * Range (``<`` or ``>`` and ``BETWEEN``) filters can be applied only to the partition keys.
 * Non-equality predicates on clustering keys are not pushed down (only ``=`` and ``IN`` are pushed down) .
-* Aggregates are also not pushed down.
