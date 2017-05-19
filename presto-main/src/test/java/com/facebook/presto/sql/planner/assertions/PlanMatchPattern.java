@@ -47,12 +47,14 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -309,12 +311,26 @@ public final class PlanMatchPattern
         return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of(), groupIdAlias));
     }
 
+    private static PlanMatchPattern values(
+            Map<String, Integer> aliasToIndex,
+            Optional<Integer> expectedOutputSymbolCount,
+            Optional<List<List<Expression>>> expectedRows
+    )
+    {
+        return node(ValuesNode.class).with(new ValuesMatcher(aliasToIndex, expectedOutputSymbolCount, expectedRows));
+    }
+
+    private static PlanMatchPattern values(List<String> aliases, Optional<List<List<Expression>>> expectedRows)
+    {
+        return values(
+                Maps.uniqueIndex(IntStream.range(0, aliases.size()).boxed().iterator(), aliases::get),
+                Optional.of(aliases.size()),
+                expectedRows);
+    }
+
     public static PlanMatchPattern values(Map<String, Integer> aliasToIndex)
     {
-        PlanMatchPattern result = node(ValuesNode.class);
-        aliasToIndex.entrySet().forEach(
-                aliasWithIndex -> result.withAlias(aliasWithIndex.getKey(), new ValuesMatcher(aliasWithIndex.getValue())));
-        return result;
+        return values(aliasToIndex, Optional.empty(), Optional.empty());
     }
 
     public static PlanMatchPattern values(String ... aliases)
@@ -322,15 +338,14 @@ public final class PlanMatchPattern
         return values(ImmutableList.copyOf(aliases));
     }
 
+    public static PlanMatchPattern values(List<String> aliases, List<List<Expression>> expectedRows)
+    {
+        return values(aliases, Optional.of(expectedRows));
+    }
+
     public static PlanMatchPattern values(List<String> aliases)
     {
-        PlanMatchPattern result = node(ValuesNode.class).withNumberOfOutputColumns(aliases.size());
-        int index = 0;
-        for (String alias : aliases) {
-            result.withAlias(alias, new ValuesMatcher(index));
-            ++index;
-        }
-        return result;
+        return values(aliases, Optional.empty());
     }
 
     public static PlanMatchPattern limit(long limit, PlanMatchPattern source)
