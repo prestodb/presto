@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.google.common.primitives.Ints;
@@ -151,6 +152,26 @@ public class TestDictionaryBlock
         assertEquals(compactBlock.isCompact(), true);
     }
 
+    @Test
+    public void testMask()
+    {
+        Slice[] expectedValues = createExpectedValues(5);
+        Block masked = DictionaryBlock.mask(makeSliceArrayBlock(expectedValues), new int[] {0, 1, 4});
+        assertBlock(masked, new Slice[] { expectedValues[0], expectedValues[1], expectedValues[4] });
+    }
+
+    @Test
+    public void testMaskTwice()
+    {
+        Slice[] expectedValues = createExpectedValues(5);
+        Block sourceBlock = makeSliceArrayBlock(expectedValues);
+        Block masked = DictionaryBlock.mask(sourceBlock, new int[] {0, 1, 4});
+        Block maskedTwice = DictionaryBlock.mask(masked, new int[] {2});
+        assertBlock(maskedTwice, new Slice[] { expectedValues[4] });
+        // Check dictionary "flattened"
+        assertTrue(((DictionaryBlock) maskedTwice).getDictionary() == sourceBlock);
+    }
+
     private static DictionaryBlock createDictionaryBlockWithUnreferencedKeys(Slice[] expectedValues, int positionCount)
     {
         // adds references to 0 and all odd indexes
@@ -175,7 +196,12 @@ public class TestDictionaryBlock
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(positionCount, makeSliceArrayBlock(expectedValues), ids);
+    }
+
+    private static Block makeSliceArrayBlock(Slice[] values)
+    {
+        return new SliceArrayBlock(values.length, values);
     }
 
     private static void assertDictionaryIds(DictionaryBlock dictionaryBlock, int... expected)

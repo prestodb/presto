@@ -64,6 +64,19 @@ public class DictionaryBlock
         this(0, positionCount, dictionary, ids, dictionaryIsCompacted, dictionarySourceId);
     }
 
+    public static Block mask(Block sourceBlock, int[] ids)
+    {
+        if (sourceBlock instanceof DictionaryBlock) {
+            DictionaryBlock dictionaryBlock = (DictionaryBlock) sourceBlock;
+            int[] directIds = new int[ids.length];
+            for (int i = 0; i < ids.length; i++) {
+                directIds[i] = dictionaryBlock.getId(ids[i]);
+            }
+            return new DictionaryBlock(directIds.length, dictionaryBlock.getDictionary(), directIds);
+        }
+        return new DictionaryBlock(ids.length, sourceBlock, ids);
+    }
+
     private DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
     {
         requireNonNull(dictionary, "dictionary is null");
