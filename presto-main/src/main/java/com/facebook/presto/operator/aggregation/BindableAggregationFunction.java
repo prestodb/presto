@@ -44,9 +44,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static com.facebook.presto.operator.aggregation.AggregationCompiler.isAggregationMetaAnnotation;
-import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterBlock;
-import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterNullable;
+import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.isAggregationMetaAnnotation;
+import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.isParameterBlock;
+import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.isParameterNullable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromSqlType;

@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.ParametricImplementation;
+import com.facebook.presto.operator.annotations.AnnotationHelpers;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
@@ -38,8 +39,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 
-import javax.annotation.Nullable;
-
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -47,7 +46,6 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -59,9 +57,9 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsLegacyNullable;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
-import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -361,7 +359,7 @@ public class ScalarImplementation implements ParametricImplementation
                         if (Stream.of(parameterAnnotations).anyMatch(IsNull.class::isInstance)) {
                             Class<?> isNullType = method.getParameterTypes()[i + 1];
 
-                            checkArgument(Stream.of(parameterAnnotations).filter(Parser::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
+                            checkArgument(Stream.of(parameterAnnotations).filter(AnnotationHelpers::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
                             checkArgument(isNullType == boolean.class, "Method [%s] has non-boolean parameter with @IsNull", method);
                             checkArgument((parameterType == Void.class) || !Primitives.isWrapperType(parameterType), "Method [%s] uses @IsNull following a parameter with boxed primitive type: %s", method, parameterType.getSimpleName());
 
@@ -511,22 +509,6 @@ public class ScalarImplementation implements ParametricImplementation
         public static ScalarImplementation parseImplementation(String functionName, Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
         {
             return new Parser(functionName, method, constructors).get();
-        }
-
-        private static boolean containsLegacyNullable(Annotation[] annotations)
-        {
-            return Arrays.stream(annotations)
-                    .map(Annotation::annotationType)
-                    .map(Class::getName)
-                    .anyMatch(name -> name.equals(Nullable.class.getName()));
-        }
-
-        private static boolean isPrestoAnnotation(Annotation annotation)
-        {
-            return isImplementationDependencyAnnotation(annotation) ||
-                    annotation instanceof SqlType ||
-                    annotation instanceof SqlNullable ||
-                    annotation instanceof IsNull;
         }
     }
 }

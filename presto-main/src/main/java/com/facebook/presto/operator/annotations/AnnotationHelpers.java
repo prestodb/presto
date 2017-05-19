@@ -15,24 +15,36 @@ package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import javax.annotation.Nullable;
+
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
@@ -105,5 +117,64 @@ public class AnnotationHelpers
     public static void validateSignaturesCompatibility(Signature signatureOld, Signature signatureNew)
     {
         checkArgument(signatureOld.equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.get(), signatureNew);
+    }
+
+    public static List<Method> findPublicStaticMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)
+    {
+        ImmutableList.Builder<Method> methods = ImmutableList.builder();
+        for (Method method : clazz.getMethods()) {
+            for (Annotation annotation : method.getAnnotations()) {
+                if (annotationClass.isInstance(annotation)) {
+                    checkArgument(Modifier.isStatic(method.getModifiers()) && Modifier.isPublic(method.getModifiers()), "%s annotated with %s must be static and public", method.getName(), annotationClass.getSimpleName());
+                    methods.add(method);
+                }
+            }
+        }
+        return methods.build();
+    }
+
+    @SafeVarargs
+    public static Set<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<? extends Annotation>... annotationClasses)
+    {
+        ImmutableSet.Builder<Method> methods = ImmutableSet.builder();
+        for (Method method : clazz.getDeclaredMethods()) {
+            for (Annotation annotation : method.getAnnotations()) {
+                for (Class<?> annotationClass : annotationClasses) {
+                    if (annotationClass.isInstance(annotation)) {
+                        checkArgument(Modifier.isPublic(method.getModifiers()), "Method [%s] annotated with @%s must be public", method, annotationClass.getSimpleName());
+                        methods.add(method);
+                    }
+                }
+            }
+        }
+        return methods.build();
+    }
+
+    public static Map<Set<TypeParameter>, Constructor<?>> findConstructors(Class<?> clazz)
+    {
+        ImmutableMap.Builder<Set<TypeParameter>, Constructor<?>> builder = ImmutableMap.builder();
+        for (Constructor<?> constructor : clazz.getConstructors()) {
+            Set<TypeParameter> typeParameters = new HashSet<>();
+            Stream.of(constructor.getAnnotationsByType(TypeParameter.class))
+                    .forEach(typeParameters::add);
+            builder.put(typeParameters, constructor);
+        }
+        return builder.build();
+    }
+
+    public static boolean containsLegacyNullable(Annotation[] annotations)
+    {
+        return Arrays.stream(annotations)
+                .map(Annotation::annotationType)
+                .map(Class::getName)
+                .anyMatch(name -> name.equals(Nullable.class.getName()));
+    }
+
+    public static boolean isPrestoAnnotation(Annotation annotation)
+    {
+        return isImplementationDependencyAnnotation(annotation) ||
+                annotation instanceof SqlType ||
+                annotation instanceof SqlNullable ||
+                annotation instanceof IsNull;
     }
 }
