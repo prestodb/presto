@@ -768,11 +768,6 @@ public final class HiveUtil
         return columns.build();
     }
 
-    public static Slice base64Decode(byte[] bytes)
-    {
-        return Slices.wrappedBuffer(Base64.getDecoder().decode(bytes));
-    }
-
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
     {
         if (!condition) {

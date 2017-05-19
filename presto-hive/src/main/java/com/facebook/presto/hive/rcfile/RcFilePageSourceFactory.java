@@ -53,7 +53,6 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static com.facebook.presto.hive.HiveSessionProperties.isRcfileOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
@@ -100,10 +99,6 @@ public class RcFilePageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isRcfileOptimizedReaderEnabled(session)) {
-            return Optional.empty();
-        }
-
         RcFileEncoding rcFileEncoding;
         String deserializerClassName = getDeserializerClassName(schema);
         if (deserializerClassName.equals(LazyBinaryColumnarSerDe.class.getName())) {

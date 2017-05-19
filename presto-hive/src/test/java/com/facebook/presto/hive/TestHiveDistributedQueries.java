@@ -19,7 +19,6 @@ import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
-import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_READER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -103,19 +102,16 @@ public class TestHiveDistributedQueries
     public void testRcTextCharDecoding()
             throws Exception
     {
-        testRcTextCharDecoding(false, false);
-        testRcTextCharDecoding(false, true);
-        testRcTextCharDecoding(true, false);
-        testRcTextCharDecoding(true, true);
+        testRcTextCharDecoding(false);
+        testRcTextCharDecoding(true);
     }
 
-    private void testRcTextCharDecoding(boolean rcFileOptimizedWriterEnabled, boolean rcFileOptimizedReaderEnabled)
+    private void testRcTextCharDecoding(boolean rcFileOptimizedWriterEnabled)
             throws Exception
     {
         String catalog = getSession().getCatalog().get();
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(catalog, RCFILE_OPTIMIZED_WRITER_ENABLED, Boolean.toString(rcFileOptimizedWriterEnabled))
-                .setCatalogSessionProperty(catalog, RCFILE_OPTIMIZED_READER_ENABLED, Boolean.toString(rcFileOptimizedReaderEnabled))
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_table_with_char_rc WITH (format = 'RCTEXT') AS SELECT CAST('khaki' AS CHAR(7)) char_column", 1);

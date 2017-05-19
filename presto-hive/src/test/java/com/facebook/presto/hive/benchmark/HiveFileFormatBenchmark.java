@@ -91,7 +91,6 @@ public class HiveFileFormatBenchmark
 
     @SuppressWarnings("deprecation")
     private static final HiveClientConfig CONFIG = new HiveClientConfig()
-            .setRcfileOptimizedReaderEnabled(true)
             .setParquetOptimizedReaderEnabled(true);
 
     private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG)

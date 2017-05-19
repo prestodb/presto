@@ -1525,68 +1525,10 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testTypesRcTextRecordCursor()
-            throws Exception
-    {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorSession session = newSession();
-            ConnectorMetadata metadata = transaction.getMetadata();
-
-            if (metadata.getTableHandle(session, new SchemaTableName(database, "presto_test_types_rctext")) == null) {
-                return;
-            }
-
-            ConnectorTableHandle tableHandle = getTableHandle(metadata, new SchemaTableName(database, "presto_test_types_rctext"));
-            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            HiveSplit hiveSplit = getHiveSplit(tableHandle);
-            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
-
-            ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
-                    new HiveClientConfig().setTimeZone(timeZone.getID()),
-                    hdfsEnvironment,
-                    ImmutableSet.of(new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment)),
-                    ImmutableSet.of(),
-                    TYPE_MANAGER);
-
-            ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
-            assertGetRecords(RCTEXT, tableMetadata, hiveSplit, pageSource, columnHandles);
-        }
-    }
-
-    @Test
     public void testTypesRcBinary()
             throws Exception
     {
         assertGetRecords("presto_test_types_rcbinary", RCBINARY);
-    }
-
-    @Test
-    public void testTypesRcBinaryRecordCursor()
-            throws Exception
-    {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorSession session = newSession();
-            ConnectorMetadata metadata = transaction.getMetadata();
-
-            if (metadata.getTableHandle(session, new SchemaTableName(database, "presto_test_types_rcbinary")) == null) {
-                return;
-            }
-
-            ConnectorTableHandle tableHandle = getTableHandle(metadata, new SchemaTableName(database, "presto_test_types_rcbinary"));
-            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            HiveSplit hiveSplit = getHiveSplit(tableHandle);
-            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
-
-            ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
-                    new HiveClientConfig().setTimeZone(timeZone.getID()),
-                    hdfsEnvironment,
-                    ImmutableSet.of(new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment)),
-                    ImmutableSet.of(),
-                    TYPE_MANAGER);
-
-            ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
-            assertGetRecords(RCBINARY, tableMetadata, hiveSplit, pageSource, columnHandles);
-        }
     }
 
     @Test
@@ -2917,10 +2859,6 @@ public abstract class AbstractTestHiveClient
     private static Class<? extends RecordCursor> recordCursorType(HiveStorageFormat hiveStorageFormat)
     {
         switch (hiveStorageFormat) {
-            case RCTEXT:
-                return ColumnarTextHiveRecordCursor.class;
-            case RCBINARY:
-                return ColumnarBinaryHiveRecordCursor.class;
             case PARQUET:
                 return ParquetHiveRecordCursor.class;
         }

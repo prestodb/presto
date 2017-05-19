@@ -70,8 +70,6 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
                 .add(new ParquetRecordCursorProvider(hiveClientConfig, testHdfsEnvironment))
-                .add(new ColumnarTextHiveRecordCursorProvider(testHdfsEnvironment))
-                .add(new ColumnarBinaryHiveRecordCursorProvider(testHdfsEnvironment))
                 .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
                 .build();
     }
