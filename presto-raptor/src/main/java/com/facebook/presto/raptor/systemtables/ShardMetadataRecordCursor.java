@@ -110,16 +110,15 @@ public class ShardMetadataRecordCursor
         this.resultSet = getNextResultSet();
     }
 
-    private static String constructSqlTemplate(List<String> columnNames, String indexTableName)
+    private static String constructSqlTemplate(List<String> columnNames, long tableId)
     {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT\n");
-        sql.append(Joiner.on(",\n").join(columnNames));
-        sql.append("\nFROM ").append(indexTableName).append(" x\n");
-        sql.append("JOIN shards ON (x.shard_id = shards.shard_id)\n");
-        sql.append("JOIN tables ON (shards.table_id = tables.table_id)\n");
-
-        return sql.toString();
+        return format("SELECT %s\nFROM %s x\n" +
+                        "JOIN shards ON (x.shard_id = shards.shard_id AND shards.table_id = %s)\n" +
+                        "JOIN tables ON (tables.table_id = %s)\n",
+                Joiner.on(", ").join(columnNames),
+                shardIndexTable(tableId),
+                tableId,
+                tableId);
     }
 
     private static List<String> createQualifiedColumnNames()
@@ -275,7 +274,7 @@ public class ShardMetadataRecordCursor
             connection = dbi.open().getConnection();
             statement = PreparedStatementBuilder.create(
                     connection,
-                    constructSqlTemplate(columnNames, shardIndexTable(tableId)),
+                    constructSqlTemplate(columnNames, tableId),
                     columnNames,
                     TYPES,
                     ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
