@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.util;
 
+import io.airlift.slice.XxHash64;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
@@ -21,9 +22,13 @@ import org.apache.hadoop.util.Progressable;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+
+import static java.util.Objects.requireNonNull;
 
 public final class SyncingFileSystem
         extends RawLocalFileSystem
@@ -53,12 +58,16 @@ public final class SyncingFileSystem
     private static class LocalFileOutputStream
             extends OutputStream
     {
+        private final byte[] oneByte = new byte[1];
+        private final XxHash64 hash = new XxHash64();
+        private final File file;
         private final FileOutputStream out;
         private boolean closed;
 
         private LocalFileOutputStream(File file)
                 throws IOException
         {
+            this.file = requireNonNull(file, "file is null");
             this.out = new FileOutputStream(file);
         }
 
@@ -74,6 +83,13 @@ public final class SyncingFileSystem
             flush();
             out.getFD().sync();
             out.close();
+
+            // extremely paranoid code to detect a broken local file system
+            try (InputStream in = new FileInputStream(file)) {
+                if (hash.hash() != XxHash64.hash(in)) {
+                    throw new IOException("File is corrupt after write");
+                }
+            }
         }
 
         @Override
@@ -88,13 +104,16 @@ public final class SyncingFileSystem
                 throws IOException
         {
             out.write(b, off, len);
+            hash.update(b, off, len);
         }
 
+        @SuppressWarnings("NumericCastThatLosesPrecision")
         @Override
         public void write(int b)
                 throws IOException
         {
-            out.write(b);
+            oneByte[0] = (byte) (b & 0xFF);
+            write(oneByte, 0, 1);
         }
     }
 }
