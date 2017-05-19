@@ -77,8 +77,6 @@ public class RuleAssert
     {
         checkArgument(plan == null, "plan has already been set");
 
-        TransactionId transactionId = transactionManager.beginTransaction(TransactionManager.DEFAULT_ISOLATION, false, false);
-        this.session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         PlanBuilder builder = new PlanBuilder(idAllocator, metadata, session);
         plan = planProvider.apply(builder);
         symbols = builder.getSymbols();

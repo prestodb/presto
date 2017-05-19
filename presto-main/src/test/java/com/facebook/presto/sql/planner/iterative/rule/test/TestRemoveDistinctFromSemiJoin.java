@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveDistinctFromSemiJoin;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.tpch.TpchColumnHandle;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -27,6 +31,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 
 public class TestRemoveDistinctFromSemiJoin
 {
@@ -42,11 +47,23 @@ public class TestRemoveDistinctFromSemiJoin
                     Symbol filteringSourceKey = p.symbol("custkey_1", BigintType.BIGINT);
                     Symbol outputKey = p.symbol("orderkey", BigintType.BIGINT);
                     return p.semiJoin(
-                            p.tableScan("orders", ImmutableMap.of("custkey", "custkey")),
+                            p.tableScan(
+                                    new TableHandle(
+                                            new ConnectorId("local"),
+                                            new TpchTableHandle("local", "orders", TINY_SCALE_FACTOR)),
+                                    ImmutableList.of(sourceKey),
+                                    ImmutableMap.of(sourceKey, new TpchColumnHandle("custkey", BIGINT))),
                             p.project(Assignments.of(filteringSourceKey, expression("x")),
                                     p.aggregation(ab -> ab.step(AggregationNode.Step.SINGLE)
                                             .groupingSets(ImmutableList.of(ImmutableList.of(filteringSourceKey)))
-                                            .source(p.tableScan("customer", ImmutableMap.of("custkey_1", "custkey")))
+                                            .source(
+                                                    p.tableScan(
+                                                            new TableHandle(
+                                                                    new ConnectorId("local"),
+                                                                    new TpchTableHandle("local", "customer", TINY_SCALE_FACTOR)),
+                                                            ImmutableList.of(filteringSourceKey),
+                                                            ImmutableMap.of(filteringSourceKey, new TpchColumnHandle("custkey", BIGINT)))
+                                            )
                                     .build())
                             ),
                             sourceKey, filteringSourceKey, outputKey
@@ -69,12 +86,23 @@ public class TestRemoveDistinctFromSemiJoin
                     Symbol filteringSourceKey = p.symbol("custkey_1", BigintType.BIGINT);
                     Symbol outputKey = p.symbol("orderkey", BigintType.BIGINT);
                     return p.semiJoin(
-                            p.tableScan("orders", ImmutableMap.of("custkey", "custkey")),
+                            p.tableScan(
+                                    new TableHandle(
+                                            new ConnectorId("local"),
+                                            new TpchTableHandle("local", "orders", TINY_SCALE_FACTOR)),
+                                    ImmutableList.of(sourceKey),
+                                    ImmutableMap.of(sourceKey, new TpchColumnHandle("custkey", BIGINT))),
                             p.project(Assignments.of(filteringSourceKey, expression("x")),
                                     p.aggregation(ab -> ab.step(AggregationNode.Step.SINGLE)
                                             .groupingSets(ImmutableList.of(ImmutableList.of(filteringSourceKey)))
                                             .addAggregation(p.symbol("max", BigintType.BIGINT), expression("max(custkey_1)"), ImmutableList.of(BIGINT))
-                                            .source(p.tableScan("customer", ImmutableMap.of("custkey_1", "custkey")))
+                                            .source(p.tableScan(
+                                                            new TableHandle(
+                                                                    new ConnectorId("local"),
+                                                                    new TpchTableHandle("local", "customer", TINY_SCALE_FACTOR)),
+                                                            ImmutableList.of(filteringSourceKey),
+                                                            ImmutableMap.of(filteringSourceKey, new TpchColumnHandle("custkey", BIGINT)))
+                                            )
                                             .build())
                             ),
                             sourceKey, filteringSourceKey, outputKey

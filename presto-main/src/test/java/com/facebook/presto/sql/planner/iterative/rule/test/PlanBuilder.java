@@ -219,35 +219,22 @@ public class PlanBuilder
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        Expression originalConstraint = null;
-        return new TableScanNode(idAllocator.getNextId(),
-                new TableHandle(
-                        new ConnectorId("testConnector"),
-                        new TestingTableHandle()),
-                symbols,
-                assignments,
-                Optional.empty(),
-                TupleDomain.all(),
-                originalConstraint);
+        TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
+        return tableScan(tableHandle, symbols, assignments);
     }
 
-    public TableScanNode tableScan(String tableName, Map<String, String> symbolMap)
+    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
-        verify(tableHandle.isPresent(), "Unknown table %s", name);
-        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle.get());
-        Map<Symbol, ColumnHandle> assignments = symbolMap.entrySet().stream()
-                .filter(entry -> columns.containsKey(entry.getValue()))
-                .collect(Collectors.toMap(entry -> new Symbol(entry.getKey()), entry -> columns.get(entry.getValue())));
-        List<Symbol> symbols = ImmutableList.copyOf(assignments.keySet());
-        return new TableScanNode(idAllocator.getNextId(),
-                tableHandle.get(),
+        Expression originalConstraint = null;
+        return new TableScanNode(
+                idAllocator.getNextId(),
+                tableHandle,
                 symbols,
                 assignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null);
+                originalConstraint
+        );
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
