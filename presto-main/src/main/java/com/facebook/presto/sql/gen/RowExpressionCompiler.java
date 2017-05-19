@@ -24,9 +24,9 @@ import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -209,27 +209,24 @@ public class RowExpressionCompiler
         public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Context context)
         {
             checkState(preGeneratedExpressions.getCompiledLambdaMap().containsKey(lambda), "lambda expressions map does not contain this lambda definition");
-            if (MethodHandle.class.equals(context.getLambdaInterface().get())) {
-
-                return context.getScope().getThis().getField(preGeneratedExpressions.getCompiledLambdaMap().get(lambda).getInstanceField())
-                        .invoke("bindTo", MethodHandle.class, context.getScope().getVariable("session").cast(Object.class));
+            if (!context.lambdaInterface.get().isAnnotationPresent(FunctionalInterface.class)) {
+                // lambdaInterface is checked to be annotated with FunctionalInterface when generating ScalarFunctionImplementation
+                throw new VerifyException("lambda should be generated as class annotated with FunctionalInterface");
             }
-            else {
-                BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
-                        RowExpressionCompiler.this,
-                        context.getScope(),
-                        callSiteBinder,
-                        cachedInstanceBinder,
-                        registry,
-                        preGeneratedExpressions);
 
-                return generateLambda(
-                        generatorContext,
-                        ImmutableList.of(),
-                        lambda,
-                        preGeneratedExpressions.getCompiledLambdaMap().get(lambda),
-                        context.getLambdaInterface().get());
-            }
+            BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
+                    RowExpressionCompiler.this,
+                    context.getScope(),
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    registry,
+                    preGeneratedExpressions);
+
+            return generateLambda(
+                    generatorContext,
+                    ImmutableList.of(),
+                    preGeneratedExpressions.getCompiledLambdaMap().get(lambda),
+                    context.getLambdaInterface().get());
         }
 
         @Override

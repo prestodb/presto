@@ -501,7 +501,7 @@ public class ScalarImplementation
                     nullableArguments.add(nullableArgument);
                     nullFlags.add(hasNullFlag);
                     if (typeSignature.getBase().equals(FunctionType.NAME)) {
-                        checkCondition(parameterType.equals(MethodHandle.class) || parameterType.isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", i, methodHandle);
+                        checkCondition(parameterType.isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", i, methodHandle);
                         lambdaInterface.add(Optional.of(parameterType));
                     }
                     else {

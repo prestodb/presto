@@ -111,7 +111,7 @@ public final class ScalarFunctionImplementation
             }
             if (lambdaInterface.get(i).isPresent()) {
                 checkCondition(!nullableArguments.get(i), FUNCTION_IMPLEMENTATION_ERROR, "argument %s marked as lambda is nullable in method: %s", i, methodHandle);
-                checkCondition(lambdaInterface.get(i).get().equals(MethodHandle.class) || lambdaInterface.get(i).get().isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", i, methodHandle);
+                checkCondition(lambdaInterface.get(i).get().isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", i, methodHandle);
             }
         }
     }

@@ -22,7 +22,6 @@ import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -35,6 +34,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.util.Reflection;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
@@ -43,12 +43,10 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -59,7 +57,6 @@ import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
@@ -176,10 +173,14 @@ public class LambdaBytecodeGenerator
     public static BytecodeNode generateLambda(
             BytecodeGeneratorContext context,
             List<RowExpression> captureExpressions,
-            LambdaDefinitionExpression lambda,
             CompiledLambda compiledLambda,
             Class lambdaInterface)
     {
+        if (!lambdaInterface.isAnnotationPresent(FunctionalInterface.class)) {
+            // lambdaInterface is checked to be annotated with FunctionalInterface when generating ScalarFunctionImplementation
+            throw new VerifyException("lambda should be generated as class annotated with FunctionalInterface");
+        }
+
         BytecodeBlock block = new BytecodeBlock().setDescription("Partial apply");
         Scope scope = context.getScope();
 
@@ -197,56 +198,30 @@ public class LambdaBytecodeGenerator
             captureVariableBuilder.add(valueVariable);
         }
 
-        if (MethodHandle.class.equals(lambdaInterface)) {
-            // generate captured lambda expression as MethodHandle
-            List<BytecodeExpression> bytecodeCaptureVariables = captureVariableBuilder.build().stream()
-                    .map(variable -> variable.cast(Object.class))
-                    .collect(toImmutableList());
+        List<BytecodeExpression> captureVariables = ImmutableList.<BytecodeExpression>builder()
+                .add(scope.getThis(), scope.getVariable("session"))
+                .addAll(captureVariableBuilder.build())
+                .build();
 
-            Variable functionVariable = scope.createTempVariable(MethodHandle.class);
-            block.append(context.generate(lambda, Optional.of(lambdaInterface)));
-            block.append(
-                    new IfStatement()
-                            .condition(wasNull)
-                            // ifTrue: do nothing i.e. Leave the null MethodHandle on the stack, and leave the wasNull variable set to true
-                            .ifFalse(
-                                    new BytecodeBlock()
-                                            .putVariable(functionVariable)
-                                            .append(invokeStatic(
-                                                    MethodHandles.class,
-                                                    "insertArguments",
-                                                    MethodHandle.class,
-                                                    functionVariable,
-                                                    constantInt(0),
-                                                    newArray(type(Object[].class), bytecodeCaptureVariables)))));
-        }
-        else {
-            List<BytecodeExpression> captureVariables = ImmutableList.<BytecodeExpression>builder()
-                    .add(scope.getThis(), scope.getVariable("session"))
-                    .addAll(captureVariableBuilder.build())
-                    .build();
+        Type instantiatedMethodAsmType = getMethodType(
+                compiledLambda.getReturnType().getAsmType(),
+                compiledLambda.getParameterTypes().stream()
+                    .skip(captureExpressions.size() + 1) // skip capture variables and ConnectorSession
+                    .map(ParameterizedType::getAsmType)
+                    .collect(toImmutableList()).toArray(new Type[0]));
 
-            Type instantiatedMethodAsmType = getMethodType(
-                    compiledLambda.getReturnType().getAsmType(),
-                    compiledLambda.getParameterTypes().stream()
-                        .skip(captureExpressions.size() + 1) // skip capture variables and ConnectorSession
-                        .map(ParameterizedType::getAsmType)
-                        .collect(toImmutableList()).toArray(new Type[0]));
-
-            block.append(
-                    invokeDynamic(
-                            LAMBDA_CAPTURE_METHOD,
-                            ImmutableList.of(
-                                    getType(getSingleApplyMethod(lambdaInterface)),
-                                    compiledLambda.getLambdaAsmHandle(),
-                                    instantiatedMethodAsmType
-                            ),
-                            "apply",
-                            type(lambdaInterface),
-                            captureVariables)
-            );
-        }
-
+        block.append(
+                invokeDynamic(
+                        LAMBDA_CAPTURE_METHOD,
+                        ImmutableList.of(
+                                getType(getSingleApplyMethod(lambdaInterface)),
+                                compiledLambda.getLambdaAsmHandle(),
+                                instantiatedMethodAsmType
+                        ),
+                        "apply",
+                        type(lambdaInterface),
+                        captureVariables)
+        );
         return block;
     }
 
