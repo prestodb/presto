@@ -494,7 +494,7 @@ function formatStackTrace(info) {
 function doFormatStackTrace(info, parentStack, prefix, linePrefix) {
     var s = linePrefix + prefix + failureInfoToString(info) + "\n";
 
-    if (info.stack !== null) {
+    if (info.stack) {
         var sharedStackFrames = 0;
         if (parentStack !== null) {
             sharedStackFrames = countSharedStackFrames(info.stack, parentStack);
@@ -508,13 +508,13 @@ function doFormatStackTrace(info, parentStack, prefix, linePrefix) {
         }
     }
 
-    if (info.suppressed !== null) {
+    if (info.suppressed) {
         for (var i = 0; i < info.suppressed.length; i++) {
             s += doFormatStackTrace(info.suppressed[i], info.stack, "Suppressed: ", linePrefix + "\t");
         }
     }
 
-    if (info.cause !== null) {
+    if (info.cause) {
         s += doFormatStackTrace(info.cause, info.stack, "Caused by: ", linePrefix);
     }
 
