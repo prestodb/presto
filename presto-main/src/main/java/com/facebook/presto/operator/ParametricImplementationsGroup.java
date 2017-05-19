@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.validateSignaturesCompatibility;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 

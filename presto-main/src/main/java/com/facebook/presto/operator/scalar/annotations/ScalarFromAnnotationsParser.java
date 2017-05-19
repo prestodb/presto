@@ -16,7 +16,7 @@ package com.facebook.presto.operator.scalar.annotations;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
-import com.facebook.presto.operator.annotations.AnnotationHelpers;
+import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -43,7 +43,7 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz)) {
-            builder.add(parseParametricScalar(scalar, AnnotationHelpers.findConstructors(clazz)));
+            builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructors(clazz)));
         }
         return builder.build();
     }
@@ -52,7 +52,7 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
-            builder.add(parseParametricScalar(methods, AnnotationHelpers.findConstructors(clazz)));
+            builder.add(parseParametricScalar(methods, FunctionsParserHelper.findConstructors(clazz)));
         }
         return builder.build();
     }
@@ -64,7 +64,7 @@ public final class ScalarFromAnnotationsParser
         checkArgument(!classHeaders.isEmpty(), "Class [%s] that defines function must be annotated with @ScalarFunction or @ScalarOperator", annotated.getName());
 
         for (ScalarImplementationHeader header : classHeaders) {
-            Set<Method> methods = AnnotationHelpers.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class);
+            Set<Method> methods = FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class);
             checkArgument(!methods.isEmpty(), "Parametric class [%s] does not have any annotated methods", annotated.getName());
             for (Method method : methods) {
                 checkArgument(method.getAnnotation(ScalarFunction.class) == null, "Parametric class method [%s] is annotated with @ScalarFunction", method);
@@ -79,7 +79,7 @@ public final class ScalarFromAnnotationsParser
     private static List<ScalarHeaderAndMethods> findScalarsInFunctionSetClass(Class<?> annotated)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
-        for (Method method : AnnotationHelpers.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class)) {
+        for (Method method : FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class)) {
             checkArgument((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
                     "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
             for (ScalarImplementationHeader header : ScalarImplementationHeader.fromAnnotatedElement(method)) {

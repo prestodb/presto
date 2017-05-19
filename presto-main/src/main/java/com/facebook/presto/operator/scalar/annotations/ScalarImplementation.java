@@ -18,9 +18,8 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.ParametricImplementation;
-import com.facebook.presto.operator.annotations.AnnotationHelpers;
+import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.SqlNullable;
@@ -32,7 +31,6 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.FunctionType;
-import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,10 +53,10 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.operator.ParametricFunctionHelpers.bindDependencies;
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsLegacyNullable;
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.parseLiteralParameters;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsLegacyNullable;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
@@ -346,7 +344,7 @@ public class ScalarImplementation implements ParametricImplementation
                         if (Stream.of(parameterAnnotations).anyMatch(IsNull.class::isInstance)) {
                             Class<?> isNullType = method.getParameterTypes()[i + 1];
 
-                            checkArgument(Stream.of(parameterAnnotations).filter(AnnotationHelpers::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
+                            checkArgument(Stream.of(parameterAnnotations).filter(FunctionsParserHelper::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
                             checkArgument(isNullType == boolean.class, "Method [%s] has non-boolean parameter with @IsNull", method);
                             checkArgument((parameterType == Void.class) || !Primitives.isWrapperType(parameterType), "Method [%s] uses @IsNull following a parameter with boxed primitive type: %s", method, parameterType.getSimpleName());
 

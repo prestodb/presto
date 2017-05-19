@@ -28,7 +28,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;

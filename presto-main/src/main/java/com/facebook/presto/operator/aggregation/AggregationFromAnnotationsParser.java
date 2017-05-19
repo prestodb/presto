@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.ParametricImplementationsGroup;
-import com.facebook.presto.operator.annotations.AnnotationHelpers;
+import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationStateSerializerFactory;
@@ -36,7 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.parseDescription;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -109,7 +109,7 @@ public class AggregationFromAnnotationsParser
     private static Optional<Method> getAggregationStateSerializerFactory(Class<?> aggregationDefinition, Class<?> stateClass)
     {
         // Only include methods that match this state class
-        List<Method> stateSerializerFactories = AnnotationHelpers.findPublicStaticMethodsWithAnnotation(aggregationDefinition, AggregationStateSerializerFactory.class).stream()
+        List<Method> stateSerializerFactories = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(aggregationDefinition, AggregationStateSerializerFactory.class).stream()
                 .filter(method -> ((AggregationStateSerializerFactory) method.getAnnotation(AggregationStateSerializerFactory.class)).value().equals(stateClass))
                 .collect(toImmutableList());
 
@@ -166,7 +166,7 @@ public class AggregationFromAnnotationsParser
     public static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
-        List<Method> combineFunctions = AnnotationHelpers.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class).stream()
+        List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class).stream()
                 .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 0)] == stateClass)
                 .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 1)] == stateClass)
                 .collect(toImmutableList());
@@ -178,7 +178,7 @@ public class AggregationFromAnnotationsParser
     private static List<Method> getOutputFunctions(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
-        List<Method> outputFunctions = AnnotationHelpers.findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class).stream()
+        List<Method> outputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class).stream()
                 .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method)] == stateClass)
                 .collect(toImmutableList());
 
@@ -189,7 +189,7 @@ public class AggregationFromAnnotationsParser
     private static List<Method> getInputFunctions(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
-        List<Method> inputFunctions = AnnotationHelpers.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class).stream()
+        List<Method> inputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class).stream()
                 .filter(method -> (method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method)] == stateClass))
                 .collect(toImmutableList());
 
@@ -200,7 +200,7 @@ public class AggregationFromAnnotationsParser
     private static Set<Class<?>> getStateClasses(Class<?> clazz)
     {
         ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder();
-        for (Method inputFunction : AnnotationHelpers.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
+        for (Method inputFunction : FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
             checkArgument(inputFunction.getParameterTypes().length > 0, "Input function has no parameters");
             Class<?> stateClass = AggregationImplementation.Parser.findAggregationStateParamType(inputFunction);
 
