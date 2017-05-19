@@ -27,15 +27,38 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class AggregationImplementation implements ParametricImplementation
+public class AggregationImplementation
+        implements ParametricImplementation
 {
+    public static class AggregateNativeContainerType
+    {
+        private final Class<?> javaType;
+        private final boolean isBlockPosition;
+
+        public AggregateNativeContainerType(Class<?> javaType, boolean isBlockPosition)
+        {
+            this.javaType = javaType;
+            this.isBlockPosition = isBlockPosition;
+        }
+
+        public Class<?> getJavaType()
+        {
+            return javaType;
+        }
+
+        public boolean isBlockPosition()
+        {
+            return isBlockPosition;
+        }
+    }
+
     private final Signature signature;
 
     private final Class<?> definitionClass;
     private final Class<?> stateClass;
     private final Method inputFunction;
     private final Method outputFunction;
-    private final List<Class<?>> argumentNativeContainerTypes;
+    private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
     private final List<ImplementationDependency> inputDependencies;
     private final List<ImplementationDependency> combineDependencies;
     private final List<ImplementationDependency> outputDependencies;
@@ -46,7 +69,7 @@ public class AggregationImplementation implements ParametricImplementation
             Class<?> stateClass,
             Method inputFunction,
             Method outputFunction,
-            List<Class<?>> argumentNativeContainerTypes,
+            List<AggregateNativeContainerType> argumentNativeContainerTypes,
             List<ImplementationDependency> inputDependencies,
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies)
@@ -114,10 +137,16 @@ public class AggregationImplementation implements ParametricImplementation
         // TODO specialized functions variants support is missing here
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
             Class<?> argumentType = typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
-            // FIXME check if Block argument is really @BlockPosition annotated
-            if (!(argumentType.isAssignableFrom(argumentNativeContainerTypes.get(i)) || Block.class.isAssignableFrom(argumentNativeContainerTypes.get(i)))) {
-                return false;
+            Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).getJavaType();
+            boolean isCurrentBlockPosition = argumentNativeContainerTypes.get(i).isBlockPosition();
+
+            if (isCurrentBlockPosition && Block.class.isAssignableFrom(methodDeclaredType)) {
+                continue;
             }
+            if (!isCurrentBlockPosition && argumentType.isAssignableFrom(methodDeclaredType)) {
+                continue;
+            }
+            return false;
         }
 
         return true;
