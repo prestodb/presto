@@ -13,7 +13,25 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.DictionaryBlock;
+
 public abstract class JoinProbeBase
     implements JoinProbe
 {
+    protected Page internalBuildDictionaryPage(int[] indices, int[] probeOutputChannels, PageBuilder sourcePageBuilder)
+    {
+        int sourceChannelCount = sourcePageBuilder.getChannelCount();
+        Block[] blocks = new Block[probeOutputChannels.length + sourceChannelCount];
+        int index = 0;
+        for (int i = 0; i < probeOutputChannels.length; i++) {
+            blocks[index++] = DictionaryBlock.mask(getPage().getBlock(probeOutputChannels[i]), indices);
+        }
+        for (int i = 0; i < sourceChannelCount; i++) {
+            blocks[index++] = sourcePageBuilder.getBlockBuilder(i).build();
+        }
+        return new Page(sourcePageBuilder.getPositionCount(), blocks);
+    }
 }

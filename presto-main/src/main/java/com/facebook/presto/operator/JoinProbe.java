@@ -26,6 +26,8 @@ public interface JoinProbe
 
     void appendTo(PageBuilder pageBuilder);
 
+    Page buildDictionaryPage(int[] indices, PageBuilder sourcePageBuilder);
+
     int getPosition();
 
     Page getPage();

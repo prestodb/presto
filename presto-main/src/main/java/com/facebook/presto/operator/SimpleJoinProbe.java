@@ -140,4 +140,12 @@ public class SimpleJoinProbe
     {
         return page;
     }
+
+    @Override
+    public Page buildDictionaryPage(int[] indices, PageBuilder sourcePageBuilder)
+    {
+        return internalBuildDictionaryPage(indices,
+                probeOutputChannels.stream().mapToInt(i -> i).toArray(),
+                sourcePageBuilder);
+    }
 }
