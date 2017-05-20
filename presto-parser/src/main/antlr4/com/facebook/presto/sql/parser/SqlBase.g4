@@ -250,7 +250,6 @@ booleanExpression
 
 // workaround for:
 //  https://github.com/antlr/antlr4/issues/780
-//  https://github.com/antlr/antlr4/issues/781
 predicated
     : valueExpression predicate[$valueExpression.ctx]?
     ;
