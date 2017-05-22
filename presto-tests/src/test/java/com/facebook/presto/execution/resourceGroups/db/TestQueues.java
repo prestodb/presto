@@ -73,7 +73,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 60_000)
     public void testBasic()
             throws Exception
     {
@@ -119,7 +119,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 60_000)
     public void testTwoQueriesAtSameTime()
             throws Exception
     {
@@ -135,7 +135,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 60_000)
     public void testTooManyQueries()
             throws Exception
     {
@@ -173,7 +173,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 60_000)
     public void testRejection()
             throws Exception
     {
