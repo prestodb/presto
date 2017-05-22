@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -155,7 +156,14 @@ public class CreateTableTask
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
 
-        metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
+        try {
+            metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
+        }
+        catch (PrestoException e) {
+            if (!(statement.isNotExists() && e.getErrorCode() == ALREADY_EXISTS.toErrorCode())) {
+                throw e;
+            }
+        }
 
         return immediateFuture(null);
     }
