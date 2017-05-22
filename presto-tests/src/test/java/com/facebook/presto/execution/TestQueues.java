@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -48,32 +47,10 @@ public class TestQueues
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
 
     @Test(timeOut = 240_000)
-    public void testSqlQueryQueueManager()
-            throws Exception
-    {
-        testBasic(false);
-    }
-
-    @Test(timeOut = 240_000)
     public void testResourceGroupManager()
             throws Exception
     {
-        testBasic(true);
-    }
-
-    private void testBasic(boolean resourceGroups)
-            throws Exception
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        if (resourceGroups) {
-            builder.put("experimental.resource-groups-enabled", "true");
-        }
-        else {
-            builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
-        }
-        Map<String, String> properties = builder.build();
-
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
@@ -112,7 +89,7 @@ public class TestQueues
     public void testExceedSoftLimits()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_soft_limits.json")));
 
@@ -173,32 +150,10 @@ public class TestQueues
     }
 
     @Test(timeOut = 240_000)
-    public void testSqlQueryQueueManagerWithTwoDashboardQueriesRequestedAtTheSameTime()
-            throws Exception
-    {
-        testTwoQueriesAtSameTime(false);
-    }
-
-    @Test(timeOut = 240_000)
     public void testResourceGroupManagerWithTwoDashboardQueriesRequestedAtTheSameTime()
             throws Exception
     {
-        testTwoQueriesAtSameTime(true);
-    }
-
-    private void testTwoQueriesAtSameTime(boolean resourceGroups)
-            throws Exception
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        if (resourceGroups) {
-            builder.put("experimental.resource-groups-enabled", "true");
-        }
-        else {
-            builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
-        }
-        Map<String, String> properties = builder.build();
-
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
@@ -212,32 +167,10 @@ public class TestQueues
     }
 
     @Test(timeOut = 240_000)
-    public void testSqlQueryQueueManagerWithTooManyQueriesScheduled()
-            throws Exception
-    {
-        testTooManyQueries(false);
-    }
-
-    @Test(timeOut = 240_000)
     public void testResourceGroupManagerWithTooManyQueriesScheduled()
             throws Exception
     {
-        testTooManyQueries(true);
-    }
-
-    private void testTooManyQueries(boolean resourceGroups)
-            throws Exception
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        if (resourceGroups) {
-            builder.put("experimental.resource-groups-enabled", "true");
-        }
-        else {
-            builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
-        }
-        Map<String, String> properties = builder.build();
-
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
@@ -253,24 +186,17 @@ public class TestQueues
     }
 
     @Test(timeOut = 240_000)
-    public void testSqlQueryQueueManagerRejection()
-            throws Exception
-    {
-        testRejection(false);
-    }
-
-    @Test(timeOut = 240_000)
     public void testResourceGroupManagerRejection()
             throws Exception
     {
-        testRejection(true);
+        testRejection();
     }
 
     @Test(timeOut = 240_000)
     public void testClientTagsBasedSelection()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get()
                     .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_client_tags_based_config.json")));
@@ -284,9 +210,7 @@ public class TestQueues
     public void testQueryTypeBasedSelection()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setSingleCoordinatorProperty("experimental.resource-groups-enabled", "true")
-                .build()) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get()
                     .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));
@@ -308,19 +232,10 @@ public class TestQueues
         assertEquals(resourceGroupName.get().toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupName.get()));
     }
 
-    private void testRejection(boolean resourceGroups)
+    private void testRejection()
             throws Exception
     {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        if (resourceGroups) {
-            builder.put("experimental.resource-groups-enabled", "true");
-        }
-        else {
-            builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
-        }
-        Map<String, String> properties = builder.build();
-
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 

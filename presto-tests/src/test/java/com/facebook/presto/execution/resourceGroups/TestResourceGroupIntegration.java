@@ -36,9 +36,7 @@ public class TestResourceGroupIntegration
     public void testMemoryFraction()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setSingleCoordinatorProperty("experimental.resource-groups-enabled", "true")
-                .build()) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             getResourceGroupManager(queryRunner).setConfigurationManager("file", ImmutableMap.of(
                     "resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));
@@ -52,9 +50,7 @@ public class TestResourceGroupIntegration
     public void testPathToRoot()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setSingleCoordinatorProperty("experimental.resource-groups-enabled", "true")
-                .build()) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             InternalResourceGroupManager<?> manager = getResourceGroupManager(queryRunner);
             manager.setConfigurationManager("file", ImmutableMap.of(
@@ -89,7 +85,7 @@ public class TestResourceGroupIntegration
         }
     }
 
-    private static InternalResourceGroupManager getResourceGroupManager(DistributedQueryRunner queryRunner)
+    private static InternalResourceGroupManager<?> getResourceGroupManager(DistributedQueryRunner queryRunner)
     {
         return queryRunner.getCoordinator().getResourceGroupManager()
                 .orElseThrow(() -> new IllegalArgumentException("no resource group manager"));
