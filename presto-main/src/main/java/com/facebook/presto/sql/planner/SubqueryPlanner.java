@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier;
@@ -406,6 +408,7 @@ class SubqueryPlanner
     private List<Expression> coercionsFor(Expression expression)
     {
         return analysis.getCoercions().keySet().stream()
+                .map(NodeRef::getNode)
                 .filter(coercionExpression -> coercionExpression.equals(expression))
                 .collect(toImmutableList());
     }
@@ -488,7 +491,7 @@ class SubqueryPlanner
         // when reference expression is not rewritten that means it cannot be satisfied within given PlaNode
         // see that TranslationMap only resolves (local) fields in current scope
         return ExpressionExtractor.extractExpressions(planNode).stream()
-                .flatMap(expression -> extractColumnReferences(expression, analysis.getColumnReferences()).stream())
+                .flatMap(expression -> extractColumnReferences(expression, NodeRefCollections.toIdentitySet(analysis.getColumnReferences())).stream())
                 .collect(toImmutableSet());
     }
 

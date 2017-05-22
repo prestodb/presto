@@ -66,7 +66,7 @@ public class FreeLambdaReferenceExtractor
         @Override
         protected Void visitIdentifier(Identifier node, Set<String> lambdaArgumentNames)
         {
-            if (analysis.getLambdaArgumentReferences().containsKey(node) && !lambdaArgumentNames.contains(node.getName())) {
+            if (NodeRefCollections.toIdentityMap(analysis.getLambdaArgumentReferences()).containsKey(node) && !lambdaArgumentNames.contains(node.getName())) {
                 freeReferencesToLambdaArgument.add(node);
             }
             return null;

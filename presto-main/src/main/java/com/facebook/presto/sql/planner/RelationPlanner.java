@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
@@ -233,7 +234,7 @@ class RelationPlanner
                     continue;
                 }
 
-                Set<QualifiedName> dependencies = DependencyExtractor.extractNames(conjunct, analysis.getColumnReferences());
+                Set<QualifiedName> dependencies = DependencyExtractor.extractNames(conjunct, NodeRefCollections.toIdentitySet(analysis.getColumnReferences()));
                 boolean isJoinUsing = node.getCriteria().filter(JoinUsing.class::isInstance).isPresent();
                 if (!isJoinUsing && (dependencies.stream().allMatch(left::canResolve) || dependencies.stream().allMatch(right::canResolve))) {
                     // If the conjunct can be evaluated entirely with the inputs on either side of the join, add
@@ -247,8 +248,8 @@ class RelationPlanner
                     Expression firstExpression = ((ComparisonExpression) conjunct).getLeft();
                     Expression secondExpression = ((ComparisonExpression) conjunct).getRight();
                     ComparisonExpressionType comparisonType = ((ComparisonExpression) conjunct).getType();
-                    Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(firstExpression, analysis.getColumnReferences());
-                    Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(secondExpression, analysis.getColumnReferences());
+                    Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(firstExpression, NodeRefCollections.toIdentitySet(analysis.getColumnReferences()));
+                    Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(secondExpression, NodeRefCollections.toIdentitySet(analysis.getColumnReferences()));
 
                     if (firstDependencies.stream().allMatch(left::canResolve) && secondDependencies.stream().allMatch(right::canResolve)) {
                         leftComparisonExpressions.add(firstExpression);
@@ -457,13 +458,13 @@ class RelationPlanner
                 for (int i = 0; i < items.size(); i++) {
                     Expression expression = items.get(i);
                     expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
-                    Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
+                    Object constantValue = evaluateConstantExpression(expression, NodeRefCollections.toIdentityMap(analysis.getCoercions()), metadata, session, NodeRefCollections.toIdentitySet(analysis.getColumnReferences()), analysis.getParameters());
                     values.add(LiteralInterpreter.toExpression(constantValue, scope.getRelationType().getFieldByIndex(i).getType()));
                 }
             }
             else {
                 row = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), row);
-                Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
+                Object constantValue = evaluateConstantExpression(row, NodeRefCollections.toIdentityMap(analysis.getCoercions()), metadata, session, NodeRefCollections.toIdentitySet(analysis.getColumnReferences()), analysis.getParameters());
                 values.add(LiteralInterpreter.toExpression(constantValue, scope.getRelationType().getFieldByIndex(0).getType()));
             }
 
@@ -492,7 +493,7 @@ class RelationPlanner
         Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
         for (Expression expression : node.getExpressions()) {
             expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
-            Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
+            Object constantValue = evaluateConstantExpression(expression, NodeRefCollections.toIdentityMap(analysis.getCoercions()), metadata, session, NodeRefCollections.toIdentitySet(analysis.getColumnReferences()), analysis.getParameters());
             Type type = analysis.getType(expression);
             values.add(LiteralInterpreter.toExpression(constantValue, type));
             Symbol inputSymbol = symbolAllocator.newSymbol(expression, type);

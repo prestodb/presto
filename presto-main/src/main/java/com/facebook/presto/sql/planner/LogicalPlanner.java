@@ -28,6 +28,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
@@ -395,7 +396,7 @@ public class LogicalPlanner
     private static IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
     {
         IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> resultMap = new IdentityLinkedHashMap<>();
-        for (Map.Entry<Expression, Type> entry : analysis.getTypes().entrySet()) {
+        for (Map.Entry<Expression, Type> entry : NodeRefCollections.toIdentityMap(analysis.getTypes()).entrySet()) {
             if (!(entry.getKey() instanceof LambdaArgumentDeclaration)) {
                 continue;
             }
