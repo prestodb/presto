@@ -82,7 +82,7 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
-    protected Optional<Duration> getCpuQuotaPeriodMillis()
+    protected Optional<Duration> getCpuQuotaPeriod()
     {
         return cpuQuotaPeriod.get();
     }

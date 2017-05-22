@@ -37,7 +37,7 @@ public class FileResourceGroupConfigurationManager
 {
     private final List<ResourceGroupSpec> rootGroups;
     private final List<ResourceGroupSelector> selectors;
-    private final Optional<Duration> cpuQuotaPeriodMillis;
+    private final Optional<Duration> cpuQuotaPeriod;
 
     @Inject
     public FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, FileResourceGroupConfig config, JsonCodec<ManagerSpec> codec)
@@ -54,15 +54,15 @@ public class FileResourceGroupConfigurationManager
             throw Throwables.propagate(e);
         }
         this.rootGroups = managerSpec.getRootGroups();
-        this.cpuQuotaPeriodMillis = managerSpec.getCpuQuotaPeriod();
+        this.cpuQuotaPeriod = managerSpec.getCpuQuotaPeriod();
         validateRootGroups(managerSpec);
         this.selectors = buildSelectors(managerSpec);
     }
 
     @Override
-    protected Optional<Duration> getCpuQuotaPeriodMillis()
+    protected Optional<Duration> getCpuQuotaPeriod()
     {
-        return cpuQuotaPeriodMillis;
+        return cpuQuotaPeriod;
     }
 
     @Override

@@ -48,7 +48,7 @@ public abstract class AbstractResourceConfigurationManager
     @GuardedBy("generalPoolMemoryFraction")
     private long generalPoolBytes;
 
-    protected abstract Optional<Duration> getCpuQuotaPeriodMillis();
+    protected abstract Optional<Duration> getCpuQuotaPeriod();
     protected abstract List<ResourceGroupSpec> getRootGroups();
 
     protected void validateRootGroups(ManagerSpec managerSpec)
@@ -188,7 +188,7 @@ public abstract class AbstractResourceConfigurationManager
         }
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
             // This will never throw an exception if the validateManagerSpec method succeeds
-            checkState(getCpuQuotaPeriodMillis().isPresent(), "Must specify hard CPU limit in addition to soft limit");
+            checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");
             Duration limit;
             if (match.getHardCpuLimit().isPresent()) {
                 limit = match.getHardCpuLimit().get();
@@ -196,7 +196,7 @@ public abstract class AbstractResourceConfigurationManager
             else {
                 limit = match.getSoftCpuLimit().get();
             }
-            long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriodMillis().get().toMillis(), Long.MAX_VALUE);
+            long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);
         }
