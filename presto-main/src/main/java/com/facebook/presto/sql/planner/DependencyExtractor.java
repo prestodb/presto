@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -85,7 +86,7 @@ public final class DependencyExtractor
     }
 
     // to extract qualified name with prefix
-    public static Set<QualifiedName> extractNames(Expression expression, Set<Expression> columnReferences)
+    public static Set<QualifiedName> extractNames(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
         ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
         new QualifiedNameBuilderVisitor(columnReferences).process(expression, builder);
@@ -106,9 +107,9 @@ public final class DependencyExtractor
     private static class QualifiedNameBuilderVisitor
             extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
     {
-        private final Set<Expression> columnReferences;
+        private final Set<NodeRef<Expression>> columnReferences;
 
-        private QualifiedNameBuilderVisitor(Set<Expression> columnReferences)
+        private QualifiedNameBuilderVisitor(Set<NodeRef<Expression>> columnReferences)
         {
             this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
         }
@@ -116,7 +117,7 @@ public final class DependencyExtractor
         @Override
         protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<QualifiedName> builder)
         {
-            if (columnReferences.contains(node)) {
+            if (columnReferences.contains(NodeRef.<Expression>of(node))) {
                 builder.add(DereferenceExpression.getQualifiedName(node));
             }
             else {
