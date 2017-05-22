@@ -139,7 +139,8 @@ public class TestMemoryPagesStore
                         "test",
                         "schema",
                         format("table_%d", tableId),
-                        tableId, ImmutableList.of(),
+                        tableId,
+                        ImmutableList.of(),
                         ImmutableList.of(HostAddress.fromString("localhost:8080"))),
                 ImmutableSet.copyOf(activeTableIds));
     }
