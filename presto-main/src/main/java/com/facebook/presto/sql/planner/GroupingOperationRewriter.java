@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.FieldId;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -74,7 +75,7 @@ public final class GroupingOperationRewriter
         else {
             checkState(groupIdSymbol.isPresent(), "groupId symbol is missing");
 
-            Map<Expression, FieldId> columnReferenceFields = analysis.getColumnReferenceFields();
+            Map<Expression, FieldId> columnReferenceFields = NodeRefCollections.toIdentityMap(analysis.getColumnReferenceFields());
             RelationId relationId = columnReferenceFields.get(expression.getGroupingColumns().get(0)).getRelationId();
             List<Expression> groupingOrdinals = expression.getGroupingColumns().stream()
                     .peek(groupingColumn -> checkState(columnReferenceFields.containsKey(groupingColumn), "the grouping column is not in the columnReferencesField map"))

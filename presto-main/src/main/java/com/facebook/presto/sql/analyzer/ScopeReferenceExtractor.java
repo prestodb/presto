@@ -37,7 +37,7 @@ class ScopeReferenceExtractor
 
     public static Stream<Expression> getReferencesToScope(Node node, Analysis analysis, Scope scope)
     {
-        Map<Expression, FieldId> columnReferences = analysis.getColumnReferenceFields();
+        Map<Expression, FieldId> columnReferences = NodeRefCollections.toIdentityMap(analysis.getColumnReferenceFields());
 
         return AstUtils.preOrder(node)
                 .filter(columnReferences::containsKey)

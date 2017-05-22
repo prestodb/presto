@@ -1459,11 +1459,11 @@ public class ExpressionAnalyzer
         Set<Expression> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
         IdentityLinkedHashMap<FunctionCall, Signature> resolvedFunctions = analyzer.getResolvedFunctions();
 
-        analysis.addTypes(expressionTypes);
-        analysis.addCoercions(expressionCoercions, typeOnlyCoercions);
-        analysis.addFunctionSignatures(resolvedFunctions);
-        analysis.addColumnReferences(analyzer.getColumnReferences());
-        analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
+        analysis.addTypes(NodeRefCollections.fromIdentityMap(expressionTypes));
+        analysis.addCoercions(NodeRefCollections.fromIdentityMap(expressionCoercions), NodeRefCollections.fromIdentitySet(typeOnlyCoercions));
+        analysis.addFunctionSignatures(NodeRefCollections.fromIdentityMap(resolvedFunctions));
+        analysis.addColumnReferences(NodeRefCollections.fromIdentityMap(analyzer.getColumnReferences()));
+        analysis.addLambdaArgumentReferences(NodeRefCollections.fromIdentityMap(analyzer.getLambdaArgumentReferences()));
 
         return new ExpressionAnalysis(
                 expressionTypes,
