@@ -19,7 +19,6 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -62,12 +61,11 @@ public final class TestQueryRunnerUtil
         while (!expectedQueryStates.contains(queryManager.getQueryInfo(queryId).getState()));
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> properties)
+    public static DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
                 .setNodeCount(2)
-                .setCoordinatorProperties(properties)
                 .build();
 
         try {
