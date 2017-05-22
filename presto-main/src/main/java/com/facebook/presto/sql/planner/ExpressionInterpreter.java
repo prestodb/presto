@@ -32,6 +32,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -170,7 +171,7 @@ public class ExpressionInterpreter
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
         analyzer.analyze(expression, Scope.create());
 
-        Type actualType = analyzer.getExpressionTypes().get(expression);
+        Type actualType = NodeRefCollections.toIdentityMap(analyzer.getExpressionTypes()).get(expression);
         if (!metadata.getTypeManager().canCoerce(actualType, expectedType)) {
             throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, String.format("Cannot cast type %s to %s",
                     expectedType.getTypeSignature(),
@@ -178,7 +179,7 @@ public class ExpressionInterpreter
         }
 
         IdentityLinkedHashMap<Expression, Type> coercions = new IdentityLinkedHashMap<>();
-        coercions.putAll(analyzer.getExpressionCoercions());
+        coercions.putAll(NodeRefCollections.toIdentityMap(analyzer.getExpressionCoercions()));
         coercions.put(expression, expectedType);
         return evaluateConstantExpression(expression, coercions, metadata, session, ImmutableSet.of(), parameters);
     }
@@ -218,7 +219,7 @@ public class ExpressionInterpreter
         analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
-        rewrite = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(analyzer.getExpressionTypes()), rewrite);
+        rewrite = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(NodeRefCollections.toIdentityMap(analyzer.getExpressionTypes())), rewrite);
 
         // expressionInterpreter/optimizer only understands a subset of expression types
         // TODO: remove this when the new expression tree is implemented
@@ -230,7 +231,7 @@ public class ExpressionInterpreter
         analyzer.analyze(canonicalized, Scope.create());
 
         // evaluate the expression
-        Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);
+        Object result = expressionInterpreter(canonicalized, metadata, session, NodeRefCollections.toIdentityMap(analyzer.getExpressionTypes())).evaluate(0);
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
