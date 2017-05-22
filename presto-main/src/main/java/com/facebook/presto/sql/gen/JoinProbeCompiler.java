@@ -29,6 +29,7 @@ import com.facebook.presto.operator.JoinProbeFactory;
 import com.facebook.presto.operator.LookupJoinOperator;
 import com.facebook.presto.operator.LookupJoinOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
+import com.facebook.presto.operator.LookupJoiner;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.OperatorFactory;
@@ -167,7 +168,8 @@ public class JoinProbeCompiler
                 classLoader,
                 OperatorFactory.class,
                 LookupJoinOperatorFactory.class,
-                LookupJoinOperator.class);
+                LookupJoinOperator.class,
+                LookupJoiner.class);
 
         return new HashJoinOperatorFactoryFactory(joinProbeFactory, operatorFactoryClass);
     }
