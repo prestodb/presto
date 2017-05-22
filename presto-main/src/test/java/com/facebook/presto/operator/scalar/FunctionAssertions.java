@@ -47,7 +47,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
@@ -60,11 +59,11 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -328,13 +327,13 @@ public final class FunctionAssertions
     private RowExpression toRowExpression(Expression projectionExpression)
     {
         Expression translatedProjection = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(projectionExpression);
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypesFromInput(
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
                 TEST_SESSION,
                 metadata,
                 SQL_PARSER,
                 INPUT_TYPES,
                 ImmutableList.of(translatedProjection),
-                ImmutableList.of()));
+                ImmutableList.of());
         return toRowExpression(translatedProjection, expressionTypes);
     }
 
@@ -641,7 +640,7 @@ public final class FunctionAssertions
         }
     }
 
-    private RowExpression toRowExpression(Expression projection, IdentityLinkedHashMap<Expression, Type> expressionTypes)
+    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes)
     {
         return translate(projection, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
     }
