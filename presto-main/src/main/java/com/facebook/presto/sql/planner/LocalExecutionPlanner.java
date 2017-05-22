@@ -96,6 +96,7 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -1054,13 +1055,13 @@ public class LocalExecutionPlanner
                 rewrittenProjections.add(symbolToInputRewriter.rewrite(assignments.get(symbol)));
             }
 
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+            IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypesFromInput(
                     context.getSession(),
                     metadata,
                     sqlParser,
                     sourceTypes,
                     concat(rewrittenFilter.map(ImmutableList::of).orElse(ImmutableList.of()), rewrittenProjections),
-                    emptyList());
+                    emptyList()));
 
             Optional<RowExpression> translatedFilter = rewrittenFilter.map(filter -> toRowExpression(filter, expressionTypes));
             List<RowExpression> translatedProjections = rewrittenProjections.stream()
@@ -1210,14 +1211,14 @@ public class LocalExecutionPlanner
             PageBuilder pageBuilder = new PageBuilder(outputTypes);
             for (List<Expression> row : node.getRows()) {
                 pageBuilder.declarePosition();
-                IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(
+                IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypes(
                         context.getSession(),
                         metadata,
                         sqlParser,
                         ImmutableMap.of(),
                         ImmutableList.copyOf(row),
                         emptyList(),
-                        false);
+                        false));
                 for (int i = 0; i < row.size(); i++) {
                     // evaluate the literal value
                     Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession(), expressionTypes).evaluate(0);
@@ -1625,13 +1626,13 @@ public class LocalExecutionPlanner
 
             Optional<SortExpression> sortChannel = rewrittenSortExpression.map(SortExpression::fromExpression);
 
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+            IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypesFromInput(
                     session,
                     metadata,
                     sqlParser,
                     sourceTypes,
                     rewrittenFilter,
-                    emptyList() /* parameters have already been replaced */);
+                    emptyList() /* parameters have already been replaced */));
 
             RowExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
             return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size(), sortChannel);

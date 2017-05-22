@@ -24,6 +24,7 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -519,7 +520,7 @@ class PropertyDerivations
             for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
                 Expression expression = assignment.getValue();
 
-                IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList() /* parameters already replaced */);
+                IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypes(session, metadata, parser, types, expression, emptyList() /* parameters already replaced */));
                 Type type = requireNonNull(expressionTypes.get(expression));
                 ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                 // TODO:

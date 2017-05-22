@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
@@ -50,6 +51,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.util.maps.IdentityLinkedHashMap;
@@ -730,7 +732,8 @@ public class PredicatePushDown
 
         private Type extractType(Expression expression)
         {
-            return getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList() /* parameters have already been replaced */).get(expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList() /* parameters have already been replaced */);
+            return expressionTypes.get(NodeRef.of(expression));
         }
 
         private JoinNode tryNormalizeToOuterToInnerJoin(JoinNode node, Expression inheritedPredicate)
@@ -784,13 +787,13 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(
+            IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypes(
                     session,
                     metadata,
                     sqlParser,
                     symbolAllocator.getTypes(),
                     expression,
-                    emptyList() /* parameters have already been replaced */);
+                    emptyList() /* parameters have already been replaced */));
             ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
             return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));
         }
@@ -800,13 +803,13 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(final Collection<Symbol> nullSymbols, Expression expression)
         {
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(
+            IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypes(
                     session,
                     metadata,
                     sqlParser,
                     symbolAllocator.getTypes(),
                     expression,
-                    emptyList() /* parameters have already been replaced */);
+                    emptyList() /* parameters have already been replaced */));
             return ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes)
                     .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }

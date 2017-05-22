@@ -25,6 +25,7 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DomainTranslator;
@@ -661,13 +662,13 @@ public class AddExchanges
         private boolean shouldPrune(Expression predicate, Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings, List<Symbol> correlations)
         {
             List<Expression> conjuncts = extractConjuncts(predicate);
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(
+            IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypes(
                     session,
                     metadata,
                     parser,
                     types,
                     predicate,
-                    emptyList() /* parameters already replaced */);
+                    emptyList() /* parameters already replaced */));
 
             LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
 

@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ListMultimap;
 
@@ -113,7 +114,8 @@ public final class TypeValidator
                     verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), types.get(Symbol.from(symbolReference)).getTypeSignature());
                     continue;
                 }
-                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList() /* parameters already replaced */).get(entry.getValue());
+                Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList() /* parameters already replaced */);
+                Type actualType = expressionTypes.get(NodeRef.of(entry.getValue()));
                 verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
             }
 
@@ -158,7 +160,8 @@ public final class TypeValidator
         private void checkCall(Symbol symbol, FunctionCall call)
         {
             Type expectedType = types.get(symbol);
-            Type actualType = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList() /*parameters already replaced */).get(call);
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList() /*parameters already replaced */);
+            Type actualType = expressionTypes.get(NodeRef.<Expression>of(call));
             verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
         }
 
