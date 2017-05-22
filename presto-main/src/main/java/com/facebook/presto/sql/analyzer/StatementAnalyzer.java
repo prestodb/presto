@@ -807,14 +807,14 @@ class StatementAnalyzer
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
             }
 
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(
+            IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypes(
                     session,
                     metadata,
                     sqlParser,
                     ImmutableMap.of(),
                     relation.getSamplePercentage(),
                     analysis.getParameters(),
-                    analysis.isDescribe());
+                    analysis.isDescribe()));
             ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
 
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {

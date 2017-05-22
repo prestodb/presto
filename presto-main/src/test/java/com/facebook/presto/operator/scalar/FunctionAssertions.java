@@ -47,6 +47,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.NodeRefCollections;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
@@ -327,13 +328,13 @@ public final class FunctionAssertions
     private RowExpression toRowExpression(Expression projectionExpression)
     {
         Expression translatedProjection = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(projectionExpression);
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+        IdentityLinkedHashMap<Expression, Type> expressionTypes = NodeRefCollections.toIdentityMap(getExpressionTypesFromInput(
                 TEST_SESSION,
                 metadata,
                 SQL_PARSER,
                 INPUT_TYPES,
                 ImmutableList.of(translatedProjection),
-                ImmutableList.of());
+                ImmutableList.of()));
         return toRowExpression(translatedProjection, expressionTypes);
     }
 
