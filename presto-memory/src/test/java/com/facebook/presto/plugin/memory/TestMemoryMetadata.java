@@ -52,7 +52,7 @@ public class TestMemoryMetadata
     @Test
     public void tableIsCreatedAfterCommits()
     {
-        assertThatNoTableIsCreated();
+        assertNoTables();
 
         SchemaTableName schemaTableName = new SchemaTableName("default", "temp_table");
 
@@ -71,7 +71,7 @@ public class TestMemoryMetadata
     @Test
     public void tableAlreadyExists()
     {
-        assertThatNoTableIsCreated();
+        assertNoTables();
 
         SchemaTableName test1Table = new SchemaTableName("default", "test1");
         SchemaTableName test2Table = new SchemaTableName("default", "test2");
@@ -102,7 +102,7 @@ public class TestMemoryMetadata
     @Test
     public void testActiveTableIds()
     {
-        assertThatNoTableIsCreated();
+        assertNoTables();
 
         SchemaTableName firstTableName = new SchemaTableName("default", "first_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()));
@@ -126,7 +126,7 @@ public class TestMemoryMetadata
     @Test
     public void testReadTableBeforeCreationCompleted()
     {
-        assertThatNoTableIsCreated();
+        assertNoTables();
 
         SchemaTableName tableName = new SchemaTableName("default", "temp_table");
 
@@ -170,7 +170,7 @@ public class TestMemoryMetadata
         assertEquals(metadata.listTables(SESSION, "default"), ImmutableList.of());
     }
 
-    private void assertThatNoTableIsCreated()
+    private void assertNoTables()
     {
         assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(), "No table was expected");
     }
