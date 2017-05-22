@@ -62,7 +62,7 @@ public class TestEventListener
                 .setSchema("tiny")
                 .setClientInfo("{\"clientVersion\":\"testVersion\"}")
                 .build();
-        queryRunner = new DistributedQueryRunner(session, 1, ImmutableMap.of("experimental.resource-groups-enabled", "true"));
+        queryRunner = new DistributedQueryRunner(session, 1);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());

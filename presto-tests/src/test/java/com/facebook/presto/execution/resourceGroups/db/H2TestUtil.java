@@ -128,7 +128,6 @@ class H2TestUtil
         DistributedQueryRunner queryRunner = DistributedQueryRunner
                 .builder(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build())
                 .setNodeCount(2)
-                .setSingleExtraProperty("experimental.resource-groups-enabled", "true")
                 .setEnvironment(environment)
                 .build();
         try {

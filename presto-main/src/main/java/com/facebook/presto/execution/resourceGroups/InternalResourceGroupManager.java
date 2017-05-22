@@ -56,7 +56,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
-import static com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManagerFactory.LEGACY_RESOURCE_GROUP_MANAGER;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,20 +78,21 @@ public final class InternalResourceGroupManager<C>
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
-    private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager = new AtomicReference<>();
+    private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager;
     private final ResourceGroupConfigurationManagerContext configurationManagerContext;
+    private final ResourceGroupConfigurationManager<?> legacyManager;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManagerFactory builtinFactory, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
+    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
-        requireNonNull(builtinFactory, "builtinFactory is null");
-        addConfigurationManagerFactory(builtinFactory);
+        this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
+        this.configurationManager = new AtomicReference<>(cast(legacyManager));
     }
 
     @Override
@@ -146,9 +146,6 @@ public final class InternalResourceGroupManager<C>
 
             setConfigurationManager(configurationManagerName, properties);
         }
-        else {
-            setConfigurationManager(LEGACY_RESOURCE_GROUP_MANAGER, ImmutableMap.of());
-        }
     }
 
     @VisibleForTesting
@@ -162,17 +159,19 @@ public final class InternalResourceGroupManager<C>
         ResourceGroupConfigurationManagerFactory configurationManagerFactory = configurationManagerFactories.get(name);
         checkState(configurationManagerFactory != null, "Resource group configuration manager %s is not registered", name);
 
-        @SuppressWarnings("unchecked")
-        ResourceGroupConfigurationManager<C> configurationManager = (ResourceGroupConfigurationManager<C>) configurationManagerFactory.create(ImmutableMap.copyOf(properties), configurationManagerContext);
-        checkState(this.configurationManager.compareAndSet(null, configurationManager), "configurationManager already set");
+        ResourceGroupConfigurationManager<C> configurationManager = cast(configurationManagerFactory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
+        checkState(this.configurationManager.compareAndSet(cast(legacyManager), configurationManager), "configurationManager already set");
 
         log.info("-- Loaded resource group configuration manager %s --", name);
     }
 
+    @SuppressWarnings("ObjectEquality")
     @VisibleForTesting
     public ResourceGroupConfigurationManager<C> getConfigurationManager()
     {
-        return configurationManager.get();
+        ResourceGroupConfigurationManager<C> manager = configurationManager.get();
+        checkState(manager != legacyManager, "cannot fetch legacy manager");
+        return manager;
     }
 
     @PreDestroy
@@ -301,5 +300,11 @@ public final class InternalResourceGroupManager<C>
         }
 
         return queriesQueuedInternal;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <C> ResourceGroupConfigurationManager<C> cast(ResourceGroupConfigurationManager<?> manager)
+    {
+        return (ResourceGroupConfigurationManager<C>) manager;
     }
 }

@@ -41,6 +41,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "resource-group-manager",
+        "experimental.resource-groups-enabled",
         "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
         "optimizer.processing-optimization"})
@@ -78,7 +79,6 @@ public class FeaturesConfig
     private boolean pagesIndexEagerCompactionEnabled;
 
     private boolean dictionaryAggregation;
-    private boolean resourceGroups;
 
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
@@ -134,18 +134,6 @@ public class FeaturesConfig
     public FeaturesConfig setNetworkCostWeight(double networkCostWeight)
     {
         this.networkCostWeight = networkCostWeight;
-        return this;
-    }
-
-    public boolean isResourceGroupsEnabled()
-    {
-        return resourceGroups;
-    }
-
-    @Config("experimental.resource-groups-enabled")
-    public FeaturesConfig setResourceGroupsEnabled(boolean enabled)
-    {
-        resourceGroups = enabled;
         return this;
     }
 
