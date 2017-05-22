@@ -803,7 +803,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitSampledRelation(SampledRelation relation, Optional<Scope> scope)
         {
-            if (!DependencyExtractor.extractNames(relation.getSamplePercentage(), NodeRefCollections.toIdentitySet(analysis.getColumnReferences())).isEmpty()) {
+            if (!DependencyExtractor.extractNames(relation.getSamplePercentage(), analysis.getColumnReferences()).isEmpty()) {
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
             }
 
