@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -28,6 +29,17 @@ import static java.util.stream.Collectors.joining;
 public final class ResourceGroupId
 {
     private final List<String> segments;
+
+    /**
+     * Create ResourceGroupId from a segmented full name from root.
+     * @param segmentedFullName The full name of a resource group from root, segmented with ".",
+     * for example, global.test.user
+     * @return a ResourceGroupId with segments = ["root", "test", "user"]
+     */
+    public static ResourceGroupId fromSegmentedName(String segmentedFullName)
+    {
+        return new ResourceGroupId(asList(segmentedFullName.split("\\.")));
+    }
 
     public ResourceGroupId(String name)
     {
@@ -41,6 +53,7 @@ public final class ResourceGroupId
 
     private static List<String> append(List<String> list, String element)
     {
+        checkArgument(!element.contains("."), "name should not contain '.'");
         List<String> result = new ArrayList<>(list);
         result.add(element);
         return result;
@@ -51,6 +64,7 @@ public final class ResourceGroupId
         checkArgument(!segments.isEmpty(), "Resource group id is empty");
         for (String segment : segments) {
             checkArgument(!segment.isEmpty(), "Empty segment in resource group id");
+            checkArgument(!segment.contains("."), "Segment contains '.'");
         }
         this.segments = segments;
     }

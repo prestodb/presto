@@ -15,6 +15,10 @@ package com.facebook.presto.spi.resourceGroups;
 
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static com.facebook.presto.spi.resourceGroups.ResourceGroupId.fromSegmentedName;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.AssertJUnit.assertTrue;
 
@@ -23,8 +27,14 @@ public class TestResourceGroupId
     @Test
     public void testBasic()
     {
-        new ResourceGroupId("test.test");
+        new ResourceGroupId("test_test");
         new ResourceGroupId(new ResourceGroupId("test"), "test");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testInvalid()
+    {
+        new ResourceGroupId("test.test");
     }
 
     @Test
@@ -44,5 +54,16 @@ public class TestResourceGroupId
         assertFalse(rootAFoo.isAncestorOf(root));
         assertFalse(root.isAncestorOf(root));
         assertFalse(rootAFoo.isAncestorOf(rootAFoo));
+    }
+
+    @Test
+    public void testCreateFromSegmentedName()
+    {
+        ResourceGroupId rootAFoo = fromSegmentedName("root.a.foo");
+        ResourceGroupId rootA = fromSegmentedName("root.a");
+        ResourceGroupId root = fromSegmentedName("root");
+        assertEquals(rootAFoo.getParent(), Optional.of(rootA));
+        assertEquals(rootA.getParent(), Optional.of(root));
+        assertTrue(root.isAncestorOf(rootAFoo));
     }
 }
