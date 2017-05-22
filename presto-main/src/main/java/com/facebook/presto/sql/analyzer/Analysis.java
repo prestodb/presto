@@ -56,6 +56,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -303,10 +304,17 @@ public class Analysis
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
         NodeRef<Node> key = NodeRef.of(node);
-        this.inPredicatesSubqueries.putAll(key, expressionAnalysis.getSubqueryInPredicates());
-        this.scalarSubqueries.putAll(key, expressionAnalysis.getScalarSubqueries());
-        this.existsSubqueries.putAll(key, expressionAnalysis.getExistsSubqueries());
-        this.quantifiedComparisonSubqueries.putAll(key, expressionAnalysis.getQuantifiedComparisons());
+        this.inPredicatesSubqueries.putAll(key, dereference(expressionAnalysis.getSubqueryInPredicates()));
+        this.scalarSubqueries.putAll(key, dereference(expressionAnalysis.getScalarSubqueries()));
+        this.existsSubqueries.putAll(key, dereference(expressionAnalysis.getExistsSubqueries()));
+        this.quantifiedComparisonSubqueries.putAll(key, dereference(expressionAnalysis.getQuantifiedComparisons()));
+    }
+
+    private <T extends Node> List<T> dereference(Collection<NodeRef<T>> nodeRefs)
+    {
+        return nodeRefs.stream()
+                .map(NodeRef::getNode)
+                .collect(toImmutableList());
     }
 
     public List<InPredicate> getInPredicateSubqueries(Node node)

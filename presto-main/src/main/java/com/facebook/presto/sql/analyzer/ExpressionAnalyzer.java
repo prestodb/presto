@@ -1443,15 +1443,15 @@ public class ExpressionAnalyzer
         }
 
         return new ExpressionAnalysis(
-                NodeRefCollections.toIdentityMap(analyzer.getExpressionTypes()),
-                NodeRefCollections.toIdentityMap(analyzer.getExpressionCoercions()),
-                NodeRefCollections.toIdentitySet(analyzer.getSubqueryInPredicates()),
-                NodeRefCollections.toIdentitySet(analyzer.getScalarSubqueries()),
-                NodeRefCollections.toIdentitySet(analyzer.getExistsSubqueries()),
-                NodeRefCollections.toIdentityMap(analyzer.getColumnReferences()),
-                NodeRefCollections.toIdentitySet(analyzer.getTypeOnlyCoercions()),
-                NodeRefCollections.toIdentitySet(analyzer.getQuantifiedComparisons()),
-                NodeRefCollections.toIdentityMap(analyzer.getLambdaArgumentReferences()));
+                analyzer.getExpressionTypes(),
+                analyzer.getExpressionCoercions(),
+                analyzer.getSubqueryInPredicates(),
+                analyzer.getScalarSubqueries(),
+                analyzer.getExistsSubqueries(),
+                analyzer.getColumnReferences(),
+                analyzer.getTypeOnlyCoercions(),
+                analyzer.getQuantifiedComparisons(),
+                analyzer.getLambdaArgumentReferences());
     }
 
     public static ExpressionAnalysis analyzeExpression(
@@ -1478,15 +1478,15 @@ public class ExpressionAnalyzer
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
 
         return new ExpressionAnalysis(
-                NodeRefCollections.toIdentityMap(expressionTypes),
-                NodeRefCollections.toIdentityMap(expressionCoercions),
-                NodeRefCollections.toIdentitySet(analyzer.getSubqueryInPredicates()),
-                NodeRefCollections.toIdentitySet(analyzer.getScalarSubqueries()),
-                NodeRefCollections.toIdentitySet(analyzer.getExistsSubqueries()),
-                NodeRefCollections.toIdentityMap(analyzer.getColumnReferences()),
-                NodeRefCollections.toIdentitySet(analyzer.getTypeOnlyCoercions()),
-                NodeRefCollections.toIdentitySet(analyzer.getQuantifiedComparisons()),
-                NodeRefCollections.toIdentityMap(analyzer.getLambdaArgumentReferences()));
+                expressionTypes,
+                expressionCoercions,
+                analyzer.getSubqueryInPredicates(),
+                analyzer.getScalarSubqueries(),
+                analyzer.getExistsSubqueries(),
+                analyzer.getColumnReferences(),
+                analyzer.getTypeOnlyCoercions(),
+                analyzer.getQuantifiedComparisons(),
+                analyzer.getLambdaArgumentReferences());
     }
 
     public static ExpressionAnalyzer create(
