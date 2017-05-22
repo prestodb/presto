@@ -184,7 +184,13 @@ public class PhasedExecutionSchedule
 
         public Set<PlanFragmentId> processFragment(PlanFragmentId planFragmentId)
         {
-            return fragmentSources.computeIfAbsent(planFragmentId, fragmentId -> processFragment(fragments.get(fragmentId)));
+            if (fragmentSources.containsKey(planFragmentId)) {
+                return fragmentSources.get(planFragmentId);
+            }
+
+            Set<PlanFragmentId> fragment = processFragment(fragments.get(planFragmentId));
+            fragmentSources.put(planFragmentId, fragment);
+            return fragment;
         }
 
         private Set<PlanFragmentId> processFragment(PlanFragment fragment)
