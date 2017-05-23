@@ -18,6 +18,7 @@ import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -69,6 +70,7 @@ public class RaptorConnector
     private final Set<SystemTable> systemTables;
     private final MetadataDao dao;
     private final boolean coordinator;
+    private final ConnectorAccessControl accessControl;
 
     private final ConcurrentMap<ConnectorTransactionHandle, RaptorMetadata> transactions = new ConcurrentHashMap<>();
 
@@ -89,6 +91,7 @@ public class RaptorConnector
             RaptorSessionProperties sessionProperties,
             RaptorTableProperties tableProperties,
             Set<SystemTable> systemTables,
+            ConnectorAccessControl accessControl,
             @ForMetadata IDBI dbi)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -102,6 +105,7 @@ public class RaptorConnector
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
         this.coordinator = nodeManager.getCurrentNode().isCoordinator();
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @PostConstruct
@@ -202,6 +206,12 @@ public class RaptorConnector
         catch (Exception e) {
             log.error(e, "Error shutting down connector");
         }
+    }
+
+    @Override
+    public ConnectorAccessControl getAccessControl()
+    {
+        return accessControl;
     }
 
     private synchronized void beginDelete(long tableId, UUID transactionId)

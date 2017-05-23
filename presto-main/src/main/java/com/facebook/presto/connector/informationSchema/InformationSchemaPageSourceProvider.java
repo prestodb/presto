@@ -217,7 +217,7 @@ public class InformationSchemaPageSourceProvider
         for (GrantInfo grant : grants) {
             for (PrivilegeInfo privilegeInfo : grant.getPrivilegeInfo()) {
                 table.add(
-                        grant.getGrantor().orElse(null),
+                        grant.getGrantor().isPresent() ? grant.getGrantor().get().getUser() : null,
                         grant.getIdentity().getUser(),
                         catalogName,
                         grant.getSchemaTableName().getSchemaName(),

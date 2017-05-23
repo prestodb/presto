@@ -160,4 +160,16 @@ public interface SchemaDao
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createTableShardOrganizerJobs();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS table_privileges (\n" +
+            "  table_id BIGINT NOT NULL,\n" +
+            "  grantee VARCHAR(255),\n" +
+            "  grantor VARCHAR(255),\n" +
+            "  privilege_mask BIGINT,\n" +
+            "  is_grantable BOOLEAN,\n" +
+            "  with_hierarchy BOOLEAN,\n" +
+            "  PRIMARY KEY (table_id, grantee, privilege_mask),\n" +
+            "  FOREIGN KEY (table_id) REFERENCES tables (table_id) ON DELETE CASCADE\n" +
+            ")")
+    void createTableTablePrivileges();
 }

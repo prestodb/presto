@@ -16,6 +16,8 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.MetadataDao;
+import com.facebook.presto.raptor.metadata.RaptorGrantInfo;
+import com.facebook.presto.raptor.metadata.RaptorPrivilegeInfo;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
@@ -46,6 +48,8 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -97,6 +101,7 @@ import static com.facebook.presto.raptor.RaptorTableProperties.getDistributionNa
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
 import static com.facebook.presto.raptor.RaptorTableProperties.isOrganized;
+import static com.facebook.presto.raptor.metadata.RaptorPrivilegeInfo.RaptorPrivilege.OWNERSHIP;
 import static com.facebook.presto.raptor.util.DatabaseUtil.daoTransaction;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
@@ -237,6 +242,14 @@ public class RaptorMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, @Nullable String schemaNameOrNull)
     {
         return dao.listTables(schemaNameOrNull);
+    }
+
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        if (prefix.getSchemaName() == null || prefix.getTableName() == null) {
+            return listTables(session, prefix.getSchemaName());
+        }
+        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
     @Override
@@ -652,6 +665,8 @@ public class RaptorMetadata
                 }
             }
 
+            dao.insertTablePrivileges(tableId, session.getUser(), session.getUser(), OWNERSHIP.getMaskValue(), true, false);
+
             return tableId;
         });
 
@@ -927,6 +942,53 @@ public class RaptorMetadata
         if (transactionId != null) {
             shardManager.rollbackTransaction(transactionId);
         }
+    }
+
+    @Override
+    public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        Table table = getTable(tableName);
+
+        privileges.stream()
+                .map(RaptorPrivilegeInfo::toRaptorPrivilege)
+                .map(RaptorPrivilegeInfo.RaptorPrivilege::getMaskValue)
+                .forEach(mask -> dao.insertTablePrivileges(table.getTableId(), grantee, session.getUser(), mask, grantOption, false));
+    }
+
+    private Table getTable(SchemaTableName tableName)
+    {
+        requireNonNull(tableName, "tableName is null");
+        Table table = dao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
+
+        if (table == null) {
+            throw new TableNotFoundException(tableName);
+        }
+        return table;
+    }
+
+    @Override
+    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        Table table = getTable(tableName);
+
+        privileges.stream()
+                .map(RaptorPrivilegeInfo::toRaptorPrivilege)
+                .map(RaptorPrivilegeInfo.RaptorPrivilege::getMaskValue)
+                .forEach(mask -> dao.removeTablePrivileges(table.getTableId(), grantee, mask));
+    }
+
+    @Override
+    public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        ImmutableList.Builder<GrantInfo> grantInfos = ImmutableList.builder();
+        for (SchemaTableName tableName : listTables(session, prefix)) {
+            List<RaptorGrantInfo> raptorGrantInfos = dao.getGrantInfos(tableName.getSchemaName(), tableName.getTableName(), session.getIdentity().getUser());
+
+            raptorGrantInfos.stream()
+                    .map(RaptorGrantInfo::toGrantInfo)
+                    .forEach(grantInfos::add);
+        }
+        return grantInfos.build();
     }
 
     private static class DistributionInfo
