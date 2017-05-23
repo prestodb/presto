@@ -108,6 +108,11 @@ public class PageBuilder
         }
     }
 
+    public int getChannelCount()
+    {
+        return blockBuilders.length;
+    }
+
     public PageBuilder newPageBuilderLike()
     {
         return new PageBuilder(declaredPositions, pageBuilderStatus.getMaxPageSizeInBytes(), types, Optional.of(blockBuilders));

@@ -136,7 +136,8 @@ public class LookupJoinOperatorFactory
         referenceCount.retain();
         return new LookupJoinOperator(
                 operatorContext,
-                getTypes(),
+                probeOutputTypes,
+                buildOutputTypes,
                 joinType,
                 lookupSourceFactory.createLookupSource(),
                 joinProbeFactory,

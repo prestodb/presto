@@ -20,7 +20,6 @@ import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
@@ -337,7 +336,7 @@ public class PartitionedOutputOperator
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
 
-            int pageSize = Math.min(PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionFunction.getPartitionCount());
+            int pageSize = Math.min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionFunction.getPartitionCount());
             pageSize = Math.max(1, pageSize);
 
             ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
@@ -409,7 +408,7 @@ public class PartitionedOutputOperator
             }
         }
 
-        public ListenableFuture<?> flush(boolean force)
+        private ListenableFuture<?> flush(boolean force)
         {
             // add all full pages to output buffer
             List<ListenableFuture<?>> blockedFutures = new ArrayList<>();

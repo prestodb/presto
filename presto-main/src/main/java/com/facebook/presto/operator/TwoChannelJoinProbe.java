@@ -35,7 +35,7 @@ import java.util.List;
 
 // This class exists as template for code generation and for testing
 public class TwoChannelJoinProbe
-        implements JoinProbe
+        extends JoinProbeBase
 {
     public static class TwoChannelJoinProbeFactory
             implements JoinProbeFactory
@@ -64,6 +64,7 @@ public class TwoChannelJoinProbe
     private final Block probeBlockB;
     private final Block[] probeBlocks;
     private final Page page;
+    private final int[] probeOutputChannels;
     private final Page probePage;
     private int position = -1;
 
@@ -81,6 +82,9 @@ public class TwoChannelJoinProbe
         probeBlocks[0] = probeBlockA;
         probeBlocks[1] = probeBlockB;
         this.page = page;
+        this.probeOutputChannels = new int[2];
+        probeOutputChannels[0] = 0;
+        probeOutputChannels[1] = 1;
         this.probePage = new Page(probeBlocks);
     }
 
@@ -134,5 +138,11 @@ public class TwoChannelJoinProbe
     public Page getPage()
     {
         return page;
+    }
+
+    @Override
+    public Page buildDictionaryPage(int[] indices, PageBuilder sourcePageBuilder)
+    {
+        return internalBuildDictionaryPage(indices, probeOutputChannels, sourcePageBuilder);
     }
 }

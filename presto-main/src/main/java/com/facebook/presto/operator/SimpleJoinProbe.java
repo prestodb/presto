@@ -24,7 +24,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class SimpleJoinProbe
-        implements JoinProbe
+        extends JoinProbeBase
 {
     public static class SimpleJoinProbeFactory
             implements JoinProbeFactory
@@ -139,5 +139,13 @@ public class SimpleJoinProbe
     public Page getPage()
     {
         return page;
+    }
+
+    @Override
+    public Page buildDictionaryPage(int[] indices, PageBuilder sourcePageBuilder)
+    {
+        return internalBuildDictionaryPage(indices,
+                probeOutputChannels.stream().mapToInt(i -> i).toArray(),
+                sourcePageBuilder);
     }
 }
