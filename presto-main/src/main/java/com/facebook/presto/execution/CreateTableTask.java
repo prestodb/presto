@@ -160,7 +160,12 @@ public class CreateTableTask
             metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
         }
         catch (PrestoException e) {
-            if (!(statement.isNotExists() && e.getErrorCode() == ALREADY_EXISTS.toErrorCode())) {
+            if (ALREADY_EXISTS.toErrorCode().equals(e.getErrorCode())) {
+                if (!statement.isNotExists()) {
+                    throw e;
+                }
+            }
+            else {
                 throw e;
             }
         }
