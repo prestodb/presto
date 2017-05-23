@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class SimplePagesHashStrategy
         implements PagesHashStrategy
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SimplePagesHashStrategy.class).instanceSize();
     private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<List<Block>> channels;
@@ -70,7 +72,7 @@ public class SimplePagesHashStrategy
     @Override
     public long getSizeInBytes()
     {
-        return channels.stream()
+        return INSTANCE_SIZE + channels.stream()
                 .flatMap(List::stream)
                 .mapToLong(Block::getRetainedSizeInBytes)
                 .sum();
