@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 
+import static com.facebook.presto.MBeanNamespaceManager.GLOBAL;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ServerConfig
@@ -25,6 +26,7 @@ public class ServerConfig
     private String dataSources;
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
+    private String jmxNamespace = GLOBAL;
 
     public boolean isCoordinator()
     {
@@ -86,5 +88,17 @@ public class ServerConfig
     {
         this.gracePeriod = gracePeriod;
         return this;
+    }
+
+    @Config("presto.server.jmx.namespace")
+    public ServerConfig setJmxNamespace(String serverNamespace)
+    {
+       this.jmxNamespace = serverNamespace;
+       return this;
+    }
+
+    public String getJmxNamespace()
+    {
+        return jmxNamespace;
     }
 }

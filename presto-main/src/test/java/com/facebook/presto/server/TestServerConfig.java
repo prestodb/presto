@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.MBeanNamespaceManager.GLOBAL;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -34,6 +35,7 @@ public class TestServerConfig
                 .setPrestoVersion(null)
                 .setDataSources(null)
                 .setIncludeExceptionInResponse(true)
+                .setJmxNamespace(GLOBAL)
                 .setGracePeriod(new Duration(2, MINUTES)));
     }
 
@@ -46,6 +48,7 @@ public class TestServerConfig
                 .put("datasources", "jmx")
                 .put("http.include-exception-in-response", "false")
                 .put("shutdown.grace-period", "5m")
+                .put("presto.server.jmx.namespace", "test")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -53,6 +56,7 @@ public class TestServerConfig
                 .setPrestoVersion("test")
                 .setDataSources("jmx")
                 .setIncludeExceptionInResponse(false)
+                .setJmxNamespace("test")
                 .setGracePeriod(new Duration(5, MINUTES));
 
         assertFullMapping(properties, expected);

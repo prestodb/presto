@@ -20,8 +20,6 @@ import com.facebook.presto.spi.type.TypeManager;
 
 import javax.management.MBeanServer;
 
-import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
-
 public interface ConnectorContext
 {
     default NodeManager getNodeManager()
@@ -46,6 +44,6 @@ public interface ConnectorContext
 
     default MBeanServer getMBeanServer()
     {
-       return getPlatformMBeanServer();
+        throw new UnsupportedOperationException();
     }
 }

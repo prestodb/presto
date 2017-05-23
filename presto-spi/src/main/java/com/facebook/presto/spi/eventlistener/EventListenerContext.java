@@ -15,13 +15,10 @@ package com.facebook.presto.spi.eventlistener;
 
 import javax.management.MBeanServer;
 
-import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
-
 public interface EventListenerContext
 {
     default MBeanServer getMBeanServer()
-
     {
-        return getPlatformMBeanServer();
+        throw new UnsupportedOperationException();
     }
 }

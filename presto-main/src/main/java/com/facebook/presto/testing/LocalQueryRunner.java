@@ -179,6 +179,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
+import static com.facebook.presto.MBeanNamespaceManager.createMBeanNamespaceManager;
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -294,7 +295,7 @@ public class LocalQueryRunner
 
         this.expressionCompiler = new ExpressionCompiler(metadata);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
-        this.namespaceManager = new MBeanNamespaceManager();
+        this.namespaceManager = createMBeanNamespaceManager();
 
         this.connectorManager = new ConnectorManager(
                 metadata,

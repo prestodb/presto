@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.MBeanNamespaceManager;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.TaskSource;
@@ -46,6 +45,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.MBeanNamespaceManager.createMBeanNamespaceManager;
 import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -91,7 +91,7 @@ public class TestSqlTask
                 taskNotificationExecutor,
                 taskExecutor,
                 planner,
-                new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(new MBeanNamespaceManager()), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
+                new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(createMBeanNamespaceManager()), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
                 new TaskManagerConfig());
     }
 

@@ -13,68 +13,68 @@
  */
 package com.facebook.presto;
 
-import com.google.inject.BindingAnnotation;
-import com.google.inject.Inject;
-
 import javax.management.MBeanServer;
 import javax.management.openmbean.KeyAlreadyExistsException;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Objects.requireNonNull;
 
 public final class MBeanNamespaceManager
 {
-    private final ConcurrentHashMap<String, NamespacedMBeanServer> registeredEntries = new ConcurrentHashMap();
+    private final Map<String, NamespacedMBeanServer> registeredEntries = new ConcurrentHashMap();
 
-    @Inject(optional = true)
-    @BaseNamespace
-    private String baseNamespace = GLOBAL;
+    private final String baseNamespace;
 
     public static final String GLOBAL = "";
 
-    @Retention(RetentionPolicy.RUNTIME)
-    @Target({ElementType.FIELD, ElementType.PARAMETER})
-    @BindingAnnotation
-    public @interface BaseNamespace {}
-
-    public MBeanNamespaceManager()
+    private MBeanNamespaceManager(String baseName)
     {
-        this(GLOBAL);
-    }
-
-    public MBeanNamespaceManager(String baseName)
-    {
+        requireNonNull(baseName, "baseName is null");
         this.baseNamespace = baseName;
     }
 
+    public static MBeanNamespaceManager createMBeanNamespaceManager()
+    {
+        return new MBeanNamespaceManager(GLOBAL);
+    }
+
+    public static MBeanNamespaceManager createMBeanNamespaceManager(String baseName)
+    {
+        requireNonNull(baseName, "baseName is null");
+        return new MBeanNamespaceManager(baseName);
+    }
+
     public NamespacedMBeanServer createMBeanServer(String namespace, MBeanServer parent)
-            throws KeyAlreadyExistsException
     {
         requireNonNull(namespace, "namespace is null");
         requireNonNull(parent, "parent is null");
         String fullNamespace = namespace;
-        if (baseNamespace != null && !baseNamespace.equals(GLOBAL)) {
+        if (!isGlobal(baseNamespace)) {
             fullNamespace = baseNamespace + NamespacedMBeanServer.SEPARATOR + namespace;
         }
 
-        if (registeredEntries.containsKey(namespace)) {
-            // already registered
-            throw new KeyAlreadyExistsException(String.format("MBean namespace %s already registered in %s!", namespace, baseNamespace));
-        }
         NamespacedMBeanServer namespaceManager = new NamespacedMBeanServer(fullNamespace, parent);
-        registeredEntries.put(namespace, namespaceManager);
+        if (registeredEntries.putIfAbsent(namespace, namespaceManager) != null) {
+            throw new KeyAlreadyExistsException(format("MBean namespace %s already registered in %s", namespace, baseNamespace));
+        }
         return namespaceManager;
     }
+
     public NamespacedMBeanServer createMBeanServer(String namespace)
-            throws KeyAlreadyExistsException
     {
         requireNonNull(namespace, "namespace is null");
        return createMBeanServer(namespace, getPlatformMBeanServer());
+    }
+
+    private static boolean isGlobal(String namespace)
+    {
+       if (namespace.equals(GLOBAL) || namespace.toLowerCase().equals("global")) {
+           return true;
+       }
+       return false;
     }
 }

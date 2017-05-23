@@ -22,9 +22,9 @@ import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
+import javax.inject.Inject;
 import javax.management.MBeanServer;
 
 import java.io.File;
@@ -84,7 +84,6 @@ public class EventListenerManager
 
     @VisibleForTesting
     protected void setConfiguredEventListener(String name, Map<String, String> properties)
-            throws Exception
     {
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
@@ -94,11 +93,12 @@ public class EventListenerManager
         EventListenerFactory eventListenerFactory = eventListenerFactories.get(name);
         checkState(eventListenerFactory != null, "Event listener %s is not registered", name);
 
+        final MBeanServer mBeanServer = namespaceManager.createMBeanServer(name + "EventListener");
+
         EventListener eventListener = eventListenerFactory.create(ImmutableMap.copyOf(properties),
                 new EventListenerContext()
                 {
                     // To avoid conflict with connector with same catalog name.
-                    private final MBeanServer mBeanServer = namespaceManager.createMBeanServer(name + "EventListener");
                     @Override
                     public MBeanServer getMBeanServer()
                     {

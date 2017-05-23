@@ -147,6 +147,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.MBeanNamespaceManager.createMBeanNamespaceManager;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.google.common.base.Preconditions.checkState;
@@ -418,7 +419,7 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
         // namespace manager
-        binder.bind(MBeanNamespaceManager.class).in(Scopes.SINGLETON);
+        binder.bind(MBeanNamespaceManager.class).toInstance(createMBeanNamespaceManager(serverConfig.getJmxNamespace()));
 
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);

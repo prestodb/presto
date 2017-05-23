@@ -121,8 +121,7 @@ public class ConnectorManager
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
-            MBeanNamespaceManager namespaceManager
-            )
+            MBeanNamespaceManager namespaceManager)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -304,8 +303,7 @@ public class ConnectorManager
                 typeManager,
                 pageSorter,
                 pageIndexerFactory,
-                namespaceManager.createMBeanServer(connectorId.getCatalogName())
-                );
+                namespaceManager.createMBeanServer(connectorId.getCatalogName()));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             try {

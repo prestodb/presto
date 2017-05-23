@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server.testing;
 
-import com.facebook.presto.MBeanNamespaceManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.CostCalculator;
@@ -178,6 +177,7 @@ public class TestingPrestoServer
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
                 .put("presto.version", "testversion")
+                .put("presto.server.jmx.namespace", baseDataDir.getFileName().toString())
                 .put("http-client.max-threads", "16")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
@@ -205,14 +205,12 @@ public class TestingPrestoServer
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(MBeanNamespaceManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
-                    binder.bindConstant().annotatedWith(MBeanNamespaceManager.BaseNamespace.class).to(baseDataDir.getFileName().toString());
                 });
 
         if (discoveryUri != null) {

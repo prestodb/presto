@@ -33,6 +33,7 @@ public class TestingEventListenerManager
     extends EventListenerManager
 {
     private final AtomicReference<Optional<EventListener>> configuredEventListener = new AtomicReference<>(Optional.empty());
+    private final MBeanServer mBeanServer = getMBeanNamespaceManager().createMBeanServer("TestEventListener");
 
     @Inject
     public TestingEventListenerManager(MBeanNamespaceManager namespaceManager)
@@ -46,7 +47,6 @@ public class TestingEventListenerManager
         configuredEventListener.set(Optional.of(eventListenerFactory.create(ImmutableMap.of(),
                 new EventListenerContext()
                 {
-                    private final MBeanServer mBeanServer = getMBeanNamespaceManager().createMBeanServer("TestEventListener");
                     @Override
                     public MBeanServer getMBeanServer()
                     {
