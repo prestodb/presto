@@ -147,12 +147,12 @@ public final class PagesHash
         return expectedHashCollisions;
     }
 
-    public int getAddressIndex(int position, Page hashChannelsPage, Page allChannelsPage)
+    public int getAddressIndex(int position, Page hashChannelsPage)
     {
-        return getAddressIndex(position, hashChannelsPage, allChannelsPage, pagesHashStrategy.hashRow(position, hashChannelsPage));
+        return getAddressIndex(position, hashChannelsPage, pagesHashStrategy.hashRow(position, hashChannelsPage));
     }
 
-    public int getAddressIndex(int rightPosition, Page hashChannelsPage, Page allChannelsPage, long rawHash)
+    public int getAddressIndex(int rightPosition, Page hashChannelsPage, long rawHash)
     {
         int pos = getHashPosition(rawHash, mask);
 
