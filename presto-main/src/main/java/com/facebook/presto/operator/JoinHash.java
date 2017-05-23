@@ -64,14 +64,14 @@ public final class JoinHash
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        int addressIndex = pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage);
+        int addressIndex = pagesHash.getAddressIndex(position, hashChannelsPage);
         return startJoinPosition(addressIndex, position, allChannelsPage);
     }
 
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
     {
-        int addressIndex = pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage, rawHash);
+        int addressIndex = pagesHash.getAddressIndex(position, hashChannelsPage, rawHash);
         return startJoinPosition(addressIndex, position, allChannelsPage);
     }
 
