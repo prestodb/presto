@@ -39,6 +39,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableIdentity;
+import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
@@ -55,11 +59,13 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -93,6 +99,8 @@ public class TestRaptorMetadata
     private static final SchemaTableName DEFAULT_TEST_LINEITEMS = new SchemaTableName("test", "lineitems");
     private static final ConnectorSession SESSION = new TestingConnectorSession(
             new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
+    private static final ConnectorSession SESSION_USER2 = new TestingConnectorSession(
+            "user2", new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
 
     private DBI dbi;
     private Handle dummyHandle;
@@ -795,6 +803,89 @@ public class TestRaptorMetadata
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
         }
+    }
+
+    @Test
+    public void testCreateTableTablePrivileges()
+    {
+        metadata.createTable(SESSION, getOrdersTable());
+
+        List<GrantInfo> grantInfos = metadata.listTablePrivileges(SESSION, new SchemaTablePrefix(DEFAULT_TEST_ORDERS.getSchemaName(), "non_exists"));
+        assertTrue(grantInfos.isEmpty());
+
+        grantInfos = metadata.listTablePrivileges(SESSION_USER2,
+                new SchemaTablePrefix(DEFAULT_TEST_ORDERS.getSchemaName(), DEFAULT_TEST_ORDERS.getTableName()));
+        assertTrue(grantInfos.isEmpty());
+
+        grantInfos = metadata.listTablePrivileges(SESSION, new SchemaTablePrefix(DEFAULT_TEST_ORDERS.getSchemaName(), DEFAULT_TEST_ORDERS.getTableName()));
+        assertEquals(grantInfos.size(), 1);
+
+        GrantInfo grantInfo = new GrantInfo(
+                Arrays.asList(Privilege.values()).stream()
+                .map(privilege -> new PrivilegeInfo(privilege, Boolean.TRUE))
+                .collect(Collectors.toSet()),
+                new Identity("user", Optional.empty()),
+                DEFAULT_TEST_ORDERS,
+                Optional.of(new Identity("user", Optional.empty())),
+                Optional.of(Boolean.FALSE));
+
+        assertEquals(grantInfos.get(0), grantInfo);
+    }
+
+    @Test
+    public void testGrantTablePrivilege()
+    {
+        metadata.createTable(SESSION, getOrdersTable());
+
+        List<GrantInfo> grantInfos = metadata.listTablePrivileges(SESSION_USER2,
+                new SchemaTablePrefix(DEFAULT_TEST_ORDERS.getSchemaName(), DEFAULT_TEST_ORDERS.getTableName()));
+        assertTrue(grantInfos.isEmpty());
+
+        metadata.grantTablePrivileges(SESSION,
+                DEFAULT_TEST_ORDERS,
+                ImmutableSet.of(Privilege.SELECT, Privilege.DELETE),
+                "user2",
+                false);
+
+        grantInfos = metadata.listTablePrivileges(SESSION_USER2,
+                new SchemaTablePrefix(DEFAULT_TEST_ORDERS.getSchemaName(), DEFAULT_TEST_ORDERS.getTableName()));
+
+        Set<PrivilegeInfo> privileges = grantInfos.stream()
+                .map(GrantInfo::getPrivilegeInfo)
+                .flatMap(Set::stream)
+                .collect(Collectors.toSet());
+
+        assertTrue(privileges.contains(new PrivilegeInfo(Privilege.SELECT, false)));
+        assertTrue(privileges.contains(new PrivilegeInfo(Privilege.DELETE, false)));
+    }
+
+    @Test
+    public void testRevokeTablePrivilege()
+    {
+        metadata.createTable(SESSION, getOrdersTable());
+
+        metadata.grantTablePrivileges(SESSION,
+                DEFAULT_TEST_ORDERS,
+                ImmutableSet.of(Privilege.SELECT, Privilege.DELETE),
+                "user2",
+                false);
+
+        metadata.revokeTablePrivileges(SESSION,
+                DEFAULT_TEST_ORDERS,
+                ImmutableSet.of(Privilege.SELECT),
+                "user2",
+                false);
+
+        List<GrantInfo> grantInfos = metadata.listTablePrivileges(SESSION_USER2,
+                new SchemaTablePrefix(DEFAULT_TEST_ORDERS.getSchemaName(), DEFAULT_TEST_ORDERS.getTableName()));
+
+        Set<PrivilegeInfo> privileges = grantInfos.stream()
+                .map(GrantInfo::getPrivilegeInfo)
+                .flatMap(Set::stream)
+                .collect(Collectors.toSet());
+
+        assertFalse(privileges.contains(new PrivilegeInfo(Privilege.SELECT, false)));
+        assertTrue(privileges.contains(new PrivilegeInfo(Privilege.DELETE, false)));
     }
 
     private boolean transactionExists(long transactionId)

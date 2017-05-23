@@ -1,0 +1,10 @@
+{
+  "test2" : {
+    "roles" : [ "admin", "user" ],
+    "users" : [ "user5" ]
+  },
+  "test1" : {
+    "roles" : [ "admin" ],
+    "users" : [ "user5", "user6" ]
+  }
+}
