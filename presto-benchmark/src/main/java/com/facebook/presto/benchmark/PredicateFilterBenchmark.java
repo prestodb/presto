@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory.synchronousFilterAndProjectOperator;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -55,7 +56,7 @@ public class PredicateFilterBenchmark
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getMetadata());
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = synchronousFilterAndProjectOperator(
                 1,
                 new PlanNodeId("test"),
                 pageProcessor,

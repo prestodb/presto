@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
@@ -92,6 +91,7 @@ import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTimestampsWithTimezoneBlock;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory.synchronousFilterAndProjectOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -573,7 +573,7 @@ public final class FunctionAssertions
         PageProjection pageProjection = new InterpretedPageProjection(projection, SYMBOL_TYPES, INPUT_MAPPING, metadata, SQL_PARSER, session);
 
         PageProcessor processor = new PageProcessor(pageFilter, ImmutableList.of(pageProjection));
-        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
+        OperatorFactory operatorFactory = synchronousFilterAndProjectOperator(
                 0,
                 new PlanNodeId("test"),
                 () -> processor,
@@ -586,7 +586,7 @@ public final class FunctionAssertions
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of());
 
-            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of());
+            return synchronousFilterAndProjectOperator(0, new PlanNodeId("test"), processor, ImmutableList.of());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -600,7 +600,7 @@ public final class FunctionAssertions
     {
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(filter, ImmutableList.of(projection));
-            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()));
+            return synchronousFilterAndProjectOperator(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

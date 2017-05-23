@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.predicate;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -164,6 +165,11 @@ public final class Domain
     public boolean includesNullableValue(Object value)
     {
         return value == null ? nullAllowed : values.containsValue(value);
+    }
+
+    public boolean includesNullableValue(Block block, int position)
+    {
+        return block.isNull(position) ? nullAllowed : values.containsValue(block, position);
     }
 
     public boolean overlaps(Domain other)
