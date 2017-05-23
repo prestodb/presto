@@ -24,6 +24,7 @@ import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -193,7 +194,8 @@ public class TestJoinCompiler
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), outputChannels.size());
         // verify size
-        long sizeInBytes = channels.stream()
+        int instanceSize = ClassLayout.parseClass(hashStrategy.getClass()).instanceSize();
+        long sizeInBytes = instanceSize + channels.stream()
                 .flatMap(List::stream)
                 .mapToLong(Block::getRetainedSizeInBytes)
                 .sum();
