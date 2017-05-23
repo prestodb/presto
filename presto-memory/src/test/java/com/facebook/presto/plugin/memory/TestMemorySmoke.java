@@ -42,7 +42,7 @@ public class TestMemorySmoke
     }
 
     @Test
-    public void createAndDropTable()
+    public void testCreateAndDropTable()
             throws SQLException
     {
         int tablesBeforeCreate = listMemoryTables().size();
@@ -55,7 +55,7 @@ public class TestMemorySmoke
 
     // it has to be RuntimeException as FailureInfo$FailureException is private
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:1: Destination table 'memory.default.nation' already exists")
-    public void createTableWhenTableIsAlreadyCreated()
+    public void testCreateTableWhenTableIsAlreadyCreated()
             throws SQLException
     {
         String createTableSql = "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation";
@@ -63,7 +63,7 @@ public class TestMemorySmoke
     }
 
     @Test
-    public void select()
+    public void testSelect()
             throws SQLException
     {
         queryRunner.execute("CREATE TABLE test_select AS SELECT * FROM tpch.tiny.nation");
@@ -78,7 +78,7 @@ public class TestMemorySmoke
     }
 
     @Test
-    public void createTableWithNoData()
+    public void testCreateTableWithNoData()
             throws SQLException
     {
         queryRunner.execute("CREATE TABLE test_empty (a BIGINT)");
@@ -88,7 +88,7 @@ public class TestMemorySmoke
     }
 
     @Test
-    public void createFilteredOutTable()
+    public void testCreateFilteredOutTable()
             throws SQLException
     {
         queryRunner.execute("CREATE TABLE filtered_out AS SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 0");
@@ -98,7 +98,7 @@ public class TestMemorySmoke
     }
 
     @Test
-    public void selectFromEmptyTable()
+    public void testSelectFromEmptyTable()
             throws SQLException
     {
         queryRunner.execute("CREATE TABLE test_select_empty AS SELECT * FROM tpch.tiny.nation WHERE nationkey > 1000");
@@ -107,20 +107,20 @@ public class TestMemorySmoke
     }
 
     @Test
-    public void selectSingleRow()
+    public void testSelectSingleRow()
     {
         assertQuery("SELECT * FROM nation WHERE nationkey = 1", "SELECT * FROM tpch.tiny.nation WHERE nationkey = 1");
     }
 
     @Test
-    public void selectColumnsSubset()
+    public void testSelectColumnsSubset()
             throws SQLException
     {
         assertQuery("SELECT nationkey, regionkey FROM nation ORDER BY nationkey", "SELECT nationkey, regionkey FROM tpch.tiny.nation ORDER BY nationkey");
     }
 
     @Test
-    public void createTableInNonDefaultSchema()
+    public void testCreateTableInNonDefaultSchema()
     {
         queryRunner.execute(format("CREATE SCHEMA %s.schema1", CATALOG));
         queryRunner.execute(format("CREATE SCHEMA %s.schema2", CATALOG));
