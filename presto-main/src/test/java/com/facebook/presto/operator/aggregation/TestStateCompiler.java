@@ -18,6 +18,7 @@ import com.facebook.presto.array.BooleanBigArray;
 import com.facebook.presto.array.ByteBigArray;
 import com.facebook.presto.array.DoubleBigArray;
 import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.array.ReferenceCountMap;
 import com.facebook.presto.array.SliceBigArray;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.operator.aggregation.state.LongState;
@@ -253,6 +254,7 @@ public class TestStateCompiler
     private long getComplexStateRetainedSize(TestComplexState state)
     {
         long retainedSize = ClassLayout.parseClass(state.getClass()).instanceSize();
+        // reflection is necessary because TestComplexState implementation is generated
         Field[] fields = state.getClass().getDeclaredFields();
         try {
             for (Field field : fields) {
@@ -271,6 +273,34 @@ public class TestStateCompiler
         return retainedSize;
     }
 
+    private static long getBlockBigArrayReferenceCountMapOverhead(TestComplexState state)
+    {
+        long overhead = 0;
+        // reflection is necessary because TestComplexState implementation is generated
+        Field[] stateFields = state.getClass().getDeclaredFields();
+        try {
+            for (Field stateField : stateFields) {
+                if (stateField.getType() != BlockBigArray.class) {
+                    continue;
+                }
+                stateField.setAccessible(true);
+                Field[] blockBigArrayFields = stateField.getType().getDeclaredFields();
+                for (Field blockBigArrayField : blockBigArrayFields) {
+                    if (blockBigArrayField.getType() != ReferenceCountMap.class) {
+                        continue;
+                    }
+                    blockBigArrayField.setAccessible(true);
+                    MethodHandle sizeOf = Reflection.methodHandle(blockBigArrayField.getType(), "sizeOf", null);
+                    overhead += (long) sizeOf.invokeWithArguments(blockBigArrayField.get(stateField.get(state)));
+                }
+            }
+        }
+        catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+        return overhead;
+    }
+
     @Test
     public void testComplexStateEstimatedSize()
     {
@@ -280,6 +310,9 @@ public class TestStateCompiler
         TestComplexState groupedState = factory.createGroupedState();
         long initialRetainedSize = getComplexStateRetainedSize(groupedState);
         assertEquals(groupedState.getEstimatedSize(), initialRetainedSize);
+        // BlockBigArray has an internal map that can grow in size when getting more blocks
+        // need to handle the map overhead separately
+        initialRetainedSize -= getBlockBigArrayReferenceCountMapOverhead(groupedState);
         for (int i = 0; i < 1000; i++) {
             long retainedSize = 0;
             ((GroupedAccumulatorState) groupedState).setGroupId(i);
@@ -303,7 +336,7 @@ public class TestStateCompiler
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
-            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * (i + 1));
+            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * (i + 1) + getBlockBigArrayReferenceCountMapOverhead(groupedState));
         }
 
         for (int i = 0; i < 1000; i++) {
@@ -329,7 +362,7 @@ public class TestStateCompiler
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
-            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * 1000);
+            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * 1000 + getBlockBigArrayReferenceCountMapOverhead(groupedState));
         }
     }
 
