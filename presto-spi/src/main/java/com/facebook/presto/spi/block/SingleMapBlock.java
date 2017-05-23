@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
@@ -72,6 +73,15 @@ public class SingleMapBlock
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(hashTable);
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(keyBlock, keyBlock.getRetainedSizeInBytes());
+        consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
+        consumer.accept(hashTable, sizeOf(hashTable));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

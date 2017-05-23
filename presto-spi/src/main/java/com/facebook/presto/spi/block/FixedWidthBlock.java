@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static java.util.Objects.requireNonNull;
@@ -80,6 +81,14 @@ public class FixedWidthBlock
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(slice, (long) slice.getRetainedSize());
+        consumer.accept(valueIsNull, (long) valueIsNull.getRetainedSize());
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

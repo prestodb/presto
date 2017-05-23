@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
+import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
@@ -143,6 +144,17 @@ public class MapBlock
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(keyBlock, keyBlock.getRetainedSizeInBytes());
+        consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
+        consumer.accept(offsets, sizeOf(offsets));
+        consumer.accept(mapIsNull, sizeOf(mapIsNull));
+        consumer.accept(hashTables, sizeOf(hashTables));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

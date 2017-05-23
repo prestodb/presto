@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
@@ -246,6 +247,14 @@ public class DictionaryBlock
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(dictionary, dictionary.getRetainedSizeInBytes());
+        consumer.accept(ids, sizeOf(ids));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -149,6 +150,17 @@ public class MapBlockBuilder
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
         return size;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(keyBlockBuilder, keyBlockBuilder.getRetainedSizeInBytes());
+        consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
+        consumer.accept(offsets, sizeOf(offsets));
+        consumer.accept(mapIsNull, sizeOf(mapIsNull));
+        consumer.accept(hashTables, sizeOf(hashTables));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

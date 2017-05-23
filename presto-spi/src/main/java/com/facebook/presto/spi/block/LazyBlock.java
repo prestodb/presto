@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -182,6 +183,16 @@ public class LazyBlock
     {
         assureLoaded();
         return INSTANCE_SIZE + block.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        // do not support LazyBlock (for now) for the following two reasons:
+        // (1) the method is mainly used for inspecting the identity and size of each element to prevent over counting
+        // (2) the method should be non-recursive and only inspects blocks at the top level;
+        //     given LazyBlock is a wrapper for other blocks, it is not meaningful to only inspect the top-level elements
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     @Override

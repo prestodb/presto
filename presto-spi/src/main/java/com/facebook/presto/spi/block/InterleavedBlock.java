@@ -16,6 +16,7 @@ package com.facebook.presto.spi.block;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 
 public class InterleavedBlock
         extends AbstractInterleavedBlock
@@ -120,6 +121,13 @@ public class InterleavedBlock
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(blocks, retainedSizeInBytes - INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

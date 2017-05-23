@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.function.BiConsumer;
+
 public class SingleArrayBlockWriter
         extends AbstractSingleArrayBlock
         implements BlockBuilder
@@ -49,6 +51,13 @@ public class SingleArrayBlockWriter
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + blockBuilder.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(blockBuilder, blockBuilder.getRetainedSizeInBytes());
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
