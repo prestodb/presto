@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.DynamicFilter.createEmptyDynamicFilter;
 import static java.util.Objects.requireNonNull;
 
 public class TransformUncorrelatedScalarToJoin
@@ -66,7 +67,8 @@ public class TransformUncorrelatedScalarToJoin
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty());
+                        Optional.empty(),
+                        createEmptyDynamicFilter());
             }
             return rewrittenNode;
         }

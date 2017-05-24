@@ -222,7 +222,8 @@ public class PartialAggregationPushDown
                     child.getFilter(),
                     child.getLeftHashSymbol(),
                     child.getRightHashSymbol(),
-                    child.getDistributionType());
+                    child.getDistributionType(),
+                    child.getDynamicFilter());
         }
 
         private AggregationNode replaceAggregationSource(

@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
+import static com.facebook.presto.sql.planner.DynamicFilter.createEmptyDynamicFilter;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -136,7 +137,8 @@ public class PushAggregationThroughOuterJoin
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
-                    join.getDistributionType());
+                    join.getDistributionType(),
+                    join.getDynamicFilter());
         }
         else {
             rewrittenJoin = new JoinNode(
@@ -152,7 +154,8 @@ public class PushAggregationThroughOuterJoin
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
-                    join.getDistributionType());
+                    join.getDistributionType(),
+                    join.getDynamicFilter());
         }
 
         return Optional.of(coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, symbolAllocator, idAllocator, lookup));
@@ -215,7 +218,8 @@ public class PushAggregationThroughOuterJoin
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                createEmptyDynamicFilter());
 
         // Add coalesce expressions for all aggregation functions
         Assignments.Builder assignmentsBuilder = Assignments.builder();

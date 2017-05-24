@@ -83,6 +83,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
+import static com.facebook.presto.sql.planner.DynamicFilter.createEmptyDynamicFilter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -304,7 +305,8 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                createEmptyDynamicFilter());
 
         if (node.getType() != INNER) {
             for (Expression complexExpression : complexJoinExpressions) {
@@ -341,7 +343,8 @@ class RelationPlanner
                     Optional.of(rewrittenFilterCondition),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    createEmptyDynamicFilter());
         }
 
         if (node.getType() == INNER) {
