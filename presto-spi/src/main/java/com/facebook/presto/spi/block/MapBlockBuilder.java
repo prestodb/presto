@@ -23,7 +23,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -135,7 +134,7 @@ public class MapBlockBuilder
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() +
                 (Integer.BYTES + Byte.BYTES) * positionCount +
@@ -143,13 +142,13 @@ public class MapBlockBuilder
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         long size = INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables);
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
-        return intSaturatedCast(size);
+        return size;
     }
 
     @Override

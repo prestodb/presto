@@ -19,7 +19,6 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -38,8 +37,8 @@ public class MapBlock
     private final Block valueBlock;
     private final int[] hashTables; // hash to location in map;
 
-    private int sizeInBytes;
-    private final int retainedSizeInBytes;
+    private long sizeInBytes;
+    private final long retainedSizeInBytes;
 
     /**
      * @param keyBlockNativeEquals (T, Block, int)boolean
@@ -74,8 +73,7 @@ public class MapBlock
         this.hashTables = hashTables;
 
         this.sizeInBytes = -1;
-        this.retainedSizeInBytes = intSaturatedCast(
-                INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables));
+        this.retainedSizeInBytes = INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables);
     }
 
     @Override
@@ -121,7 +119,7 @@ public class MapBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         // this is racy but is safe because sizeInBytes is an int and the calculation is stable
         if (sizeInBytes < 0) {
@@ -142,7 +140,7 @@ public class MapBlock
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
     }

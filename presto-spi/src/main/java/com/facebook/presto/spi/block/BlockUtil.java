@@ -76,12 +76,4 @@ final class BlockUtil
         }
         return (int) newSize;
     }
-
-    static int intSaturatedCast(long value)
-    {
-        if (value > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        return (int) value;
-    }
 }

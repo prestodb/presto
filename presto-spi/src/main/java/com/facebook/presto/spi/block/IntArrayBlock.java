@@ -19,7 +19,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class IntArrayBlock
@@ -32,8 +31,8 @@ public class IntArrayBlock
     private final boolean[] valueIsNull;
     private final int[] values;
 
-    private final int sizeInBytes;
-    private final int retainedSizeInBytes;
+    private final long sizeInBytes;
+    private final long retainedSizeInBytes;
 
     public IntArrayBlock(int positionCount, boolean[] valueIsNull, int[] values)
     {
@@ -61,24 +60,24 @@ public class IntArrayBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = intSaturatedCast((Integer.BYTES + Byte.BYTES) * (long) positionCount);
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values));
+        sizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) positionCount;
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return sizeInBytes;
     }
 
     @Override
-    public int getRegionSizeInBytes(int position, int length)
+    public long getRegionSizeInBytes(int position, int length)
     {
-        return intSaturatedCast((Integer.BYTES + Byte.BYTES) * (long) length);
+        return (Integer.BYTES + Byte.BYTES) * (long) length;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
     }

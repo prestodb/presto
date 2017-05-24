@@ -27,7 +27,6 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryBlock
@@ -39,8 +38,8 @@ public class DictionaryBlock
     private final Block dictionary;
     private final int idsOffset;
     private final int[] ids;
-    private final int retainedSizeInBytes;
-    private volatile int sizeInBytes = -1;
+    private final long retainedSizeInBytes;
+    private volatile long sizeInBytes = -1;
     private volatile int uniqueIds = -1;
     private final DictionaryId dictionarySourceId;
 
@@ -87,7 +86,7 @@ public class DictionaryBlock
         this.dictionary = dictionary;
         this.ids = ids;
         this.dictionarySourceId = requireNonNull(dictionarySourceId, "dictionarySourceId is null");
-        this.retainedSizeInBytes = toIntExact(INSTANCE_SIZE + dictionary.getRetainedSizeInBytes() + sizeOf(ids));
+        this.retainedSizeInBytes = INSTANCE_SIZE + dictionary.getRetainedSizeInBytes() + sizeOf(ids);
 
         if (dictionaryIsCompacted) {
             this.sizeInBytes = this.retainedSizeInBytes;
@@ -192,7 +191,7 @@ public class DictionaryBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         // this is racy but is safe because sizeInBytes is an int and the calculation is stable
         if (sizeInBytes < 0) {
@@ -221,7 +220,7 @@ public class DictionaryBlock
     }
 
     @Override
-    public int getRegionSizeInBytes(int positionOffset, int length)
+    public long getRegionSizeInBytes(int positionOffset, int length)
     {
         if (positionOffset == 0 && length == getPositionCount()) {
             // Calculation of getRegionSizeInBytes is expensive in this class.
@@ -244,7 +243,7 @@ public class DictionaryBlock
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
     }

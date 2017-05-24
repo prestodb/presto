@@ -24,7 +24,7 @@ public class SingleMapBlockWriter
 
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
-    private final int initialBlockBuilderSize;
+    private final long initialBlockBuilderSize;
     private int positionsWritten;
 
     private boolean writeToValueNext;
@@ -38,13 +38,13 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() - initialBlockBuilderSize;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes();
     }

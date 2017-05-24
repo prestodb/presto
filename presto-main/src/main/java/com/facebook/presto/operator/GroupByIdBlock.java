@@ -57,7 +57,7 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int getRegionSizeInBytes(int positionOffset, int length)
+    public long getRegionSizeInBytes(int positionOffset, int length)
     {
         return block.getRegionSizeInBytes(positionOffset, length);
     }
@@ -171,13 +171,13 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return block.getSizeInBytes();
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + block.getRetainedSizeInBytes();
     }

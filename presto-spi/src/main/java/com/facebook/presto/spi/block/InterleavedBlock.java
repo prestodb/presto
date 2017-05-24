@@ -15,7 +15,7 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class InterleavedBlock
         extends AbstractInterleavedBlock
@@ -26,17 +26,17 @@ public class InterleavedBlock
     private final InterleavedBlockEncoding blockEncoding;
     private final int start;
     private final int positionCount;
-    private final int retainedSizeInBytes;
+    private final long retainedSizeInBytes;
 
-    private final AtomicInteger sizeInBytes;
+    private final AtomicLong sizeInBytes;
 
     public InterleavedBlock(Block[] blocks)
     {
         super(blocks.length);
         this.blocks = blocks;
 
-        int sizeInBytes = 0;
-        int retainedSizeInBytes = INSTANCE_SIZE;
+        long sizeInBytes = 0;
+        long retainedSizeInBytes = INSTANCE_SIZE;
         int positionCount = 0;
         int firstSubBlockPositionCount = blocks[0].getPositionCount();
         for (int i = 0; i < getBlockCount(); i++) {
@@ -52,11 +52,11 @@ public class InterleavedBlock
         this.blockEncoding = computeBlockEncoding();
         this.start = 0;
         this.positionCount = positionCount;
-        this.sizeInBytes = new AtomicInteger(sizeInBytes);
+        this.sizeInBytes = new AtomicLong(sizeInBytes);
         this.retainedSizeInBytes = retainedSizeInBytes;
     }
 
-    private InterleavedBlock(Block[] blocks, int start, int positionCount, int retainedSizeInBytes, InterleavedBlockEncoding blockEncoding)
+    private InterleavedBlock(Block[] blocks, int start, int positionCount, long retainedSizeInBytes, InterleavedBlockEncoding blockEncoding)
     {
         super(blocks.length);
         this.blocks = blocks;
@@ -64,7 +64,7 @@ public class InterleavedBlock
         this.positionCount = positionCount;
         this.retainedSizeInBytes = retainedSizeInBytes;
         this.blockEncoding = blockEncoding;
-        this.sizeInBytes = new AtomicInteger(-1);
+        this.sizeInBytes = new AtomicLong(-1);
     }
 
     @Override
@@ -103,9 +103,9 @@ public class InterleavedBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        int sizeInBytes = this.sizeInBytes.get();
+        long sizeInBytes = this.sizeInBytes.get();
         if (sizeInBytes < 0) {
             sizeInBytes = 0;
             for (int i = 0; i < getBlockCount(); i++) {
@@ -117,7 +117,7 @@ public class InterleavedBlock
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
     }

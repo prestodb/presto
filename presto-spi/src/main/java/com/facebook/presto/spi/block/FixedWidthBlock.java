@@ -21,7 +21,6 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static java.util.Objects.requireNonNull;
 
 public class FixedWidthBlock
@@ -72,15 +71,15 @@ public class FixedWidthBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        return intSaturatedCast(getRawSlice().length() + valueIsNull.length());
+        return getRawSlice().length() + valueIsNull.length();
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
-        return intSaturatedCast(INSTANCE_SIZE + getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize());
+        return INSTANCE_SIZE + getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize();
     }
 
     @Override

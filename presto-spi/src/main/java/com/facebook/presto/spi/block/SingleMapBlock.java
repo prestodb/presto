@@ -23,7 +23,6 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 
@@ -62,17 +61,17 @@ public class SingleMapBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        return intSaturatedCast(keyBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
+        return keyBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
                 valueBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
-                sizeOfIntArray(positionCount / 2 * HASH_MULTIPLIER));
+                sizeOfIntArray(positionCount / 2 * HASH_MULTIPLIER);
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
-        return intSaturatedCast(INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(hashTable));
+        return INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(hashTable);
     }
 
     @Override

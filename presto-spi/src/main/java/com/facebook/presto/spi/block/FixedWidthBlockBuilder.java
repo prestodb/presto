@@ -26,7 +26,6 @@ import java.util.List;
 import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -85,19 +84,19 @@ public class FixedWidthBlockBuilder
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        return intSaturatedCast(sliceOutput.size() + valueIsNull.size());
+        return sliceOutput.size() + valueIsNull.size();
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         long size = INSTANCE_SIZE + sliceOutput.getRetainedSize() + valueIsNull.getRetainedSize();
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
-        return intSaturatedCast(size);
+        return size;
     }
 
     @Override

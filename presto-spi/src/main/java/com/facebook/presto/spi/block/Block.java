@@ -162,18 +162,18 @@ public interface Block
     /**
      * Returns the logical size of this block in memory.
      */
-    int getSizeInBytes();
+    long getSizeInBytes();
 
     /**
      * Returns the logical size of {@code block.getRegion(position, length)} in memory.
      */
-    int getRegionSizeInBytes(int position, int length);
+    long getRegionSizeInBytes(int position, int length);
 
     /**
      * Returns the retained size of this block in memory.
      * This method is called from the inner most execution loop and must be fast.
      */
-    int getRetainedSizeInBytes();
+    long getRetainedSizeInBytes();
 
     /**
      * Get the encoding for this block.
