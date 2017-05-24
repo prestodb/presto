@@ -1,0 +1,88 @@
+===================
+Migrating From Hive
+===================
+
+Presto uses ANSI SQL syntax and semantics, whereas Hive uses a SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).
+
+Use ANSI SQL syntax for identifiers and strings
+-----------------------------------------------
+
+Strings are delimited with single quotes and identifiers are quoted with double quotes, not backquotes::
+
+    SELECT name AS "User Name"
+    FROM "7day_active"
+    WHERE name = 'foo'
+
+Quote identifiers that start with numbers
+-----------------------------------------
+
+Identifiers that start with numbers are not legal in ANSI SQL and must be quoted using double quotes::
+
+    SELECT *
+    FROM "7day_active"
+
+Use the standard string concatenation operator
+----------------------------------------------
+
+Use the ANSI SQL string concatenation operator::
+
+    SELECT a || b || c
+    FROM ...
+
+Use standard types for CAST targets
+-----------------------------------
+
+The following standard types are supported for ``CAST`` targets::
+
+    SELECT
+      CAST(x AS varchar)
+    , CAST(x AS bigint)
+    , CAST(x AS double)
+    , CAST(x AS boolean)
+    FROM ...
+
+In particular, use ``VARCHAR`` instead of ``STRING``.
+
+Use CAST when dividing integers
+-------------------------------
+
+Presto follows the standard behavior of performing integer division when dividing two integers. For example, dividing ``7`` by ``2`` will result in ``3``, not ``3.5``.
+To perform floating point division on two integers, cast one of them to a double::
+
+    SELECT CAST(5 AS DOUBLE) / 2
+
+Use WITH for complex expressions or queries
+-------------------------------------------
+
+When you want to re-use a complex output expression as a filter, use either an inline subquery or factor it out using the ``WITH`` clause::
+
+    WITH a AS (
+      SELECT substr(name, 1, 3) x
+      FROM ...
+    )
+    SELECT *
+    FROM a
+    WHERE x = 'foo'
+
+Outer Join Differences
+----------------------
+
+Adhering to the ANSI SQL spec, Presto respects the abstract concept that the *whole* ``ON`` clause is evaluated to determine whether or not a row from the left table will be joined with a right table row. In a ``LEFT JOIN``, all the rows of the left table are always returned out of the join, vice versa for a ``RIGHT JOIN``. In contrast, Hive will *first* apply any constant filters in the ``ON`` clause *then* perform the join. This can produce very different results when ``ON`` clause predicates refer to the outer table.
+
+When you want to convert a Hive ``OUTER JOIN`` query to Presto, remember that Hive treats the ``ON`` clause predicates as if it were part of the ``WHERE`` clause. So to get the equivalent behavior in Presto, you need to move your ``ON`` clause predicates into the ``WHERE`` clause.
+
+Hive query::
+
+    SELECT a.id, b.userid
+    FROM a
+    LEFT JOIN b
+    ON a.id = b.id AND a.ds = '2013-11-11'
+
+Presto query::
+
+    SELECT a.id, b.userid
+    FROM a
+    LEFT JOIN b
+    ON a.id = b.id
+    WHERE a.ds = '2013-11-11'
+
