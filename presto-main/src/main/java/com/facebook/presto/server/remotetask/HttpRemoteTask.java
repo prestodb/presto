@@ -656,9 +656,8 @@ public final class HttpRemoteTask
             @Override
             public void onFailure(Throwable t)
             {
-                if (t instanceof RejectedExecutionException) {
-                    // TODO: we should only give up retrying when the client has been shutdown
-                    logError(t, "Unable to %s task at %s. Got RejectedExecutionException.", action, request.getUri());
+                if (t instanceof RejectedExecutionException && httpClient.isClosed()) {
+                    logError(t, "Unable to %s task at %s. HTTP client is closed.", action, request.getUri());
                     cleanUpLocally();
                     return;
                 }
