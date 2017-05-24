@@ -83,7 +83,7 @@ public class DeleteNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitDelete(this, context);
     }

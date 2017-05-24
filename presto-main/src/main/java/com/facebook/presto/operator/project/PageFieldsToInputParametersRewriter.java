@@ -47,7 +47,7 @@ public final class PageFieldsToInputParametersRewriter
     }
 
     private static class Visitor
-            implements RowExpressionVisitor<Void, RowExpression>
+            implements RowExpressionVisitor<RowExpression, Void>
     {
         private final Map<Integer, Integer> fieldToParameter = new HashMap<>();
         private final List<Integer> inputChannels = new ArrayList<>();

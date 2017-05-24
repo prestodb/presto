@@ -135,7 +135,7 @@ final class StreamPropertyDerivations
     }
 
     private static class Visitor
-            extends PlanVisitor<List<StreamProperties>, StreamProperties>
+            extends PlanVisitor<StreamProperties, List<StreamProperties>>
     {
         private final Metadata metadata;
         private final Session session;

@@ -46,7 +46,7 @@ public final class ScalarQueryUtil
     }
 
     private static final class IsScalarPlanVisitor
-            extends PlanVisitor<Void, Boolean>
+            extends PlanVisitor<Boolean, Void>
     {
         private final Optional<Lookup> lookup;
 

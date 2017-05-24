@@ -318,7 +318,7 @@ public class JoinFilterFunctionCompiler
         }
     }
 
-    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(
+    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
             final CallSiteBinder callSiteBinder,
             final Variable leftPosition,
             final Variable leftBlocks,

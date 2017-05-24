@@ -181,7 +181,7 @@ public class AddExchanges
     }
 
     private class Rewriter
-            extends PlanVisitor<Context, PlanWithProperties>
+            extends PlanVisitor<PlanWithProperties, Context>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;

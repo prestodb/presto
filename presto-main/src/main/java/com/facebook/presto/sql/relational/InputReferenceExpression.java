@@ -60,7 +60,7 @@ public final class InputReferenceExpression
     }
 
     @Override
-    public <C, R> R accept(RowExpressionVisitor<C, R> visitor, C context)
+    public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitInputReference(this, context);
     }

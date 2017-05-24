@@ -336,9 +336,9 @@ public class CursorProcessorCompiler
                 .ret();
     }
 
-    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(Variable cursorVariable)
+    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(Variable cursorVariable)
     {
-        return new RowExpressionVisitor<Scope, BytecodeNode>()
+        return new RowExpressionVisitor<BytecodeNode, Scope>()
         {
             @Override
             public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)

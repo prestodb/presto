@@ -70,7 +70,7 @@ public final class ConstantExpression
     }
 
     @Override
-    public <C, R> R accept(RowExpressionVisitor<C, R> visitor, C context)
+    public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitConstant(this, context);
     }

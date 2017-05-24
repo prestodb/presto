@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
-public interface RowExpressionVisitor<C, R>
+public interface RowExpressionVisitor<R, C>
 {
     R visitCall(CallExpression call, C context);
     R visitInputReference(InputReferenceExpression reference, C context);

@@ -72,7 +72,7 @@ public class ExpressionOptimizer
     }
 
     private class Visitor
-            implements RowExpressionVisitor<Void, RowExpression>
+            implements RowExpressionVisitor<RowExpression, Void>
     {
         @Override
         public RowExpression visitInputReference(InputReferenceExpression reference, Void context)

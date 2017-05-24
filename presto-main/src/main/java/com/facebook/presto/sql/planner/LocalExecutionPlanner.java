@@ -574,7 +574,7 @@ public class LocalExecutionPlanner
     }
 
     private class Visitor
-            extends PlanVisitor<LocalExecutionPlanContext, PhysicalOperation>
+            extends PlanVisitor<PhysicalOperation, LocalExecutionPlanContext>
     {
         private final Session session;
 

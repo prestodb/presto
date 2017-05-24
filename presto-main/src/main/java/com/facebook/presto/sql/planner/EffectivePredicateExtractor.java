@@ -67,7 +67,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * Note: non-deterministic predicates can not be pulled up (so they will be ignored)
  */
 public class EffectivePredicateExtractor
-        extends PlanVisitor<Void, Expression>
+        extends PlanVisitor<Expression, Void>
 {
     public static Expression extract(PlanNode node, Map<Symbol, Type> symbolTypes)
     {

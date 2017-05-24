@@ -580,7 +580,7 @@ public class PageFunctionCompiler
         return parameters.build();
     }
 
-    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(CallSiteBinder callSiteBinder)
+    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(CallSiteBinder callSiteBinder)
     {
         return new InputReferenceCompiler(
                 (scope, field) -> scope.getVariable("block_" + field),

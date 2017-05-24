@@ -46,7 +46,7 @@ public final class DistinctOutputQueryUtil
     }
 
     private static final class IsDistinctPlanVisitor
-            extends PlanVisitor<Void, Boolean>
+            extends PlanVisitor<Boolean, Void>
     {
         /*
         With the iterative optimizer, plan nodes are replaced with

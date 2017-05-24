@@ -112,7 +112,7 @@ public class HashGenerationOptimizer
     }
 
     private static class Rewriter
-            extends PlanVisitor<HashComputationSet, PlanWithProperties>
+            extends PlanVisitor<PlanWithProperties, HashComputationSet>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;

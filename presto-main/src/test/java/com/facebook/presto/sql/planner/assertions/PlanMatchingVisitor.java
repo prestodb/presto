@@ -36,7 +36,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class PlanMatchingVisitor
-        extends PlanVisitor<PlanMatchPattern, MatchResult>
+        extends PlanVisitor<MatchResult, PlanMatchPattern>
 {
     private final Metadata metadata;
     private final Session session;

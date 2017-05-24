@@ -448,7 +448,7 @@ public class PlanPrinter
     }
 
     private class Visitor
-            extends PlanVisitor<Integer, Void>
+            extends PlanVisitor<Void, Integer>
     {
         private final Map<Symbol, Type> types;
         private final Map<PlanNodeId, PlanNodeCost> costs;

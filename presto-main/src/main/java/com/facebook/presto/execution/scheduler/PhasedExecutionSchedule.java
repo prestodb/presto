@@ -169,7 +169,7 @@ public class PhasedExecutionSchedule
     }
 
     private static class Visitor
-            extends PlanVisitor<PlanFragmentId, Set<PlanFragmentId>>
+            extends PlanVisitor<Set<PlanFragmentId>, PlanFragmentId>
     {
         private final Map<PlanFragmentId, PlanFragment> fragments;
         private final DirectedGraph<PlanFragmentId, DefaultEdge> graph;
