@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin;
@@ -66,7 +65,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -319,7 +317,6 @@ public class TransformCorrelatedInPredicateToJoin
 
         public Optional<Decorrelated> decorrelate(PlanNode reference)
         {
-            checkArgument(reference instanceof GroupReference);
             return lookup.resolve(reference).accept(this, reference);
         }
 
@@ -359,16 +356,15 @@ public class TransformCorrelatedInPredicateToJoin
         public Optional<Decorrelated> visitFilter(FilterNode node, PlanNode reference)
         {
             Optional<Decorrelated> result = decorrelate(node.getSource());
-            return result.map(decorrelated -> {
-                return new Decorrelated(
-                        ImmutableList.<Expression>builder()
-                                .addAll(decorrelated.getCorrelatedPredicates())
-                                // No need to retain uncorrelated conditions, predicate push down will push them back
-                                .add(node.getPredicate())
-                                .build(),
-                        decorrelated.getDecorrelatedNode()
-                );
-            });
+            return result.map(decorrelated ->
+                    new Decorrelated(
+                            ImmutableList.<Expression>builder()
+                                    .addAll(decorrelated.getCorrelatedPredicates())
+                                    // No need to retain uncorrelated conditions, predicate push down will push them back
+                                    .add(node.getPredicate())
+                                    .build(),
+                            decorrelated.getDecorrelatedNode()
+                    ));
         }
 
         @Override
@@ -378,10 +374,7 @@ public class TransformCorrelatedInPredicateToJoin
                 return Optional.empty();
             }
             else {
-                return Optional.of(new Decorrelated(
-                        ImmutableList.of(),
-                        reference
-                ));
+                return Optional.of(new Decorrelated(ImmutableList.of(), reference));
             }
         }
 
