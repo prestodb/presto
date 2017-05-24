@@ -14,27 +14,147 @@
 
 @import url("haiku.css");
 
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
 html {
     background: #fff;
     -webkit-font-smoothing: antialiased;
+    background-color: #fafafa;
 }
 
 body {
     font-family: 'Helvetica Neue', Helvetica, Arial, 'lucida grande', tahoma, verdana, arial, sans-serif;
     color: #222222;
+    max-width: inherit;
 }
 
-div.header {
-    background-color: #374665;
+.width {
+    margin: 0 auto !important;
+    padding: 0 20px !important;
+    width: 960px;
+}
+
+.clearfix:after {
+    clear: both;
+    content: ".";
+    display: block;
+    font-size: 0;
+    height: 0;
+    line-height: 0;
+    visibility: hidden;
+}
+
+.topbar {
+    background: #000;
+    line-height: 80px;
+}
+
+.topbar h1 {
     background-image: url(presto.png);
-    background-position: 36px 50%;
+    background-position: 1px 50%;
     background-repeat: no-repeat;
-    background-size: 57px 50px;
-    padding: 10px 40px 20px 120px;
+    background-size: 155px 55px;
+    border-bottom: none;
+    float: left;
+    margin: 0 20px 0 0;
+    overflow: hidden;
+    text-indent: 100%;
+    white-space: nowrap;
+    width: 155px;
 }
 
-div.header h1 a {
-    color: #fff !important;
+.topbar .nav {
+    float: right;
+    margin: 0 0 0 20px;
+    padding: 0;
+}
+
+.topbar .nav li {
+    display: inline;
+    text-transform: uppercase;
+}
+
+.topbar .nav li a {
+    color: #fff;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    margin: 0 8px;
+}
+
+.hero {
+    background: #374665;
+}
+
+.hero h1 {
+    border-bottom: none;
+    color: #fff;
+    line-height: 2em;
+    margin: 0;
+}
+
+.leftcol,
+.rightcol {
+    display: inline-block;
+    width: 45%;
+}
+
+.leftcol {
+    float: left;
+}
+
+.rightcol {
+    float: right;
+}
+
+.homehero {
+    padding: 20px 0;
+}
+
+.homehero h1 {
+    margin-top: 30px;
+    font-size: 36px;
+    font-weight: normal;
+}
+
+.homehero .button {
+    background: #102747;
+    color: #fff;
+    display: inline-block;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    margin-top: 15px;
+    border-radius: 5px;
+}
+
+.homehero .video {
+    height: 0;
+    overflow: hidden;
+    padding-bottom: 30%;
+    position: relative;
+}
+
+.homehero .video iframe {
+    height: 100%;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+}
+
+.homecontent h2 {
+    color: #a8a8a8;
+    text-transform: uppercase;
+    font-weight: bold;
+    border: none;
+    background: url(chevron.png);
+    background-size: 20px 20px;
+    background-repeat: no-repeat;
+    background-position: 0 50%;
+    padding-left: 25px;
 }
 
 .nav .right {
@@ -54,7 +174,8 @@ div.bottomnav {
 div.topnav p,
 div.bottomnav p {
     font-size: 1.0em;
-    margin: 0 40px;
+    margin: 20px 0px;
+    padding: 5px 0px;
     text-align: left;
 }
 
@@ -118,7 +239,6 @@ tt.docutils.literal, code.docutils.literal {
     border: 1px solid #ddd;
     background-color: #f8f8f8;
     border-radius: 3px;
-    white-space: nowrap;
 }
 
 /* hide children of Release Notes */
