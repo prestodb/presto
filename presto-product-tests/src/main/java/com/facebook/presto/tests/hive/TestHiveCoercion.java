@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_COERCION;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
+import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
@@ -62,6 +63,10 @@ public class TestHiveCoercion
             .build();
 
     public static final HiveTableDefinition HIVE_COERCION_PARQUET = parquetTableDefinitionBuilder()
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_COERCION_AVRO = avroTableDefinitionBuilder()
             .setNoData()
             .build();
 
@@ -115,6 +120,18 @@ public class TestHiveCoercion
                         "STORED AS PARQUET");
     }
 
+    private static HiveTableDefinition.HiveTableDefinitionBuilder avroTableDefinitionBuilder()
+    {
+        return HiveTableDefinition.builder("avro_hive_coercion")
+                .setCreateTableDDLTemplate("" +
+                        "CREATE TABLE %NAME%(" +
+                        "    int_to_bigint              INT," +
+                        "    float_to_double            DOUBLE" +
+                        ") " +
+                        "PARTITIONED BY (id BIGINT) " +
+                        "STORED AS AVRO");
+    }
+
     public static final class TextRequirements
             implements RequirementsProvider
     {
@@ -165,6 +182,16 @@ public class TestHiveCoercion
         }
     }
 
+    public static final class AvroRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return MutableTableRequirement.builder(HIVE_COERCION_AVRO).withState(CREATED).build();
+        }
+    }
+
     @Requires(TextRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR})
     public void testHiveCoercionTextFile()
@@ -203,6 +230,37 @@ public class TestHiveCoercion
             throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
+    }
+
+    @Requires(AvroRequirements.class)
+    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
+    public void testHiveCoercionAvro()
+            throws SQLException
+    {
+        HiveTableDefinition tableDefinition = HIVE_COERCION_AVRO;
+        String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
+
+        executeHiveQuery(format("INSERT INTO TABLE %s " +
+                        "PARTITION (id=1) " +
+                        "VALUES" +
+                        "(2323, 0.5)," +
+                        "(-2323, -1.5)",
+                tableName));
+
+        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
+        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
+
+        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
+                row("int_to_bigint", "bigint"),
+                row("float_to_double", "double"),
+                row("id", "bigint"));
+
+        QueryResult queryResult = query(format("SELECT * FROM " + tableName));
+        assertThat(queryResult).hasColumns(BIGINT, DOUBLE, BIGINT);
+
+        assertThat(queryResult).containsOnly(
+                row(2323L, 0.5, 1),
+                row(-2323L, -1.5, 1));
     }
 
     private void doTestHiveCoercion(HiveTableDefinition tableDefinition)
