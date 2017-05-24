@@ -420,7 +420,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         private static class ChangeTypeVisitor
-                implements RowExpressionVisitor<Void, RowExpression>
+                implements RowExpressionVisitor<RowExpression, Void>
         {
             private final Type targetType;
 

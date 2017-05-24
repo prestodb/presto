@@ -363,7 +363,7 @@ public class PlanFragmenter
     }
 
     private static class SchedulingOrderVisitor
-            extends PlanVisitor<Consumer<PlanNodeId>, Void>
+            extends PlanVisitor<Void, Consumer<PlanNodeId>>
     {
         public List<PlanNodeId> getSchedulingOrder(PlanNode node)
         {

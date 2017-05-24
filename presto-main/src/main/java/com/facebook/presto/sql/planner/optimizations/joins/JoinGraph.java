@@ -217,7 +217,7 @@ public class JoinGraph
     }
 
     private static class Builder
-            extends PlanVisitor<Context, JoinGraph>
+            extends PlanVisitor<JoinGraph, Context>
     {
         // TODO When com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'shallow' flag
         private final boolean shallow;

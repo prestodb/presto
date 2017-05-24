@@ -44,7 +44,7 @@ public class LambdaAndTryExpressionExtractor
     }
 
     private static class Visitor
-            implements RowExpressionVisitor<Context, Void>
+            implements RowExpressionVisitor<Void, Context>
     {
         private final ImmutableList.Builder<RowExpression> lambdaAndTryExpressions = ImmutableList.builder();
 

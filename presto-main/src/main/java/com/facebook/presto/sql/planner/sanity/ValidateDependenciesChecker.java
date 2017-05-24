@@ -90,7 +90,7 @@ public final class ValidateDependenciesChecker
     }
 
     private static class Visitor
-            extends PlanVisitor<Set<Symbol>, Void>
+            extends PlanVisitor<Void, Set<Symbol>>
     {
         @Override
         protected Void visitPlan(PlanNode node, Set<Symbol> boundSymbols)

@@ -104,7 +104,7 @@ public class AddLocalExchanges
     }
 
     private class Rewriter
-            extends PlanVisitor<StreamPreferredProperties, PlanWithProperties>
+            extends PlanVisitor<PlanWithProperties, StreamPreferredProperties>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;

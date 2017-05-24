@@ -82,7 +82,7 @@ public class CoefficientBasedCostCalculator
     }
 
     private class Visitor
-            extends PlanVisitor<Void, PlanNodeCost>
+            extends PlanVisitor<PlanNodeCost, Void>
     {
         private final Session session;
         private final Map<PlanNodeId, PlanNodeCost> costs;

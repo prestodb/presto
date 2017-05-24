@@ -46,18 +46,18 @@ import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.google.common.base.Preconditions.checkState;
 
 public class BytecodeExpressionVisitor
-        implements RowExpressionVisitor<Scope, BytecodeNode>
+        implements RowExpressionVisitor<BytecodeNode, Scope>
 {
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
-    private final RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler;
+    private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
     private final FunctionRegistry registry;
     private final PreGeneratedExpressions preGeneratedExpressions;
 
     public BytecodeExpressionVisitor(
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler,
+            RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
             FunctionRegistry registry,
             PreGeneratedExpressions preGeneratedExpressions)
     {

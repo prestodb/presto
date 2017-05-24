@@ -113,7 +113,7 @@ public class ExpressionEquivalence
     }
 
     private static class CanonicalizationVisitor
-            implements RowExpressionVisitor<Void, RowExpression>
+            implements RowExpressionVisitor<RowExpression, Void>
     {
         @Override
         public RowExpression visitCall(CallExpression call, Void context)

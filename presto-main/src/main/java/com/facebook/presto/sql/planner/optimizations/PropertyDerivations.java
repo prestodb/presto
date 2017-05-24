@@ -135,7 +135,7 @@ class PropertyDerivations
     }
 
     private static class Visitor
-            extends PlanVisitor<List<ActualProperties>, ActualProperties>
+            extends PlanVisitor<ActualProperties, List<ActualProperties>>
     {
         private final Metadata metadata;
         private final Session session;

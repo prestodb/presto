@@ -34,7 +34,7 @@ import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType
 import static java.util.Objects.requireNonNull;
 
 class InputReferenceCompiler
-        implements RowExpressionVisitor<Scope, BytecodeNode>
+        implements RowExpressionVisitor<BytecodeNode, Scope>
 {
     private final BiFunction<Scope, Integer, BytecodeExpression> blockResolver;
     private final BiFunction<Scope, Integer, BytecodeExpression> positionResolver;
