@@ -53,7 +53,8 @@ public class TestHiveStorageFormats
                 {storageFormat("RCBINARY")},
                 {storageFormat("RCTEXT")},
                 {storageFormat("SEQUENCEFILE")},
-                {storageFormat("TEXTFILE")}
+                {storageFormat("TEXTFILE")},
+                {storageFormat("AVRO")}
         };
     }
 

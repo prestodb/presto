@@ -66,6 +66,10 @@ public class TestHiveCoercion
             .setNoData()
             .build();
 
+    public static final HiveTableDefinition HIVE_COERCION_AVRO = avroTableDefinitionBuilder()
+            .setNoData()
+            .build();
+
     public static final HiveTableDefinition HIVE_COERCION_ORC = tableDefinitionBuilder("ORC", Optional.empty(), Optional.empty())
             .setNoData()
             .build();
@@ -114,6 +118,18 @@ public class TestHiveCoercion
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
                         "STORED AS PARQUET");
+    }
+
+    private static HiveTableDefinition.HiveTableDefinitionBuilder avroTableDefinitionBuilder()
+    {
+        return HiveTableDefinition.builder("avro_hive_coercion")
+                .setCreateTableDDLTemplate("" +
+                        "CREATE TABLE %NAME%(" +
+                        "    int_to_bigint              INT," +
+                        "    float_to_double            DOUBLE" +
+                        ") " +
+                        "PARTITIONED BY (id BIGINT) " +
+                        "STORED AS AVRO");
     }
 
     public static final class TextRequirements
@@ -166,6 +182,16 @@ public class TestHiveCoercion
         }
     }
 
+    public static final class AvroRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return MutableTableRequirement.builder(HIVE_COERCION_AVRO).withState(CREATED).build();
+        }
+    }
+
     @Requires(TextRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR})
     public void testHiveCoercionTextFile()
@@ -204,6 +230,37 @@ public class TestHiveCoercion
             throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
+    }
+
+    @Requires(AvroRequirements.class)
+    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR})
+    public void testHiveCoercionAvro()
+            throws SQLException
+    {
+        HiveTableDefinition tableDefinition = HIVE_COERCION_AVRO;
+        String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
+
+        executeHiveQuery(format("INSERT INTO TABLE %s " +
+                        "PARTITION (id=1) " +
+                        "VALUES" +
+                        "(2323, 0.5)," +
+                        "(-2323, -1.5)",
+                tableName));
+
+        avroAlterTableColumnTypes(tableName);
+        avroAssertProperAlteredTableSchema(tableName);
+
+        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        avroAssertColumnTypes(queryResult);
+        assertThat(queryResult).containsOnly(
+                row(
+                        2323L,
+                        0.5,
+                        1),
+                row(
+                        -2323L,
+                        -1.5,
+                        1));
     }
 
     private void doTestHiveCoercion(HiveTableDefinition tableDefinition)
@@ -261,6 +318,15 @@ public class TestHiveCoercion
         );
     }
 
+    private void avroAssertProperAlteredTableSchema(String tableName)
+    {
+        assertThat(query("SHOW COLUMNS FROM " + tableName, QueryType.SELECT).project(1, 2)).containsExactly(
+                row("int_to_bigint", "bigint"),
+                row("float_to_double", "double"),
+                row("id", "bigint")
+        );
+    }
+
     private void assertColumnTypes(QueryResult queryResult)
     {
         Connection connection = defaultQueryExecutor().getConnection();
@@ -295,6 +361,21 @@ public class TestHiveCoercion
         }
     }
 
+    private void avroAssertColumnTypes(QueryResult queryResult)
+    {
+        Connection connection = defaultQueryExecutor().getConnection();
+        if (usingPrestoJdbcDriver(connection) || usingTeradataJdbcDriver(connection)) {
+            assertThat(queryResult).hasColumns(
+                    BIGINT,
+                    DOUBLE,
+                    BIGINT
+            );
+        }
+        else {
+            throw new IllegalStateException();
+        }
+    }
+
     private static void alterTableColumnTypes(String tableName)
     {
         executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));
@@ -304,6 +385,12 @@ public class TestHiveCoercion
         executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_bigint smallint_to_bigint bigint", tableName));
         executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
         executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar string", tableName));
+        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
+    }
+
+    private static void avroAlterTableColumnTypes(String tableName)
+    {
+        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
         executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
     }
 
