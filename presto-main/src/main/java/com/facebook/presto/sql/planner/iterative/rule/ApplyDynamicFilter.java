@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -51,6 +52,10 @@ public class ApplyDynamicFilter
         }
 
         JoinNode join = (JoinNode) node;
+
+        if (join.getType() != INNER) {
+            return Optional.empty();
+        }
 
         List<EquiJoinClause> criteria = join.getCriteria();
         DynamicFilter dynamicFilter = join.getDynamicFilter();

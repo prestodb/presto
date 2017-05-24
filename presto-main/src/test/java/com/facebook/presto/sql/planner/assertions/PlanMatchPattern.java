@@ -294,7 +294,12 @@ public final class PlanMatchPattern
     public static PlanMatchPattern filter(String predicate, PlanMatchPattern source)
     {
         Expression expectedPredicate = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate));
-        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
+        return filter(expectedPredicate, source);
+    }
+
+    public static PlanMatchPattern filter(Expression expression, PlanMatchPattern source)
+    {
+        return node(FilterNode.class, source).with(new FilterMatcher(expression));
     }
 
     public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, ExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
