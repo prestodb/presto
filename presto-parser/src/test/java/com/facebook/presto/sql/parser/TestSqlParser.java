@@ -1744,6 +1744,8 @@ public class TestSqlParser
                                 new Identifier("SOME"),
                                 new Identifier("ANY")),
                         table(QualifiedName.of("t"))));
+
+        assertExpression("stats", new Identifier("stats"));
     }
 
     @Test
