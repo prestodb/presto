@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
+import com.facebook.presto.sql.relational.DeferredSymbolReferenceExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -214,6 +215,12 @@ public class ExpressionEquivalence
 
         @Override
         public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return reference;
+        }
+
+        @Override
+        public RowExpression visitDeferredSymbolReference(DeferredSymbolReferenceExpression reference, Void context)
         {
             return reference;
         }

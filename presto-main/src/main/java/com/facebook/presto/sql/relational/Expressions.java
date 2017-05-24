@@ -96,6 +96,13 @@ public final class Expressions
                     builder.add(reference);
                     return null;
                 }
+
+                @Override
+                public Void visitDeferredSymbolReference(DeferredSymbolReferenceExpression reference, Void context)
+                {
+                    builder.add(reference);
+                    return null;
+                }
             }, null);
         }
 

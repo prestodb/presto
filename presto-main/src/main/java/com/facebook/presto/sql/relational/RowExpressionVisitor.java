@@ -20,4 +20,5 @@ public interface RowExpressionVisitor<R, C>
     R visitConstant(ConstantExpression literal, C context);
     R visitLambda(LambdaDefinitionExpression lambda, C context);
     R visitVariableReference(VariableReferenceExpression reference, C context);
+    R visitDeferredSymbolReference(DeferredSymbolReferenceExpression reference, C context);
 }

@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -83,7 +84,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                any(
+                                anyTree(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
@@ -95,7 +96,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey ORDER BY l.orderkey ASC, o.orderkey ASC",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                any(
+                                anyTree(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
@@ -108,7 +109,8 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("X", "Y")),
                                 project(
-                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))),
+                                        node(FilterNode.class,
+                                                tableScan("orders", ImmutableMap.of("X", "orderkey")))),
                                 project(
                                         node(EnforceSingleRowNode.class,
                                                 anyTree(

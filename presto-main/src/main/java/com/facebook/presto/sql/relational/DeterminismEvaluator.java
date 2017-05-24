@@ -77,5 +77,11 @@ public class DeterminismEvaluator
         {
             return true;
         }
+
+        @Override
+        public Boolean visitDeferredSymbolReference(DeferredSymbolReferenceExpression reference, Void context)
+        {
+            return true;
+        }
     }
 }

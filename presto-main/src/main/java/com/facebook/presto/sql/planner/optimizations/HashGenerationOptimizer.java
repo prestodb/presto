@@ -343,7 +343,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new JoinNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             node.getType(),
                             left.getNode(),
                             right.getNode(),
@@ -352,7 +352,8 @@ public class HashGenerationOptimizer
                             node.getFilter(),
                             leftHashSymbol,
                             rightHashSymbol,
-                            node.getDistributionType()),
+                            node.getDistributionType(),
+                            node.getDynamicFilterAssignments()),
                     hashSymbolsWithParentPreferences);
         }
 

@@ -63,6 +63,8 @@ public class ApplyNode
      */
     private final Assignments subqueryAssignments;
 
+    private final List<Symbol> outputSymbols;
+
     @JsonCreator
     public ApplyNode(
             @JsonProperty("id") PlanNodeId id,
@@ -83,6 +85,14 @@ public class ApplyNode
         this.subquery = subquery;
         this.subqueryAssignments = subqueryAssignments;
         this.correlation = ImmutableList.copyOf(correlation);
+
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        outputSymbols.addAll(input.getOutputSymbols());
+        subqueryAssignments.getOutputs()
+                .stream()
+                .filter(symbol -> !input.getOutputSymbols().contains(symbol))
+                .forEach(outputSymbols::add);
+        this.outputSymbols = outputSymbols.build();
     }
 
     public boolean isResolvedScalarSubquery()
@@ -133,10 +143,7 @@ public class ApplyNode
     @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(input.getOutputSymbols())
-                .addAll(subqueryAssignments.getOutputs())
-                .build();
+        return outputSymbols;
     }
 
     @Override

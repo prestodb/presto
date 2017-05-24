@@ -15,6 +15,7 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
+import com.facebook.presto.sql.relational.DeferredSymbolReferenceExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -103,6 +104,12 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             return reference;
+        }
+
+        @Override
+        public RowExpression visitDeferredSymbolReference(DeferredSymbolReferenceExpression reference, Void context)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 

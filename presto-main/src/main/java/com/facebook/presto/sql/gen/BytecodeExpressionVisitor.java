@@ -19,6 +19,7 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
+import com.facebook.presto.sql.relational.DeferredSymbolReferenceExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
@@ -198,5 +199,11 @@ public class BytecodeExpressionVisitor
     public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope scope)
     {
         return fieldReferenceCompiler.visitVariableReference(reference, scope);
+    }
+
+    @Override
+    public BytecodeNode visitDeferredSymbolReference(DeferredSymbolReferenceExpression reference, Scope context)
+    {
+        throw new UnsupportedOperationException();
     }
 }

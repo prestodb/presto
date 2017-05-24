@@ -96,6 +96,9 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
+import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.ExpressionUtils.DynamicFilter;
+import com.facebook.presto.sql.ExpressionUtils.ExtractDynamicFiltersResult;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -1045,9 +1048,19 @@ public class LocalExecutionPlanner
             }
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.build();
 
+            Optional<ExtractDynamicFiltersResult> extractDynamicFilterResult = filterExpression.map(ExpressionUtils::extractDynamicFilters);
+            Optional<Expression> staticFilters = extractDynamicFilterResult.map(ExtractDynamicFiltersResult::getStaticFilters);
+
+            // TODO: Process dynamic filters
+            Optional<Set<DynamicFilter>> dynamicFilters = extractDynamicFilterResult.map(ExtractDynamicFiltersResult::getDynamicFilters);
+
+            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                System.out.printf("[LocalExecutionPlanner:TableScan] Dynamic filters: %s\n", dynamicFilters);
+            }
+
             // compiler uses inputs instead of symbols, so rewrite the expressions first
             SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
-            Optional<Expression> rewrittenFilter = filterExpression.map(symbolToInputRewriter::rewrite);
+            Optional<Expression> rewrittenFilter = staticFilters.map(symbolToInputRewriter::rewrite);
 
             List<Expression> rewrittenProjections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
@@ -1102,11 +1115,11 @@ public class LocalExecutionPlanner
                 }
 
                 // compilation failed, use interpreter
-                log.error(e, "Compile failed for filter=%s projections=%s sourceTypes=%s error=%s", filterExpression, assignments, sourceTypes, e);
+                log.error(e, "Compile failed for filter=%s projections=%s sourceTypes=%s error=%s", staticFilters, assignments, sourceTypes, e);
             }
 
             PageProcessor pageProcessor = createInterpretedColumnarPageProcessor(
-                    filterExpression,
+                    staticFilters,
                     outputSymbols.stream()
                             .map(assignments::get)
                             .collect(toImmutableList()),
@@ -1115,7 +1128,7 @@ public class LocalExecutionPlanner
                     context.getSession());
             if (columns != null) {
                 InterpretedCursorProcessor cursorProcessor = new InterpretedCursorProcessor(
-                        filterExpression,
+                        staticFilters,
                         outputSymbols.stream()
                                 .map(assignments::get)
                                 .collect(toImmutableList()),
@@ -1474,6 +1487,13 @@ public class LocalExecutionPlanner
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
             if (node.isCrossJoin()) {
                 return createNestedLoopJoin(node, context);
+            }
+
+            Assignments dynamicFilters = node.getDynamicFilterAssignments();
+
+            // TODO
+            if (!dynamicFilters.getMap().isEmpty()) {
+                System.out.printf("[LocalExecutionPlanner:Join] Dynamic filters: %s\n", dynamicFilters.getMap());
             }
 
             List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);

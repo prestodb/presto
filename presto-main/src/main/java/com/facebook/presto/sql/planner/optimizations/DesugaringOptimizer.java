@@ -167,7 +167,8 @@ public class DesugaringOptimizer
                     filter,
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol(),
-                    node.getDistributionType());
+                    node.getDistributionType(),
+                    node.getDynamicFilterAssignments());
         }
 
         @Override

@@ -464,7 +464,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Assignments.of());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -530,7 +531,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Assignments.of());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -590,7 +592,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Assignments.of());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -653,7 +656,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Assignments.of());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -712,7 +716,8 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Assignments.of());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

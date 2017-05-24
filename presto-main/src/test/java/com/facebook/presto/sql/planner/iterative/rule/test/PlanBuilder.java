@@ -268,8 +268,8 @@ public class PlanBuilder
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty()
-        );
+                Optional.empty(),
+                Assignments.of());
     }
 
     public ExchangeNode exchange(Consumer<ExchangeBuilder> exchangeBuilderConsumer)
@@ -369,7 +369,21 @@ public class PlanBuilder
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty());
+        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Assignments.of());
+    }
+
+    public JoinNode join(
+            JoinNode.Type type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<Symbol> outputSymbols,
+            Optional<Expression> filter,
+            Optional<Symbol> leftHashSymbol,
+            Optional<Symbol> rightHashSymbol,
+            Assignments dynamicFilterAssignments)
+    {
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), dynamicFilterAssignments);
     }
 
     public UnionNode union(List<? extends PlanNode> sources, ListMultimap<Symbol, Symbol> outputsToInputs, List<Symbol> outputs)
