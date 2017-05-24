@@ -23,7 +23,7 @@ public class SingleArrayBlockWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleArrayBlockWriter.class).instanceSize();
 
     private final BlockBuilder blockBuilder;
-    private final int initialBlockBuilderSize;
+    private final long initialBlockBuilderSize;
     private int positionsWritten;
 
     public SingleArrayBlockWriter(BlockBuilder blockBuilder, int start)
@@ -40,13 +40,13 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return blockBuilder.getSizeInBytes() - initialBlockBuilderSize;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + blockBuilder.getRetainedSizeInBytes();
     }

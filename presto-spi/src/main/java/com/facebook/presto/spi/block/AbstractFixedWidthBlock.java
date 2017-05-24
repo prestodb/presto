@@ -165,7 +165,7 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public int getRegionSizeInBytes(int positionOffset, int length)
+    public long getRegionSizeInBytes(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {

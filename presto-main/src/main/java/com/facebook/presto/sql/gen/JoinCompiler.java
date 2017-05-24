@@ -296,8 +296,7 @@ public class JoinCompiler
                     .append(
                             channel.invoke("get", Object.class, blockIndex)
                                     .cast(type(Block.class))
-                                    .invoke("getRetainedSizeInBytes", int.class)
-                                    .cast(long.class))
+                                    .invoke("getRetainedSizeInBytes", long.class))
                     .longAdd()
                     .putField(sizeField);
         }

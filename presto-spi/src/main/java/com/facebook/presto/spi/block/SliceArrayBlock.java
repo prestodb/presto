@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class SliceArrayBlock
@@ -32,8 +31,8 @@ public class SliceArrayBlock
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceArrayBlock.class).instanceSize();
     private final int positionCount;
     private final Slice[] values;
-    private final int sizeInBytes;
-    private final int retainedSizeInBytes;
+    private final long sizeInBytes;
+    private final long retainedSizeInBytes;
 
     public SliceArrayBlock(int positionCount, Slice[] values)
     {
@@ -115,13 +114,13 @@ public class SliceArrayBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return sizeInBytes;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
     }
@@ -178,7 +177,7 @@ public class SliceArrayBlock
         return sb.toString();
     }
 
-    private static int getSliceArraySizeInBytes(Slice[] values, int offset, int length)
+    private static long getSliceArraySizeInBytes(Slice[] values, int offset, int length)
     {
         long sizeInBytes = 0;
         for (int i = offset; i < offset + length; i++) {
@@ -187,11 +186,11 @@ public class SliceArrayBlock
                 sizeInBytes += value.length();
             }
         }
-        return intSaturatedCast(sizeInBytes);
+        return sizeInBytes;
     }
 
     @Override
-    public int getRegionSizeInBytes(int positionOffset, int length)
+    public long getRegionSizeInBytes(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
         if (positionOffset == 0 && length == positionCount) {
@@ -206,7 +205,7 @@ public class SliceArrayBlock
         return getSliceArraySizeInBytes(values, positionOffset, length);
     }
 
-    private static int getSliceArrayRetainedSizeInBytes(Slice[] values, boolean valueSlicesAreDistinct)
+    private static long getSliceArrayRetainedSizeInBytes(Slice[] values, boolean valueSlicesAreDistinct)
     {
         if (valueSlicesAreDistinct) {
             return getDistinctSliceArrayRetainedSize(values);
@@ -215,7 +214,7 @@ public class SliceArrayBlock
     }
 
     // when the slices are not distinct we need to do reference counting to calculate the total retained size
-    private static int getSliceArrayRetainedSizeInBytes(Slice[] values)
+    private static long getSliceArrayRetainedSizeInBytes(Slice[] values)
     {
         long sizeInBytes = sizeOf(values);
         Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>(values.length);
@@ -227,10 +226,10 @@ public class SliceArrayBlock
                 sizeInBytes += value.getRetainedSize();
             }
         }
-        return intSaturatedCast(sizeInBytes);
+        return sizeInBytes;
     }
 
-    private static int getDistinctSliceArrayRetainedSize(Slice[] values)
+    private static long getDistinctSliceArrayRetainedSize(Slice[] values)
     {
         long sizeInBytes = sizeOf(values);
         for (Slice value : values) {
@@ -240,6 +239,6 @@ public class SliceArrayBlock
             }
             sizeInBytes += value.getRetainedSize();
         }
-        return intSaturatedCast(sizeInBytes);
+        return sizeInBytes;
     }
 }

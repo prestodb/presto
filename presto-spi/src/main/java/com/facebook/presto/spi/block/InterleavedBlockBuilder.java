@@ -33,10 +33,10 @@ public class InterleavedBlockBuilder
 
     private int positionCount;
     private int currentBlockIndex;
-    private int sizeInBytes;
-    private int startSize;
-    private int retainedSizeInBytes;
-    private int startRetainedSize;
+    private long sizeInBytes;
+    private long startSize;
+    private long retainedSizeInBytes;
+    private long startRetainedSize;
 
     public InterleavedBlockBuilder(List<Type> types, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -109,13 +109,13 @@ public class InterleavedBlockBuilder
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return sizeInBytes;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
     }

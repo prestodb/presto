@@ -22,7 +22,6 @@ import java.util.List;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 
@@ -42,7 +41,7 @@ public class ShortArrayBlockBuilder
     private boolean[] valueIsNull = new boolean[0];
     private short[] values = new short[0];
 
-    private int retainedSizeInBytes;
+    private long retainedSizeInBytes;
 
     public ShortArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -120,28 +119,27 @@ public class ShortArrayBlockBuilder
 
     private void updateDataSize()
     {
-        long size = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
         if (blockBuilderStatus != null) {
-            size += BlockBuilderStatus.INSTANCE_SIZE;
+            retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
         }
-        retainedSizeInBytes = intSaturatedCast(size);
     }
 
     // Copied from ShortArrayBlock
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        return intSaturatedCast((Short.BYTES + Byte.BYTES) * (long) positionCount);
+        return (Short.BYTES + Byte.BYTES) * positionCount;
     }
 
     @Override
-    public int getRegionSizeInBytes(int position, int length)
+    public long getRegionSizeInBytes(int position, int length)
     {
-        return intSaturatedCast((Short.BYTES + Byte.BYTES) * (long) length);
+        return (Short.BYTES + Byte.BYTES) * length;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
     }

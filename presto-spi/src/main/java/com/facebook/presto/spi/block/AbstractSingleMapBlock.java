@@ -224,7 +224,7 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
-    public int getRegionSizeInBytes(int position, int length)
+    public long getRegionSizeInBytes(int position, int length)
     {
         throw new UnsupportedOperationException();
     }
