@@ -118,6 +118,13 @@ public class BaseJdbcClient
         if (config.getConnectionPassword() != null) {
             connectionProperties.setProperty("password", config.getConnectionPassword());
         }
+        if (config.isConnectionAutoReconnect()) {
+            connectionProperties.setProperty("autoReconnect", String.valueOf(config.isConnectionAutoReconnect()));
+            connectionProperties.setProperty("maxReconnects", String.valueOf(config.getConnectionMaxReconnects()));
+        }
+        if (config.getConnectionTimeout() != null) {
+            connectionProperties.setProperty("connectTimeout", String.valueOf(config.getConnectionTimeout().toMillis()));
+        }
     }
 
     @Override

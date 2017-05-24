@@ -14,10 +14,14 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+
 import io.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.units.Duration;
+
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class TestBaseJdbcConfig
 {
@@ -27,7 +31,10 @@ public class TestBaseJdbcConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
                 .setConnectionUser(null)
-                .setConnectionPassword(null));
+                .setConnectionPassword(null)
+                .setConnectionAutoReconnect(true)
+                .setConnectionMaxReconnects(3)
+                .setConnectionTimeout(new Duration(3, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -37,12 +44,18 @@ public class TestBaseJdbcConfig
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("connection-user", "user")
                 .put("connection-password", "password")
+                .put("connection-autoReconnect", "false")
+                .put("connection-maxReconnects", "4")
+                .put("connection-timeout", "4s")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setConnectionUser("user")
-                .setConnectionPassword("password");
+                .setConnectionPassword("password")
+                .setConnectionAutoReconnect(false)
+                .setConnectionMaxReconnects(4)
+                .setConnectionTimeout(new Duration(4, TimeUnit.SECONDS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
