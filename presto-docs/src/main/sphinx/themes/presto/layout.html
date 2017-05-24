@@ -6,15 +6,23 @@
 {% macro nav() %}
 <p class="nav">
     <span class="left">
+        <a href="{{ pathto(master_doc) }}">{{ _('Contents') }}</a>
+        {%- for parent in parents %}
+        <span class="padding">&raquo;</span>
+        <a href="{{ parent.link|e }}">{{ parent.title }}</a>
+        {%- endfor %}
+    </span>
+    <span class="right">
         {%- if prev %}
-        &laquo; <a href="{{ prev.link|e }}">{{ prev.title }}</a>
+        &laquo; <a href="{{ prev.link|e }}">previous</a>
+        {%- if next %}
+        <span class="padding">&#124;</span>
+        {%- endif %}
         {%- else %}
         &nbsp;
         {%- endif %}
-    </span>
-    <span class="right">
         {%- if next %}
-        <a href="{{ next.link|e }}">{{ next.title }}</a> &raquo;
+        <a href="{{ next.link|e }}">next</a> &raquo;
         {%- endif %}
     </span>
 </p>
