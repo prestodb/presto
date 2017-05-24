@@ -160,6 +160,30 @@ public class TestGrantRevoke
     }
 
     @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testGrantAllRevokeInsert()
+    {
+        aliceExecutor.executeQuery(format("GRANT ALL PRIVILEGES ON %s TO USER bob", tableName));
+        aliceExecutor.executeQuery(format("REVOKE INSERT ON %s FROM USER bob", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES (4, 13)", tableName))).
+                failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        bobExecutor.executeQuery(format("DELETE FROM %s", tableName));
+
+        // Cleanup
+        aliceExecutor.executeQuery(format("REVOKE ALL PRIVILEGES ON %s FROM USER bob", tableName));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testGrantSelectRevokeAll()
+    {
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO USER bob", tableName));
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        aliceExecutor.executeQuery(format("REVOKE ALL PRIVILEGES ON %s FROM USER bob", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).
+                failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testPublic()
     {
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE PUBLIC", tableName));
