@@ -35,6 +35,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -57,7 +58,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -85,7 +85,7 @@ public class SqlTaskExecution
 
     private final QueryMonitor queryMonitor;
 
-    private final List<WeakReference<Driver>> drivers = new CopyOnWriteArrayList<>();
+    private final Set<WeakReference<Driver>> drivers = Sets.newSetFromMap(new ConcurrentHashMap<>());
 
     /**
      * Number of drivers that have been sent to the TaskExecutor that have not finished.
@@ -511,13 +511,14 @@ public class SqlTaskExecution
             return new DriverSplitRunner(this, driverContext, partitionedSplit);
         }
 
-        private Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
+        private StrongAndWeakReference<Driver> createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
             Driver driver = driverFactory.createDriver(driverContext);
 
             // record driver so other threads add unpartitioned sources can see the driver
             // NOTE: this MUST be done before reading unpartitionedSources, so we see a consistent view of the unpartitioned sources
-            drivers.add(new WeakReference<>(driver));
+            WeakReference<Driver> reference = new WeakReference<>(driver);
+            drivers.add(reference);
 
             if (partitionedSplit != null) {
                 // TableScanOperator requires partitioned split to be added before the first call to process
@@ -532,7 +533,22 @@ public class SqlTaskExecution
             pendingCreation.decrementAndGet();
             closeDriverFactoryIfFullyCreated();
 
-            return driver;
+            // See HACK note below
+            return new StrongAndWeakReference<>(driver, reference);
+        }
+
+        // HACK: we need a way to pass the weak reference to the DriverSplitRunner
+        // so it can be cleared when the driver is closed.  This should not be
+        // necessary but it appears that G1 doe not handle weak references to
+        // humongous allocations properly.  With this code we will hopefully help
+        // the GC recognize the memory can be free without crashing the VM.
+        //
+        // The DriverSplit runner code should be rewritten to explicitly manage
+        // life cycle removing the need for a weak reference entirely.
+        public void destroyReference(WeakReference<Driver> driverReference)
+        {
+            driverReference.clear();
+            drivers.remove(driverReference);
         }
 
         private boolean isNoMoreSplits()
@@ -574,6 +590,10 @@ public class SqlTaskExecution
         @GuardedBy("this")
         private Driver driver;
 
+        // See HACK note above
+        @GuardedBy("this")
+        private WeakReference<Driver> driverReference;
+
         private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
             this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverFactory is null");
@@ -614,7 +634,10 @@ public class SqlTaskExecution
                 }
 
                 if (this.driver == null) {
-                    this.driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
+                    // See HACK note above
+                    StrongAndWeakReference<Driver> reference = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
+                    this.driver = reference.getStrong();
+                    this.driverReference = reference.getWeak();
                 }
 
                 driver = this.driver;
@@ -633,14 +656,42 @@ public class SqlTaskExecution
         public void close()
         {
             Driver driver;
+            WeakReference<Driver> driverReference;
             synchronized (this) {
                 closed = true;
+                driverReference = this.driverReference;
                 driver = this.driver;
+                this.driver = null;
             }
 
             if (driver != null) {
                 driver.close();
+                // See HACK note above
+                driverSplitRunnerFactory.destroyReference(driverReference);
             }
+        }
+    }
+
+    // See HACK note above
+    private static class StrongAndWeakReference<T>
+    {
+        private final T strong;
+        private final WeakReference<T> weak;
+
+        public StrongAndWeakReference(T strong, WeakReference<T> weak)
+        {
+            this.strong = checkNotNull(strong, "strong is null");
+            this.weak = checkNotNull(weak, "weak is null");
+        }
+
+        public T getStrong()
+        {
+            return strong;
+        }
+
+        public WeakReference<T> getWeak()
+        {
+            return weak;
         }
     }
 
