@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -161,6 +162,29 @@ public final class PlanMatchPattern
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
+    }
+
+    public static PlanMatchPattern markDistinct(
+            String markerSymbol,
+            List<String> distinctSymbols,
+            PlanMatchPattern source)
+    {
+        return node(MarkDistinctNode.class, source).with(new MarkDistinctMatcher(
+                new SymbolAlias(markerSymbol),
+                toSymbolAliases(distinctSymbols),
+                Optional.empty()));
+    }
+
+    public static PlanMatchPattern markDistinct(
+            String markerSymbol,
+            List<String> distinctSymbols,
+            String hashSymbol,
+            PlanMatchPattern source)
+    {
+        return node(MarkDistinctNode.class, source).with(new MarkDistinctMatcher(
+                new SymbolAlias(markerSymbol),
+                toSymbolAliases(distinctSymbols),
+                Optional.of(new SymbolAlias(hashSymbol))));
     }
 
     public static PlanMatchPattern window(

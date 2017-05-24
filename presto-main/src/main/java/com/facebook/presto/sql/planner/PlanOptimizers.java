@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
 import com.facebook.presto.sql.planner.iterative.rule.PruneCrossJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneJoinChildrenColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneJoinColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneMarkDistinctColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
@@ -133,6 +134,7 @@ public class PlanOptimizers
                 new PruneCrossJoinColumns(),
                 new PruneJoinChildrenColumns(),
                 new PruneJoinColumns(),
+                new PruneMarkDistinctColumns(),
                 new PruneSemiJoinColumns(),
                 new PruneSemiJoinFilteringSourceColumns(),
                 new PruneValuesColumns(),
