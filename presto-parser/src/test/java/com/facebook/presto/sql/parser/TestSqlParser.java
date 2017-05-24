@@ -746,6 +746,7 @@ public class TestSqlParser
             throws Exception
     {
         assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Type.TIMESTAMP));
+        assertExpression("\"CURRENT_TIMESTAMP\"", new CurrentTime(CurrentTime.Type.TIMESTAMP));
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: expression is too large \\(stack overflow while parsing\\)")
