@@ -19,6 +19,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +56,8 @@ import static java.util.Objects.requireNonNull;
 public final class SortedPositionLinks
         implements PositionLinks
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedPositionLinks.class).instanceSize();
+
     public static class Builder
             implements PositionLinks.Builder
     {
@@ -165,7 +168,16 @@ public final class SortedPositionLinks
         this.positionLinks = requireNonNull(positionLinks, "positionLinks is null");
         this.sortedPositionLinks = requireNonNull(sortedPositionLinks, "sortedPositionLinks is null");
         this.lessThanFunction = requireNonNull(lessThanFunction, "lessThanFunction is null");
-        this.sizeInBytes = positionLinks.getSizeInBytes() + sizeOf(sortedPositionLinks);
+        this.sizeInBytes = INSTANCE_SIZE + positionLinks.getSizeInBytes() + sizeOfPositionLinks(sortedPositionLinks);
+    }
+
+    private long sizeOfPositionLinks(int[][] sortedPositionLinks)
+    {
+        long retainedSize = sizeOf(sortedPositionLinks);
+        for (int[] element : sortedPositionLinks) {
+            retainedSize += sizeOf(element);
+        }
+        return retainedSize;
     }
 
     public static Builder builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
