@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -25,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 public final class ArrayPositionLinks
         implements PositionLinks
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayPositionLinks.class).instanceSize();
     public static class Builder implements PositionLinks.Builder
     {
         private final int[] positionLinks;
@@ -76,6 +78,6 @@ public final class ArrayPositionLinks
     @Override
     public long getSizeInBytes()
     {
-        return sizeOf(positionLinks);
+        return INSTANCE_SIZE + sizeOf(positionLinks);
     }
 }
