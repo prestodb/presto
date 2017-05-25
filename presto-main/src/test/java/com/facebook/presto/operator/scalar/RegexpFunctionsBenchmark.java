@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.type.JoniRegexp;
 import com.facebook.presto.type.Re2JRegexp;
-import io.airlift.joni.Regex;
+import com.facebook.presto.type.Regexp;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -37,7 +38,6 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
@@ -54,13 +54,13 @@ public class RegexpFunctionsBenchmark
     @Benchmark
     public boolean benchmarkLikeJoni(DotStarAroundData data)
     {
-        return JoniRegexpFunctions.regexpLike(data.getSource(), data.getJoniPattern());
+        return RegexpFunctions.regexpLike(data.getSource(), data.getJoniPattern());
     }
 
     @Benchmark
     public boolean benchmarkLikeRe2J(DotStarAroundData data)
     {
-        return Re2JRegexpFunctions.regexpLike(data.getSource(), data.getRe2JPattern());
+        return RegexpFunctions.regexpLike(data.getSource(), data.getRe2JPattern());
     }
 
     @State(Thread)
@@ -72,8 +72,8 @@ public class RegexpFunctionsBenchmark
         @Param({"1024", "32768"})
         private int sourceLength;
 
-        private Regex joniPattern;
-        private Re2JRegexp re2JPattern;
+        private Regexp joniPattern;
+        private Regexp re2JPattern;
         private Slice source;
 
         @Setup
@@ -119,18 +119,23 @@ public class RegexpFunctionsBenchmark
             return source;
         }
 
-        public Regex getJoniPattern()
+        public Regexp getJoniPattern()
         {
             return joniPattern;
         }
 
-        public Re2JRegexp getRe2JPattern()
+        public Regexp getRe2JPattern()
         {
             return re2JPattern;
         }
     }
 
-    private static Re2JRegexp re2JRegexp(Slice pattern)
+    private static Regexp joniRegexp(Slice pattern)
+    {
+        return new JoniRegexp(pattern);
+    }
+
+    private static Regexp re2JRegexp(Slice pattern)
     {
         return new Re2JRegexp(Integer.MAX_VALUE, 5, pattern);
     }

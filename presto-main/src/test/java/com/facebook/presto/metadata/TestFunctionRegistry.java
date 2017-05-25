@@ -295,7 +295,7 @@ public class TestFunctionRegistry
         // when coercion between the types doesn't exist, but the return type is the same, so the random function must be choosen
         assertThatResolveFunction()
                 .among(
-                        functionSignature(ImmutableList.of("JoniRegExp"), "boolean"),
+                        functionSignature(ImmutableList.of("RegExp"), "boolean"),
                         functionSignature(ImmutableList.of("integer"), "boolean")
                 )
                 .forParameters("unknown")
@@ -305,7 +305,7 @@ public class TestFunctionRegistry
         // when the return type is different
         assertThatResolveFunction()
                 .among(
-                        functionSignature(ImmutableList.of("JoniRegExp"), "JoniRegExp"),
+                        functionSignature(ImmutableList.of("RegExp"), "RegExp"),
                         functionSignature(ImmutableList.of("integer"), "integer")
                 )
                 .forParameters("unknown")

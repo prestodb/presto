@@ -20,19 +20,18 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.TypeSignature;
-import io.airlift.joni.Regex;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
-public class JoniRegexpType
+public class RegexpType
         extends AbstractType
 {
-    public static final JoniRegexpType JONI_REGEXP = new JoniRegexpType();
-    public static final String NAME = "JoniRegExp";
+    public static final RegexpType REGEXP = new RegexpType();
+    public static final String NAME = "RegExp";
 
-    public JoniRegexpType()
+    public RegexpType()
     {
-        super(new TypeSignature(NAME), Regex.class);
+        super(new TypeSignature(NAME), Regexp.class);
     }
 
     @Override
