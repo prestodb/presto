@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressions;
+import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
 import static java.util.Objects.requireNonNull;
 
 public final class DependencyExtractor
@@ -39,6 +40,14 @@ public final class DependencyExtractor
     {
         ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
         extractExpressions(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
+
+        return uniqueSymbols.build();
+    }
+
+    public static Set<Symbol> extractUniqueNonRecursive(PlanNode node)
+    {
+        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
+        extractExpressionsNonRecursive(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
 
         return uniqueSymbols.build();
     }
