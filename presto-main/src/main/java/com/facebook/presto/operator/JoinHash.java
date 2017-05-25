@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -27,6 +28,7 @@ import static java.util.Objects.requireNonNull;
 public final class JoinHash
         implements LookupSource
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(JoinHash.class).instanceSize();
     private final PagesHash pagesHash;
 
     // we unwrap Optional<JoinFilterFunction> to actual verifier or null in constructor for performance reasons
@@ -58,7 +60,7 @@ public final class JoinHash
     @Override
     public long getInMemorySizeInBytes()
     {
-        return pagesHash.getInMemorySizeInBytes() + positionLinks.getSizeInBytes();
+        return INSTANCE_SIZE + pagesHash.getInMemorySizeInBytes() + positionLinks.getSizeInBytes();
     }
 
     @Override
