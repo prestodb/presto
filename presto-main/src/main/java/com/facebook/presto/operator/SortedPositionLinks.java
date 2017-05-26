@@ -156,6 +156,12 @@ public final class SortedPositionLinks
                         lessThanFunction.get());
             };
         }
+
+        @Override
+        public int size()
+        {
+            return positionLinks.size();
+        }
     }
 
     private final PositionLinks positionLinks;
