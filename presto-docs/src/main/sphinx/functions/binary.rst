@@ -42,6 +42,11 @@ Binary Functions
 
     Decodes ``bigint`` value from a 64-bit 2's complement big endian ``binary``.
 
+.. function:: crc32(binary) -> bigint
+
+    Computes the CRC-32 of ``binary``. For general purpose hashing, use
+    :func:`xxhash64`, as it is much faster and produces a better quality hash.
+
 .. function:: md5(binary) -> varbinary
 
     Computes the md5 hash of ``binary``.
