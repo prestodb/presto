@@ -19,6 +19,7 @@ import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootIn
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
@@ -28,6 +29,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
@@ -79,17 +81,17 @@ public final class InternalResourceGroupManager
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
     private final AtomicReference<ResourceGroupConfigurationManager> configurationManager = new AtomicReference<>();
-    private final ClusterMemoryPoolManager memoryPoolManager;
+    private final ResourceGroupConfigurationManagerContext configurationManagerContext;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManagerFactory builtinFactory, ClusterMemoryPoolManager memoryPoolManager, MBeanExporter exporter)
+    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManagerFactory builtinFactory, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
-        this.memoryPoolManager = requireNonNull(memoryPoolManager, "memoryPoolManager is null");
+        this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
         requireNonNull(builtinFactory, "builtinFactory is null");
         addConfigurationManagerFactory(builtinFactory);
     }
@@ -154,7 +156,7 @@ public final class InternalResourceGroupManager
         ResourceGroupConfigurationManagerFactory configurationManagerFactory = configurationManagerFactories.get(name);
         checkState(configurationManagerFactory != null, "Resource group configuration manager %s is not registered", name);
 
-        ResourceGroupConfigurationManager configurationManager = configurationManagerFactory.create(ImmutableMap.copyOf(properties), () -> memoryPoolManager);
+        ResourceGroupConfigurationManager configurationManager = configurationManagerFactory.create(ImmutableMap.copyOf(properties), configurationManagerContext);
         checkState(this.configurationManager.compareAndSet(null, configurationManager), "configurationManager already set");
 
         log.info("-- Loaded resource group configuration manager %s --", name);

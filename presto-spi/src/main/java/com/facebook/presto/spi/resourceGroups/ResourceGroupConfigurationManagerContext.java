@@ -17,5 +17,13 @@ import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 
 public interface ResourceGroupConfigurationManagerContext
 {
-    ClusterMemoryPoolManager getMemoryPoolManager();
+    default ClusterMemoryPoolManager getMemoryPoolManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default String getEnvironment()
+    {
+        throw new UnsupportedOperationException();
+    }
 }
