@@ -246,6 +246,17 @@ public class TestVarbinaryFunctions
         assertEquals(VarbinaryOperators.hashCode(data), VARBINARY.hash(block, 0));
     }
 
+    @Test
+    public void testCrc32()
+            throws Exception
+    {
+        assertFunction("crc32(to_utf8('CRC me!'))", BIGINT, 38028046L);
+        assertFunction("crc32(to_utf8('1234567890'))", BIGINT, 639479525L);
+        assertFunction("crc32(to_utf8(CAST(1234567890 AS VARCHAR)))", BIGINT, 639479525L);
+        assertFunction("crc32(to_utf8('ABCDEFGHIJK'))", BIGINT, 1129618807L);
+        assertFunction("crc32(to_utf8('ABCDEFGHIJKLM'))", BIGINT, 4223167559L);
+    }
+
     private static String encodeBase64(byte[] value)
     {
         return Base64.getEncoder().encodeToString(value);

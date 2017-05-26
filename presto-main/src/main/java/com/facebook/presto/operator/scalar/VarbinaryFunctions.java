@@ -26,6 +26,7 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
 import java.util.Base64;
+import java.util.zip.CRC32;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
@@ -239,5 +240,15 @@ public final class VarbinaryFunctions
     public static Slice fromHexVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return fromHexVarchar(slice);
+    }
+
+    @Description("compute CRC-32")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long crc32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        CRC32 crc32 = new CRC32();
+        crc32.update(slice.toByteBuffer());
+        return crc32.getValue();
     }
 }

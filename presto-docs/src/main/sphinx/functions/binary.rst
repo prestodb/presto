@@ -50,6 +50,11 @@ Binary Functions
 
     Encodes ``double`` in a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
 
+.. function:: crc32(binary) -> bigint
+
+    Computes the CRC-32 of ``binary``. For general purpose hashing, use
+    :func:`xxhash64`, as it is much faster and produces a better quality hash.
+
 .. function:: md5(binary) -> varbinary
 
     Computes the md5 hash of ``binary``.
