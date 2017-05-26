@@ -30,6 +30,7 @@ public final class ArrayPositionLinks
     public static class Builder implements PositionLinks.Builder
     {
         private final int[] positionLinks;
+        private int size;
 
         private Builder(int size)
         {
@@ -40,6 +41,7 @@ public final class ArrayPositionLinks
         @Override
         public int link(int left, int right)
         {
+            size++;
             positionLinks[left] = right;
             return left;
         }
@@ -48,6 +50,12 @@ public final class ArrayPositionLinks
         public Function<Optional<JoinFilterFunction>, PositionLinks> build()
         {
             return filterFunction -> new ArrayPositionLinks(positionLinks);
+        }
+
+        @Override
+        public int size()
+        {
+            return size;
         }
     }
 

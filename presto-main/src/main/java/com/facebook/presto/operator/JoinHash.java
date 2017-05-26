@@ -36,13 +36,16 @@ public final class JoinHash
     @Nullable
     private final JoinFilterFunction filterFunction;
 
+    // we unwrap Optional<PositionLinks> to actual position links or null in constructor for performance reasons
+    // we do quick check for `positionLinks == null` to avoid calls to positionLinks
+    @Nullable
     private final PositionLinks positionLinks;
 
-    public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, PositionLinks positionLinks)
+    public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, Optional<PositionLinks> positionLinks)
     {
         this.pagesHash = requireNonNull(pagesHash, "pagesHash is null");
         this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null").orElse(null);
-        this.positionLinks = requireNonNull(positionLinks, "positionLinks is null");
+        this.positionLinks = requireNonNull(positionLinks, "positionLinks is null").orElse(null);
     }
 
     @Override
@@ -60,7 +63,7 @@ public final class JoinHash
     @Override
     public long getInMemorySizeInBytes()
     {
-        return INSTANCE_SIZE + pagesHash.getInMemorySizeInBytes() + positionLinks.getSizeInBytes();
+        return INSTANCE_SIZE + pagesHash.getInMemorySizeInBytes() + (positionLinks == null ? 0 : positionLinks.getSizeInBytes());
     }
 
     @Override
@@ -82,12 +85,18 @@ public final class JoinHash
         if (currentJoinPosition == -1) {
             return -1;
         }
+        if (positionLinks == null) {
+            return currentJoinPosition;
+        }
         return positionLinks.start(currentJoinPosition, probePosition, allProbeChannelsPage);
     }
 
     @Override
     public final long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
+        if (positionLinks == null) {
+            return -1;
+        }
         return positionLinks.next(toIntExact(currentJoinPosition), probePosition, allProbeChannelsPage);
     }
 
