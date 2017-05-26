@@ -51,7 +51,7 @@ import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
-import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -432,11 +432,7 @@ class RelationPlanner
     protected RelationPlan visitValues(Values node, Void context)
     {
         Scope scope = analysis.getScope(node);
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-        for (Field field : scope.getRelationType().getVisibleFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            outputSymbolsBuilder.add(symbol);
-        }
+        List<Symbol> outputSymbols = getOutputSymbols(node);
 
         ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
         for (Expression row : node.getRows()) {
@@ -459,20 +455,15 @@ class RelationPlanner
             rows.add(values.build());
         }
 
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbolsBuilder.build(), rows.build());
-        return new RelationPlan(valuesNode, scope, outputSymbolsBuilder.build());
+        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbols, rows.build());
+        return new RelationPlan(valuesNode, scope, outputSymbols);
     }
 
     @Override
     protected RelationPlan visitUnnest(Unnest node, Void context)
     {
         Scope scope = analysis.getScope(node);
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-        for (Field field : scope.getRelationType().getVisibleFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            outputSymbolsBuilder.add(symbol);
-        }
-        List<Symbol> unnestedSymbols = outputSymbolsBuilder.build();
+        List<Symbol> unnestedSymbols = getOutputSymbols(node);
 
         // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
         ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
@@ -502,6 +493,13 @@ class RelationPlanner
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol);
         return new RelationPlan(unnestNode, scope, unnestedSymbols);
+    }
+
+    private List<Symbol> getOutputSymbols(Node node)
+    {
+        return analysis.getOutputDescriptor(node).getVisibleFields().stream()
+                .map(symbolAllocator::newSymbol)
+                .collect(toImmutableList());
     }
 
     private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
