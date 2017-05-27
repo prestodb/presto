@@ -33,7 +33,7 @@ import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAM
 
 final class PrestoSystemRequirements
 {
-    private static final int MIN_FILE_DESCRIPTORS = 4096;
+    private static final int MIN_FILE_DESCRIPTORS = 4048;
     private static final int RECOMMENDED_FILE_DESCRIPTORS = 8192;
 
     private PrestoSystemRequirements() {}
