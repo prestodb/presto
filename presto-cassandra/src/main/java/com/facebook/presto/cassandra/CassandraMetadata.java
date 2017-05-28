@@ -257,6 +257,18 @@ public class CassandraMetadata
     }
 
     @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
+
+        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
+        String schemaName = cassandraTableHandle.getSchemaName();
+        String tableName = cassandraTableHandle.getTableName();
+
+        cassandraSession.execute(String.format("TRUNCATE \"%s\".\"%s\"", schemaName, tableName));
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         throw new PrestoException(NOT_SUPPORTED, "Renaming tables not yet supported for Cassandra");
