@@ -568,6 +568,18 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testTruncateTable()
+    {
+        assertUpdate("CREATE TABLE test_truncate AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertUpdate("TRUNCATE TABLE test_truncate");
+        assertQuery("SELECT COUNT(*) FROM test_truncate", "SELECT 0");
+
+        assertUpdate("DROP TABLE test_truncate");
+        assertQueryFails("TRUNCATE TABLE test_truncate", ".*Table .* does not exist");
+    }
+
+    @Test
     public void testView()
     {
         skipTestUnless(supportsViews());

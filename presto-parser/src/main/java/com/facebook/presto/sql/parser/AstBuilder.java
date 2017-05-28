@@ -142,6 +142,7 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
+import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
@@ -266,6 +267,12 @@ class AstBuilder
     public Node visitDropTable(SqlBaseParser.DropTableContext context)
     {
         return new DropTable(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitTruncateTable(SqlBaseParser.TruncateTableContext context)
+    {
+        return new TruncateTable(getLocation(context), getQualifiedName(context.qualifiedName()));
     }
 
     @Override

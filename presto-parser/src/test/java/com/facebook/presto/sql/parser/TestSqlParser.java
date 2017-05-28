@@ -114,6 +114,7 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
+import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
@@ -1392,6 +1393,15 @@ public class TestSqlParser
         assertStatement("DROP TABLE IF EXISTS a", new DropTable(QualifiedName.of("a"), true));
         assertStatement("DROP TABLE IF EXISTS a.b", new DropTable(QualifiedName.of("a", "b"), true));
         assertStatement("DROP TABLE IF EXISTS a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), true));
+    }
+
+    @Test
+    public void testTruncateTable()
+            throws Exception
+    {
+        assertStatement("TRUNCATE TABLE a", new TruncateTable(QualifiedName.of("a")));
+        assertStatement("TRUNCATE TABLE a.b", new TruncateTable(QualifiedName.of("a", "b")));
+        assertStatement("TRUNCATE TABLE a.b.c", new TruncateTable(QualifiedName.of("a", "b", "c")));
     }
 
     @Test

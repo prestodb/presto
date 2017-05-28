@@ -147,6 +147,13 @@ public interface Metadata
     void dropTable(Session session, TableHandle tableHandle);
 
     /**
+     * Truncates the specified table
+     *
+     * @throws RuntimeException if the table can not be truncated or table handle is no longer valid
+     */
+    void truncateTable(Session session, TableHandle tableHandle);
+
+    /**
      * Gets the TableIdentity for the specified table.
      */
     TableIdentity getTableIdentity(Session session, TableHandle tableHandle);

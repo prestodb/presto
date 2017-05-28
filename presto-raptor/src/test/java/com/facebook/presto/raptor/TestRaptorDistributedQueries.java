@@ -32,4 +32,10 @@ public class TestRaptorDistributedQueries
     {
         super(supplier);
     }
+
+    @Override
+    public void testTruncateTable()
+    {
+        // Truncatess are not supported by the connector
+    }
 }

@@ -85,6 +85,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    public void testTruncateTable()
+    {
+        // Truncates are not supported by the connector
+    }
+
+    @Override
     public void testDelete()
     {
         // Deletes are not supported by the connector

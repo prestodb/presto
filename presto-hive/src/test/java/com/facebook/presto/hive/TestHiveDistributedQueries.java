@@ -124,4 +124,10 @@ public class TestHiveDistributedQueries
             assertUpdate(session, "DROP TABLE test_table_with_char_rc");
         }
     }
+
+    @Override
+    public void testTruncateTable()
+    {
+        // Truncates are not supported by the connector
+    }
 }

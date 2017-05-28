@@ -46,6 +46,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySetSyst
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 
 public class DenyAllAccessControl
         implements AccessControl
@@ -150,6 +151,12 @@ public class DenyAllAccessControl
     public void checkCanDeleteFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denyDeleteTable(tableName.toString());
+    }
+
+    @Override
+    public void checkCanTruncateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        denyTruncateTable(tableName.toString());
     }
 
     @Override

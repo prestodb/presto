@@ -41,6 +41,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectV
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 
 public interface SystemAccessControl
 {
@@ -218,6 +219,16 @@ public interface SystemAccessControl
     default void checkCanDeleteFromTable(Identity identity, CatalogSchemaTableName table)
     {
         denyDeleteTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to truncate the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanTruncateTable(Identity identity, CatalogSchemaTableName table)
+    {
+        denyTruncateTable(table.toString());
     }
 
     /**

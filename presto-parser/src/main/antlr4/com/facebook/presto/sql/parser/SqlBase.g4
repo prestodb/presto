@@ -45,6 +45,7 @@ statement
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
+    | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
     | ALTER TABLE tableName=qualifiedName
         RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
@@ -445,6 +446,7 @@ number
 nonReserved
     : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION | STATS
     | ADD
+    | TRUNCATE
     | FILTER
     | AT
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
@@ -600,6 +602,7 @@ USE: 'USE';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
 DROP: 'DROP';
+TRUNCATE: 'TRUNCATE';
 UNION: 'UNION';
 EXCEPT: 'EXCEPT';
 INTERSECT: 'INTERSECT';

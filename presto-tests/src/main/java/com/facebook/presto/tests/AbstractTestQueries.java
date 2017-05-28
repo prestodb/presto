@@ -5522,6 +5522,7 @@ public abstract class AbstractTestQueries
         assertExplainDdl("CREATE TABLE foo (pk bigint)", "CREATE TABLE foo");
         assertExplainDdl("CREATE VIEW foo AS SELECT * FROM orders", "CREATE VIEW foo");
         assertExplainDdl("DROP TABLE orders");
+        assertExplainDdl("TRUNCATE TABLE orders");
         assertExplainDdl("DROP VIEW view");
         assertExplainDdl("ALTER TABLE orders RENAME TO new_name");
         assertExplainDdl("ALTER TABLE orders RENAME COLUMN orderkey TO new_column_name");
@@ -8673,6 +8674,7 @@ public abstract class AbstractTestQueries
         assertDescribeOutputEmpty("CREATE TABLE foo (x bigint)");
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
+        assertDescribeOutputEmpty("TRUNCATE TABLE foo");
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
         assertDescribeOutputEmpty("DROP VIEW foo");

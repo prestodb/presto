@@ -83,6 +83,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
+import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
@@ -848,6 +849,15 @@ public final class SqlFormatter
                 builder.append("IF EXISTS ");
             }
             builder.append(node.getTableName());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitTruncateTable(TruncateTable node, Integer indent)
+        {
+            builder.append("TRUNCATE TABLE ");
+            builder.append(formatName(node.getTableName()));
 
             return null;
         }

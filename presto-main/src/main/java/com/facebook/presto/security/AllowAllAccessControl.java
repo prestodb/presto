@@ -115,6 +115,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
     }

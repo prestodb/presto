@@ -372,6 +372,20 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanTruncateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanTruncateTable(identity, tableName.asCatalogSchemaTableName()));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanTruncateTable(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName()));
+        }
+    }
+
+    @Override
     public void checkCanCreateView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
         requireNonNull(identity, "identity is null");

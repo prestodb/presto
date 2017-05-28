@@ -25,4 +25,10 @@ public class TestRaptorDistributedQueriesBucketed
     {
         super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
     }
+
+    @Override
+    public void testTruncateTable()
+    {
+        // Truncatess are not supported by the connector
+    }
 }
