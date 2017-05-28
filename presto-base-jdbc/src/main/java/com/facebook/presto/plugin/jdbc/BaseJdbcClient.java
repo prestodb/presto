@@ -399,6 +399,21 @@ public class BaseJdbcClient
     }
 
     @Override
+    public void truncateTable(JdbcTableHandle handle)
+    {
+        StringBuilder sql = new StringBuilder()
+                .append("TRUNCATE TABLE ")
+                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+
+        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+            execute(connection, sql.toString());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public void rollbackCreateTable(JdbcOutputTableHandle handle)
     {
         dropTable(new JdbcTableHandle(

@@ -159,6 +159,13 @@ public class JdbcMetadata
     }
 
     @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        jdbcClient.truncateTable(handle);
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(tableMetadata);

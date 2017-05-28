@@ -54,6 +54,8 @@ public interface JdbcClient
 
     void dropTable(JdbcTableHandle jdbcTableHandle);
 
+    void truncateTable(JdbcTableHandle jdbcTableHandle);
+
     void rollbackCreateTable(JdbcOutputTableHandle handle);
 
     String buildInsertSql(JdbcOutputTableHandle handle);
