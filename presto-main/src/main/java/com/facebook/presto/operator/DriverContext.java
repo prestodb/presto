@@ -159,6 +159,9 @@ public class DriverContext
 
     public void finished()
     {
+        freeMemory(memoryReservation.get());
+        freeSystemMemory(systemMemoryReservation.get());
+
         if (!finished.compareAndSet(false, true)) {
             // already finished
             return;
