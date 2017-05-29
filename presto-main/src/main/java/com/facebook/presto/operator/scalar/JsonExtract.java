@@ -21,6 +21,8 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.SerializedString;
 import com.google.common.base.Throwables;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -120,6 +122,9 @@ public final class JsonExtract
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
 
+    public static boolean CACHE_ENABLED = false;
+    protected static final Cache<String, Object> EXTRACTOR_CACHE = CacheBuilder.newBuilder().maximumSize(100).build();
+
     private JsonExtract() {}
 
     public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor)
@@ -151,12 +156,23 @@ public final class JsonExtract
 
     public static <T> JsonExtractor<T> generateExtractor(String path, JsonExtractor<T> rootExtractor, boolean exceptionOnOutOfBounds)
     {
+        if (CACHE_ENABLED) {
+            Object cachedExtractor = EXTRACTOR_CACHE.getIfPresent(path);
+            if (cachedExtractor != null) {
+                return (JsonExtractor<T>) cachedExtractor;
+            }
+        }
         ImmutableList<String> tokens = ImmutableList.copyOf(new JsonPathTokenizer(path));
 
         JsonExtractor<T> jsonExtractor = rootExtractor;
         for (String token : tokens.reverse()) {
             jsonExtractor = new ObjectFieldJsonExtractor<>(token, jsonExtractor, exceptionOnOutOfBounds);
         }
+
+        if (CACHE_ENABLED) {
+            EXTRACTOR_CACHE.put(path, jsonExtractor);
+        }
+
         return jsonExtractor;
     }
 
