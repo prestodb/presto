@@ -410,3 +410,28 @@ Hive Connector Limitations
 --------------------------
 
 :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
+
+
+S3 Support
+----------
+Presto has its own S3 filesystem implementation to access data
+stored in Amazon S3 and it can be configured using the following properties.
+
+================================================== ============================================================ ==========
+Property Name                                      Description                                                  Default
+================================================== ============================================================ ==========
+``presto.s3.credentials-provider``                 The fully qualified class name of a custom AWS credentials
+                                                   provider implementation. This class must implement the
+                                                   ``com.amazonaws.auth.AWSCredentialsProvider`` interface and
+                                                   provide a two argument constructor that takes a ``URI`` and
+                                                   a Hadoop ``Configuration`` as arguments. A custom
+                                                   credentials provider can be used to provide temporary
+                                                   credentials from STS (using the
+                                                   ``STSSessionCredentialsProvider``), IAM role-based
+                                                   credentials (using the
+                                                   ``STSAssumeRoleSessionCredentialsProvider``), or credentials
+                                                   for a specific use case (e.g., bucket/user specific
+                                                   credentials). This property must be set in the Hadoop
+                                                   configuration files that the
+                                                   ``hive.config.resources`` property refers to.
+================================================== ============================================================ ==========
