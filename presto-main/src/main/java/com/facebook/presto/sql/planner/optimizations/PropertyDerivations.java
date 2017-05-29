@@ -187,7 +187,7 @@ class PropertyDerivations
         @Override
         public ActualProperties visitApply(ApplyNode node, List<ActualProperties> inputProperties)
         {
-            return inputProperties.get(0); // apply node input (outer query)
+            throw new IllegalArgumentException("Unexpected node: " + node.getClass().getName());
         }
 
         @Override
