@@ -222,7 +222,6 @@ public class Query
                 pager.getFinishFuture().thenRun(() -> {
                     userAbortedQuery.set(true);
                     ignoreUserInterrupt.set(false);
-                    clientThread.interrupt();
                 });
             }
             handler.processRows(client);
