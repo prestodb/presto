@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.Predicates.alwaysTrue;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,7 +34,7 @@ public class PlanNodeSearcher
     @Deprecated
     public static PlanNodeSearcher searchFrom(PlanNode node)
     {
-        return new PlanNodeSearcher(node);
+        return searchFrom(node, noLookup());
     }
 
     public static PlanNodeSearcher searchFrom(PlanNode node, Lookup lookup)
@@ -46,15 +46,6 @@ public class PlanNodeSearcher
     private final Lookup lookup;
     private Predicate<PlanNode> where = alwaysTrue();
     private Predicate<PlanNode> skipOnly = alwaysTrue();
-
-    @Deprecated
-    public PlanNodeSearcher(PlanNode planNode)
-    {
-        this(planNode, (node) -> {
-            checkArgument(!(node instanceof GroupReference), "GroupReference cannot occur in non-iterative plan");
-            return node;
-        });
-    }
 
     public PlanNodeSearcher(PlanNode node, Lookup lookup)
     {
