@@ -17,11 +17,11 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
 import java.net.URI;
 import java.util.List;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleSplit
@@ -47,8 +47,8 @@ public class ExampleSplit
         this.uri = requireNonNull(uri, "uri is null");
 
 //        if ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())) {
-        remotelyAccessible = true;
-        addresses = ImmutableList.of(HostAddress.fromUri(uri));
+        this.remotelyAccessible = true;
+        this.addresses = newArrayList(HostAddress.fromUri(uri));
     }
 
     @JsonProperty
