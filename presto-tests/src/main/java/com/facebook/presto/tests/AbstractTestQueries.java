@@ -7161,7 +7161,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testCorrelatedInPredicateSubqueries()
     {
-        String errorMsg = "Unsupported correlated subquery type";
+        String errorMsg = "Unexpected node: com.facebook.presto.sql.planner.plan.ApplyNode";
 
         assertQuery("SELECT orderkey, clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey) FROM orders o");
         assertQuery("SELECT orderkey FROM orders o WHERE clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey)");
@@ -7193,7 +7193,9 @@ public abstract class AbstractTestQueries
         assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey IN (SELECT l2.orderkey)", errorMsg);
 
         // subrelation
-        assertQueryFails("SELECT * FROM lineitem l WHERE (SELECT * FROM (SELECT 1 IN (SELECT 2 * l.orderkey)))", errorMsg);
+        assertQueryFails(
+                "SELECT * FROM lineitem l WHERE (SELECT * FROM (SELECT 1 IN (SELECT 2 * l.orderkey)))",
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
 
         // two level of nesting
         assertQueryFails("SELECT * FROM lineitem l WHERE true IN (SELECT 1 IN (SELECT 2 * l.orderkey))", errorMsg);

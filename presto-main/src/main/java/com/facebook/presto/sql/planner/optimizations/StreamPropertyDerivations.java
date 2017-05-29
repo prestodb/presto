@@ -494,7 +494,7 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitApply(ApplyNode node, List<StreamProperties> inputProperties)
         {
-            return inputProperties.get(0);
+            throw new IllegalStateException("Unexpected node: " + node.getClass());
         }
 
         @Override
