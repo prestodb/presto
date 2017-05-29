@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +37,6 @@ class PartitioningExchanger
     private final List<Consumer<PageReference>> buffers;
     private final LongConsumer memoryTracker;
     private final LocalPartitionGenerator partitionGenerator;
-    private final IntList[] partitionAssignments;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
@@ -61,19 +59,17 @@ class PartitioningExchanger
             hashGenerator = new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels));
         }
         partitionGenerator = new LocalPartitionGenerator(hashGenerator, buffers.size());
-
-        partitionAssignments = new IntList[partitions.size()];
-        for (int i = 0; i < partitionAssignments.length; i++) {
-            partitionAssignments[i] = new IntArrayList();
-        }
     }
 
     @Override
-    public synchronized void accept(Page page)
+    public void accept(Page page)
     {
-        // reset the assignment lists
-        for (IntList partitionAssignment : partitionAssignments) {
-            partitionAssignment.clear();
+        int partitionCount = buffers.size();
+
+        IntArrayList[] partitionAssignments = new IntArrayList[partitionCount];
+        int expectedSize = page.getPositionCount() / partitionCount;
+        for (int i = 0; i < partitionCount; i++) {
+            partitionAssignments[i] = new IntArrayList(expectedSize);
         }
 
         // assign each row to a partition
@@ -85,8 +81,8 @@ class PartitioningExchanger
         // build a page for each partition
         Block[] sourceBlocks = page.getBlocks();
         Block[] outputBlocks = new Block[sourceBlocks.length];
-        for (int partition = 0; partition < buffers.size(); partition++) {
-            List<Integer> positions = partitionAssignments[partition];
+        for (int partition = 0; partition < partitionCount; partition++) {
+            IntArrayList positions = partitionAssignments[partition];
             if (!positions.isEmpty()) {
                 for (int i = 0; i < sourceBlocks.length; i++) {
                     outputBlocks[i] = sourceBlocks[i].copyPositions(positions);
