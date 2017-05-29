@@ -19,7 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
@@ -29,9 +29,9 @@ import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isSc
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 
 /**
- * Remove resolved ApplyNodes with unreferenced scalar input, e.g: "SELECT (SELECT 1)".
+ * Remove LateralJoinNodes with unreferenced scalar input, e.g: "SELECT (SELECT 1)".
  */
-public class RemoveUnreferencedScalarInputApplyNodes
+public class RemoveUnreferencedScalarLateralNodes
         implements PlanOptimizer
 {
     @Override
@@ -44,10 +44,14 @@ public class RemoveUnreferencedScalarInputApplyNodes
             extends SimplePlanRewriter<PlanNode>
     {
         @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
+        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<PlanNode> context)
         {
-            if (node.getInput().getOutputSymbols().isEmpty() && isScalar(node.getInput()) && node.isResolvedScalarSubquery()) {
+            if (node.getInput().getOutputSymbols().isEmpty() && isScalar(node.getInput())) {
                 return context.rewrite(node.getSubquery());
+            }
+
+            if (node.getSubquery().getOutputSymbols().isEmpty() && isScalar(node.getSubquery())) {
+                return context.rewrite(node.getInput());
             }
 
             return context.defaultRewrite(node);

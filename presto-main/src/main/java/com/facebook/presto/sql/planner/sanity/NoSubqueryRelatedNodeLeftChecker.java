@@ -20,11 +20,13 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
+import java.util.List;
 import java.util.Map;
 
-public class NoApplyNodeLeftChecker
+public class NoSubqueryRelatedNodeLeftChecker
         implements PlanSanityChecker.Checker
 {
     @Override
@@ -35,11 +37,22 @@ public class NoApplyNodeLeftChecker
             @Override
             public Object visitApply(ApplyNode node, Object context)
             {
-                if (node.getCorrelation().isEmpty()) {
-                    throw new IllegalArgumentException("Unsupported subquery type");
+                throw subqueryLeftException(node.getCorrelation());
+            }
+
+            @Override
+            public Object visitLateralJoin(LateralJoinNode node, Object context)
+            {
+                throw subqueryLeftException(node.getCorrelation());
+            }
+
+            private IllegalArgumentException subqueryLeftException(List<Symbol> correlation)
+            {
+                if (correlation.isEmpty()) {
+                    return new IllegalArgumentException("Unsupported subquery type");
                 }
                 else {
-                    throw new IllegalArgumentException("Unsupported correlated subquery type");
+                    return new IllegalArgumentException("Unsupported correlated subquery type");
                 }
             }
         }, null);

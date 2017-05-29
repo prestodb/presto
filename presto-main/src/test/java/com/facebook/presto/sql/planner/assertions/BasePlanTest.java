@@ -129,7 +129,7 @@ public class BasePlanTest
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
-        assertPlanWithOptimizers(sql, pattern, optimizers);
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 
     protected Plan plan(String sql)

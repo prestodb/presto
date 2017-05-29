@@ -78,7 +78,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnCorrelatedWithoutAggregation()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("a", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("a", BIGINT))))
@@ -89,7 +89,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnUncorrelated()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("a", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(),
                         p.values(p.symbol("a", BIGINT)),
                         p.values(p.symbol("b", BIGINT))))
@@ -100,7 +100,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnCorrelatedWithNonScalarAggregation()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("a", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("corr", BIGINT)),
                         createSumAggregation(p, p.symbol("a", BIGINT), ImmutableList.of(ImmutableList.of(p.symbol("b", BIGINT))),
@@ -112,7 +112,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void rewritesOnSubqueryWithoutProjection()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("sum", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("corr", BIGINT)),
                         createSumAggregation(p, p.symbol("a", BIGINT), ImmutableList.of(ImmutableList.of()),
@@ -131,13 +131,13 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void rewritesOnSubqueryWithProjection()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("sum", BIGINT), p.symbol("expr", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("corr", BIGINT)),
                         p.project(Assignments.of(p.symbol("expr", BIGINT), new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, p.symbol("sum", BIGINT).toSymbolReference(), new LongLiteral("1"))),
                                 createSumAggregation(p, p.symbol("a", BIGINT), ImmutableList.of(ImmutableList.of()),
                                         p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT))))))
-                .matches(project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
+                .matches(project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
                         aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
                                 join(JoinNode.Type.LEFT,
                                         ImmutableList.of(),

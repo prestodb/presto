@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -43,7 +44,7 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * From:
  * <pre>
- * - Apply (with correlation list: [C])
+ * - LateralJoin (with correlation list: [C])
  *   - (input) plan which produces symbols: [A, B, C]
  *   - (subquery) Aggregation(GROUP BY (); functions: [sum(F), count(), ...]
  *     - Filter(D = C AND E > 5)
@@ -99,10 +100,10 @@ public class TransformCorrelatedScalarAggregationToJoin
         }
 
         @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
+        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<PlanNode> context)
         {
-            ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
-            if (!rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.isResolvedScalarSubquery()) {
+            LateralJoinNode rewrittenNode = (LateralJoinNode) context.defaultRewrite(node, context.get());
+            if (!rewrittenNode.getCorrelation().isEmpty()) {
                 Optional<AggregationNode> aggregation = searchFrom(rewrittenNode.getSubquery())
                         .where(AggregationNode.class::isInstance)
                         .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))

@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -69,12 +70,12 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
-public class TransformQuantifiedComparisonApplyToScalarApply
+public class TransformQuantifiedComparisonApplyToLateralJoin
         implements PlanOptimizer
 {
     private final Metadata metadata;
 
-    public TransformQuantifiedComparisonApplyToScalarApply(Metadata metadata)
+    public TransformQuantifiedComparisonApplyToLateralJoin(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -166,18 +167,18 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     Optional.empty(),
                     Optional.empty());
 
-            PlanNode applyNode = new ApplyNode(
+            PlanNode lateralJoinNode = new LateralJoinNode(
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
-                    Assignments.identity(minValue, maxValue),
-                    node.getCorrelation());
+                    node.getCorrelation(),
+                    LateralJoinNode.Type.INNER);
 
             Expression valueComparedToSubquery = rewriteUsingBounds(quantifiedComparison, minValue, maxValue, countAllValue, countNonNullValue);
 
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
 
-            return projectExpressions(applyNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+            return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
         }
 
         public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
