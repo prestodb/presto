@@ -1,0 +1,8 @@
+
+------------------------------------------------------------------
+
+      Copyright 2013-2015, Teradata, Inc. All rights reserved.
+
+               Benchto-service ${application.formatted-version}
+
+------------------------------------------------------------------

@@ -1,0 +1,35 @@
+<div ng-if="benchmarkMeasurementGraphsData.length > 0" class="row">
+    <div class="col-sm-12">
+        <h3 class="sub-header">Benchmark graphs</h3>
+    </div>
+</div>
+<div ng-if="benchmarkMeasurementGraphsData.length > 0" class="row">
+    <div class="col-sm-12 col-md-6 col-lg-4 text-center" ng-repeat="graphData in benchmarkMeasurementGraphsData">
+        <nvd3 options="graphData.options" data="graphData.data"></nvd3>
+    </div>
+</div>
+<div ng-if="aggregatedExecutionsMeasurementGraphsData.length > 0" class="row">
+    <div class="col-sm-12">
+        <h3 class="sub-header">Query graphs</h3>
+    </div>
+</div>
+<div ng-if="aggregatedExecutionsMeasurementGraphsData.length > 0" class="row">
+    <div class="col-sm-12 col-md-6 col-lg-4 text-center" ng-repeat="graphData in aggregatedExecutionsMeasurementGraphsData">
+        <nvd3 options="graphData.options" data="graphData.data"></nvd3>
+    </div>
+</div>
+<table class="table table-striped table-condensed">
+    <thead>
+    <tr>
+        <td>#</td>
+        <td>Name</td>
+    </tr>
+    </thead>
+    <tr ng-repeat="benchmarkRun in benchmarkRuns">
+        <td>{{$index + 1}}</td>
+        <td>
+            <strong><a ng-href="#/benchmark/{{benchmarkRun.uniqueName}}?environment={{benchmarkRun.environment.name}}">{{benchmarkRun.name}}</a></strong>
+            (<a ng-href="#/benchmark/{{benchmarkRun.uniqueName}}/{{benchmarkRun.sequenceId}}">{{benchmarkRun.sequenceId}}</a>)
+        </td>
+    </tr>
+</table>

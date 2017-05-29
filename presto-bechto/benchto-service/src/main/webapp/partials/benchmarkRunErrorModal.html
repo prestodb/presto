@@ -1,0 +1,13 @@
+<div class="modal-header">
+    <button type="button" class="close" data-dismiss="modal" aria-hidden="true" ng-click="close()">&times;</button>
+    <h4 class="modal-title">Failure {{::executionName}}</h4>
+</div>
+<div class="modal-body" style="overflow-y: scroll;">
+    <div class="row">
+        <div class="col-sm-12">
+            <p><strong>Message: </strong>{{::failure.message}}</p>
+            <p><strong>SQL error code: </strong>{{::failure.SQLErrorCode}}</p>
+            <p><strong>Stack trace: </strong><pre>{{::failure.stackTrace}}</pre></p>
+        </div>
+    </div>
+</div>

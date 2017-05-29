@@ -1,0 +1,99 @@
+<div class="row">
+    <ol class="breadcrumb">
+        <li><a href="#/">Home</a></li>
+        <li><a ng-href="#/{{::environmentName}}">{{::environmentName}}</a></li>
+        <li class="active">{{::uniqueName}}</li>
+    </ol>
+</div>
+<div class="row">
+    <div class="col-sm-12">
+        <h3 class="sub-header">Benchmark: {{::benchmarkRuns[0].name}}</h3>
+    </div>
+    <div class="col-sm-12">
+        <ul>
+            <li>
+                <strong>Environment:</strong>
+                <a target="_blank" ng-href="#/environment/{{::benchmarkRuns[0].environment.name}}">
+                    {{::benchmarkRuns[0].environment.name}}
+                </a>
+            </li>
+            <li ng-show="showBenchmarkDetails" ng-repeat="(name, value) in benchmarkRuns[0].variables">
+                <strong>{{name}}:</strong> {{value}}
+            </li>
+            <li ng-show="showBenchmarkDetails" ng-repeat="(name, value) in benchmarkRuns[0].attributes">
+                <span ng-if="name != 'sqlStatement'">
+                    <strong>{{name}}:</strong>
+                    {{value}}
+                </span>
+                <pre ng-if="::name == 'sqlStatement'" class="prettyprint lang-sql">{{::value}}</pre>
+            </li>
+            <a ng-show="!showBenchmarkDetails" ng-click="showBenchmarkDetails = true"> ...more details <span class="glyphicon glyphicon-triangle-bottom" aria-hidden="true"></span></a>
+        </ul>
+    </div>
+</div>
+<div class="row">
+    <div class="col-sm-12 col-md-6 col-lg-4 text-center" ng-repeat="graphData in measurementGraphsData" class="measurementGraph">
+        <strong>{{graphData.name}} in {{graphData.unit}}</strong>
+    </div>
+</div>
+<div ng-if="benchmarkMeasurementGraphsData.length > 0" class="row">
+    <div class="col-sm-12">
+        <h4 class="sub-header">Benchmark graphs</h4>
+    </div>
+</div>
+<div ng-if="benchmarkMeasurementGraphsData.length > 0" class="row">
+    <div class="col-sm-12 col-md-6 col-lg-4 text-center" ng-repeat="graphData in benchmarkMeasurementGraphsData" class="measurementGraph">
+        <nvd3 options="graphData.options" data="graphData.data"></nvd3>
+        </canvas>
+    </div>
+</div>
+<div ng-if="aggregatedExecutionsMeasurementGraphsData.length > 0" class="row">
+    <div class="col-sm-12">
+        <h4 class="sub-header">Query graphs</h4>
+    </div>
+</div>
+<div ng-if="aggregatedExecutionsMeasurementGraphsData.length > 0" class="row">
+    <div class="col-sm-12 col-md-6 col-lg-4 text-center" ng-repeat="graphData in aggregatedExecutionsMeasurementGraphsData" class="measurementGraph">
+        <nvd3 options="graphData.options" data="graphData.data"></nvd3>
+        </canvas>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-sm-12">
+        <h4 class="sub-header">Latest runs</h4>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-condensed">
+                <thead>
+                <tr>
+                    <td><i class="glyphicon glyphicon-shopping-cart" data-toggle="tooltip" title="Compare cart items"></i></td>
+                    <td>#</td>
+                    <td>SequenceId</td>
+                    <td>Status</td>
+                    <td>Started</td>
+                    <td>Total duration</td>
+                    <td>Execution mean duration</td>
+                    <td>Latest tag</td>
+                </tr>
+                </thead>
+                <tr ng-repeat="benchmarkRun in ::benchmarkRuns">
+                    <td><input type="checkbox" ng-model="benchmarkRun.addedToCompare" ng-change="addedToCompareChanged(benchmarkRun)"/></td>
+                    <td>{{benchmarkRuns.length - $index}}</td>
+                    <td><a ng-href="#/benchmark/{{benchmarkRun.uniqueName}}/{{benchmarkRun.sequenceId}}">{{benchmarkRun.sequenceId}}</a></td>
+                    <td>
+                        <span class="execution-status execution-status-{{::benchmarkRun.status}}">{{benchmarkRun.status}}</span>
+                    </td>
+                    <td>{{benchmarkRun.started | date : 'yyyy-MM-dd HH:mm:ss'}}</td>
+                    <td>{{benchmarkRun.ended ? ((benchmarkRun.ended - benchmarkRun.started) | duration) : 'Not finished'}}</td>
+                    <td ng-init="duration=benchmarkRun.aggregatedMeasurements.duration">
+                        <span ng-if="::benchmarkRun.status=='ENDED'">
+                            <strong>{{duration.mean | duration}}</strong> &#177; {{duration.stdDev | duration}} ({{duration.stdDevPercent | unit : 'PERCENT'}})
+                        </span>
+                    </td>
+                    <td><div title="{{benchmarkRun.tag.description}}">{{benchmarkRun.tag.name}}</div></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>

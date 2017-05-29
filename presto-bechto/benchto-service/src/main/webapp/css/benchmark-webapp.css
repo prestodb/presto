@@ -1,0 +1,71 @@
+/*
+ * Copyright 2013-2015, Teradata, Inc. All rights reserved.
+ */
+
+/* Move down content because we have a fixed navbar that is 50px tall */
+body {
+    padding-top: 50px;
+}
+
+/*
+ * Global add-ons
+ */
+
+.sub-header {
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/*
+ * Top navigation
+ * Hide default border to remove 1px line.
+ */
+.navbar-fixed-top {
+    border: 0;
+}
+
+body > div > div > form.filter-benchmarks {
+    margin-top: 15px;
+}
+
+div.table-responsive > table > thead > tr > td {
+    font-weight: bold;
+}
+
+.measurementGraph {
+    width: 100%;
+    height: 200px;
+}
+
+.execution-status {
+    font-weight: bold;
+}
+
+.execution-status-FAILED {
+    color: #c12e2a;
+}
+
+.execution-status-ENDED {
+    color: #3c763d;
+}
+
+.execution-status-STARTED {
+    color: #269abc;
+}
+
+img.progress-image {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 50px;
+}
+
+input.columnSelectCheckbox {
+    margin-left: 10px;
+}
+
+.nvd3.nv-line .nvd3.nv-scatter .nv-groups .nv-series-4 .nv-point {
+    fill-opacity: 1;
+    stroke-opacity: 1;
+    stroke-width: 5px;
+}

@@ -1,0 +1,302 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.teradata.benchto</groupId>
+    <artifactId>benchto-base</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>benchto-base</name>
+
+    <parent>
+        <groupId>io.airlift</groupId>
+        <artifactId>airbase</artifactId>
+        <version>54</version>
+    </parent>
+
+    <inceptionYear>2015</inceptionYear>
+
+    <licenses>
+        <license>
+            <name>Apache License 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <modules>
+        <module>benchto-service</module>
+    </modules>
+
+    <properties>
+        <java.version>1.8</java.version>
+
+        <encoding>UTF-8</encoding>
+
+        <project.build.sourceEncoding>${encoding}</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>${encoding}</project.reporting.outputEncoding>
+        <project.resources.sourceEncoding>${encoding}</project.resources.sourceEncoding>
+
+        <air.main.basedir>${project.basedir}</air.main.basedir>
+
+        <air.check.skip-extended>true</air.check.skip-extended>
+        <air.check.skip-license>false</air.check.skip-license>
+        <air.check.fail-license>true</air.check.fail-license>
+
+        <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
+        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
+
+        <air.check.fail-dependency>true</air.check.fail-dependency>
+
+        <air.check.fail-duplicate-finder>false</air.check.fail-duplicate-finder>
+
+        <dep.assertj.version>3.0.0</dep.assertj.version>
+        <dep.commons.cli>1.3.1</dep.commons.cli>
+        <dep.commons.math3>3.5</dep.commons.math3>
+        <dep.commons.io>2.4</dep.commons.io>
+        <dep.presto.jdbc.version>0.115</dep.presto.jdbc.version>
+        <dep.jackson.version>2.4.6</dep.jackson.version>
+        <dep.jsonpath.version>2.0.0</dep.jsonpath.version>
+        <dep.junit.version>4.12</dep.junit.version>
+        <dep.hsqldb.version>1.8.0.10</dep.hsqldb.version>
+        <dep.logback.version>1.1.3</dep.logback.version>
+        <dep.postgresql.jdbc.version>9.1-901-1.jdbc4</dep.postgresql.jdbc.version>
+        <dep.slf4j.version>1.7.21</dep.slf4j.version>
+        <dep.jadira.usertype>3.2.0.GA</dep.jadira.usertype>
+        <dep.jackson.hibernate>2.5.4</dep.jackson.hibernate>
+        <dep.freemarker>2.3.22</dep.freemarker>
+        <dep.mockito.version>1.10.19</dep.mockito.version>
+        <dep.javax.validation.api.version>1.1.0.Final</dep.javax.validation.api.version>
+        <dep.hibernate.validator.version>5.1.3.Final</dep.hibernate.validator.version>
+        <dep.aspectjweaver.version>1.8.9</dep.aspectjweaver.version>
+        <dep.javax.el>2.2.4</dep.javax.el>
+
+        <dep.hibernate.version>4.3.11.Final</dep.hibernate.version>
+        <dep.ehcache.version>2.6.9</dep.ehcache.version>
+
+        <dep.spring.boot.version>1.2.8.RELEASE</dep.spring.boot.version>
+        <dep.spring.retry.version>1.1.2.RELEASE</dep.spring.retry.version>
+        <dep.spring.version>4.3.11.Final</dep.spring.version>
+    </properties>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>nexus</id>
+            <url>http://phabricator.td.teradata.com:8081/nexus/content/repositories/snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
+
+    <dependencyManagement>
+        <dependencies>
+
+            <dependency>
+                <!-- Import dependency management from Spring Boot -->
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${dep.spring.boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Utils -->
+
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${dep.guava.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-math3</artifactId>
+                <version>${dep.commons.math3}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${dep.commons.io}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-cli</groupId>
+                <artifactId>commons-cli</artifactId>
+                <version>${dep.commons.cli}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jadira.usertype</groupId>
+                <artifactId>usertype.extended</artifactId>
+                <version>${dep.jadira.usertype}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-hibernate4</artifactId>
+                <version>${dep.jackson.hibernate}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.freemarker</groupId>
+                <artifactId>freemarker</artifactId>
+                <version>${dep.freemarker}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.aspectj</groupId>
+                <artifactId>aspectjweaver</artifactId>
+                <version>${dep.aspectjweaver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.validation</groupId>
+                <artifactId>validation-api</artifactId>
+                <version>${dep.javax.validation.api.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.hibernate</groupId>
+                <artifactId>hibernate-validator</artifactId>
+                <version>${dep.hibernate.validator.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.el</groupId>
+                <artifactId>javax.el-api</artifactId>
+                <version>${dep.javax.el}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.glassfish.web</groupId>
+                <artifactId>javax.el</artifactId>
+                <version>${dep.javax.el}</version>
+            </dependency>
+
+            <!-- Spring -->
+
+            <dependency>
+                <groupId>org.springframework.retry</groupId>
+                <artifactId>spring-retry</artifactId>
+                <version>${dep.spring.retry.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframeworkx</groupId>
+                <artifactId>spring-context</artifactId>
+                <version>${spring.version}</version>
+            </dependency>
+
+            <!-- Hiberante -->
+
+            <dependency>
+                <groupId>org.hibernate</groupId>
+                <artifactId>hibernate-core</artifactId>
+                <version>${dep.hibernate.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.hibernate</groupId>
+                <artifactId>hibernate-ehcache</artifactId>
+                <version>${dep.hibernate.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.sf.ehcache</groupId>
+                <artifactId>ehcache-core</artifactId>
+                <version>${dep.ehcache.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.hibernate.javax.persistence</groupId>
+                <artifactId>hibernate-jpa-2.1-api</artifactId>
+                <version>1.0.0.Final</version>
+            </dependency>
+
+            <!-- Drivers -->
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-jdbc</artifactId>
+                <version>${dep.presto.jdbc.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <scope>runtime</scope>
+                <version>${dep.postgresql.jdbc.version}</version>
+            </dependency>
+
+            <!-- Test -->
+
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${dep.junit.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>hamcrest-core</artifactId>
+                        <groupId>org.hamcrest</groupId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${dep.assertj.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.jayway.jsonpath</groupId>
+                <artifactId>json-path</artifactId>
+                <version>${dep.jsonpath.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.jayway.jsonpath</groupId>
+                <artifactId>json-path-assert</artifactId>
+                <version>${dep.jsonpath.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>hsqldb</groupId>
+                <artifactId>hsqldb</artifactId>
+                <version>${dep.hsqldb.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-all</artifactId>
+                <version>${dep.mockito.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>
