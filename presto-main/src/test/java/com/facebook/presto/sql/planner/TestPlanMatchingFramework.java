@@ -131,6 +131,15 @@ public class TestPlanMatchingFramework
     }
 
     @Test
+    public void testIdentityAliasFromProject()
+    {
+        assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
+                output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
+                        project(ImmutableMap.of("ORDERKEY", expression("ORDERKEY"), "EXPRESSION", expression("1 + ORDERKEY")),
+                                tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
+    }
+
+    @Test
     public void testTableScan()
     {
         assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
