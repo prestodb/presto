@@ -25,9 +25,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Optional;
-
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -37,20 +35,20 @@ public final class ScalarQueryUtil
 
     public static boolean isScalar(PlanNode node, Lookup lookup)
     {
-        return node.accept(new IsScalarPlanVisitor(Optional.ofNullable(lookup)), null);
+        return node.accept(new IsScalarPlanVisitor(lookup), null);
     }
 
     public static boolean isScalar(PlanNode node)
     {
-        return isScalar(node, null);
+        return isScalar(node, noLookup());
     }
 
     private static final class IsScalarPlanVisitor
             extends PlanVisitor<Boolean, Void>
     {
-        private final Optional<Lookup> lookup;
+        private final Lookup lookup;
 
-        public IsScalarPlanVisitor(Optional<Lookup> lookup)
+        public IsScalarPlanVisitor(Lookup lookup)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
         }
@@ -58,12 +56,13 @@ public final class ScalarQueryUtil
         @Override
         protected Boolean visitPlan(PlanNode node, Void context)
         {
-            if (node instanceof GroupReference) {
-                checkState(lookup.isPresent(), "Lookup has to be provided to test plans with GroupReference nodes");
-                return lookup.get().resolve(node).accept(this, null);
-            }
-
             return false;
+        }
+
+        @Override
+        public Boolean visitGroupReference(GroupReference node, Void context)
+        {
+            return lookup.resolve(node).accept(this, context);
         }
 
         @Override
