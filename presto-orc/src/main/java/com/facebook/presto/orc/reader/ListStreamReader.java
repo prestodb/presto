@@ -125,6 +125,10 @@ public class ListStreamReader
             offsets[i] = offsets[i - 1] + length;
         }
 
+        if (type.getTypeParameters().size() == 0) {
+            throw new OrcCorruptionException("List type does not have element type");
+        }
+
         Type elementType = type.getTypeParameters().get(0);
         int elementCount = offsets[offsets.length - 1];
 
