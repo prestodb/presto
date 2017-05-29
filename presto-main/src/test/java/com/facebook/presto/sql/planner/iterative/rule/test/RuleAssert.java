@@ -40,6 +40,7 @@ import java.util.function.Function;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
 public class RuleAssert
@@ -91,39 +92,35 @@ public class RuleAssert
 
     public void doesNotFire()
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-        Optional<PlanNode> result = inTransaction(session -> rule.apply(plan, x -> x, idAllocator, symbolAllocator, session));
+        RuleApplication ruleApplication = applyRule();
 
-        if (result.isPresent()) {
+        if (ruleApplication.wasRuleApplied()) {
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, symbolAllocator.getTypes(), metadata, costCalculator, session, 2))));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, costCalculator, session, 2))));
         }
     }
 
     public void matches(PlanMatchPattern pattern)
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-        Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(memo::resolve);
-        Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), lookup, idAllocator, symbolAllocator, session));
-        Map<Symbol, Type> types = symbolAllocator.getTypes();
+        RuleApplication ruleApplication = applyRule();
+        Map<Symbol, Type> types = ruleApplication.types;
 
-        if (!result.isPresent()) {
+        if (!ruleApplication.wasRuleApplied()) {
             fail(String.format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, costCalculator, session, 2))));
+                    formatPlan(plan, types)));
         }
 
-        PlanNode actual = result.get();
+        PlanNode actual = ruleApplication.getResult();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
             fail(String.format(
                     "%s: rule fired but return the original plan:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, costCalculator, session, 2))));
+                    formatPlan(plan, types)));
         }
 
         if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
@@ -138,9 +135,24 @@ public class RuleAssert
 
         inTransaction(session -> {
             Map<PlanNodeId, PlanNodeCost> planNodeCosts = costCalculator.calculateCostForPlan(session, types, actual);
-            assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), lookup, pattern);
+            assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), ruleApplication.lookup, pattern);
             return null;
         });
+    }
+
+    private RuleApplication applyRule()
+    {
+        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
+        Memo memo = new Memo(idAllocator, plan);
+        Lookup lookup = Lookup.from(memo::resolve);
+        Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), lookup, idAllocator, symbolAllocator, session));
+
+        return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
+    }
+
+    private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
+    {
+        return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, costCalculator, session, 2));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
@@ -152,5 +164,29 @@ public class RuleAssert
                     session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
+    }
+
+    private static class RuleApplication
+    {
+        private final Lookup lookup;
+        private final Map<Symbol, Type> types;
+        private final Optional<PlanNode> result;
+
+        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        {
+            this.lookup = requireNonNull(lookup, "lookup is null");
+            this.types = requireNonNull(types, "types is null");
+            this.result = requireNonNull(result, "result is null");
+        }
+
+        private boolean wasRuleApplied()
+        {
+            return result.isPresent();
+        }
+
+        public PlanNode getResult()
+        {
+            return result.orElseThrow(() -> new IllegalStateException("Rule was not applied"));
+        }
     }
 }
