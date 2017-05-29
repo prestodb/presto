@@ -73,11 +73,11 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.UnmodifiableIterator;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -371,40 +371,18 @@ class RelationPlanner
 
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
     {
-        RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
-        // Create symbols for the result of unnesting
-        ImmutableList.Builder<Symbol> unnestedSymbolsBuilder = ImmutableList.builder();
-        for (Field field : unnestOutputDescriptor.getVisibleFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            unnestedSymbolsBuilder.add(symbol);
-        }
-        ImmutableList<Symbol> unnestedSymbols = unnestedSymbolsBuilder.build();
-
-        // Add a projection for all the unnest arguments
         PlanBuilder planBuilder = initializePlanBuilder(leftPlan);
         planBuilder = planBuilder.appendProjections(node.getExpressions(), symbolAllocator, idAllocator);
-        TranslationMap translations = planBuilder.getTranslations();
         ProjectNode projectNode = (ProjectNode) planBuilder.getRoot();
 
-        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
-        UnmodifiableIterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
-        for (Expression expression : node.getExpressions()) {
-            Type type = analysis.getType(expression);
-            Symbol inputSymbol = translations.get(expression);
-            if (type instanceof ArrayType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
-            }
-            else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
-            }
-        }
-        Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
-        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
-
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestSymbols.build(), ordinalitySymbol);
+        UnnestRelationPlanner unnestRelationPlanner = new UnnestRelationPlanner(node, Optional.of(planBuilder.getTranslations()));
+        UnnestNode unnestNode = new UnnestNode(
+                idAllocator.getNextId(),
+                projectNode,
+                leftPlan.getFieldMappings(),
+                unnestRelationPlanner.getUnnestSymbols(),
+                unnestRelationPlanner.getOrdinalitySymbol(),
+                node.isUnnestTable());
         return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputSymbols());
     }
 
@@ -448,7 +426,7 @@ class RelationPlanner
             }
             else {
                 row = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), row);
-                Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
+                Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis .getParameters());
                 values.add(LiteralInterpreter.toExpression(constantValue, scope.getRelationType().getFieldByIndex(0).getType()));
             }
 
@@ -463,36 +441,21 @@ class RelationPlanner
     protected RelationPlan visitUnnest(Unnest node, Void context)
     {
         Scope scope = analysis.getScope(node);
-        List<Symbol> unnestedSymbols = getOutputSymbols(node);
 
-        // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
-        ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
-        ImmutableList.Builder<Expression> values = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
-        Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
-        for (Expression expression : node.getExpressions()) {
-            expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
-            Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
-            Type type = analysis.getType(expression);
-            values.add(LiteralInterpreter.toExpression(constantValue, type));
-            Symbol inputSymbol = symbolAllocator.newSymbol(expression, type);
-            argumentSymbols.add(inputSymbol);
-            if (type instanceof ArrayType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
-            }
-            else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
-            }
-        }
-        Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
-        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.of(values.build()));
+        UnnestRelationPlanner unnestRelationPlanner = new UnnestRelationPlanner(node, Optional.empty());
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol);
-        return new RelationPlan(unnestNode, scope, unnestedSymbols);
+        ValuesNode valuesNode = new ValuesNode(
+                idAllocator.getNextId(),
+                unnestRelationPlanner.getArgumentSymbols(),
+                ImmutableList.of(unnestRelationPlanner.getValues()));
+        UnnestNode unnestNode = new UnnestNode(
+                idAllocator.getNextId(),
+                valuesNode,
+                ImmutableList.of(),
+                unnestRelationPlanner.getUnnestSymbols(),
+                unnestRelationPlanner.getOrdinalitySymbol(),
+                node.isUnnestTable());
+        return new RelationPlan(unnestNode, scope, unnestRelationPlanner.getUnnestedSymbols());
     }
 
     private List<Symbol> getOutputSymbols(Node node)
@@ -653,6 +616,77 @@ class RelationPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    private class UnnestRelationPlanner
+    {
+        private final Optional<Symbol> ordinalitySymbol;
+        private final ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
+        private final ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
+        private final ImmutableList.Builder<Expression> values = ImmutableList.builder();
+        private final List<Symbol> unnestedSymbols;
+        private final boolean constantInput;
+
+        public UnnestRelationPlanner(Unnest node, Optional<TranslationMap> translations)
+        {
+            this.constantInput = !translations.isPresent();
+            unnestedSymbols = getOutputSymbols(node);
+            Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
+            for (Expression expression : node.getExpressions()) {
+                Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
+                Type type = analysis.getType(rewrittenExpression);
+                if (constantInput) {
+                    Object constantValue = evaluateConstantExpression(
+                            rewrittenExpression,
+                            analysis.getCoercions(),
+                            metadata,
+                            session,
+                            analysis.getColumnReferences(),
+                            analysis.getParameters());
+                    values.add(LiteralInterpreter.toExpression(constantValue, type));
+                }
+                Symbol inputSymbol = translations.map(translationMap -> translationMap.get(rewrittenExpression))
+                        .orElseGet(() -> symbolAllocator.newSymbol(rewrittenExpression, type));
+                argumentSymbols.add(inputSymbol);
+                if (type instanceof ArrayType) {
+                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                }
+                else if (type instanceof MapType) {
+                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
+                }
+                else {
+                    throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
+                }
+            }
+            ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
+            checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
+        }
+
+        public Map<Symbol, List<Symbol>> getUnnestSymbols()
+        {
+            return unnestSymbols.build();
+        }
+
+        public List<Symbol> getArgumentSymbols()
+        {
+            return argumentSymbols.build();
+        }
+
+        public Optional<Symbol> getOrdinalitySymbol()
+        {
+            return ordinalitySymbol;
+        }
+
+        public List<Expression> getValues()
+        {
+            checkState(constantInput, "Values are present only when Unnest has constant input");
+            return values.build();
+        }
+
+        public List<Symbol> getUnnestedSymbols()
+        {
+            return unnestedSymbols;
+        }
     }
 
     private static class SetOperationPlan
