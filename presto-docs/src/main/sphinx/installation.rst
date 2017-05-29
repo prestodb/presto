@@ -11,3 +11,4 @@ Installation
     installation/verifier
     installation/benchmark-driver
     installation/tableau
+    installation/ldap
