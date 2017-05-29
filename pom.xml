@@ -919,6 +919,39 @@
                     </configuration>
                 </plugin>
 
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>2.6</version>
+                    <configuration>
+                        <skipIfEmpty>true</skipIfEmpty>
+                        <archive>
+                            <manifest>
+                                <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                                <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                            </manifest>
+                            <manifestEntries>
+                                <!-- This is actually the time when the build was done -->
+                                <Build-Time>${git.build.time}</Build-Time>
+                                <Git-Commit-Id>${git.commit.id}</Git-Commit-Id>
+                                <Implementation-Version>${git.commit.id.describe}</Implementation-Version>
+                            </manifestEntries>
+                        </archive>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>pl.project13.maven</groupId>
+                    <artifactId>git-commit-id-plugin</artifactId>
+                    <version>2.1.13</version>
+                    <configuration>
+                        <dateFormat>yyyy-MM-dd'T'HH:mm:ssZZ</dateFormat>
+                        <gitDescribe>
+                            <tags>true</tags>
+                        </gitDescribe>
+                    </configuration>
+                </plugin>
+
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
                 <plugin>
                     <!--suppress MavenModelInspection -->
@@ -1090,6 +1123,21 @@
                     <fork>false</fork>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 
