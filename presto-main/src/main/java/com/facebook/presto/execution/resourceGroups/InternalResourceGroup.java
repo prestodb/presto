@@ -593,6 +593,7 @@ public class InternalResourceGroup
                     subGroup.internalRefreshStats();
                     cachedMemoryUsageBytes += subGroup.cachedMemoryUsageBytes;
                     if (!subGroup.isDirty()) {
+                        subGroup.updateEligiblility(); // final check if there's QUEUED queries
                         iterator.remove();
                     }
                     if (oldMemoryUsageBytes != subGroup.cachedMemoryUsageBytes) {
