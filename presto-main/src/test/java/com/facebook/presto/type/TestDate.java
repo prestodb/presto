@@ -76,6 +76,37 @@ public class TestDate
     }
 
     @Test
+    public void testWrongLiteral()
+    {
+        // just a random value. we're expecting exception here
+        long millis = new DateTime(1999, 1, 22, 0, 0, UTC).getMillis();
+        SqlDate sqlDate = new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis));
+        try {
+            // fail anyway by assertion if this operation is successful
+            assertFunction("DATE '0000-12-31'", DATE, sqlDate);
+        }
+        catch (Exception e) {
+            // ignore exception
+        }
+
+        try {
+            // fail anyway by assertion if this operation is successful
+            assertFunction("DATE '2015-02-29'", DATE, sqlDate);
+        }
+        catch (Exception e) {
+            // ignore exception
+        }
+
+        try {
+            // fail anyway by assertion if this operation is successful
+            assertFunction("DATE '2016-12-32'", DATE, sqlDate);
+        }
+        catch (Exception e) {
+            // ignore exception
+        }
+    }
+
+    @Test
     public void testEqual()
             throws Exception
     {
