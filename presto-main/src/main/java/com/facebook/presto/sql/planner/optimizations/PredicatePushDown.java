@@ -71,6 +71,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -276,7 +277,22 @@ public class PredicatePushDown
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Expression> context)
         {
-            return context.rewrite(node.getSource(), combineConjuncts(node.getPredicate(), context.get()));
+            // only pushdown deterministic predicate
+            Expression predicate = node.getPredicate();
+
+            Expression nonDeterministicPredicate = stripDeterministicConjuncts(predicate);
+            if (nonDeterministicPredicate == BooleanLiteral.TRUE_LITERAL) {
+                return context.rewrite(node.getSource(), combineConjuncts(node.getPredicate(), context.get()));
+            }
+
+            Expression pushDownPredicate = context.get();
+            Expression deterministicPredicate = stripNonDeterministicConjuncts(predicate);
+            if (deterministicPredicate != BooleanLiteral.TRUE_LITERAL) {
+                pushDownPredicate = combineConjuncts(deterministicPredicate, context.get());
+            }
+
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), pushDownPredicate);
+            return new FilterNode(idAllocator.getNextId(), rewrittenSource, nonDeterministicPredicate);
         }
 
         @Override
