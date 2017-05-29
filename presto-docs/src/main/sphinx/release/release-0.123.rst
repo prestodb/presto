@@ -6,6 +6,8 @@ General Changes
 ---------------
 
 * Remove ``node-scheduler.location-aware-scheduling-enabled`` config.
+* Fix bug in :func:`histogram` which causes NullPointerExceptions and in some 
+  cases produces incorrect results
 * Fixed query failures that occur when the ``optimizer.optimize-hash-generation``
   config is disabled.
 * Fix exception when using the ``ResultSet`` returned from the
