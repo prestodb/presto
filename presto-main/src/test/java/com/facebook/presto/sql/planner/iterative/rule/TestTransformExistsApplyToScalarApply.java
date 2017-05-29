@@ -75,26 +75,6 @@ public class TestTransformExistsApplyToScalarApply
                                 p.values(p.symbol("a", BIGINT)))
                 )
                 .doesNotFire();
-
-        tester.assertThat(transformExistsApplyToScalarApply)
-                .on(p ->
-                        p.apply(
-                                Assignments.identity(p.symbol("a", BIGINT)),
-                                ImmutableList.of(p.symbol("a", BIGINT)),
-                                p.values(p.symbol("a", BIGINT)),
-                                p.values(p.symbol("a", BIGINT)))
-                )
-                .doesNotFire();
-
-        tester.assertThat(transformExistsApplyToScalarApply)
-                .on(p ->
-                        p.apply(
-                                Assignments.of(p.symbol("b", BOOLEAN), expression("\"a\"")),
-                                ImmutableList.of(),
-                                p.values(),
-                                p.values(p.symbol("a", BIGINT)))
-                )
-                .doesNotFire();
     }
 
     @Test
