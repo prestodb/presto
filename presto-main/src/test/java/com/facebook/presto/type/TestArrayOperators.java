@@ -582,6 +582,7 @@ public class TestArrayOperators
             throws Exception
     {
         assertFunction("ARRAY_DISTINCT(ARRAY [])", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("ARRAY_DISTINCT(ARRAY [cast(5 as bigint), NULL, cast(12 as bigint), NULL])", new ArrayType(BIGINT), asList(5L, null, 12L));
 
         // Order matters here. Result should be stable.
         assertFunction("ARRAY_DISTINCT(ARRAY [2, 3, 4, 3, 1, 2, 3])", new ArrayType(INTEGER), ImmutableList.of(2, 3, 4, 1));
