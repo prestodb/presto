@@ -6998,7 +6998,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testCorrelatedScalarSubqueries()
     {
-        String errorMsg = "Unsupported correlated subquery type";
+        String errorMsg = "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode";
 
         assertQueryFails("SELECT (SELECT l.orderkey) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
@@ -7036,7 +7036,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT count(*) FROM nation n WHERE " +
                         "(SELECT count(*) FROM (SELECT count(*) FROM region r WHERE n.regionkey = r.regionkey)) > 1",
-                "Unsupported correlated subquery type");
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
 
         // with duplicated rows
         assertQuery(
@@ -7239,11 +7239,11 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT count(*) FROM orders o " +
                         "WHERE EXISTS (SELECT avg(l.orderkey) FROM lineitem l WHERE o.orderkey = l.orderkey GROUP BY l.linenumber)",
-                "Unsupported correlated subquery type");
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
         assertQueryFails(
                 "SELECT count(*) FROM orders o " +
                         "WHERE EXISTS (SELECT count(*) FROM lineitem l WHERE o.orderkey = l.orderkey HAVING count(*) > 3)",
-                "Unsupported correlated subquery type");
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
 
         // with duplicated rows
         assertQuery(
@@ -7345,7 +7345,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testUnsupportedCorrelatedExistsSubqueries()
     {
-        String errorMsg = "Unsupported correlated subquery type";
+        String errorMsg = "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode";
 
         assertQueryFails("SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
@@ -8764,7 +8764,7 @@ public abstract class AbstractTestQueries
                 "SELECT (SELECT true FROM (SELECT 1) t(a) WHERE a = nationkey) " +
                         "FROM nation " +
                         "WHERE (SELECT true FROM (SELECT 1) t(a) WHERE a = nationkey) OR TRUE",
-                "Unsupported correlated subquery type");
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
     }
 
     @Test

@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -218,7 +219,7 @@ public class TestLogicalPlanner
     @Test
     public void testRemoveUnreferencedScalarInputApplyNodes()
     {
-        assertPlanContainsNoApplyOrJoin("SELECT (SELECT 1)");
+        assertPlanContainsNoApplyOrAnyJoin("SELECT (SELECT 1)");
     }
 
     @Test
@@ -231,10 +232,10 @@ public class TestLogicalPlanner
 
         queryTemplate("SELECT COUNT(*) FROM (SELECT %subquery% FROM orders)")
                 .replaceAll(subqueries)
-                .forEach(this::assertPlanContainsNoApplyOrJoin);
+                .forEach(this::assertPlanContainsNoApplyOrAnyJoin);
 
         // TODO enable when pruning apply nodes works for this kind of query
-        // assertPlanContainsNoApplyOrJoin("SELECT * FROM orders WHERE true OR " + subquery);
+        // assertPlanContainsNoApplyOrAnyJoin("SELECT * FROM orders WHERE true OR " + subquery);
     }
 
     @Test
@@ -253,11 +254,11 @@ public class TestLogicalPlanner
         );
     }
 
-    private void assertPlanContainsNoApplyOrJoin(String sql)
+    private void assertPlanContainsNoApplyOrAnyJoin(String sql)
     {
         assertFalse(
                 searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class))
+                        .where(isInstanceOfAny(ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class))
                         .matches(),
                 "Unexpected node for query: " + sql);
     }
