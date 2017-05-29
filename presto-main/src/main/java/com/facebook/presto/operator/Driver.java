@@ -284,7 +284,7 @@ public class Driver
             }
 
             boolean movedPage = false;
-            for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
+            for (int i = 0, length = operators.size() - 1; i < length && !driverContext.isDone(); i++) {
                 Operator current = operators.get(i);
                 Operator next = operators.get(i + 1);
 
