@@ -22,14 +22,26 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * For every row from {@link #input} a {@link #subquery} relation is calculated.
+ * Then input row is cross joined with subquery relation and returned as a result.
+ *
+ * INNER - does not return any row for input row when subquery relation is empty
+ * LEFT - does return input completed with NULL values when subquery relation is empty
+ */
 @Immutable
-public class ApplyNode
+public class LateralJoinNode
         extends PlanNode
 {
+    public enum Type
+    {
+        INNER,
+        LEFT
+    }
+
     private final PlanNode input;
     private final PlanNode subquery;
 
@@ -37,51 +49,27 @@ public class ApplyNode
      * Correlation symbols, returned from input (outer plan) used in subquery (inner plan)
      */
     private final List<Symbol> correlation;
-
-    /**
-     * Expressions that use subquery symbols.
-     * <p>
-     * Subquery expressions are different than other expressions
-     * in a sense that they might use an entire subquery result
-     * as an input (e.g: "x IN (subquery)", "x < ALL (subquery)").
-     * Such expressions are invalid in linear operator context
-     * (e.g: ProjectNode) in logical plan, but are correct in
-     * ApplyNode context.
-     * <p>
-     * Example 1:
-     * - expression: input_symbol_X IN (subquery_symbol_Y)
-     * - meaning: if set consisting of all values for subquery_symbol_Y contains value represented by input_symbol_X
-     * <p>
-     * Example 2:
-     * - expression: input_symbol_X < ALL (subquery_symbol_Y)
-     * - meaning: if input_symbol_X is smaller than all subquery values represented by subquery_symbol_Y
-     * <p>
-     * Example 3:
-     * - expression: subquery_symbol_Y
-     * - meaning: subquery is scalar (might be enforced), therefore subquery_symbol_Y can be used directly in the rest of the plan
-     */
-    private final Assignments subqueryAssignments;
+    private final Type type;
 
     @JsonCreator
-    public ApplyNode(
+    public LateralJoinNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
-            @JsonProperty("subqueryAssignments") Assignments subqueryAssignments,
-            @JsonProperty("correlation") List<Symbol> correlation)
+            @JsonProperty("correlation") List<Symbol> correlation,
+            @JsonProperty("type") Type type)
     {
         super(id);
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "right is null");
-        requireNonNull(subqueryAssignments, "assignments is null");
         requireNonNull(correlation, "correlation is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
 
         this.input = input;
         this.subquery = subquery;
-        this.subqueryAssignments = subqueryAssignments;
         this.correlation = ImmutableList.copyOf(correlation);
+        this.type = type;
     }
 
     @JsonProperty("input")
@@ -96,16 +84,16 @@ public class ApplyNode
         return subquery;
     }
 
-    @JsonProperty("subqueryAssignments")
-    public Assignments getSubqueryAssignments()
-    {
-        return subqueryAssignments;
-    }
-
     @JsonProperty("correlation")
     public List<Symbol> getCorrelation()
     {
         return correlation;
+    }
+
+    @JsonProperty("type")
+    public Type getType()
+    {
+        return type;
     }
 
     @Override
@@ -120,20 +108,20 @@ public class ApplyNode
     {
         return ImmutableList.<Symbol>builder()
                 .addAll(input.getOutputSymbols())
-                .addAll(subqueryAssignments.getOutputs())
+                .addAll(subquery.getOutputSymbols())
                 .build();
-    }
-
-    @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitApply(this, context);
     }
 
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new ApplyNode(getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation);
+        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type);
+    }
+
+    @Override
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitLateralJoin(this, context);
     }
 }
