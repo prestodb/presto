@@ -44,7 +44,7 @@ public class LookupOuterOperator
         private final List<Type> types;
         private final List<Type> probeOutputTypes;
         private final List<Type> buildOutputTypes;
-        private final Runnable onOperatorClose;
+        private final ReferenceCount referenceCount;
         private State state = State.NOT_CREATED;
 
         public LookupOuterOperatorFactory(
@@ -53,14 +53,14 @@ public class LookupOuterOperator
                 ListenableFuture<OuterPositionIterator> outerPositionsFuture,
                 List<Type> probeOutputTypes,
                 List<Type> buildOutputTypes,
-                Runnable onOperatorClose)
+                ReferenceCount referenceCount)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.outerPositionsFuture = requireNonNull(outerPositionsFuture, "outerPositionsFuture is null");
             this.probeOutputTypes = ImmutableList.copyOf(requireNonNull(probeOutputTypes, "probeOutputTypes is null"));
             this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
-            this.onOperatorClose = requireNonNull(onOperatorClose, "referenceCount is null");
+            this.referenceCount = requireNonNull(referenceCount, "referenceCount is null");
 
             this.types = ImmutableList.<Type>builder()
                     .addAll(probeOutputTypes)
@@ -86,7 +86,8 @@ public class LookupOuterOperator
             state = State.CREATED;
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupOuterOperator.class.getSimpleName());
-            return new LookupOuterOperator(operatorContext, outerPositionsFuture, probeOutputTypes, buildOutputTypes, onOperatorClose);
+            referenceCount.retain();
+            return new LookupOuterOperator(operatorContext, outerPositionsFuture, probeOutputTypes, buildOutputTypes, referenceCount::release);
         }
 
         @Override
@@ -96,7 +97,7 @@ public class LookupOuterOperator
                 return;
             }
             state = State.CLOSED;
-            onOperatorClose.run();
+            referenceCount.release();
         }
 
         @Override
