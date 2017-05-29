@@ -584,7 +584,7 @@ public class AccumulatorCompiler
             loopBody = new BytecodeBlock().append(ifStatement);
         }
 
-        body.append(generateBlockNonNullPositionForLoop(scope, position, loopBody))
+        body.append(generateBlockPositionForLoop(scope, position, loopBody))
                 .ret();
     }
 
@@ -645,6 +645,30 @@ public class AccumulatorCompiler
                         .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
                 .body(ifStatement));
+
+        return block;
+    }
+
+    // Generates a for-loop with a local variable named "position" defined, with the current position in the block,
+    // loopBody will be executed for both null and non-null positions in the Block
+    private static BytecodeBlock generateBlockPositionForLoop(Scope scope, Variable positionVariable, BytecodeBlock loopBody)
+    {
+        Variable rowsVariable = scope.declareVariable(int.class, "rows");
+        Variable blockVariable = scope.getVariable("block");
+
+        BytecodeBlock block = new BytecodeBlock()
+                .append(blockVariable)
+                .invokeInterface(Block.class, "getPositionCount", int.class)
+                .putVariable(rowsVariable);
+
+        block.append(new ForLoop()
+                .initialize(positionVariable.set(constantInt(0)))
+                .condition(new BytecodeBlock()
+                        .append(positionVariable)
+                        .append(rowsVariable)
+                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
+                .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
+                .body(loopBody));
 
         return block;
     }

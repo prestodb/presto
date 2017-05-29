@@ -133,7 +133,14 @@ public class MapAggregationFunction
 
     public static void combine(KeyValuePairsState state, KeyValuePairsState otherState)
     {
-        if (state.get() != null && otherState.get() != null) {
+        if (otherState.get() == null) {
+            return;
+        }
+
+        if (state.get() == null) {
+            state.set(otherState.get());
+        }
+        else {
             Block keys = otherState.get().getKeys();
             Block values = otherState.get().getValues();
             KeyValuePairs pairs = state.get();
@@ -147,9 +154,6 @@ public class MapAggregationFunction
                 }
             }
             state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
-        }
-        else if (state.get() == null) {
-            state.set(otherState.get());
         }
     }
 

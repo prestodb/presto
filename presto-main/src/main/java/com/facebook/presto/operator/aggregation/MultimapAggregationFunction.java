@@ -133,7 +133,14 @@ public class MultimapAggregationFunction
 
     public static void combine(MultiKeyValuePairsState state, MultiKeyValuePairsState otherState)
     {
-        if (state.get() != null && otherState.get() != null) {
+        if (otherState.get() == null) {
+            return;
+        }
+
+        if (state.get() == null) {
+            state.set(otherState.get());
+        }
+        else {
             Block keys = otherState.get().getKeys();
             Block values = otherState.get().getValues();
             MultiKeyValuePairs pairs = state.get();
@@ -147,9 +154,6 @@ public class MultimapAggregationFunction
                 }
             }
             state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
-        }
-        else if (state.get() == null) {
-            state.set(otherState.get());
         }
     }
 

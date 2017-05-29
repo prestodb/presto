@@ -133,7 +133,14 @@ public class Histogram
 
     public static void combine(HistogramState state, HistogramState otherState)
     {
-        if (state.get() != null && otherState.get() != null) {
+        if (otherState.get() == null) {
+            return;
+        }
+
+        if (state.get() == null) {
+            state.set(otherState.get());
+        }
+        else {
             TypedHistogram typedHistogram = state.get();
             long startSize = typedHistogram.getEstimatedSize();
             try {
@@ -143,9 +150,6 @@ public class Histogram
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of histogram may not exceed %s", e.getMaxMemory()));
             }
             state.addMemoryUsage(typedHistogram.getEstimatedSize() - startSize);
-        }
-        else if (state.get() == null) {
-            state.set(otherState.get());
         }
     }
 
