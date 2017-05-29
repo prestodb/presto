@@ -1,0 +1,99 @@
+@import url("theme.css");
+
+html {
+  background: #eee;
+  -webkit-font-smoothing: antialiased;
+}
+
+body,
+h1, h2, .rst-content .toctree-wrapper p.caption, h3, h4, h5, h6, legend {
+    font-family: 'Helvetica Neue', Helvetica, Arial, 'lucida grande', tahoma, verdana, arial, sans-serif;
+    color: #222222;
+}
+h1, h2, .rst-content .toctree-wrapper p.caption, h3, h4, h5, h6, legend {
+  font-weight: 500;
+}
+a:visited {
+  color: inherit;
+}
+/* Sidenav */
+.wy-nav-side {
+  box-shadow: 0 2px 4px -1px rgba(0,0,0,.14),0 4px 5px 0 rgba(0,0,0,.098),0 1px 10px 0 rgba(0,0,0,.084);
+}
+.wy-side-nav-search,
+.wy-nav-side {
+  background: #FFF;
+}
+.wy-side-nav-search,
+.wy-nav-side,
+.wy-side-nav-search>a,
+.wy-side-nav-search>div.version,
+.wy-menu-vertical a {
+  color: rgba(0,0,0,0.87);
+}
+.wy-side-nav-search input[type=text] {
+  width: 100%;
+  border-radius: 0;
+  padding: 6px 12px;
+  border-color: #eee;
+  box-shadow: 0 1px 3px 0 rgba(0,0,0,.2),0 1px 1px 0 rgba(0,0,0,.14),0 2px 1px -1px rgba(0,0,0,.12);
+}
+.wy-menu-vertical a {
+  font-size: 16px;
+  line-height: 40px;
+}
+.wy-menu-vertical a:hover {
+  background-color: #dedede;
+}
+.wy-menu-vertical a:active {
+  background-color: #ccc;
+}
+.wy-side-nav-search {
+  text-align: left;
+}
+
+/* Toolbar */
+.wy-nav-top {
+  display: block;;
+  background: #f57c00;
+  color: #fff;
+  box-shadow: 0 3px 1px -2px rgba(0,0,0,.14),0 2px 2px 0 rgba(0,0,0,.098),0 1px 5px 0 rgba(0,0,0,.084);
+  padding: 0 16px;
+  position: relative;
+  line-height: 64px;
+  text-align: left;
+  font-size: 100%;
+}
+  .wy-nav-top a {
+    font-size: 20px;
+  }
+  .wy-nav-top i {
+    font-size: 20px;
+    padding-top: 22px;
+    margin-right: 20px;
+    margin-left: 10px;
+  }
+  @media (min-width: 769px) {
+    .wy-nav-top i {
+      display: none;
+    }
+  }
+
+/* Content */
+.wy-nav-content-wrap {
+  background: #eee;
+}
+.wy-nav-content {
+  padding: 20px;
+}
+.rst-content {
+  background-color: #fff;
+  padding: 20px;
+  box-shadow: 0 3px 1px -2px rgba(0,0,0,.14),0 2px 2px 0 rgba(0,0,0,.098),0 1px 5px 0 rgba(0,0,0,.084);
+  border-radius: 2px;
+}
+
+/* hide children of Release Notes */
+div.toctree-wrapper > ul > li:last-child > ul {
+    display: none;
+}
