@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
@@ -108,7 +109,7 @@ public class TransformCorrelatedScalarAggregationToJoin
                         .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
                         .findFirst();
                 if (aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty()) {
-                    ScalarAggregationToJoinRewriter scalarAggregationToJoinRewriter = new ScalarAggregationToJoinRewriter(functionRegistry, symbolAllocator, idAllocator);
+                    ScalarAggregationToJoinRewriter scalarAggregationToJoinRewriter = new ScalarAggregationToJoinRewriter(functionRegistry, symbolAllocator, idAllocator, noLookup());
                     return scalarAggregationToJoinRewriter.rewriteScalarAggregation(rewrittenNode, aggregation.get());
                 }
             }
