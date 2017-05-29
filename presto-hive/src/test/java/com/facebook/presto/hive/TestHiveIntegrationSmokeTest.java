@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -108,9 +109,9 @@ public class TestHiveIntegrationSmokeTest
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
     }
 
-    protected List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
+    protected List<?> getPartitions(ConnectorTableLayoutHandle tableLayoutHandle)
     {
-        return tableLayoutHandle.getPartitions().get();
+        return ((HiveTableLayoutHandle) tableLayoutHandle).getPartitions().get();
     }
 
     @Test
