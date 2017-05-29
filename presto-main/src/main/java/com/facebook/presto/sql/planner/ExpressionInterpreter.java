@@ -23,6 +23,7 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -1170,6 +1171,12 @@ public class ExpressionInterpreter
             catch (RuntimeException e) {
                 if (node.isSafe()) {
                     return null;
+                }
+                if (e instanceof PrestoException) {
+                    PrestoException pe = (PrestoException) e;
+                    if (pe.getErrorCode() == StandardErrorCode.INVALID_CAST_ARGUMENT.toErrorCode()) {
+                        throw new PrestoCastException(pe.getMessage(), pe.getCause(), node);
+                    }
                 }
                 throw e;
             }
