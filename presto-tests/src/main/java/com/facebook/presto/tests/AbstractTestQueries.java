@@ -3357,6 +3357,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testNonEquiOuterJoin()
+            throws Exception
+    {
+        assertQuery("SELECT * " +
+                "FROM (VALUES (1, 'aa'), (2, 'ef'), (3, 'cc')) s(x, y) " +
+                "LEFT OUTER JOIN " +
+                " (VALUES (1, 'a'), (2, 'b'), (3, 'c')) t(u, v) " +
+                "ON " +
+                " s.x = t.u AND concat(s.y, t.v) = 'aaa'",
+                "SELECT * FROM (VALUES (1, 'aa', 1, 'a'), (2, 'ef', NULL, NULL), (3, 'cc', NULL, NULL))");
+    }
+
+    @Test
     public void testOuterJoinWithNullsOnProbe()
     {
         assertQuery(
