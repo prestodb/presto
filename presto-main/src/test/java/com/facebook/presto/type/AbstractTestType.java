@@ -281,7 +281,9 @@ public abstract class AbstractTestType
             }
             try {
                 type.getObject(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
+                if (type != UuidType.UUID_TYPE) {
+                    fail("Expected IllegalStateException or UnsupportedOperationException");
+                }
             }
             catch (IllegalStateException | UnsupportedOperationException expected) {
             }
