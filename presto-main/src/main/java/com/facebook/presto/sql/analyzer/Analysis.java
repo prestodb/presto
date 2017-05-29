@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayDeque;
@@ -58,6 +59,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -65,6 +67,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Analysis
 {
+    @Nullable
     private final Statement root;
     private final List<Expression> parameters;
     private String updateType;
@@ -95,7 +98,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
-    private final Map<NodeRef<Relation>, Type[]> relationCoercions = new LinkedHashMap<>();
+    private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<FunctionCall>, Signature> functionSignature = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
@@ -120,12 +123,12 @@ public class Analysis
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
 
-    public Analysis(Statement root, List<Expression> parameters, boolean isDescribe)
+    public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
         requireNonNull(parameters);
 
         this.root = root;
-        this.parameters = parameters;
+        this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
         this.isDescribe = isDescribe;
     }
 
@@ -166,7 +169,7 @@ public class Analysis
 
     public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)
     {
-        this.aggregates.put(NodeRef.of(node), aggregates);
+        this.aggregates.put(NodeRef.of(node), ImmutableList.copyOf(aggregates));
     }
 
     public List<FunctionCall> getAggregates(QuerySpecification query)
@@ -186,7 +189,7 @@ public class Analysis
 
     public Map<NodeRef<Expression>, Type> getTypes()
     {
-        return types;
+        return unmodifiableMap(types);
     }
 
     public Type getType(Expression expression)
@@ -208,17 +211,19 @@ public class Analysis
 
     public Type[] getRelationCoercion(Relation relation)
     {
-        return relationCoercions.get(NodeRef.of(relation));
+        return Optional.ofNullable(relationCoercions.get(NodeRef.of(relation)))
+                .map(types -> types.stream().toArray(Type[]::new))
+                .orElse(null);
     }
 
     public void addRelationCoercion(Relation relation, Type[] types)
     {
-        relationCoercions.put(NodeRef.of(relation), types);
+        relationCoercions.put(NodeRef.of(relation), ImmutableList.copyOf(types));
     }
 
     public Map<NodeRef<Expression>, Type> getCoercions()
     {
-        return coercions;
+        return unmodifiableMap(coercions);
     }
 
     public Type getCoercion(Expression expression)
@@ -238,12 +243,15 @@ public class Analysis
 
     public Map<NodeRef<Identifier>, LambdaArgumentDeclaration> getLambdaArgumentReferences()
     {
-        return lambdaArgumentReferences;
+        return unmodifiableMap(lambdaArgumentReferences);
     }
 
     public void setGroupingSets(QuerySpecification node, List<List<Expression>> expressions)
     {
-        groupByExpressions.put(NodeRef.of(node), expressions);
+        groupByExpressions.put(NodeRef.of(node),
+                expressions.stream()
+                        .map(ImmutableList::copyOf)
+                        .collect(toImmutableList()));
     }
 
     public boolean isTypeOnlyCoercion(Expression expression)
@@ -268,7 +276,7 @@ public class Analysis
 
     public void setOrderByExpressions(Node node, List<Expression> items)
     {
-        orderByExpressions.put(NodeRef.of(node), items);
+        orderByExpressions.put(NodeRef.of(node), ImmutableList.copyOf(items));
     }
 
     public List<Expression> getOrderByExpressions(Node node)
@@ -278,7 +286,7 @@ public class Analysis
 
     public void setOutputExpressions(Node node, List<Expression> expressions)
     {
-        outputExpressions.put(NodeRef.of(node), expressions);
+        outputExpressions.put(NodeRef.of(node), ImmutableList.copyOf(expressions));
     }
 
     public List<Expression> getOutputExpressions(Node node)
@@ -339,7 +347,7 @@ public class Analysis
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
     {
-        windowFunctions.put(NodeRef.of(node), functions);
+        windowFunctions.put(NodeRef.of(node), ImmutableList.copyOf(functions));
     }
 
     public List<FunctionCall> getWindowFunctions(QuerySpecification query)
@@ -404,7 +412,7 @@ public class Analysis
 
     public Collection<TableHandle> getTables()
     {
-        return tables.values();
+        return unmodifiableCollection(tables.values());
     }
 
     public void registerTable(Table table, TableHandle handle)
@@ -478,7 +486,7 @@ public class Analysis
 
     public void setCreateTableProperties(Map<String, Expression> createTableProperties)
     {
-        this.createTableProperties = createTableProperties;
+        this.createTableProperties = ImmutableMap.copyOf(createTableProperties);
     }
 
     public Map<String, Expression> getCreateTableProperties()
