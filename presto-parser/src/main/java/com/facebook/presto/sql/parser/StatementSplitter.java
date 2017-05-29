@@ -83,7 +83,7 @@ public class StatementSplitter
             if (token.getType() == SqlBaseLexer.WS) {
                 sb.append(' ');
             }
-            else {
+            else if (token.getType() != SqlBaseLexer.SIMPLE_COMMENT) {
                 sb.append(token.getText());
             }
         }

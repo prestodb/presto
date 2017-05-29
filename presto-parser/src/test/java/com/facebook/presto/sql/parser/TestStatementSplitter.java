@@ -239,6 +239,20 @@ public class TestStatementSplitter
         assertEquals(squeezeStatement(sql), "select * from z#oops");
     }
 
+    @Test
+    public void testSqueezeStatementHyphenComments()
+    {
+        String sql = "select -- /* foo\n1";
+        assertEquals(squeezeStatement(sql), "select 1");
+    }
+
+    @Test
+    public void testSqueezeStatementCStyleComments()
+    {
+        String sql = "select /* /* -- foo \n*/ 1";
+        assertEquals(squeezeStatement(sql), "select /* /* -- foo \n*/ 1");
+    }
+
     private static List<Statement> statements(String... args)
     {
         checkArgument(args.length % 2 == 0, "arguments not paired");
