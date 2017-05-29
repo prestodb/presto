@@ -22,7 +22,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 

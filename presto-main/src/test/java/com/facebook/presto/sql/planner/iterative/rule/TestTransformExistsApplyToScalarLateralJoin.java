@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.apply;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.lateral;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
@@ -38,7 +37,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
-public class TestTransformExistsApplyToScalarApply
+public class TestTransformExistsApplyToScalarLateralJoin
 {
     private RuleTester tester;
     private Rule transformExistsApplyToScalarApply;
@@ -69,8 +68,7 @@ public class TestTransformExistsApplyToScalarApply
 
         tester.assertThat(transformExistsApplyToScalarApply)
                 .on(p ->
-                        p.apply(
-                                Assignments.identity(p.symbol("a", BIGINT), p.symbol("b", BIGINT)),
+                        p.lateral(
                                 ImmutableList.of(p.symbol("a", BIGINT)),
                                 p.values(p.symbol("a", BIGINT)),
                                 p.values(p.symbol("a", BIGINT)))
@@ -90,9 +88,8 @@ public class TestTransformExistsApplyToScalarApply
                                 p.values(),
                                 p.values(p.symbol("a", BIGINT)))
                 )
-                .matches(apply(
+                .matches(lateral(
                         ImmutableList.of(),
-                        ImmutableMap.of("b", PlanMatchPattern.expression("\"b\"")),
                         values(ImmutableMap.of()),
                         project(
                                 ImmutableMap.of("b", PlanMatchPattern.expression("(\"count_expr\" > CAST(0 AS bigint))")),

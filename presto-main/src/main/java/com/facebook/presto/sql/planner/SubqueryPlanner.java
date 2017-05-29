@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -221,23 +222,31 @@ class SubqueryPlanner
         subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot()));
         subqueryPlan = subqueryPlan.appendProjections(coercions, symbolAllocator, idAllocator);
 
-        Assignments.Builder subqueryAssignments = Assignments.builder();
         Symbol uncoercedScalarSubquerySymbol = subqueryPlan.translate(uncoercedScalarSubquery);
         subPlan.getTranslations().put(uncoercedScalarSubquery, uncoercedScalarSubquerySymbol);
-        subqueryAssignments.put(uncoercedScalarSubquerySymbol, uncoercedScalarSubquerySymbol.toSymbolReference());
 
         for (Expression coercion : coercions) {
             Symbol coercionSymbol = subqueryPlan.translate(coercion);
             subPlan.getTranslations().put(coercion, coercionSymbol);
-            subqueryAssignments.put(coercionSymbol, coercionSymbol.toSymbolReference());
         }
 
-        return appendApplyNode(
-                subPlan,
-                scalarSubquery.getQuery(),
-                subqueryPlan,
-                subqueryAssignments.build(),
-                correlationAllowed);
+        PlanNode subqueryNode = subqueryPlan.getRoot();
+        Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
+        if (!correlationAllowed && !correlation.isEmpty()) {
+            throw notSupportedException(scalarSubquery.getQuery(), "Correlated subquery in given context");
+        }
+        subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
+        subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
+
+        return new PlanBuilder(
+                subPlan.copyTranslations(),
+                new LateralJoinNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        subqueryNode,
+                        ImmutableList.copyOf(DependencyExtractor.extractUnique(correlation.values())),
+                        LateralJoinNode.Type.INNER),
+                analysis.getParameters());
     }
 
     private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates, boolean correlationAllowed)

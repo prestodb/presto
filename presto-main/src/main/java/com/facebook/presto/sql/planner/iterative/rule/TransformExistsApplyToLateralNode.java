@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Cast;
@@ -40,6 +41,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -53,14 +55,14 @@ import static java.util.Objects.requireNonNull;
  *           -- subquery
  * </pre>
  */
-public class TransformExistsApplyToScalarApply
+public class TransformExistsApplyToLateralNode
         implements Rule
 {
     private static final QualifiedName COUNT = QualifiedName.of("count");
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
     private final Signature countSignature;
 
-    public TransformExistsApplyToScalarApply(FunctionRegistry functionRegistry)
+    public TransformExistsApplyToLateralNode(FunctionRegistry functionRegistry)
     {
         requireNonNull(functionRegistry, "functionRegistry is null");
         countSignature = functionRegistry.resolveFunction(COUNT, ImmutableList.of());
@@ -88,7 +90,7 @@ public class TransformExistsApplyToScalarApply
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
         return Optional.of(
-                new ApplyNode(
+                new LateralJoinNode(
                         node.getId(),
                         parent.getInput(),
                         new ProjectNode(
@@ -102,7 +104,7 @@ public class TransformExistsApplyToScalarApply
                                         Optional.empty(),
                                         Optional.empty()),
                                 Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
-                        Assignments.of(exists, exists.toSymbolReference()),
-                        parent.getCorrelation()));
+                        parent.getCorrelation(),
+                        INNER));
     }
 }

@@ -47,6 +47,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.lateral;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
@@ -270,8 +271,8 @@ public class TestLogicalPlanner
                 LogicalPlanner.Stage.OPTIMIZED,
                 anyTree(
                         filter("BIGINT '3' = X",
-                                apply(ImmutableList.of("X"),
-                                        ImmutableMap.of(),
+                                lateral(
+                                        ImmutableList.of("X"),
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         node(EnforceSingleRowNode.class,
                                                 project(
@@ -317,8 +318,8 @@ public class TestLogicalPlanner
                                                         "O", "orderkey",
                                                         "C", "custkey"))),
                                         anyTree(
-                                                apply(ImmutableList.of("L"),
-                                                        ImmutableMap.of(),
+                                                lateral(
+                                                        ImmutableList.of("L"),
                                                         tableScan("lineitem", ImmutableMap.of("L", "orderkey")),
                                                         node(EnforceSingleRowNode.class,
                                                                 project(
