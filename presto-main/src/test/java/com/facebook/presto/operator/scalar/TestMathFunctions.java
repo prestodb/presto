@@ -999,6 +999,39 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testSign()
+    {
+        //retains type for NULL values
+        assertFunction("sign(CAST(NULL as INTEGER))", INTEGER, null);
+        assertFunction("sign(CAST(NULL as BIGINT))", BIGINT, null);
+        assertFunction("sign(CAST(NULL as DOUBLE))", DOUBLE, null);
+
+        //integer
+        for (int intValue : intLefts) {
+            Float signum = Math.signum(intValue);
+            assertFunction("sign(INTEGER '" + intValue + "')", INTEGER, signum.intValue());
+        }
+
+        //bigint
+        for (int intValue : intLefts) {
+            Float signum = Math.signum(intValue);
+            assertFunction("sign(BIGINT '" + intValue + "')", BIGINT, signum.longValue());
+        }
+
+        //double
+        for (double doubleValue : DOUBLE_VALUES) {
+            assertFunction("sign(" + doubleValue + ")", DOUBLE, Math.signum(doubleValue));
+        }
+
+        //returns NaN for NaN input
+        assertFunction("sign(DOUBLE 'NaN')", DOUBLE, Double.NaN);
+
+        //returns proper sign for +/-Infinity input
+        assertFunction("sign(DOUBLE '+Infinity')", DOUBLE, 1.0);
+        assertFunction("sign(DOUBLE '-Infinity')", DOUBLE, -1.0);
+    }
+
+    @Test
     public void testSin()
     {
         for (double doubleValue : DOUBLE_VALUES) {

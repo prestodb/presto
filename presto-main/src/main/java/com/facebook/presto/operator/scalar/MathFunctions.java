@@ -997,6 +997,30 @@ public final class MathFunctions
         return floatToRawIntBits((Math.signum(intBitsToFloat((int) num))));
     }
 
+    @Description("signum")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long sign(@SqlType(StandardTypes.BIGINT) long num)
+    {
+        return (long) Math.signum(num);
+    }
+
+    @Description("signum")
+    @ScalarFunction("sign")
+    @SqlType(StandardTypes.INTEGER)
+    public static long signInt(@SqlType(StandardTypes.INTEGER) long num)
+    {
+        return (long) Math.signum(num);
+    }
+
+    @Description("signum")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double sign(@SqlType(StandardTypes.DOUBLE) double num)
+    {
+        return Math.signum(num);
+    }
+
     @Description("sine")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
