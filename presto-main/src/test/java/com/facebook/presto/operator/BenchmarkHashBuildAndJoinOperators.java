@@ -79,13 +79,13 @@ public class BenchmarkHashBuildAndJoinOperators
         protected static final int BUILD_ROWS_NUMBER = 8_000_000;
 
         @Param({"varchar", "bigint", "all"})
-        protected String hashColumns;
+        protected String hashColumns = "bigint";
 
         @Param({"false", "true"})
-        protected boolean buildHashEnabled;
+        protected boolean buildHashEnabled = false;
 
         @Param({"1", "5"})
-        protected int buildRowsRepetition;
+        protected int buildRowsRepetition = 1;
 
         protected ExecutorService executor;
         protected List<Page> buildPages;
@@ -165,10 +165,10 @@ public class BenchmarkHashBuildAndJoinOperators
         protected static final int PROBE_ROWS_NUMBER = 1_400_000;
 
         @Param({"0.1", "1", "2"})
-        protected double matchRate;
+        protected double matchRate = 1;
 
         @Param({"bigint", "all"})
-        protected String outputColumns;
+        protected String outputColumns = "bigint";
 
         protected List<Page> probePages;
         protected List<Integer> outputChannels;
