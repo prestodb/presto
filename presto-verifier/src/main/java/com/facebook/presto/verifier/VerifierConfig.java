@@ -47,6 +47,7 @@ public class VerifierConfig
     private Set<QueryType> controlQueryTypes = ImmutableSet.of(READ, CREATE, MODIFY);
     private Set<QueryType> testQueryTypes = ImmutableSet.of(READ, CREATE, MODIFY);
     private String source;
+    private String user = System.getProperty("user.name");
     private String runId = new DateTime().toString("yyyy-MM-dd");
     private Set<String> eventClients = ImmutableSet.of("human-readable");
     private int threadCount = 10;
@@ -426,6 +427,19 @@ public class VerifierConfig
     public VerifierConfig setSource(String source)
     {
         this.source = source;
+        return this;
+    }
+
+    public String getUser()
+    {
+        return user;
+    }
+
+    @ConfigDescription("The name of the user running the verifier")
+    @Config("user")
+    public VerifierConfig setUser(String user)
+    {
+        this.user = user;
         return this;
     }
 
