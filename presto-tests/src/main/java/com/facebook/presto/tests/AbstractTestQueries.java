@@ -590,10 +590,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testUnnestTable()
+    public void testTableUnnest()
             throws Exception
     {
-        assertQueryFails("SELECT 1 FROM TABLE(ARRAY[1])", ".*: TABLE expression is not supported");
+        assertQueryFails("SELECT 1 FROM TABLE(ARRAY[1])", "Unsupported TABLE expression type: .*");
+        assertQuery(
+                "SELECT * FROM TABLE(ARRAY[row(1, 'ala '), row(2, ' ma '), row(3, 'kota')])",
+                "VALUES (1, 'ala '), (2, ' ma '), (3, 'kota')");
+        assertQuery(
+                "SELECT b, c FROM (VALUES ARRAY[ROW(1, 'ala '), ROW(2, ' ma ')], ARRAY[ROW(3, 'kota')]) t(a), TABLE(a) u(b, c)",
+                "VALUES (1, 'ala '), (2, ' ma '), (3, 'kota')");
     }
 
     @Test

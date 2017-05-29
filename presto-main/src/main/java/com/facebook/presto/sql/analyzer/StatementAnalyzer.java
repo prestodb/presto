@@ -626,20 +626,28 @@ class StatementAnalyzer
         {
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
-                if (node.isUnnestTable()) {
-                    throw SemanticExceptions.notSupportedException(node, "TABLE expression");
-                }
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
                 Type expressionType = expressionAnalysis.getType(expression);
-                if (expressionType instanceof ArrayType) {
-                    outputFields.add(Field.newUnqualified(Optional.empty(), ((ArrayType) expressionType).getElementType()));
-                }
-                else if (expressionType instanceof MapType) {
-                    outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
-                    outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
+                if (node.isUnnestTable()) {
+                    if (expressionType instanceof ArrayType && ((ArrayType) expressionType).getElementType() instanceof RowType) {
+                        RowType elementType = (RowType) ((ArrayType) expressionType).getElementType();
+                        elementType.getFields().forEach(field -> outputFields.add(Field.newUnqualified(field.getName(), field.getType())));
+                    }
+                    else {
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unsupported TABLE expression type: " + expressionType);
+                    }
                 }
                 else {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
+                    if (expressionType instanceof ArrayType) {
+                        outputFields.add(Field.newUnqualified(Optional.empty(), ((ArrayType) expressionType).getElementType()));
+                    }
+                    else if (expressionType instanceof MapType) {
+                        outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
+                        outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
+                    }
+                    else {
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
+                    }
                 }
             }
             if (node.isWithOrdinality()) {

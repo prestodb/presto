@@ -494,7 +494,7 @@ public class PruneUnreferencedOutputs
                     .addAll(unnestSymbols.keySet());
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols, ordinalitySymbol);
+            return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols, ordinalitySymbol, node.isUnnestTable());
         }
 
         @Override

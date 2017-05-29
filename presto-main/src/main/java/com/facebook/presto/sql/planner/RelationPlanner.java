@@ -67,6 +67,7 @@ import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -648,14 +649,28 @@ class RelationPlanner
                 Symbol inputSymbol = translations.map(translationMap -> translationMap.get(rewrittenExpression))
                         .orElseGet(() -> symbolAllocator.newSymbol(rewrittenExpression, type));
                 argumentSymbols.add(inputSymbol);
-                if (type instanceof ArrayType) {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
-                }
-                else if (type instanceof MapType) {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
+                if (node.isUnnestTable()) {
+                    if (((ArrayType) type).getElementType() instanceof RowType) {
+                        RowType elementType = (RowType) ((ArrayType) type).getElementType();
+                        List<Symbol> arrayUnnestedSymbols = elementType.getFields().stream()
+                                .map(f -> unnestedSymbolsIterator.next())
+                                .collect(toImmutableList());
+                        unnestSymbols.put(inputSymbol, arrayUnnestedSymbols);
+                    }
+                    else {
+                        throw new IllegalArgumentException("Unsupported type for TABLE unnest: " + type);
+                    }
                 }
                 else {
-                    throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
+                    if (type instanceof ArrayType) {
+                        unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                    }
+                    else if (type instanceof MapType) {
+                        unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
+                    }
+                    else {
+                        throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
+                    }
                 }
             }
             ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
