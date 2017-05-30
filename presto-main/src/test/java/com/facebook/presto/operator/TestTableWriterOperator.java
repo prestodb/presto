@@ -83,7 +83,7 @@ public class TestTableWriterOperator
         assertEquals(operator.getOutput(), null);
 
         // complete previously blocked future
-        blockingPageSink.complete();
+        blockingPageSink.completeAppend();
 
         assertEquals(operator.isBlocked().isDone(), true);
         assertEquals(operator.isFinished(), false);
@@ -110,6 +110,50 @@ public class TestTableWriterOperator
                 TableWriterOperator.TYPES,
                 operator.getOutput(),
                 rowPagesBuilder(TableWriterOperator.TYPES).row(2, null).build().get(0));
+
+        assertEquals(operator.isBlocked().isDone(), true);
+        assertEquals(operator.isFinished(), true);
+        assertEquals(operator.needsInput(), false);
+    }
+
+    @Test
+    public void testCompleteFinishBeforeCompleteAppend()
+            throws Exception
+    {
+        BlockingPageSink blockingPageSink = new BlockingPageSink();
+        Operator operator = createTableWriterOperator(blockingPageSink);
+
+        // initial state validation
+        assertEquals(operator.isBlocked().isDone(), true);
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), true);
+
+        // blockingPageSink that will return blocked future
+        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+
+        assertEquals(operator.isBlocked().isDone(), false);
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), false);
+        assertEquals(operator.getOutput(), null);
+
+        // finish operator, state hasn't changed
+        operator.finish();
+
+        assertEquals(operator.isBlocked().isDone(), false);
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), false);
+
+        blockingPageSink.completeFinish();
+        assertEquals(operator.isBlocked().isDone(), false);
+
+        blockingPageSink.completeAppend();
+        assertEquals(operator.isBlocked().isDone(), true);
+
+        // and getOutput which actually finishes the operator
+        assertPageEquals(
+                TableWriterOperator.TYPES,
+                operator.getOutput(),
+                rowPagesBuilder(TableWriterOperator.TYPES).row(1, null).build().get(0));
 
         assertEquals(operator.isBlocked().isDone(), true);
         assertEquals(operator.isFinished(), true);
@@ -178,14 +222,14 @@ public class TestTableWriterOperator
     private class BlockingPageSink
             implements ConnectorPageSink
     {
-        private CompletableFuture<?> future = new CompletableFuture<>();
+        private CompletableFuture<?> appendFuture = new CompletableFuture<>();
         private CompletableFuture<Collection<Slice>> finishFuture = new CompletableFuture<>();
 
         @Override
         public CompletableFuture<?> appendPage(Page page)
         {
-            future = new CompletableFuture<>();
-            return future;
+            appendFuture = new CompletableFuture<>();
+            return appendFuture;
         }
 
         @Override
@@ -200,10 +244,20 @@ public class TestTableWriterOperator
         {
         }
 
+        public void completeAppend()
+        {
+            appendFuture.complete(null);
+        }
+
+        public void completeFinish()
+        {
+            finishFuture.complete(ImmutableList.of());
+        }
+
         public void complete()
         {
-            future.complete(null);
-            finishFuture.complete(ImmutableList.of());
+            completeAppend();
+            completeFinish();
         }
     }
 }

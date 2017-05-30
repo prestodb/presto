@@ -38,6 +38,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -122,8 +123,8 @@ public class TableWriterOperator
     private final ConnectorPageSink pageSink;
     private final List<Integer> inputChannels;
 
-    private ListenableFuture<?> blocked = NOT_BLOCKED;
-    private CompletableFuture<Collection<Slice>> finishFuture;
+    private ListenableFuture<?> appendFuture = NOT_BLOCKED;
+    private ListenableFuture<Collection<Slice>> finishFuture = immediateFuture(null);
     private State state = State.RUNNING;
     private long rowCount;
     private boolean committed;
@@ -156,37 +157,32 @@ public class TableWriterOperator
     {
         if (state == State.RUNNING) {
             state = State.FINISHING;
-            finishFuture = pageSink.finish();
-            blocked = toListenableFuture(finishFuture);
+            finishFuture = toListenableFuture(pageSink.finish());
         }
     }
 
     @Override
     public boolean isFinished()
     {
-        updateBlockedIfNecessary();
-        return state == State.FINISHED && blocked == NOT_BLOCKED;
+        return state == State.FINISHED;
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        updateBlockedIfNecessary();
-        return blocked;
+        if (!appendFuture.isDone()) {
+            return appendFuture;
+        }
+        if (!finishFuture.isDone()) {
+            return finishFuture;
+        }
+        return NOT_BLOCKED;
     }
 
     @Override
     public boolean needsInput()
     {
-        updateBlockedIfNecessary();
-        return state == State.RUNNING && blocked == NOT_BLOCKED;
-    }
-
-    private void updateBlockedIfNecessary()
-    {
-        if (blocked != NOT_BLOCKED && blocked.isDone()) {
-            blocked = NOT_BLOCKED;
-        }
+        return state == State.RUNNING && isBlocked() == NOT_BLOCKED;
     }
 
     @Override
@@ -203,7 +199,7 @@ public class TableWriterOperator
         CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
         pageSinkMemoryContext.setBytes(pageSink.getSystemMemoryUsage());
         if (!future.isDone()) {
-            this.blocked = toListenableFuture(future);
+            this.appendFuture = toListenableFuture(future);
         }
         rowCount += page.getPositionCount();
     }
@@ -211,7 +207,7 @@ public class TableWriterOperator
     @Override
     public Page getOutput()
     {
-        if (state != State.FINISHING || !blocked.isDone()) {
+        if (state != State.FINISHING || !isBlocked().isDone()) {
             return null;
         }
         state = State.FINISHED;
