@@ -117,17 +117,6 @@ public class PlanBuilder
         return new FilterNode(idAllocator.getNextId(), source, predicate);
     }
 
-    public AggregationNode aggregation(
-            PlanNode source,
-            Map<Symbol, AggregationNode.Aggregation> assignments,
-            List<List<Symbol>> groupingSets,
-            AggregationNode.Step step,
-            Optional<Symbol> hashSymbol,
-            Optional<Symbol> groupIdSymbol)
-    {
-        return new AggregationNode(idAllocator.getNextId(), source, assignments, groupingSets, step, hashSymbol, groupIdSymbol);
-    }
-
     public AggregationNode aggregation(Consumer<AggregationBuilder> aggregationBuilderConsumer)
     {
         AggregationBuilder aggregationBuilder = new AggregationBuilder();
