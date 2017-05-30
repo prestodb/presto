@@ -139,8 +139,8 @@ public class PlanBuilder
     {
         private PlanNode source;
         private Map<Symbol, Aggregation> assignments = new HashMap<>();
-        private List<List<Symbol>> groupingSets;
-        private Step step;
+        private List<List<Symbol>> groupingSets = ImmutableList.of();
+        private Step step = Step.SINGLE;
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
 
