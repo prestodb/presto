@@ -77,6 +77,7 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
     private boolean pushAggregationThroughJoin = true;
+    private boolean useNewStatsCalculator = false;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
@@ -513,6 +514,18 @@ public class FeaturesConfig
     {
         this.pushAggregationThroughJoin = value;
         return this;
+    }
+
+    @Config("experimental.use-new-stats-calculator")
+    public FeaturesConfig setUseNewStatsCalculator(boolean useNewStatsCalculator)
+    {
+        this.useNewStatsCalculator = useNewStatsCalculator;
+        return this;
+    }
+
+    public boolean isUseNewStatsCalculator()
+    {
+        return useNewStatsCalculator;
     }
 
     public boolean isParseDecimalLiteralsAsDouble()

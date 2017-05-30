@@ -22,11 +22,14 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
+import com.facebook.presto.cost.ComposableStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.SelectingStatsCalculator;
+import com.facebook.presto.cost.SelectingStatsCalculator.New;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
@@ -203,10 +206,10 @@ public class ServerMainModule
 
         if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toInstance(Optional.empty());
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toInstance(Optional.empty());
             // Install no-op resource group manager on workers, since only coordinators manage resource groups.
             binder.bind(ResourceGroupManager.class).to(NoOpResourceGroupManager.class).in(Scopes.SINGLETON);
 
@@ -403,12 +406,13 @@ public class ServerMainModule
 
         // statistics calculator
         binder.bind(CostComparator.class).in(Scopes.SINGLETON);
-        binder.bind(StatsCalculator.class).to(CoefficientBasedStatsCalculator.class).in(Scopes.SINGLETON);
         binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
         binder.bind(CostCalculator.class)
                 .annotatedWith(EstimatedExchanges.class)
                 .to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
         binder.bind(Lookup.class).to(StatelessLookup.class).in(Scopes.SINGLETON);
+        binder.bind(StatsCalculator.class).annotatedWith(SelectingStatsCalculator.Old.class).to(CoefficientBasedStatsCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(StatsCalculator.class).to(SelectingStatsCalculator.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
@@ -505,6 +509,15 @@ public class ServerMainModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    @New
+    public static StatsCalculator createNewStatsCalculator(Metadata metadata)
+    {
+        ImmutableList.Builder<ComposableStatsCalculator.Rule> rules = ImmutableList.builder();
+        return new ComposableStatsCalculator(rules.build());
     }
 
     @Provides

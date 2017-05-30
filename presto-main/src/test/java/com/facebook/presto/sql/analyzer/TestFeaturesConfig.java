@@ -70,6 +70,7 @@ public class TestFeaturesConfig
                 .setExchangeCompressionEnabled(false)
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughJoin(true)
+                .setUseNewStatsCalculator(false)
                 .setParseDecimalLiteralsAsDouble(false)
                 .setDistributedSortEnabled(false)
                 .setRedistributeSort(true));
@@ -114,6 +115,7 @@ public class TestFeaturesConfig
                 .put("exchange.compression-enabled", "true")
                 .put("deprecated.legacy-timestamp", "true")
                 .put("optimizer.enable-intermediate-aggregations", "true")
+                .put("experimental.use-new-stats-calculator", "true")
                 .put("deprecated.parse-decimal-literals-as-double", "true")
                 .put("experimental.distributed-sort", "true")
                 .put("experimental.redistribute-sort", "false")
@@ -154,6 +156,7 @@ public class TestFeaturesConfig
                 .put("exchange.compression-enabled", "true")
                 .put("deprecated.legacy-timestamp", "true")
                 .put("optimizer.enable-intermediate-aggregations", "true")
+                .put("experimental.use-new-stats-calculator", "true")
                 .put("deprecated.parse-decimal-literals-as-double", "true")
                 .put("experimental.distributed-sort", "true")
                 .put("experimental.redistribute-sort", "false")
@@ -195,6 +198,7 @@ public class TestFeaturesConfig
                 .setLegacyTimestamp(true)
                 .setExchangeCompressionEnabled(true)
                 .setEnableIntermediateAggregations(true)
+                .setUseNewStatsCalculator(true)
                 .setParseDecimalLiteralsAsDouble(true)
                 .setDistributedSortEnabled(true)
                 .setRedistributeSort(false);
