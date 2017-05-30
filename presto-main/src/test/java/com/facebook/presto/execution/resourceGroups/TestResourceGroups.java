@@ -177,7 +177,7 @@ public class TestResourceGroups
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setMaxQueuedQueries(4);
         root.setMaxRunningQueries(3);
-        MockQueryExecution query1 = new MockQueryExecution(1);
+        MockQueryExecution query1 = new MockQueryExecution(2);
         root.run(query1);
         // Process the group to refresh stats
         root.processQueuedQueries();
@@ -207,7 +207,7 @@ public class TestResourceGroups
         subgroup.setMaxQueuedQueries(4);
         subgroup.setMaxRunningQueries(3);
 
-        MockQueryExecution query1 = new MockQueryExecution(1);
+        MockQueryExecution query1 = new MockQueryExecution(2);
         subgroup.run(query1);
         // Process the group to refresh stats
         root.processQueuedQueries();
