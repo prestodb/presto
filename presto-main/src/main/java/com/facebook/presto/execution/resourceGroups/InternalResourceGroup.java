@@ -837,7 +837,7 @@ public class InternalResourceGroup
                 maxRunning = Math.max(1, maxRunning);
             }
             return runningQueries.size() + descendantRunningQueries < maxRunning &&
-                    cachedMemoryUsageBytes < softMemoryLimitBytes;
+                    cachedMemoryUsageBytes <= softMemoryLimitBytes;
         }
     }
 
