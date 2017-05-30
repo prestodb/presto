@@ -31,6 +31,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -75,9 +76,14 @@ public class CreateTableTask
     @Override
     public ListenableFuture<?> execute(CreateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
+        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters);
+    }
+
+    @VisibleForTesting
+    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
-        Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isPresent()) {
@@ -160,12 +166,7 @@ public class CreateTableTask
             metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
         }
         catch (PrestoException e) {
-            if (ALREADY_EXISTS.toErrorCode().equals(e.getErrorCode())) {
-                if (!statement.isNotExists()) {
-                    throw e;
-                }
-            }
-            else {
+            if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()) || !statement.isNotExists()) {
                 throw e;
             }
         }

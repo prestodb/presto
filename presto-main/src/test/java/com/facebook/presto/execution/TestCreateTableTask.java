@@ -15,23 +15,13 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.SchemaPropertyManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.MockMetadata;
 import com.facebook.presto.metadata.TablePropertyManager;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -42,10 +32,8 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
@@ -58,7 +46,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestCreateTableTask
 {
@@ -77,39 +64,26 @@ public class TestCreateTableTask
             throws Exception
     {
         CatalogManager catalogManager = new CatalogManager();
+        Catalog bogusTestingCatalog = createBogusTestingCatalog(CATALOG_NAME);
+
         TypeManager typeManager = new TypeRegistry();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        Catalog bogusTestingCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        AtomicReference<Boolean> metadataCreateTableCalled = new AtomicReference<>(Boolean.FALSE);
 
-        MetadataManager metadata = new MetadataManager(
-                new FeaturesConfig(),
-                typeManager,
-                new BlockEncodingManager(typeManager),
-                new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new TablePropertyManager(),
-                transactionManager) {
-            @Override
-            public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
-            {
-                return Optional.empty();
-            }
-            @Override
-            public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
-            {
-                metadataCreateTableCalled.set(Boolean.TRUE);
-                throw new PrestoException(ALREADY_EXISTS, "Test that we ignore ALREADY_EXISTS exceptions when notExists set");
-            }
-        };
-
-        AccessControl accessControl = new AccessControlManager(transactionManager);
-
-        metadata.getTablePropertyManager().addProperties(bogusTestingCatalog.getConnectorId(), ImmutableList.of(stringSessionProperty(
+        TablePropertyManager tablePropertyManager = new TablePropertyManager();
+        tablePropertyManager.addProperties(bogusTestingCatalog.getConnectorId(), ImmutableList.of(stringSessionProperty(
                 "baz",
                 "test property",
                 null,
                 false)));
+
+        MockMetadata metadata = new MockMetadata();
+        RuntimeException createTableException =
+                new PrestoException(ALREADY_EXISTS, "Test that we ignore ALREADY_EXISTS exceptions when notExists set");
+        metadata.setTypeManager(typeManager);
+        metadata.setCreateTableException(createTableException);
+        metadata.setTablePropertyManager(tablePropertyManager);
+        metadata.setCatalogHandle(bogusTestingCatalog.getConnectorId());
+
         catalogManager.registerCatalog(bogusTestingCatalog);
 
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
@@ -124,13 +98,8 @@ public class TestCreateTableTask
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
 
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("create_table"), "CREATE TABLE", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
-
-        assertTrue(stateMachine.getSession().getTransactionId().isPresent());
-        assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
-
-        getFutureValue(new CreateTableTask().execute(statement, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), session, emptyList()));
         // Success if no exception is thrown
-        assertTrue(metadataCreateTableCalled.get());
+        assertEquals(metadata.getCreateTableCallCount(), 1);
     }
 }
