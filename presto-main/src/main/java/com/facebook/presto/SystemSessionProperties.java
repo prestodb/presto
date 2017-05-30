@@ -74,6 +74,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
+    public static final String USE_NEW_STATS_CALCULATOR = "use_new_stats_calculator";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -323,7 +324,12 @@ public final class SystemSessionProperties
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
                         false,
-                        false));
+                        false),
+                booleanSessionProperty(
+                        USE_NEW_STATS_CALCULATOR,
+                        "Use new experimental statistics calculator",
+                        featuresConfig.isUseNewStatsCalculator(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -503,5 +509,10 @@ public final class SystemSessionProperties
     public static boolean isPushAggregationThroughJoin(Session session)
     {
         return session.getSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, Boolean.class);
+    }
+
+    public static boolean isUseNewStatsCalculator(Session session)
+    {
+        return session.getSystemProperty(USE_NEW_STATS_CALCULATOR, Boolean.class);
     }
 }

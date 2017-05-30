@@ -37,6 +37,7 @@ public class TestCoefficientBasedStatsCalculator
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
+                .setSystemProperty("use_new_stats_calculator", "false")
                 .build());
 
         queryRunner.createCatalog(
