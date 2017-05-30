@@ -31,6 +31,7 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.EnforceSingleRowStatsRule;
 import com.facebook.presto.cost.ExchangeStatsRule;
 import com.facebook.presto.cost.FilterStatsCalculator;
+import com.facebook.presto.cost.FilterStatsRule;
 import com.facebook.presto.cost.LimitStatsRule;
 import com.facebook.presto.cost.OutputStatsRule;
 import com.facebook.presto.cost.ProjectStatsRule;
@@ -535,6 +536,7 @@ public class ServerMainModule
         rules.add(new EnforceSingleRowStatsRule());
         rules.add(new ExchangeStatsRule());
         rules.add(new ProjectStatsRule(scalarStatsCalculator));
+        rules.add(new FilterStatsRule(filterStatsCalculator));
         return new ComposableStatsCalculator(rules.build());
     }
 
