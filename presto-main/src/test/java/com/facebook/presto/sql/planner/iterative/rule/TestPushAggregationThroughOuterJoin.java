@@ -14,15 +14,10 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -46,18 +41,9 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testPushesAggregationThroughLeftJoin()
     {
-        FunctionCall averageFunctionCall = new FunctionCall(QualifiedName.of("avg"), ImmutableList.of(new SymbolReference("COL2")));
-        Signature avgSignature = new Signature(
-                "avg",
-                FunctionKind.AGGREGATE,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature()),
-                false);
         new RuleTester().assertThat(new PushAggregationThroughOuterJoin())
-                .on(p ->
-                        p.aggregation(
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
                                 p.join(
                                         JoinNode.Type.LEFT,
                                         p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"))),
@@ -67,14 +53,9 @@ public class TestPushAggregationThroughOuterJoin
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()
-                                ),
-                                ImmutableMap.of(p.symbol("AVG", DOUBLE),
-                                        new AggregationNode.Aggregation(averageFunctionCall, avgSignature, Optional.empty())),
-                                ImmutableList.of(ImmutableList.of(p.symbol("COL1", BIGINT))),
-                                SINGLE,
-                                Optional.empty(),
-                                Optional.empty())
-                )
+                                ))
+                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .groupingSets(ImmutableList.of(ImmutableList.of(p.symbol("COL1", BIGINT))))))
                 .matches(
                         project(ImmutableMap.of(
                                 "COL1", expression("COL1"),
@@ -101,34 +82,19 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testPushesAggregationThroughRightJoin()
     {
-        FunctionCall averageFunctionCall = new FunctionCall(QualifiedName.of("avg"), ImmutableList.of(new SymbolReference("COL2")));
-        Signature avgSignature = new Signature(
-                "avg",
-                FunctionKind.AGGREGATE,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature()),
-                false);
         new RuleTester().assertThat(new PushAggregationThroughOuterJoin())
-                .on(p ->
-                        p.aggregation(
-                                p.join(
-                                        JoinNode.Type.RIGHT,
-                                        p.values(p.symbol("COL2", BIGINT)),
-                                        p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"))),
-                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL2", BIGINT), p.symbol("COL1", BIGINT))),
-                                        ImmutableList.of(p.symbol("COL2", BIGINT), p.symbol("COL1", BIGINT)),
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.empty()
-                                ),
-                                ImmutableMap.of(p.symbol("AVG", DOUBLE), new AggregationNode.Aggregation(averageFunctionCall, avgSignature, Optional.empty())),
-                                ImmutableList.of(ImmutableList.of(p.symbol("COL1", BIGINT))),
-                                SINGLE,
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinNode.Type.RIGHT,
+                                p.values(p.symbol("COL2", BIGINT)),
+                                p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"))),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL2", BIGINT), p.symbol("COL1", BIGINT))),
+                                ImmutableList.of(p.symbol("COL2", BIGINT), p.symbol("COL1", BIGINT)),
                                 Optional.empty(),
-                                Optional.empty())
-                )
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .groupingSets(ImmutableList.of(ImmutableList.of(p.symbol("COL1", BIGINT))))))
                 .matches(
                         project(ImmutableMap.of(
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)"),
@@ -156,69 +122,37 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testDoesNotFireWhenNotDistinct()
     {
-        FunctionCall averageFunctionCall = new FunctionCall(QualifiedName.of("avg"), ImmutableList.of(new SymbolReference("COL2")));
-        Signature avgSignature = new Signature(
-                "avg",
-                FunctionKind.AGGREGATE,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature()),
-                false);
         new RuleTester().assertThat(new PushAggregationThroughOuterJoin())
-                .on(p ->
-                        p.aggregation(
-                                p.join(
-                                        JoinNode.Type.LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"), expressions("11"))),
-                                        p.values(new Symbol("COL2")),
-                                        ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
-                                        ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.empty()
-                                ),
-                                ImmutableMap.of(new Symbol("AVG"),
-                                        new AggregationNode.Aggregation(averageFunctionCall, avgSignature, Optional.empty())),
-                                ImmutableList.of(ImmutableList.of(new Symbol("COL1"))),
-                                SINGLE,
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinNode.Type.LEFT,
+                                p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"), expressions("11"))),
+                                p.values(new Symbol("COL2")),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
+                                ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
                                 Optional.empty(),
-                                Optional.empty())
-                )
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(new Symbol("AVG"), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .groupingSets(ImmutableList.of(ImmutableList.of(new Symbol("COL1"))))))
                 .doesNotFire();
     }
 
     @Test
     public void testDoesNotFireWhenGroupingOnInner()
     {
-        FunctionCall averageFunctionCall = new FunctionCall(QualifiedName.of("avg"), ImmutableList.of(new SymbolReference("COL2")));
-        Signature avgSignature = new Signature(
-                "avg",
-                FunctionKind.AGGREGATE,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature()),
-                false);
         new RuleTester().assertThat(new PushAggregationThroughOuterJoin())
-                .on(p ->
-                        p.aggregation(
-                                p.join(
-                                        JoinNode.Type.LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"))),
-                                        p.values(new Symbol("COL2"), new Symbol("COL3")),
-                                        ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
-                                        ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.empty()
-                                ),
-                                ImmutableMap.of(new Symbol("AVG"),
-                                        new AggregationNode.Aggregation(averageFunctionCall, avgSignature, Optional.empty())),
-                                ImmutableList.of(ImmutableList.of(new Symbol("COL1"), new Symbol("COL3"))),
-                                SINGLE,
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(JoinNode.Type.LEFT,
+                                p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"))),
+                                p.values(new Symbol("COL2"), new Symbol("COL3")),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
+                                ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
                                 Optional.empty(),
-                                Optional.empty())
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(new Symbol("AVG"), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .groupingSets(ImmutableList.of(ImmutableList.of(new Symbol("COL1"), new Symbol("COL3")))))
                 )
                 .doesNotFire();
     }
