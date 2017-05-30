@@ -117,6 +117,17 @@ public class PlanBuilder
         return new FilterNode(idAllocator.getNextId(), source, predicate);
     }
 
+    public AggregationNode aggregation(
+            PlanNode source,
+            Map<Symbol, AggregationNode.Aggregation> assignments,
+            List<List<Symbol>> groupingSets,
+            AggregationNode.Step step,
+            Optional<Symbol> hashSymbol,
+            Optional<Symbol> groupIdSymbol)
+    {
+        return new AggregationNode(idAllocator.getNextId(), source, assignments, groupingSets, step, hashSymbol, groupIdSymbol);
+    }
+
     public AggregationNode aggregation(Consumer<AggregationBuilder> aggregationBuilderConsumer)
     {
         AggregationBuilder aggregationBuilder = new AggregationBuilder();
@@ -260,24 +271,6 @@ public class PlanBuilder
                 .addInputsSet(child.getOutputSymbols()));
     }
 
-    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
-    {
-        return new JoinNode(idAllocator.getNextId(),
-                joinType,
-                left,
-                right,
-                ImmutableList.copyOf(criteria),
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-        );
-    }
-
     public ExchangeNode exchange(Consumer<ExchangeBuilder> exchangeBuilderConsumer)
     {
         ExchangeBuilder exchangeBuilder = new ExchangeBuilder();
@@ -354,15 +347,22 @@ public class PlanBuilder
         }
     }
 
-    public AggregationNode aggregation(
-            PlanNode source,
-            Map<Symbol, AggregationNode.Aggregation> assignments,
-            List<List<Symbol>> groupingSets,
-            AggregationNode.Step step,
-            Optional<Symbol> hashSymbol,
-            Optional<Symbol> groupIdSymbol)
+    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
     {
-        return new AggregationNode(idAllocator.getNextId(), source, assignments, groupingSets, step, hashSymbol, groupIdSymbol);
+        return new JoinNode(idAllocator.getNextId(),
+                joinType,
+                left,
+                right,
+                ImmutableList.copyOf(criteria),
+                ImmutableList.<Symbol>builder()
+                        .addAll(left.getOutputSymbols())
+                        .addAll(right.getOutputSymbols())
+                        .build(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()
+        );
     }
 
     public JoinNode join(
