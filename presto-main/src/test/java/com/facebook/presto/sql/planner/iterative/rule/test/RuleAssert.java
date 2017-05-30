@@ -147,11 +147,7 @@ public class RuleAssert
         Lookup lookup = Lookup.from(memo::resolve);
         Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), lookup, idAllocator, symbolAllocator, session));
 
-        return new RuleApplication(
-                memo,
-                lookup,
-                symbolAllocator.getTypes(),
-                result);
+        return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
     }
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
@@ -172,14 +168,12 @@ public class RuleAssert
 
     private static class RuleApplication
     {
-        private final Memo memo;
         private final Lookup lookup;
         private final Map<Symbol, Type> types;
         private final Optional<PlanNode> result;
 
-        public RuleApplication(Memo memo, Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
         {
-            this.memo = requireNonNull(memo, "memo is null");
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.types = requireNonNull(types, "types is null");
             this.result = requireNonNull(result, "result is null");
