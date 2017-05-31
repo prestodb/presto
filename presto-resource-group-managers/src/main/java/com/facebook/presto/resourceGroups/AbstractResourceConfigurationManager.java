@@ -183,7 +183,8 @@ public abstract class AbstractResourceConfigurationManager
         if (match.getSchedulingWeight().isPresent()) {
             group.setSchedulingWeight(match.getSchedulingWeight().get());
         }
-        if (match.getJmxExport().isPresent()) {
+        // if the new and current values do not differ an exception is thrown
+        if (match.getJmxExport().isPresent() && match.getJmxExport().get() != group.getJmxExport()) {
             group.setJmxExport(match.getJmxExport().get());
         }
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
