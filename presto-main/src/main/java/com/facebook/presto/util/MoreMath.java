@@ -15,6 +15,8 @@ package com.facebook.presto.util;
 
 import java.util.stream.DoubleStream;
 
+import static java.lang.Double.isNaN;
+
 public final class MoreMath
 {
     private MoreMath()
@@ -77,5 +79,27 @@ public final class MoreMath
         return DoubleStream.of(values)
                 .max()
                 .getAsDouble();
+    }
+
+    public static double rangeMin(double left, double right)
+    {
+        if (isNaN(left)) {
+            return right;
+        }
+        else if (isNaN(right)) {
+            return left;
+        }
+        return min(left, right);
+    }
+
+    public static double rangeMax(double left, double right)
+    {
+        if (isNaN(left)) {
+            return right;
+        }
+        else if (isNaN(right)) {
+            return left;
+        }
+        return max(left, right);
     }
 }
