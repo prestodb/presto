@@ -176,6 +176,11 @@ public class QueryMonitor
                                 tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
             }
 
+            ImmutableList.Builder<String> operatorSummaries = ImmutableList.builder();
+            for (OperatorStats summary : queryInfo.getQueryStats().getOperatorSummaries()) {
+                operatorSummaries.add(objectMapper.writeValueAsString(summary));
+            }
+
             eventListenerManager.queryCompleted(
                     new QueryCompletedEvent(
                             new QueryMetadata(
@@ -197,7 +202,7 @@ public class QueryMonitor
                                     queryStats.getCompletedDrivers(),
                                     queryInfo.isCompleteInfo(),
                                     getCpuDistributions(queryInfo),
-                                    objectMapper.writeValueAsString(queryInfo.getQueryStats().getOperatorSummaries())),
+                                    operatorSummaries.build()),
                             new QueryContext(
                                     queryInfo.getSession().getUser(),
                                     queryInfo.getSession().getPrincipal(),

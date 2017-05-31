@@ -36,7 +36,7 @@ public class QueryStatistics
 
     private final List<StageCpuDistribution> cpuTimeDistribution;
 
-    private final String operatorSummaries;
+    private final List<String> operatorSummaries;
 
     public QueryStatistics(
             Duration cpuTime,
@@ -50,7 +50,7 @@ public class QueryStatistics
             int completedSplits,
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
-            String operatorSummaries)
+            List<String> operatorSummaries)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
@@ -121,7 +121,7 @@ public class QueryStatistics
         return cpuTimeDistribution;
     }
 
-    public String getOperatorSummaries()
+    public List<String> getOperatorSummaries()
     {
         return operatorSummaries;
     }
