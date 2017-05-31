@@ -38,6 +38,10 @@ Binary Functions
 
     Encodes ``bigint`` in a 64-bit 2's complement big endian format.
 
+.. function:: from_big_endian_64(binary) -> bigint
+
+    Decodes ``bigint`` value from a 64-bit 2's complement big endian ``binary``.
+
 .. function:: to_ieee754_32(real) -> varbinary
 
     Encodes ``real`` in a 32-bit big-endian binary according to IEEE 754 single-precision floating-point format.
@@ -45,10 +49,6 @@ Binary Functions
 .. function:: to_ieee754_64(double) -> varbinary
 
     Encodes ``double`` in a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
-
-.. function:: from_big_endian_64(binary) -> bigint
-
-    Decodes ``bigint`` value from a 64-bit 2's complement big endian ``binary``.
 
 .. function:: md5(binary) -> varbinary
 
