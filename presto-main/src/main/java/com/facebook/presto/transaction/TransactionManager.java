@@ -146,6 +146,11 @@ public class TransactionManager
         }
     }
 
+    public boolean transactionExists(TransactionId transactionId)
+    {
+        return tryGetTransactionMetadata(transactionId).isPresent();
+    }
+
     public TransactionInfo getTransactionInfo(TransactionId transactionId)
     {
         return getTransactionMetadata(transactionId).getTransactionInfo();
