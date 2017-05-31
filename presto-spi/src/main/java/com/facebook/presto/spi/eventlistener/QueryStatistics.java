@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.eventlistener;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -33,6 +34,8 @@ public class QueryStatistics
     private final int completedSplits;
     private final boolean complete;
 
+    private final List<StageCpuDistribution> cpuTimeDistribution;
+
     private final String operatorSummaries;
 
     public QueryStatistics(
@@ -46,6 +49,7 @@ public class QueryStatistics
             long totalRows,
             int completedSplits,
             boolean complete,
+            List<StageCpuDistribution> cpuTimeDistribution,
             String operatorSummaries)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
@@ -58,6 +62,7 @@ public class QueryStatistics
         this.totalRows = requireNonNull(totalRows, "totalRows is null");
         this.completedSplits = requireNonNull(completedSplits, "completedSplits is null");
         this.complete = complete;
+        this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
     }
 
@@ -109,6 +114,11 @@ public class QueryStatistics
     public boolean isComplete()
     {
         return complete;
+    }
+
+    public List<StageCpuDistribution> getCpuTimeDistribution()
+    {
+        return cpuTimeDistribution;
     }
 
     public String getOperatorSummaries()
