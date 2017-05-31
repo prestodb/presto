@@ -55,6 +55,7 @@ public class StageStats
     private final double cumulativeMemory;
     private final DataSize totalMemoryReservation;
     private final DataSize peakMemoryReservation;
+    private final DataSize peakLocalMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -92,6 +93,7 @@ public class StageStats
         this.cumulativeMemory = 0.0;
         this.totalMemoryReservation = null;
         this.peakMemoryReservation = null;
+        this.peakLocalMemoryReservation = null;
         this.totalScheduledTime = null;
         this.totalCpuTime = null;
         this.totalUserTime = null;
@@ -129,6 +131,7 @@ public class StageStats
             @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
+            @JsonProperty("peakLocalMemoryReservation") DataSize peakLocalMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -174,6 +177,7 @@ public class StageStats
         this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
+        this.peakLocalMemoryReservation = requireNonNull(peakLocalMemoryReservation, "peakLocalMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -279,6 +283,12 @@ public class StageStats
     public DataSize getTotalMemoryReservation()
     {
         return totalMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakLocalMemoryReservation()
+    {
+        return peakLocalMemoryReservation;
     }
 
     @JsonProperty

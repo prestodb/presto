@@ -54,6 +54,7 @@ import static com.facebook.presto.execution.StageState.TERMINAL_STAGE_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static java.lang.Long.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -220,6 +221,7 @@ public class StageStateMachine
         long cumulativeMemory = 0;
         long totalMemoryReservation = 0;
         long peakMemoryReservation = getPeakMemoryInBytes();
+        long peakLocalMemoryReservation = 0;
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
@@ -259,6 +261,7 @@ public class StageStateMachine
 
             cumulativeMemory += taskStats.getCumulativeMemory();
             totalMemoryReservation += taskStats.getMemoryReservation().toBytes();
+            peakLocalMemoryReservation = max(peakLocalMemoryReservation, taskStats.getPeakLocalMemoryReservation().toBytes());
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -306,13 +309,13 @@ public class StageStateMachine
                 cumulativeMemory,
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakMemoryReservation),
+                succinctBytes(peakLocalMemoryReservation),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
                 succinctDuration(totalUserTime, NANOSECONDS),
                 succinctDuration(totalBlockedTime, NANOSECONDS),
                 fullyBlocked && runningTasks > 0,
                 blockedReasons,
-
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),

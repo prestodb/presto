@@ -71,6 +71,7 @@ import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
+import static java.lang.Long.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -310,6 +311,7 @@ public class QueryStateMachine
         long cumulativeMemory = 0;
         long totalMemoryReservation = 0;
         long peakMemoryReservation = 0;
+        long peakLocalMemoryReservation = 0;
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
@@ -345,6 +347,7 @@ public class QueryStateMachine
             cumulativeMemory += stageStats.getCumulativeMemory();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
             peakMemoryReservation = getPeakMemoryInBytes();
+            peakLocalMemoryReservation = max(peakLocalMemoryReservation, stageStats.getPeakLocalMemoryReservation().toBytes());
 
             totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += stageStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -401,6 +404,7 @@ public class QueryStateMachine
                 cumulativeMemory,
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakMemoryReservation),
+                succinctBytes(peakLocalMemoryReservation),
 
                 isScheduled,
 
