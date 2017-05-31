@@ -24,6 +24,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,6 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -38,6 +40,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 
 public final class OperatorAssertion
@@ -61,6 +64,10 @@ public final class OperatorAssertion
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
         for (int loopsSinceLastPage = 0; loopsSinceLastPage < 1_000; loopsSinceLastPage++) {
+            if (handledBlocked(operator)) {
+                continue;
+            }
+
             if (input.hasNext() && operator.needsInput()) {
                 operator.addInput(input.next());
                 loopsSinceLastPage = 0;
@@ -81,6 +88,9 @@ public final class OperatorAssertion
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
 
         for (int loopsSinceLastPage = 0; !operator.isFinished() && loopsSinceLastPage < 1_000; loopsSinceLastPage++) {
+            if (handledBlocked(operator)) {
+                continue;
+            }
             operator.finish();
             Page outputPage = operator.getOutput();
             if (outputPage != null && outputPage.getPositionCount() != 0) {
@@ -94,6 +104,16 @@ public final class OperatorAssertion
         assertEquals(operator.isBlocked().isDone(), true, "Operator is blocked");
 
         return outputPages.build();
+    }
+
+    private static boolean handledBlocked(Operator operator)
+    {
+        ListenableFuture<?> isBlocked = operator.isBlocked();
+        if (!isBlocked.isDone()) {
+            tryGetFutureValue(isBlocked, 1, TimeUnit.MILLISECONDS);
+            return true;
+        }
+        return false;
     }
 
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input)
