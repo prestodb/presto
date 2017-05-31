@@ -23,16 +23,21 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 
 public final class OperatorAssertion
@@ -192,15 +197,14 @@ public final class OperatorAssertion
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
-    static <T> List<T> without(List<T> types, List<Integer> channels)
+    static <T> List<T> without(List<T> list, Collection<Integer> indexes)
     {
-        types = new ArrayList<>(types);
-        int removed = 0;
-        for (int hashChannel : channels) {
-            types.remove(hashChannel - removed);
-            removed++;
-        }
-        return ImmutableList.copyOf(types);
+        Set<Integer> indexesSet = ImmutableSet.copyOf(indexes);
+
+        return IntStream.range(0, list.size())
+                .filter(index -> !indexesSet.contains(index))
+                .mapToObj(list::get)
+                .collect(toImmutableList());
     }
 
     static List<Page> dropChannel(List<Page> pages, List<Integer> channels)
