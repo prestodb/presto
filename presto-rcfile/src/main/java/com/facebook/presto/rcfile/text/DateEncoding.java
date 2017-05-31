@@ -19,13 +19,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.Math.toIntExact;
@@ -68,17 +66,12 @@ public class DateEncoding
 
     private void encodeValue(Block block, int position, SliceOutput output)
     {
-        try {
-            long days = type.getLong(block, position);
-            long millis = TimeUnit.DAYS.toMillis(days);
-            buffer.setLength(0);
-            HIVE_DATE_PARSER.printTo(buffer, millis);
-            for (int index = 0; index < buffer.length(); index++) {
-                output.writeByte(buffer.charAt(index));
-            }
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+        long days = type.getLong(block, position);
+        long millis = TimeUnit.DAYS.toMillis(days);
+        buffer.setLength(0);
+        HIVE_DATE_PARSER.printTo(buffer, millis);
+        for (int index = 0; index < buffer.length(); index++) {
+            output.writeByte(buffer.charAt(index));
         }
     }
 
