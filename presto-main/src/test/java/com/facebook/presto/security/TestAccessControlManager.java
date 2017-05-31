@@ -276,6 +276,12 @@ public class TestAccessControlManager
                         denySelectTable(table.toString());
                     }
                 }
+
+                @Override
+                public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+                {
+                    return catalogs;
+                }
             };
         }
     }

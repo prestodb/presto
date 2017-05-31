@@ -38,6 +38,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanAccessCatalog(Identity identity, String catalogName)
+    {
+    }
+
+    @Override
     public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
     {
     }

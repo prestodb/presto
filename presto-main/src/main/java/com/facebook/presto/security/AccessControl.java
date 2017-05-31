@@ -37,6 +37,11 @@ public interface AccessControl
     Set<String> filterCatalogs(Identity identity, Set<String> catalogs);
 
     /**
+     * Check whether identity is allowed to access catalog
+     */
+    void checkCanAccessCatalog(Identity identity, String catalogName);
+
+    /**
      * Check if identity is allowed to create the specified schema.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
