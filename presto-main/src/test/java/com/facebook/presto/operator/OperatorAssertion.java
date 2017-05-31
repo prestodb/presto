@@ -34,8 +34,6 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public final class OperatorAssertion
 {
@@ -45,35 +43,50 @@ public final class OperatorAssertion
 
     public static List<Page> toPages(Operator operator, Iterator<Page> input)
     {
+        return ImmutableList.<Page>builder()
+                .addAll(toPagesPartial(operator, input))
+                .addAll(finishOperator(operator))
+                .build();
+    }
+
+    public static List<Page> toPagesPartial(Operator operator, Iterator<Page> input)
+    {
+        // verify initial state
+        assertEquals(operator.isFinished(), false);
+
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
-
-        boolean finishing = false;
-
-        while (operator.needsInput() && input.hasNext()) {
-            operator.addInput(input.next());
-        }
-
-        for (int loops = 0; !operator.isFinished() && loops < 10_000; loops++) {
-            if (operator.needsInput()) {
-                if (input.hasNext()) {
-                    Page inputPage = input.next();
-                    operator.addInput(inputPage);
-                }
-                else if (!finishing) {
-                    operator.finish();
-                    finishing = true;
-                }
+        for (int loopsSinceLastPage = 0; loopsSinceLastPage < 1_000; loopsSinceLastPage++) {
+            if (input.hasNext() && operator.needsInput()) {
+                operator.addInput(input.next());
+                loopsSinceLastPage = 0;
             }
 
             Page outputPage = operator.getOutput();
-            if (outputPage != null) {
+            if (outputPage != null && outputPage.getPositionCount() != 0) {
                 outputPages.add(outputPage);
+                loopsSinceLastPage = 0;
             }
         }
 
-        assertFalse(operator.needsInput());
-        assertTrue(operator.isBlocked().isDone());
-        assertTrue(operator.isFinished());
+        return outputPages.build();
+    }
+
+    public static List<Page> finishOperator(Operator operator)
+    {
+        ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
+
+        for (int loopsSinceLastPage = 0; !operator.isFinished() && loopsSinceLastPage < 1_000; loopsSinceLastPage++) {
+            operator.finish();
+            Page outputPage = operator.getOutput();
+            if (outputPage != null && outputPage.getPositionCount() != 0) {
+                outputPages.add(outputPage);
+                loopsSinceLastPage = 0;
+            }
+        }
+
+        assertEquals(operator.isFinished(), true, "Operator did not finish");
+        assertEquals(operator.needsInput(), false, "Operator still wants input");
+        assertEquals(operator.isBlocked().isDone(), true, "Operator is blocked");
 
         return outputPages.build();
     }
@@ -81,60 +94,16 @@ public final class OperatorAssertion
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input)
     {
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
-            return toPages(operator, input);
+            return toPages(operator, input.iterator());
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
         }
-    }
-
-    private static List<Page> toPages(Operator operator, List<Page> input)
-    {
-        // verify initial state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
-        assertEquals(operator.getOutput(), null);
-
-        return toPages(operator, input.iterator());
     }
 
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext)
     {
-        try (Operator operator = operatorFactory.createOperator(driverContext)) {
-            return toPages(operator);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private static List<Page> toPages(Operator operator)
-    {
-        // operator does not have input so should never require input
-        assertEquals(operator.needsInput(), false);
-
-        ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
-        addRemainingOutputPages(operator, outputPages);
-        return outputPages.build();
-    }
-
-    private static void addRemainingOutputPages(Operator operator, ImmutableList.Builder<Page> outputPages)
-    {
-        // pull remaining output pages
-        while (!operator.isFinished()) {
-            // at this point the operator should not need more input
-            assertEquals(operator.needsInput(), false);
-
-            Page outputPage = operator.getOutput();
-            if (outputPage != null) {
-                outputPages.add(outputPage);
-            }
-        }
-
-        // verify final state
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        return toPages(operatorFactory, driverContext, ImmutableList.of());
     }
 
     public static MaterializedResult toMaterializedResult(Session session, List<Type> types, List<Page> pages)
