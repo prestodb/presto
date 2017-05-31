@@ -48,7 +48,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -162,9 +161,10 @@ public class AccessControlManager
     @Override
     public void checkCanAccessCatalog(Identity identity, String catalogName)
     {
-        if (filterCatalogs(identity, ImmutableSet.of(catalogName)).isEmpty()) {
-            denyCatalogAccess(catalogName);
-        }
+        requireNonNull(identity, "identity is null");
+        requireNonNull(catalogName, "catalog is null");
+
+        authenticationCheck(() -> systemAccessControl.get().checkCanAccessCatalog(identity, catalogName));
     }
 
     @Override
@@ -665,6 +665,12 @@ public class AccessControlManager
 
         @Override
         public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+        {
+            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+        }
+
+        @Override
+        public void checkCanAccessCatalog(Identity identity, String catalogName)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }

@@ -264,6 +264,11 @@ public class TestAccessControlManager
                 }
 
                 @Override
+                public void checkCanAccessCatalog(Identity identity, String catalogName)
+                {
+                }
+
+                @Override
                 public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
                 {
                     throw new UnsupportedOperationException();
