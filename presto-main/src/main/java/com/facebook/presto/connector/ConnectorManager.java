@@ -281,8 +281,9 @@ public class ConnectorManager
         metadataManager.getSchemaPropertyManager().removeProperties(connectorId);
         metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(connectorId);
 
-        Connector connector = connectors.remove(connectorId).getConnector();
-        if (connector != null) {
+        MaterializedConnector materializedConnector = connectors.remove(connectorId);
+        if (materializedConnector != null) {
+            Connector connector = materializedConnector.getConnector();
             try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
                 connector.shutdown();
             }
