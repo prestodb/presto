@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
@@ -57,6 +58,16 @@ public interface SystemAccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetSystemSessionProperty(Identity identity, String propertyName);
+
+    /**
+     * Check if identity is allowed to access the specified catalog
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanAccessCatalog(Identity identity, String catalogName)
+    {
+        denyCatalogAccess(catalogName);
+    }
 
     /**
      * Filter the list of catalogs to those visible to the identity.

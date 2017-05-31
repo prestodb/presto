@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
@@ -110,6 +111,14 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanAccessCatalog(Identity identity, String catalogName)
+    {
+        if (!canAccessCatalog(identity, catalogName)) {
+            denyCatalogAccess(catalogName);
+        }
+    }
+
+    @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
@@ -155,6 +164,10 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<String> filterSchemas(Identity identity, String catalogName, Set<String> schemaNames)
     {
+        if (!canAccessCatalog(identity, catalogName)) {
+            return ImmutableSet.of();
+        }
+
         return schemaNames;
     }
 
@@ -181,6 +194,10 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
     {
+        if (!canAccessCatalog(identity, catalogName)) {
+            return ImmutableSet.of();
+        }
+
         return tableNames;
     }
 

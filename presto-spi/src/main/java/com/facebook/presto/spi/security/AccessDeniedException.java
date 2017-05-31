@@ -38,6 +38,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal, userName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCatalogAccess(String catalogName)
+    {
+        denyCatalogAccess(catalogName, null);
+    }
+
+    public static void denyCatalogAccess(String catalogName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot access catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateSchema(String schemaName)
     {
         denyCreateSchema(schemaName, null);
