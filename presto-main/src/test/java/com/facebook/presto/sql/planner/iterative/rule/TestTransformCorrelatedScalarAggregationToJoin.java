@@ -26,9 +26,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -134,7 +132,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("corr", BIGINT)),
-                        p.project(Assignments.of(p.symbol("expr", BIGINT), new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, p.symbol("sum", BIGINT).toSymbolReference(), new LongLiteral("1"))),
+                        p.project(Assignments.of(p.symbol("expr", BIGINT), p.expression("sum + 1")),
                                 createSumAggregation(p, p.symbol("a", BIGINT), ImmutableList.of(ImmutableList.of()),
                                         p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT))))))
                 .matches(project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
