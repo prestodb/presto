@@ -197,8 +197,7 @@ public class ShowStatsRewrite
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
-            Map<ColumnHandle, String> tableColumnNames = getStatisticsColumnNames(tableStatistics, node, table.getName());
-
+            Map<ColumnHandle, String> tableColumnNames = getStatisticsColumnNames(tableStatistics, tableHandle);
             List<Expression> resultRows = buildStatisticsRows(tableStatistics, tableColumnNames);
 
             return simpleQuery(selectAll(selectItems),
@@ -239,10 +238,8 @@ public class ShowStatsRewrite
             return new Constraint<>(scanNode.get().getCurrentConstraint(), bindings -> true);
         }
 
-        private Map<ColumnHandle, String> getStatisticsColumnNames(TableStatistics statistics, ShowStats node, QualifiedName tableName)
+        private Map<ColumnHandle, String> getStatisticsColumnNames(TableStatistics statistics, TableHandle tableHandle)
         {
-            TableHandle tableHandle = getTableHandle(node, tableName);
-
             return statistics.getColumnStatistics()
                     .keySet().stream()
                     .collect(toMap(identity(), column -> metadata.getColumnMetadata(session, tableHandle, column).getName()));
@@ -292,8 +289,8 @@ public class ShowStatsRewrite
         {
             ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
             rowValues.add(new StringLiteral(columnName));
-            rowValues.add(createStatisticValueOrNull(columnStatistics.getDataSize()));
-            rowValues.add(createStatisticValueOrNull(columnStatistics.getDistinctValuesCount()));
+            rowValues.add(createStatisticValueOrNull(columnStatistics.getOnlyRangeColumnStatistics().getDataSize()));
+            rowValues.add(createStatisticValueOrNull(columnStatistics.getOnlyRangeColumnStatistics().getDistinctValuesCount()));
             rowValues.add(createStatisticValueOrNull(columnStatistics.getNullsFraction()));
             rowValues.add(NULL_DOUBLE);
             return new Row(rowValues.build());
