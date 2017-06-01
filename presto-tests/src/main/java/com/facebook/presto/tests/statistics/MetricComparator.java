@@ -38,7 +38,6 @@ import static java.util.Arrays.asList;
 public class MetricComparator
 {
     private final List<Metric> metrics = asList(Metric.values());
-    private final double tolerance = 0.1;
 
     public List<MetricComparison> getMetricComparisons(Plan queryPlan, StageInfo outputStageInfo)
     {
@@ -92,7 +91,7 @@ public class MetricComparator
     {
         Optional<Double> estimatedStats = asOptional(metric.getValue(estimate));
         Optional<Double> executionStats = execution.flatMap(e -> asOptional(metric.getValue(e)));
-        return new MetricComparison(node, metric, estimatedStats, executionStats, tolerance);
+        return new MetricComparison(node, metric, estimatedStats, executionStats);
     }
 
     private Optional<Double> asOptional(Estimate estimate)
