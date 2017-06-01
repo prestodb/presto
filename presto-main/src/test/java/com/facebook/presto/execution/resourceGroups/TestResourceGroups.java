@@ -516,22 +516,22 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootBY, ImmutableSet.of(), 10, true));
 
         assertEquals(root.getWaitingQueuedQueries(), 16);
-        assertEquals(rootA.getWaitingQueuedQueries(), 0);
-        assertEquals(rootAX.getWaitingQueuedQueries(), 0);
-        assertEquals(rootAY.getWaitingQueuedQueries(), 0);
-        assertEquals(rootB.getWaitingQueuedQueries(), 0);
-        assertEquals(rootBX.getWaitingQueuedQueries(), 0);
-        assertEquals(rootBY.getWaitingQueuedQueries(), 0);
+        assertEquals(rootA.getWaitingQueuedQueries(), 13);
+        assertEquals(rootAX.getWaitingQueuedQueries(), 10);
+        assertEquals(rootAY.getWaitingQueuedQueries(), 10);
+        assertEquals(rootB.getWaitingQueuedQueries(), 13);
+        assertEquals(rootBX.getWaitingQueuedQueries(), 10);
+        assertEquals(rootBY.getWaitingQueuedQueries(), 10);
 
         root.setMaxRunningQueries(20);
         root.processQueuedQueries();
         assertEquals(root.getWaitingQueuedQueries(), 0);
         assertEquals(rootA.getWaitingQueuedQueries(), 5);
-        assertEquals(rootAX.getWaitingQueuedQueries(), 0);
-        assertEquals(rootAY.getWaitingQueuedQueries(), 0);
+        assertEquals(rootAX.getWaitingQueuedQueries(), 6);
+        assertEquals(rootAY.getWaitingQueuedQueries(), 6);
         assertEquals(rootB.getWaitingQueuedQueries(), 5);
-        assertEquals(rootBX.getWaitingQueuedQueries(), 0);
-        assertEquals(rootBY.getWaitingQueuedQueries(), 0);
+        assertEquals(rootBX.getWaitingQueuedQueries(), 6);
+        assertEquals(rootBY.getWaitingQueuedQueries(), 6);
     }
 
     private static Set<MockQueryExecution> fillGroupTo(InternalResourceGroup group, Set<MockQueryExecution> existingQueries, int count)
