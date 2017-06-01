@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -40,6 +39,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -138,40 +138,38 @@ public class PlanPrinter
     private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
     private final boolean verbose;
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session sesion)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Lookup lookup, Session sesion)
     {
-        this(plan, types, metadata, statsCalculator, sesion, 0, false);
+        this(plan, types, metadata, lookup, sesion, 0, false);
     }
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session, int indent, boolean verbose)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Lookup lookup, Session session, int indent, boolean verbose)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(types, "types is null");
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(statsCalculator, "statsCalculator is null");
+        requireNonNull(lookup, "lookup is null");
 
         this.metadata = metadata;
         this.stats = Optional.empty();
         this.verbose = verbose;
 
-        Map<PlanNodeId, PlanNodeStatsEstimate> stats = statsCalculator.calculateStatsForPlan(session, types, plan);
-        Visitor visitor = new Visitor(types, stats, session);
+        Visitor visitor = new Visitor(types, lookup, session);
         plan.accept(visitor, indent);
     }
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Lookup lookup, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(types, "types is null");
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(statsCalculator, "statsCalculator is null");
+        requireNonNull(lookup, "lookup is null");
 
         this.metadata = metadata;
         this.stats = Optional.of(stats);
         this.verbose = verbose;
 
-        Map<PlanNodeId, PlanNodeStatsEstimate> planStats = statsCalculator.calculateStatsForPlan(session, types, plan);
-        Visitor visitor = new Visitor(types, planStats, session);
+        Visitor visitor = new Visitor(types, lookup, session);
         plan.accept(visitor, indent);
     }
 
@@ -181,27 +179,32 @@ public class PlanPrinter
         return output.toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Lookup lookup, Session session)
     {
-        return new PlanPrinter(plan, types, metadata, statsCalculator, session).toString();
+        return new PlanPrinter(plan, types, metadata, lookup, session).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session, int indent)
+    private static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Lookup lookup, Session session, int indent, boolean verbose)
     {
-        return new PlanPrinter(plan, types, metadata, statsCalculator, session, indent, verbose).toString();
+        return new PlanPrinter(plan, types, metadata, lookup, session, indent, verbose).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Lookup lookup, Session session, int indent)
     {
-        return new PlanPrinter(plan, types, metadata, statsCalculator, session, stats, indent, verbose).toString();
+        return new PlanPrinter(plan, types, metadata, lookup, session, indent, false).toString();
     }
 
-    public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, StatsCalculator statsCalculator, Session session)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Lookup lookup, Session session, Map<PlanNodeId, PlanNodeStats> stats, int indent, boolean verbose)
     {
-        return textDistributedPlan(outputStageInfo, metadata, costCalculator, session, false);
+        return new PlanPrinter(plan, types, metadata, lookup, session, stats, indent, verbose).toString();
     }
 
-    public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, CostCalculator costCalculator, Session session, boolean verbose)
+    public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, Lookup lookup, Session session)
+    {
+        return textDistributedPlan(outputStageInfo, metadata, lookup, session, false);
+    }
+
+    public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, Lookup lookup, Session session, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         List<StageInfo> allStages = outputStageInfo.getSubStages().stream()
@@ -209,28 +212,28 @@ public class PlanPrinter
                 .collect(toImmutableList());
         for (StageInfo stageInfo : allStages) {
             Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregatePlanNodeStats(stageInfo);
-            builder.append(formatFragment(metadata, statsCalculator, session, stageInfo.getPlan(), Optional.of(stageInfo.getStageStats()), Optional.of(aggregatedStats), verbose));
+            builder.append(formatFragment(metadata, lookup, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose));
         }
 
         return builder.toString();
     }
 
-    public static String textDistributedPlan(SubPlan plan, Metadata metadata, StatsCalculator statsCalculator, Session session)
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata, Lookup lookup, Session session)
     {
-        return textDistributedPlan(plan, metadata, costCalculator, session, false);
+        return textDistributedPlan(plan, metadata, lookup, session, false);
     }
 
-    public static String textDistributedPlan(SubPlan plan, Metadata metadata, CostCalculator costCalculator, Session session, boolean verbose)
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata, Lookup lookup, Session session, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(metadata, statsCalculator, session, fragment, Optional.empty(), Optional.empty(), verbose));
+            builder.append(formatFragment(metadata, lookup, session, fragment, Optional.empty(), Optional.empty(), verbose));
         }
 
         return builder.toString();
     }
 
-    private static String formatFragment(Metadata metadata, StatsCalculator statsCalculator, Session session, PlanFragment fragment, Optional<StageStats> stageStats, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose)
+    private static String formatFragment(Metadata metadata, Lookup lookup, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format("Fragment %s [%s]\n",
@@ -285,12 +288,12 @@ public class PlanPrinter
                     formatHash(partitioningScheme.getHashColumn())));
         }
 
-        if (stageStats.isPresent()) {
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, statsCalculator, session, planNodeStats.get(), 1, verbose))
+        if (stageInfo.isPresent()) {
+            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, lookup, session, planNodeStats.get(), 1, verbose))
                     .append("\n");
         }
         else {
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, statsCalculator, session, 1, verbose))
+            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, lookup, session, 1, verbose))
                     .append("\n");
         }
 
@@ -508,14 +511,14 @@ public class PlanPrinter
             extends PlanVisitor<Void, Integer>
     {
         private final Map<Symbol, Type> types;
-        private final Map<PlanNodeId, PlanNodeStatsEstimate> planNodesStats;
+        private final Lookup lookup;
         private final Session session;
 
         @SuppressWarnings("AssignmentToCollectionOrArrayFieldFromParameter")
-        public Visitor(Map<Symbol, Type> types, Map<PlanNodeId, PlanNodeStatsEstimate> planNodesStats, Session session)
+        public Visitor(Map<Symbol, Type> types, Lookup lookup, Session session)
         {
             this.types = types;
-            this.planNodesStats = planNodesStats;
+            this.lookup = lookup;
             this.session = session;
         }
 
@@ -1288,12 +1291,12 @@ public class PlanPrinter
 
         private boolean isPlanNodeStatsKnown(PlanNode node)
         {
-            return !UNKNOWN_STATS.equals(planNodesStats.getOrDefault(node.getId(), UNKNOWN_STATS));
+            return !UNKNOWN_STATS.equals(lookup.getStats(node, session, types));
         }
 
         private String formatPlanNodeStats(PlanNode node)
         {
-            PlanNodeStatsEstimate stats = planNodesStats.getOrDefault(node.getId(), UNKNOWN_STATS);
+            PlanNodeStatsEstimate stats = lookup.getStats(node, session, types);
             Estimate outputRowCount = stats.getOutputRowCount();
             Estimate outputSizeInBytes = stats.getOutputSizeInBytes();
             return String.format("{rows: %s, bytes: %s}",

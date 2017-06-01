@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.matching.MatchingEngine;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
@@ -44,13 +45,14 @@ public class IterativeOptimizer
     private final List<PlanOptimizer> legacyRules;
     private final MatchingEngine<Rule> ruleStore;
     private final StatsRecorder stats;
+    private final StatsCalculator statsCalculator;
 
-    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
+    public IterativeOptimizer(StatsRecorder stats, StatsCalculator statsCalculator, Set<Rule> rules)
     {
-        this(stats, ImmutableList.of(), rules);
+        this(stats, statsCalculator, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
+    public IterativeOptimizer(StatsRecorder stats, StatsCalculator statsCalculator, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleStore = MatchingEngine.<Rule>builder()
@@ -58,6 +60,7 @@ public class IterativeOptimizer
                 .build();
 
         this.stats = stats;
+        this.statsCalculator = statsCalculator;
 
         stats.registerAll(newRules);
     }
@@ -75,7 +78,7 @@ public class IterativeOptimizer
         }
 
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(memo::resolve);
+        Lookup lookup = new MemoBasedLookup(memo, statsCalculator);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         exploreGroup(memo.getRootGroup(), new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session));

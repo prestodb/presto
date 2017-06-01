@@ -17,12 +17,12 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.thrift.ThriftPlugin;
 import com.facebook.presto.connector.thrift.location.HostList;
 import com.facebook.presto.connector.thrift.server.ThriftTpchService;
-import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -167,9 +167,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public StatsCalculator getStatsCalculator()
+        public Lookup getLookup()
         {
-            return source.getStatsCalculator();
+            return source.getLookup();
         }
 
         @Override

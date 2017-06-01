@@ -32,7 +32,6 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestCoefficientBasedStatsCalculator
 {
     private final LocalQueryRunner queryRunner;
-    private final StatsCalculator statsCalculator;
 
     public TestCoefficientBasedStatsCalculator()
     {
@@ -46,8 +45,6 @@ public class TestCoefficientBasedStatsCalculator
                 queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1, true),
                 ImmutableMap.<String, String>of());
-
-        statsCalculator = new CoefficientBasedStatsCalculator(queryRunner.getMetadata());
     }
 
     @Test
@@ -76,7 +73,7 @@ public class TestCoefficientBasedStatsCalculator
     {
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), statsCalculator, actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getLookup(), actualPlan, pattern);
             return null;
         });
     }
