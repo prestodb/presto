@@ -179,6 +179,10 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
+        if (log.isDebugEnabled()) {
+            log.debug("QueryId: %s, Statement: %s, Session %s", query.getQueryId(), statement, session.toString());
+        }
+
         return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS));
     }
 
