@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.util.Mergeable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -30,6 +31,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toMap;
 
 public class PlanNodeStats
+        implements Mergeable<PlanNodeStats>
 {
     private final PlanNodeId planNodeId;
 
@@ -161,21 +163,22 @@ public class PlanNodeStats
                         entry -> entry.getValue().getWeightedExpectedHashCollisions() / operatorInputStats.get(entry.getKey()).getInputPositions()));
     }
 
-    public static PlanNodeStats merge(PlanNodeStats left, PlanNodeStats right)
+    @Override
+    public PlanNodeStats mergeWith(PlanNodeStats other)
     {
-        checkArgument(left.getPlanNodeId().equals(right.getPlanNodeId()), "planNodeIds do not match. %s != %s", left.getPlanNodeId(), right.getPlanNodeId());
+        checkArgument(planNodeId.equals(other.getPlanNodeId()), "planNodeIds do not match. %s != %s", planNodeId, other.getPlanNodeId());
 
-        long planNodeInputPositions = left.planNodeInputPositions + right.planNodeInputPositions;
-        DataSize planNodeInputDataSize = succinctBytes(left.planNodeInputDataSize.toBytes() + right.planNodeInputDataSize.toBytes());
-        long planNodeOutputPositions = left.planNodeOutputPositions + right.planNodeOutputPositions;
-        DataSize planNodeOutputDataSize = succinctBytes(left.planNodeOutputDataSize.toBytes() + right.planNodeOutputDataSize.toBytes());
+        long planNodeInputPositions = this.planNodeInputPositions + other.planNodeInputPositions;
+        DataSize planNodeInputDataSize = succinctBytes(this.planNodeInputDataSize.toBytes() + other.planNodeInputDataSize.toBytes());
+        long planNodeOutputPositions = this.planNodeOutputPositions + other.planNodeOutputPositions;
+        DataSize planNodeOutputDataSize = succinctBytes(this.planNodeOutputDataSize.toBytes() + other.planNodeOutputDataSize.toBytes());
 
-        Map<String, OperatorInputStats> operatorInputStats = mergeMaps(left.operatorInputStats, right.operatorInputStats, OperatorInputStats::merge);
-        Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeMaps(left.operatorHashCollisionsStats, right.operatorHashCollisionsStats, OperatorHashCollisionsStats::merge);
+        Map<String, OperatorInputStats> operatorInputStats = mergeMaps(this.operatorInputStats, other.operatorInputStats, OperatorInputStats::merge);
+        Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeMaps(this.operatorHashCollisionsStats, other.operatorHashCollisionsStats, OperatorHashCollisionsStats::merge);
 
         return new PlanNodeStats(
-                left.getPlanNodeId(),
-                new Duration(left.getPlanNodeWallTime().toMillis() + right.getPlanNodeWallTime().toMillis(), MILLISECONDS),
+                planNodeId,
+                new Duration(planNodeWallTime.toMillis() + other.getPlanNodeWallTime().toMillis(), MILLISECONDS),
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
                 operatorInputStats,

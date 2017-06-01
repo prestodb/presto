@@ -51,7 +51,7 @@ public class PlanNodeStatsSummarizer
                 .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
                 .collect(toList());
         for (PlanNodeStats stats : planNodeStats) {
-            aggregatedStats.merge(stats.getPlanNodeId(), stats, PlanNodeStats::merge);
+            aggregatedStats.merge(stats.getPlanNodeId(), stats, (left, right) -> left.mergeWith(right));
         }
         return aggregatedStats;
     }
