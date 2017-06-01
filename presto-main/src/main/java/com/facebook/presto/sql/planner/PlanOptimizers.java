@@ -167,10 +167,7 @@ public class PlanOptimizers
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         stats,
-                        ImmutableSet.of(
-                                new RemoveRedundantIdentityProjections(),
-                                new TransformCorrelatedInPredicateToJoin(),
-                                new ImplementFilteredAggregations())
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())
                 ),
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAndExceptAsUnion(),
@@ -188,6 +185,12 @@ public class PlanOptimizers
                         stats,
                         ImmutableList.of(new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry())),
                         ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()))),
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableSet.of(
+                                new TransformCorrelatedInPredicateToJoin(), // must be run after PruneUnreferencedOutputs
+                                new ImplementFilteredAggregations())
+                ),
                 new PredicatePushDown(metadata, sqlParser),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(

@@ -49,6 +49,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
@@ -295,6 +296,27 @@ public class TestLogicalPlanner
                                                 tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))
                                         )
                                 )
+                        )
+                )
+        );
+    }
+
+    /**
+     * Handling of correlated in predicate involves group by over all symbols from source. Once aggregation is added to the plan,
+     * it prevents pruning of the unreferenced symbols. However, the aggregation's result doesn't actually depended on those symbols
+     * and this test makes sure the symbols are pruned first.
+     */
+    @Test
+    public void testSymbolsPrunedInCorrelatedInPredicateSource()
+    {
+        assertPlan(
+                "SELECT orderkey, comment IN (SELECT clerk FROM orders s WHERE s.orderkey = o.orderkey AND s.orderkey < 7) FROM lineitem o",
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(strictTableScan("lineitem", ImmutableMap.of(
+                                        "orderkey", "orderkey",
+                                        "comment", "comment"))),
+                                anyTree(tableScan("orders"))
                         )
                 )
         );
