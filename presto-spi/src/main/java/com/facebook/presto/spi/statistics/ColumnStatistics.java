@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 public final class ColumnStatistics
 {
     private static final List<RangeColumnStatistics> SINGLE_UNKNOWN_RANGE_STATISTICS = singletonList(RangeColumnStatistics.builder().build());
+    public static final ColumnStatistics UNKNOWN_COLUMN_STATISTICS = ColumnStatistics.builder().build();
 
     private final List<RangeColumnStatistics> rangeColumnStatistics;
     private final Estimate nullsFraction;
