@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.type.ListLiteralType;
@@ -74,9 +75,10 @@ public final class GroupingOperationRewriter
         else {
             checkState(groupIdSymbol.isPresent(), "groupId symbol is missing");
 
-            Map<Expression, FieldId> columnReferenceFields = analysis.getColumnReferenceFields();
-            RelationId relationId = columnReferenceFields.get(expression.getGroupingColumns().get(0)).getRelationId();
+            Map<NodeRef<Expression>, FieldId> columnReferenceFields = analysis.getColumnReferenceFields();
+            RelationId relationId = columnReferenceFields.get(NodeRef.of(expression.getGroupingColumns().get(0))).getRelationId();
             List<Expression> groupingOrdinals = expression.getGroupingColumns().stream()
+                    .map(NodeRef::of)
                     .peek(groupingColumn -> checkState(columnReferenceFields.containsKey(groupingColumn), "the grouping column is not in the columnReferencesField map"))
                     .map(columnReferenceFields::get)
                     .map(fieldId -> translateFieldToLongLiteral(fieldId, relationId))
@@ -84,6 +86,7 @@ public final class GroupingOperationRewriter
 
             List<List<Expression>> groupingSetOrdinals = analysis.getGroupingSets(queryNode).stream()
                     .map(groupingSet -> groupingSet.stream()
+                            .map(NodeRef::of)
                             .filter(columnReferenceFields::containsKey)
                             .map(columnReferenceFields::get)
                             .map(fieldId -> translateFieldToLongLiteral(fieldId, relationId))

@@ -25,7 +25,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nullable;
@@ -87,7 +87,7 @@ public class InterpretedCursorProcessor
             parameterTypes.put(parameter, type);
         }
 
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, parameterTypes.build(), rewritten, emptyList());
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, parameterTypes.build(), rewritten, emptyList());
         return expressionInterpreter(rewritten, metadata, session, expressionTypes);
     }
 

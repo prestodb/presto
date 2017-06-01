@@ -255,7 +255,7 @@ be any one of the available profiles:
     ```
 
 Note: SQL Server product-tests use `microsoft/mssql-server-linux` docker container.
-By running SQL Server product tests you accept the license [ACCEPT_EULA](go.microsoft.com/fwlink/?LinkId=746388)
+By running SQL Server product tests you accept the license [ACCEPT_EULA](https://go.microsoft.com/fwlink/?LinkId=746388)
 
 ### Running from IntelliJ
 

@@ -41,6 +41,7 @@ import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
 import com.facebook.presto.spi.eventlistener.SplitStatistics;
+import com.facebook.presto.spi.eventlistener.StageCpuDistribution;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,6 +51,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.Distribution;
+import io.airlift.stats.Distribution.DistributionSnapshot;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -173,6 +176,11 @@ public class QueryMonitor
                                 tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
             }
 
+            ImmutableList.Builder<String> operatorSummaries = ImmutableList.builder();
+            for (OperatorStats summary : queryInfo.getQueryStats().getOperatorSummaries()) {
+                operatorSummaries.add(objectMapper.writeValueAsString(summary));
+            }
+
             eventListenerManager.queryCompleted(
                     new QueryCompletedEvent(
                             new QueryMetadata(
@@ -191,9 +199,11 @@ public class QueryMonitor
                                     queryStats.getPeakMemoryReservation().toBytes(),
                                     queryStats.getRawInputDataSize().toBytes(),
                                     queryStats.getRawInputPositions(),
+                                    queryStats.getCumulativeMemory(),
                                     queryStats.getCompletedDrivers(),
                                     queryInfo.isCompleteInfo(),
-                                    objectMapper.writeValueAsString(queryInfo.getQueryStats().getOperatorSummaries())),
+                                    getCpuDistributions(queryInfo),
+                                    operatorSummaries.build()),
                             new QueryContext(
                                     queryInfo.getSession().getUser(),
                                     queryInfo.getSession().getPrincipal(),
@@ -366,5 +376,50 @@ public class QueryMonitor
         catch (JsonProcessingException e) {
             log.error(e, "Error processing split completion event for task %s", taskId);
         }
+    }
+
+    private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)
+    {
+        if (!queryInfo.getOutputStage().isPresent()) {
+            return ImmutableList.of();
+        }
+
+        ImmutableList.Builder<StageCpuDistribution> builder = ImmutableList.builder();
+        populateDistribution(queryInfo.getOutputStage().get(), builder);
+
+        return builder.build();
+    }
+
+    private static void populateDistribution(StageInfo stageInfo, ImmutableList.Builder<StageCpuDistribution> distributions)
+    {
+        distributions.add(computeCpuDistribution(stageInfo));
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            populateDistribution(subStage, distributions);
+        }
+    }
+
+    private static StageCpuDistribution computeCpuDistribution(StageInfo stageInfo)
+    {
+        Distribution cpuDistribution = new Distribution();
+
+        for (TaskInfo taskInfo : stageInfo.getTasks()) {
+            cpuDistribution.add(taskInfo.getStats().getTotalCpuTime().toMillis());
+        }
+
+        DistributionSnapshot snapshot = cpuDistribution.snapshot();
+
+        return new StageCpuDistribution(
+                stageInfo.getStageId().getId(),
+                stageInfo.getTasks().size(),
+                snapshot.getP25(),
+                snapshot.getP50(),
+                snapshot.getP75(),
+                snapshot.getP90(),
+                snapshot.getP95(),
+                snapshot.getP99(),
+                snapshot.getMin(),
+                snapshot.getMax(),
+                (long) snapshot.getTotal(),
+                snapshot.getTotal() / snapshot.getCount());
     }
 }

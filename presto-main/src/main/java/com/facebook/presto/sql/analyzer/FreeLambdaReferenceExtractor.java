@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -66,7 +67,7 @@ public class FreeLambdaReferenceExtractor
         @Override
         protected Void visitIdentifier(Identifier node, Set<String> lambdaArgumentNames)
         {
-            if (analysis.getLambdaArgumentReferences().containsKey(node) && !lambdaArgumentNames.contains(node.getName())) {
+            if (analysis.getLambdaArgumentReferences().containsKey(NodeRef.of(node)) && !lambdaArgumentNames.contains(node.getName())) {
                 freeReferencesToLambdaArgument.add(node);
             }
             return null;

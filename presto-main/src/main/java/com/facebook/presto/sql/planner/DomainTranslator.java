@@ -43,10 +43,10 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
@@ -453,12 +453,12 @@ public final class DomainTranslator
          */
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(ComparisonExpression comparison)
         {
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = analyzeExpression(comparison);
+            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(comparison);
             Object left = ExpressionInterpreter.expressionOptimizer(comparison.getLeft(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
             Object right = ExpressionInterpreter.expressionOptimizer(comparison.getRight(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
 
-            Type leftType = expressionTypes.get(comparison.getLeft());
-            Type rightType = expressionTypes.get(comparison.getRight());
+            Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft()));
+            Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight()));
 
             // TODO: re-enable this check once we fix the type coercions in the optimizers
             // checkArgument(leftType.equals(rightType), "left and right type do not match in comparison expression (%s)", comparison);
@@ -488,11 +488,13 @@ public final class DomainTranslator
 
         private boolean isImplicitCoercion(Cast cast)
         {
-            IdentityLinkedHashMap<Expression, Type> expressionTypes = analyzeExpression(cast);
-            return metadata.getTypeManager().canCoerce(expressionTypes.get(cast.getExpression()), expressionTypes.get(cast));
+            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(cast);
+            Type actualType = expressionTypes.get(NodeRef.of(cast.getExpression()));
+            Type expectedType = expressionTypes.get(NodeRef.<Expression>of(cast));
+            return metadata.getTypeManager().canCoerce(actualType, expectedType);
         }
 
-        private IdentityLinkedHashMap<Expression, Type> analyzeExpression(Expression expression)
+        private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
         {
             return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList() /* parameters already replaced */);
         }
@@ -750,8 +752,8 @@ public final class DomainTranslator
 
     private static Type typeOf(Expression expression, Session session, Metadata metadata, Map<Symbol, Type> types)
     {
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList() /* parameters already replaced */);
-        return expressionTypes.get(expression);
+        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList() /* parameters already replaced */);
+        return expressionTypes.get(NodeRef.of(expression));
     }
 
     private static class NormalizedSimpleComparison

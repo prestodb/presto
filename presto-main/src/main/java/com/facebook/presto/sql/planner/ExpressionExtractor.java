@@ -27,22 +27,22 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionExtractor
 {
     public static List<Expression> extractExpressions(PlanNode plan)
     {
-        ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        plan.accept(new Visitor(true), expressionsBuilder);
-        return expressionsBuilder.build();
+        return extractExpressions(plan, noLookup());
     }
 
     public static List<Expression> extractExpressions(PlanNode plan, Lookup lookup)
     {
+        requireNonNull(plan, "plan is null");
+        requireNonNull(lookup, "lookup is null");
+
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
         plan.accept(new Visitor(true, lookup), expressionsBuilder);
         return expressionsBuilder.build();
@@ -51,7 +51,7 @@ public class ExpressionExtractor
     public static List<Expression> extractExpressionsNonRecursive(PlanNode plan)
     {
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        plan.accept(new Visitor(false), expressionsBuilder);
+        plan.accept(new Visitor(false, noLookup()), expressionsBuilder);
         return expressionsBuilder.build();
     }
 
@@ -63,19 +63,9 @@ public class ExpressionExtractor
             extends SimplePlanVisitor<ImmutableList.Builder<Expression>>
     {
         private final boolean recursive;
-        private final Optional<Lookup> lookup;
+        private final Lookup lookup;
 
-        public Visitor(boolean recursive)
-        {
-            this(recursive, Optional.empty());
-        }
-
-        public Visitor(boolean recursive, Lookup lookup)
-        {
-            this(recursive, Optional.of(lookup));
-        }
-
-        private Visitor(boolean recursive, Optional<Lookup> lookup)
+        Visitor(boolean recursive, Lookup lookup)
         {
             this.recursive = recursive;
             this.lookup = requireNonNull(lookup, "lookup is null");
@@ -84,15 +74,16 @@ public class ExpressionExtractor
         @Override
         protected Void visitPlan(PlanNode node, ImmutableList.Builder<Expression> context)
         {
-            if (node instanceof GroupReference) {
-                checkState(lookup.isPresent(), "Cannot extract expressions in iterative optimizer without providing a Lookup method");
-                return lookup.get().resolve(node).accept(this, context);
-            }
-
             if (recursive) {
                 return super.visitPlan(node, context);
             }
             return null;
+        }
+
+        @Override
+        public Void visitGroupReference(GroupReference node, ImmutableList.Builder<Expression> context)
+        {
+            return lookup.resolve(node).accept(this, context);
         }
 
         @Override

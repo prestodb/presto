@@ -68,6 +68,7 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -90,7 +91,6 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.FunctionType;
 import com.facebook.presto.type.RowType;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SliceUtf8;
@@ -99,6 +99,8 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -151,7 +153,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
-import static java.util.Collections.newSetFromMap;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionAnalyzer
@@ -162,17 +165,17 @@ public class ExpressionAnalyzer
     private final Map<Symbol, Type> symbolTypes;
     private final boolean isDescribe;
 
-    private final IdentityLinkedHashMap<FunctionCall, Signature> resolvedFunctions = new IdentityLinkedHashMap<>();
-    private final Set<SubqueryExpression> scalarSubqueries = newSetFromMap(new IdentityLinkedHashMap<>());
-    private final Set<ExistsPredicate> existsSubqueries = newSetFromMap(new IdentityLinkedHashMap<>());
-    private final IdentityLinkedHashMap<Expression, Type> expressionCoercions = new IdentityLinkedHashMap<>();
-    private final Set<Expression> typeOnlyCoercions = newSetFromMap(new IdentityLinkedHashMap<>());
-    private final Set<InPredicate> subqueryInPredicates = newSetFromMap(new IdentityLinkedHashMap<>());
-    private final IdentityLinkedHashMap<Expression, FieldId> columnReferences = new IdentityLinkedHashMap<>();
-    private final IdentityLinkedHashMap<Expression, Type> expressionTypes = new IdentityLinkedHashMap<>();
-    private final Set<QuantifiedComparisonExpression> quantifiedComparisons = newSetFromMap(new IdentityLinkedHashMap<>());
+    private final Map<NodeRef<FunctionCall>, Signature> resolvedFunctions = new LinkedHashMap<>();
+    private final Set<NodeRef<SubqueryExpression>> scalarSubqueries = new LinkedHashSet<>();
+    private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
+    private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
+    private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
+    private final Set<NodeRef<InPredicate>> subqueryInPredicates = new LinkedHashSet<>();
+    private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
+    private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons = new LinkedHashSet<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
-    private final IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences = new IdentityLinkedHashMap<>();
+    private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Session session;
     private final List<Expression> parameters;
@@ -195,14 +198,14 @@ public class ExpressionAnalyzer
         this.isDescribe = isDescribe;
     }
 
-    public IdentityLinkedHashMap<FunctionCall, Signature> getResolvedFunctions()
+    public Map<NodeRef<FunctionCall>, Signature> getResolvedFunctions()
     {
-        return resolvedFunctions;
+        return unmodifiableMap(resolvedFunctions);
     }
 
-    public IdentityLinkedHashMap<Expression, Type> getExpressionTypes()
+    public Map<NodeRef<Expression>, Type> getExpressionTypes()
     {
-        return expressionTypes;
+        return unmodifiableMap(expressionTypes);
     }
 
     public Type setExpressionType(Expression expression, Type type)
@@ -210,34 +213,43 @@ public class ExpressionAnalyzer
         requireNonNull(expression, "expression cannot be null");
         requireNonNull(type, "type cannot be null");
 
-        expressionTypes.put(expression, type);
+        expressionTypes.put(NodeRef.of(expression), type);
 
         return type;
     }
 
-    public IdentityLinkedHashMap<Expression, Type> getExpressionCoercions()
+    private Type getExpressionType(Expression expression)
     {
-        return expressionCoercions;
+        requireNonNull(expression, "expression cannot be null");
+
+        Type type = expressionTypes.get(NodeRef.of(expression));
+        checkState(type != null, "Expression not yet analyzed: %s", expression);
+        return type;
     }
 
-    public Set<Expression> getTypeOnlyCoercions()
+    public Map<NodeRef<Expression>, Type> getExpressionCoercions()
     {
-        return typeOnlyCoercions;
+        return unmodifiableMap(expressionCoercions);
     }
 
-    public Set<InPredicate> getSubqueryInPredicates()
+    public Set<NodeRef<Expression>> getTypeOnlyCoercions()
     {
-        return subqueryInPredicates;
+        return unmodifiableSet(typeOnlyCoercions);
     }
 
-    public IdentityLinkedHashMap<Expression, FieldId> getColumnReferences()
+    public Set<NodeRef<InPredicate>> getSubqueryInPredicates()
     {
-        return columnReferences;
+        return unmodifiableSet(subqueryInPredicates);
     }
 
-    public IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> getLambdaArgumentReferences()
+    public Map<NodeRef<Expression>, FieldId> getColumnReferences()
     {
-        return lambdaArgumentReferences;
+        return unmodifiableMap(columnReferences);
+    }
+
+    public Map<NodeRef<Identifier>, LambdaArgumentDeclaration> getLambdaArgumentReferences()
+    {
+        return unmodifiableMap(lambdaArgumentReferences);
     }
 
     public Type analyze(Expression expression, Scope scope)
@@ -252,19 +264,19 @@ public class ExpressionAnalyzer
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
-    public Set<SubqueryExpression> getScalarSubqueries()
+    public Set<NodeRef<SubqueryExpression>> getScalarSubqueries()
     {
-        return scalarSubqueries;
+        return unmodifiableSet(scalarSubqueries);
     }
 
-    public Set<ExistsPredicate> getExistsSubqueries()
+    public Set<NodeRef<ExistsPredicate>> getExistsSubqueries()
     {
-        return existsSubqueries;
+        return unmodifiableSet(existsSubqueries);
     }
 
-    public Set<QuantifiedComparisonExpression> getQuantifiedComparisons()
+    public Set<NodeRef<QuantifiedComparisonExpression>> getQuantifiedComparisons()
     {
-        return quantifiedComparisons;
+        return unmodifiableSet(quantifiedComparisons);
     }
 
     private class Visitor
@@ -282,7 +294,7 @@ public class ExpressionAnalyzer
         public Type process(Node node, @Nullable StackableAstVisitorContext<Context> context)
         {
             // don't double process a node
-            Type type = expressionTypes.get(node);
+            Type type = expressionTypes.get(NodeRef.of(node));
             if (type != null) {
                 return type;
             }
@@ -337,7 +349,7 @@ public class ExpressionAnalyzer
             if (context.getContext().isInLambda()) {
                 LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getNameToLambdaArgumentDeclarationMap().get(node.getName());
                 if (lambdaArgumentDeclaration != null) {
-                    Type result = expressionTypes.get(lambdaArgumentDeclaration);
+                    Type result = getExpressionType(lambdaArgumentDeclaration);
                     return setExpressionType(node, result);
                 }
             }
@@ -351,8 +363,8 @@ public class ExpressionAnalyzer
             if (context.getContext().isInLambda()) {
                 LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getNameToLambdaArgumentDeclarationMap().get(node.getName());
                 if (lambdaArgumentDeclaration != null) {
-                    lambdaArgumentReferences.put(node, lambdaArgumentDeclaration);
-                    Type result = expressionTypes.get(lambdaArgumentDeclaration);
+                    lambdaArgumentReferences.put(NodeRef.of(node), lambdaArgumentDeclaration);
+                    Type result = getExpressionType(lambdaArgumentDeclaration);
                     return setExpressionType(node, result);
                 }
             }
@@ -366,7 +378,7 @@ public class ExpressionAnalyzer
 
         private Type handleResolvedField(Expression node, FieldId fieldId, Type resolvedType)
         {
-            FieldId previous = columnReferences.put(node, fieldId);
+            FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);
             checkState(previous == null, "%s already known to refer to %s", node, previous);
             return setExpressionType(node, resolvedType);
         }
@@ -728,7 +740,7 @@ public class ExpressionAnalyzer
             if (node.getWindow().isPresent()) {
                 for (Expression expression : node.getWindow().get().getPartitionBy()) {
                     process(expression, context);
-                    Type type = expressionTypes.get(expression);
+                    Type type = getExpressionType(expression);
                     if (!type.isComparable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in window function PARTITION BY", type);
                     }
@@ -736,7 +748,7 @@ public class ExpressionAnalyzer
 
                 for (SortItem sortItem : getSortItemsFromOrderBy(node.getWindow().get().getOrderBy())) {
                     process(sortItem.getSortKey(), context);
-                    Type type = expressionTypes.get(sortItem.getSortKey());
+                    Type type = getExpressionType(sortItem.getSortKey());
                     if (!type.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "%s is not orderable, and therefore cannot be used in window function ORDER BY", type);
                     }
@@ -781,7 +793,7 @@ public class ExpressionAnalyzer
                                         isDescribe);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration argument : context.getContext().getNameToLambdaArgumentDeclarationMap().values()) {
-                                        innerExpressionAnalyzer.setExpressionType(argument, expressionTypes.get(argument));
+                                        innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
                                     }
                                 }
                                 return innerExpressionAnalyzer.analyze(expression, scope, context.getContext().expectingLambda(types)).getTypeSignature();
@@ -811,7 +823,7 @@ public class ExpressionAnalyzer
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
-            resolvedFunctions.put(node, function);
+            resolvedFunctions.put(NodeRef.of(node), function);
 
             Type type = typeManager.getType(function.getReturnType());
             return setExpressionType(node, type);
@@ -974,13 +986,13 @@ public class ExpressionAnalyzer
 
             Node previousNode = context.getPreviousNode().orElse(null);
             if (previousNode instanceof InPredicate && ((InPredicate) previousNode).getValue() != node) {
-                subqueryInPredicates.add((InPredicate) previousNode);
+                subqueryInPredicates.add(NodeRef.of((InPredicate) previousNode));
             }
             else if (previousNode instanceof QuantifiedComparisonExpression) {
-                quantifiedComparisons.add((QuantifiedComparisonExpression) previousNode);
+                quantifiedComparisons.add(NodeRef.of((QuantifiedComparisonExpression) previousNode));
             }
             else {
-                scalarSubqueries.add(node);
+                scalarSubqueries.add(NodeRef.of(node));
             }
 
             Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
@@ -994,7 +1006,7 @@ public class ExpressionAnalyzer
             Scope subqueryScope = Scope.builder().withParent(scope).build();
             analyzer.analyze(node.getSubquery(), subqueryScope);
 
-            existsSubqueries.add(node);
+            existsSubqueries.add(NodeRef.of(node));
 
             return setExpressionType(node, BOOLEAN);
         }
@@ -1113,12 +1125,10 @@ public class ExpressionAnalyzer
             }
 
             if (node.getGroupingColumns().size() <= MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER) {
-                expressionTypes.put(node, INTEGER);
-                return INTEGER;
+                return setExpressionType(node, INTEGER);
             }
             else {
-                expressionTypes.put(node, BIGINT);
-                return BIGINT;
+                return setExpressionType(node, BIGINT);
             }
         }
 
@@ -1226,12 +1236,13 @@ public class ExpressionAnalyzer
 
         private void addOrReplaceExpressionCoercion(Expression expression, Type type, Type superType)
         {
-            expressionCoercions.put(expression, superType);
+            NodeRef<Expression> ref = NodeRef.of(expression);
+            expressionCoercions.put(ref, superType);
             if (typeManager.isTypeOnlyCoercion(type, superType)) {
-                typeOnlyCoercions.add(expression);
+                typeOnlyCoercions.add(ref);
             }
-            else if (typeOnlyCoercions.contains(expression)) {
-                typeOnlyCoercions.remove(expression);
+            else if (typeOnlyCoercions.contains(ref)) {
+                typeOnlyCoercions.remove(ref);
             }
         }
     }
@@ -1314,7 +1325,7 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static IdentityLinkedHashMap<Expression, Type> getExpressionTypes(
+    public static Map<NodeRef<Expression>, Type> getExpressionTypes(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
@@ -1325,7 +1336,7 @@ public class ExpressionAnalyzer
         return getExpressionTypes(session, metadata, sqlParser, types, expression, parameters, false);
     }
 
-    public static IdentityLinkedHashMap<Expression, Type> getExpressionTypes(
+    public static Map<NodeRef<Expression>, Type> getExpressionTypes(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
@@ -1337,7 +1348,7 @@ public class ExpressionAnalyzer
         return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters, isDescribe);
     }
 
-    public static IdentityLinkedHashMap<Expression, Type> getExpressionTypes(
+    public static Map<NodeRef<Expression>, Type> getExpressionTypes(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
@@ -1349,7 +1360,7 @@ public class ExpressionAnalyzer
         return analyzeExpressionsWithSymbols(session, metadata, sqlParser, types, expressions, parameters, isDescribe).getExpressionTypes();
     }
 
-    public static IdentityLinkedHashMap<Expression, Type> getExpressionTypesFromInput(
+    public static Map<NodeRef<Expression>, Type> getExpressionTypesFromInput(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
@@ -1360,7 +1371,7 @@ public class ExpressionAnalyzer
         return getExpressionTypesFromInput(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters);
     }
 
-    public static IdentityLinkedHashMap<Expression, Type> getExpressionTypesFromInput(
+    public static Map<NodeRef<Expression>, Type> getExpressionTypesFromInput(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
@@ -1454,10 +1465,10 @@ public class ExpressionAnalyzer
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of());
         analyzer.analyze(expression, scope);
 
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();
-        IdentityLinkedHashMap<Expression, Type> expressionCoercions = analyzer.getExpressionCoercions();
-        Set<Expression> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
-        IdentityLinkedHashMap<FunctionCall, Signature> resolvedFunctions = analyzer.getResolvedFunctions();
+        Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
+        Map<NodeRef<Expression>, Type> expressionCoercions = analyzer.getExpressionCoercions();
+        Set<NodeRef<Expression>> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
+        Map<NodeRef<FunctionCall>, Signature> resolvedFunctions = analyzer.getResolvedFunctions();
 
         analysis.addTypes(expressionTypes);
         analysis.addCoercions(expressionCoercions, typeOnlyCoercions);

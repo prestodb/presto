@@ -117,14 +117,12 @@ public class TestResourceGroupsDao
                 2,
                 Optional.of(Pattern.compile("ping.*")),
                 Optional.of(Pattern.compile("ping_source")));
-        map.remove(2);
         map.put(2L, updated);
         compareSelectors(map, dao.getSelectors());
     }
 
     private static void testSelectorUpdateNull(H2ResourceGroupsDao dao, Map<Long, SelectorRecord> map)
     {
-        map.remove(2);
         SelectorRecord updated = new SelectorRecord(2, Optional.empty(), Optional.empty());
         map.put(2L, updated);
         dao.updateSelector(2, null, null, "ping.*", "ping_source");
@@ -133,7 +131,6 @@ public class TestResourceGroupsDao
                 2,
                 Optional.of(Pattern.compile("ping.*")),
                 Optional.of(Pattern.compile("ping_source")));
-        map.remove(2);
         map.put(2L, updated);
         dao.updateSelector(2, "ping.*", "ping_source", null, null);
         compareSelectors(map, dao.getSelectors());

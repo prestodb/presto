@@ -158,6 +158,26 @@ public final class VarbinaryFunctions
         return Long.reverseBytes(slice.getLong(0));
     }
 
+    @Description("encode value as a big endian varbinary according to IEEE 754 single-precision floating-point format")
+    @ScalarFunction("to_ieee754_32")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toIEEE754Binary32(@SqlType(StandardTypes.REAL) long value)
+    {
+        Slice slice = Slices.allocate(Float.BYTES);
+        slice.setInt(0, Integer.reverseBytes((int) value));
+        return slice;
+    }
+
+    @Description("encode value as a big endian varbinary according to IEEE 754 double-precision floating-point format")
+    @ScalarFunction("to_ieee754_64")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toIEEE754Binary64(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        Slice slice = Slices.allocate(Double.BYTES);
+        slice.setLong(0, Long.reverseBytes(Double.doubleToLongBits(value)));
+        return slice;
+    }
+
     @Description("compute md5 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)

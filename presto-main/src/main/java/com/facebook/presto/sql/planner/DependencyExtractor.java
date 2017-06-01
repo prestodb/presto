@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressions;
+import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
 import static java.util.Objects.requireNonNull;
 
 public final class DependencyExtractor
@@ -39,6 +41,17 @@ public final class DependencyExtractor
     {
         ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
         extractExpressions(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
+
+        return uniqueSymbols.build();
+    }
+
+    // TODO: this is a temporary hack. We need to clarify the semantics of extractUniqueNonRecursive and extractUnique.
+    // The notion of extracting dependencies recursively is odd, since the dependencies to a plan node are the inputs
+    // to its expressions. We need to figure out if the distinction between the two functions is needed at all.
+    public static Set<Symbol> extractUniqueNonRecursive(PlanNode node)
+    {
+        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
+        extractExpressionsNonRecursive(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
 
         return uniqueSymbols.build();
     }
@@ -73,7 +86,7 @@ public final class DependencyExtractor
     }
 
     // to extract qualified name with prefix
-    public static Set<QualifiedName> extractNames(Expression expression, Set<Expression> columnReferences)
+    public static Set<QualifiedName> extractNames(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
         ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
         new QualifiedNameBuilderVisitor(columnReferences).process(expression, builder);
@@ -94,9 +107,9 @@ public final class DependencyExtractor
     private static class QualifiedNameBuilderVisitor
             extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
     {
-        private final Set<Expression> columnReferences;
+        private final Set<NodeRef<Expression>> columnReferences;
 
-        private QualifiedNameBuilderVisitor(Set<Expression> columnReferences)
+        private QualifiedNameBuilderVisitor(Set<NodeRef<Expression>> columnReferences)
         {
             this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
         }
@@ -104,7 +117,7 @@ public final class DependencyExtractor
         @Override
         protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<QualifiedName> builder)
         {
-            if (columnReferences.contains(node)) {
+            if (columnReferences.contains(NodeRef.<Expression>of(node))) {
                 builder.add(DereferenceExpression.getQualifiedName(node));
             }
             else {
