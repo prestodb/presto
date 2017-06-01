@@ -264,6 +264,11 @@ public class ArbitraryOutputBuffer
 
         masterBuffer.setNoMorePages();
 
+        // process any pending reads from the client buffers
+        for (ClientBuffer clientBuffer : safeGetBuffersSnapshot()) {
+            clientBuffer.loadPagesIfNecessary(masterBuffer);
+        }
+
         checkFlushComplete();
     }
 

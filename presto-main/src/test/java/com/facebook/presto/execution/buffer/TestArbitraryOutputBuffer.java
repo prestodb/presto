@@ -565,7 +565,6 @@ public class TestArbitraryOutputBuffer
         assertFalse(future.isDone());
 
         // finish the buffer
-        buffer.setNoMorePages();
         assertQueueState(buffer, 0, FIRST, 0, 1);
         buffer.abort(FIRST);
         assertQueueClosed(buffer, 0, FIRST, 1);
@@ -804,6 +803,23 @@ public class TestArbitraryOutputBuffer
 
         // verify that the buffer is finished
         assertTrue(buffer.isFinished());
+    }
+
+    @Test
+    public void testNoMorePagesFreesReader()
+            throws Exception
+    {
+        ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
+        buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, 0));
+        assertFalse(buffer.isFinished());
+
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        assertFalse(future.isDone());
+
+        buffer.setNoMorePages();
+
+        assertTrue(future.isDone());
+        assertTrue(buffer.get(FIRST, 0, sizeOfPages(10)).isDone());
     }
 
     private static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
