@@ -101,6 +101,9 @@ public class ShowStatsRewrite
 
     private static final String COLUMN_NAME_COLUMN = "column_name";
     private static final String NULLS_FRACTION_COLUMN = "nulls_fraction";
+    private static final String LOW_VALUE_COLUMN = "low_value";
+    private static final String HIGH_VALUE_COLUMN = "high_value";
+    private static final int MAX_LOW_HIGH_LENGTH = 32;
 
     @Override
     public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, AccessControl accessControl)
@@ -321,6 +324,8 @@ public class ShowStatsRewrite
                                     .collect(toList()))
                             .add(NULLS_FRACTION_COLUMN)
                             .build()));
+            columnNamesBuilder.add(LOW_VALUE_COLUMN);
+            columnNamesBuilder.add(HIGH_VALUE_COLUMN);
             return columnNamesBuilder.build();
         }
 
@@ -334,6 +339,12 @@ public class ShowStatsRewrite
                     case COLUMN_NAME_COLUMN:
                         rowValues.add(new StringLiteral(columnName));
                         break;
+                    case LOW_VALUE_COLUMN:
+                        rowValues.add((lowHighAsLiteral(columnType, rangeStatistics.getLowValue())));
+                        break;
+                    case HIGH_VALUE_COLUMN:
+                        rowValues.add(lowHighAsLiteral(columnType, rangeStatistics.getHighValue()));
+                        break;
                     case NULLS_FRACTION_COLUMN:
                         rowValues.add(createStatisticValueOrNull(columnStatistics.getNullsFraction()));
                         break;
@@ -345,7 +356,7 @@ public class ShowStatsRewrite
             return new Row(rowValues.build());
         }
 
-        private Expression asVarcharLiteral(Type valueType, Optional<Object> value)
+        private Expression lowHighAsLiteral(Type valueType, Optional<Object> value)
         {
             if (!value.isPresent()) {
                 return new Cast(new NullLiteral(), VARCHAR);
@@ -354,7 +365,11 @@ public class ShowStatsRewrite
             Signature castSignature = functionRegistry.getCoercion(valueType, VarcharType.createUnboundedVarcharType());
             ScalarFunctionImplementation castImplementation = functionRegistry.getScalarFunctionImplementation(castSignature);
             Slice varcharValue = (Slice) ExpressionInterpreter.invoke(session.toConnectorSession(), castImplementation, singletonList(value.get()));
-            return new StringLiteral(varcharValue.toStringUtf8());
+            String stringValue = varcharValue.toStringUtf8();
+            if (stringValue.length() > MAX_LOW_HIGH_LENGTH) {
+                stringValue = stringValue.substring(0, 15) + "...";
+            }
+            return new StringLiteral(stringValue);
         }
 
         private static Expression createTableStatsRow(List<String> columnNames, TableStatistics tableStatistics)
@@ -364,6 +379,8 @@ public class ShowStatsRewrite
             for (String columnName : columnNames) {
                 switch (columnName) {
                     case COLUMN_NAME_COLUMN:
+                    case LOW_VALUE_COLUMN:
+                    case HIGH_VALUE_COLUMN:
                         rowValues.add(new Cast(new NullLiteral(), VARCHAR));
                         break;
                     case NULLS_FRACTION_COLUMN:
