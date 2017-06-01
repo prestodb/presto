@@ -20,13 +20,13 @@ import static java.util.Objects.requireNonNull;
 public final class ColumnStatistics
 {
     private final Estimate dataSize;
-    private final Estimate nullsCount;
+    private final Estimate nullsFraction;
     private final Estimate distinctValuesCount;
 
-    private ColumnStatistics(Estimate dataSize, Estimate nullsCount, Estimate distinctValuesCount)
+    private ColumnStatistics(Estimate dataSize, Estimate nullsFraction, Estimate distinctValuesCount)
     {
         this.dataSize = requireNonNull(dataSize, "dataSize can not be null");
-        this.nullsCount = requireNonNull(nullsCount, "nullsCount can not be null");
+        this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction can not be null");
         this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount can not be null");
     }
 
@@ -35,9 +35,9 @@ public final class ColumnStatistics
         return dataSize;
     }
 
-    public Estimate getNullsCount()
+    public Estimate getNullsFraction()
     {
-        return nullsCount;
+        return nullsFraction;
     }
 
     public Estimate getDistinctValuesCount()
@@ -53,7 +53,7 @@ public final class ColumnStatistics
     public static final class Builder
     {
         private Estimate dataSize = unknownValue();
-        private Estimate nullsCount = unknownValue();
+        private Estimate nullsFraction = unknownValue();
         private Estimate distinctValuesCount = unknownValue();
 
         public Builder setDataSize(Estimate dataSize)
@@ -62,9 +62,9 @@ public final class ColumnStatistics
             return this;
         }
 
-        public Builder setNullsCount(Estimate nullsCount)
+        public Builder setNullsFraction(Estimate nullsFraction)
         {
-            this.nullsCount = nullsCount;
+            this.nullsFraction = nullsFraction;
             return this;
         }
 
@@ -76,7 +76,7 @@ public final class ColumnStatistics
 
         public ColumnStatistics build()
         {
-            return new ColumnStatistics(dataSize, nullsCount, distinctValuesCount);
+            return new ColumnStatistics(dataSize, nullsFraction, distinctValuesCount);
         }
     }
 }
