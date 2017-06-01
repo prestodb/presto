@@ -23,6 +23,7 @@ import static java.lang.Double.isNaN;
 public class PlanNodeStatsEstimate
 {
     public static final PlanNodeStatsEstimate UNKNOWN_STATS = builder().build();
+    public static final double DEFAULT_ROW_SIZE = 42;
 
     private final double outputRowCount;
     private final double outputSizeInBytes;
@@ -119,6 +120,9 @@ public class PlanNodeStatsEstimate
 
         public PlanNodeStatsEstimate build()
         {
+            if (isNaN(outputSizeInBytes) && !isNaN(outputRowCount)) {
+                outputSizeInBytes = DEFAULT_ROW_SIZE * outputRowCount;
+            }
             return new PlanNodeStatsEstimate(outputRowCount, outputSizeInBytes);
         }
     }
