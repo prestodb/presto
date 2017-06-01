@@ -451,8 +451,6 @@ public final class TypeRegistry
             }
             case StandardTypes.DECIMAL: {
                 switch (resultTypeBase) {
-                    case StandardTypes.REAL:
-                        return Optional.of(REAL);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     default:
