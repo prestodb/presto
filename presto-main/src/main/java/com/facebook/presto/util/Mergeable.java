@@ -13,7 +13,21 @@
  */
 package com.facebook.presto.util;
 
+import java.util.Optional;
+
 public interface Mergeable<T>
 {
     T mergeWith(T other);
+
+    static <T extends Mergeable<T>> Optional<T> merge(Optional<T> first, Optional<T> second)
+    {
+        if (first.isPresent() && second.isPresent()) {
+            return Optional.of(first.get().mergeWith(second.get()));
+        }
+        else if (first.isPresent()) {
+            return first;
+        }
+
+        return second;
+    }
 }
