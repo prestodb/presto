@@ -261,7 +261,7 @@ public class ShowStatsRewrite
                     .add("column_name")
                     .add("data_size")
                     .add("distinct_values_count")
-                    .add("nulls_count")
+                    .add("nulls_fraction")
                     .add("row_count")
                     .build();
         }
@@ -294,7 +294,7 @@ public class ShowStatsRewrite
             rowValues.add(new StringLiteral(columnName));
             rowValues.add(createStatisticValueOrNull(columnStatistics.getDataSize()));
             rowValues.add(createStatisticValueOrNull(columnStatistics.getDistinctValuesCount()));
-            rowValues.add(createStatisticValueOrNull(columnStatistics.getNullsCount()));
+            rowValues.add(createStatisticValueOrNull(columnStatistics.getNullsFraction()));
             rowValues.add(NULL_DOUBLE);
             return new Row(rowValues.build());
         }
