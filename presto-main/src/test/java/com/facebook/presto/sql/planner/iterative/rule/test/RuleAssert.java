@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -28,7 +27,6 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
@@ -46,7 +44,6 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
-    private final StatsCalculator statsCalculator;
     private Session session;
     private final Rule rule;
 
@@ -56,15 +53,16 @@ public class RuleAssert
     private PlanNode plan;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
+    private final StatsCalculator statsCalculator;
 
-    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(Metadata metadata, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl, StatsCalculator statsCalculator)
     {
         this.metadata = metadata;
-        this.statsCalculator = statsCalculator;
         this.session = session;
         this.rule = rule;
         this.transactionManager = transactionManager;
         this.accessControl = accessControl;
+        this.statsCalculator = statsCalculator;
     }
 
     public RuleAssert setSystemProperty(String key, String value)
@@ -98,7 +96,7 @@ public class RuleAssert
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, statsCalculator, session, 2))));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, ruleApplication.lookup, session, 2))));
         }
     }
 
@@ -107,21 +105,21 @@ public class RuleAssert
       RuleApplication ruleApplication = applyRule();
       Map<Symbol, Type> types = ruleApplication.types;
 
-      if (!ruleApplication.wasRuleApplied()) {
-          fail(String.format(
-                  "%s did not fire for:\n%s",
-                  rule.getClass().getName(),
-                  formatPlan(plan, types)));
-      }
+        if (!ruleApplication.wasRuleApplied()) {
+            fail(String.format(
+                    "%s did not fire for:\n%s",
+                    rule.getClass().getName(),
+                    formatPlan(plan, types, ruleApplication.lookup)));
+        }
 
       PlanNode actual = ruleApplication.getResult();
 
-      if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
-          fail(String.format(
-                  "%s: rule fired but return the original plan:\n%s",
-                  rule.getClass().getName(),
-                  formatPlan(plan, types)));
-      }
+        if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
+            fail(String.format(
+                    "%s: rule fired but return the original plan:\n%s",
+                    rule.getClass().getName(),
+                    formatPlan(plan, types, ruleApplication.lookup)));
+        }
 
       if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
           fail(String.format(
@@ -133,18 +131,17 @@ public class RuleAssert
                   actual.getOutputSymbols()));
       }
 
-      inTransaction(session -> {
-          Map<PlanNodeId, PlanNodeStatsEstimate> planNodeStats = statsCalculator.calculateStatsForPlan(session, types, actual);
-          assertPlan(session, metadata, statsCalculator, new Plan(actual, types, planNodeStats), ruleApplication.lookup, pattern);
-          return null;
-      });
-  }
+        inTransaction(session -> {
+            assertPlan(session, metadata, ruleApplication.lookup, new Plan(actual, types, ruleApplication.lookup, session), pattern);
+            return null;
+        });
+    }
 
-  private RuleApplication applyRule()
-  {
-      SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-      Memo memo = new Memo(idAllocator, plan);
-      Lookup lookup = Lookup.from(memo::resolve);
+    private RuleApplication applyRule()
+    {
+        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
+        Memo memo = new Memo(idAllocator, plan);
+        Lookup lookup = Lookup.from(memo::resolve, statsCalculator);
 
       if (!rule.getPattern().matches(plan)) {
           return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
@@ -155,10 +152,10 @@ public class RuleAssert
       return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
   }
 
-  private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
-  {
-      return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, statsCalculator, session, 2));
-  }
+    private String formatPlan(PlanNode plan, Map<Symbol, Type> types, Lookup lookup)
+    {
+        return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, lookup, session, 2));
+    }
 
   private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
   {
