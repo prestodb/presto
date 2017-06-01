@@ -240,9 +240,9 @@ class ClientBuffer
             maxSize = pendingRead.getMaxSize();
         }
 
-        boolean dataAdded = loadPagesIfNecessary(pagesSupplier, maxSize);
+        boolean dataAddedOrNoMorePages = loadPagesIfNecessary(pagesSupplier, maxSize);
 
-        if (dataAdded) {
+        if (dataAddedOrNoMorePages) {
             PendingRead pendingRead;
             synchronized (this) {
                 pendingRead = this.pendingRead;
@@ -260,6 +260,7 @@ class ClientBuffer
     {
         checkState(!Thread.holdsLock(this), "Can not load pages while holding a lock on this");
 
+        boolean dataAddedOrNoMorePages;
         List<SerializedPageReference> pageReferences;
         synchronized (this) {
             if (noMorePages) {
@@ -282,12 +283,13 @@ class ClientBuffer
             if (!pagesSupplier.mayHaveMorePages()) {
                 noMorePages = true;
             }
+            dataAddedOrNoMorePages = !pageReferences.isEmpty() || noMorePages;
         }
 
         // sent pages will have an initial reference count, so drop it
         pageReferences.forEach(SerializedPageReference::dereferencePage);
 
-        return !pageReferences.isEmpty();
+        return dataAddedOrNoMorePages;
     }
 
     private void processRead(PendingRead pendingRead)
