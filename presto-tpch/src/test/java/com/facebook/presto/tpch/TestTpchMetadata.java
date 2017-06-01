@@ -269,7 +269,7 @@ public class TestTpchMetadata
     {
         return ImmutableMap.of(
                 tpchMetadata.toColumnHandle(column),
-                new NullableValue(TpchMetadata.getPrestoType(column.getType()), utf8Slice(value)));
+                new NullableValue(TpchMetadata.getPrestoType(column), utf8Slice(value)));
     }
 
     private ColumnStatistics noColumnStatistics()
