@@ -63,25 +63,25 @@ For example:
 
     presto:default> SHOW STATS FOR nation;
 
-     column_name | data_size | distinct_values_count | nulls_count | row_count
-    -------------+-----------+-----------------------+-------------+-----------
-     comment     | NULL      |                  31.0 |        31.0 | NULL
-     nationkey   | NULL      |                  19.0 |        19.0 | NULL
-     name        | NULL      |                  24.0 |        24.0 | NULL
-     regionkey   | NULL      |                   5.0 |         5.0 | NULL
-     NULL        | NULL      | NULL                  | NULL        |      25.0
+     column_name | data_size | distinct_values_count | nulls_fraction | row_count
+    -------------+-----------+-----------------------+----------------+-----------
+     comment     | NULL      |                  31.0 |            0.0 | NULL
+     nationkey   | NULL      |                  19.0 |            0.0 | NULL
+     name        | NULL      |                  24.0 |            0.0 | NULL
+     regionkey   | NULL      |                   5.0 |            0.0 | NULL
+     NULL        | NULL      | NULL                  | NULL           |      25.0
      (5 rows)
 
 
     presto:default> SHOW STATS FOR (SELECT * FROM nation WHERE nationkey > 10);
 
-     column_name | data_size | distinct_values_count | nulls_count | row_count
-    -------------+-----------+-----------------------+-------------+-----------
-     comment     | NULL      |                  21.0 |        21.0 | NULL
-     nationkey   | NULL      |                   9.0 |         9.0 | NULL
-     name        | NULL      |                  14.0 |        14.0 | NULL
-     regionkey   | NULL      |                   3.0 |         3.0 | NULL
-     NULL        | NULL      | NULL                  | NULL        |      15.0
+     column_name | data_size | distinct_values_count | nulls_fraction | row_count
+    -------------+-----------+-----------------------+----------------+-----------
+     comment     | NULL      |                  21.0 |            0.0 | NULL
+     nationkey   | NULL      |                   9.0 |            0.0 | NULL
+     name        | NULL      |                  14.0 |            0.0 | NULL
+     regionkey   | NULL      |                   3.0 |            0.0 | NULL
+     NULL        | NULL      | NULL                  | NULL           |      15.0
      (5 rows)
 
 If provided ``SELECT`` will filter out all of the partitions (all table layouts),
@@ -104,13 +104,13 @@ For example:
 
     presto:default> SHOW STATS FOR (SELECT comment FROM nation WHERE nationkey > 10);
 
-     column_name | data_size | distinct_values_count | nulls_count | row_count
-    -------------+-----------+-----------------------+-------------+-----------
-     comment     | NULL      |                  21.0 |        21.0 | NULL
-     nationkey   | NULL      |                   9.0 |         9.0 | NULL
-     name        | NULL      |                  14.0 |        14.0 | NULL
-     regionkey   | NULL      |                   3.0 |         3.0 | NULL
-     NULL        | NULL      | NULL                  | NULL        |      15.0
+     column_name | data_size | distinct_values_count | nulls_fraction | row_count
+    -------------+-----------+-----------------------+----------------+-----------
+     comment     | NULL      |                  21.0 |            0.0 | NULL
+     nationkey   | NULL      |                   9.0 |            0.0 | NULL
+     name        | NULL      |                  14.0 |            0.0 | NULL
+     regionkey   | NULL      |                   3.0 |            0.0 | NULL
+     NULL        | NULL      | NULL                  | NULL           |      15.0
      (5 rows)
 
 
