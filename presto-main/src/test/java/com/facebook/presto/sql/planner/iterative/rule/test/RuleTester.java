@@ -40,21 +40,22 @@ public class RuleTester
 
     public RuleTester()
     {
-        session = testSessionBuilder()
+        this(createQueryRunner());
+    }
+
+    private static LocalQueryRunner createQueryRunner()
+    {
+        Session session = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .build();
 
-        queryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner queryRunner = new LocalQueryRunner(session);
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
-
-        this.metadata = queryRunner.getMetadata();
-        this.statsCalculator = queryRunner.getStatsCalculator();
-        this.transactionManager = queryRunner.getTransactionManager();
-        this.accessControl = queryRunner.getAccessControl();
+        return queryRunner;
     }
 
     public RuleTester(LocalQueryRunner queryRunner)
