@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -266,7 +267,7 @@ public class TestLogicalPlanner
     @Test
     public void testCorrelatedSubqueries()
     {
-        assertPlan(
+        assertPlanWithOptimizerFiltering(
                 "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
                 LogicalPlanner.Stage.OPTIMIZED,
                 anyTree(
@@ -277,7 +278,8 @@ public class TestLogicalPlanner
                                         node(EnforceSingleRowNode.class,
                                                 project(
                                                         node(ValuesNode.class)
-                                                ))))));
+                                                ))))),
+                planOptimizer -> !(planOptimizer instanceof AddLocalExchanges));
     }
 
     /**
@@ -305,7 +307,7 @@ public class TestLogicalPlanner
     @Test
     public void testDoubleNestedCorrelatedSubqueries()
     {
-        assertPlan(
+        assertPlanWithOptimizerFiltering(
                 "SELECT orderkey FROM orders o " +
                         "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
                 LogicalPlanner.Stage.OPTIMIZED,
@@ -324,7 +326,8 @@ public class TestLogicalPlanner
                                                         node(EnforceSingleRowNode.class,
                                                                 project(
                                                                         node(ValuesNode.class)
-                                                                ))))))));
+                                                                ))))))),
+                planOptimizer -> !(planOptimizer instanceof AddLocalExchanges));
     }
 
     @Test
