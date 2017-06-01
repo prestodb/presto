@@ -565,7 +565,6 @@ public class TestArbitraryOutputBuffer
         assertFalse(future.isDone());
 
         // finish the buffer
-        buffer.setNoMorePages();
         assertQueueState(buffer, 0, FIRST, 0, 1);
         buffer.abort(FIRST);
         assertQueueClosed(buffer, 0, FIRST, 1);
