@@ -18,6 +18,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -124,6 +125,7 @@ public final class TaskTestUtils
                 metadata,
                 new SqlParser(),
                 new CoefficientBasedStatsCalculator(metadata),
+                new CostCalculatorUsingExchanges(() -> 1),
                 Optional.empty(),
                 pageSourceManager,
                 new IndexManager(),

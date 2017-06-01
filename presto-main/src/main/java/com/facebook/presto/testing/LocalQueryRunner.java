@@ -30,6 +30,9 @@ import com.facebook.presto.connector.system.SchemaPropertiesSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.connector.system.TransactionsSystemTable;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
@@ -224,6 +227,8 @@ public class LocalQueryRunner
     private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
     private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
+    private final CostCalculator estimatedExchangesCostCalculator;
     private final Lookup lookup;
 
     private final ExpressionCompiler expressionCompiler;
@@ -368,7 +373,9 @@ public class LocalQueryRunner
         this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig);
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
         this.statsCalculator = new CoefficientBasedStatsCalculator(metadata);
-        this.lookup = new StatelessLookup(statsCalculator);
+        this.costCalculator = new CostCalculatorUsingExchanges(this::getNodeCount);
+        this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, this::getNodeCount);
+        this.lookup = new StatelessLookup(statsCalculator, costCalculator);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
@@ -419,6 +426,16 @@ public class LocalQueryRunner
     public StatsCalculator getStatsCalculator()
     {
         return statsCalculator;
+    }
+
+    public CostCalculator getCostCalculator()
+    {
+        return costCalculator;
+    }
+
+    public CostCalculator getEstimatedExchangesCostCalculator()
+    {
+        return estimatedExchangesCostCalculator;
     }
 
     @Override
@@ -590,6 +607,7 @@ public class LocalQueryRunner
                 metadata,
                 sqlParser,
                 statsCalculator,
+                costCalculator,
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -692,7 +710,15 @@ public class LocalQueryRunner
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        return new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer()), statsCalculator).get();
+        return new PlanOptimizers(
+                metadata,
+                sqlParser,
+                featuresConfig,
+                forceSingleNode,
+                new MBeanExporter(new TestingMBeanServer()),
+                statsCalculator,
+                costCalculator,
+                estimatedExchangesCostCalculator).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
