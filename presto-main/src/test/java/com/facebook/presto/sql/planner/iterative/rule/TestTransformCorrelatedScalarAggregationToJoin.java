@@ -115,14 +115,15 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.values(p.symbol("corr", BIGINT)),
                         createSumAggregation(p, p.symbol("a", BIGINT), ImmutableList.of(ImmutableList.of()),
                                 p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))))
-                .matches(project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
-                        aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
-                                join(JoinNode.Type.LEFT,
-                                        ImmutableList.of(),
-                                        assignUniqueId("unique",
-                                                values(ImmutableMap.of("corr", 0))),
-                                        project(ImmutableMap.of("non_null", expression("true")),
-                                                values(ImmutableMap.of("a", 0, "b", 1)))))));
+                .matches(
+                        project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
+                                aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
+                                        join(JoinNode.Type.LEFT,
+                                                ImmutableList.of(),
+                                                assignUniqueId("unique",
+                                                        values(ImmutableMap.of("corr", 0))),
+                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                        values(ImmutableMap.of("a", 0, "b", 1)))))));
     }
 
     @Test
@@ -135,14 +136,15 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.project(Assignments.of(p.symbol("expr", BIGINT), p.expression("sum + 1")),
                                 createSumAggregation(p, p.symbol("a", BIGINT), ImmutableList.of(ImmutableList.of()),
                                         p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT))))))
-                .matches(project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
-                        aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
-                                join(JoinNode.Type.LEFT,
-                                        ImmutableList.of(),
-                                        assignUniqueId("unique",
-                                                values(ImmutableMap.of("corr", 0))),
-                                        project(ImmutableMap.of("non_null", expression("true")),
-                                                values(ImmutableMap.of("a", 0, "b", 1)))))));
+                .matches(
+                        project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
+                                aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
+                                        join(JoinNode.Type.LEFT,
+                                                ImmutableList.of(),
+                                                assignUniqueId("unique",
+                                                        values(ImmutableMap.of("corr", 0))),
+                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                        values(ImmutableMap.of("a", 0, "b", 1)))))));
     }
 
     private AggregationNode createSumAggregation(PlanBuilder p, Symbol symbol, List<List<Symbol>> groupingSets, PlanNode source)
