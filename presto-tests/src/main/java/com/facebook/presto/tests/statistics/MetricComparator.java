@@ -91,8 +91,8 @@ public class MetricComparator
     private MetricComparison createMetricComparison(Metric metric, PlanNode node, PlanNodeStatsEstimate estimate, Optional<PlanNodeStatsEstimate> execution)
     {
         Optional<Double> estimatedStats = asOptional(metric.getValue(estimate));
-        Optional<Double> executionStats = execution.flatMap(e -> asOptional(metric.getValue(e)));
-        return new MetricComparison(node, metric, estimatedStats, executionStats, tolerance);
+        Optional<Double> executionCount = execution.flatMap(e -> asOptional(metric.getValue(e)));
+        return new MetricComparison(node, metric, estimatedStats, executionCount);
     }
 
     private Optional<Double> asOptional(Estimate estimate)
