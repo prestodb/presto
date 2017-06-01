@@ -29,6 +29,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableMap;
@@ -84,14 +85,19 @@ public class MetastoreHiveStatisticsProvider
                 continue;
             }
             ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
+            RangeColumnStatistics.Builder rangeStatistics = RangeColumnStatistics.builder();
+            Estimate nullsFraction;
             if (hiveColumnHandle.isPartitionKey()) {
-                columnStatistics.setDistinctValuesCount(countDistinctPartitionKeys(hiveColumnHandle, hivePartitions));
-                columnStatistics.setNullsFraction(calculateNullsFractionForPartitioningKey(hiveColumnHandle, hivePartitions, partitionStatistics));
+                rangeStatistics.setDistinctValuesCount(countDistinctPartitionKeys(hiveColumnHandle, hivePartitions));
+                nullsFraction = calculateNullsFractionForPartitioningKey(hiveColumnHandle, hivePartitions, partitionStatistics);
             }
             else {
-                columnStatistics.setDistinctValuesCount(calculateDistinctValuesCount(partitionStatistics, columnName));
-                columnStatistics.setNullsFraction(calculateNullsFraction(partitionStatistics, columnName, rowCount));
+                rangeStatistics.setDistinctValuesCount(calculateDistinctValuesCount(partitionStatistics, columnName));
+                nullsFraction = calculateNullsFraction(partitionStatistics, columnName, rowCount);
             }
+            columnStatistics.setNullsFraction(nullsFraction);
+            rangeStatistics.setFraction(nullsFraction.map(value -> 1.0 - value));
+            columnStatistics.addRange(rangeStatistics.build());
             tableStatistics.setColumnStatistics(hiveColumnHandle, columnStatistics.build());
         }
         return tableStatistics.build();
