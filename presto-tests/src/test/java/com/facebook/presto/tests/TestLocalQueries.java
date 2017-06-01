@@ -72,8 +72,8 @@ public class TestLocalQueries
         // FIXME Add tests for more complex scenario with more stats
         MaterializedResult result = computeActual("SHOW STATS FOR nation");
 
-        MaterializedResult expectedStatistics = resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE)
-                .row(null, null, null, null, 25.0)
+        MaterializedResult expectedStatistics = resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE)
+                .row(null, null, null, null, 25.0, null, null)
                 .build();
 
         assertEquals(result, expectedStatistics);
