@@ -21,7 +21,6 @@ import static com.facebook.presto.tests.statistics.MetricComparison.Result.DIFFE
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
-import static java.lang.Math.abs;
 import static java.lang.String.format;
 
 public class MetricComparison
@@ -30,15 +29,13 @@ public class MetricComparison
     private final Metric metric;
     private final Optional<Double> estimatedCost;
     private final Optional<Double> executionCost;
-    private final double tolerance;
 
-    public MetricComparison(PlanNode planNode, Metric metric, Optional<Double> estimatedCost, Optional<Double> executionCost, double tolerance)
+    public MetricComparison(PlanNode planNode, Metric metric, Optional<Double> estimatedCost, Optional<Double> executionCost)
     {
         this.planNode = planNode;
         this.metric = metric;
         this.estimatedCost = estimatedCost;
         this.executionCost = executionCost;
-        this.tolerance = tolerance;
     }
 
     public Metric getMetric()
@@ -54,15 +51,15 @@ public class MetricComparison
     @Override
     public String toString()
     {
-        return format("Metric [%s] - [%s] - estimated: [%s], real: [%s] - plan node: [%s]",
-                metric, result(), print(estimatedCost), print(executionCost), planNode);
+        return format("Metric [%s] - estimated: [%s], real: [%s] - plan node: [%s]",
+                metric, print(estimatedCost), print(executionCost), planNode);
     }
 
-    public Result result()
+    public Result result(MetricComparisonStrategy metricComparisonStrategy)
     {
         return estimatedCost
                 .map(estimate -> executionCost
-                        .map(execution -> estimateMatchesReality(estimate, execution) ? MATCH : DIFFER)
+                        .map(execution -> metricComparisonStrategy.matches(execution, estimate) ? MATCH : DIFFER)
                         .orElse(NO_BASELINE))
                 .orElse(NO_ESTIMATE);
     }
@@ -70,11 +67,6 @@ public class MetricComparison
     private String print(Optional<Double> cost)
     {
         return cost.map(Object::toString).orElse("UNKNOWN");
-    }
-
-    private boolean estimateMatchesReality(double estimate, double execution)
-    {
-        return abs(execution - estimate) / execution < tolerance;
     }
 
     public enum Result
