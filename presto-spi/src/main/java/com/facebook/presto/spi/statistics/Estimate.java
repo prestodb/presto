@@ -34,6 +34,11 @@ public final class Estimate
         return new Estimate(UNKNOWN_VALUE);
     }
 
+    public static final Estimate zeroValue()
+    {
+        return new Estimate(0);
+    }
+
     public Estimate(double value)
     {
         this.value = value;

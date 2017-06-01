@@ -95,7 +95,7 @@ public class TestEliminateSorts
                 new UnaliasSymbolReferences(),
                 new AddExchanges(queryRunner.getMetadata(), new SqlParser()),
                 new PruneUnreferencedOutputs(),
-                new IterativeOptimizer(new StatsRecorder(), queryRunner.getStatsCalculator(), ImmutableSet.of(new RemoveRedundantIdentityProjections()))
+                new IterativeOptimizer(new StatsRecorder(), queryRunner.getStatsCalculator(), queryRunner.getCostCalculator(), ImmutableSet.of(new RemoveRedundantIdentityProjections()))
         );
 
         queryRunner.inTransaction(transactionSession -> {

@@ -275,6 +275,7 @@ public class TestReorderWindows
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(new StatsRecorder(),
                         queryRunner.getStatsCalculator(),
+                        queryRunner.getEstimatedExchangesCostCalculator(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new SwapAdjacentWindowsBySpecifications())),

@@ -140,7 +140,7 @@ public class TestMixedDistinctAggregationOptimizer
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new IterativeOptimizer(new StatsRecorder(), queryRunner.getStatsCalculator(), ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                new IterativeOptimizer(new StatsRecorder(), queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new OptimizeMixedDistinctAggregations(queryRunner.getMetadata()),
                 new PruneUnreferencedOutputs());
 

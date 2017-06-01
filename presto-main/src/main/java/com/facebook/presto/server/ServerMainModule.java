@@ -22,6 +22,9 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
@@ -136,6 +139,7 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import com.google.inject.name.Names;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -398,6 +402,10 @@ public class ServerMainModule
 
         // statistics calculator
         binder.bind(StatsCalculator.class).to(CoefficientBasedStatsCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostCalculator.class)
+                .annotatedWith(Names.named("estimatedExchangesCostCalculator"))
+                .to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
         binder.bind(Lookup.class).to(StatelessLookup.class).in(Scopes.SINGLETON);
 
         // type

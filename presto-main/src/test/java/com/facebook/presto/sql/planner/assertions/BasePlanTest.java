@@ -126,7 +126,7 @@ public class BasePlanTest
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new PruneUnreferencedOutputs(),
-                new IterativeOptimizer(new StatsRecorder(), queryRunner.getStatsCalculator(), ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+                new IterativeOptimizer(new StatsRecorder(), queryRunner.getStatsCalculator(), queryRunner.getCostCalculator(), ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
