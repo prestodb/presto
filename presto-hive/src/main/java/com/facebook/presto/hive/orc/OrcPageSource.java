@@ -27,15 +27,17 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
+import com.facebook.presto.spi.block.SubColumnBlock;
+import com.facebook.presto.spi.block.SubColumnBlock.ColumnHandleReference;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
@@ -50,16 +52,14 @@ public class OrcPageSource
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
-    private final List<String> columnNames;
-    private final List<Type> types;
-
     private final Block[] constantBlocks;
-    private final int[] hiveColumnIndexes;
+    private final HiveColumnHandle[] hiveColumnIndexes;
 
     private int batchId;
     private boolean closed;
 
     private final AggregatedMemoryContext systemMemoryContext;
+    private final TypeManager typeManager;
 
     private final FileFormatDataSourceStats stats;
 
@@ -79,21 +79,16 @@ public class OrcPageSource
         this.stats = requireNonNull(stats, "stats is null");
 
         this.constantBlocks = new Block[size];
-        this.hiveColumnIndexes = new int[size];
+        this.hiveColumnIndexes = new HiveColumnHandle[size];
+        this.typeManager = typeManager;
 
-        ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
         for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             HiveColumnHandle column = columns.get(columnIndex);
-            checkState(column.getColumnType() == REGULAR, "column type must be regular");
+            checkState(column.isVariableDataColumn(), "column type must be regular");
 
-            String name = column.getName();
             Type type = typeManager.getType(column.getTypeSignature());
 
-            namesBuilder.add(name);
-            typesBuilder.add(type);
-
-            hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
+            hiveColumnIndexes[columnIndex] = column;
 
             if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
                 BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_BATCH_SIZE, NULL_ENTRY_SIZE);
@@ -103,8 +98,6 @@ public class OrcPageSource
                 constantBlocks[columnIndex] = blockBuilder.build();
             }
         }
-        types = typesBuilder.build();
-        columnNames = namesBuilder.build();
 
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -144,14 +137,27 @@ public class OrcPageSource
                 return null;
             }
 
+            Map<Integer, LazyBlock> cached = new HashMap<>();
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                Type type = types.get(fieldId);
                 if (constantBlocks[fieldId] != null) {
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
-                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId], type, stats));
+                    SubColumnReference reference = new SubColumnReference(typeManager, hiveColumnIndexes[fieldId]);
+                    List<ColumnHandleReference> hirarchies = reference.getHirarchies();
+                    ColumnHandleReference parent = hirarchies.size() == 1 ? reference : reference.getHirarchies().get(0);
+
+                    LazyBlock block;
+                    if (cached.containsKey(parent.ordinal())) {
+                        block = cached.get(parent.ordinal());
+                    }
+                    else {
+                        block = new LazyBlock(batchSize, new OrcBlockLoader(parent.ordinal(), parent.getType(), stats));
+                        cached.put(parent.ordinal(), block);
+                    }
+
+                    blocks[fieldId] = hirarchies.size() == 1 ? block : new SubColumnBlock(block.getBlock(), reference);
                 }
             }
             return new Page(batchSize, blocks);
@@ -187,8 +193,7 @@ public class OrcPageSource
     public String toString()
     {
         return toStringHelper(this)
-                .add("columnNames", columnNames)
-                .add("types", types)
+                .add("hiveColumnIndexes", hiveColumnIndexes)
                 .toString();
     }
 

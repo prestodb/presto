@@ -159,7 +159,7 @@ public class TestShardWriter
             assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column5, 1), arrayBlockOf(BIGINT, 3, null)));
             assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column5, 2), arrayBlockOf(BIGINT)));
 
-            Block column6 = reader.readBlock(mapType, 6);
+            Block column6 = reader.readBlock(mapType, 7);
             assertEquals(column6.getPositionCount(), 3);
 
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 0), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true)));
@@ -168,7 +168,7 @@ public class TestShardWriter
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, object, k2));
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false)));
 
-            Block column7 = reader.readBlock(arrayOfArrayType, 7);
+            Block column7 = reader.readBlock(arrayOfArrayType, 10);
             assertEquals(column7.getPositionCount(), 3);
 
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column7, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));

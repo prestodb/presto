@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.base.Splitter;
 
 import java.util.Optional;
 
@@ -23,6 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Field
 {
+    public static final Splitter NAME_SPLITTER = Splitter.on(".");
     private final Optional<QualifiedObjectName> originTable;
     private final Optional<QualifiedName> relationAlias;
     private final Optional<String> name;
@@ -139,14 +141,15 @@ public class Field
        "x"        "y.a"         n
        "x.y"      "y.a"         y
      */
-    public boolean canResolve(QualifiedName name)
+    public boolean canResolve(QualifiedName qName)
     {
         if (!this.name.isPresent()) {
             return false;
         }
 
         // TODO: need to know whether the qualified name and the name of this field were quoted
-        return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
+        return name.get().equalsIgnoreCase(qName.toString()) ||
+                (matchesPrefix(qName.getPrefix()) && name.get().equalsIgnoreCase(qName.getSuffix()));
     }
 
     @Override

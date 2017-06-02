@@ -22,12 +22,15 @@ import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlock;
+import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.io.IOError;
 import java.io.IOException;
 import java.util.List;
 
@@ -100,7 +103,7 @@ public class StructStreamReader
             for (int i = 0; i < typeParameters.size(); i++) {
                 StreamReader structField = structFields[i];
                 structField.prepareNextRead(nextBatchSize);
-                blocks[i] = structField.readBlock(typeParameters.get(i));
+                blocks[i] = lazyBlock(structField, typeParameters.get(i));
             }
         }
         else {
@@ -109,7 +112,7 @@ public class StructStreamReader
                 for (int i = 0; i < typeParameters.size(); i++) {
                     StreamReader structField = structFields[i];
                     structField.prepareNextRead(nextBatchSize - nullValues);
-                    blocks[i] = structField.readBlock(typeParameters.get(i));
+                    blocks[i] = lazyBlock(structField, typeParameters.get(i));
                 }
             }
             else {
@@ -134,6 +137,23 @@ public class StructStreamReader
         nextBatchSize = 0;
 
         return arrayBlock;
+    }
+
+    private Block lazyBlock(StreamReader structField, Type typeParameter)
+    {
+        return new LazyBlock(nextBatchSize, new LazyBlockLoader<LazyBlock>()
+        {
+            public void load(LazyBlock block)
+            {
+                try {
+                    block.setBlock(structField.readBlock(typeParameter));
+                }
+                catch (IOException e) {
+                    throw new IOError(e);
+                }
+            }
+        }
+        );
     }
 
     private void openRowGroup()

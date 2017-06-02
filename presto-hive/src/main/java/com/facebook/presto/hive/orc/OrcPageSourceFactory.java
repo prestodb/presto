@@ -28,6 +28,8 @@ import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.orc.metadata.OrcType;
+import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -54,7 +56,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -168,7 +169,7 @@ public class OrcPageSourceFactory
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
             ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
             for (HiveColumnHandle column : physicalColumns) {
-                if (column.getColumnType() == REGULAR) {
+                if (column.isVariableDataColumn()) {
                     Type type = typeManager.getType(column.getTypeSignature());
                     includedColumns.put(column.getHiveColumnIndex(), type);
                     columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
@@ -235,7 +236,7 @@ public class OrcPageSourceFactory
                 physicalOrdinal = nextMissingColumnIndex;
                 nextMissingColumnIndex++;
             }
-            physicalColumns.add(new HiveColumnHandle(column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment()));
+            physicalColumns.add(new HiveColumnHandle(column.getParent(), column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment()));
         }
         return physicalColumns.build();
     }
@@ -253,12 +254,37 @@ public class OrcPageSourceFactory
     {
         ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
 
-        int ordinal = 0;
-        for (String physicalColumnName : reader.getColumnNames()) {
-            physicalNameOrdinalMap.put(physicalColumnName, ordinal);
-            ordinal++;
+        List<OrcType> types = reader.getFooter().getTypes();
+        parseTypes(null, 0, types, physicalNameOrdinalMap);
+        return physicalNameOrdinalMap.build();
+    }
+
+    private static void parseTypes(String name, int index, List<OrcType> types,
+            ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap)
+    {
+        OrcType type = types.get(index);
+        if (name != null) {
+            physicalNameOrdinalMap.put(name, OrcRecordReader.ordinal(index));
         }
 
-        return physicalNameOrdinalMap.build();
+        if (type.getOrcTypeKind() == OrcTypeKind.MAP) {
+            String childName = (name == null) ? "key" : name + ".key";
+            parseTypes(childName, type.getFieldTypeIndex(0), types, physicalNameOrdinalMap);
+
+            childName = (name == null) ? "value" : name + ".value";
+            parseTypes(childName, type.getFieldTypeIndex(1), types, physicalNameOrdinalMap);
+        }
+        else  if (type.getOrcTypeKind() == OrcTypeKind.LIST) {
+            String childName = (name == null) ? "item" : name + ".item";
+            parseTypes(childName, type.getFieldTypeIndex(0), types, physicalNameOrdinalMap);
+        }
+        else {
+            for (int i = 0; i < type.getFieldCount(); i++) {
+                String item = (type.getOrcTypeKind() == OrcTypeKind.LIST) ? "item" : type.getFieldName(i);
+                String childName = (name == null) ? item : name + "." + item;
+
+                parseTypes(childName, type.getFieldTypeIndex(i), types, physicalNameOrdinalMap);
+            }
+        }
     }
 }

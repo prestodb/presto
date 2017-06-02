@@ -39,7 +39,6 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.extractRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -243,7 +242,7 @@ public class HivePageSourceProvider
 
         private static boolean isPrefilled(HiveColumnHandle hiveColumnHandle)
         {
-            return hiveColumnHandle.getColumnType() != REGULAR;
+            return !hiveColumnHandle.isVariableDataColumn();
         }
 
         public static List<ColumnMapping> buildColumnMappings(
@@ -260,7 +259,7 @@ public class HivePageSourceProvider
                 HiveColumnHandle column = columns.get(i);
                 int currentIndex;
                 String prefilledValue = null;
-                if (column.getColumnType() == REGULAR) {
+                if (column.isVariableDataColumn()) {
                     currentIndex = regularIndex;
                     regularIndex++;
                 }
@@ -294,7 +293,9 @@ public class HivePageSourceProvider
                         if (!doCoercion || !columnMapping.getCoercionFrom().isPresent()) {
                             return columnHandle;
                         }
-                        return new HiveColumnHandle(columnHandle.getClientId(),
+                        return new HiveColumnHandle(
+                                columnHandle.getParent(),
+                                columnHandle.getClientId(),
                                 columnHandle.getName(),
                                 columnMapping.getCoercionFrom().get(),
                                 columnMapping.getCoercionFrom().get().getTypeSignature(),

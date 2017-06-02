@@ -37,7 +37,7 @@ public class LazyBlockEncoding
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
-        delegate.writeBlock(sliceOutput, ((LazyBlock) block).getBlock());
+        delegate.writeBlock(sliceOutput, (block instanceof LazyBlock) ? ((LazyBlock) block).getBlock() : block);
     }
 
     @Override

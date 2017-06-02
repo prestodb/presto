@@ -19,12 +19,18 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SUB_COLUMN;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
@@ -45,6 +51,7 @@ public class HiveColumnHandle
     public static final String BUCKET_COLUMN_NAME = "$bucket";
     public static final HiveType BUCKET_HIVE_TYPE = HIVE_INT;
     public static final TypeSignature BUCKET_TYPE_SIGNATURE = BUCKET_HIVE_TYPE.getTypeSignature();
+    public static final Joiner NAME_JOINER = Joiner.on('.');
 
     private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
@@ -52,27 +59,41 @@ public class HiveColumnHandle
     {
         PARTITION_KEY,
         REGULAR,
+        SUB_COLUMN,
         HIDDEN
     }
 
     private final String clientId;
-    private final String name;
+    private final List<String> name;
     private final HiveType hiveType;
     private final TypeSignature typeName;
     private final int hiveColumnIndex;
     private final ColumnType columnType;
     private final Optional<String> comment;
+    private final Optional<HiveColumnHandle> parent;
+
+    public HiveColumnHandle(String clientId, String name, HiveType hiveType, TypeSignature typeSignature, int hiveColumnIndex, ColumnType columnType, Optional<String> comment)
+    {
+        this(Optional.empty(), clientId, name, hiveType, typeSignature, hiveColumnIndex, columnType, comment);
+    }
+
+    public HiveColumnHandle(Optional<HiveColumnHandle> parent, String clientId, String name, HiveType hiveType, TypeSignature typeSignature, int hiveColumnIndex, ColumnType columnType, Optional<String> comment)
+    {
+        this(parent, clientId, ImmutableList.copyOf(Splitter.on('.').split(name)), hiveType, typeSignature, hiveColumnIndex, columnType, comment);
+    }
 
     @JsonCreator
     public HiveColumnHandle(
+            @JsonProperty("parent") Optional<HiveColumnHandle> parent,
             @JsonProperty("clientId") String clientId,
-            @JsonProperty("name") String name,
+            @JsonProperty("parts") List<String> name,
             @JsonProperty("hiveType") HiveType hiveType,
             @JsonProperty("typeSignature") TypeSignature typeSignature,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("comment") Optional<String> comment)
     {
+        this.parent = requireNonNull(parent, "parent is null");
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.name = requireNonNull(name, "name is null");
         checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == HIDDEN, "hiveColumnIndex is negative");
@@ -84,15 +105,26 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
+    public Optional<HiveColumnHandle> getParent()
+    {
+        return parent;
+    }
+
+    @JsonProperty
     public String getClientId()
     {
         return clientId;
     }
 
     @JsonProperty
-    public String getName()
+    public List<String> getParts()
     {
         return name;
+    }
+
+    public String getName()
+    {
+        return NAME_JOINER.join(name);
     }
 
     @JsonProperty
@@ -114,12 +146,17 @@ public class HiveColumnHandle
 
     public boolean isHidden()
     {
-        return columnType == HIDDEN;
+        return columnType == HIDDEN || columnType == SUB_COLUMN;
+    }
+
+    public boolean isVariableDataColumn()
+    {
+        return columnType == REGULAR || columnType == SUB_COLUMN;
     }
 
     public ColumnMetadata getColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(name, typeManager.getType(typeName), null, isHidden());
+        return new ColumnMetadata(getName(), typeManager.getType(typeName), null, isHidden());
     }
 
     @JsonProperty
@@ -184,18 +221,17 @@ public class HiveColumnHandle
         // and then optimize it into metadata delete. As a result, Hive connector must provide partial
         // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
         // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
-
-        return new HiveColumnHandle(connectorId, UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(Optional.empty(), connectorId, ImmutableList.of(UPDATE_ROW_ID_COLUMN_NAME), HIVE_LONG, BIGINT.getTypeSignature(), -1, HIDDEN, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle(String connectorId)
     {
-        return new HiveColumnHandle(connectorId, PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(Optional.empty(), connectorId, ImmutableList.of(PATH_COLUMN_NAME), PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, HIDDEN, Optional.empty());
     }
 
     public static HiveColumnHandle bucketColumnHandle(String connectorId)
     {
-        return new HiveColumnHandle(connectorId, BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(Optional.empty(), connectorId, ImmutableList.of(BUCKET_COLUMN_NAME), BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN, Optional.empty());
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)
