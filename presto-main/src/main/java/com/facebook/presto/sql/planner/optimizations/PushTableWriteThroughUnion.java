@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class PushTableWriteThroughUnion
         implements PlanOptimizer
 {
