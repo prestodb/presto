@@ -703,6 +703,12 @@ public class ExpressionInterpreter
             if (hasUnresolvedValue) {
                 Type type = type(node.getValue());
                 List<Expression> expressionValues = toExpressions(values, types);
+
+                // transform IN expression with single literal value into an equality comparison
+                if (expressionValues.size() == 1) {
+                    return new ComparisonExpression(ComparisonExpressionType.EQUAL, toExpression(value, type), expressionValues.get(0));
+                }
+
                 List<Expression> simplifiedExpressionValues = Stream.concat(
                         expressionValues.stream()
                                 .filter(DeterminismEvaluator::isDeterministic)

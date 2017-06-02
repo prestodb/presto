@@ -414,6 +414,9 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals("bound_long in (2, 4, unbound_long, unbound_long2, 9)", "1234 in (unbound_long, unbound_long2)");
         assertOptimizedEquals("unbound_long in (2, 4, bound_long, unbound_long2, 5)", "unbound_long in (2, 4, 1234, unbound_long2, 5)");
+
+        assertOptimizedEquals("unbound_long in (2)", "unbound_long = 2");
+        assertOptimizedEquals("unbound_long in (unbound_long2)", "unbound_long = unbound_long2");
     }
 
     @Test
