@@ -15,19 +15,35 @@ package com.facebook.presto.raptor.security;
 
 import io.airlift.configuration.Config;
 
+import javax.validation.constraints.NotNull;
+
 public class SecurityConfig
 {
     private boolean enabled;
+    private String identityManager = "file";
 
     public boolean isEnabled()
     {
         return enabled;
     }
 
+    @NotNull
+    public String getIdentityManager()
+    {
+        return identityManager;
+    }
+
     @Config("security.enabled")
     public SecurityConfig setEnabled(boolean enabled)
     {
         this.enabled = enabled;
+        return this;
+    }
+
+    @Config("security.identity-manager")
+    public SecurityConfig setIdentityManager(String identityManager)
+    {
+        this.identityManager = identityManager;
         return this;
     }
 }

@@ -34,8 +34,15 @@ public class SecurityModule
                 SecurityConfig.class,
                 config -> config.isEnabled(),
                 binder -> {
-                    install(new FileBasedIdentityModule());
                     binder.bind(ConnectorAccessControl.class).to(RaptorAccessControl.class).in(Scopes.SINGLETON);
+                }));
+
+        install(installModuleIf(
+                SecurityConfig.class,
+                config -> config.isEnabled()
+                        && config.getIdentityManager().equalsIgnoreCase("file"),
+                binder -> {
+                    install(new FileBasedIdentityModule());
                 }));
 
         install(installModuleIf(
