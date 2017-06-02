@@ -15,12 +15,14 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -46,6 +48,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.lateral;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
@@ -217,7 +220,7 @@ public class TestLogicalPlanner
     @Test
     public void testRemoveUnreferencedScalarInputApplyNodes()
     {
-        assertPlanContainsNoApplyOrJoin("SELECT (SELECT 1)");
+        assertPlanContainsNoApplyOrAnyJoin("SELECT (SELECT 1)");
     }
 
     @Test
@@ -230,10 +233,10 @@ public class TestLogicalPlanner
 
         queryTemplate("SELECT COUNT(*) FROM (SELECT %subquery% FROM orders)")
                 .replaceAll(subqueries)
-                .forEach(this::assertPlanContainsNoApplyOrJoin);
+                .forEach(this::assertPlanContainsNoApplyOrAnyJoin);
 
         // TODO enable when pruning apply nodes works for this kind of query
-        // assertPlanContainsNoApplyOrJoin("SELECT * FROM orders WHERE true OR " + subquery);
+        // assertPlanContainsNoApplyOrAnyJoin("SELECT * FROM orders WHERE true OR " + subquery);
     }
 
     @Test
@@ -252,11 +255,11 @@ public class TestLogicalPlanner
         );
     }
 
-    private void assertPlanContainsNoApplyOrJoin(String sql)
+    private void assertPlanContainsNoApplyOrAnyJoin(String sql)
     {
         assertFalse(
                 searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class))
+                        .where(isInstanceOfAny(ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class))
                         .matches(),
                 "Unexpected node for query: " + sql);
     }
@@ -264,18 +267,19 @@ public class TestLogicalPlanner
     @Test
     public void testCorrelatedSubqueries()
     {
-        assertPlan(
+        assertPlanWithOptimizerFiltering(
                 "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
                 LogicalPlanner.Stage.OPTIMIZED,
                 anyTree(
                         filter("BIGINT '3' = X",
-                                apply(ImmutableList.of("X"),
-                                        ImmutableMap.of(),
+                                lateral(
+                                        ImmutableList.of("X"),
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         node(EnforceSingleRowNode.class,
                                                 project(
                                                         node(ValuesNode.class)
-                                                ))))));
+                                                ))))),
+                planOptimizer -> !(planOptimizer instanceof AddLocalExchanges));
     }
 
     /**
@@ -303,7 +307,7 @@ public class TestLogicalPlanner
     @Test
     public void testDoubleNestedCorrelatedSubqueries()
     {
-        assertPlan(
+        assertPlanWithOptimizerFiltering(
                 "SELECT orderkey FROM orders o " +
                         "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
                 LogicalPlanner.Stage.OPTIMIZED,
@@ -316,13 +320,14 @@ public class TestLogicalPlanner
                                                         "O", "orderkey",
                                                         "C", "custkey"))),
                                         anyTree(
-                                                apply(ImmutableList.of("L"),
-                                                        ImmutableMap.of(),
+                                                lateral(
+                                                        ImmutableList.of("L"),
                                                         tableScan("lineitem", ImmutableMap.of("L", "orderkey")),
                                                         node(EnforceSingleRowNode.class,
                                                                 project(
                                                                         node(ValuesNode.class)
-                                                                ))))))));
+                                                                ))))))),
+                planOptimizer -> !(planOptimizer instanceof AddLocalExchanges));
     }
 
     @Test

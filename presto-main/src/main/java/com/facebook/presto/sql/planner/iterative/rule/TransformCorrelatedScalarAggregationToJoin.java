@@ -21,8 +21,8 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 
@@ -46,14 +46,14 @@ public class TransformCorrelatedScalarAggregationToJoin
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
     {
-        if (!(node instanceof ApplyNode)) {
+        if (!(node instanceof LateralJoinNode)) {
             return Optional.empty();
         }
 
-        ApplyNode applyNode = (ApplyNode) node;
-        PlanNode subquery = lookup.resolve(applyNode.getSubquery());
+        LateralJoinNode lateralJoinNode = (LateralJoinNode) node;
+        PlanNode subquery = lookup.resolve(lateralJoinNode.getSubquery());
 
-        if (applyNode.getCorrelation().isEmpty() || !(isScalar(subquery, lookup) && applyNode.isSubqueryResolved())) {
+        if (lateralJoinNode.getCorrelation().isEmpty() || !(isScalar(subquery, lookup))) {
             return Optional.empty();
         }
 
@@ -64,9 +64,9 @@ public class TransformCorrelatedScalarAggregationToJoin
 
         ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionRegistry, symbolAllocator, idAllocator, lookup);
 
-        PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(applyNode, aggregation.get());
+        PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
 
-        if (rewrittenNode instanceof ApplyNode) {
+        if (rewrittenNode instanceof LateralJoinNode) {
             return Optional.empty();
         }
 

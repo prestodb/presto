@@ -26,9 +26,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -78,7 +76,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnCorrelatedWithoutAggregation()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("a", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("a", BIGINT))))
@@ -89,7 +87,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnUncorrelated()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("a", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(),
                         p.values(p.symbol("a", BIGINT)),
                         p.values(p.symbol("b", BIGINT))))
@@ -100,7 +98,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnCorrelatedWithNonScalarAggregation()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("a", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("corr", BIGINT)),
                         createSumAggregation(p, p.symbol("a", BIGINT), ImmutableList.of(ImmutableList.of(p.symbol("b", BIGINT))),
@@ -112,39 +110,41 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void rewritesOnSubqueryWithoutProjection()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("sum", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("corr", BIGINT)),
                         createSumAggregation(p, p.symbol("a", BIGINT), ImmutableList.of(ImmutableList.of()),
                                 p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))))
-                .matches(project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
-                        aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
-                                join(JoinNode.Type.LEFT,
-                                        ImmutableList.of(),
-                                        assignUniqueId("unique",
-                                                values(ImmutableMap.of("corr", 0))),
-                                        project(ImmutableMap.of("non_null", expression("true")),
-                                                values(ImmutableMap.of("a", 0, "b", 1)))))));
+                .matches(
+                        project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
+                                aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
+                                        join(JoinNode.Type.LEFT,
+                                                ImmutableList.of(),
+                                                assignUniqueId("unique",
+                                                        values(ImmutableMap.of("corr", 0))),
+                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                        values(ImmutableMap.of("a", 0, "b", 1)))))));
     }
 
     @Test
     public void rewritesOnSubqueryWithProjection()
     {
         tester.assertThat(rule)
-                .on(p -> p.apply(Assignments.identity(p.symbol("sum", BIGINT), p.symbol("expr", BIGINT)),
+                .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr", BIGINT)),
                         p.values(p.symbol("corr", BIGINT)),
-                        p.project(Assignments.of(p.symbol("expr", BIGINT), new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, p.symbol("sum", BIGINT).toSymbolReference(), new LongLiteral("1"))),
+                        p.project(Assignments.of(p.symbol("expr", BIGINT), p.expression("sum + 1")),
                                 createSumAggregation(p, p.symbol("a", BIGINT), ImmutableList.of(ImmutableList.of()),
                                         p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT))))))
-                .matches(project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
-                        aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
-                                join(JoinNode.Type.LEFT,
-                                        ImmutableList.of(),
-                                        assignUniqueId("unique",
-                                                values(ImmutableMap.of("corr", 0))),
-                                        project(ImmutableMap.of("non_null", expression("true")),
-                                                values(ImmutableMap.of("a", 0, "b", 1)))))));
+                .matches(
+                        project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
+                                aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
+                                        join(JoinNode.Type.LEFT,
+                                                ImmutableList.of(),
+                                                assignUniqueId("unique",
+                                                        values(ImmutableMap.of("corr", 0))),
+                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                        values(ImmutableMap.of("a", 0, "b", 1)))))));
     }
 
     private AggregationNode createSumAggregation(PlanBuilder p, Symbol symbol, List<List<Symbol>> groupingSets, PlanNode source)

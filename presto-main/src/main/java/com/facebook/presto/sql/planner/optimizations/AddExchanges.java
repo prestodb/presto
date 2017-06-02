@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -1222,6 +1223,21 @@ public class AddExchanges
                     subquery.getNode(),
                     node.getSubqueryAssignments(),
                     node.getCorrelation());
+            return new PlanWithProperties(rewritten, deriveProperties(rewritten, ImmutableList.of(input.getProperties(), subquery.getProperties())));
+        }
+
+        @Override
+        public PlanWithProperties visitLateralJoin(LateralJoinNode node, Context context)
+        {
+            PlanWithProperties input = node.getInput().accept(this, context);
+            PlanWithProperties subquery = node.getSubquery().accept(this, context.withCorrelations(node.getCorrelation()));
+
+            LateralJoinNode rewritten = new LateralJoinNode(
+                    node.getId(),
+                    input.getNode(),
+                    subquery.getNode(),
+                    node.getCorrelation(),
+                    node.getType());
             return new PlanWithProperties(rewritten, deriveProperties(rewritten, ImmutableList.of(input.getProperties(), subquery.getProperties())));
         }
 

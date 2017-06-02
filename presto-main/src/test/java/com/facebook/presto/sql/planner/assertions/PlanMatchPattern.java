@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -304,6 +305,12 @@ public final class PlanMatchPattern
         subqueryAssignments.entrySet().forEach(
                 assignment -> result.withAlias(assignment.getKey(), assignment.getValue()));
         return result;
+    }
+
+    public static PlanMatchPattern lateral(List<String> correlationSymbolAliases, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    {
+        return node(LateralJoinNode.class, inputPattern, subqueryPattern)
+                .with(new CorrelationMatcher(correlationSymbolAliases));
     }
 
     public static PlanMatchPattern groupingSet(List<List<String>> groups, String groupIdAlias, PlanMatchPattern source)

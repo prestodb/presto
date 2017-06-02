@@ -672,11 +672,15 @@ public class LocalQueryRunner
 
         assertFormattedSql(sqlParser, statement);
 
+        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage);
+    }
+
+    public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
+    {
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer()));
-        return createPlan(session, sql, planOptimizers.get(), stage);
+        return new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer())).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)

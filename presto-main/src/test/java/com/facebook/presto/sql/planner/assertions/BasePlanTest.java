@@ -33,10 +33,12 @@ import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.fail;
 
 public class BasePlanTest
@@ -91,17 +93,29 @@ public class BasePlanTest
 
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
-        queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
-            return null;
-        });
+        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
+
+        assertPlan(sql, stage, pattern, optimizers);
     }
 
     protected void assertPlanWithOptimizers(String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+    }
+
+    protected void assertPlanWithOptimizerFiltering(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, Predicate<PlanOptimizer> optimizerPredicate)
+    {
+        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true).stream()
+                .filter(optimizerPredicate)
+                .collect(toList());
+
+        assertPlan(sql, stage, pattern, optimizers);
+    }
+
+    protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
             return null;
         });
@@ -114,7 +128,7 @@ public class BasePlanTest
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
-        assertPlanWithOptimizers(sql, pattern, optimizers);
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 
     protected Plan plan(String sql)

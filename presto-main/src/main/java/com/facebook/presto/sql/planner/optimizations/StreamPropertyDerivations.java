@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -493,7 +494,13 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitApply(ApplyNode node, List<StreamProperties> inputProperties)
         {
-            return inputProperties.get(0);
+            throw new IllegalStateException("Unexpected node: " + node.getClass());
+        }
+
+        @Override
+        public StreamProperties visitLateralJoin(LateralJoinNode node, List<StreamProperties> inputProperties)
+        {
+            throw new IllegalStateException("Unexpected node: " + node.getClass());
         }
 
         @Override

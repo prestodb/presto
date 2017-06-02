@@ -6998,7 +6998,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testCorrelatedScalarSubqueries()
     {
-        String errorMsg = "Unsupported correlated subquery type";
+        String errorMsg = "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode";
 
         assertQueryFails("SELECT (SELECT l.orderkey) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
@@ -7036,7 +7036,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT count(*) FROM nation n WHERE " +
                         "(SELECT count(*) FROM (SELECT count(*) FROM region r WHERE n.regionkey = r.regionkey)) > 1",
-                "Unsupported correlated subquery type");
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
 
         // with duplicated rows
         assertQuery(
@@ -7161,7 +7161,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testCorrelatedInPredicateSubqueries()
     {
-        String errorMsg = "Unsupported correlated subquery type";
+        String errorMsg = "Unexpected node: com.facebook.presto.sql.planner.plan.ApplyNode";
 
         assertQuery("SELECT orderkey, clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey) FROM orders o");
         assertQuery("SELECT orderkey FROM orders o WHERE clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey)");
@@ -7193,7 +7193,9 @@ public abstract class AbstractTestQueries
         assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey IN (SELECT l2.orderkey)", errorMsg);
 
         // subrelation
-        assertQueryFails("SELECT * FROM lineitem l WHERE (SELECT * FROM (SELECT 1 IN (SELECT 2 * l.orderkey)))", errorMsg);
+        assertQueryFails(
+                "SELECT * FROM lineitem l WHERE (SELECT * FROM (SELECT 1 IN (SELECT 2 * l.orderkey)))",
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
 
         // two level of nesting
         assertQueryFails("SELECT * FROM lineitem l WHERE true IN (SELECT 1 IN (SELECT 2 * l.orderkey))", errorMsg);
@@ -7239,11 +7241,11 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT count(*) FROM orders o " +
                         "WHERE EXISTS (SELECT avg(l.orderkey) FROM lineitem l WHERE o.orderkey = l.orderkey GROUP BY l.linenumber)",
-                "Unsupported correlated subquery type");
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
         assertQueryFails(
                 "SELECT count(*) FROM orders o " +
                         "WHERE EXISTS (SELECT count(*) FROM lineitem l WHERE o.orderkey = l.orderkey HAVING count(*) > 3)",
-                "Unsupported correlated subquery type");
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
 
         // with duplicated rows
         assertQuery(
@@ -7345,7 +7347,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testUnsupportedCorrelatedExistsSubqueries()
     {
-        String errorMsg = "Unsupported correlated subquery type";
+        String errorMsg = "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode";
 
         assertQueryFails("SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
@@ -8764,7 +8766,7 @@ public abstract class AbstractTestQueries
                 "SELECT (SELECT true FROM (SELECT 1) t(a) WHERE a = nationkey) " +
                         "FROM nation " +
                         "WHERE (SELECT true FROM (SELECT 1) t(a) WHERE a = nationkey) OR TRUE",
-                "Unsupported correlated subquery type");
+                "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
     }
 
     @Test

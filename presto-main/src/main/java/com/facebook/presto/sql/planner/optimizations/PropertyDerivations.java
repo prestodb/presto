@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -186,7 +187,13 @@ class PropertyDerivations
         @Override
         public ActualProperties visitApply(ApplyNode node, List<ActualProperties> inputProperties)
         {
-            return inputProperties.get(0); // apply node input (outer query)
+            throw new IllegalArgumentException("Unexpected node: " + node.getClass().getName());
+        }
+
+        @Override
+        public ActualProperties visitLateralJoin(LateralJoinNode node, List<ActualProperties> inputProperties)
+        {
+            throw new IllegalArgumentException("Unexpected node: " + node.getClass().getName());
         }
 
         @Override
