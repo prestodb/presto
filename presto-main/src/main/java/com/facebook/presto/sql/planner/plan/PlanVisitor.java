@@ -24,6 +24,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitMergeRemoteSource(MergeRemoteSourceNode node, C context)
+    {
+        return visitRemoteSource(node, context);
+    }
+
     public R visitAggregation(AggregationNode node, C context)
     {
         return visitPlan(node, context);
