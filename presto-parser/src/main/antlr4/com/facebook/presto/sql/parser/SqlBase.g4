@@ -345,6 +345,10 @@ intervalField
     : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     ;
 
+normalForm
+    : NFD | NFC | NFKD | NFKC
+    ;
+
 type
     : type ARRAY
     | ARRAY '<' type '>'
@@ -442,6 +446,7 @@ number
     | INTEGER_VALUE  #integerLiteral
     ;
 
+// This rule must only contain tokens. Anything else will crash the parser.
 nonReserved
     : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION | STATS
     | ADD
@@ -455,7 +460,7 @@ nonReserved
     | SET | RESET
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
-    | normalForm
+    | NFD | NFC | NFKD | NFKC
     | POSITION
     | NO | DATA
     | START | TRANSACTION | COMMIT | ROLLBACK | WORK | ISOLATION | LEVEL
@@ -468,10 +473,6 @@ nonReserved
     | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
     | ALL | SOME | ANY
-    ;
-
-normalForm
-    : NFD | NFC | NFKD | NFKC
     ;
 
 SELECT: 'SELECT';
