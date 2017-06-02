@@ -23,6 +23,7 @@ import java.io.IOException;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 
@@ -93,9 +94,13 @@ public class HdfsParquetDataSource
     public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length)
     {
         try {
-            long size = fileSystem.getFileStatus(path).getLen();
-            FSDataInputStream inputStream = fileSystem.open(path);
-            return new HdfsParquetDataSource(path, size, inputStream);
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("buildHdfsParquetDataSource", () -> {
+                        long size = fileSystem.getFileStatus(path).getLen();
+                        FSDataInputStream inputStream = fileSystem.open(path);
+                        return new HdfsParquetDataSource(path, size, inputStream);
+                    });
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
