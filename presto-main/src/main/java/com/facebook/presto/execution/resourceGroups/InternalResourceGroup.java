@@ -190,10 +190,6 @@ public class InternalResourceGroup
     public int getWaitingQueuedQueries()
     {
         synchronized (root) {
-            if (canRunMore()) {
-                return 0;
-            }
-
             // For leaf group, when no queries can run, all queued queries are waiting for resources on this resource group.
             if (subGroups.isEmpty()) {
                 return queuedQueries.size();
