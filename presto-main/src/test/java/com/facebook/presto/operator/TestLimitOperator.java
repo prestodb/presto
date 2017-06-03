@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -30,18 +31,21 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 @Test(singleThreaded = true)
 public class TestLimitOperator
 {
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
 
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-        driverContext = createTaskContext(executor, TEST_SESSION)
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
@@ -50,6 +54,7 @@ public class TestLimitOperator
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test

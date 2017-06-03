@@ -71,6 +71,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class SqlTaskManager
         implements TaskManager, Closeable
@@ -81,6 +82,7 @@ public class SqlTaskManager
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
     private final ScheduledExecutorService taskManagementExecutor;
+    private final ScheduledExecutorService driverYieldExecutor;
 
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
@@ -122,6 +124,7 @@ public class SqlTaskManager
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
         this.taskManagementExecutor = requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor();
+        this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
@@ -142,6 +145,7 @@ public class SqlTaskManager
                         localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
                         localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
                         taskNotificationExecutor,
+                        driverYieldExecutor,
                         maxQuerySpillPerNode,
                         localSpillManager.getSpillSpaceTracker());
             }

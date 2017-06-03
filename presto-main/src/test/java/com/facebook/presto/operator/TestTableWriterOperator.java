@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -43,23 +44,27 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 
 public class TestTableWriterOperator
 {
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
 
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test
@@ -147,7 +152,7 @@ public class TestTableWriterOperator
                 ImmutableList.of(0),
                 TEST_SESSION);
 
-        return factory.createOperator(createTaskContext(executor, TEST_SESSION)
+        return factory.createOperator(createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext());
     }

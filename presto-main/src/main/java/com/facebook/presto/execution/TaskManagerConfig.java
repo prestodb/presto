@@ -64,6 +64,7 @@ public class TaskManagerConfig
     private int httpTimeoutThreads = 3;
 
     private int taskNotificationThreads = 5;
+    private int taskYieldThreads = 3;
 
     private boolean levelAbsolutePriority = true;
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
@@ -372,6 +373,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
     {
         this.taskNotificationThreads = taskNotificationThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskYieldThreads()
+    {
+        return taskYieldThreads;
+    }
+
+    @Config("task.task-yield-threads")
+    @ConfigDescription("Number of threads used for setting yield signals")
+    public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
+    {
+        this.taskYieldThreads = taskYieldThreads;
         return this;
     }
 

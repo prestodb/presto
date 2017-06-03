@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -52,7 +53,8 @@ public class TaskContext
 {
     private final QueryContext queryContext;
     private final TaskStateMachine taskStateMachine;
-    private final Executor executor;
+    private final Executor notificationExecutor;
+    private final ScheduledExecutorService yieldExecutor;
     private final Session session;
 
     private final AtomicLong memoryReservation = new AtomicLong();
@@ -84,14 +86,16 @@ public class TaskContext
 
     public TaskContext(QueryContext queryContext,
             TaskStateMachine taskStateMachine,
-            Executor executor,
+            Executor notificationExecutor,
+            ScheduledExecutorService yieldExecutor,
             Session session,
             boolean verboseStats,
             boolean cpuTimerEnabled)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -116,7 +120,7 @@ public class TaskContext
 
     public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline)
     {
-        PipelineContext pipelineContext = new PipelineContext(pipelineId, this, executor, inputPipeline, outputPipeline);
+        PipelineContext pipelineContext = new PipelineContext(pipelineId, this, notificationExecutor, yieldExecutor, inputPipeline, outputPipeline);
         pipelineContexts.add(pipelineContext);
         return pipelineContext;
     }

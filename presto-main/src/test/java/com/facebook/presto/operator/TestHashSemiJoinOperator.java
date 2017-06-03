@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -43,24 +44,28 @@ import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 @Test(singleThreaded = true)
 public class TestHashSemiJoinOperator
 {
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
     private TaskContext taskContext;
 
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-        taskContext = createTaskContext(executor, TEST_SESSION);
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        taskContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION);
     }
 
     @AfterMethod
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @DataProvider(name = "hashEnabledValues")
@@ -280,7 +285,7 @@ public class TestHashSemiJoinOperator
     public void testMemoryLimit(boolean hashEnabled)
             throws Exception
     {
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE))
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
 

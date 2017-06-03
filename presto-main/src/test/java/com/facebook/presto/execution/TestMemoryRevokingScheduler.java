@@ -74,6 +74,7 @@ public class TestMemoryRevokingScheduler
     private final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(10, GIGABYTE));
 
     private ScheduledExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
     private SqlTaskExecutionFactory sqlTaskExecutionFactory;
     private MemoryPool memoryPool;
 
@@ -89,6 +90,7 @@ public class TestMemoryRevokingScheduler
 
         // Must be single threaded
         executor = newScheduledThreadPool(1, threadsNamed("task-notification-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, threadsNamed("task-notification-%s"));
 
         LocalExecutionPlanner planner = createTestingPlanner();
 
@@ -107,6 +109,7 @@ public class TestMemoryRevokingScheduler
     {
         memoryPool = null;
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test
@@ -285,7 +288,7 @@ public class TestMemoryRevokingScheduler
         return new SqlTask(
                 taskId,
                 location,
-                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), memoryPool, new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), executor, new DataSize(1, GIGABYTE), spillSpaceTracker),
+                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), memoryPool, new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), executor, scheduledExecutor, new DataSize(1, GIGABYTE), spillSpaceTracker),
                 sqlTaskExecutionFactory,
                 executor,
                 Functions.<SqlTask>identity(),

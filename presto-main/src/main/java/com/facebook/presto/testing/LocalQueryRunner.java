@@ -196,14 +196,14 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class LocalQueryRunner
         implements QueryRunner
 {
     private final Session defaultSession;
-    private final ExecutorService executor;
-    private final ScheduledExecutorService transactionCheckExecutor;
+    private final ExecutorService notificationExecutor;
+    private final ScheduledExecutorService yieldExecutor;
     private final FinalizerService finalizerService;
 
     private final SqlParser sqlParser;
@@ -274,8 +274,8 @@ public class LocalQueryRunner
 
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
-        this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
-        this.transactionCheckExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
+        this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
+        this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
         this.finalizerService = new FinalizerService();
         finalizerService.start();
 
@@ -294,9 +294,9 @@ public class LocalQueryRunner
         CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = TransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
-                transactionCheckExecutor,
+                yieldExecutor,
                 catalogManager,
-                executor);
+                notificationExecutor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
         this.splitManager = new SplitManager(new QueryManagerConfig());
@@ -399,8 +399,8 @@ public class LocalQueryRunner
     @Override
     public void close()
     {
-        executor.shutdownNow();
-        transactionCheckExecutor.shutdownNow();
+        notificationExecutor.shutdownNow();
+        yieldExecutor.shutdownNow();
         connectorManager.stop();
         finalizerService.destroy();
         singleStreamSpillerFactory.destroy();
@@ -443,7 +443,12 @@ public class LocalQueryRunner
 
     public ExecutorService getExecutor()
     {
-        return executor;
+        return notificationExecutor;
+    }
+
+    public ScheduledExecutorService getScheduler()
+    {
+        return yieldExecutor;
     }
 
     @Override
@@ -548,7 +553,7 @@ public class LocalQueryRunner
                 return builder.get()::page;
             });
 
-            TaskContext taskContext = TestingTaskContext.builder(executor, session)
+            TaskContext taskContext = TestingTaskContext.builder(notificationExecutor, yieldExecutor, session)
                     .setMaxSpillSize(nodeSpillConfig.getMaxSpillPerNode())
                     .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
                     .build();

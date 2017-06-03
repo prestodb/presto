@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,7 +54,8 @@ import static java.util.stream.Collectors.toList;
 public class PipelineContext
 {
     private final TaskContext taskContext;
-    private final Executor executor;
+    private final Executor notificationExecutor;
+    private final ScheduledExecutorService yieldExecutor;
     private final int pipelineId;
 
     private final boolean inputPipeline;
@@ -90,13 +92,14 @@ public class PipelineContext
 
     private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
 
-    public PipelineContext(int pipelineId, TaskContext taskContext, Executor executor, boolean inputPipeline, boolean outputPipeline)
+    public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, boolean inputPipeline, boolean outputPipeline)
     {
         this.pipelineId = pipelineId;
         this.inputPipeline = inputPipeline;
         this.outputPipeline = outputPipeline;
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
     }
 
     public TaskContext getTaskContext()
@@ -131,7 +134,7 @@ public class PipelineContext
 
     public DriverContext addDriverContext(boolean partitioned)
     {
-        DriverContext driverContext = new DriverContext(this, executor, partitioned);
+        DriverContext driverContext = new DriverContext(this, notificationExecutor, yieldExecutor, partitioned);
         drivers.add(driverContext);
         return driverContext;
     }

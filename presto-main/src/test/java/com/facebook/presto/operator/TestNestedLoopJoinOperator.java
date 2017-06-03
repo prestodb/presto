@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -40,6 +41,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -47,17 +49,20 @@ import static org.testng.Assert.assertTrue;
 public class TestNestedLoopJoinOperator
 {
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
 
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
     }
 
     @AfterClass
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test
@@ -481,7 +486,7 @@ public class TestNestedLoopJoinOperator
 
     private TaskContext createTaskContext()
     {
-        return TestingTaskContext.createTaskContext(executor, TEST_SESSION);
+        return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION);
     }
 
     private static NestedLoopJoinPagesSupplier buildPageSource(TaskContext taskContext, RowPagesBuilder buildPages)
