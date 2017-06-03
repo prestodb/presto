@@ -36,7 +36,6 @@ import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.stats.CpuTimer.CpuDuration;
@@ -131,13 +130,12 @@ public abstract class AbstractOperatorBenchmark
         Session session = testSessionBuilder()
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .build();
-        ExecutorService executor = localQueryRunner.getExecutor();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
 
-        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor, new DataSize(256, MEGABYTE), spillSpaceTracker)
-                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), executor),
+        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, localQueryRunner.getExecutor(), localQueryRunner.getScheduler(), new DataSize(256, MEGABYTE), spillSpaceTracker)
+                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
                         session,
                         false,
                         false);

@@ -50,6 +50,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -80,6 +81,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -97,13 +99,15 @@ public class TestHashAggregationOperator
             new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
 
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
     private JoinCompiler joinCompiler = new JoinCompiler();
     private DummySpillerFactory spillerFactory;
 
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
         spillerFactory = new DummySpillerFactory();
     }
 
@@ -128,6 +132,7 @@ public class TestHashAggregationOperator
     {
         spillerFactory = null;
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
@@ -259,7 +264,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 300, 0)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.MEGABYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.MEGABYTE))
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
 
@@ -302,7 +307,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100, 0, 300, 0)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.BYTE))
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
 
@@ -380,7 +385,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(3, MEGABYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(3, MEGABYTE))
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
 
@@ -570,7 +575,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100, 0, 300, 0)
                 .build();
 
-        DriverContext driverContext = TestingTaskContext.builder(executor, TEST_SESSION)
+        DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setQueryMaxMemory(DataSize.valueOf("7MB"))
                 .setMemoryPoolSize(DataSize.valueOf("1GB"))
                 .setSystemMemoryPoolSize(DataSize.valueOf("10B"))
@@ -623,7 +628,7 @@ public class TestHashAggregationOperator
 
     private DriverContext createDriverContext(long memoryLimit, long systemMemoryLimit)
     {
-        return TestingTaskContext.builder(executor, TEST_SESSION)
+        return TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setMemoryPoolSize(succinctBytes(memoryLimit))
                 .setSystemMemoryPoolSize(succinctBytes(systemMemoryLimit))
                 .build()

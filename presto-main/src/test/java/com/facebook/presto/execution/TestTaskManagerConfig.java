@@ -53,6 +53,7 @@ public class TestTaskManagerConfig
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5)
+                .setTaskYieldThreads(3)
                 .setLevelAbsolutePriority(true)
                 .setLevelTimeMultiplier(new BigDecimal("2"))
                 .setLegacySchedulingBehavior(true));
@@ -82,6 +83,7 @@ public class TestTaskManagerConfig
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
+                .put("task.task-yield-threads", "8")
                 .put("task.level-absolute-priority", "false")
                 .put("task.level-time-multiplier", "2.1")
                 .put("task.legacy-scheduling-behavior", "false")
@@ -108,6 +110,7 @@ public class TestTaskManagerConfig
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)
                 .setTaskNotificationThreads(13)
+                .setTaskYieldThreads(8)
                 .setLevelAbsolutePriority(false)
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
                 .setLegacySchedulingBehavior(false);

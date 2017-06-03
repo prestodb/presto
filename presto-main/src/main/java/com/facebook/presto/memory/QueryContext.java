@@ -29,6 +29,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
@@ -45,7 +46,8 @@ public class QueryContext
     private static final long GUARANTEED_MEMORY = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryId queryId;
-    private final Executor executor;
+    private final Executor notificationExecutor;
+    private final ScheduledExecutorService yieldExecutor;
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
     private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
@@ -70,13 +72,14 @@ public class QueryContext
     @GuardedBy("this")
     private long spillUsed;
 
-    public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor, DataSize maxSpill, SpillSpaceTracker spillSpaceTracker)
+    public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, DataSize maxSpill, SpillSpaceTracker spillSpaceTracker)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
     }
@@ -215,7 +218,7 @@ public class QueryContext
 
     public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled)
     {
-        TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, verboseStats, cpuTimerEnabled);
+        TaskContext taskContext = new TaskContext(this, taskStateMachine, notificationExecutor, yieldExecutor, session, verboseStats, cpuTimerEnabled);
         taskContexts.add(taskContext);
         return taskContext;
     }

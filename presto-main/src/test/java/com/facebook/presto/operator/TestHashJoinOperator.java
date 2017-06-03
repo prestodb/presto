@@ -42,6 +42,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -56,6 +57,7 @@ import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 @Test(singleThreaded = true)
 public class TestHashJoinOperator
@@ -64,17 +66,20 @@ public class TestHashJoinOperator
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
 
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
 
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
     }
 
     @AfterClass
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @DataProvider(name = "hashEnabledValues")
@@ -648,7 +653,7 @@ public class TestHashJoinOperator
     public void testMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE));
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE));
 
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
@@ -667,7 +672,7 @@ public class TestHashJoinOperator
 
     private TaskContext createTaskContext()
     {
-        return TestingTaskContext.createTaskContext(executor, TEST_SESSION);
+        return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION);
     }
 
     private static List<Integer> getHashChannels(RowPagesBuilder probe, RowPagesBuilder build)

@@ -88,6 +88,7 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -110,6 +111,7 @@ import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.ZLIB;
@@ -393,7 +395,8 @@ public class TestOrcPageSourceMemoryTracking
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
         private final List<HivePartitionKey> partitionKeys;
-        private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
         public TestPreparer(String tempFilePath)
                 throws Exception
@@ -515,7 +518,7 @@ public class TestOrcPageSourceMemoryTracking
 
         private DriverContext newDriverContext()
         {
-            return createTaskContext(executor, testSessionBuilder().build())
+            return createTaskContext(executor, scheduledExecutor, testSessionBuilder().build())
                     .addPipelineContext(0, true, true)
                     .addDriverContext();
         }

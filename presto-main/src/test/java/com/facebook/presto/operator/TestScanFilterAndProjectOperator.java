@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -53,17 +54,20 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertTrue;
 
 public class TestScanFilterAndProjectOperator
 {
-    private final ExecutorService executor;
     private final MetadataManager metadata = createTestMetadataManager();
     private final ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
+    private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
 
     public TestScanFilterAndProjectOperator()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
     }
 
     @Test
@@ -190,7 +194,7 @@ public class TestScanFilterAndProjectOperator
 
     private DriverContext newDriverContext()
     {
-        return createTaskContext(executor, TEST_SESSION)
+        return createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
     }

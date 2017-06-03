@@ -87,6 +87,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
@@ -121,6 +122,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -131,6 +133,7 @@ public final class FunctionAssertions
         implements Closeable
 {
     private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
@@ -805,7 +808,7 @@ public final class FunctionAssertions
 
     private static DriverContext createDriverContext(Session session)
     {
-        return createTaskContext(EXECUTOR, session)
+        return createTaskContext(EXECUTOR, SCHEDULED_EXECUTOR, session)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
