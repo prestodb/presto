@@ -43,7 +43,7 @@ public class TestPositionLinks
         assertEquals(factoryBuilder.link(11, 10), 11);
         assertEquals(factoryBuilder.link(12, 11), 12);
 
-        PositionLinks positionLinks = factoryBuilder.build().apply(Optional.empty());
+        PositionLinks positionLinks = factoryBuilder.build().create(Optional.empty());
 
         assertEquals(positionLinks.start(3, 0, TEST_PAGE), 3);
         assertEquals(positionLinks.next(3, 0, TEST_PAGE), 2);
@@ -77,7 +77,7 @@ public class TestPositionLinks
         };
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
-        PositionLinks positionLinks = factoryBuilder.build().apply(Optional.of(filterFunction));
+        PositionLinks positionLinks = factoryBuilder.build().create(Optional.of(filterFunction));
 
         assertEquals(positionLinks.start(0, 0, TEST_PAGE), 5);
         assertEquals(positionLinks.next(5, 0, TEST_PAGE), 6);
@@ -108,7 +108,7 @@ public class TestPositionLinks
         };
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
-        PositionLinks positionLinks = factoryBuilder.build().apply(Optional.of(filterFunction));
+        PositionLinks positionLinks = factoryBuilder.build().create(Optional.of(filterFunction));
 
         assertEquals(positionLinks.start(0, 0, TEST_PAGE), 0);
         assertEquals(positionLinks.next(0, 0, TEST_PAGE), 1);

@@ -20,7 +20,6 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isFastInequalityJoin;
 import static java.util.Objects.requireNonNull;
@@ -32,7 +31,7 @@ public class JoinHashSupplier
     private final PagesHash pagesHash;
     private final LongArrayList addresses;
     private final List<List<Block>> channels;
-    private final Optional<Function<Optional<JoinFilterFunction>, PositionLinks>> positionLinks;
+    private final Optional<PositionLinks.Factory> positionLinks;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
     public JoinHashSupplier(
@@ -87,6 +86,6 @@ public class JoinHashSupplier
         return new JoinHash(
                 pagesHash,
                 filterFunction,
-                positionLinks.map(links -> links.apply(filterFunction)));
+                positionLinks.map(links -> links.create(filterFunction)));
     }
 }

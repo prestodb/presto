@@ -22,8 +22,6 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.function.Function;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -120,7 +118,7 @@ public final class SortedPositionLinks
         }
 
         @Override
-        public Function<Optional<JoinFilterFunction>, PositionLinks> build()
+        public Factory build()
         {
             ArrayPositionLinks.FactoryBuilder builder = ArrayPositionLinks.builder(size);
             int[][] sortedPositionLinks = new int[size][];
@@ -151,7 +149,7 @@ public final class SortedPositionLinks
             return lessThanFunction -> {
                 checkState(lessThanFunction.isPresent(), "Using SortedPositionLinks without lessThanFunction");
                 return new SortedPositionLinks(
-                        builder.build().apply(lessThanFunction),
+                        builder.build().create(lessThanFunction),
                         sortedPositionLinks,
                         lessThanFunction.get());
             };
