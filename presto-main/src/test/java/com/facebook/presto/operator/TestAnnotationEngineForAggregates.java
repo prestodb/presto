@@ -1081,4 +1081,142 @@ public class TestAnnotationEngineForAggregates
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "parametric_aggregate_long_constraint");
     }
+
+    @AggregationFunction("fixed_type_parameter_injection")
+    @Description("Simple aggregate with fixed paramter type injected")
+    public static class FixedTypeParameterInjectionAggregateFunction
+    {
+        @InputFunction
+        public static void input(
+                @TypeParameter("ROW(ARRAY(BIGINT),ROW(ROW(CHAR)),BIGINT,MAP(BIGINT,CHAR))") Type type,
+                @AggregationState NullableDoubleState state,
+                @SqlType("double") double value)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @CombineFunction
+        public static void combine(
+                @TypeParameter("ROW(ARRAY(BIGINT),ROW(ROW(CHAR)),BIGINT,MAP(BIGINT,CHAR))") Type type,
+                @AggregationState NullableDoubleState state,
+                @AggregationState NullableDoubleState otherState)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @OutputFunction("double")
+        public static void output(
+                @TypeParameter("ROW(ARRAY(BIGINT),ROW(ROW(CHAR)),BIGINT,MAP(BIGINT,CHAR))") Type type,
+                @AggregationState NullableDoubleState state,
+                BlockBuilder out)
+        {
+            // noop this is only for annotation testing puproses
+        }
+    }
+
+    @Test
+    public void testFixedTypeParameterInjectionAggregateFunctionParse()
+            throws Exception
+    {
+        Signature expectedSignature = new Signature(
+                "fixed_type_parameter_injection",
+                FunctionKind.AGGREGATE,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                DoubleType.DOUBLE.getTypeSignature(),
+                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()),
+                false);
+
+        ParametricAggregation aggregation = parseFunctionDefinition(FixedTypeParameterInjectionAggregateFunction.class);
+        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed paramter type injected");
+        assertTrue(aggregation.isDeterministic());
+        assertEquals(aggregation.getSignature(), expectedSignature);
+        ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
+        assertImplementationCount(implementations, 1, 0, 0);
+        AggregationImplementation implementationDouble = implementations.getExactImplementations().get(expectedSignature);
+        assertFalse(implementationDouble.getStateSerializerFactory().isPresent());
+        assertEquals(implementationDouble.getDefinitionClass(), FixedTypeParameterInjectionAggregateFunction.class);
+        assertDependencyCount(implementationDouble, 1, 1, 1);
+        assertFalse(implementationDouble.hasSpecializedTypeParameters());
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        assertTrue(implementationDouble.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
+        assertEquals(implementationDouble.getStateClass(), NullableDoubleState.class);
+    }
+
+    @AggregationFunction("partially_fixed_type_parameter_injection")
+    @Description("Simple aggregate with fixed paramter type injected")
+    public static class PartiallyFixedTypeParameterInjectionAggregateFunction
+    {
+        @InputFunction
+        @TypeParameter("T1")
+        @TypeParameter("T2")
+        public static void input(
+                @TypeParameter("ROW(ARRAY(T1),ROW(ROW(T2)),CHAR)") Type type,
+                @AggregationState NullableDoubleState state,
+                @SqlType("double") double value)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @CombineFunction
+        @TypeParameter("T1")
+        @TypeParameter("T2")
+        public static void combine(
+                @TypeParameter("ROW(ARRAY(T1),ROW(ROW(T2)),CHAR)") Type type,
+                @AggregationState NullableDoubleState state,
+                @AggregationState NullableDoubleState otherState)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @OutputFunction("double")
+        @TypeParameter("T1")
+        @TypeParameter("T2")
+        public static void output(
+                @TypeParameter("ROW(ARRAY(T1),ROW(ROW(T2)),CHAR)") Type type,
+                @AggregationState NullableDoubleState state,
+                BlockBuilder out)
+        {
+            // noop this is only for annotation testing puproses
+        }
+    }
+
+    @Test
+    public void testPartiallyFixedTypeParameterInjectionAggregateFunctionParse()
+            throws Exception
+    {
+        Signature expectedSignature = new Signature(
+                "partially_fixed_type_parameter_injection",
+                FunctionKind.AGGREGATE,
+                ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
+                ImmutableList.of(),
+                DoubleType.DOUBLE.getTypeSignature(),
+                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()),
+                false);
+
+        ParametricAggregation aggregation = parseFunctionDefinition(PartiallyFixedTypeParameterInjectionAggregateFunction.class);
+        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed paramter type injected");
+        assertTrue(aggregation.isDeterministic());
+        assertEquals(aggregation.getSignature(), expectedSignature);
+        ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
+        assertImplementationCount(implementations, 0, 0, 1);
+        AggregationImplementation implementationDouble = implementations.getGenericImplementations().stream().filter(impl -> impl.getStateClass() == NullableDoubleState.class).collect(toImmutableList()).get(0);
+        assertFalse(implementationDouble.getStateSerializerFactory().isPresent());
+        assertEquals(implementationDouble.getDefinitionClass(), PartiallyFixedTypeParameterInjectionAggregateFunction.class);
+        assertDependencyCount(implementationDouble, 1, 1, 1);
+        assertFalse(implementationDouble.hasSpecializedTypeParameters());
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        assertTrue(implementationDouble.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
+        assertEquals(implementationDouble.getStateClass(), NullableDoubleState.class);
+
+        InternalAggregationFunction specialized = aggregation.specialize(
+                BoundVariables.builder().setTypeVariable("T1", DoubleType.DOUBLE).setTypeVariable("T2", DoubleType.DOUBLE).build(),
+                1,
+                new TypeRegistry(),
+                null);
+        assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
+        assertTrue(specialized.getParameterTypes().equals(ImmutableList.of(DoubleType.DOUBLE)));
+        assertTrue(specialized.isDecomposable());
+        assertEquals(specialized.name(), "partially_fixed_type_parameter_injection");
+    }
 }

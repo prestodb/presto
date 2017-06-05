@@ -34,6 +34,7 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.LiteralParameter;
 import com.facebook.presto.type.TypeRegistry;
@@ -487,5 +488,83 @@ public class TestAnnotationEngineForScalars
         assertTrue(scalar.isDeterministic());
         assertFalse(scalar.isHidden());
         assertEquals(scalar.getDescription(), "Parametric scalar with type injected though constructor");
+    }
+
+    @ScalarFunction("fixed_type_parameter_scalar_function")
+    @Description("Parametric scalar that uses TypeParameter with fixed type")
+    public static final class FixedTypeParameterScalarFunction
+    {
+        @SqlType(StandardTypes.BIGINT)
+        public static long fun(
+                @TypeParameter("ROW(ARRAY(BIGINT),ROW(ROW(CHAR)),BIGINT,MAP(BIGINT,CHAR))") Type type,
+                @SqlType(StandardTypes.BIGINT) long value)
+        {
+            return value;
+        }
+    }
+
+    @Test
+    public void testFixedTypeParameterParse()
+            throws Exception
+    {
+        Signature expectedSignature = new Signature(
+                "fixed_type_parameter_scalar_function",
+                FunctionKind.SCALAR,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                BigintType.BIGINT.getTypeSignature(),
+                ImmutableList.of(BigintType.BIGINT.getTypeSignature()),
+                false);
+
+        List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(FixedTypeParameterScalarFunction.class);
+        assertEquals(functions.size(), 1);
+        ParametricScalar scalar = (ParametricScalar) functions.get(0);
+        assertImplementationCount(scalar, 1, 0, 0);
+
+        assertEquals(scalar.getSignature(), expectedSignature);
+        assertTrue(scalar.isDeterministic());
+        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getDescription(), "Parametric scalar that uses TypeParameter with fixed type");
+    }
+
+    @ScalarFunction("partially_fixed_type_parameter_scalar_function")
+    @Description("Parametric scalar that uses TypeParameter with partially fixed type")
+    public static final class PartiallyFixedTypeParameterScalarFunction
+    {
+        @SqlType(StandardTypes.BIGINT)
+        @TypeParameter("T1")
+        @TypeParameter("T2")
+        public static long fun(
+                @TypeParameter("ROW(ARRAY(T1),ROW(ROW(T2)),CHAR)") Type type,
+                @SqlType(StandardTypes.BIGINT) long value)
+        {
+            return value;
+        }
+    }
+
+    @Test
+    public void testPartiallyFixedTypeParameterParse()
+            throws Exception
+    {
+        Signature expectedSignature = new Signature(
+                "partially_fixed_type_parameter_scalar_function",
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
+                ImmutableList.of(),
+                BigintType.BIGINT.getTypeSignature(),
+                ImmutableList.of(BigintType.BIGINT.getTypeSignature()),
+                false);
+
+        List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(PartiallyFixedTypeParameterScalarFunction.class);
+        assertEquals(functions.size(), 1);
+        ParametricScalar scalar = (ParametricScalar) functions.get(0);
+        assertImplementationCount(scalar, 0, 0, 1);
+        List<ImplementationDependency> dependencies = scalar.getImplementations().getGenericImplementations().get(0).getDependencies();
+        assertEquals(dependencies.size(), 1);
+
+        assertEquals(scalar.getSignature(), expectedSignature);
+        assertTrue(scalar.isDeterministic());
+        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getDescription(), "Parametric scalar that uses TypeParameter with partially fixed type");
     }
 }
