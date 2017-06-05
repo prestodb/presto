@@ -87,7 +87,7 @@ public class TryCodeGenerator
     }
 
     public static MethodDefinition defineTryMethod(
-            BytecodeExpressionVisitor innerExpressionVisitor,
+            RowExpressionCompiler innerExpressionCompiler,
             ClassDefinition classDefinition,
             String methodName,
             List<Parameter> inputParameters,
@@ -99,7 +99,7 @@ public class TryCodeGenerator
         Scope calleeMethodScope = method.getScope();
 
         Variable wasNull = calleeMethodScope.declareVariable(boolean.class, "wasNull");
-        BytecodeNode innerExpression = innerRowExpression.accept(innerExpressionVisitor, calleeMethodScope);
+        BytecodeNode innerExpression = innerExpressionCompiler.compile(innerRowExpression, calleeMethodScope);
 
         MethodType exceptionHandlerType = methodType(returnType, PrestoException.class);
         MethodHandle exceptionHandler = EXCEPTION_HANDLER.asType(exceptionHandlerType);

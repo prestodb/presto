@@ -210,14 +210,14 @@ public class JoinFilterFunctionCompiler
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
-        BytecodeNode visitorBody = filter.accept(visitor, scope);
+        BytecodeNode visitorBody = compiler.compile(filter, scope);
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(visitorBody)
@@ -251,7 +251,7 @@ public class JoinFilterFunctionCompiler
                 Parameter rightPosition = arg("rightPosition", int.class);
                 Parameter rightBlocks = arg("rightBlocks", Block[].class);
 
-                BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
                         callSiteBinder,
                         cachedInstanceBinder,
                         fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
@@ -267,7 +267,7 @@ public class JoinFilterFunctionCompiler
                         .build();
 
                 MethodDefinition tryMethod = defineTryMethod(
-                        innerExpressionVisitor,
+                        innerExpressionCompiler,
                         containerClassDefinition,
                         "try_" + counter,
                         inputParameters,

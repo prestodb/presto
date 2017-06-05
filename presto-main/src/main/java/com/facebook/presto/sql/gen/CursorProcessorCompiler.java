@@ -222,7 +222,7 @@ public class CursorProcessorCompiler
                         .add(cursor)
                         .build();
 
-                BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
                         callSiteBinder,
                         cachedInstanceBinder,
                         fieldReferenceCompiler(cursor),
@@ -230,7 +230,7 @@ public class CursorProcessorCompiler
                         new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build()));
 
                 MethodDefinition tryMethod = defineTryMethod(
-                        innerExpressionVisitor,
+                        innerExpressionCompiler,
                         containerClassDefinition,
                         methodPrefix + "_try_" + counter,
                         inputParameters,
@@ -279,7 +279,7 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
@@ -291,7 +291,7 @@ public class CursorProcessorCompiler
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false)
                 .comment("evaluate filter: " + filter)
-                .append(filter.accept(visitor, scope))
+                .append(compiler.compile(filter, scope))
                 .comment("if (wasNull) return false;")
                 .getVariable(wasNullVariable)
                 .ifFalseGoto(end)
@@ -319,7 +319,7 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
@@ -331,7 +331,7 @@ public class CursorProcessorCompiler
                 .putVariable(wasNullVariable, false)
                 .getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
-                .append(projection.accept(visitor, scope))
+                .append(compiler.compile(projection, scope))
                 .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
     }
