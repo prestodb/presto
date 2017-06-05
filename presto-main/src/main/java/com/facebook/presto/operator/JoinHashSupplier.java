@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.operator.PositionLinks.Builder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -49,21 +48,21 @@ public class JoinHashSupplier
         this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
         requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
 
-        Builder positionLinksBuilder;
+        PositionLinks.FactoryBuilder positionLinksFactoryBuilder;
         if (filterFunctionFactory.isPresent() &&
                 filterFunctionFactory.get().getSortChannel().isPresent() &&
                 isFastInequalityJoin(session)) {
-            positionLinksBuilder = SortedPositionLinks.builder(
+            positionLinksFactoryBuilder = SortedPositionLinks.builder(
                     addresses.size(),
                     pagesHashStrategy,
                     addresses);
         }
         else {
-            positionLinksBuilder = ArrayPositionLinks.builder(addresses.size());
+            positionLinksFactoryBuilder = ArrayPositionLinks.builder(addresses.size());
         }
 
-        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksBuilder);
-        this.positionLinks = positionLinksBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksBuilder.build());
+        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder);
+        this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
     }
 
     @Override

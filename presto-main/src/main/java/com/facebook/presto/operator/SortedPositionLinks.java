@@ -58,8 +58,8 @@ public final class SortedPositionLinks
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedPositionLinks.class).instanceSize();
 
-    public static class Builder
-            implements PositionLinks.Builder
+    public static class FactoryBuilder
+            implements PositionLinks.FactoryBuilder
     {
         private final Int2ObjectMap<IntArrayList> positionLinks;
         private final int size;
@@ -67,7 +67,7 @@ public final class SortedPositionLinks
         private final PagesHashStrategy pagesHashStrategy;
         private final LongArrayList addresses;
 
-        public Builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+        public FactoryBuilder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
         {
             this.size = size;
             this.comparator = new PositionComparator(pagesHashStrategy, addresses);
@@ -122,7 +122,7 @@ public final class SortedPositionLinks
         @Override
         public Function<Optional<JoinFilterFunction>, PositionLinks> build()
         {
-            ArrayPositionLinks.Builder builder = ArrayPositionLinks.builder(size);
+            ArrayPositionLinks.FactoryBuilder builder = ArrayPositionLinks.builder(size);
             int[][] sortedPositionLinks = new int[size][];
 
             for (Int2ObjectMap.Entry<IntArrayList> entry : positionLinks.int2ObjectEntrySet()) {
@@ -186,9 +186,9 @@ public final class SortedPositionLinks
         return retainedSize;
     }
 
-    public static Builder builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+    public static FactoryBuilder builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
     {
-        return new Builder(size, pagesHashStrategy, addresses);
+        return new FactoryBuilder(size, pagesHashStrategy, addresses);
     }
 
     @Override
