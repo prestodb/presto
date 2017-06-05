@@ -345,6 +345,10 @@ intervalField
     : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     ;
 
+normalForm
+    : NFD | NFC | NFKD | NFKC
+    ;
+
 type
     : type ARRAY
     | ARRAY '<' type '>'
@@ -455,7 +459,7 @@ nonReserved
     | SET | RESET
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
-    | normalForm
+    | NFD | NFC | NFKD | NFKC
     | POSITION
     | NO | DATA
     | START | TRANSACTION | COMMIT | ROLLBACK | WORK | ISOLATION | LEVEL
@@ -468,10 +472,6 @@ nonReserved
     | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
     | ALL | SOME | ANY
-    ;
-
-normalForm
-    : NFD | NFC | NFKD | NFKC
     ;
 
 SELECT: 'SELECT';
