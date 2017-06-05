@@ -30,7 +30,7 @@ public interface PositionLinks
     /**
      * Initialize iteration over position links. Returns first potentially eligible
      * join position starting from (and including) position argument.
-     *
+     * <p>
      * When there are no more position -1 is returned
      */
     int start(int position, int probePosition, Page allProbeChannelsPage);
