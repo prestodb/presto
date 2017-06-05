@@ -17,8 +17,6 @@ import com.facebook.presto.spi.Page;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
-import java.util.Optional;
-import java.util.function.Function;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
@@ -48,7 +46,7 @@ public final class ArrayPositionLinks
         }
 
         @Override
-        public Function<Optional<JoinFilterFunction>, PositionLinks> build()
+        public Factory build()
         {
             return filterFunction -> new ArrayPositionLinks(positionLinks);
         }
