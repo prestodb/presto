@@ -19,6 +19,8 @@ import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.LiteralParameter;
 
 import java.lang.annotation.Annotation;
@@ -55,13 +57,29 @@ public interface ImplementationDependency
         return Optional.of(annotations[0]);
     }
 
-    static void validateImplementationDependencyAnnotation(AnnotatedElement element, Annotation annotation, Collection<TypeParameter> typeParameters, Collection<String> literalParameters)
+    static void validateImplementationDependencyAnnotation(AnnotatedElement element, Annotation annotation, Set<String> typeParametersNames, Collection<String> literalParameters)
     {
         if (annotation instanceof TypeParameter) {
-            checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the method [%s]", element);
+            checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), typeParametersNames, element);
         }
         if (annotation instanceof LiteralParameter) {
             checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", element);
+        }
+    }
+
+    static void checkTypeParameters(TypeSignature typeSignature, Set<String> typeParameterNames, AnnotatedElement element)
+    {
+        // Check recursively if `typeSignature` contains something like `T<bigint>`
+        if (typeParameterNames.contains(typeSignature.getBase())) {
+            checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got %s on method [%s]", typeSignature.getBase(), element);
+            return;
+        }
+
+        for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
+            Optional<TypeSignature> childTypeSignature = parameter.getTypeSignatureOrNamedTypeSignature();
+            if (childTypeSignature.isPresent()) {
+                checkTypeParameters(childTypeSignature.get(), typeParameterNames, element);
+            }
         }
     }
 

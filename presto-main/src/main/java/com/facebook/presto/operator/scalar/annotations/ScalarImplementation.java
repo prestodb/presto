@@ -27,7 +27,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.FunctionType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +57,7 @@ import static com.facebook.presto.operator.annotations.FunctionsParserHelper.get
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLongVariableConstraints;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.checkTypeParameters;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
@@ -326,7 +326,7 @@ public class ScalarImplementation implements ParametricImplementation
                 Optional<Annotation> implementationDependency = getImplementationDependencyAnnotation(parameter);
                 if (implementationDependency.isPresent()) {
                     // check if only declared typeParameters and literalParameters are used
-                    validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameters, literalParameters);
+                    validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameterNames, literalParameters);
                     dependencies.add(createDependency(implementationDependency.get(), literalParameters));
                 }
                 else {
@@ -392,22 +392,6 @@ public class ScalarImplementation implements ParametricImplementation
             }
         }
 
-        private void checkTypeParameters(TypeSignature typeSignature, Method method, Set<String> typeParameterNames)
-        {
-            // Check recursively if `typeSignature` contains something like `T<bigint>`
-            if (typeParameterNames.contains(typeSignature.getBase())) {
-                checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got %s on method [%s]", typeSignature.getBase(), method);
-                return;
-            }
-
-            for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
-                Optional<TypeSignature> childTypeSignature = parameter.getTypeSignatureOrNamedTypeSignature();
-                if (childTypeSignature.isPresent()) {
-                    checkTypeParameters(childTypeSignature.get(), method, typeParameterNames);
-                }
-            }
-        }
-
         // Find matching constructor, if this is an instance method, and populate constructorDependencies
         private Optional<MethodHandle> getConstructor(Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
         {
@@ -423,7 +407,7 @@ public class ScalarImplementation implements ParametricImplementation
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
                 if (annotation instanceof TypeParameter) {
-                    checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), method, typeParameterNames);
+                    checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), typeParameterNames, method);
                 }
                 constructorDependencies.add(createDependency(annotation, literalParameters));
             }

@@ -58,6 +58,7 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationImplementation
@@ -435,7 +436,13 @@ public class AggregationImplementation
 
                 getImplementationDependencyAnnotation(parameter).ifPresent(annotation -> {
                     // check if only declared typeParameters and literalParameters are used
-                    validateImplementationDependencyAnnotation(inputFunction, annotation, typeParameters, literalParameters);
+                    validateImplementationDependencyAnnotation(
+                            inputFunction,
+                            annotation,
+                            typeParameters.stream()
+                                .map(TypeParameter::value)
+                                .collect(toImmutableSet()),
+                            literalParameters);
                     builder.add(createDependency(annotation, literalParameters));
                 });
             }
