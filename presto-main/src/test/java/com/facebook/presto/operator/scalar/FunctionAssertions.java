@@ -247,9 +247,19 @@ public final class FunctionAssertions
         selectUniqueValue(expression, expectedType, session, compiler);
     }
 
+    public void tryEvaluateWithAll(String expression, Type expectedType)
+    {
+        tryEvaluateWithAll(expression, expectedType, session);
+    }
+
     public void tryEvaluateWithAll(String expression, Type expectedType, Session session)
     {
         executeProjectionWithAll(expression, expectedType, session, compiler);
+    }
+
+    public void executeProjectionWithFullEngine(String projection)
+    {
+        MaterializedResult result = runner.execute("SELECT " + projection);
     }
 
     private Object selectSingleValue(String projection, Type expectedType, ExpressionCompiler compiler)

@@ -15,6 +15,7 @@ package com.facebook.presto.bytecode;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -30,6 +31,7 @@ import java.util.Optional;
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.toAccessModifier;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static org.objectweb.asm.Opcodes.RETURN;
 
@@ -70,6 +72,8 @@ public class MethodDefinition
             Iterable<Parameter> parameters
     )
     {
+        checkArgument(Iterables.size(parameters) <= 254, "Too many parameters for method");
+
         this.declaringClass = declaringClass;
         body = new BytecodeBlock();
 

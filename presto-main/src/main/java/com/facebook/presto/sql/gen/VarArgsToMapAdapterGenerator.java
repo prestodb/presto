@@ -40,7 +40,9 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.util.Failures.checkCondition;
 
 public class VarArgsToMapAdapterGenerator
 {
@@ -59,6 +61,7 @@ public class VarArgsToMapAdapterGenerator
      */
     public static MethodHandle generateVarArgsToMapAdapter(Class<?> returnType, List<Class<?>> javaTypes, List<String> names, Function<Map<String, Object>, Object> function)
     {
+        checkCondition(javaTypes.size() <= 254, NOT_SUPPORTED, "Too many arguments for vararg function");
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), makeClassName("VarArgsToMapAdapter"), type(Object.class));
