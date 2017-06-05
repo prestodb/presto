@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
@@ -28,6 +29,8 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TestingConnectorIndexHandle;
+import com.facebook.presto.sql.planner.TestingConnectorTransactionHandle;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -37,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -66,6 +70,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -325,6 +330,27 @@ public class PlanBuilder
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
                 Optional.empty());
+    }
+
+    public IndexSourceNode indexSource(
+            TableHandle tableHandle,
+            Set<Symbol> lookupSymbols,
+            List<Symbol> outputSymbols,
+            Map<Symbol, ColumnHandle> assignments,
+            TupleDomain<ColumnHandle> effectiveTupleDomain)
+    {
+        return new IndexSourceNode(
+                idAllocator.getNextId(),
+                new IndexHandle(
+                        tableHandle.getConnectorId(),
+                        TestingConnectorTransactionHandle.INSTANCE,
+                        TestingConnectorIndexHandle.INSTANCE),
+                tableHandle,
+                Optional.empty(),
+                lookupSymbols,
+                outputSymbols,
+                assignments,
+                effectiveTupleDomain);
     }
 
     public ExchangeNode exchange(Consumer<ExchangeBuilder> exchangeBuilderConsumer)

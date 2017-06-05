@@ -17,9 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -29,6 +27,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.assertions.Util.domainsMatch;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -80,36 +79,9 @@ final class TableScanMatcher
         String actualTableName = tableMetadata.getTable().getTableName();
         return new MatchResult(
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
-                        domainMatches(tableScanNode, session, metadata) &&
-                        originalConstraintMatches(tableScanNode));
-    }
-
-    private boolean domainMatches(TableScanNode tableScanNode, Session session, Metadata metadata)
-    {
-        if (!expectedConstraint.isPresent()) {
-            return true;
-        }
-
-        TupleDomain<ColumnHandle> actualConstraint = tableScanNode.getCurrentConstraint();
-        if (expectedConstraint.isPresent() && !actualConstraint.getDomains().isPresent()) {
-            return false;
-        }
-
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableScanNode.getTable());
-        for (Map.Entry<String, Domain> expectedColumnConstraint : expectedConstraint.get().entrySet()) {
-            if (!columnHandles.containsKey(expectedColumnConstraint.getKey())) {
-                return false;
-            }
-            ColumnHandle columnHandle = columnHandles.get(expectedColumnConstraint.getKey());
-            if (!actualConstraint.getDomains().get().containsKey(columnHandle)) {
-                return false;
-            }
-            if (!expectedColumnConstraint.getValue().contains(actualConstraint.getDomains().get().get(columnHandle))) {
-                return false;
-            }
-        }
-
-        return true;
+                originalConstraintMatches(tableScanNode) &&
+                ((!expectedConstraint.isPresent()) ||
+                         domainsMatch(expectedConstraint, tableScanNode.getCurrentConstraint(), tableScanNode.getTable(), session, metadata)));
     }
 
     private boolean originalConstraintMatches(TableScanNode node)
