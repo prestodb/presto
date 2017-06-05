@@ -14,7 +14,7 @@
 
 package com.facebook.presto.tests.statistics;
 
-public interface MetricComparisonStrategy
+public interface MetricComparisonStrategy<T>
 {
-    boolean matches(double actual, double estimate);
+    boolean matches(T actual, T estimate);
 }
