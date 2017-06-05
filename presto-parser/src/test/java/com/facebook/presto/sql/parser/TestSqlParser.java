@@ -1746,6 +1746,10 @@ public class TestSqlParser
                         table(QualifiedName.of("t"))));
 
         assertExpression("stats", new Identifier("stats"));
+        assertExpression("nfd", new Identifier("nfd"));
+        assertExpression("nfc", new Identifier("nfc"));
+        assertExpression("nfkd", new Identifier("nfkd"));
+        assertExpression("nfkc", new Identifier("nfkc"));
     }
 
     @Test
