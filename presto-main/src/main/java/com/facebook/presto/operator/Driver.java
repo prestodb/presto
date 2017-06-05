@@ -288,16 +288,13 @@ public class Driver
                 Operator current = operators.get(i);
                 Operator next = operators.get(i + 1);
 
-                // skip blocked operators
+                // skip blocked operator
                 if (getBlockedFuture(current).isPresent()) {
-                    continue;
-                }
-                if (getBlockedFuture(next).isPresent()) {
                     continue;
                 }
 
                 // if the current operator is not finished and next operator needs input...
-                if (!current.isFinished() && next.needsInput()) {
+                if (!current.isFinished() && !getBlockedFuture(next).isPresent() && next.needsInput()) {
                     // get an output page from current operator
                     current.getOperatorContext().startIntervalTimer();
                     Page page = current.getOutput();
