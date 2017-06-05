@@ -973,6 +973,10 @@ public final class DateTimeFunctions
                     case 'c': // %c Month, numeric (0..12)
                         builder.appendMonthOfYear(1);
                         break;
+                    case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, ...)
+                        DayOfMonthWithEnglishSuffixFormatter printer = new DayOfMonthWithEnglishSuffixFormatter();
+                        builder.append(printer, printer);
+                        break;
                     case 'd': // %d Day of the month, numeric (00..31)
                         builder.appendDayOfMonth(2);
                         break;
@@ -1050,7 +1054,6 @@ public final class DateTimeFunctions
                     case 'u': // %u Week (00..53), where Monday is the first day of the week
                     case 'V': // %V Week (01..53), where Sunday is the first day of the week; used with %X
                     case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
-                    case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
                         throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("%%%s not supported in date format string", character));
                     case '%': // %% A literal “%” character
                         builder.appendLiteral('%');
