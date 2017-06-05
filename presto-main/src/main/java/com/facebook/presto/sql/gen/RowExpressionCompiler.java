@@ -72,14 +72,14 @@ public class RowExpressionCompiler
 
     public BytecodeNode compile(RowExpression rowExpression, Scope scope)
     {
-        return rowExpression.accept(new Visitor(), scope);
+        return rowExpression.accept(new Visitor(), new Context(scope));
     }
 
     private class Visitor
-            implements RowExpressionVisitor<BytecodeNode, Scope>
+            implements RowExpressionVisitor<BytecodeNode, Context>
     {
         @Override
-        public BytecodeNode visitCall(CallExpression call, final Scope scope)
+        public BytecodeNode visitCall(CallExpression call, Context context)
         {
             BytecodeGenerator generator;
             // special-cased in function registry
@@ -136,7 +136,7 @@ public class RowExpressionCompiler
 
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                     RowExpressionCompiler.this,
-                    scope,
+                    context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
                     registry);
@@ -145,7 +145,7 @@ public class RowExpressionCompiler
         }
 
         @Override
-        public BytecodeNode visitConstant(ConstantExpression constant, Scope scope)
+        public BytecodeNode visitConstant(ConstantExpression constant, Context context)
         {
             Object value = constant.getValue();
             Class<?> javaType = constant.getType().getJavaType();
@@ -153,7 +153,7 @@ public class RowExpressionCompiler
             BytecodeBlock block = new BytecodeBlock();
             if (value == null) {
                 return block.comment("constant null")
-                        .append(scope.getVariable("wasNull").set(constantTrue()))
+                        .append(context.getScope().getVariable("wasNull").set(constantTrue()))
                         .pushJavaDefault(javaType);
             }
 
@@ -191,24 +191,39 @@ public class RowExpressionCompiler
         }
 
         @Override
-        public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
+        public BytecodeNode visitInputReference(InputReferenceExpression node, Context context)
         {
-            return fieldReferenceCompiler.visitInputReference(node, scope);
+            return fieldReferenceCompiler.visitInputReference(node, context.getScope());
         }
 
         @Override
-        public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Scope scope)
+        public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Context context)
         {
             checkState(preGeneratedExpressions.getLambdaFieldMap().containsKey(lambda), "lambda expressions map does not contain this lambda definition");
 
-            return scope.getThis().getField(preGeneratedExpressions.getLambdaFieldMap().get(lambda).getInstanceField())
-                    .invoke("bindTo", MethodHandle.class, scope.getVariable("session").cast(Object.class));
+            return context.getScope().getThis().getField(preGeneratedExpressions.getLambdaFieldMap().get(lambda).getInstanceField())
+                    .invoke("bindTo", MethodHandle.class, context.getScope().getVariable("session").cast(Object.class));
         }
 
         @Override
-        public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope scope)
+        public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Context context)
         {
-            return fieldReferenceCompiler.visitVariableReference(reference, scope);
+            return fieldReferenceCompiler.visitVariableReference(reference, context.getScope());
+        }
+    }
+
+    private static class Context
+    {
+        private final Scope scope;
+
+        public Context(Scope scope)
+        {
+            this.scope = scope;
+        }
+
+        public Scope getScope()
+        {
+            return scope;
         }
     }
 }
