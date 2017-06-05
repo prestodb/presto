@@ -38,6 +38,7 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -580,9 +581,12 @@ public class PrestoConnection
         return serverInfo.get();
     }
 
-    StatementClient startQuery(String sql)
+    StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+
+        Map<String, String> allProperties = new HashMap<>(sessionProperties);
+        allProperties.putAll(sessionPropertiesOverride);
 
         ClientSession session = new ClientSession(
                 httpUri,
@@ -593,7 +597,7 @@ public class PrestoConnection
                 schema.get(),
                 timeZoneId.get(),
                 locale.get(),
-                ImmutableMap.copyOf(sessionProperties),
+                ImmutableMap.copyOf(allProperties),
                 transactionId.get(),
                 false,
                 new Duration(2, MINUTES));
