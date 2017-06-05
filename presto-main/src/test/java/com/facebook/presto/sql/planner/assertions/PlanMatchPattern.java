@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -137,6 +138,13 @@ public final class PlanMatchPattern
     {
         PlanMatchPattern result = constrainedTableScan(expectedTableName, constraint);
         return result.addColumnReferences(expectedTableName, columnReferences);
+    }
+
+    public static PlanMatchPattern constrainedIndexSource(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
+    {
+        return node(IndexSourceNode.class)
+                .with(new IndexSourceMatcher(expectedTableName, constraint))
+                .addColumnReferences(expectedTableName, columnReferences);
     }
 
     private PlanMatchPattern addColumnReferences(String expectedTableName, Map<String, String> columnReferences)
