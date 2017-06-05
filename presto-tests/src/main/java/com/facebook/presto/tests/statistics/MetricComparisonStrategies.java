@@ -24,33 +24,33 @@ public class MetricComparisonStrategies
 {
     private MetricComparisonStrategies() {}
 
-    public static MetricComparisonStrategy noError()
+    public static MetricComparisonStrategy<Double> noError()
     {
         return absoluteError(0);
     }
 
-    public static MetricComparisonStrategy absoluteError(double error)
+    public static MetricComparisonStrategy<Double> absoluteError(double error)
     {
         return absoluteError(Range.closed(-error, error));
     }
 
-    public static MetricComparisonStrategy absoluteError(Range<Double> errorRange)
+    public static MetricComparisonStrategy<Double> absoluteError(Range<Double> errorRange)
     {
         return (actual, estimate) -> mapRange(errorRange, endpoint -> endpoint + actual)
                 .contains(estimate);
     }
 
-    public static MetricComparisonStrategy defaultTolerance()
+    public static MetricComparisonStrategy<Double> defaultTolerance()
     {
         return relativeError(.1);
     }
 
-    public static MetricComparisonStrategy relativeError(double error)
+    public static MetricComparisonStrategy<Double> relativeError(double error)
     {
         return relativeError(Range.closed(-error, error));
     }
 
-    public static MetricComparisonStrategy relativeError(Range<Double> errorRange)
+    public static MetricComparisonStrategy<Double> relativeError(Range<Double> errorRange)
     {
         return (actual, estimate) -> mapRange(errorRange, endpoint -> (endpoint + 1) * actual)
                 .contains(estimate);

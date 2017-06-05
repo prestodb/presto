@@ -23,19 +23,19 @@ import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BA
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
 import static java.lang.String.format;
 
-public class MetricComparison
+public class MetricComparison<T>
 {
     private final PlanNode planNode;
     private final Metric metric;
-    private final Optional<Double> estimatedCost;
-    private final Optional<Double> executionCost;
+    private final Optional<T> estimatedValue;
+    private final Optional<T> actualValue;
 
-    public MetricComparison(PlanNode planNode, Metric metric, Optional<Double> estimatedCost, Optional<Double> executionCost)
+    public MetricComparison(PlanNode planNode, Metric metric, Optional<T> estimatedValue, Optional<T> actualValue)
     {
         this.planNode = planNode;
         this.metric = metric;
-        this.estimatedCost = estimatedCost;
-        this.executionCost = executionCost;
+        this.estimatedValue = estimatedValue;
+        this.actualValue = actualValue;
     }
 
     public Metric getMetric()
@@ -52,19 +52,19 @@ public class MetricComparison
     public String toString()
     {
         return format("Metric [%s] - estimated: [%s], real: [%s] - plan node: [%s]",
-                metric, print(estimatedCost), print(executionCost), planNode);
+                metric, print(estimatedValue), print(actualValue), planNode);
     }
 
-    public Result result(MetricComparisonStrategy metricComparisonStrategy)
+    public Result result(MetricComparisonStrategy<T> metricComparisonStrategy)
     {
-        return estimatedCost
-                .map(estimate -> executionCost
+        return estimatedValue
+                .map(estimate -> actualValue
                         .map(execution -> metricComparisonStrategy.matches(execution, estimate) ? MATCH : DIFFER)
                         .orElse(NO_BASELINE))
                 .orElse(NO_ESTIMATE);
     }
 
-    private String print(Optional<Double> cost)
+    private String print(Optional<T> cost)
     {
         return cost.map(Object::toString).orElse("UNKNOWN");
     }

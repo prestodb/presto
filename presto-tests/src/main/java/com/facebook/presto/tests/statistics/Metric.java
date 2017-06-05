@@ -14,23 +14,44 @@
 package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.testing.MaterializedRow;
 
-import java.util.function.Function;
+import java.util.Objects;
+import java.util.Optional;
 
-public enum Metric
+public abstract class Metric<T>
 {
-    OUTPUT_ROW_COUNT(PlanNodeStatsEstimate::getOutputRowCount),
-    OUTPUT_SIZE_BYTES(PlanNodeStatsEstimate::getOutputSizeInBytes);
+    public abstract Optional<T> getValueFromPlanNodeEstimate(PlanNodeStatsEstimate planNodeStatsEstimate, StatsContext statsContext);
 
-    private final Function<PlanNodeStatsEstimate, Double> extractor;
+    public abstract Optional<T> getValueFromAggregationQuery(MaterializedRow aggregationQueryResult, int fieldId, StatsContext statsContext);
 
-    Metric(Function<PlanNodeStatsEstimate, Double> extractor)
+    public abstract String getComputingAggregationSql();
+
+    public abstract String getName();
+
+    // name based equality
+    @Override
+    public boolean equals(Object o)
     {
-        this.extractor = extractor;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Metric<?> metric = (Metric<?>) o;
+        return Objects.equals(getName(), metric.getName());
     }
 
-    double getValue(PlanNodeStatsEstimate stats)
+    @Override
+    public int hashCode()
     {
-        return extractor.apply(stats);
+        return Objects.hash(getName());
+    }
+
+    @Override
+    public String toString()
+    {
+        return getName();
     }
 }

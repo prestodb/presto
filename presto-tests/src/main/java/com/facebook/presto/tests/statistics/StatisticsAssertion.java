@@ -14,24 +14,20 @@
 
 package com.facebook.presto.tests.statistics;
 
-import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertTrue;
 
@@ -44,56 +40,73 @@ public class StatisticsAssertion
         this.runner = requireNonNull(runner, "runner is null");
     }
 
-    public Result check(@Language("SQL") String query)
+    public void check(@Language("SQL") String query, Consumer<Checks> checksBuilderConsumer)
     {
-        return new Result(metricComparisons(query));
+        Checks checks = new Checks();
+        checksBuilderConsumer.accept(checks);
+        checks.run(query, runner);
     }
 
-    public List<MetricComparison> metricComparisons(@Language("SQL") String query)
+    private static class MetricsCheck<T>
     {
-        String queryId = runner.executeWithQueryId(runner.getDefaultSession(), query).getQueryId();
-        Plan queryPlan = runner.getQueryPlan(new QueryId(queryId));
-        StageInfo stageInfo = runner.getQueryInfo(new QueryId(queryId)).getOutputStage().get();
-        return new MetricComparator().getMetricComparisons(queryPlan, stageInfo);
+        public final Metric<T> metric;
+        public final MetricComparisonStrategy<T> strategy;
+        public final MetricComparison.Result expectedComparisonResult;
+
+        public MetricsCheck(Metric<T> metric, MetricComparisonStrategy<T> strategy, MetricComparison.Result expectedComparisonResult)
+        {
+            this.metric = metric;
+            this.strategy = strategy;
+            this.expectedComparisonResult = expectedComparisonResult;
+        }
     }
 
-    public static class Result
+    public static class Checks
     {
-        private static final Predicate<PlanNode> IS_OUTPUT_NODE = OutputNode.class::isInstance;
+        private final List<MetricsCheck<?>> checks = new ArrayList<>();
 
-        private final List<MetricComparison> metricComparisons;
-
-        public Result(List<MetricComparison> metricComparisons)
+        public <T> Checks estimate(Metric<T> metric, MetricComparisonStrategy<T> strategy)
         {
-            requireNonNull(metricComparisons, "metricComparisons can not be null");
-            checkArgument(!metricComparisons.isEmpty(), "No metric comparisons given");
-            this.metricComparisons = ImmutableList.copyOf(metricComparisons);
+            checks.add(new MetricsCheck<>(metric, strategy, MATCH));
+            return this;
         }
 
-        public Result estimate(Metric metric, MetricComparisonStrategy strategy)
+        public <T> Checks noEstimate(Metric<T> metric)
         {
-            return testMetrics(metric, metricComparison -> metricComparison.result(strategy) == MATCH);
+            checks.add(new MetricsCheck<>(metric, (actual, estimate) -> true, NO_ESTIMATE));
+            return this;
         }
 
-        private Result testMetrics(Metric metric, Predicate<MetricComparison> assertCondition)
+        public <T> Checks noBaseline(Metric<T> metric)
+        {
+            checks.add(new MetricsCheck<>(metric, (actual, estimate) -> true, NO_BASELINE));
+            return this;
+        }
+
+        void run(@Language("SQL") String query, DistributedQueryRunner runner)
+        {
+            Set<Metric<?>> metrics = checks.stream()
+                    .map(check -> check.metric)
+                    .collect(toImmutableSet());
+            Set<MetricComparison<?>> metricComparisons = metricComparisons(query, runner, metrics);
+            for (MetricsCheck check : checks) {
+                testMetrics(check.metric, metricComparison -> metricComparison.result(check.strategy) == check.expectedComparisonResult, metricComparisons);
+            }
+        }
+
+        private Set<MetricComparison<?>> metricComparisons(@Language("SQL") String query, DistributedQueryRunner queryRunner, Set<Metric<?>> metrics)
+        {
+            return new MetricComparator().getMetricComparisons(query, queryRunner, metrics);
+        }
+
+        private Checks testMetrics(Metric metric, Predicate<MetricComparison> assertCondition, Set<MetricComparison<?>> metricComparisons)
         {
             List<MetricComparison> testMetrics = metricComparisons.stream()
-                    .filter(metricComparison -> metricComparison.getMetric() == metric)
-                    .filter(metricComparison -> IS_OUTPUT_NODE.test(metricComparison.getPlanNode()))
+                    .filter(metricComparison -> metricComparison.getMetric().equals(metric))
                     .collect(toImmutableList());
             assertTrue(testMetrics.size() > 0, "No metric found for: " + metric);
             assertTrue(testMetrics.stream().allMatch(assertCondition), "Following metrics do not match: " + testMetrics);
             return this;
-        }
-
-        public Result noEstimate(Metric metric)
-        {
-            return testMetrics(metric, metricComparison -> metricComparison.result(defaultTolerance()) == NO_ESTIMATE);
-        }
-
-        public Result noBaseline(Metric metric)
-        {
-            return testMetrics(metric, metricComparison -> metricComparison.result(defaultTolerance()) == NO_BASELINE);
         }
     }
 }
