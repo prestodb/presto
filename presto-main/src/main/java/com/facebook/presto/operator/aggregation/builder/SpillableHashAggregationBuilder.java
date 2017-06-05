@@ -25,7 +25,6 @@ import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -33,7 +32,6 @@ import io.airlift.units.DataSize;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -179,18 +177,12 @@ public class SpillableHashAggregationBuilder
             return hashAggregationBuilder.buildResult();
         }
 
-        try {
-            if (shouldMergeWithMemory(getSizeInMemory())) {
-                return mergeFromDiskAndMemory();
-            }
-            else {
-                spillToDisk().get();
-                return mergeFromDisk();
-            }
+        if (shouldMergeWithMemory(getSizeInMemory())) {
+            return mergeFromDiskAndMemory();
         }
-        catch (InterruptedException | ExecutionException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+        else {
+            getFutureValue(spillToDisk());
+            return mergeFromDisk();
         }
     }
 
