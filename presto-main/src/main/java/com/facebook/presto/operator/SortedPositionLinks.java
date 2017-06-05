@@ -22,6 +22,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -149,7 +150,7 @@ public final class SortedPositionLinks
             return lessThanFunction -> {
                 checkState(lessThanFunction.isPresent(), "Using SortedPositionLinks without lessThanFunction");
                 return new SortedPositionLinks(
-                        arrayPositionLinksFactoryBuilder.build().create(lessThanFunction),
+                        arrayPositionLinksFactoryBuilder.build().create(Optional.empty()),
                         sortedPositionLinks,
                         lessThanFunction.get());
             };
