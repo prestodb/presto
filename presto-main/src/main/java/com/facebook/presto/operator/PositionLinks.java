@@ -40,7 +40,7 @@ public interface PositionLinks
      */
     int next(int position, int probePosition, Page allProbeChannelsPage);
 
-    interface Builder
+    interface FactoryBuilder
     {
         /**
          * @return value that should be used in future references to created position links

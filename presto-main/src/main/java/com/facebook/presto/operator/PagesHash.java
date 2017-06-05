@@ -53,7 +53,7 @@ public final class PagesHash
     public PagesHash(
             LongArrayList addresses,
             PagesHashStrategy pagesHashStrategy,
-            PositionLinks.Builder positionLinks)
+            PositionLinks.FactoryBuilder positionLinks)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");

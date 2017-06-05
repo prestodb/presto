@@ -34,16 +34,16 @@ public class TestPositionLinks
     @Test
     public void testArrayPositionLinks()
     {
-        PositionLinks.Builder builder = ArrayPositionLinks.builder(1000);
+        PositionLinks.FactoryBuilder factoryBuilder = ArrayPositionLinks.builder(1000);
 
-        assertEquals(builder.link(1, 0), 1);
-        assertEquals(builder.link(2, 1), 2);
-        assertEquals(builder.link(3, 2), 3);
+        assertEquals(factoryBuilder.link(1, 0), 1);
+        assertEquals(factoryBuilder.link(2, 1), 2);
+        assertEquals(factoryBuilder.link(3, 2), 3);
 
-        assertEquals(builder.link(11, 10), 11);
-        assertEquals(builder.link(12, 11), 12);
+        assertEquals(factoryBuilder.link(11, 10), 11);
+        assertEquals(factoryBuilder.link(12, 11), 12);
 
-        PositionLinks positionLinks = builder.build().apply(Optional.empty());
+        PositionLinks positionLinks = factoryBuilder.build().apply(Optional.empty());
 
         assertEquals(positionLinks.start(3, 0, TEST_PAGE), 3);
         assertEquals(positionLinks.next(3, 0, TEST_PAGE), 2);
@@ -76,8 +76,8 @@ public class TestPositionLinks
             }
         };
 
-        PositionLinks.Builder builder = buildSortedPositionLinks();
-        PositionLinks positionLinks = builder.build().apply(Optional.of(filterFunction));
+        PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
+        PositionLinks positionLinks = factoryBuilder.build().apply(Optional.of(filterFunction));
 
         assertEquals(positionLinks.start(0, 0, TEST_PAGE), 5);
         assertEquals(positionLinks.next(5, 0, TEST_PAGE), 6);
@@ -107,8 +107,8 @@ public class TestPositionLinks
             }
         };
 
-        PositionLinks.Builder builder = buildSortedPositionLinks();
-        PositionLinks positionLinks = builder.build().apply(Optional.of(filterFunction));
+        PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
+        PositionLinks positionLinks = factoryBuilder.build().apply(Optional.of(filterFunction));
 
         assertEquals(positionLinks.start(0, 0, TEST_PAGE), 0);
         assertEquals(positionLinks.next(0, 0, TEST_PAGE), 1);
@@ -119,9 +119,9 @@ public class TestPositionLinks
         assertEquals(positionLinks.start(10, 0, TEST_PAGE), -1);
     }
 
-    private static PositionLinks.Builder buildSortedPositionLinks()
+    private static PositionLinks.FactoryBuilder buildSortedPositionLinks()
     {
-        SortedPositionLinks.Builder builder = SortedPositionLinks.builder(
+        SortedPositionLinks.FactoryBuilder builder = SortedPositionLinks.builder(
                 1000,
                 pagesHashStrategy(),
                 addresses());
