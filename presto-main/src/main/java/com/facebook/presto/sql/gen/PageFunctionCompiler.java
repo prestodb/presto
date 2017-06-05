@@ -282,7 +282,7 @@ public class PageFunctionCompiler
         declareBlockVariables(projection, page, scope, body);
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
@@ -290,7 +290,7 @@ public class PageFunctionCompiler
                 preGeneratedExpressions);
 
         body.append(thisVariable.getField(blockBuilder))
-                .append(projection.accept(visitor, scope))
+                .append(compiler.compile(projection, scope))
                 .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
         return method;
@@ -443,7 +443,7 @@ public class PageFunctionCompiler
         declareBlockVariables(filter, page, scope, body);
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
@@ -451,7 +451,7 @@ public class PageFunctionCompiler
                 preGeneratedExpressions);
 
         Variable result = scope.declareVariable(boolean.class, "result");
-        body.append(filter.accept(visitor, scope))
+        body.append(compiler.compile(filter, scope))
                 // store result so we can check for null
                 .putVariable(result)
                 .append(and(not(wasNullVariable), result).ret());
@@ -478,7 +478,7 @@ public class PageFunctionCompiler
                 List<Parameter> blocks = toBlockParameters(getInputChannels(tryExpression.getArguments()));
                 Parameter position = arg("position", int.class);
 
-                BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
                         callSiteBinder,
                         cachedInstanceBinder,
                         fieldReferenceCompiler(callSiteBinder),
@@ -492,7 +492,7 @@ public class PageFunctionCompiler
                         .build();
 
                 MethodDefinition tryMethod = defineTryMethod(
-                        innerExpressionVisitor,
+                        innerExpressionCompiler,
                         containerClassDefinition,
                         "try_" + counter,
                         inputParameters,

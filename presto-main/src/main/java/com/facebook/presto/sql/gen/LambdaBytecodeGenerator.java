@@ -87,7 +87,7 @@ public class LambdaBytecodeGenerator
             parameterMapBuilder.put(argumentName, new ParameterAndType(arg, type));
         }
 
-        BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+        RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(parameterMapBuilder.build()),
@@ -95,7 +95,7 @@ public class LambdaBytecodeGenerator
                 preGeneratedExpressions);
 
         return defineLambdaMethodAndField(
-                innerExpressionVisitor,
+                innerExpressionCompiler,
                 classDefinition,
                 fieldName,
                 parameters.build(),
@@ -103,7 +103,7 @@ public class LambdaBytecodeGenerator
     }
 
     private static LambdaExpressionField defineLambdaMethodAndField(
-            BytecodeExpressionVisitor innerExpressionVisitor,
+            RowExpressionCompiler innerExpressionCompiler,
             ClassDefinition classDefinition,
             String fieldAndMethodName,
             List<Parameter> inputParameters,
@@ -114,7 +114,7 @@ public class LambdaBytecodeGenerator
 
         Scope scope = method.getScope();
         Variable wasNull = scope.declareVariable(boolean.class, "wasNull");
-        BytecodeNode compiledBody = lambda.getBody().accept(innerExpressionVisitor, scope);
+        BytecodeNode compiledBody = innerExpressionCompiler.compile(lambda.getBody(), scope);
         method.getBody()
                 .putVariable(wasNull, false)
                 .append(compiledBody)
