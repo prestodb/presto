@@ -25,6 +25,10 @@ public enum QueryState
      */
     QUEUED(false),
     /**
+     * Query is blocked from being run.
+     */
+    BLOCKED(false),
+    /**
      * Query is being planned.
      */
     PLANNING(false),
