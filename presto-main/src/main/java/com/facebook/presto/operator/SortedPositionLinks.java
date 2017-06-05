@@ -120,7 +120,7 @@ public final class SortedPositionLinks
         @Override
         public Factory build()
         {
-            ArrayPositionLinks.FactoryBuilder builder = ArrayPositionLinks.builder(size);
+            ArrayPositionLinks.FactoryBuilder arrayPositionLinksFactoryBuilder = ArrayPositionLinks.builder(size);
             int[][] sortedPositionLinks = new int[size][];
 
             for (Int2ObjectMap.Entry<IntArrayList> entry : positionLinks.int2ObjectEntrySet()) {
@@ -137,19 +137,19 @@ public final class SortedPositionLinks
                 // tail to head, so we must add them in descending order to have
                 // smallest element as a head
                 for (int i = positions.size() - 2; i >= 0; i--) {
-                    builder.link(positions.get(i), positions.get(i + 1));
+                    arrayPositionLinksFactoryBuilder.link(positions.get(i), positions.get(i + 1));
                 }
 
                 // add link from starting position to position links chain
                 if (!positions.isEmpty()) {
-                    builder.link(key, positions.get(0));
+                    arrayPositionLinksFactoryBuilder.link(key, positions.get(0));
                 }
             }
 
             return lessThanFunction -> {
                 checkState(lessThanFunction.isPresent(), "Using SortedPositionLinks without lessThanFunction");
                 return new SortedPositionLinks(
-                        builder.build().create(lessThanFunction),
+                        arrayPositionLinksFactoryBuilder.build().create(lessThanFunction),
                         sortedPositionLinks,
                         lessThanFunction.get());
             };
