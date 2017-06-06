@@ -31,6 +31,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class Re2JRegexp
+        implements Regexp
 {
     private static final Logger log = Logger.get(Re2JRegexp.class);
 
@@ -72,11 +73,13 @@ public final class Re2JRegexp
         }
     }
 
+    @Override
     public boolean matches(Slice source)
     {
         return re2jPatternWithoutDotStartPrefix.find(source);
     }
 
+    @Override
     public Slice replace(Slice source, Slice replacement)
     {
         Matcher matcher = re2jPattern.matcher(source);
@@ -88,6 +91,7 @@ public final class Re2JRegexp
         }
     }
 
+    @Override
     public Block extractAll(Slice source, long groupIndex)
     {
         Matcher matcher = re2jPattern.matcher(source);
@@ -110,6 +114,7 @@ public final class Re2JRegexp
         return blockBuilder.build();
     }
 
+    @Override
     public Slice extract(Slice source, long groupIndex)
     {
         Matcher matcher = re2jPattern.matcher(source);
@@ -123,6 +128,7 @@ public final class Re2JRegexp
         return matcher.group(group);
     }
 
+    @Override
     public Block split(Slice source)
     {
         Matcher matcher = re2jPattern.matcher(source);

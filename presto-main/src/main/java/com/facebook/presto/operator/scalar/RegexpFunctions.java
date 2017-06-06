@@ -21,22 +21,22 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.Constraint;
-import com.facebook.presto.type.Re2JRegexp;
-import com.facebook.presto.type.Re2JRegexpType;
+import com.facebook.presto.type.Regexp;
+import com.facebook.presto.type.RegexpType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-public final class Re2JRegexpFunctions
+public final class RegexpFunctions
 {
-    private Re2JRegexpFunctions()
+    private RegexpFunctions()
     {
     }
 
-    @Description("returns substrings matching a regular expression")
+    @Description("returns whether the pattern is contained within the string")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean regexpLike(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static boolean regexpLike(@SqlType("varchar(x)") Slice source, @SqlType(RegexpType.NAME) Regexp pattern)
     {
         return pattern.matches(source);
     }
@@ -45,7 +45,7 @@ public final class Re2JRegexpFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(RegexpType.NAME) Regexp pattern)
     {
         return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
     }
@@ -60,7 +60,7 @@ public final class Re2JRegexpFunctions
     // to get the formula: x + max(x * y / 2, y) * (x + 1)
     @Constraint(variable = "z", expression = "min(2147483647, x + max(x * y / 2, y) * (x + 1))")
     @SqlType("varchar(z)")
-    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType("varchar(y)") Slice replacement)
+    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(RegexpType.NAME) Regexp pattern, @SqlType("varchar(y)") Slice replacement)
     {
         return pattern.replace(source, replacement);
     }
@@ -68,8 +68,8 @@ public final class Re2JRegexpFunctions
     @Description("string(s) extracted using the given pattern")
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
-    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    @SqlType("array(varchar(x))")
+    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(RegexpType.NAME) Regexp pattern)
     {
         return regexpExtractAll(source, pattern, 0);
     }
@@ -77,8 +77,8 @@ public final class Re2JRegexpFunctions
     @Description("group(s) extracted using the given pattern")
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
-    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    @SqlType("array(varchar(x))")
+    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(RegexpType.NAME) Regexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         return pattern.extractAll(source, groupIndex);
     }
@@ -88,7 +88,7 @@ public final class Re2JRegexpFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(RegexpType.NAME) Regexp pattern)
     {
         return regexpExtract(source, pattern, 0);
     }
@@ -98,16 +98,16 @@ public final class Re2JRegexpFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(RegexpType.NAME) Regexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         return pattern.extract(source, groupIndex);
     }
 
     @ScalarFunction
-    @Description("returns array of strings split by pattern")
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
-    public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    @Description("returns array of strings split by pattern")
+    @SqlType("array(varchar(x))")
+    public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(RegexpType.NAME) Regexp pattern)
     {
         return pattern.split(source);
     }
