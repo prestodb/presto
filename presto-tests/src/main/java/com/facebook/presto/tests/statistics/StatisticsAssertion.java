@@ -14,7 +14,7 @@
 
 package com.facebook.presto.tests.statistics;
 
-import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
@@ -33,9 +33,9 @@ import static org.testng.Assert.assertTrue;
 
 public class StatisticsAssertion
 {
-    private final DistributedQueryRunner runner;
+    private final QueryRunner runner;
 
-    public StatisticsAssertion(DistributedQueryRunner runner)
+    public StatisticsAssertion(QueryRunner runner)
     {
         this.runner = requireNonNull(runner, "runner is null");
     }
@@ -83,7 +83,7 @@ public class StatisticsAssertion
             return this;
         }
 
-        void run(@Language("SQL") String query, DistributedQueryRunner runner)
+        void run(@Language("SQL") String query, QueryRunner runner)
         {
             Set<Metric<?>> metrics = checks.stream()
                     .map(check -> check.metric)
@@ -94,7 +94,7 @@ public class StatisticsAssertion
             }
         }
 
-        private Set<MetricComparison<?>> metricComparisons(@Language("SQL") String query, DistributedQueryRunner queryRunner, Set<Metric<?>> metrics)
+        private Set<MetricComparison<?>> metricComparisons(@Language("SQL") String query, QueryRunner queryRunner, Set<Metric<?>> metrics)
         {
             return new MetricComparator().getMetricComparisons(query, queryRunner, metrics);
         }

@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.tests.statistics;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,30 +31,68 @@ import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class MetricComparator
 {
-    public Set<MetricComparison<?>> getMetricComparisons(String query, DistributedQueryRunner runner, Set<Metric<?>> metrics)
+    public Set<MetricComparison<?>> getMetricComparisons(String query, QueryRunner runner, Set<Metric<?>> metrics)
+    {
+        if (runner instanceof DistributedQueryRunner) {
+            return getMetricComparisonsDistributed(query, (DistributedQueryRunner) runner, metrics);
+        }
+        else if (runner instanceof LocalQueryRunner) {
+            return getMetricComparisonsLocal(query, (LocalQueryRunner) runner, metrics);
+        }
+        else {
+            throw new IllegalArgumentException("only local and distributed runner supported");
+        }
+    }
+
+    private Set<MetricComparison<?>> getMetricComparisonsDistributed(String query, DistributedQueryRunner runner, Set<Metric<?>> metrics)
     {
         String queryId = runner.executeWithQueryId(runner.getDefaultSession(), query).getQueryId();
         Plan queryPlan = runner.getQueryPlan(new QueryId(queryId));
         StageInfo stageInfo = runner.getQueryInfo(new QueryId(queryId)).getOutputStage().get();
         OutputNode outputNode = (OutputNode) stageInfo.getPlan().getRoot();
 
+        return getMetricComparisons(query, runner, queryPlan, outputNode, metrics);
+    }
+
+    private Set<MetricComparison<?>> getMetricComparisonsLocal(String query, LocalQueryRunner runner, Set<Metric<?>> metrics)
+    {
+        Plan queryPlan = inTransaction(runner, (session) -> runner.createPlan(session, query));
+        OutputNode outputNode = (OutputNode) queryPlan.getRoot();
+        return getMetricComparisons(query, runner, queryPlan, outputNode, metrics);
+    }
+
+    private <T> T inTransaction(QueryRunner runner, Function<Session, T> transactionSessionConsumer)
+    {
+        return transaction(runner.getTransactionManager(), runner.getAccessControl())
+                .singleStatement()
+                .execute(runner.getDefaultSession(), session -> {
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
+                    session.getCatalog().ifPresent(catalog -> runner.getMetadata().getCatalogHandle(session, catalog));
+                    return transactionSessionConsumer.apply(session);
+                });
+    }
+
+    private Set<MetricComparison<?>> getMetricComparisons(String query, QueryRunner runner, Plan queryPlan, OutputNode outputNode, Set<Metric<?>> metrics)
+    {
         StatsContext statsContext = buildStatsContext(queryPlan, outputNode);
-        List<Metric<?>> metricsLists = ImmutableList.copyOf(metrics);
-        List<Optional<?>> actualValues = getActualValues(metricsLists, query, runner, statsContext);
-        List<Optional<?>> estimatedValues = getEstimatedValues(metricsLists, queryPlan.getPlanNodeStats().get(outputNode.getId()), statsContext);
+        List<Metric<?>> metricsList = ImmutableList.copyOf(metrics);
+        List<Optional<?>> actualValues = getActualValues(metricsList, query, runner, statsContext);
+        List<Optional<?>> estimatedValues = getEstimatedValues(metricsList, queryPlan.getPlanNodeStats().get(outputNode.getId()), statsContext);
 
         ImmutableSet.Builder<MetricComparison<?>> metricComparisons = ImmutableSet.builder();
-        for (int i = 0; i < metricsLists.size(); ++i) {
+        for (int i = 0; i < metricsList.size(); ++i) {
             metricComparisons.add(new MetricComparison(
                     outputNode,
-                    metricsLists.get(i),
+                    metricsList.get(i),
                     estimatedValues.get(i),
                     actualValues.get(i)));
         }
@@ -67,7 +108,7 @@ public class MetricComparator
         return new StatsContext(columnSymbols.build(), queryPlan.getTypes());
     }
 
-    private List<Optional<?>> getActualValues(List<Metric<?>> metrics, String query, DistributedQueryRunner runner, StatsContext statsContext)
+    private List<Optional<?>> getActualValues(List<Metric<?>> metrics, String query, QueryRunner runner, StatsContext statsContext)
     {
         String statsQuery = "SELECT "
                 + metrics.stream().map(Metric::getComputingAggregationSql).collect(joining(","))
