@@ -106,10 +106,14 @@ public class SymbolMapper
     {
         ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+        Set<Symbol> seenCanonicals = new HashSet<>(node.getOrderBy().size());
         for (Symbol symbol : node.getOrderBy()) {
             Symbol canonical = map(symbol);
-            symbols.add(canonical);
-            orderings.put(canonical, node.getOrderings().get(symbol));
+            if (seenCanonicals.add(canonical)) {
+                seenCanonicals.add(canonical);
+                symbols.add(canonical);
+                orderings.put(canonical, node.getOrderings().get(symbol));
+            }
         }
 
         return new TopNNode(

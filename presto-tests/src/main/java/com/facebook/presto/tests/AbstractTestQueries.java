@@ -3747,6 +3747,29 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOrderByWithSimilarExpressions()
+    {
+        assertQuery(
+                "WITH t AS (SELECT 1 x, 2 y) SELECT x, y FROM t ORDER BY x, y",
+                "SELECT 1, 2");
+        assertQuery(
+                "WITH t AS (SELECT 1 x, 2 y) SELECT x, y FROM t ORDER BY x, y LIMIT 1",
+                "SELECT 1, 2");
+        assertQuery(
+                "WITH t AS (SELECT 1 x, 1 y) SELECT x, y FROM t ORDER BY x, y LIMIT 1",
+                "SELECT 1, 1");
+        assertQuery(
+                "WITH t AS (SELECT orderkey x, orderkey y FROM orders) SELECT x, y FROM t ORDER BY x, y LIMIT 1",
+                "SELECT 1, 1");
+        assertQuery(
+                "WITH t AS (SELECT orderkey x, orderkey y FROM orders) SELECT x, y FROM t ORDER BY x, y DESC LIMIT 1",
+                "SELECT 1, 1");
+        assertQuery(
+                "WITH t AS (SELECT orderkey x, totalprice y, orderkey z FROM orders) SELECT x, y, z FROM t ORDER BY x, y, z LIMIT 1",
+                "SELECT 1, 172799.49, 1");
+    }
+
+    @Test
     public void testGroupByOrdinal()
     {
         assertQuery(
