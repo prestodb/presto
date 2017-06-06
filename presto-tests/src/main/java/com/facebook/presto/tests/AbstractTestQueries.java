@@ -7081,7 +7081,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testCorrelatedScalarSubqueriesWithCountScalarAggregationAndEqualityPredicatesInWhere()
+    public void testCorrelatedScalarSubqueriesWithScalarAggregationAndEqualityPredicatesInWhere()
     {
         assertQuery("SELECT (SELECT count(*) WHERE o.orderkey = 1) FROM orders o");
         assertQuery("SELECT count(*) FROM orders o WHERE 1 = (SELECT count(*) WHERE o.orderkey = 0)");
@@ -7091,7 +7091,7 @@ public abstract class AbstractTestQueries
                         "(SELECT count(*) FROM region r WHERE n.regionkey = r.regionkey) > 1");
         assertQueryFails(
                 "SELECT count(*) FROM nation n WHERE " +
-                        "(SELECT count(*) FROM (SELECT count(*) FROM region r WHERE n.regionkey = r.regionkey)) > 1",
+                        "(SELECT avg(a) FROM (SELECT count(*) FROM region r WHERE n.regionkey = r.regionkey) t(a)) > 1",
                 "Unexpected node: com.facebook.presto.sql.planner.plan.LateralJoinNode");
 
         // with duplicated rows
@@ -8952,5 +8952,14 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true",
                 "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+    }
+
+    @Test
+    public void testPruningCountAggregationOverScalar()
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT SUM(orderkey) FROM orders)");
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT SUM(orderkey) FROM orders group by custkey)",
+                "VALUES 1000");
     }
 }

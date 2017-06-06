@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -99,6 +100,11 @@ public class PlanBuilder
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
     {
         return new ValuesNode(idAllocator.getNextId(), columns, rows);
+    }
+
+    public EnforceSingleRowNode enforceSingleRow(PlanNode source)
+    {
+        return new EnforceSingleRowNode(idAllocator.getNextId(), source);
     }
 
     public LimitNode limit(long limit, PlanNode source)
