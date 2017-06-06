@@ -305,7 +305,8 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Assignments.of());
 
         if (node.getType() != INNER) {
             for (Expression complexExpression : complexJoinExpressions) {
@@ -342,7 +343,8 @@ class RelationPlanner
                     Optional.of(rewrittenFilterCondition),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    Assignments.of());
         }
 
         if (node.getType() == INNER) {

@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.isDynamicFilter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
@@ -254,7 +255,10 @@ public class EqualityInference
     {
         return expression -> {
             expression = normalizeInPredicateToEquality(expression);
-            if (expression instanceof ComparisonExpression && DeterminismEvaluator.isDeterministic(expression) && !NullabilityAnalyzer.mayReturnNullOnNonNullInput(expression)) {
+            if (expression instanceof ComparisonExpression &&
+                    DeterminismEvaluator.isDeterministic(expression) &&
+                    !NullabilityAnalyzer.mayReturnNullOnNonNullInput(expression) &&
+                    !isDynamicFilter(expression)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
                 if (comparison.getType() == ComparisonExpressionType.EQUAL) {
                     // We should only consider equalities that have distinct left and right components

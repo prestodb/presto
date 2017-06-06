@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DeferredSymbolReference;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -336,6 +337,12 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
+        protected RowExpression visitDeferredSymbolReference(DeferredSymbolReference node, Void context)
+        {
+            return new DeferredSymbolReferenceExpression(node.getSourceId(), node.getSymbol(), getType(node));
+        }
+
+        @Override
         protected RowExpression visitLambdaExpression(LambdaExpression node, Void context)
         {
             RowExpression body = process(node.getBody(), context);
@@ -464,6 +471,12 @@ public final class SqlToRowExpressionTranslator
             public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
             {
                 return new VariableReferenceExpression(reference.getName(), targetType);
+            }
+
+            @Override
+            public RowExpression visitDeferredSymbolReference(DeferredSymbolReferenceExpression reference, Void context)
+            {
+                return new DeferredSymbolReferenceExpression(reference.getSourceId(), reference.getSymbol(), targetType);
             }
         }
 

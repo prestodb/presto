@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
+import com.facebook.presto.sql.relational.DeferredSymbolReferenceExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -93,6 +94,12 @@ public class LambdaAndTryExpressionExtractor
 
         @Override
         public Void visitVariableReference(VariableReferenceExpression reference, Context context)
+        {
+            return null;
+        }
+
+        @Override
+        public Void visitDeferredSymbolReference(DeferredSymbolReferenceExpression reference, Context context)
         {
             return null;
         }

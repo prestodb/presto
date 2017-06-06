@@ -73,7 +73,8 @@ public class DetermineJoinDistributionType
                     node.getFilter(),
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol(),
-                    Optional.of(targetJoinDistributionType));
+                    Optional.of(targetJoinDistributionType),
+                    node.getDynamicFilterAssignments());
         }
 
         @Override
