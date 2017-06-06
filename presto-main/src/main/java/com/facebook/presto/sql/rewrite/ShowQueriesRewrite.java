@@ -226,7 +226,10 @@ final class ShowQueriesRewrite
                         session.getIdentity(),
                         new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
-                predicate = Optional.of(equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName())));
+                String schemaName = qualifiedTableName.getSchemaName();
+                predicate = Optional.of(logicalAnd(
+                        equal(identifier("table_schema"), new StringLiteral(schemaName)),
+                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName()))));
             }
 
             if (catalogName == null) {
