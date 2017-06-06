@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
+import com.facebook.presto.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
 import com.facebook.presto.sql.planner.iterative.rule.PruneCrossJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneJoinChildrenColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneJoinColumns;
@@ -189,7 +190,8 @@ public class PlanOptimizers
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(),
                                         new ImplementBernoulliSampleAsFilter(),
-                                        new MergeLimitWithDistinct()))
+                                        new MergeLimitWithDistinct(),
+                                        new PruneCountAggregationOverScalar()))
                                 .build()
                 ),
                 new SimplifyExpressions(metadata, sqlParser),
@@ -315,7 +317,6 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new AddIntermediateAggregations(),
                         new RemoveRedundantIdentityProjections())));
-
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
         // Precomputed hashes - this assumes that partitioning will not change

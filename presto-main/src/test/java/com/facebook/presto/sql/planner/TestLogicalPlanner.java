@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.tests.QueryTemplate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -386,5 +387,22 @@ public class TestLogicalPlanner
                 output(
                         values("nationkey", "name", "regionkey", "comment"))
         );
+    }
+
+    @Test
+    public void testPruneCountAggregationOverScalar()
+    {
+        assertPlan(
+                "SELECT count(*) FROM (SELECT sum(orderkey) FROM orders)",
+                output(
+                        values(ImmutableList.of("_col0"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))));
+        assertPlan(
+                "SELECT count(s) FROM (SELECT sum(orderkey) AS s FROM orders)",
+                anyTree(
+                        tableScan("orders")));
+        assertPlan(
+                "SELECT count(*) FROM (SELECT sum(orderkey) FROM orders GROUP BY custkey)",
+                anyTree(
+                        tableScan("orders")));
     }
 }
