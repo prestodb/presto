@@ -45,6 +45,35 @@
 
         <plugins>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <includeProjectDependencies>false</includeProjectDependencies>
+                    <includePluginDependencies>true</includePluginDependencies>
+                    <mainClass>com.facebook.presto.sql.ReservedIdentifiers</mainClass>
+                    <arguments>
+                        <argument>validateDocs</argument>
+                        <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
+                    </arguments>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.facebook.presto</groupId>
+                        <artifactId>presto-parser</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <plugin>
                 <groupId>io.airlift.maven.plugins</groupId>
                 <artifactId>sphinx-maven-plugin</artifactId>
                 <configuration>
