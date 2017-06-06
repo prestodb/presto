@@ -26,6 +26,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -129,6 +131,11 @@ public class JdbcRecordSink
                 long utcMillis = TimeUnit.DAYS.toMillis(value);
                 long localMillis = ISOChronology.getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
                 statement.setDate(next(), new Date(localMillis));
+            }
+            else if (TIMESTAMP.equals(columnTypes.get(field))) {
+                long utcMillis = TimeUnit.MILLISECONDS.toMillis(value);
+                long localMillis = ISOChronology.getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
+                statement.setTimestamp(next(), new Timestamp(localMillis));
             }
             else {
                 statement.setLong(next(), value);
