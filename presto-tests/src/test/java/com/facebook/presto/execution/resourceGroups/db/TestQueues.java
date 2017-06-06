@@ -186,7 +186,7 @@ public class TestQueues
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
             int selectorCount = getSelectors(queryRunner).size();
-            dao.insertSelector(4, "user.*", "(?i).*reject.*");
+            dao.insertSelector(400, 4, "user.*", "(?i).*reject.*");
             assertEquals(dao.getSelectors().size(), selectorCount + 1);
             while (getSelectors(queryRunner).size() == selectorCount) {
                 MILLISECONDS.sleep(500);
@@ -343,9 +343,9 @@ public class TestQueues
         dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, null, null, null, null, null, 1L);
         dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, null, null, null, null, null, 3L);
         dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, 3L);
-        dao.insertSelector(2, "user.*", "test");
-        dao.insertSelector(4, "user.*", "(?i).*adhoc.*");
-        dao.insertSelector(5, "user.*", "(?i).*dashboard.*");
+        dao.insertSelector(100, 2, "user.*", "test");
+        dao.insertSelector(200, 4, "user.*", "(?i).*adhoc.*");
+        dao.insertSelector(300, 5, "user.*", "(?i).*dashboard.*");
         // Selectors are loaded last
         while (getSelectors(queryRunner).size() != 3) {
             MILLISECONDS.sleep(500);

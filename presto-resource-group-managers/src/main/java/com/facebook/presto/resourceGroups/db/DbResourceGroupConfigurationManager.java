@@ -141,8 +141,10 @@ public class DbResourceGroupConfigurationManager
         Set<ResourceGroupIdTemplate> changedSpecs = new HashSet<>();
         Set<ResourceGroupIdTemplate> deletedSpecs = Sets.difference(this.resourceGroupSpecs.keySet(), resourceGroupSpecs.keySet());
 
+        boolean isCpuQuotaChanged = !getCpuQuotaPeriodMillis().equals(managerSpec.getCpuQuotaPeriod());
         for (Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry : resourceGroupSpecs.entrySet()) {
-            if (!entry.getValue().sameConfig(this.resourceGroupSpecs.get(entry.getKey()))) {
+            if ((isCpuQuotaChanged && (entry.getValue().getSoftCpuLimit().isPresent() || entry.getValue().getHardCpuLimit().isPresent())) ||
+                    !entry.getValue().sameConfig(this.resourceGroupSpecs.get(entry.getKey()))) {
                 changedSpecs.add(entry.getKey());
             }
         }

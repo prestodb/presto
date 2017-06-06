@@ -55,11 +55,12 @@ public interface ResourceGroupsDao
     @Mapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups();
 
-    @SqlQuery("SELECT resource_group_id, user_regex, source_regex from selectors")
+    @SqlQuery("SELECT resource_group_id, user_regex, source_regex from selectors order by selector_order")
     @Mapper(SelectorRecord.Mapper.class)
     List<SelectorRecord> getSelectors();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS selectors (\n" +
+            "  selector_order INT NOT NULL,\n" +
             "  resource_group_id BIGINT NOT NULL,\n" +
             "  user_regex VARCHAR(512),\n" +
             "  source_regex VARCHAR(512),\n" +
