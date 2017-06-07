@@ -43,12 +43,12 @@ check_if_correct_java_version() {
 if ! check_if_correct_java_version "$JAVA8_HOME" && ! check_if_correct_java_version "$JAVA_HOME"; then
   java_found=false
   for candidate in \
-      /usr/lib/jvm/jdk1.8* \
+      /usr/lib/jvm/jdk1.8*/jre \
       /usr/lib/jvm/jre1.8* \
       /usr/lib/jvm/java-8-oracle* \
-      /usr/java/jdk1.8* \
+      /usr/java/jdk1.8*/jre \
       /usr/java/jre1.8* \
-      /usr/jdk64/jdk1.8* \
+      /usr/jdk64/jdk1.8*/jre \
       /usr/lib/jvm/default-java \
       /usr/java/default \
       / \
