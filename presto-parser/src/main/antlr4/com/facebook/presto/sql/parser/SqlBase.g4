@@ -475,6 +475,13 @@ nonReserved
     | INCLUDING | EXCLUDING | PROPERTIES
     | ALL | SOME | ANY
     | LATERAL
+    | NULLS | FIRST | LAST | ASC | DESC
+    | UNBOUNDED
+    | SETS
+    | ORDINALITY
+    | LIMIT
+    | RENAME
+    | TRY_CAST
     ;
 
 SELECT: 'SELECT';

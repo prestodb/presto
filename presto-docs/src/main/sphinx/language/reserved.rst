@@ -12,7 +12,6 @@ Keyword                        SQL:2016      SQL-92
 ``ALTER``                      reserved      reserved
 ``AND``                        reserved      reserved
 ``AS``                         reserved      reserved
-``ASC``                        non-reserved  reserved
 ``BETWEEN``                    reserved      reserved
 ``BY``                         reserved      reserved
 ``CASE``                       reserved      reserved
@@ -26,7 +25,6 @@ Keyword                        SQL:2016      SQL-92
 ``CURRENT_TIMESTAMP``          reserved      reserved
 ``DEALLOCATE``                 reserved      reserved
 ``DELETE``                     reserved      reserved
-``DESC``                       non-reserved  reserved
 ``DESCRIBE``                   reserved      reserved
 ``DISTINCT``                   reserved      reserved
 ``DROP``                       reserved      reserved
@@ -38,7 +36,6 @@ Keyword                        SQL:2016      SQL-92
 ``EXISTS``                     reserved      reserved
 ``EXTRACT``                    reserved      reserved
 ``FALSE``                      reserved      reserved
-``FIRST``                      non-reserved  reserved
 ``FOR``                        reserved      reserved
 ``FROM``                       reserved      reserved
 ``FULL``                       reserved      reserved
@@ -52,35 +49,27 @@ Keyword                        SQL:2016      SQL-92
 ``INTO``                       reserved      reserved
 ``IS``                         reserved      reserved
 ``JOIN``                       reserved      reserved
-``LAST``                       non-reserved  reserved
 ``LEFT``                       reserved      reserved
 ``LIKE``                       reserved      reserved
-``LIMIT``                      non-reserved
 ``LOCALTIME``                  reserved
 ``LOCALTIMESTAMP``             reserved
 ``NATURAL``                    reserved      reserved
 ``NORMALIZE``                  reserved
 ``NOT``                        reserved      reserved
 ``NULL``                       reserved      reserved
-``NULLS``                      non-reserved
 ``ON``                         reserved      reserved
 ``OR``                         reserved      reserved
 ``ORDER``                      reserved      reserved
-``ORDINALITY``                 non-reserved
 ``OUTER``                      reserved      reserved
 ``PREPARE``                    reserved      reserved
 ``RECURSIVE``                  reserved
-``RENAME``
 ``RIGHT``                      reserved      reserved
 ``ROLLUP``                     reserved
 ``SELECT``                     reserved      reserved
-``SETS``                       non-reserved
 ``TABLE``                      reserved      reserved
 ``THEN``                       reserved      reserved
 ``TRUE``                       reserved      reserved
-``TRY_CAST``
 ``UESCAPE``                    reserved
-``UNBOUNDED``                  non-reserved
 ``UNION``                      reserved      reserved
 ``UNNEST``                     reserved
 ``USING``                      reserved      reserved
