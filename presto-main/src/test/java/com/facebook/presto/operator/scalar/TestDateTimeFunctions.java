@@ -147,7 +147,7 @@ public class TestDateTimeFunctions
     public void testLocalTime()
             throws Exception
     {
-        long millis = new LocalTime(session.getStartTime(), DATE_TIME_ZONE).getMillisOfDay();
+        long millis = new LocalTime(session.getStartTime(), DateTimeZone.UTC).getMillisOfDay();
         functionAssertions.assertFunction("LOCALTIME", TimeType.TIME, toTime(millis));
     }
 
@@ -155,7 +155,7 @@ public class TestDateTimeFunctions
     public void testCurrentTime()
             throws Exception
     {
-        long millis = new LocalTime(session.getStartTime(), DATE_TIME_ZONE).getMillisOfDay();
+        long millis = new LocalTime(session.getStartTime(), DateTimeZone.UTC).getMillisOfDay();
         functionAssertions.assertFunction("CURRENT_TIME", TIME_WITH_TIME_ZONE, new SqlTimeWithTimeZone(millis, session.getTimeZoneKey()));
     }
 
