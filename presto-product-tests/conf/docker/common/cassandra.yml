@@ -3,7 +3,7 @@ services:
 
   cassandra:
     hostname: cassandra
-    image: 'cassandra:3.9'
+    image: 'cassandra:3.10'
     ports:
       - '9042:9042'
     environment:
