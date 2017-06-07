@@ -14,8 +14,11 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.DependencyExtractor;
+import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -25,6 +28,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 class Util
 {
@@ -61,5 +66,25 @@ class Util
         return child.replaceChildren(ImmutableList.of(
                 parent.replaceChildren(
                         child.getSources())));
+    }
+
+    /**
+     * @return If the node has outputs not in permittedOutputs, returns an identity projection containing only those node outputs also in permittedOutputs.
+     */
+    public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<Symbol> permittedOutputs)
+    {
+        List<Symbol> restrictedOutputs = node.getOutputSymbols().stream()
+                .filter(permittedOutputs::contains)
+                .collect(toImmutableList());
+
+        if (restrictedOutputs.size() == node.getOutputSymbols().size()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(
+                new ProjectNode(
+                        idAllocator.getNextId(),
+                        node,
+                        Assignments.identity(restrictedOutputs)));
     }
 }
