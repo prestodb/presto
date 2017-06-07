@@ -47,6 +47,7 @@ public class HdfsConfigurationUpdater
     private final Duration dfsTimeout;
     private final Duration dfsConnectTimeout;
     private final int dfsConnectMaxRetries;
+    private final int dfsClientMaxRetries;
     private final String domainSocketPath;
     private final Configuration resourcesConfiguration;
     private final HiveCompressionCodec compressionCodec;
@@ -87,6 +88,7 @@ public class HdfsConfigurationUpdater
         this.dfsTimeout = hiveClientConfig.getDfsTimeout();
         this.dfsConnectTimeout = hiveClientConfig.getDfsConnectTimeout();
         this.dfsConnectMaxRetries = hiveClientConfig.getDfsConnectMaxRetries();
+        this.dfsClientMaxRetries = hiveClientConfig.getDfsClientMaxRetries();
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
         this.resourcesConfiguration = readConfiguration(hiveClientConfig.getResourceConfigFiles());
         this.compressionCodec = hiveClientConfig.getHiveCompressionCodec();
@@ -158,6 +160,7 @@ public class HdfsConfigurationUpdater
         config.setInt("ipc.ping.interval", toIntExact(ipcPingInterval.toMillis()));
         config.setInt("ipc.client.connect.timeout", toIntExact(dfsConnectTimeout.toMillis()));
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
+        config.setInt("dfs.client.retry.max.attempts", dfsClientMaxRetries);
 
         // re-map filesystem schemes to match Amazon Elastic MapReduce
         config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());

@@ -169,6 +169,13 @@ Property Name                                      Description                  
                                                    See :ref:`hive-file-based-authorization` for details.
 
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
+
+
+``hive.dfs-timeout``                                HDFS client socket timeout.                                 ``60 seconds``
+``hive.dfs.ipc-ping-interval``                      HDFS RPC connection client interval.                        ``10 seconds``
+``hive.dfs.connect.timeout``                        HDFS RPC connection client timeout.                         ``500 milliseconds``
+``hive.dfs.connect.max-retries``                    HDFS RPC connection client max number of retries.           5
+``hive.dfs.client.max-retries``                    HDFS client max number of retries.                           10
 ================================================== ============================================================ ==========
 
 Amazon S3 Configuration
