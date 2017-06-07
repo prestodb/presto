@@ -53,7 +53,6 @@ public final class ResourceGroupId
 
     private static List<String> append(List<String> list, String element)
     {
-        checkArgument(!element.contains("."), "name should not contain '.'");
         List<String> result = new ArrayList<>(list);
         result.add(element);
         return result;
@@ -64,7 +63,6 @@ public final class ResourceGroupId
         checkArgument(!segments.isEmpty(), "Resource group id is empty");
         for (String segment : segments) {
             checkArgument(!segment.isEmpty(), "Empty segment in resource group id");
-            checkArgument(!segment.contains("."), "Segment contains '.'");
         }
         this.segments = segments;
     }

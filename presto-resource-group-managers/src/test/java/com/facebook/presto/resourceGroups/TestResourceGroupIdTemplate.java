@@ -30,7 +30,7 @@ public class TestResourceGroupIdTemplate
         ResourceGroupId expected = new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("test"), "u"), "s");
         assertEquals(template.expandTemplate(new SelectionContext(true, "u", Optional.of("s"), 1)), expected);
         template = new ResourceGroupIdTemplate("test.${USER}");
-        assertEquals(template.expandTemplate(new SelectionContext(true, "alice_smith", Optional.empty(), 1)), new ResourceGroupId(new ResourceGroupId("test"), "alice_smith"));
+        assertEquals(template.expandTemplate(new SelectionContext(true, "alice.smith", Optional.empty(), 1)), new ResourceGroupId(new ResourceGroupId("test"), "alice.smith"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

@@ -27,14 +27,8 @@ public class TestResourceGroupId
     @Test
     public void testBasic()
     {
-        new ResourceGroupId("test_test");
-        new ResourceGroupId(new ResourceGroupId("test"), "test");
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testInvalid()
-    {
         new ResourceGroupId("test.test");
+        new ResourceGroupId(new ResourceGroupId("test"), "test");
     }
 
     @Test
