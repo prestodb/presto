@@ -251,5 +251,11 @@ public class HdfsConfigurationUpdater
         {
             // no-op
         }
+
+        @Override
+        public void reloadCachedMappings(List<String> names)
+        {
+            // no-op
+        }
     }
 }

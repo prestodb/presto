@@ -81,10 +81,7 @@
         <module>presto-orc</module>
         <module>presto-rcfile</module>
         <module>presto-hive</module>
-        <module>presto-hive-hadoop1</module>
         <module>presto-hive-hadoop2</module>
-        <module>presto-hive-cdh4</module>
-        <module>presto-hive-cdh5</module>
         <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
         <module>presto-local-file</module>
@@ -178,13 +175,6 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-hive-cdh4</artifactId>
-                <version>${project.version}</version>
-                <type>zip</type>
             </dependency>
 
             <dependency>
@@ -337,20 +327,8 @@
 
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
-                <artifactId>hadoop-apache1</artifactId>
-                <version>1.2.1-1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
                 <version>2.7.3-1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto.hadoop</groupId>
-                <artifactId>hadoop-cdh4</artifactId>
-                <version>4.7.1-1</version>
             </dependency>
 
             <dependency>
