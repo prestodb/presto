@@ -107,8 +107,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.operator.scalar.GroupingOperationFunction.MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT;
-import static com.facebook.presto.operator.scalar.GroupingOperationFunction.MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -158,6 +156,9 @@ import static java.util.Objects.requireNonNull;
 
 public class ExpressionAnalyzer
 {
+    private static final int MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT = 63;
+    private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
+
     private final FunctionRegistry functionRegistry;
     private final TypeManager typeManager;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
