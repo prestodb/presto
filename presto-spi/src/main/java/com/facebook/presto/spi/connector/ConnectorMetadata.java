@@ -32,7 +32,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableIdentity;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
 import io.airlift.slice.Slice;
@@ -207,7 +208,7 @@ public interface ConnectorMetadata
      */
     default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        List<ConnectorTableLayout> layouts = getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
+        List<ConnectorTableLayout> layouts = getTableLayouts(session, tableHandle, new Constraint<>(new AllExpression<>(), map -> true), Optional.empty())
                 .stream()
                 .map(ConnectorTableLayoutResult::getTableLayout)
                 .filter(layout -> layout.getNodePartitioning().isPresent())
@@ -356,7 +357,7 @@ public interface ConnectorMetadata
     /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
-    default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
+    default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleExpression<ColumnHandle> tupleDomain)
     {
         return Optional.empty();
     }

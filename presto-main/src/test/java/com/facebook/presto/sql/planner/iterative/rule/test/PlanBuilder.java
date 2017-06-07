@@ -19,7 +19,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
@@ -207,7 +207,7 @@ public class PlanBuilder
                 symbols,
                 assignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 originalConstraint
         );
     }

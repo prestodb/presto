@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -116,12 +116,12 @@ public final class PlanMatchPattern
                         .collect(toImmutableList()));
     }
 
-    public static PlanMatchPattern constrainedTableScan(String expectedTableName, Map<String, Domain> constraint)
+    public static PlanMatchPattern constrainedTableScan(String expectedTableName, TupleExpression<String> constraint)
     {
         return node(TableScanNode.class).with(new TableScanMatcher(expectedTableName, constraint));
     }
 
-    public static PlanMatchPattern constrainedTableScan(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
+    public static PlanMatchPattern constrainedTableScan(String expectedTableName, TupleExpression<String> constraint, Map<String, String> columnReferences)
     {
         PlanMatchPattern result = constrainedTableScan(expectedTableName, constraint);
         return result.addColumnReferences(expectedTableName, columnReferences);

@@ -17,13 +17,18 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
+import com.facebook.presto.spi.predicate.AndExpression;
+import com.facebook.presto.spi.predicate.DomainExpression;
+import com.facebook.presto.spi.predicate.NoneExpression;
+import com.facebook.presto.spi.predicate.NotExpression;
+import com.facebook.presto.spi.predicate.OrExpression;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -33,18 +38,18 @@ final class TableScanMatcher
         implements Matcher
 {
     private final String expectedTableName;
-    private final Optional<Map<String, Domain>> expectedConstraint;
+    private final TupleExpression<String> expectedConstraint;
 
     TableScanMatcher(String expectedTableName)
     {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
-        expectedConstraint = Optional.empty();
+        expectedConstraint = new NoneExpression<String>();
     }
 
-    public TableScanMatcher(String expectedTableName, Map<String, Domain> expectedConstraint)
+    public TableScanMatcher(String expectedTableName, TupleExpression<String> expectedConstraint)
     {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
-        this.expectedConstraint = Optional.of(requireNonNull(expectedConstraint, "expectedConstraint is null"));
+        this.expectedConstraint = requireNonNull(expectedConstraint, "expectedConstraint is null");
     }
 
     @Override
@@ -63,35 +68,22 @@ final class TableScanMatcher
         String actualTableName = tableMetadata.getTable().getTableName();
         return new MatchResult(
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
-                domainMatches(tableScanNode, session, metadata));
+                        domainMatches(tableScanNode, session, metadata));
     }
 
     private boolean domainMatches(TableScanNode tableScanNode, Session session, Metadata metadata)
     {
-        if (!expectedConstraint.isPresent()) {
+        if (expectedConstraint instanceof NoneExpression) {
             return true;
         }
 
-        TupleDomain<ColumnHandle> actualConstraint = tableScanNode.getCurrentConstraint();
-        if (expectedConstraint.isPresent() && !actualConstraint.getDomains().isPresent()) {
+        TupleExpression<ColumnHandle> actualConstraint = tableScanNode.getCurrentConstraint();
+        if (!(expectedConstraint instanceof NoneExpression) && actualConstraint instanceof NoneExpression) {
             return false;
         }
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableScanNode.getTable());
-        for (Map.Entry<String, Domain> expectedColumnConstraint : expectedConstraint.get().entrySet()) {
-            if (!columnHandles.containsKey(expectedColumnConstraint.getKey())) {
-                return false;
-            }
-            ColumnHandle columnHandle = columnHandles.get(expectedColumnConstraint.getKey());
-            if (!actualConstraint.getDomains().get().containsKey(columnHandle)) {
-                return false;
-            }
-            if (!expectedColumnConstraint.getValue().contains(actualConstraint.getDomains().get().get(columnHandle))) {
-                return false;
-            }
-        }
-
-        return true;
+        return expectedConstraint.accept(new Visitor(columnHandles), actualConstraint);
     }
 
     @Override
@@ -100,7 +92,79 @@ final class TableScanMatcher
         return toStringHelper(this)
                 .omitNullValues()
                 .add("expectedTableName", expectedTableName)
-                .add("expectedConstraint", expectedConstraint.orElse(null))
+                .add("expectedConstraint", expectedConstraint)
                 .toString();
+    }
+
+    private class Visitor
+            implements TupleExpressionVisitor<Boolean, TupleExpression<ColumnHandle>, String>
+    {
+        private final Map<String, ColumnHandle> columnHandles;
+
+        public Visitor(Map<String, ColumnHandle> columnHandles)
+        {
+            this.columnHandles = columnHandles;
+        }
+
+        @Override
+        public Boolean visitDomainExpression(DomainExpression<String> expression, TupleExpression<ColumnHandle> context)
+        {
+            if (!columnHandles.containsKey(expression.getColumn())) {
+                return false;
+            }
+            if (!(context instanceof DomainExpression)) {
+                return false;
+            }
+            DomainExpression<ColumnHandle> actualConstraint = (DomainExpression) context;
+
+            ColumnHandle columnHandle = columnHandles.get(expression.getColumn());
+            if (!actualConstraint.getColumn().equals(columnHandle)) {
+                return false;
+            }
+            return expression.getDomain().contains(actualConstraint.getDomain());
+        }
+
+        @Override
+        public Boolean visitAndExpression(AndExpression<String> expression, TupleExpression<ColumnHandle> context)
+        {
+            if (!(context instanceof AndExpression)) {
+                return false;
+            }
+            AndExpression andExpression = ((AndExpression) context);
+            return expression.getLeftExpression().accept(this, andExpression.getLeftExpression()) && expression.getRightExpression().accept(this,
+                    andExpression.getRightExpression());
+        }
+
+        @Override
+        public Boolean visitOrExpression(OrExpression<String> expression, TupleExpression<ColumnHandle> context)
+        {
+            if (!(context instanceof OrExpression)) {
+                return false;
+            }
+            OrExpression orExpression = ((OrExpression) context);
+            return expression.getLeftExpression().accept(this, orExpression.getLeftExpression()) && expression.getRightExpression().accept(
+                    this, orExpression.getRightExpression());
+        }
+
+        @Override
+        public Boolean visitNotExpression(NotExpression<String> expression, TupleExpression<ColumnHandle> context)
+        {
+            if (!(context instanceof NotExpression)) {
+                return false;
+            }
+            return expression.getExpression().accept(this, ((NotExpression) context).getExpression());
+        }
+
+        @Override
+        public Boolean visitAllExpression(AllExpression<String> expression, TupleExpression<ColumnHandle> context)
+        {
+            return context instanceof AllExpression;
+        }
+
+        @Override
+        public Boolean visitNoneExpression(NoneExpression<String> expression, TupleExpression<ColumnHandle> context)
+        {
+            return context instanceof NoneExpression;
+        }
     }
 }

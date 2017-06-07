@@ -14,8 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -39,7 +38,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
@@ -184,19 +182,16 @@ public class EffectivePredicateExtractor
     public Expression visitTableScan(TableScanNode node, Void context)
     {
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
-        return DomainTranslator.toPredicate(spanTupleDomain(node.getCurrentConstraint()).transform(assignments::get));
+        return TupleExpressionTranslator.toPredicate(spanTupleDomain(node.getCurrentConstraint()).transform(assignments::get));
     }
 
-    private static TupleDomain<ColumnHandle> spanTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
+    private static TupleExpression<ColumnHandle> spanTupleDomain(TupleExpression<ColumnHandle> tupleExpression)
     {
-        if (tupleDomain.isNone()) {
-            return tupleDomain;
+        if (tupleExpression.isNone()) {
+            return tupleExpression;
         }
-
         // Simplify domains if they get too complex
-        Map<ColumnHandle, Domain> spannedDomains = Maps.transformValues(tupleDomain.getDomains().get(), DomainUtils::simplifyDomain);
-
-        return TupleDomain.withColumnDomains(spannedDomains);
+        return tupleExpression.accept(new TupleExpressionSimplifier<ColumnHandle>(), null);
     }
 
     @Override

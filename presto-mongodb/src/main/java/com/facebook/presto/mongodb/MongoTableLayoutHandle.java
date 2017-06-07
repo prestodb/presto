@@ -16,6 +16,8 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -31,10 +33,10 @@ public class MongoTableLayoutHandle
 
     @JsonCreator
     public MongoTableLayoutHandle(@JsonProperty("table") MongoTableHandle table,
-                                  @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
+                                  @JsonProperty("tupleDomain") TupleExpression<ColumnHandle> tupleDomain)
     {
         this.table = requireNonNull(table, "table is null");
-        this.tupleDomain = requireNonNull(tupleDomain, "tuple is null");
+        this.tupleDomain = TupleExpressionUtil.toTupleDomain(requireNonNull(tupleDomain, "tuple is null"));
     }
 
     @JsonProperty

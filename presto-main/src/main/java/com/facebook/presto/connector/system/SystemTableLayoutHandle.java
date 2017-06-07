@@ -16,7 +16,7 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -27,13 +27,13 @@ public class SystemTableLayoutHandle
 {
     private final ConnectorId connectorId;
     private final SystemTableHandle table;
-    private final TupleDomain<ColumnHandle> constraint;
+    private final TupleExpression<ColumnHandle> constraint;
 
     @JsonCreator
     public SystemTableLayoutHandle(
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("table") SystemTableHandle table,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("constraint") TupleExpression<ColumnHandle> constraint)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.table = requireNonNull(table, "table is null");
@@ -53,7 +53,7 @@ public class SystemTableLayoutHandle
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
+    public TupleExpression<ColumnHandle> getConstraint()
     {
         return constraint;
     }

@@ -79,7 +79,7 @@ public class DomainExpression<C>
     }
 
     @Override
-    public <R, T> R accept(TupleExpressionVisitor<R, T> visitor, T context)
+    public <R, T> R accept(TupleExpressionVisitor<R, T, C> visitor, T context)
     {
         return visitor.visitDomainExpression(this, context);
     }
@@ -120,5 +120,11 @@ public class DomainExpression<C>
         DomainExpression other = (DomainExpression) obj;
         return Objects.equals(this.column, other.column) &&
                 Objects.equals(this.domain, other.domain);
+    }
+
+    @Override
+    public String toString()
+    {
+        return column.toString() + ":" + domain.toString();
     }
 }

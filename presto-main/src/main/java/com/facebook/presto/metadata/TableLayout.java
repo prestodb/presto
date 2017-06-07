@@ -19,7 +19,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
 
@@ -54,7 +54,7 @@ public class TableLayout
         return layout.getColumns();
     }
 
-    public TupleDomain<ColumnHandle> getPredicate()
+    public TupleExpression<ColumnHandle> getPredicate()
     {
         return layout.getPredicate();
     }

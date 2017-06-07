@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
+import com.facebook.presto.spi.predicate.TupleExpression;
 
 import java.util.List;
 import java.util.Objects;
@@ -27,7 +28,7 @@ public class ConnectorTableLayout
 {
     private final ConnectorTableLayoutHandle handle;
     private final Optional<List<ColumnHandle>> columns;
-    private final TupleDomain<ColumnHandle> predicate;
+    private final TupleExpression<ColumnHandle> predicate;
     private final Optional<ConnectorNodePartitioning> nodePartitioning;
     private final Optional<Set<ColumnHandle>> streamPartitioningColumns;
     private final Optional<DiscretePredicates> discretePredicates;
@@ -37,7 +38,7 @@ public class ConnectorTableLayout
     {
         this(handle,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -47,7 +48,7 @@ public class ConnectorTableLayout
     public ConnectorTableLayout(
             ConnectorTableLayoutHandle handle,
             Optional<List<ColumnHandle>> columns,
-            TupleDomain<ColumnHandle> predicate,
+            TupleExpression<ColumnHandle> predicate,
             Optional<ConnectorNodePartitioning> nodePartitioning,
             Optional<Set<ColumnHandle>> streamPartitioningColumns,
             Optional<DiscretePredicates> discretePredicates,
@@ -87,7 +88,7 @@ public class ConnectorTableLayout
      * A predicate that describes the universe of data in this layout. It may be used by the query engine to
      * infer additional properties and perform further optimizations
      */
-    public TupleDomain<ColumnHandle> getPredicate()
+    public TupleExpression<ColumnHandle> getPredicate()
     {
         return predicate;
     }

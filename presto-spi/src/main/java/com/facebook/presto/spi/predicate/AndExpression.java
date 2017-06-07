@@ -69,7 +69,7 @@ public class AndExpression<C>
     }
 
     @Override
-    public <R, T> R accept(TupleExpressionVisitor<R, T> visitor, T context)
+    public <R, T> R accept(TupleExpressionVisitor<R, T, C> visitor, T context)
     {
         return visitor.visitAndExpression(this, context);
     }
@@ -116,5 +116,11 @@ public class AndExpression<C>
         AndExpression other = (AndExpression) obj;
         return Objects.equals(this.leftExpression, other.leftExpression) &&
                 Objects.equals(this.rightExpression, other.rightExpression);
+    }
+
+    @Override
+    public String toString()
+    {
+        return '(' + leftExpression.toString() + ") AND (" + rightExpression.toString() + ")";
     }
 }

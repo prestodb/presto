@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorTableLayoutResult
 {
     private final ConnectorTableLayout layout;
-    private final TupleDomain<ColumnHandle> unenforcedConstraint;
+    private final TupleExpression<ColumnHandle> unenforcedConstraint;
 
-    public ConnectorTableLayoutResult(ConnectorTableLayout layout, TupleDomain<ColumnHandle> unenforcedConstraint)
+    public ConnectorTableLayoutResult(ConnectorTableLayout layout, TupleExpression<ColumnHandle> unenforcedConstraint)
     {
         this.layout = requireNonNull(layout, "layout is null");
         this.unenforcedConstraint = requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
@@ -33,7 +33,7 @@ public class ConnectorTableLayoutResult
         return layout;
     }
 
-    public TupleDomain<ColumnHandle> getUnenforcedConstraint()
+    public TupleExpression<ColumnHandle> getUnenforcedConstraint()
     {
         return unenforcedConstraint;
     }

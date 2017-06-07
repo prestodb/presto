@@ -20,6 +20,8 @@ import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
@@ -70,14 +72,14 @@ public class ParquetRecordCursorProvider
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleExpression<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
-
+        TupleDomain<HiveColumnHandle> effectiveDomain = TupleExpressionUtil.toTupleDomain(effectivePredicate);
         return Optional.of(new ParquetHiveRecordCursor(
                 hdfsEnvironment,
                 session.getUser(),
@@ -90,7 +92,7 @@ public class ParquetRecordCursorProvider
                 useParquetColumnNames,
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
-                effectivePredicate
+                effectiveDomain
         ));
     }
 }

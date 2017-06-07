@@ -45,7 +45,9 @@ import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.predicate.AllExpression;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -286,7 +288,7 @@ public class RaptorMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         RaptorTableHandle handle = (RaptorTableHandle) table;
-        ConnectorTableLayout layout = getTableLayout(session, handle, constraint.getSummary());
+        ConnectorTableLayout layout = getTableLayout(session, handle, TupleExpressionUtil.toTupleDomain(constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
@@ -312,7 +314,7 @@ public class RaptorMetadata
         return new ConnectorTableLayout(
                 new RaptorTableLayoutHandle(handle, constraint, Optional.of(partitioning)),
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 Optional.of(new ConnectorNodePartitioning(
                         partitioning,
                         ImmutableList.copyOf(bucketColumnHandles))),

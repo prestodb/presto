@@ -16,6 +16,8 @@ package com.facebook.presto.localfile;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -30,10 +32,10 @@ public class LocalFileTableLayoutHandle
     @JsonCreator
     public LocalFileTableLayoutHandle(
             @JsonProperty("table") LocalFileTableHandle table,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("constraint") TupleExpression<ColumnHandle> constraint)
     {
         this.table = requireNonNull(table, "table is null");
-        this.constraint = requireNonNull(constraint, "constraint is null");
+        this.constraint = TupleExpressionUtil.toTupleDomain(requireNonNull(constraint, "constraint is null"));
     }
 
     @JsonProperty

@@ -15,7 +15,7 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -25,12 +25,12 @@ public class InformationSchemaTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final InformationSchemaTableHandle table;
-    private final TupleDomain<ColumnHandle> constraint;
+    private final TupleExpression<ColumnHandle> constraint;
 
     @JsonCreator
     public InformationSchemaTableLayoutHandle(
             @JsonProperty("table") InformationSchemaTableHandle table,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("constraint") TupleExpression<ColumnHandle> constraint)
     {
         this.table = requireNonNull(table, "table is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
@@ -43,7 +43,7 @@ public class InformationSchemaTableLayoutHandle
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
+    public TupleExpression<ColumnHandle> getConstraint()
     {
         return constraint;
     }

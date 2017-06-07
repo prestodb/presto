@@ -21,6 +21,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -212,12 +214,12 @@ final class HiveBucketing
         return Optional.of(new HiveBucketHandle(bucketColumns.build(), hiveBucketProperty.get().getBucketCount()));
     }
 
-    public static List<HiveBucket> getHiveBucketNumbers(Table table, TupleDomain<ColumnHandle> effectivePredicate)
+    public static List<HiveBucket> getHiveBucketNumbers(Table table, TupleExpression<ColumnHandle> expression)
     {
         if (!table.getStorage().getBucketProperty().isPresent()) {
             return ImmutableList.of();
         }
-
+        TupleDomain<ColumnHandle> effectivePredicate = TupleExpressionUtil.toTupleDomain(expression);
         Optional<Map<ColumnHandle, NullableValue>> bindings = TupleDomain.extractFixedValues(effectivePredicate);
         if (!bindings.isPresent()) {
             return ImmutableList.of();

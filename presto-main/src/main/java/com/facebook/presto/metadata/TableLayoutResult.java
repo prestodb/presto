@@ -14,14 +14,14 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 
 public class TableLayoutResult
 {
     private final TableLayout layout;
-    private final TupleDomain<ColumnHandle> unenforcedConstraint;
+    private final TupleExpression<ColumnHandle> unenforcedConstraint;
 
-    public TableLayoutResult(TableLayout layout, TupleDomain<ColumnHandle> unenforcedConstraint)
+    public TableLayoutResult(TableLayout layout, TupleExpression<ColumnHandle> unenforcedConstraint)
     {
         this.layout = layout;
         this.unenforcedConstraint = unenforcedConstraint;
@@ -32,7 +32,7 @@ public class TableLayoutResult
         return layout;
     }
 
-    public TupleDomain<ColumnHandle> getUnenforcedConstraint()
+    public TupleExpression<ColumnHandle> getUnenforcedConstraint()
     {
         return unenforcedConstraint;
     }

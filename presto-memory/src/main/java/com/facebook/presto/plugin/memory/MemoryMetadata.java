@@ -31,7 +31,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -222,7 +222,7 @@ public class MemoryMetadata
         return new ConnectorTableLayout(
                 handle,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

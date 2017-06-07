@@ -23,7 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -283,7 +283,7 @@ public class BackgroundHiveSplitLoader
         String partitionName = partition.getHivePartition().getPartitionId();
         Properties schema = getPartitionSchema(table, partition.getPartition());
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
-        TupleDomain<HiveColumnHandle> effectivePredicate = partition.getHivePartition().getEffectivePredicate();
+        TupleExpression<HiveColumnHandle> effectivePredicate = partition.getHivePartition().getEffectivePredicate();
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(path);
@@ -394,7 +394,7 @@ public class BackgroundHiveSplitLoader
             String partitionName,
             List<HivePartitionKey> partitionKeys,
             Properties schema,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleExpression<HiveColumnHandle> effectivePredicate,
             Map<Integer, HiveType> columnCoercions)
             throws IOException
     {
@@ -499,7 +499,7 @@ public class BackgroundHiveSplitLoader
             boolean splittable,
             ConnectorSession session,
             OptionalInt bucketNumber,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleExpression<HiveColumnHandle> effectivePredicate,
             Map<Integer, HiveType> columnCoercions)
             throws IOException
     {

@@ -16,7 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -31,18 +31,18 @@ public class HivePartition
     public static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
 
     private final SchemaTableName tableName;
-    private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final TupleExpression<HiveColumnHandle> effectivePredicate;
     private final String partitionId;
     private final Map<ColumnHandle, NullableValue> keys;
     private final List<HiveBucket> buckets;
 
-    public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate, List<HiveBucket> buckets)
+    public HivePartition(SchemaTableName tableName, TupleExpression<HiveColumnHandle> effectivePredicate, List<HiveBucket> buckets)
     {
         this(tableName, effectivePredicate, UNPARTITIONED_ID, ImmutableMap.of(), buckets);
     }
 
     public HivePartition(SchemaTableName tableName,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleExpression<HiveColumnHandle> effectivePredicate,
             String partitionId,
             Map<ColumnHandle, NullableValue> keys,
             List<HiveBucket> buckets)
@@ -59,7 +59,7 @@ public class HivePartition
         return tableName;
     }
 
-    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
+    public TupleExpression<HiveColumnHandle> getEffectivePredicate()
     {
         return effectivePredicate;
     }

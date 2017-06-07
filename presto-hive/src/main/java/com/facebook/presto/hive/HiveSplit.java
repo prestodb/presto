@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +43,7 @@ public class HiveSplit
     private final String database;
     private final String table;
     private final String partitionName;
-    private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final TupleExpression<HiveColumnHandle> effectivePredicate;
     private final OptionalInt bucketNumber;
     private final boolean forceLocalScheduling;
     private final Map<Integer, HiveType> columnCoercions;
@@ -62,7 +62,7 @@ public class HiveSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
+            @JsonProperty("effectivePredicate") TupleExpression<HiveColumnHandle> effectivePredicate,
             @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions)
     {
         requireNonNull(clientId, "clientId is null");
@@ -163,7 +163,7 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
+    public TupleExpression<HiveColumnHandle> getEffectivePredicate()
     {
         return effectivePredicate;
     }

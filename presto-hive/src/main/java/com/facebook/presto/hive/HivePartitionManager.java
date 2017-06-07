@@ -22,9 +22,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.NoneExpression;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Predicates;
@@ -105,7 +107,7 @@ public class HivePartitionManager
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary();
+        TupleExpression<ColumnHandle> effectivePredicate = constraint.getSummary();
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Table table = getTable(metastore, tableName);
@@ -113,10 +115,11 @@ public class HivePartitionManager
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table);
         List<HiveBucket> buckets = getHiveBucketNumbers(table, effectivePredicate);
-        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
+        TupleExpression<HiveColumnHandle> compactEffectivePredicate = effectivePredicate.accept(
+                new TupleExpressionCompactor(domainCompactionThreshold), null);
 
         if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(partitionColumns, ImmutableList.of(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle);
+            return new HivePartitionResult(partitionColumns, ImmutableList.of(), new NoneExpression(), new NoneExpression(), hiveBucketHandle);
         }
 
         if (partitionColumns.isEmpty()) {
@@ -124,15 +127,16 @@ public class HivePartitionManager
                     partitionColumns,
                     ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, buckets)),
                     effectivePredicate,
-                    TupleDomain.none(),
+                    new NoneExpression(),
                     hiveBucketHandle);
         }
 
         List<Type> partitionTypes = partitionColumns.stream()
                 .map(column -> typeManager.getType(column.getTypeSignature()))
                 .collect(toList());
+        TupleDomain<ColumnHandle> effectiveTupleDomain = TupleExpressionUtil.toTupleDomain(effectivePredicate);
 
-        List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate);
+        List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectiveTupleDomain);
 
         // do a final pass to filter based on fields that could not be used to filter the partitions
         int partitionCount = 0;
@@ -153,35 +157,16 @@ public class HivePartitionManager
         }
 
         // All partition key domains will be fully evaluated, so we don't need to include those
-        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
-        TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
-        return new HivePartitionResult(partitionColumns, partitions.build(), remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle);
-    }
-
-    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
-    {
-        checkArgument(effectivePredicate.getDomains().isPresent());
-
-        ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
-            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
-
-            ValueSet values = entry.getValue().getValues();
-            ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
-                    ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
-                    discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
-                    allOrNone -> Optional.empty())
-                    .orElse(values);
-            builder.put(hiveColumnHandle, Domain.create(compactValueSet, entry.getValue().isNullAllowed()));
-        }
-        return TupleDomain.withColumnDomains(builder.build());
+        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectiveTupleDomain.getDomains().get(), not(Predicates.in(partitionColumns))));
+        TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectiveTupleDomain.getDomains().get(), Predicates.in(partitionColumns)));
+        return new HivePartitionResult(partitionColumns, partitions.build(), TupleExpressionUtil.getTupleExpression(remainingTupleDomain), TupleExpressionUtil.getTupleExpression(enforcedTupleDomain), hiveBucketHandle);
     }
 
     private Optional<Map<ColumnHandle, NullableValue>> parseValuesAndFilterPartition(String partitionName, List<HiveColumnHandle> partitionColumns, List<Type> partitionTypes, Constraint<ColumnHandle> constraint)
     {
         List<String> partitionValues = extractPartitionKeyValues(partitionName);
-
-        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
+        TupleDomain<ColumnHandle> tupleDomain = TupleExpressionUtil.toTupleDomain(constraint.getSummary());
+        Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().get();
         ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);

@@ -24,7 +24,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
@@ -262,7 +262,7 @@ public interface Metadata
     /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
-    Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
+    Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleExpression<ColumnHandle> tupleDomain);
 
     /**
      * Grants the specified privilege to the specified user on the specified table

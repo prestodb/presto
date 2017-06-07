@@ -29,7 +29,8 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +53,6 @@ import java.util.TreeMap;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_CORRUPT_METADATA;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -105,14 +105,14 @@ public class TableMetadataSystemTable
     }
 
     @Override
-    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleExpression<Integer> constraint)
     {
         return new FixedPageSource(buildPages(dao, tableMetadata, constraint));
     }
 
-    private static List<Page> buildPages(MetadataDao dao, ConnectorTableMetadata tableMetadata, TupleDomain<Integer> tupleDomain)
+    private static List<Page> buildPages(MetadataDao dao, ConnectorTableMetadata tableMetadata, TupleExpression<Integer> tupleDomain)
     {
-        Map<Integer, NullableValue> domainValues = extractFixedValues(tupleDomain).orElse(ImmutableMap.of());
+        Map<Integer, NullableValue> domainValues = TupleExpressionUtil.extractFixedValues(tupleDomain).orElse(ImmutableMap.of());
         String schemaName = getStringValue(domainValues.get(getColumnIndex(tableMetadata, SCHEMA_NAME)));
         String tableName = getStringValue(domainValues.get(getColumnIndex(tableMetadata, TABLE_NAME)));
 

@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -42,7 +42,7 @@ public class IndexSourceNode
     private final Set<Symbol> lookupSymbols;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
-    private final TupleDomain<ColumnHandle> effectiveTupleDomain; // general summary of how the output columns will be constrained
+    private final TupleExpression<ColumnHandle> effectiveTupleDomain; // general summary of how the output columns will be constrained
 
     @JsonCreator
     public IndexSourceNode(
@@ -53,7 +53,7 @@ public class IndexSourceNode
             @JsonProperty("lookupSymbols") Set<Symbol> lookupSymbols,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("effectiveTupleDomain") TupleDomain<ColumnHandle> effectiveTupleDomain)
+            @JsonProperty("effectiveTupleDomain") TupleExpression<ColumnHandle> effectiveTupleDomain)
     {
         super(id);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
@@ -107,7 +107,7 @@ public class IndexSourceNode
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getEffectiveTupleDomain()
+    public TupleExpression<ColumnHandle> getEffectiveTupleDomain()
     {
         return effectiveTupleDomain;
     }

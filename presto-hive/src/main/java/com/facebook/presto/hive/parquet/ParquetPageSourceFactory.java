@@ -25,6 +25,8 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
@@ -96,7 +98,7 @@ public class ParquetPageSourceFactory
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleExpression<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isParquetOptimizedReaderEnabled(session)) {
@@ -134,7 +136,7 @@ public class ParquetPageSourceFactory
             boolean useParquetColumnNames,
             TypeManager typeManager,
             boolean predicatePushdownEnabled,
-            TupleDomain<HiveColumnHandle> effectivePredicate)
+            TupleExpression<HiveColumnHandle> effectivePredicate)
     {
         AggregatedMemoryContext systemMemoryContext = new AggregatedMemoryContext();
 
@@ -161,9 +163,10 @@ public class ParquetPageSourceFactory
                     blocks.add(block);
                 }
             }
+            TupleDomain<HiveColumnHandle> effectiveTupleDomain = TupleExpressionUtil.toTupleDomain(effectivePredicate);
 
             if (predicatePushdownEnabled) {
-                TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(fileSchema, requestedSchema, effectivePredicate);
+                TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(fileSchema, requestedSchema, effectiveTupleDomain);
                 ParquetPredicate parquetPredicate = buildParquetPredicate(requestedSchema, parquetTupleDomain, fileMetaData.getSchema());
                 final ParquetDataSource finalDataSource = dataSource;
                 blocks = blocks.stream()
@@ -187,7 +190,7 @@ public class ParquetPageSourceFactory
                     length,
                     schema,
                     columns,
-                    effectivePredicate,
+                    effectiveTupleDomain,
                     typeManager,
                     useParquetColumnNames,
                     systemMemoryContext);

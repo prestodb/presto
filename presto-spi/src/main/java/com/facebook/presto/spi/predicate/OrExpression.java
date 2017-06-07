@@ -26,8 +26,8 @@ import java.util.function.Function;
 public class OrExpression<C>
         extends TupleExpression<C>
 {
-    TupleExpression leftExpression;
-    TupleExpression rightExpression;
+    TupleExpression<C> leftExpression;
+    TupleExpression<C> rightExpression;
 
     @JsonCreator
     public OrExpression(
@@ -39,12 +39,12 @@ public class OrExpression<C>
     }
 
     @JsonProperty
-    public TupleExpression getLeftExpression()
+    public TupleExpression<C> getLeftExpression()
     {
         return leftExpression;
     }
 
-    public TupleExpression getRightExpression()
+    public TupleExpression<C> getRightExpression()
     {
         return rightExpression;
     }
@@ -74,7 +74,7 @@ public class OrExpression<C>
     }
 
     @Override
-    public <R, T> R accept(TupleExpressionVisitor<R, T> visitor, T context)
+    public <R, T> R accept(TupleExpressionVisitor<R, T, C> visitor, T context)
     {
         return visitor.visitOrExpression(this, context);
     }
@@ -115,5 +115,11 @@ public class OrExpression<C>
         OrExpression other = (OrExpression) obj;
         return Objects.equals(this.leftExpression, other.leftExpression) &&
                 Objects.equals(this.rightExpression, other.rightExpression);
+    }
+
+    @Override
+    public String toString()
+    {
+        return '(' + leftExpression.toString() + ") OR (" + rightExpression.toString() + ")";
     }
 }

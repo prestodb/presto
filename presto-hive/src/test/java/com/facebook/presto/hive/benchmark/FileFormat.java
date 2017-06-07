@@ -44,7 +44,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -364,7 +364,7 @@ public enum FileFormat
                         targetFile.length(),
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,
-                        TupleDomain.all(),
+                        new AllExpression<>(),
                         DateTimeZone.forID(session.getTimeZoneKey().getId()),
                         TYPE_MANAGER)
                 .get();
@@ -396,7 +396,7 @@ public enum FileFormat
                         targetFile.length(),
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,
-                        TupleDomain.all(),
+                        new AllExpression<>(),
                         DateTimeZone.forID(session.getTimeZoneKey().getId()))
                 .get();
     }

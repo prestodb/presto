@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -46,7 +46,7 @@ public class TableScanNode
 
     // Used during predicate refinement over multiple passes of predicate pushdown
     // TODO: think about how to get rid of this in new planner
-    private final TupleDomain<ColumnHandle> currentConstraint;
+    private final TupleExpression<ColumnHandle> currentConstraint;
 
     // HACK!
     //
@@ -66,7 +66,7 @@ public class TableScanNode
             @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("layout") Optional<TableLayoutHandle> tableLayout,
-            @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint,
+            @JsonProperty("currentConstraint") TupleExpression<ColumnHandle> currentConstraint,
             @JsonProperty("originalConstraint") @Nullable Expression originalConstraint)
     {
         super(id);
@@ -118,7 +118,7 @@ public class TableScanNode
     }
 
     @JsonProperty("currentConstraint")
-    public TupleDomain<ColumnHandle> getCurrentConstraint()
+    public TupleExpression<ColumnHandle> getCurrentConstraint()
     {
         return currentConstraint;
     }

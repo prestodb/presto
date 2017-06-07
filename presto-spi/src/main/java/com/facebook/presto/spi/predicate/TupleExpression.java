@@ -21,7 +21,7 @@ import java.util.function.Function;
 
 public abstract class TupleExpression<C>
 {
-    Map<C, NullableValue> extractFixedValues()
+    public Map<C, NullableValue> extractFixedValues()
     {
         return new HashMap<>();
     }
@@ -33,17 +33,17 @@ public abstract class TupleExpression<C>
 
     public abstract <U> TupleExpression transform(Function<C, U> function);
 
-    boolean isAll()
+    public boolean isAll()
     {
         return false;
     }
 
-    boolean isNone()
+    public boolean isNone()
     {
         return false;
     }
 
-    public abstract <R, T> R accept(TupleExpressionVisitor<R, T> visitor, T context);
+    public abstract <R, T> R accept(TupleExpressionVisitor<R, T, C> visitor, T context);
 
     public abstract String getName();
 }

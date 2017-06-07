@@ -28,6 +28,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,7 +94,8 @@ public class AtopMetadata
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         AtopTableHandle tableHandle = (AtopTableHandle) table;
-        Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
+        TupleDomain<ColumnHandle> tupleDomain = TupleExpressionUtil.toTupleDomain(constraint.getSummary());
+        Optional<Map<ColumnHandle, Domain>> domains = tupleDomain.getDomains();
         Domain endTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
         Domain startTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
         if (domains.isPresent()) {

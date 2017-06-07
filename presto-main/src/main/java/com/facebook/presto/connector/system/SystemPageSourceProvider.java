@@ -26,21 +26,21 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedPageSource;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+
+import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -89,23 +89,28 @@ public class SystemPageSourceProvider
             userToSystemFieldIndex.add(index);
         }
 
-        TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
-        ImmutableMap.Builder<Integer, Domain> newConstraints = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
-            String columnName = ((SystemColumnHandle) entry.getKey()).getColumnName();
-            newConstraints.put(columnsByName.get(columnName), entry.getValue());
-        }
-        TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());
+        TupleExpression<Integer> constraint = systemSplit.getConstraint().
+                transform(new Function<ColumnHandle, Integer>()
+                          {
+                              @Nullable
+                              @Override
+                              public Integer apply(@Nullable ColumnHandle input)
+                              {
+                                  return columnsByName.get(((SystemColumnHandle) input).getColumnName());
+                              }
+                          }
+
+                );
 
         try {
-            return new MappedPageSource(systemTable.pageSource(systemTransaction.getConnectorTransactionHandle(), session, newContraint), userToSystemFieldIndex.build());
+            return new MappedPageSource(systemTable.pageSource(systemTransaction.getConnectorTransactionHandle(), session, constraint), userToSystemFieldIndex.build());
         }
         catch (UnsupportedOperationException e) {
-            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getConnectorTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build()));
+            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getConnectorTransactionHandle(), systemTable, session, constraint), userToSystemFieldIndex.build()));
         }
     }
 
-    private static RecordSet toRecordSet(ConnectorTransactionHandle sourceTransaction, SystemTable table, ConnectorSession session, TupleDomain<Integer> constraint)
+    private static RecordSet toRecordSet(ConnectorTransactionHandle sourceTransaction, SystemTable table, ConnectorSession session, TupleExpression<Integer> constraint)
     {
         return new RecordSet()
         {

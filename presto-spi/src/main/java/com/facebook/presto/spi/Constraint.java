@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.predicate.AllExpression;
 import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 
 import java.util.Map;
 import java.util.function.Predicate;
@@ -23,15 +24,15 @@ import static java.util.Objects.requireNonNull;
 
 public class Constraint<T>
 {
-    private final TupleDomain<T> summary;
+    private final TupleExpression<T> summary;
     private final Predicate<Map<T, NullableValue>> predicate;
 
     public static <V> Constraint<V> alwaysTrue()
     {
-        return new Constraint<>(TupleDomain.<V>all(), bindings -> true);
+        return new Constraint<>(new AllExpression<V>(), bindings -> true);
     }
 
-    public Constraint(TupleDomain<T> summary, Predicate<Map<T, NullableValue>> predicate)
+    public Constraint(TupleExpression<T> summary, Predicate<Map<T, NullableValue>> predicate)
     {
         requireNonNull(summary, "summary is null");
         requireNonNull(predicate, "predicate is null");
@@ -40,7 +41,7 @@ public class Constraint<T>
         this.predicate = predicate;
     }
 
-    public TupleDomain<T> getSummary()
+    public TupleExpression<T> getSummary()
     {
         return summary;
     }

@@ -22,8 +22,11 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.predicate.AndExpression;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.DomainExpression;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedRow;
@@ -126,16 +129,18 @@ public class TestShardMetadataRecordCursor
 
         DateTime date1 = DateTime.parse("2015-01-01T00:00");
         DateTime date2 = DateTime.parse("2015-01-02T00:00");
-        TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
-                ImmutableMap.<Integer, Domain>builder()
-                        .put(0, Domain.singleValue(createVarcharType(10), schema))
-                        .put(1, Domain.create(ValueSet.ofRanges(lessThanOrEqual(createVarcharType(10), table)), true))
-                        .put(6, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true))
-                        .put(7, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true))
-                        .build());
+
+        TupleExpression<Integer> tupleExpression = new AndExpression<Integer>(
+                new AndExpression<Integer>(
+                        new DomainExpression<Integer>(0, Domain.singleValue(createVarcharType(10), schema)),
+                        new DomainExpression<Integer>(1, Domain.create(ValueSet.ofRanges(lessThanOrEqual(createVarcharType(10), table)), true))),
+                new AndExpression<Integer>(
+                        new DomainExpression<Integer>(6, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true)),
+                        new DomainExpression<Integer>(7, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true)))
+        );
 
         List<MaterializedRow> actual;
-        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, tupleDomain)) {
+        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, tupleExpression)) {
             actual = getMaterializedResults(cursor, SHARD_METADATA.getColumns());
         }
         assertEquals(actual.size(), 3);

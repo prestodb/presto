@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,15 +33,15 @@ public class HivePartitionResult
 {
     private final List<HiveColumnHandle> partitionColumns;
     private final List<HivePartition> partitions;
-    private final TupleDomain<ColumnHandle> unenforcedConstraint;
-    private final TupleDomain<ColumnHandle> enforcedConstraint;
+    private final TupleExpression<ColumnHandle> unenforcedConstraint;
+    private final TupleExpression<ColumnHandle> enforcedConstraint;
     private final Optional<HiveBucketHandle> bucketHandle;
 
     public HivePartitionResult(
             List<HiveColumnHandle> partitionColumns,
             List<HivePartition> partitions,
-            TupleDomain<ColumnHandle> unenforcedConstraint,
-            TupleDomain<ColumnHandle> enforcedConstraint,
+            TupleExpression<ColumnHandle> unenforcedConstraint,
+            TupleExpression<ColumnHandle> enforcedConstraint,
             Optional<HiveBucketHandle> bucketHandle)
     {
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
@@ -61,12 +61,12 @@ public class HivePartitionResult
         return partitions;
     }
 
-    public TupleDomain<ColumnHandle> getUnenforcedConstraint()
+    public TupleExpression<ColumnHandle> getUnenforcedConstraint()
     {
         return unenforcedConstraint;
     }
 
-    public TupleDomain<ColumnHandle> getEnforcedConstraint()
+    public TupleExpression<ColumnHandle> getEnforcedConstraint()
     {
         return enforcedConstraint;
     }

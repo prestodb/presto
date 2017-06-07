@@ -19,7 +19,8 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
@@ -52,8 +53,8 @@ public class ShardMetadataSystemTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleExpression<Integer> constraint)
     {
-        return new ShardMetadataRecordCursor(dbi, constraint);
+        return new ShardMetadataRecordCursor(dbi, TupleExpressionUtil.toTupleDomain(constraint));
     }
 }

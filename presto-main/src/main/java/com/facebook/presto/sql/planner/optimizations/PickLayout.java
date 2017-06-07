@@ -18,12 +18,13 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TupleExpressionTranslator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -107,15 +108,14 @@ public class PickLayout
 
         private PlanNode planTableScan(TableScanNode node, Expression predicate)
         {
-            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
+            TupleExpressionTranslator.ExtractionResult decomposedPredicate = TupleExpressionTranslator.fromPredicate(
                     metadata,
                     session,
                     predicate,
                     symbolAllocator.getTypes());
 
-            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
-                    .transform(node.getAssignments()::get)
-                    .intersect(node.getCurrentConstraint());
+            TupleExpression<ColumnHandle> simplifiedConstraint = TupleExpressionUtil.getAndExpression(decomposedPredicate.getTupleExpression()
+                    .transform(node.getAssignments()::get), node.getCurrentConstraint());
 
             List<TableLayoutResult> layouts = metadata.getLayouts(
                     session, node.getTable(),
@@ -134,13 +134,13 @@ public class PickLayout
                     node.getOutputSymbols(),
                     node.getAssignments(),
                     Optional.of(layout.getLayout().getHandle()),
-                    simplifiedConstraint.intersect(layout.getLayout().getPredicate()),
+                    TupleExpressionUtil.getAndExpression(simplifiedConstraint, layout.getLayout().getPredicate()),
                     Optional.ofNullable(node.getOriginalConstraint()).orElse(predicate));
 
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
             Expression resultingPredicate = combineConjuncts(
                     decomposedPredicate.getRemainingExpression(),
-                    DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
+                    TupleExpressionTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
 
             if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
                 return new FilterNode(idAllocator.getNextId(), result, resultingPredicate);

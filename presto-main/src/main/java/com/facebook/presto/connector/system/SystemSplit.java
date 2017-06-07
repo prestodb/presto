@@ -17,7 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -34,9 +34,9 @@ public class SystemSplit
     private final ConnectorId connectorId;
     private final SystemTableHandle tableHandle;
     private final List<HostAddress> addresses;
-    private final TupleDomain<ColumnHandle> constraint;
+    private final TupleExpression<ColumnHandle> constraint;
 
-    public SystemSplit(ConnectorId connectorId, SystemTableHandle tableHandle, HostAddress address, TupleDomain<ColumnHandle> constraint)
+    public SystemSplit(ConnectorId connectorId, SystemTableHandle tableHandle, HostAddress address, TupleExpression<ColumnHandle> constraint)
     {
         this(connectorId, tableHandle, ImmutableList.of(requireNonNull(address, "address is null")), constraint);
     }
@@ -46,7 +46,7 @@ public class SystemSplit
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("tableHandle") SystemTableHandle tableHandle,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("constraint") TupleExpression<ColumnHandle> constraint)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
@@ -83,7 +83,7 @@ public class SystemSplit
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
+    public TupleExpression<ColumnHandle> getConstraint()
     {
         return constraint;
     }

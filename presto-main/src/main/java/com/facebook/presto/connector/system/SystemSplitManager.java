@@ -27,7 +27,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.SystemTable.Distribution;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -59,7 +59,7 @@ public class SystemSplitManager
         SystemTableLayoutHandle layoutHandle = (SystemTableLayoutHandle) layout;
         SystemTableHandle tableHandle = layoutHandle.getTable();
 
-        TupleDomain<ColumnHandle> constraint = layoutHandle.getConstraint();
+        TupleExpression<ColumnHandle> constraint = layoutHandle.getConstraint();
         SystemTable systemTable = tables.get(tableHandle.getSchemaTableName());
 
         Distribution tableDistributionMode = systemTable.getDistribution();

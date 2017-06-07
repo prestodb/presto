@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.AllExpression;
@@ -46,30 +46,25 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 
-import javax.inject.Inject;
-
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
-public class TupleExpressionJacksonModule
+public class TestJacksonModule
         extends SimpleModule
 {
     private static final String TYPE_PROPERTY = "@type";
     private static final Class baseClass = TupleExpression.class;
 
-    @Inject
-    public TupleExpressionJacksonModule(HandleResolver handleResolver)
+    public TestJacksonModule()
     {
         super(baseClass.getSimpleName() + "Module", Version.unknownVersion());
 
-        TypeIdResolver typeResolver = new InternalTypeResolver(handleResolver::getId,
-                handleResolver::getColumnHandleClass, getExpressionResolver());
+        TypeIdResolver typeResolver = new InternalTypeResolver(getExpressionResolver());
 
         addSerializer(baseClass, new InternalTypeSerializer(baseClass, typeResolver));
         addDeserializer(baseClass, new InternalTypeDeserializer(baseClass, typeResolver));
@@ -154,15 +149,10 @@ public class TupleExpressionJacksonModule
     private static class InternalTypeResolver
             extends TypeIdResolverBase
     {
-        private final Function<ColumnHandle, String> nameResolver;
-        private final Function<String, Class<? extends ColumnHandle>> classResolver;
         private final Map<String, Class<? extends TupleExpression>> expressionResolver;
 
-        public InternalTypeResolver(Function<ColumnHandle, String> nameResolver, Function<String, Class<? extends ColumnHandle>> classResolver,
-                Map<String, Class<? extends TupleExpression>> expressionResolver)
+        public InternalTypeResolver(Map<String, Class<? extends TupleExpression>> expressionResolver)
         {
-            this.nameResolver = requireNonNull(nameResolver, "nameResolver is null");
-            this.classResolver = requireNonNull(classResolver, "classResolver is null");
             this.expressionResolver = requireNonNull(expressionResolver, "expression resolver is null");
         }
 
@@ -179,9 +169,6 @@ public class TupleExpressionJacksonModule
             requireNonNull(value, "value is null");
             if (value instanceof TupleExpression) {
                 TupleExpression expression = (TupleExpression) value;
-                if (expression instanceof DomainExpression) {
-                    return expression.getName() + "@@" + nameResolver.apply((ColumnHandle) ((DomainExpression) expression).getColumn());
-                }
                 return expression.getName();
             }
             else {
@@ -193,17 +180,9 @@ public class TupleExpressionJacksonModule
         public JavaType typeFromId(DatabindContext context, String id)
         {
             requireNonNull(id, "id is null");
-            if (id.split("@@").length == 2) {
-                String[] part = id.split("@@");
-                Class<?> typeClass = expressionResolver.get(part[0]);
-                Class<?> paramtericClass = classResolver.apply(part[1]);
-                return context.getTypeFactory().constructParametricType(typeClass, paramtericClass);
-            }
-            else {
-                Class<?> typeClass = expressionResolver.get(id);
-                checkArgument(typeClass != null, "Unknown type ID: %s", id);
-                return context.getTypeFactory().constructType(typeClass);
-            }
+            Class<?> typeClass = expressionResolver.get(id);
+            checkArgument(typeClass != null, "Unknown type ID: %s", id);
+            return context.getTypeFactory().constructType(typeClass);
         }
 
         @Override

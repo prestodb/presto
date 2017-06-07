@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.spi.predicate;
 
-public interface TupleExpressionVisitor<R, C>
+public interface TupleExpressionVisitor<R, C, T>
 {
-    R visitDomainExpression(DomainExpression expression, C context);
+    R visitDomainExpression(DomainExpression<T> expression, C context);
 
-    R visitAndExpression(AndExpression expression, C context);
+    R visitAndExpression(AndExpression<T> expression, C context);
 
-    R visitOrExpression(OrExpression expression, C context);
+    R visitOrExpression(OrExpression<T> expression, C context);
 
-    R visitNotExpression(NotExpression expression, C context);
+    R visitNotExpression(NotExpression<T> expression, C context);
 
-    R visitAllExpression(AllExpression expression, C context);
+    R visitAllExpression(AllExpression<T> expression, C context);
 
-    R visitNoneExpression(NoneExpression expression, C context);
+    R visitNoneExpression(NoneExpression<T> expression, C context);
 }

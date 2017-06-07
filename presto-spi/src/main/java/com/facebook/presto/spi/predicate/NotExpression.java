@@ -33,7 +33,7 @@ public class NotExpression<C>
     }
 
     @JsonProperty
-    public TupleExpression getExpression()
+    public TupleExpression<C> getExpression()
     {
         return this.expression;
     }
@@ -57,7 +57,7 @@ public class NotExpression<C>
     }
 
     @Override
-    public <R, T> R accept(TupleExpressionVisitor<R, T> visitor, T context)
+    public <R, T> R accept(TupleExpressionVisitor<R, T, C> visitor, T context)
     {
         return visitor.visitNotExpression(this, context);
     }
@@ -95,5 +95,11 @@ public class NotExpression<C>
         }
         NotExpression other = (NotExpression) obj;
         return Objects.equals(this.expression, other.expression);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "NOT(" + expression.toString() + ')';
     }
 }

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
@@ -601,7 +602,7 @@ class PropertyDerivations
 
             // Globally constant assignments
             Map<ColumnHandle, NullableValue> globalConstants = new HashMap<>();
-            extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
+            TupleExpressionUtil.extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
                     .entrySet().stream()
                     .filter(entry -> !entry.getValue().isNull())
                     .forEach(entry -> globalConstants.put(entry.getKey(), entry.getValue()));

@@ -17,12 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TupleExpressionTranslator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -267,15 +269,14 @@ public class IndexJoinOptimizer
 
         private PlanNode planTableScan(TableScanNode node, Expression predicate, Context context)
         {
-            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
+            TupleExpressionTranslator.ExtractionResult decomposedPredicate = TupleExpressionTranslator.fromPredicate(
                     metadata,
                     session,
                     predicate,
                     symbolAllocator.getTypes());
 
-            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
-                    .transform(node.getAssignments()::get)
-                    .intersect(node.getCurrentConstraint());
+            TupleExpression<ColumnHandle> simplifiedConstraint = TupleExpressionUtil.getAndExpression(decomposedPredicate.getTupleExpression().transform(node.getAssignments()::get),
+                    node.getCurrentConstraint());
 
             checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
 

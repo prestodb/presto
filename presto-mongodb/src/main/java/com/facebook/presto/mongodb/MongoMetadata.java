@@ -34,7 +34,7 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -166,7 +166,7 @@ public class MongoMetadata
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new MongoTableLayoutHandle(tableHandle, constraint.getSummary()),
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 Optional.empty(),
                 partitioningColumns,
                 Optional.empty(),

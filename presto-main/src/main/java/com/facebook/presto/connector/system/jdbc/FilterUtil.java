@@ -14,8 +14,14 @@
 package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
+import com.facebook.presto.spi.predicate.AndExpression;
+import com.facebook.presto.spi.predicate.DomainExpression;
+import com.facebook.presto.spi.predicate.NoneExpression;
+import com.facebook.presto.spi.predicate.NotExpression;
+import com.facebook.presto.spi.predicate.OrExpression;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionVisitor;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
@@ -26,22 +32,74 @@ final class FilterUtil
 {
     private FilterUtil() {}
 
-    public static Optional<String> stringFilter(TupleDomain<Integer> constraint, int index)
+    public static Optional<String> stringFilter(TupleExpression<Integer> constraint, int index)
     {
-        if (constraint.isNone()) {
+        return constraint.accept(new Extractor(index), null);
+    }
+
+    private static class Extractor
+            implements TupleExpressionVisitor<Optional<String>, Void, Integer>
+    {
+        int index;
+
+        public Extractor(int index)
+        {
+            this.index = index;
+        }
+
+        @Override
+        public Optional<String> visitDomainExpression(DomainExpression<Integer> expression, Void context)
+        {
+            if (expression.getColumn().equals(index)) {
+                if (expression.getDomain() != null && expression.getDomain().isSingleValue()) {
+                    Object value = expression.getDomain().getSingleValue();
+                    if (value instanceof Slice) {
+                        return Optional.of(((Slice) value).toStringUtf8());
+                    }
+                }
+            }
             return Optional.empty();
         }
 
-        Domain domain = constraint.getDomains().get().get(index);
-        if ((domain == null) || !domain.isSingleValue()) {
+        @Override
+        public Optional<String> visitAndExpression(AndExpression<Integer> expression, Void context)
+        {
+            Optional<String> left = expression.getLeftExpression().accept(this, context);
+            Optional<String> right = expression.getRightExpression().accept(this, context);
+            if (left.isPresent()) {
+                return left;
+            }
+            else if (right.isPresent()) {
+                return right;
+            }
+            else {
+                return Optional.empty();
+            }
+        }
+
+        @Override
+        public Optional<String> visitOrExpression(OrExpression<Integer> expression, Void context)
+        {
             return Optional.empty();
         }
 
-        Object value = domain.getSingleValue();
-        if (value instanceof Slice) {
-            return Optional.of(((Slice) value).toStringUtf8());
+        @Override
+        public Optional<String> visitNotExpression(NotExpression<Integer> expression, Void context)
+        {
+            return expression.getExpression().accept(this, context);
         }
-        return Optional.empty();
+
+        @Override
+        public Optional<String> visitAllExpression(AllExpression<Integer> expression, Void context)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<String> visitNoneExpression(NoneExpression<Integer> expression, Void context)
+        {
+            return Optional.empty();
+        }
     }
 
     public static QualifiedTablePrefix tablePrefix(String catalog, Optional<String> schema, Optional<String> table)

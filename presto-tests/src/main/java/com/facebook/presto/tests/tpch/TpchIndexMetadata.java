@@ -19,6 +19,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.tests.tpch.TpchIndexProvider.handleToNames;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
@@ -53,14 +56,14 @@ public class TpchIndexMetadata
             ConnectorTableHandle tableHandle,
             Set<ColumnHandle> indexableColumns,
             Set<ColumnHandle> outputColumns,
-            TupleDomain<ColumnHandle> tupleDomain)
+            TupleExpression<ColumnHandle> tupleExpression)
     {
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
-
+        TupleDomain<ColumnHandle> tupleDomain = TupleExpressionUtil.toTupleDomain(tupleExpression);
         // Keep the fixed values that don't overlap with the indexableColumns
         // Note: technically we could more efficiently utilize the overlapped columns, but this way is simpler for now
 
-        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tupleDomain).orElse(ImmutableMap.of())
+        Map<ColumnHandle, NullableValue> fixedValues = extractFixedValues(tupleDomain).orElse(ImmutableMap.of())
                 .entrySet().stream()
                 .filter(entry -> !indexableColumns.contains(entry.getKey()))
                 .filter(entry -> !entry.getValue().isNull()) // strip nulls since meaningless in index join lookups

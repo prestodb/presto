@@ -23,11 +23,18 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.predicate.AllExpression;
+import com.facebook.presto.spi.predicate.AndExpression;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.DomainExpression;
 import com.facebook.presto.spi.predicate.Marker;
+import com.facebook.presto.spi.predicate.NoneExpression;
+import com.facebook.presto.spi.predicate.NotExpression;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.OrExpression;
 import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionVisitor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.Partitioning;
@@ -91,7 +98,6 @@ import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
@@ -109,11 +115,9 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregatePlanNodeStats;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -157,12 +161,6 @@ public class PlanPrinter
 
         Visitor visitor = new Visitor(types, session);
         plan.accept(visitor, indent);
-    }
-
-    @Override
-    public String toString()
-    {
-        return output.toString();
     }
 
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session)
@@ -280,6 +278,105 @@ public class PlanPrinter
         return GraphvizPrinter.printDistributed(plan);
     }
 
+    private static Map<String, String> translateOperatorTypes(Set<String> operators)
+    {
+        if (operators.size() == 1) {
+            // don't display operator (plan node) name again
+            return ImmutableMap.of(getOnlyElement(operators), "");
+        }
+
+        if (operators.contains("LookupJoinOperator") && operators.contains("HashBuilderOperator")) {
+            // join plan node
+            return ImmutableMap.of(
+                    "LookupJoinOperator", "Left (probe) ",
+                    "HashBuilderOperator", "Right (build) ");
+        }
+
+        return ImmutableMap.of();
+    }
+
+    private static String formatDouble(double value)
+    {
+        if (isFinite(value)) {
+            return format(Locale.US, "%.2f", value);
+        }
+
+        return "?";
+    }
+
+    private static String formatPositions(long positions)
+    {
+        if (positions == 1) {
+            return "1 row";
+        }
+
+        return positions + " rows";
+    }
+
+    private static String indentString(int indent)
+    {
+        return Strings.repeat("    ", indent);
+    }
+
+    private static String formatHash(Optional<Symbol>... hashes)
+    {
+        List<Symbol> symbols = Arrays.stream(hashes)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toList());
+
+        if (symbols.isEmpty()) {
+            return "";
+        }
+
+        return "[" + Joiner.on(", ").join(symbols) + "]";
+    }
+
+    private static String formatFrame(WindowFrame frame)
+    {
+        StringBuilder builder = new StringBuilder(frame.getType().toString());
+        FrameBound start = frame.getStart();
+        if (start.getValue().isPresent()) {
+            builder.append(" ").append(start.getOriginalValue().get());
+        }
+        builder.append(" ").append(start.getType());
+
+        Optional<FrameBound> end = frame.getEnd();
+        if (end.isPresent()) {
+            if (end.get().getOriginalValue().isPresent()) {
+                builder.append(" ").append(end.get().getOriginalValue().get());
+            }
+            builder.append(" ").append(end.get().getType());
+        }
+        return builder.toString();
+    }
+
+    private static String castToVarchar(Type type, Object value, Metadata metadata, Session session)
+    {
+        if (value == null) {
+            return "NULL";
+        }
+
+        Signature coercion = metadata.getFunctionRegistry().getCoercion(type, VARCHAR);
+
+        try {
+            Slice coerced = (Slice) new FunctionInvoker(metadata.getFunctionRegistry()).invoke(coercion, session.toConnectorSession(), value);
+            return coerced.toStringUtf8();
+        }
+        catch (OperatorNotFoundException e) {
+            return "<UNREPRESENTABLE VALUE>";
+        }
+        catch (Throwable throwable) {
+            throw Throwables.propagate(throwable);
+        }
+    }
+
+    @Override
+    public String toString()
+    {
+        return output.toString();
+    }
+
     private void print(int indent, String format, Object... args)
     {
         String value;
@@ -395,46 +492,6 @@ public class PlanPrinter
                 output.append('\n');
             }
         }
-    }
-
-    private static Map<String, String> translateOperatorTypes(Set<String> operators)
-    {
-        if (operators.size() == 1) {
-            // don't display operator (plan node) name again
-            return ImmutableMap.of(getOnlyElement(operators), "");
-        }
-
-        if (operators.contains("LookupJoinOperator") && operators.contains("HashBuilderOperator")) {
-            // join plan node
-            return ImmutableMap.of(
-                    "LookupJoinOperator", "Left (probe) ",
-                    "HashBuilderOperator", "Right (build) ");
-        }
-
-        return ImmutableMap.of();
-    }
-
-    private static String formatDouble(double value)
-    {
-        if (isFinite(value)) {
-            return format(Locale.US, "%.2f", value);
-        }
-
-        return "?";
-    }
-
-    private static String formatPositions(long positions)
-    {
-        if (positions == 1) {
-            return "1 row";
-        }
-
-        return positions + " rows";
-    }
-
-    private static String indentString(int indent)
-    {
-        return Strings.repeat("    ", indent);
     }
 
     private class Visitor
@@ -832,10 +889,10 @@ public class PlanPrinter
         {
             TableHandle table = node.getTable();
 
-            TupleDomain<ColumnHandle> predicate = node.getLayout()
+            TupleExpression<ColumnHandle> predicate = node.getLayout()
                     .map(layoutHandle -> metadata.getLayout(session, layoutHandle))
                     .map(TableLayout::getPredicate)
-                    .orElse(TupleDomain.all());
+                    .orElse(new AllExpression());
 
             if (node.getLayout().isPresent()) {
                 // TODO: find a better way to do this
@@ -853,21 +910,11 @@ public class PlanPrinter
                 for (Map.Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
                     ColumnHandle column = assignment.getValue();
                     print(indent + 2, "%s := %s", assignment.getKey(), column);
-                    printConstraint(indent + 3, column, predicate);
                 }
 
                 // then, print constraints for columns that are not in the output
                 if (!predicate.isAll()) {
-                    Set<ColumnHandle> outputs = ImmutableSet.copyOf(node.getAssignments().values());
-
-                    predicate.getDomains().get()
-                            .entrySet().stream()
-                            .filter(entry -> !outputs.contains(entry.getKey()))
-                            .forEach(entry -> {
-                                ColumnHandle column = entry.getKey();
-                                print(indent + 2, "%s", column);
-                                printConstraint(indent + 3, column, predicate);
-                            });
+                    print(indent + 2, predicate.accept(new TupleExpressionPrinter(), null));
                 }
             }
         }
@@ -1086,15 +1133,6 @@ public class PlanPrinter
             return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input).getDisplayName()));
         }
 
-        private void printConstraint(int indent, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
-        {
-            checkArgument(!constraint.isNone());
-            Map<ColumnHandle, Domain> domains = constraint.getDomains().get();
-            if (!constraint.isAll() && domains.containsKey(column)) {
-                print(indent, ":: %s", formatDomain(simplifyDomain(domains.get(column))));
-            }
-        }
-
         private String formatDomain(Domain domain)
         {
             ImmutableList.Builder<String> parts = ImmutableList.builder();
@@ -1149,58 +1187,49 @@ public class PlanPrinter
 
             return "[" + Joiner.on(", ").join(parts.build()) + "]";
         }
-    }
 
-    private static String formatHash(Optional<Symbol>... hashes)
-    {
-        List<Symbol> symbols = Arrays.stream(hashes)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(toList());
-
-        if (symbols.isEmpty()) {
-            return "";
-        }
-
-        return "[" + Joiner.on(", ").join(symbols) + "]";
-    }
-
-    private static String formatFrame(WindowFrame frame)
-    {
-        StringBuilder builder = new StringBuilder(frame.getType().toString());
-        FrameBound start = frame.getStart();
-        if (start.getValue().isPresent()) {
-            builder.append(" ").append(start.getOriginalValue().get());
-        }
-        builder.append(" ").append(start.getType());
-
-        Optional<FrameBound> end = frame.getEnd();
-        if (end.isPresent()) {
-            if (end.get().getOriginalValue().isPresent()) {
-                builder.append(" ").append(end.get().getOriginalValue().get());
+        private class TupleExpressionPrinter
+                implements TupleExpressionVisitor<String, Void, ColumnHandle>
+        {
+            @Override
+            public String visitDomainExpression(DomainExpression expression, Void context)
+            {
+                return "(" + expression.getColumn().getClass() + " :: " + formatDomain(expression.getDomain());
             }
-            builder.append(" ").append(end.get().getType());
-        }
-        return builder.toString();
-    }
 
-    private static String castToVarchar(Type type, Object value, Metadata metadata, Session session)
-    {
-        if (value == null) {
-            return "NULL";
-        }
+            @Override
+            public String visitAndExpression(AndExpression expression, Void context)
+            {
+                String leftExpression = (String) expression.getLeftExpression().accept(this, context);
+                String rightExpression = (String) expression.getRightExpression().accept(this, context);
+                return leftExpression + " AND " + rightExpression;
+            }
 
-        Signature coercion = metadata.getFunctionRegistry().getCoercion(type, VARCHAR);
+            @Override
+            public String visitOrExpression(OrExpression expression, Void context)
+            {
+                String leftExpression = (String) expression.getLeftExpression().accept(this, context);
+                String rightExpression = (String) expression.getRightExpression().accept(this, context);
+                return leftExpression + " OR " + rightExpression;
+            }
 
-        try {
-            Slice coerced = (Slice) new FunctionInvoker(metadata.getFunctionRegistry()).invoke(coercion, session.toConnectorSession(), value);
-            return coerced.toStringUtf8();
-        }
-        catch (OperatorNotFoundException e) {
-            return "<UNREPRESENTABLE VALUE>";
-        }
-        catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
+            @Override
+            public String visitNotExpression(NotExpression expression, Void context)
+            {
+                return expression.getExpression().accept(this, context).toString();
+            }
+
+            @Override
+            public String visitAllExpression(AllExpression expression, Void context)
+            {
+                return "ALL";
+            }
+
+            @Override
+            public String visitNoneExpression(NoneExpression expression, Void context)
+            {
+                return "NONE";
+            }
         }
     }
 }

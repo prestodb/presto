@@ -33,6 +33,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -196,7 +197,7 @@ public class CassandraMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         CassandraTableHandle handle = (CassandraTableHandle) table;
-        CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, constraint.getSummary());
+        CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, TupleExpressionUtil.toTupleDomain(constraint.getSummary()));
 
         List<String> clusteringKeyPredicates;
         TupleDomain<ColumnHandle> unenforcedConstraint;
@@ -216,7 +217,7 @@ public class CassandraMetadata
                 handle,
                 partitionResult.getPartitions(),
                 clusteringKeyPredicates));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, unenforcedConstraint));
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, TupleExpressionUtil.getTupleExpression(unenforcedConstraint)));
     }
 
     @Override

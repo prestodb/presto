@@ -48,6 +48,8 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.PrivilegeInfo;
@@ -1046,8 +1048,8 @@ public class HiveMetadata
             return layoutHandle.getPartitions().get();
         }
         else {
-            TupleDomain<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
-            Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(promisedPredicate);
+            TupleExpression<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
+            Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(TupleExpressionUtil.toTupleDomain(promisedPredicate));
             List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(promisedPredicate, predicate), Optional.empty());
             return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get();
         }
@@ -1119,7 +1121,7 @@ public class HiveMetadata
         return new ConnectorTableLayout(
                 hiveLayoutHandle,
                 Optional.empty(),
-                predicate,
+                TupleExpressionUtil.getTupleExpression(predicate),
                 nodePartitioning,
                 Optional.empty(),
                 discretePredicates,

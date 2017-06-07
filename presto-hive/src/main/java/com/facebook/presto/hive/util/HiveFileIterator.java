@@ -19,7 +19,7 @@ import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
 import org.apache.hadoop.fs.FileSystem;
@@ -49,7 +49,7 @@ public class HiveFileIterator
     private final InputFormat<?, ?> inputFormat;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
-    private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final TupleExpression<HiveColumnHandle> effectivePredicate;
     private final Map<Integer, HiveType> columnCoercions;
 
     private RemoteIterator<LocatedFileStatus> remoteIterator;
@@ -63,7 +63,7 @@ public class HiveFileIterator
             InputFormat<?, ?> inputFormat,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleExpression<HiveColumnHandle> effectivePredicate,
             Map<Integer, HiveType> columnCoercions)
     {
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -165,7 +165,7 @@ public class HiveFileIterator
         return partitionKeys;
     }
 
-    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
+    public TupleExpression<HiveColumnHandle> getEffectivePredicate()
     {
         return effectivePredicate;
     }

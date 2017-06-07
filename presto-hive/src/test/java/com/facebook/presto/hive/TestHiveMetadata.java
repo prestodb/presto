@@ -18,6 +18,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.TupleDomain.ColumnDomain;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
@@ -50,7 +51,7 @@ public class TestHiveMetadata
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    tupleDomain,
+                    TupleExpressionUtil.getTupleExpression(tupleDomain),
                     Integer.toString(i),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))), ImmutableList.of()));
         }
@@ -68,7 +69,7 @@ public class TestHiveMetadata
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    tupleDomain,
+                    TupleExpressionUtil.getTupleExpression(tupleDomain),
                     Integer.toString(i),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)), ImmutableList.of()));
         }
@@ -86,7 +87,7 @@ public class TestHiveMetadata
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    tupleDomain,
+                    TupleExpressionUtil.getTupleExpression(tupleDomain),
                     Integer.toString(i),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))), ImmutableList.of()));
         }
@@ -95,7 +96,7 @@ public class TestHiveMetadata
         TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
         partitions.add(new HivePartition(
                 new SchemaTableName("test", "test"),
-                tupleDomain,
+                TupleExpressionUtil.getTupleExpression(tupleDomain),
                 "null",
                 ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)), ImmutableList.of()));
 

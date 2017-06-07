@@ -19,8 +19,11 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.predicate.AllExpression;
+import com.facebook.presto.spi.predicate.AndExpression;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.DomainExpression;
+import com.facebook.presto.spi.predicate.NoneExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -131,7 +134,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -336,7 +339,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null);
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
@@ -347,7 +350,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.empty(),
-                TupleDomain.none(),
+                new NoneExpression<ColumnHandle>(),
                 null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         assertEquals(effectivePredicate, FALSE_LITERAL);
@@ -358,7 +361,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.empty(),
-                TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L))),
+                new DomainExpression<ColumnHandle>(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L)),
                 null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AE)));
@@ -369,9 +372,9 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.empty(),
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        scanAssignments.get(A), Domain.singleValue(BIGINT, 1L),
-                        scanAssignments.get(B), Domain.singleValue(BIGINT, 2L))),
+                new AndExpression<ColumnHandle>(
+                        new DomainExpression<ColumnHandle>(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L)),
+                        new DomainExpression<ColumnHandle>(scanAssignments.get(B), Domain.singleValue(BIGINT, 2L))),
                 null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BE), equals(bigintLiteral(1L), AE)));
@@ -382,7 +385,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
@@ -425,7 +428,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -436,7 +439,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -492,7 +495,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -503,7 +506,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -555,7 +558,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -566,7 +569,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -615,7 +618,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -626,7 +629,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -678,7 +681,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 
@@ -689,7 +692,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
                 Optional.empty(),
-                TupleDomain.all(),
+                new AllExpression(),
                 null
         );
 

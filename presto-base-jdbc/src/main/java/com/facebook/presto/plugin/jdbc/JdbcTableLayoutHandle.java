@@ -16,6 +16,8 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -32,10 +34,10 @@ public class JdbcTableLayoutHandle
     @JsonCreator
     public JdbcTableLayoutHandle(
             @JsonProperty("table") JdbcTableHandle table,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain)
+            @JsonProperty("tupleDomain") TupleExpression<ColumnHandle> domain)
     {
         this.table = requireNonNull(table, "table is null");
-        this.tupleDomain = requireNonNull(domain, "tupleDomain is null");
+        this.tupleDomain = TupleExpressionUtil.toTupleDomain(requireNonNull(domain, "tupleDomain is null"));
     }
 
     @JsonProperty

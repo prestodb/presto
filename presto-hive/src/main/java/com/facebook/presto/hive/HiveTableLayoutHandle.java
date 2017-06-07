@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,14 +33,14 @@ public final class HiveTableLayoutHandle
     private final String clientId;
     private final List<ColumnHandle> partitionColumns;
     private final List<HivePartition> partitions;
-    private final TupleDomain<ColumnHandle> promisedPredicate;
+    private final TupleExpression<ColumnHandle> promisedPredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
 
     @JsonCreator
     public HiveTableLayoutHandle(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("partitionColumns") List<ColumnHandle> partitionColumns,
-            @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate,
+            @JsonProperty("promisedPredicate") TupleExpression<ColumnHandle> promisedPredicate,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
@@ -54,7 +54,7 @@ public final class HiveTableLayoutHandle
             String clientId,
             List<ColumnHandle> partitionColumns,
             List<HivePartition> partitions,
-            TupleDomain<ColumnHandle> promisedPredicate,
+            TupleExpression<ColumnHandle> promisedPredicate,
             Optional<HiveBucketHandle> bucketHandle)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
@@ -88,7 +88,7 @@ public final class HiveTableLayoutHandle
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getPromisedPredicate()
+    public TupleExpression<ColumnHandle> getPromisedPredicate()
     {
         return promisedPredicate;
     }

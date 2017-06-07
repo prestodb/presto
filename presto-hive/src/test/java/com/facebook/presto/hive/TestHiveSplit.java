@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -52,7 +52,7 @@ public class TestHiveSplit
                 addresses,
                 OptionalInt.empty(),
                 true,
-                TupleDomain.all(),
+                new AllExpression(),
                 ImmutableMap.of(1, HIVE_STRING));
 
         String json = codec.toJson(expected);

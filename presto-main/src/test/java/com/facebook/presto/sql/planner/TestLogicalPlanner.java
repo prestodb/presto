@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.DomainExpression;
+import com.facebook.presto.spi.predicate.TupleExpression;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -30,7 +31,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
@@ -137,9 +137,7 @@ public class TestLogicalPlanner
     @Test
     public void testPushDownJoinConditionConjunctsToInnerSideBasedOnInheritedPredicate()
     {
-        Map<String, Domain> tableScanConstraint = ImmutableMap.<String, Domain>builder()
-                .put("name", singleValue(createVarcharType(25), utf8Slice("blah")))
-                .build();
+        TupleExpression domainExpression = new DomainExpression<String>("name", singleValue(createVarcharType(25), utf8Slice("blah")));
 
         assertPlan(
                 "SELECT nationkey FROM nation LEFT OUTER JOIN region " +
@@ -147,11 +145,11 @@ public class TestLogicalPlanner
                 anyTree(
                         join(LEFT, ImmutableList.of(equiJoinClause("NATION_NAME", "REGION_NAME"), equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
                                 anyTree(
-                                        constrainedTableScan("nation", tableScanConstraint, ImmutableMap.of(
+                                        constrainedTableScan("nation", domainExpression, ImmutableMap.of(
                                                 "NATION_NAME", "name",
                                                 "NATION_REGIONKEY", "regionkey"))),
                                 anyTree(
-                                        constrainedTableScan("region", tableScanConstraint, ImmutableMap.of(
+                                        constrainedTableScan("region", domainExpression, ImmutableMap.of(
                                                 "REGION_NAME", "name",
                                                 "REGION_REGIONKEY", "regionkey"))))));
     }

@@ -14,12 +14,15 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import io.airlift.json.JsonCodec;
+import com.facebook.presto.spi.predicate.AllExpression;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import io.airlift.json.JsonModule;
 import org.testng.annotations.Test;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestSystemSplit
@@ -28,12 +31,15 @@ public class TestSystemSplit
     public void testSerialization()
             throws Exception
     {
+        Injector injector = Guice.createInjector(new JsonModule(), new HandleJsonModule());
+
+        ObjectMapper objectMapper = injector.getInstance(ObjectMapper.class);
+        objectMapper.registerModule(new TestJacksonModule());
         ConnectorId connectorId = new ConnectorId("testid");
         SystemTableHandle tableHandle = new SystemTableHandle(connectorId, "xyz", "foo");
-        SystemSplit expected = new SystemSplit(connectorId, tableHandle, HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
+        SystemSplit expected = new SystemSplit(connectorId, tableHandle, HostAddress.fromParts("127.0.0.1", 0), new AllExpression());
 
-        JsonCodec<SystemSplit> codec = jsonCodec(SystemSplit.class);
-        SystemSplit actual = codec.fromJson(codec.toJson(expected));
+        SystemSplit actual = objectMapper.readValue(objectMapper.writeValueAsString(expected), SystemSplit.class);
 
         assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getTableHandle(), expected.getTableHandle());

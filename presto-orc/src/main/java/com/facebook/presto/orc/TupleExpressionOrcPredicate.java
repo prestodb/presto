@@ -83,7 +83,7 @@ public class TupleExpressionOrcPredicate<C>
     }
 
     private class Visitor
-            implements TupleExpressionVisitor<Boolean, Map<Integer, ColumnStatistics>>
+            implements TupleExpressionVisitor<Boolean, Map<Integer, ColumnStatistics>, C>
     {
         private final Map<C, ColumnReference<C>> columnReferences;
         private final boolean orcBloomFiltersEnabled;
@@ -97,7 +97,7 @@ public class TupleExpressionOrcPredicate<C>
         }
 
         @Override
-        public Boolean visitDomainExpression(DomainExpression expression, Map<Integer, ColumnStatistics> context)
+        public Boolean visitDomainExpression(DomainExpression<C> expression, Map<Integer, ColumnStatistics> context)
         {
             ColumnReference<C> reference = columnReferences.get(expression.getColumn());
             ColumnStatistics statistics = context.get(reference.getOrdinal());
@@ -112,31 +112,31 @@ public class TupleExpressionOrcPredicate<C>
         }
 
         @Override
-        public Boolean visitAndExpression(AndExpression expression, Map<Integer, ColumnStatistics> context)
+        public Boolean visitAndExpression(AndExpression<C> expression, Map<Integer, ColumnStatistics> context)
         {
             return (Boolean) expression.getLeftExpression().accept(this, context) && (Boolean) expression.getRightExpression().accept(this, context);
         }
 
         @Override
-        public Boolean visitOrExpression(OrExpression expression, Map<Integer, ColumnStatistics> context)
+        public Boolean visitOrExpression(OrExpression<C> expression, Map<Integer, ColumnStatistics> context)
         {
             return (Boolean) expression.getLeftExpression().accept(this, context) || (Boolean) expression.getRightExpression().accept(this, context);
         }
 
         @Override
-        public Boolean visitNotExpression(NotExpression expression, Map<Integer, ColumnStatistics> context)
+        public Boolean visitNotExpression(NotExpression<C> expression, Map<Integer, ColumnStatistics> context)
         {
             return !(boolean) expression.getExpression().accept(this, context);
         }
 
         @Override
-        public Boolean visitAllExpression(AllExpression expression, Map<Integer, ColumnStatistics> context)
+        public Boolean visitAllExpression(AllExpression<C> expression, Map<Integer, ColumnStatistics> context)
         {
             return true;
         }
 
         @Override
-        public Boolean visitNoneExpression(NoneExpression expression, Map<Integer, ColumnStatistics> context)
+        public Boolean visitNoneExpression(NoneExpression<C> expression, Map<Integer, ColumnStatistics> context)
         {
             return false;
         }

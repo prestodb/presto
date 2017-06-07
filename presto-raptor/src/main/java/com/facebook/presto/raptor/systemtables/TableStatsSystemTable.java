@@ -26,7 +26,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleExpression;
+import com.facebook.presto.spi.predicate.TupleExpressionUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.IDBI;
@@ -40,7 +41,6 @@ import static com.facebook.presto.raptor.systemtables.TableMetadataSystemTable.g
 import static com.facebook.presto.raptor.systemtables.TableMetadataSystemTable.getStringValue;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -89,14 +89,14 @@ public class TableStatsSystemTable
     }
 
     @Override
-    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleExpression<Integer> constraint)
     {
         return new FixedPageSource(buildPages(dao, constraint));
     }
 
-    private static List<Page> buildPages(MetadataDao dao, TupleDomain<Integer> tupleDomain)
+    private static List<Page> buildPages(MetadataDao dao, TupleExpression<Integer> tupleDomain)
     {
-        Map<Integer, NullableValue> domainValues = extractFixedValues(tupleDomain).orElse(ImmutableMap.of());
+        Map<Integer, NullableValue> domainValues = TupleExpressionUtil.extractFixedValues(tupleDomain).orElse(ImmutableMap.of());
         String schemaName = getStringValue(domainValues.get(getColumnIndex(METADATA, SCHEMA_NAME)));
         String tableName = getStringValue(domainValues.get(getColumnIndex(METADATA, TABLE_NAME)));
 

@@ -23,7 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.AllExpression;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
@@ -653,7 +653,7 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 splitProperties,
-                TupleDomain.all(),
+                new AllExpression(),
                 getColumnHandles(testColumns),
                 partitionKeys,
                 DateTimeZone.getDefault(),
@@ -697,7 +697,7 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 splitProperties,
-                TupleDomain.all(),
+                new AllExpression(),
                 columnHandles,
                 partitionKeys,
                 DateTimeZone.getDefault(),

@@ -47,7 +47,6 @@ public class MongoSplitManager
     {
         MongoTableLayoutHandle tableLayout = (MongoTableLayoutHandle) layout;
         MongoTableHandle tableHandle = tableLayout.getTable();
-
         MongoSplit split = new MongoSplit(
                 tableHandle.getSchemaTableName(),
                 tableLayout.getTupleDomain(),
