@@ -926,6 +926,7 @@ class StatementAnalyzer
             expressions.addAll(orderByExpressions);
             node.getHaving().ifPresent(expressions::add);
 
+            analyzeGroupingOperations(node, expressions, emptyList());
             analyzeAggregations(node, sourceScope, Optional.empty(), groupByExpressions, expressions, emptyList());
             analysis.setWindowFunctions(node, analyzeWindowFunctions(node, expressions));
 
