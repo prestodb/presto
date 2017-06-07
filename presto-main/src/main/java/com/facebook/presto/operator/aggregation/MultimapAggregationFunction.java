@@ -126,7 +126,7 @@ public class MultimapAggregationFunction
             pairs.add(key, value, position, position);
         }
         catch (ExceededMemoryLimitException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_agg may not exceed %s", e.getMaxMemory()));
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of multimap_agg may not exceed %s", e.getMaxMemory()));
         }
         state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
     }
@@ -143,7 +143,7 @@ public class MultimapAggregationFunction
                     pairs.add(keys, values, i, i);
                 }
                 catch (ExceededMemoryLimitException e) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_agg may not exceed %s", e.getMaxMemory()));
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of multimap_agg may not exceed %s", e.getMaxMemory()));
                 }
             }
             state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
