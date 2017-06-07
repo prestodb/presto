@@ -715,17 +715,10 @@ public class PredicatePushDown
         {
             ImmutableList.Builder<Expression> builder = ImmutableList.builder();
             for (JoinNode.EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
-                builder.add(equalsExpression(equiJoinClause.getLeft(), equiJoinClause.getRight()));
+                builder.add(equiJoinClause.toExpression());
             }
             joinNode.getFilter().ifPresent(builder::add);
             return combineConjuncts(builder.build());
-        }
-
-        private static Expression equalsExpression(Symbol symbol1, Symbol symbol2)
-        {
-            return new ComparisonExpression(ComparisonExpressionType.EQUAL,
-                    symbol1.toSymbolReference(),
-                    symbol2.toSymbolReference());
         }
 
         private Type extractType(Expression expression)
