@@ -70,7 +70,7 @@ public class LookupJoinOperatorFactory
         probeReferenceCount = new ReferenceCount();
         lookupSourceFactoryUsersCount = new ReferenceCount();
 
-        // when probe and build-outer operators finish, destroy the lookup source (freeing the memory)
+        // when all probe and build-outer operators finish, destroy the lookup source (freeing the memory)
         lookupSourceFactoryUsersCount.getFreeFuture().addListener(lookupSourceFactory::destroy, directExecutor());
 
         // Whole probe side is counted as 1 in lookupSourceFactoryUsersCount
