@@ -317,7 +317,7 @@ public class Driver
                 }
 
                 // if current operator is finished...
-                if (current.isFinished()) {
+                if (current.isFinished() && isBlocked(next).isDone()) {
                     // let next operator know there will be no more data
                     next.getOperatorContext().startIntervalTimer();
                     next.finish();
