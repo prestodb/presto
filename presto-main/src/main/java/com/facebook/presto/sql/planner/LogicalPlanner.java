@@ -127,8 +127,8 @@ public class LogicalPlanner
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
-                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
-                requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+//                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
+//                requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
             }
         }
 
