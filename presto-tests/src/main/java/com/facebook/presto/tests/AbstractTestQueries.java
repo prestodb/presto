@@ -1157,6 +1157,9 @@ public abstract class AbstractTestQueries
         assertQueryOrdered(session, "SELECT -a AS a FROM (VALUES 1, 2) t(a) ORDER BY first_value(a+t.a*2) OVER (ORDER BY a ROWS 0 PRECEDING)", "VALUES -1, -2");
 
         assertQueryFails(session, "SELECT a as a, a* -1 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a", ".*'a' in ORDER BY is ambiguous");
+
+        // grouping
+        assertQueryOrdered(session, "SELECT grouping(a) as c FROM (VALUES (-1, -1), (1, 1)) AS t (a, b) GROUP BY GROUPING SETS (a, b) ORDER BY c ASC", "VALUES 0, 0, 1, 1");
     }
 
     @Test
