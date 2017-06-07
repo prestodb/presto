@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -20,6 +21,7 @@ import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairStateSerializer;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsState;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsStateFactory;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -38,9 +40,11 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 
 public class MapUnionAggregation
         extends SqlAggregationFunction
@@ -112,14 +116,24 @@ public class MapUnionAggregation
 
         long startSize = pairs.estimatedInMemorySize();
         for (int i = 0; i < value.getPositionCount(); i += 2) {
-            pairs.add(value, value, i, i + 1);
+            try {
+                pairs.add(value, value, i, i + 1);
+            }
+            catch (ExceededMemoryLimitException e) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_union may not exceed %s", e.getMaxMemory()));
+            }
         }
         state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
     }
 
     public static void combine(KeyValuePairsState state, KeyValuePairsState otherState)
     {
-        MapAggregationFunction.combine(state, otherState);
+        try {
+            MapAggregationFunction.combineStates(state, otherState);
+        }
+        catch (ExceededMemoryLimitException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_union may not exceed %s", e.getMaxMemory()));
+        }
     }
 
     public static void output(KeyValuePairsState state, BlockBuilder out)

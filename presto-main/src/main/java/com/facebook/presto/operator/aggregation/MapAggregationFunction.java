@@ -133,18 +133,23 @@ public class MapAggregationFunction
 
     public static void combine(KeyValuePairsState state, KeyValuePairsState otherState)
     {
+        try {
+            combineStates(state, otherState);
+        }
+        catch (ExceededMemoryLimitException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_agg may not exceed %s", e.getMaxMemory()));
+        }
+    }
+
+    public static void combineStates(KeyValuePairsState state, KeyValuePairsState otherState)
+    {
         if (state.get() != null && otherState.get() != null) {
             Block keys = otherState.get().getKeys();
             Block values = otherState.get().getValues();
             KeyValuePairs pairs = state.get();
             long startSize = pairs.estimatedInMemorySize();
             for (int i = 0; i < keys.getPositionCount(); i++) {
-                try {
-                    pairs.add(keys, values, i, i);
-                }
-                catch (ExceededMemoryLimitException e) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_agg may not exceed %s", e.getMaxMemory()));
-                }
+                pairs.add(keys, values, i, i);
             }
             state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
         }
