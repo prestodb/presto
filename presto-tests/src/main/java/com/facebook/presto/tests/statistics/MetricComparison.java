@@ -57,6 +57,9 @@ public class MetricComparison<T>
 
     public Result result(MetricComparisonStrategy<T> metricComparisonStrategy)
     {
+        if (!estimatedValue.isPresent() && !actualValue.isPresent()) {
+            return MATCH;
+        }
         return estimatedValue
                 .map(estimate -> actualValue
                         .map(execution -> metricComparisonStrategy.matches(execution, estimate) ? MATCH : DIFFER)

@@ -19,6 +19,7 @@ import com.facebook.presto.testing.MaterializedRow;
 
 import java.util.Optional;
 
+import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 
 public final class Metrics
@@ -108,6 +109,78 @@ public final class Metrics
             public String getName()
             {
                 return "DISTINCT_VALUES_COUNT(" + columnName + ")";
+            }
+        };
+    }
+
+    public static Metric<Double> lowValue(String columnName)
+    {
+        return new Metric<Double>()
+        {
+            @Override
+            public Optional<Double> getValueFromPlanNodeEstimate(PlanNodeStatsEstimate planNodeStatsEstimate, StatsContext statsContext)
+            {
+                double lowValue = getSymbolStatistics(planNodeStatsEstimate, columnName, statsContext).getLowValue();
+                if (isInfinite(lowValue)) {
+                    return Optional.empty();
+                }
+                else {
+                    return Optional.of(lowValue);
+                }
+            }
+
+            @Override
+            public Optional<Double> getValueFromAggregationQuery(MaterializedRow aggregationQueryResult, int fieldId, StatsContext statsContext)
+            {
+                return Optional.ofNullable(aggregationQueryResult.getField(fieldId)).map(value -> ((Number) value).doubleValue());
+            }
+
+            @Override
+            public String getComputingAggregationSql()
+            {
+                return "try_cast(min(" + columnName + ") as double)";
+            }
+
+            @Override
+            public String getName()
+            {
+                return "LOW_VALUE(" + columnName + ")";
+            }
+        };
+    }
+
+    public static Metric<Double> highValue(String columnName)
+    {
+        return new Metric<Double>()
+        {
+            @Override
+            public Optional<Double> getValueFromPlanNodeEstimate(PlanNodeStatsEstimate planNodeStatsEstimate, StatsContext statsContext)
+            {
+                double highValue = getSymbolStatistics(planNodeStatsEstimate, columnName, statsContext).getHighValue();
+                if (isInfinite(highValue)) {
+                    return Optional.empty();
+                }
+                else {
+                    return Optional.of(highValue);
+                }
+            }
+
+            @Override
+            public Optional<Double> getValueFromAggregationQuery(MaterializedRow aggregationQueryResult, int fieldId, StatsContext statsContext)
+            {
+                return Optional.ofNullable(aggregationQueryResult.getField(fieldId)).map(value -> ((Number) value).doubleValue());
+            }
+
+            @Override
+            public String getComputingAggregationSql()
+            {
+                return "max(try_cast(" + columnName + " as double))";
+            }
+
+            @Override
+            public String getName()
+            {
+                return "HIGH_VALUE(" + columnName + ")";
             }
         };
     }
