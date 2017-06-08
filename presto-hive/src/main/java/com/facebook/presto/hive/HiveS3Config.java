@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.google.common.base.StandardSystemProperty;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
@@ -73,6 +74,7 @@ public class HiveS3Config
     }
 
     @Config("hive.s3.aws-secret-key")
+    @ConfigSecuritySensitive
     public HiveS3Config setS3AwsSecretKey(String s3AwsSecretKey)
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
