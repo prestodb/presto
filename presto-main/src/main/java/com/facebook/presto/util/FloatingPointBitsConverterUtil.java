@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.util;
 
-final class FloatingPointBitsConverterUtil
+public final class FloatingPointBitsConverterUtil
 {
     private FloatingPointBitsConverterUtil() {}
 

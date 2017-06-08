@@ -24,11 +24,11 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.stats.QuantileDigest;
 
-import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
-import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableIntToFloat;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.facebook.presto.util.FloatingPointBitsConverterUtil.floatToSortableInt;
+import static com.facebook.presto.util.FloatingPointBitsConverterUtil.sortableIntToFloat;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;

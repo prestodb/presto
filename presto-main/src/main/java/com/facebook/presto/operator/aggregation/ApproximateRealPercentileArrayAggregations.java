@@ -27,9 +27,9 @@ import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
-import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableIntToFloat;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.util.FloatingPointBitsConverterUtil.floatToSortableInt;
+import static com.facebook.presto.util.FloatingPointBitsConverterUtil.sortableIntToFloat;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
