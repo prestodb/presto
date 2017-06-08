@@ -191,6 +191,56 @@ public class TestAccessControlManager
                 });
     }
 
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot create table new_table: on information_schema")
+    public void testDenyCreateTableOnInformationSchema()
+        throws Exception
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+
+        TestAllowCreateSystemAccessControlFactory accessControlFactory = new TestAllowCreateSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+
+        registerBogusConnector(catalogManager, transactionManager, accessControlManager, "connector");
+        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), new DenyConnectorAccessControl());
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanCreateTable(transactionId,
+                            new Identity(USER_NAME, Optional.of(PRINCIPAL)),
+                            new QualifiedObjectName("secured_catalog",
+                                    "information_schema",
+                                    "new_table"));
+                });
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot create view new_view: on information_schema")
+    public void testDenyCreateViewOnInformationSchema()
+            throws Exception
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+
+        TestAllowCreateSystemAccessControlFactory accessControlFactory = new TestAllowCreateSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+
+        registerBogusConnector(catalogManager, transactionManager, accessControlManager, "connector");
+        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), new DenyConnectorAccessControl());
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanCreateView(transactionId,
+                            new Identity(USER_NAME, Optional.of(PRINCIPAL)),
+                            new QualifiedObjectName("secured_catalog",
+                                    "information_schema",
+                                    "new_view"));
+                });
+    }
+
     private static ConnectorId registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, AccessControl accessControl, String catalogName)
     {
         ConnectorId connectorId = new ConnectorId(catalogName);
@@ -275,6 +325,81 @@ public class TestAccessControlManager
                     if (table.getCatalogName().equals("secured_catalog")) {
                         denySelectTable(table.toString());
                     }
+                }
+            };
+        }
+    }
+
+    private static class TestAllowCreateSystemAccessControlFactory
+            implements SystemAccessControlFactory
+    {
+        private final String name;
+        private Map<String, String> config;
+
+        private Principal checkedPrincipal;
+        private String checkedUserName;
+
+        public TestAllowCreateSystemAccessControlFactory(String name)
+        {
+            this.name = requireNonNull(name, "name is null");
+        }
+
+        public Map<String, String> getConfig()
+        {
+            return config;
+        }
+
+        public Principal getCheckedPrincipal()
+        {
+            return checkedPrincipal;
+        }
+
+        public String getCheckedUserName()
+        {
+            return checkedUserName;
+        }
+
+        @Override
+        public String getName()
+        {
+            return name;
+        }
+
+        @Override
+        public SystemAccessControl create(Map<String, String> config)
+        {
+            this.config = config;
+            return new SystemAccessControl()
+            {
+                @Override
+                public void checkCanSetUser(Principal principal, String userName)
+                {
+                    checkedPrincipal = principal;
+                    checkedUserName = userName;
+                }
+
+                @Override
+                public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
+                {
+                    if (table.getCatalogName().equals("secured_catalog")) {
+                        denySelectTable(table.toString());
+                    }
+                }
+
+                @Override
+                public void checkCanCreateTable(Identity identity, CatalogSchemaTableName table)
+                {
+                }
+
+                @Override
+                public void checkCanCreateView(Identity identity, CatalogSchemaTableName view)
+                {
                 }
             };
         }

@@ -47,6 +47,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -60,6 +62,7 @@ public class AccessControlManager
     private static final Logger log = Logger.get(AccessControlManager.class);
     private static final File ACCESS_CONTROL_CONFIGURATION = new File("etc/access-control.properties");
     private static final String ACCESS_CONTROL_PROPERTY_NAME = "access-control.name";
+    private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
     private final TransactionManager transactionManager;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
@@ -236,6 +239,10 @@ public class AccessControlManager
 
         authorizationCheck(() -> systemAccessControl.get().checkCanCreateTable(identity, tableName.asCatalogSchemaTableName()));
 
+        if (INFORMATION_SCHEMA_NAME.equalsIgnoreCase(tableName.getSchemaName())) {
+            denyCreateTable(tableName.getObjectName(), format("on %s", INFORMATION_SCHEMA_NAME));
+        }
+
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanCreateTable(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName()));
@@ -378,6 +385,10 @@ public class AccessControlManager
         requireNonNull(viewName, "viewName is null");
 
         authorizationCheck(() -> systemAccessControl.get().checkCanCreateView(identity, viewName.asCatalogSchemaTableName()));
+
+        if (INFORMATION_SCHEMA_NAME.equalsIgnoreCase(viewName.getSchemaName())) {
+            denyCreateView(viewName.getObjectName(), format("on %s", INFORMATION_SCHEMA_NAME));
+        }
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, viewName.getCatalogName());
         if (entry != null) {
