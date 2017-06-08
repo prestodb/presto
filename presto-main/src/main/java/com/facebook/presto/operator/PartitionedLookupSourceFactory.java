@@ -26,6 +26,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
@@ -33,7 +34,6 @@ import static com.facebook.presto.operator.PartitionedLookupSource.createPartiti
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
-import static java.lang.Thread.holdsLock;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceFactory
@@ -46,16 +46,18 @@ public final class PartitionedLookupSourceFactory
     private final boolean outer;
     private final SettableFuture<?> destroyed = SettableFuture.create();
 
-    @GuardedBy("this")
+    private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+
+    @GuardedBy("rwLock")
     private final Supplier<LookupSource>[] partitions;
 
-    @GuardedBy("this")
+    @GuardedBy("rwLock")
     private int partitionsSet;
 
-    @GuardedBy("this")
+    @GuardedBy("rwLock")
     private TrackingLookupSourceSupplier lookupSourceSupplier;
 
-    @GuardedBy("this")
+    @GuardedBy("rwLock")
     private final List<SettableFuture<LookupSourceProvider>> lookupSourceFutures = new ArrayList<>();
 
     public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
@@ -90,15 +92,21 @@ public final class PartitionedLookupSourceFactory
     }
 
     @Override
-    public synchronized ListenableFuture<LookupSourceProvider> createLookupSourceProvider()
+    public ListenableFuture<LookupSourceProvider> createLookupSourceProvider()
     {
-        if (lookupSourceSupplier != null) {
-            return Futures.immediateFuture(new SimpleLookupSourceProvider(lookupSourceSupplier.getLookupSource()));
-        }
+        rwLock.writeLock().lock();
+        try {
+            if (lookupSourceSupplier != null) {
+                return Futures.immediateFuture(new SimpleLookupSourceProvider(lookupSourceSupplier.getLookupSource()));
+            }
 
-        SettableFuture<LookupSourceProvider> lookupSourceFuture = SettableFuture.create();
-        lookupSourceFutures.add(lookupSourceFuture);
-        return lookupSourceFuture;
+            SettableFuture<LookupSourceProvider> lookupSourceFuture = SettableFuture.create();
+            lookupSourceFutures.add(lookupSourceFuture);
+            return lookupSourceFuture;
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     public void setPartitionLookupSourceSupplier(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
@@ -106,7 +114,9 @@ public final class PartitionedLookupSourceFactory
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
 
         boolean completed;
-        synchronized (this) {
+
+        rwLock.writeLock().lock();
+        try {
             if (destroyed.isDone()) {
                 return;
             }
@@ -116,6 +126,10 @@ public final class PartitionedLookupSourceFactory
             partitionsSet++;
             completed = partitionsSet == partitions.length;
         }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+
         if (completed) {
             supplyLookupSources();
         }
@@ -123,11 +137,13 @@ public final class PartitionedLookupSourceFactory
 
     private void supplyLookupSources()
     {
-        checkState(!holdsLock(this));
+        checkState(!rwLock.isWriteLockedByCurrentThread());
 
         TrackingLookupSourceSupplier lookupSourceSupplier;
         List<SettableFuture<LookupSourceProvider>> lookupSourceFutures;
-        synchronized (this) {
+
+        rwLock.writeLock().lock();
+        try {
             checkState(partitionsSet == partitions.length, "Not all set yet");
             checkState(this.lookupSourceSupplier == null, "Already supplied");
 
@@ -146,6 +162,9 @@ public final class PartitionedLookupSourceFactory
             lookupSourceSupplier = this.lookupSourceSupplier;
             lookupSourceFutures = ImmutableList.copyOf(this.lookupSourceFutures);
         }
+        finally {
+            rwLock.writeLock().unlock();
+        }
 
         for (SettableFuture<LookupSourceProvider> lookupSourceFuture : lookupSourceFutures) {
             lookupSourceFuture.set(new SimpleLookupSourceProvider(lookupSourceSupplier.getLookupSource()));
@@ -156,10 +175,16 @@ public final class PartitionedLookupSourceFactory
     public OuterPositionIterator getOuterPositionIterator()
     {
         TrackingLookupSourceSupplier lookupSourceSupplier;
-        synchronized (this) {
+
+        rwLock.writeLock().lock();
+        try {
             checkState(this.lookupSourceSupplier != null, "lookup source not ready yet");
             lookupSourceSupplier = this.lookupSourceSupplier;
         }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+
         return lookupSourceSupplier.getOuterPositionIterator();
     }
 
