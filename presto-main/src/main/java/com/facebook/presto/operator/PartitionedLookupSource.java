@@ -168,6 +168,12 @@ public class PartitionedLookupSource
     }
 
     @Override
+    public long joinPositionWithinPartition(long joinPosition)
+    {
+        return decodeJoinPosition(joinPosition);
+    }
+
+    @Override
     public void close()
     {
         if (outerPositionTracker != null) {

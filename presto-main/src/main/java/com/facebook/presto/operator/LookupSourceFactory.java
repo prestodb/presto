@@ -19,6 +19,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
+import java.util.function.Supplier;
+
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Collections.emptyList;
 
 public interface LookupSourceFactory
 {
@@ -27,6 +32,20 @@ public interface LookupSourceFactory
     List<Type> getOutputTypes();
 
     ListenableFuture<LookupSourceProvider> createLookupSourceProvider();
+
+    default int partitions()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default ListenableFuture<PartitionedConsumption<Supplier<LookupSource>>> finishProbeOperator(OptionalInt lookupJoinsCount)
+    {
+        return immediateFuture(new PartitionedConsumption<>(1, emptyList(),
+                i -> {
+                    throw new UnsupportedOperationException();
+                }, i -> {
+        }));
+    }
 
     /**
      * Can be called only after {@link #createLookupSourceProvider()} is done and all users of {@link LookupSource}-s finished.

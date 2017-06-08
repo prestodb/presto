@@ -13,27 +13,40 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
+import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
 import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceFactory
@@ -44,21 +57,41 @@ public final class PartitionedLookupSourceFactory
     private final Map<Symbol, Integer> layout;
     private final List<Type> hashChannelTypes;
     private final boolean outer;
-    private final SettableFuture<?> destroyed = SettableFuture.create();
+    private final SpilledLookupSource spilledLookupSource;
 
     private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
 
     @GuardedBy("rwLock")
     private final Supplier<LookupSource>[] partitions;
 
+    private final SettableFuture<?> partitionsNoLongerNeeded = SettableFuture.create();
+
+    @GuardedBy("rwLock")
+    private final SettableFuture<?> destroyed = SettableFuture.create();
+
     @GuardedBy("rwLock")
     private int partitionsSet;
+
+    @GuardedBy("rwLock")
+    private SpillingInfo spillingInfo = new SpillingInfo(0, ImmutableSet.of());
+
+    @GuardedBy("rwLock")
+    private Map<Integer, SpilledLookupSourceHandle> spilledPartitions = new HashMap<>();
 
     @GuardedBy("rwLock")
     private TrackingLookupSourceSupplier lookupSourceSupplier;
 
     @GuardedBy("rwLock")
     private final List<SettableFuture<LookupSourceProvider>> lookupSourceFutures = new ArrayList<>();
+
+    @GuardedBy("rwLock")
+    private int finishedProbeOperators;
+
+    @GuardedBy("rwLock")
+    private OptionalInt partitionedConsumptionParticipants = OptionalInt.empty();
+
+    @GuardedBy("rwLock")
+    private SettableFuture<PartitionedConsumption<Supplier<LookupSource>>> partitionedConsumption = SettableFuture.create();
 
     public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
@@ -71,6 +104,8 @@ public final class PartitionedLookupSourceFactory
         hashChannelTypes = hashChannels.stream()
                 .map(types::get)
                 .collect(toImmutableList());
+
+        spilledLookupSource = new SpilledLookupSource(outputTypes.size());
     }
 
     @Override
@@ -92,12 +127,18 @@ public final class PartitionedLookupSourceFactory
     }
 
     @Override
+    public int partitions()
+    {
+        return partitions.length;
+    }
+
+    @Override
     public ListenableFuture<LookupSourceProvider> createLookupSourceProvider()
     {
         rwLock.writeLock().lock();
         try {
             if (lookupSourceSupplier != null) {
-                return Futures.immediateFuture(new SimpleLookupSourceProvider(lookupSourceSupplier.getLookupSource()));
+                return immediateFuture(new SpillAwareLookupSourceProvider());
             }
 
             SettableFuture<LookupSourceProvider> lookupSourceFuture = SettableFuture.create();
@@ -109,7 +150,7 @@ public final class PartitionedLookupSourceFactory
         }
     }
 
-    public void setPartitionLookupSourceSupplier(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
+    public ListenableFuture<?> setPartitionLookupSourceSupplier(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
     {
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
 
@@ -118,13 +159,53 @@ public final class PartitionedLookupSourceFactory
         rwLock.writeLock().lock();
         try {
             if (destroyed.isDone()) {
-                return;
+                return immediateFuture(null);
             }
 
             checkState(partitions[partitionIndex] == null, "Partition already set");
+            checkState(!spilledPartitions.containsKey(partitionIndex), "Partition already set as spilled");
             partitions[partitionIndex] = partitionLookupSource;
             partitionsSet++;
             completed = partitionsSet == partitions.length;
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+
+        if (completed) {
+            supplyLookupSources();
+        }
+
+        return partitionsNoLongerNeeded;
+    }
+
+    public void setPartitionSpilledLookupSource(int partitionIndex, SpilledLookupSourceHandle spilledLookupSourceHandle)
+    {
+        requireNonNull(spilledLookupSourceHandle, "spilledLookupSourceHandle is null");
+
+        boolean completed;
+
+        rwLock.writeLock().lock();
+        try {
+            if (destroyed.isDone()) {
+                spilledLookupSourceHandle.dispose();
+                return;
+            }
+
+            checkState(!spilledPartitions.containsKey(partitionIndex), "Partition already set as spilled");
+            spilledPartitions.put(partitionIndex, spilledLookupSourceHandle);
+            spillingInfo = new SpillingInfo(spillingInfo.spillEpoch() + 1, spilledPartitions.keySet());
+
+            if (partitions[partitionIndex] != null) {
+                // Was present and now it's spilled
+                completed = false;
+            }
+            else {
+                partitionsSet++;
+                completed = partitionsSet == partitions.length;
+            }
+
+            partitions[partitionIndex] = () -> spilledLookupSource;
         }
         finally {
             rwLock.writeLock().unlock();
@@ -139,7 +220,6 @@ public final class PartitionedLookupSourceFactory
     {
         checkState(!rwLock.isWriteLockedByCurrentThread());
 
-        TrackingLookupSourceSupplier lookupSourceSupplier;
         List<SettableFuture<LookupSourceProvider>> lookupSourceFutures;
 
         rwLock.writeLock().lock();
@@ -155,11 +235,11 @@ public final class PartitionedLookupSourceFactory
                 this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitions[0]);
             }
             else {
+                checkState(!spillingInfo.hasSpilled(), "Spill not supported when there is single partition");
                 this.lookupSourceSupplier = TrackingLookupSourceSupplier.nonTracking(partitions[0]);
             }
 
-            // store lookup source supplier and futures into local variables so they can be used outside of the lock
-            lookupSourceSupplier = this.lookupSourceSupplier;
+            // store futures into local variables so they can be used outside of the lock
             lookupSourceFutures = ImmutableList.copyOf(this.lookupSourceFutures);
         }
         finally {
@@ -167,7 +247,69 @@ public final class PartitionedLookupSourceFactory
         }
 
         for (SettableFuture<LookupSourceProvider> lookupSourceFuture : lookupSourceFutures) {
-            lookupSourceFuture.set(new SimpleLookupSourceProvider(lookupSourceSupplier.getLookupSource()));
+            lookupSourceFuture.set(new SpillAwareLookupSourceProvider());
+        }
+    }
+
+    @Override
+    public ListenableFuture<PartitionedConsumption<Supplier<LookupSource>>> finishProbeOperator(OptionalInt lookupJoinsCount)
+    {
+        rwLock.writeLock().lock();
+        try {
+            if (!spillingInfo.hasSpilled()) {
+                finishedProbeOperators++;
+                return immediateFuture(new PartitionedConsumption<>(1, emptyList(), i -> {
+                    throw new UnsupportedOperationException();
+                }, i -> {
+                }));
+            }
+
+            int operatorsCount = lookupJoinsCount
+                    .orElseThrow(() -> new IllegalStateException("Indeterminate number of LookupJoinOperator-s when using spill to disk. This is a bug."));
+            checkState(finishedProbeOperators < operatorsCount, "%s probe operators finished out of %s declared", finishedProbeOperators + 1, operatorsCount);
+
+            if (!partitionedConsumptionParticipants.isPresent()) {
+                // This is the first probe to finish after anything has been spilled.
+                partitionedConsumptionParticipants = OptionalInt.of(operatorsCount - finishedProbeOperators);
+            }
+
+            finishedProbeOperators++;
+            if (finishedProbeOperators == operatorsCount) {
+                // We can dispose partitions now since as right outer is not supported with spill
+                freePartitions();
+                verify(!partitionedConsumption.isDone());
+                partitionedConsumption.set(new PartitionedConsumption<>(
+                        partitionedConsumptionParticipants.getAsInt(),
+                        spilledPartitions.keySet(),
+                        this::loadSpilledLookupSource,
+                        this::disposeSpilledLookupSource));
+            }
+
+            return partitionedConsumption;
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    private ListenableFuture<Supplier<LookupSource>> loadSpilledLookupSource(int partitionNumber)
+    {
+        return getSpilledLookupSourceHandle(partitionNumber).getLookupSource();
+    }
+
+    private void disposeSpilledLookupSource(int partitionNumber)
+    {
+        getSpilledLookupSourceHandle(partitionNumber).dispose();
+    }
+
+    private SpilledLookupSourceHandle getSpilledLookupSourceHandle(int partitionNumber)
+    {
+        rwLock.readLock().lock();
+        try {
+            return requireNonNull(spilledPartitions.get(partitionNumber), "spilledPartitions.get(partitionNumber) is null");
+        }
+        finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -191,11 +333,196 @@ public final class PartitionedLookupSourceFactory
     @Override
     public void destroy()
     {
-        destroyed.set(null);
+        rwLock.writeLock().lock();
+        try {
+            freePartitions();
+            spilledPartitions.values().forEach(SpilledLookupSourceHandle::dispose);
+
+            // Setting destroyed must be last because it's a part of the state exposed by isDestroyed() without synchronization.
+            destroyed.set(null);
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    private void freePartitions()
+    {
+        // Let the HashBuilderOperators reduce their accounted memory
+        partitionsNoLongerNeeded.set(null);
+
+        rwLock.writeLock().lock();
+        try {
+            // Remove out references to partitions to actually free memory
+            Arrays.fill(partitions, null);
+            lookupSourceSupplier = null;
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     public ListenableFuture<?> isDestroyed()
     {
         return nonCancellationPropagating(destroyed);
+    }
+
+    private class SpillAwareLookupSourceProvider
+            implements LookupSourceProvider
+    {
+        @Override
+        public <R> R withLease(Function<LookupSourceLease, R> action)
+        {
+            rwLock.readLock().lock();
+            try {
+                try (LookupSource lookupSource = lookupSourceSupplier.getLookupSource()) {
+                    LookupSourceLease lease = new SpillAwareLookupSourceLease(lookupSource, spillingInfo);
+                    return action.apply(lease);
+                }
+            }
+            finally {
+                rwLock.readLock().unlock();
+            }
+        }
+
+        @Override
+        public void close()
+        {
+        }
+    }
+
+    private static class SpillAwareLookupSourceLease
+            implements LookupSourceLease
+    {
+        private final LookupSource lookupSource;
+        private final SpillingInfo spillingInfo;
+
+        public SpillAwareLookupSourceLease(LookupSource lookupSource, SpillingInfo spillingInfo)
+        {
+            this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
+            this.spillingInfo = requireNonNull(spillingInfo, "spillingInfo is null");
+        }
+
+        @Override
+        public LookupSource getLookupSource()
+        {
+            return lookupSource;
+        }
+
+        @Override
+        public boolean hasSpilled()
+        {
+            return spillingInfo.hasSpilled();
+        }
+
+        @Override
+        public long spillEpoch()
+        {
+            return spillingInfo.spillEpoch();
+        }
+
+        @Override
+        public IntPredicate getSpillMask()
+        {
+            return spillingInfo.getSpillMask();
+        }
+    }
+
+    private static class SpilledLookupSource
+            implements LookupSource
+    {
+        private final int channelCount;
+
+        public SpilledLookupSource(int channelCount)
+        {
+            this.channelCount = channelCount;
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return channelCount;
+        }
+
+        @Override
+        public long getInMemorySizeInBytes()
+        {
+            return 0;
+        }
+
+        @Override
+        public long joinPositionWithinPartition(long joinPosition)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getJoinPositionCount()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void close()
+        {
+        }
+    }
+
+    @Immutable
+    private static final class SpillingInfo
+    {
+        private final long spillEpoch;
+        private final Set<Integer> spilledPartitions;
+
+        SpillingInfo(long spillEpoch, Set<Integer> spilledPartitions)
+        {
+            this.spillEpoch = spillEpoch;
+            this.spilledPartitions = ImmutableSet.copyOf(requireNonNull(spilledPartitions, "spilledPartitions is null"));
+        }
+
+        boolean hasSpilled()
+        {
+            return !spilledPartitions.isEmpty();
+        }
+
+        long spillEpoch()
+        {
+            return spillEpoch;
+        }
+
+        IntPredicate getSpillMask()
+        {
+            return spilledPartitions::contains;
+        }
     }
 }

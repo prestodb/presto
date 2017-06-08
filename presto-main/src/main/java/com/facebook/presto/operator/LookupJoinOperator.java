@@ -14,25 +14,45 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
+import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
+import com.facebook.presto.operator.PartitionedConsumption.Partition;
+import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.PartitioningSpiller;
+import com.facebook.presto.spiller.PartitioningSpiller.PartitioningSpillResult;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.io.Closeable;
+import javax.annotation.Nullable;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.IntPredicate;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
+import static com.facebook.presto.operator.Operators.checkSuccess;
+import static com.facebook.presto.operator.Operators.getDone;
+import static com.facebook.presto.spi.Page.mask;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
+import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
 public class LookupJoinOperator
-        implements Operator, Closeable
+        implements Operator
 {
     private static final int MAX_POSITIONS_EVALUATED_PER_CALL = 10000;
 
@@ -43,6 +63,7 @@ public class LookupJoinOperator
     private final Runnable onClose;
     private final OptionalInt lookupJoinsCount;
     private final HashGenerator hashGenerator;
+    private final LookupSourceFactory lookupSourceFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
 
     private final JoinStatisticsCounter statisticsCounter;
@@ -55,19 +76,34 @@ public class LookupJoinOperator
     private LookupSourceProvider lookupSourceProvider;
     private JoinProbe probe;
 
+    private Optional<PartitioningSpiller> spiller = Optional.empty();
+    private Optional<LocalPartitionGenerator> partitionGenerator = Optional.empty();
+    private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
+    private long inputPageSpillEpoch;
     private boolean closed;
     private boolean finishing;
+    private boolean unspilling;
+    private boolean finished;
     private long joinPosition = -1;
     private int joinSourcePositions = 0;
 
     private boolean currentProbePositionProducedRow;
+
+    private final Map<Integer, SavedRow> savedRows = new HashMap<>();
+    @Nullable
+    private ListenableFuture<PartitionedConsumption<Supplier<LookupSource>>> partitionedConsumption;
+    @Nullable
+    private Iterator<Partition<Supplier<LookupSource>>> lookupPartitions;
+    private Optional<Partition<Supplier<LookupSource>>> currentPartition = Optional.empty();
+    private Optional<ListenableFuture<Supplier<LookupSource>>> unspilledLookupSource = Optional.empty();
+    private Iterator<Page> unspilledInputPages = emptyIterator();
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
             List<Type> allTypes,
             List<Type> probeTypes,
             JoinType joinType,
-            ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture,
+            LookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
             Runnable onClose,
             OptionalInt lookupJoinsCount,
@@ -86,8 +122,9 @@ public class LookupJoinOperator
         this.onClose = requireNonNull(onClose, "onClose is null");
         this.lookupJoinsCount = requireNonNull(lookupJoinsCount, "lookupJoinsCount is null");
         this.hashGenerator = requireNonNull(hashGenerator, "hashGenerator is null");
+        this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
-        this.lookupSourceProviderFuture = requireNonNull(lookupSourceProviderFuture, "lookupSourceProviderFuture is null");
+        this.lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
 
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         operatorContext.setInfoSupplier(this.statisticsCounter);
@@ -110,13 +147,23 @@ public class LookupJoinOperator
     @Override
     public void finish()
     {
+        if (finishing) {
+            return;
+        }
+
+        if (!spillInProgress.isDone()) {
+            // Not ready yet.
+            return;
+        }
+
+        checkSuccess(spillInProgress, "spilling failed");
         finishing = true;
     }
 
     @Override
     public boolean isFinished()
     {
-        boolean finished = finishing && probe == null && pageBuilder.isEmpty();
+        boolean finished = this.finished && probe == null && pageBuilder.isEmpty();
 
         // if finished drop references so memory is freed early
         if (finished) {
@@ -128,6 +175,19 @@ public class LookupJoinOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
+        if (!spillInProgress.isDone()) {
+            /*
+             * Input spilling can happen only after lookupSourceProviderFuture was done.
+             */
+            return spillInProgress;
+        }
+        if (unspilledLookupSource.isPresent()) {
+            /*
+             * Unspilling can happen only after lookupSourceProviderFuture was done.
+             */
+            return unspilledLookupSource.get();
+        }
+
         return lookupSourceProviderFuture;
     }
 
@@ -136,6 +196,7 @@ public class LookupJoinOperator
     {
         return !finishing
                 && lookupSourceProviderFuture.isDone()
+                && spillInProgress.isDone()
                 && probe == null;
     }
 
@@ -143,87 +204,371 @@ public class LookupJoinOperator
     public void addInput(Page page)
     {
         requireNonNull(page, "page is null");
-        checkState(!finishing, "Operator is finishing");
         checkState(probe == null, "Current page has not been completely processed yet");
 
-        if (lookupSourceProvider == null) {
-            checkState(lookupSourceProviderFuture.isDone(), "Not ready to handle input yet");
-            lookupSourceProvider = requireNonNull(getFutureValue(lookupSourceProviderFuture));
+        checkState(hasLookupSourceProvider(), "Not ready to handle input yet");
+
+        SpillInfoSnapshot spillInfoSnapshot = lookupSourceProvider.withLease(SpillInfoSnapshot::from);
+        addInput(page, spillInfoSnapshot);
+    }
+
+    private void addInput(Page page, SpillInfoSnapshot spillInfoSnapshot)
+    {
+        requireNonNull(spillInfoSnapshot, "spillInfoSnapshot is null");
+
+        if (spillInfoSnapshot.hasSpilled) {
+            page = spillAndMaskSpilledPositions(page, spillInfoSnapshot.spillMask);
+            if (page.getPositionCount() == 0) {
+                return;
+            }
         }
 
         // create probe
+        inputPageSpillEpoch = spillInfoSnapshot.spillEpoch;
         probe = joinProbeFactory.createJoinProbe(page);
 
         // initialize to invalid join position to force output code to advance the cursors
         joinPosition = -1;
     }
 
+    private boolean hasLookupSourceProvider()
+    {
+        if (lookupSourceProvider == null) {
+            if (!lookupSourceProviderFuture.isDone()) {
+                return false;
+            }
+            lookupSourceProvider = requireNonNull(getDone(lookupSourceProviderFuture));
+        }
+        return true;
+    }
+
+    private Page spillAndMaskSpilledPositions(Page page, IntPredicate spillMask)
+    {
+        checkState(spillInProgress.isDone(), "Previous spill still in progress");
+        checkSuccess(spillInProgress, "spilling failed");
+
+        if (!spiller.isPresent()) {
+            spiller = Optional.of(partitioningSpillerFactory.create(
+                    probeTypes,
+                    getPartitionGenerator(),
+                    operatorContext.getSpillContext().newLocalSpillContext(),
+                    operatorContext.getSystemMemoryContext().newAggregatedMemoryContext()));
+        }
+
+        PartitioningSpillResult result = spiller.get().partitionAndSpill(page, spillMask);
+        spillInProgress = result.getSpillingFuture();
+        return result.getRetained();
+    }
+
+    public LocalPartitionGenerator getPartitionGenerator()
+    {
+        if (!partitionGenerator.isPresent()) {
+            partitionGenerator = Optional.of(new LocalPartitionGenerator(hashGenerator, lookupSourceFactory.partitions()));
+        }
+        return partitionGenerator.get();
+    }
+
     @Override
     public Page getOutput()
     {
-        if (probe == null && pageBuilder.isEmpty()) {
-            // Fast exit path when lookup source is still being build
+        if (!spillInProgress.isDone()) {
+            return null;
+        }
+        checkSuccess(spillInProgress, "spilling failed");
+
+        if (probe == null && pageBuilder.isEmpty() && !finishing) {
+            // Fast exit path when lookup source is still being built
             return null;
         }
 
-        checkState(lookupSourceProvider != null, "Input has been accepted before lookup source provided");
-
-        return lookupSourceProvider.withLease(lookupSourceLease -> {
-            return getOutput(lookupSourceLease.getLookupSource());
-        });
-    }
-
-    private Page getOutput(LookupSource lookupSource)
-    {
-        // join probe page with the lookup source
-        Counter lookupPositionsConsidered = new Counter();
-        if (probe != null) {
-            while (true) {
-                if (probe.getPosition() >= 0) {
-                    if (!joinCurrentPosition(lookupSource, lookupPositionsConsidered)) {
-                        break;
-                    }
-                    if (!currentProbePositionProducedRow) {
-                        currentProbePositionProducedRow = true;
-                        if (!outerJoinCurrentPosition(lookupSource)) {
-                            break;
-                        }
-                    }
-                }
-                currentProbePositionProducedRow = false;
-                if (!advanceProbePosition(lookupSource)) {
-                    break;
-                }
-                statisticsCounter.recordProbe(joinSourcePositions);
-                joinSourcePositions = 0;
-            }
+        if (!hasLookupSourceProvider()) {
+            return null;
         }
 
-        // only flush full pages unless we are done
-        if (pageBuilder.isFull() || (finishing && !pageBuilder.isEmpty() && probe == null)) {
+        if (probe == null && finishing && !unspilling) {
+            /*
+             * We do not have input probe and we won't have any, as we're finishing.
+             * Let LookupSourceFactory know LookupSources can be disposed as far as we're concerned.
+             */
+            finishRegularInput();
+            unspilling = true;
+        }
+
+        if (probe == null && unspilling && !finished) {
+            /*
+             * If no current partition or it was exhausted, unspill next one.
+             * Add input there when it needs one, produce output. Be Happy.
+             */
+            tryUnspillNext();
+        }
+
+        if (probe != null) {
+            processProbe();
+        }
+
+        return producePage();
+    }
+
+    private void finishRegularInput()
+    {
+        verify(partitionedConsumption == null, "partitioned consumption already started");
+        partitionedConsumption = lookupSourceFactory.finishProbeOperator(lookupJoinsCount);
+    }
+
+    private void tryUnspillNext()
+    {
+        verify(probe == null);
+
+        if (!partitionedConsumption.isDone()) {
+            return;
+        }
+
+        if (lookupPartitions == null) {
+            lookupPartitions = getDone(partitionedConsumption).beginConsumption();
+        }
+
+        if (unspilledInputPages.hasNext()) {
+            addInput(unspilledInputPages.next());
+            verify(probe != null);
+            return;
+        }
+
+        if (unspilledLookupSource.isPresent()) {
+            if (!unspilledLookupSource.get().isDone()) {
+                // Not unspilled yet
+                return;
+            }
+            LookupSource lookupSource = getDone(unspilledLookupSource.get()).get();
+            unspilledLookupSource = Optional.empty();
+
+            // Close previous lookupSourceProvider (either supplied initially or for the previous partition)
+            lookupSourceProvider.close();
+            lookupSourceProvider = new SimpleLookupSourceProvider(lookupSource);
+
+            int partition = currentPartition.get().number();
+            unspilledInputPages = spiller.map(spiller -> spiller.getSpilledPages(partition))
+                    .orElse(emptyIterator());
+
+            Optional.ofNullable(savedRows.remove(partition)).ifPresent(savedRow -> {
+                restoreProbe(
+                        savedRow.row,
+                        savedRow.joinPositionWithinPartition,
+                        savedRow.currentProbePositionProducedRow,
+                        savedRow.joinSourcePositions,
+                        SpillInfoSnapshot.noSpill());
+            });
+
+            return;
+        }
+
+        if (lookupPartitions.hasNext()) {
+            currentPartition.ifPresent(Partition::release);
+            currentPartition = Optional.of(lookupPartitions.next());
+            unspilledLookupSource = Optional.of(currentPartition.get().load());
+
+            return;
+        }
+
+        currentPartition.ifPresent(Partition::release);
+        if (lookupSourceProvider != null) {
+            lookupSourceProvider.close();
+            lookupSourceProvider = null;
+        }
+        spiller.ifPresent(PartitioningSpiller::verifyAllPartitionsRead);
+        finished = true;
+    }
+
+    private void processProbe()
+    {
+        verify(probe != null);
+
+        Optional<SpillInfoSnapshot> spillInfoSnapshotIfSpillChanged = lookupSourceProvider.withLease(lookupSourceLease -> {
+            if (lookupSourceLease.spillEpoch() == inputPageSpillEpoch) {
+                // Spill state didn't change, so process as usual.
+                processProbe(lookupSourceLease.getLookupSource());
+                return Optional.empty();
+            }
+
+            return Optional.of(SpillInfoSnapshot.from(lookupSourceLease));
+        });
+
+        if (!spillInfoSnapshotIfSpillChanged.isPresent()) {
+            return;
+        }
+        SpillInfoSnapshot spillInfoSnapshot = spillInfoSnapshotIfSpillChanged.get();
+        long joinPositionWithinPartition;
+        if (joinPosition >= 0) {
+            joinPositionWithinPartition = lookupSourceProvider.withLease(lookupSourceLease -> lookupSourceLease.getLookupSource().joinPositionWithinPartition(joinPosition));
+        }
+        else {
+            joinPositionWithinPartition = -1;
+        }
+
+        /*
+         * Spill state changed. All probe rows that were not processed yet should be treated as regular input (and be partially spilled).
+         * If current row maps to the now-spilled partition, it needs to be saved for later. If it maps to a partition still in memory, it
+         * should be added together with not-yet-processed rows. In either case we need to resume processing the row starting at its
+         * current position in the lookup source.
+         */
+        verify(spillInfoSnapshot.hasSpilled);
+        verify(spillInfoSnapshot.spillEpoch > inputPageSpillEpoch);
+
+        Page currentPage = probe.getPage();
+        int currentPosition = probe.getPosition();
+        long currentJoinPosition = this.joinPosition;
+        boolean currentProbePositionProducedRow = this.currentProbePositionProducedRow;
+        int joinSourcePositions = this.joinSourcePositions;
+
+        probe = null;
+
+        if (currentPosition < 0) {
+            // Processing of the page hasn't been started yet.
+            addInput(currentPage, spillInfoSnapshot);
+        }
+        else {
+            int currentRowPartition = getPartitionGenerator().getPartition(currentPage, currentPosition);
+            boolean currentRowSpilled = spillInfoSnapshot.spillMask.test(currentRowPartition);
+
+            if (currentRowSpilled) {
+                savedRows.merge(
+                        currentRowPartition,
+                        new SavedRow(currentPage, currentPosition, joinPositionWithinPartition, currentProbePositionProducedRow, joinSourcePositions),
+                        (oldValue, newValue) -> {
+                            throw new IllegalStateException(format("How on earth this could happen that partition %s is spilled in the middle of processing twice?", currentRowPartition));
+                        });
+                Page unprocessed = pageTail(currentPage, currentPosition + 1);
+                addInput(unprocessed, spillInfoSnapshot);
+            }
+            else {
+                Page remaining = pageTail(currentPage, currentPosition);
+                restoreProbe(remaining, currentJoinPosition, currentProbePositionProducedRow, joinSourcePositions, spillInfoSnapshot);
+            }
+        }
+    }
+
+    private void processProbe(LookupSource lookupSource)
+    {
+        verify(probe != null);
+
+        Counter lookupPositionsConsidered = new Counter();
+        while (true) {
+            if (probe.getPosition() >= 0) {
+                if (!joinCurrentPosition(lookupSource, lookupPositionsConsidered)) {
+                    break;
+                }
+                if (!currentProbePositionProducedRow) {
+                    currentProbePositionProducedRow = true;
+                    if (!outerJoinCurrentPosition(lookupSource)) {
+                        break;
+                    }
+                }
+            }
+            currentProbePositionProducedRow = false;
+            if (!advanceProbePosition(lookupSource)) {
+                break;
+            }
+            statisticsCounter.recordProbe(joinSourcePositions);
+            joinSourcePositions = 0;
+        }
+    }
+
+    private void restoreProbe(Page probePage, long joinPosition, boolean currentProbePositionProducedRow, int joinSourcePositions, SpillInfoSnapshot spillInfoSnapshot)
+    {
+        verify(probe == null);
+
+        addInput(probePage, spillInfoSnapshot);
+        verify(probe.advanceNextPosition());
+        this.joinPosition = joinPosition;
+        this.currentProbePositionProducedRow = currentProbePositionProducedRow;
+        this.joinSourcePositions = joinSourcePositions;
+    }
+
+    private Page pageTail(Page currentPage, int startAtPosition)
+    {
+        verify(currentPage.getPositionCount() - startAtPosition >= 0);
+
+        int[] retainedPositions = new int[currentPage.getPositionCount() - startAtPosition];
+        Arrays.setAll(retainedPositions, i -> startAtPosition + i);
+        return mask(currentPage, retainedPositions);
+    }
+
+    public static class SavedRow
+    {
+        /**
+         * A page with exactly one {@link Page#getPositionCount}, representing saved row.
+         */
+        public final Page row;
+
+        /**
+         * A snapshot of {@link LookupJoinOperator#joinPosition} "de-partitioned", i.e. {@link LookupJoinOperator#joinPosition} is a join position
+         * with respect to (potentially) partitioned lookup source, while this value is a join position with respect to containing partition.
+         */
+        public final long joinPositionWithinPartition;
+
+        /**
+         * A snapshot of {@link LookupJoinOperator#currentProbePositionProducedRow}
+         */
+        public final boolean currentProbePositionProducedRow;
+
+        /**
+         * A snapshot of {@link LookupJoinOperator#joinSourcePositions}
+         */
+        public final int joinSourcePositions;
+
+        public SavedRow(Page page, int position, long joinPositionWithinPartition, boolean currentProbePositionProducedRow, int joinSourcePositions)
+        {
+            this.row = mask(page, new int[] {position});
+            this.row.compact();
+
+            this.joinPositionWithinPartition = joinPositionWithinPartition;
+            this.currentProbePositionProducedRow = currentProbePositionProducedRow;
+            this.joinSourcePositions = joinSourcePositions;
+        }
+    }
+
+    private Page producePage()
+    {
+        if (shouldProducePage()) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
             return page;
         }
-
         return null;
     }
+
+    private boolean shouldProducePage()
+    {
+        if (pageBuilder.isFull()) {
+            return true;
+        }
+
+        if (pageBuilder.isEmpty()) {
+            return false;
+        }
+
+        return probe == null && finished;
+    }
+
+
 
     @Override
     public void close()
     {
-        // Closing the lookupSource is always safe to do, but we don't want to release the supplier multiple times, since its reference counted
         if (closed) {
             return;
         }
         closed = true;
         probe = null;
-        pageBuilder.reset();
-        // closing lookup source is only here for index join
-        if (lookupSourceProvider != null) {
-            lookupSourceProvider.close();
+
+        try (Closer closer = Closer.create()) {
+            closer.register(pageBuilder::reset);
+            closer.register(() -> Optional.ofNullable(lookupSourceProvider).ifPresent(LookupSourceProvider::close));
+            spiller.ifPresent(closer::register);
+            closer.register(onClose::run);
         }
-        onClose.run();
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -315,6 +660,35 @@ public class LookupJoinOperator
         public int get()
         {
             return count;
+        }
+    }
+
+    // This class needs to be public because LookupJoinOperator is isolated.
+    public static class SpillInfoSnapshot
+    {
+        public final boolean hasSpilled;
+        public final long spillEpoch;
+        public final IntPredicate spillMask;
+
+        public SpillInfoSnapshot(boolean hasSpilled, long spillEpoch, IntPredicate spillMask)
+        {
+            this.hasSpilled = hasSpilled;
+            this.spillEpoch = spillEpoch;
+            this.spillMask = requireNonNull(spillMask, "spillMask is null");
+        }
+
+        public static SpillInfoSnapshot from(LookupSourceLease lookupSourceLease)
+        {
+            return new SpillInfoSnapshot(
+                    lookupSourceLease.hasSpilled(),
+                    lookupSourceLease.spillEpoch(),
+                    lookupSourceLease.getSpillMask()
+            );
+        }
+
+        public static SpillInfoSnapshot noSpill()
+        {
+            return new SpillInfoSnapshot(false, 0, i -> false);
         }
     }
 }

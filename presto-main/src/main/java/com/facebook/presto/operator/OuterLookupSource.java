@@ -64,6 +64,12 @@ public final class OuterLookupSource
     }
 
     @Override
+    public long joinPositionWithinPartition(long joinPosition)
+    {
+        return lookupSource.joinPositionWithinPartition(joinPosition);
+    }
+
+    @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
     {
         return lookupSource.getJoinPosition(position, hashChannelsPage, allChannelsPage, rawHash);
