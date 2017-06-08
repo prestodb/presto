@@ -23,6 +23,7 @@ import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -51,6 +52,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.String.format;
@@ -294,9 +296,11 @@ public class BenchmarkHashBuildAndJoinOperators
         }
         operator.finish();
 
-        if (!hashBuilderOperatorFactory.getLookupSourceFactory().createLookupSource().isDone()) {
-            throw new AssertionError("Expected lookup source to be done");
+        ListenableFuture<LookupSourceProvider> lookupSourceProvider = hashBuilderOperatorFactory.getLookupSourceFactory().createLookupSourceProvider();
+        if (!lookupSourceProvider.isDone()) {
+            throw new AssertionError("Expected lookup source provider to be ready");
         }
+        getFutureValue(lookupSourceProvider).close();
 
         return hashBuilderOperatorFactory.getLookupSourceFactory();
     }

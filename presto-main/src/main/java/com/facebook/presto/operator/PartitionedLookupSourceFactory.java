@@ -53,7 +53,7 @@ public final class PartitionedLookupSourceFactory
     private TrackingLookupSourceSupplier lookupSourceSupplier;
 
     @GuardedBy("this")
-    private final List<SettableFuture<LookupSource>> lookupSourceFutures = new ArrayList<>();
+    private final List<SettableFuture<LookupSourceProvider>> lookupSourceFutures = new ArrayList<>();
 
     public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
@@ -87,13 +87,13 @@ public final class PartitionedLookupSourceFactory
     }
 
     @Override
-    public synchronized ListenableFuture<LookupSource> createLookupSource()
+    public synchronized ListenableFuture<LookupSourceProvider> createLookupSourceProvider()
     {
         if (lookupSourceSupplier != null) {
-            return Futures.immediateFuture(lookupSourceSupplier.getLookupSource());
+            return Futures.immediateFuture(new SimpleLookupSourceProvider(lookupSourceSupplier.getLookupSource()));
         }
 
-        SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
+        SettableFuture<LookupSourceProvider> lookupSourceFuture = SettableFuture.create();
         lookupSourceFutures.add(lookupSourceFuture);
         return lookupSourceFuture;
     }
@@ -103,7 +103,7 @@ public final class PartitionedLookupSourceFactory
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
 
         TrackingLookupSourceSupplier lookupSourceSupplier = null;
-        List<SettableFuture<LookupSource>> lookupSourceFutures = null;
+        List<SettableFuture<LookupSourceProvider>> lookupSourceFutures = null;
         synchronized (this) {
             if (destroyed.isDone()) {
                 return;
@@ -132,8 +132,8 @@ public final class PartitionedLookupSourceFactory
         }
 
         if (lookupSourceSupplier != null) {
-            for (SettableFuture<LookupSource> lookupSourceFuture : lookupSourceFutures) {
-                lookupSourceFuture.set(lookupSourceSupplier.getLookupSource());
+            for (SettableFuture<LookupSourceProvider> lookupSourceFuture : lookupSourceFutures) {
+                lookupSourceFuture.set(new SimpleLookupSourceProvider(lookupSourceSupplier.getLookupSource()));
             }
         }
     }

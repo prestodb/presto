@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.LookupSourceFactory;
+import com.facebook.presto.operator.LookupSourceProvider;
 import com.facebook.presto.operator.OuterPositionIterator;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.SimpleLookupSourceProvider;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -94,13 +95,13 @@ public class IndexLookupSourceFactory
     }
 
     @Override
-    public ListenableFuture<LookupSource> createLookupSource()
+    public ListenableFuture<LookupSourceProvider> createLookupSourceProvider()
     {
         checkState(taskContext != null, "taskContext not set");
 
         IndexLoader indexLoader = indexLoaderSupplier.get();
         indexLoader.setContext(taskContext);
-        return Futures.immediateFuture(new IndexLookupSource(indexLoader));
+        return Futures.immediateFuture(new SimpleLookupSourceProvider(new IndexLookupSource(indexLoader)));
     }
 
     @Override
