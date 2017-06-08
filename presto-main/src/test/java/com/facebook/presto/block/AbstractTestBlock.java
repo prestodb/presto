@@ -393,4 +393,13 @@ public abstract class AbstractTestBlock
         objectsWithNulls[objectsWithNulls.length - 1] = null;
         return objectsWithNulls;
     }
+
+    protected static Slice[] createExpectedUniqueValues(int positionCount)
+    {
+        Slice[] expectedValues = new Slice[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            expectedValues[position] = Slices.copyOf(createExpectedValue(position));
+        }
+        return expectedValues;
+    }
 }

@@ -37,6 +37,11 @@ public class SliceArrayBlock
 
     public SliceArrayBlock(int positionCount, Slice[] values)
     {
+        this(positionCount, values, false);
+    }
+
+    public SliceArrayBlock(int positionCount, Slice[] values, boolean valueSlicesAreDistinct)
+    {
         this.positionCount = positionCount;
 
         if (values.length < positionCount) {
@@ -45,7 +50,13 @@ public class SliceArrayBlock
         this.values = values;
 
         sizeInBytes = getSliceArraySizeInBytes(values, 0, values.length);
-        retainedSizeInBytes = INSTANCE_SIZE + getSliceArrayRetainedSizeInBytes(values);
+        // We use IdentityHashMap for reference counting below to do proper memory accounting.
+        // Since IdentityHashMap uses linear probing, depending on the load factor threads going through the
+        // retained size calculation method will make multiple probes in the hash table, which will consume some cycles.
+        // We see that many threads spend cycles probing the hash table when they read the dictionary data and
+        // wrap that in a SliceArrayBlock (in SliceDictionaryStreamReader). Therefore, we avoid going through
+        // the IdentityHashMap for that code path with the valueSlicesAreDistinct flag.
+        retainedSizeInBytes = INSTANCE_SIZE + getSliceArrayRetainedSizeInBytes(values, valueSlicesAreDistinct);
     }
 
     public Slice[] getValues()
@@ -195,7 +206,16 @@ public class SliceArrayBlock
         return getSliceArraySizeInBytes(values, positionOffset, length);
     }
 
-    static int getSliceArrayRetainedSizeInBytes(Slice[] values)
+    private static int getSliceArrayRetainedSizeInBytes(Slice[] values, boolean valueSlicesAreDistinct)
+    {
+        if (valueSlicesAreDistinct) {
+            return getDistinctSliceArrayRetainedSize(values);
+        }
+        return getSliceArrayRetainedSizeInBytes(values);
+    }
+
+    // when the slices are not distinct we need to do reference counting to calculate the total retained size
+    private static int getSliceArrayRetainedSizeInBytes(Slice[] values)
     {
         long sizeInBytes = sizeOf(values);
         Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>(values.length);
@@ -204,8 +224,21 @@ public class SliceArrayBlock
                 continue;
             }
             if (value.getBase() != null && uniqueRetained.put(value.getBase(), true) == null) {
-                    sizeInBytes += value.getRetainedSize();
+                sizeInBytes += value.getRetainedSize();
             }
+        }
+        return intSaturatedCast(sizeInBytes);
+    }
+
+    private static int getDistinctSliceArrayRetainedSize(Slice[] values)
+    {
+        long sizeInBytes = sizeOf(values);
+        for (Slice value : values) {
+            // The check (value.getBase() == null) skips empty slices to be consistent with getSliceArrayRetainedSizeInBytes(values)
+            if (value == null || value.getBase() == null) {
+                continue;
+            }
+            sizeInBytes += value.getRetainedSize();
         }
         return intSaturatedCast(sizeInBytes);
     }
