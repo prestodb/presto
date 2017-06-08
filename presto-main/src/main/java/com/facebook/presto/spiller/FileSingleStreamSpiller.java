@@ -34,8 +34,6 @@ import io.airlift.slice.SliceOutput;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -50,6 +48,7 @@ import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_F
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static com.facebook.presto.util.PrestoCloseables.combineCloseables;
 import static com.google.common.base.Preconditions.checkState;
+import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -59,7 +58,7 @@ public class FileSingleStreamSpiller
     @VisibleForTesting
     static final int BUFFER_SIZE = 4 * 1024;
 
-    private final Path targetFileName;
+    private final FileHolder targetFile;
     private final Closer closer = Closer.create();
     private final PagesSerde serde;
     private final SpillerStats spillerStats;
@@ -87,7 +86,7 @@ public class FileSingleStreamSpiller
         this.localSpillContext = spillContext.newLocalSpillContext();
         this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null");
         try {
-            targetFileName = Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+            this.targetFile = closer.register(new FileHolder(Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX)));
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to create spill file", e);
@@ -97,6 +96,7 @@ public class FileSingleStreamSpiller
     @Override
     public ListenableFuture<?> spill(Iterator<Page> pageIterator)
     {
+        requireNonNull(pageIterator, "pageIterator is null");
         checkNoSpillInProgress();
         spillInProgress = executor.submit(() -> writePages(pageIterator));
         return spillInProgress;
@@ -125,7 +125,7 @@ public class FileSingleStreamSpiller
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
 
-        try (SliceOutput output = new OutputStreamSliceOutput(new FileOutputStream(targetFileName.toFile(), true), BUFFER_SIZE)) {
+        try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
             memoryContext.setBytes(BUFFER_SIZE);
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
@@ -157,7 +157,7 @@ public class FileSingleStreamSpiller
 
         writable = false;
         try {
-            InputStream input = new FileInputStream(targetFileName.toFile());
+            InputStream input = targetFile.newInputStream();
             Closeable resources = closer.register(combineCloseables(input, () -> memoryContext.setBytes(0)));
             memoryContext.setBytes(BUFFER_SIZE);
             Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input, BUFFER_SIZE));
@@ -171,7 +171,6 @@ public class FileSingleStreamSpiller
     @Override
     public void close()
     {
-        closer.register(() -> Files.delete(targetFileName));
         closer.register(localSpillContext);
 
         try {
