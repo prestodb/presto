@@ -68,6 +68,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.any;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
+import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.fixedExactParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.singleStream;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
@@ -343,8 +344,15 @@ public class AddLocalExchanges
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
             if (getTaskWriterCount(session) > 1) {
-                requiredProperties = fixedParallelism();
-                preferredProperties = fixedParallelism();
+                boolean taskWriterCountPowerOfTwo = Integer.bitCount(getTaskWriterCount(session)) == 1;
+                if (!taskWriterCountPowerOfTwo) {
+                    requiredProperties = fixedExactParallelism();
+                    preferredProperties = fixedExactParallelism();
+                }
+                else {
+                    requiredProperties = fixedParallelism();
+                    preferredProperties = fixedParallelism();
+                }
             }
             else {
                 requiredProperties = singleStream();
