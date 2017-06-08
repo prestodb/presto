@@ -30,6 +30,7 @@ import io.airlift.slice.SliceOutput;
 import java.io.IOException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
@@ -55,6 +56,8 @@ import static com.facebook.presto.util.JsonUtil.currentTokenAsBoolean;
 import static com.facebook.presto.util.JsonUtil.currentTokenAsDouble;
 import static com.facebook.presto.util.JsonUtil.currentTokenAsInteger;
 import static com.facebook.presto.util.JsonUtil.currentTokenAsReal;
+import static com.facebook.presto.util.JsonUtil.currentTokenAsSmallint;
+import static com.facebook.presto.util.JsonUtil.currentTokenAsTinyint;
 import static com.facebook.presto.util.JsonUtil.currentTokenAsVarchar;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static java.lang.Float.intBitsToFloat;
@@ -112,8 +115,58 @@ public final class JsonOperators
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to INTEGER"); // check no trailing token
             return result;
         }
+        catch (PrestoException e) {
+            if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+            }
+            throw e;
+        }
         catch (ArithmeticException | IOException | JsonCastException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @SqlType(SMALLINT)
+    public static Long castToSmallint(@SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+            parser.nextToken();
+            Long result = currentTokenAsSmallint(parser);
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to SMALLINT"); // check no trailing token
+            return result;
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+            }
+            throw e;
+        }
+        catch (IllegalArgumentException | IOException | JsonCastException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), SMALLINT), e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @SqlType(TINYINT)
+    public static Long castToTinyint(@SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+            parser.nextToken();
+            Long result = currentTokenAsTinyint(parser);
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to TINYINT"); // check no trailing token
+            return result;
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+            }
+            throw e;
+        }
+        catch (IllegalArgumentException | IOException | JsonCastException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), TINYINT), e);
         }
     }
 
