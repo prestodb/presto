@@ -13,10 +13,22 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -78,5 +90,90 @@ public class TestDateTimeOperatorsLegacy
         assertFunction("TIMESTAMP '2013-03-31 04:05' - INTERVAL '3' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2013-03-31 03:05' - INTERVAL '2' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2013-03-31 01:05' - INTERVAL '1' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+    }
+
+    private String valueFromLiteral(String literal)
+    {
+        Pattern p = Pattern.compile("'(.*)'");
+        Matcher m = p.matcher(literal);
+        m.find();
+        return m.group(1);
+    }
+
+    private void testTimeRepresentationOnDate(DateTime date, String timeLiteral, Type expectedType, Object expected)
+    {
+        Session localSession = testSessionBuilder()
+                .setTimeZoneKey(getTimeZoneKey("America/Los_Angeles"))
+                .setStartTime(date.getMillis())
+                .setSystemProperty("legacy_timestamp", "true")
+                .build();
+
+        FunctionAssertions localAssertions = new FunctionAssertions(localSession);
+        localAssertions.assertFunction(timeLiteral, expectedType, expected);
+        localAssertions.assertFunctionString(timeLiteral, expectedType, valueFromLiteral(timeLiteral));
+    }
+
+    @Test
+    public void testTimeWithTimeZoneRepresentation()
+    {
+        // PST -> PDT date
+        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC),
+                "TIME '02:30:00.000 America/Los_Angeles'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC),
+                "TIME '03:30:00.000 America/Los_Angeles'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(41400000, getTimeZoneKey("America/Los_Angeles")));
+
+        // PDT -> PST date
+        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC),
+                "TIME '02:30:00.000 America/Los_Angeles'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC),
+                "TIME '03:30:00.000 America/Los_Angeles'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(41400000, getTimeZoneKey("America/Los_Angeles")));
+
+        // PDT date
+        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC),
+                "TIME '02:30:00.000 America/Los_Angeles'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC),
+                "TIME '03:30:00.000 America/Los_Angeles'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(41400000, getTimeZoneKey("America/Los_Angeles")));
+
+        // PST date
+        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC),
+                "TIME '02:30:00.000 America/Los_Angeles'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC),
+                "TIME '03:30:00.000 America/Los_Angeles'",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(41400000, getTimeZoneKey("America/Los_Angeles")));
+    }
+
+    @Test
+    public void testTimeRepresentation()
+    {
+        // PST -> PDT date
+        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(41400000, getTimeZoneKey("America/Los_Angeles")));
+
+        // PDT -> PST date
+        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(41400000, getTimeZoneKey("America/Los_Angeles")));
+
+        // PDT date
+        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(41400000, getTimeZoneKey("America/Los_Angeles")));
+
+        // PST date
+        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(41400000, getTimeZoneKey("America/Los_Angeles")));
     }
 }
