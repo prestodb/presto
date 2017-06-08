@@ -63,6 +63,8 @@ public class FileSingleStreamSpiller
 
     private final ListeningExecutorService executor;
 
+    private boolean writable = true;
+    private boolean read;
     private ListenableFuture<?> spillInProgress = Futures.immediateFuture(null);
 
     public FileSingleStreamSpiller(
@@ -103,6 +105,8 @@ public class FileSingleStreamSpiller
 
     private void writePages(Iterator<Page> pageIterator)
     {
+        checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
+
         try (SliceOutput output = new OutputStreamSliceOutput(new FileOutputStream(targetFileName.toFile(), true), BUFFER_SIZE)) {
             memoryContext.setBytes(BUFFER_SIZE);
             while (pageIterator.hasNext()) {
@@ -124,6 +128,15 @@ public class FileSingleStreamSpiller
 
     private Iterator<Page> readPages()
     {
+        if (read) {
+            /*
+             * Repeated reads would mean multiple opened InputStreams and effectively temporary, but dangerous, resource leak.
+             */
+            throw new RuntimeException("Already read");
+        }
+        read = true;
+
+        writable = false;
         try {
             InputStream input = new FileInputStream(targetFileName.toFile());
             memoryContext.setBytes(BUFFER_SIZE);
