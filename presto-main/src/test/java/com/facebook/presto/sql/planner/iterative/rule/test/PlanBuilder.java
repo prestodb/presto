@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -272,6 +273,26 @@ public class PlanBuilder
                 .singleDistributionPartitioningScheme(child.getOutputSymbols())
                 .addSource(child)
                 .addInputsSet(child.getOutputSymbols()));
+    }
+
+    public SemiJoinNode semiJoin(
+            Symbol sourceJoinSymbol,
+            Symbol filteringSourceJoinSymbol,
+            Symbol semiJoinOutput,
+            Optional<Symbol> sourceHashSymbol,
+            Optional<Symbol> filteringSourceHashSymbol,
+            PlanNode source,
+            PlanNode filteringSource)
+    {
+        return new SemiJoinNode(idAllocator.getNextId(),
+                source,
+                filteringSource,
+                sourceJoinSymbol,
+                filteringSourceJoinSymbol,
+                semiJoinOutput,
+                sourceHashSymbol,
+                filteringSourceHashSymbol,
+                Optional.empty());
     }
 
     public ExchangeNode exchange(Consumer<ExchangeBuilder> exchangeBuilderConsumer)
