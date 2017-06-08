@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange;
@@ -24,6 +25,10 @@ import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalEx
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
+import com.facebook.presto.spiller.PartitioningSpillerFactory;
+import com.facebook.presto.spiller.SingleStreamSpiller;
+import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -32,15 +37,20 @@ import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -51,8 +61,11 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterators.unmodifiableIterator;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -62,7 +75,8 @@ public class TestHashJoinOperator
 {
     private static final int PARTITION_COUNT = 4;
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
-
+    private static final SingleStreamSpillerFactory SINGLE_STREAM_SPILLER_FACTORY = new DummySpillerFactory();
+    private static final PartitioningSpillerFactory PARTITIONING_SPILLER_FACTORY = new GenericPartitioningSpillerFactory(SINGLE_STREAM_SPILLER_FACTORY);
     private ExecutorService executor;
 
     @BeforeClass
@@ -114,8 +128,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
@@ -165,8 +180,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
@@ -209,8 +225,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -254,8 +271,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -292,7 +310,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         // expected
@@ -345,7 +365,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -400,7 +422,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -448,7 +472,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -493,7 +519,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -541,7 +569,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -585,7 +615,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
@@ -634,7 +666,9 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
@@ -724,7 +758,9 @@ public class TestHashJoinOperator
                 filterFunctionFactory,
                 100,
                 partitionCount,
-                new PagesIndex.TestingFactory());
+                new PagesIndex.TestingFactory(),
+                false,
+                SINGLE_STREAM_SPILLER_FACTORY);
         PipelineContext buildPipeline = taskContext.addPipelineContext(1, true, true);
 
         Driver[] buildDrivers = new Driver[partitionCount];
@@ -771,6 +807,56 @@ public class TestHashJoinOperator
         public boolean filter(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
         {
             return lambda.filter(leftPosition, leftBlocks, rightPosition, rightBlocks);
+        }
+    }
+
+    private static class DummySpillerFactory
+            implements SingleStreamSpillerFactory
+    {
+        @Override
+        public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
+        {
+            return new SingleStreamSpiller()
+            {
+                private boolean writing = true;
+                private final List<Page> spills = new ArrayList<>();
+
+                @Override
+                public ListenableFuture<?> spill(Iterator<Page> pageIterator)
+                {
+                    checkState(writing, "writing already finished");
+                    Iterators.addAll(spills, pageIterator);
+                    return immediateFuture(null);
+                }
+
+                @Override
+                public Iterator<Page> getSpilledPages()
+                {
+                    writing = false;
+                    return unmodifiableIterator(spills.iterator());
+                }
+
+                @Override
+                public long getSpilledPagesInMemorySize()
+                {
+                    return spills.stream()
+                            .mapToLong(Page::getSizeInBytes)
+                            .sum();
+                }
+
+                @Override
+                public ListenableFuture<List<Page>> getAllSpilledPages()
+                {
+                    writing = false;
+                    return immediateFuture(ImmutableList.copyOf(spills));
+                }
+
+                @Override
+                public void close()
+                {
+                    writing = false;
+                }
+            };
         }
     }
 }

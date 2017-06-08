@@ -35,6 +35,7 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 
 public class HashBuildBenchmark
         extends AbstractOperatorBenchmark
@@ -75,7 +76,9 @@ public class HashBuildBenchmark
                 ImmutableList.of(BIGINT),
                 Ints.asList(0),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.empty(),
+                unsupportedPartitioningSpillerFactory());
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
         DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty());

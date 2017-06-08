@@ -17,11 +17,13 @@ import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
@@ -35,10 +37,14 @@ public class LookupJoinOperator
     private static final int MAX_POSITIONS_EVALUATED_PER_CALL = 10000;
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
+    private final List<Type> allTypes;
+    private final List<Type> probeTypes;
     private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
     private final JoinProbeFactory joinProbeFactory;
     private final Runnable onClose;
+    private final OptionalInt lookupJoinsCount;
+    private final HashGenerator hashGenerator;
+    private final PartitioningSpillerFactory partitioningSpillerFactory;
 
     private final JoinStatisticsCounter statisticsCounter;
 
@@ -58,14 +64,19 @@ public class LookupJoinOperator
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
-            List<Type> types,
+            List<Type> allTypes,
+            List<Type> probeTypes,
             JoinType joinType,
             ListenableFuture<LookupSource> lookupSourceFuture,
             JoinProbeFactory joinProbeFactory,
-            Runnable onClose)
+            Runnable onClose,
+            OptionalInt lookupJoinsCount,
+            HashGenerator hashGenerator,
+            PartitioningSpillerFactory partitioningSpillerFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.allTypes = ImmutableList.copyOf(requireNonNull(allTypes, "allTypes is null"));
+        this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
 
         requireNonNull(joinType, "joinType is null");
         // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
@@ -74,11 +85,14 @@ public class LookupJoinOperator
         this.lookupSourceFuture = requireNonNull(lookupSourceFuture, "lookupSourceFuture is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.onClose = requireNonNull(onClose, "onClose is null");
+        this.lookupJoinsCount = requireNonNull(lookupJoinsCount, "lookupJoinsCount is null");
+        this.hashGenerator = requireNonNull(hashGenerator, "hashGenerator is null");
+        this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
 
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         operatorContext.setInfoSupplier(this.statisticsCounter);
 
-        this.pageBuilder = new PageBuilder(types);
+        this.pageBuilder = new PageBuilder(allTypes);
     }
 
     @Override
@@ -90,7 +104,7 @@ public class LookupJoinOperator
     @Override
     public List<Type> getTypes()
     {
-        return types;
+        return allTypes;
     }
 
     @Override

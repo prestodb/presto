@@ -39,6 +39,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -56,6 +57,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -70,6 +72,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.util.Optionals.toOptionalInt;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class JoinProbeCompiler
@@ -101,7 +104,9 @@ public class JoinProbeCompiler
             List<Integer> probeJoinChannel,
             Optional<Integer> probeHashChannel,
             List<Integer> probeOutputChannels,
-            JoinType joinType)
+            JoinType joinType,
+            OptionalInt totalOperatorsCount,
+            PartitioningSpillerFactory partitioningSpillerFactory)
     {
         try {
             List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
@@ -114,7 +119,17 @@ public class JoinProbeCompiler
                     probeJoinChannel,
                     probeHashChannel,
                     joinType));
-            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeOutputChannelTypes, joinType);
+            return operatorFactoryFactory.createHashJoinOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    lookupSourceFactory,
+                    probeTypes,
+                    probeOutputChannelTypes,
+                    joinType,
+                    totalOperatorsCount,
+                    probeJoinChannel,
+                    toOptionalInt(probeHashChannel),
+                    partitioningSpillerFactory);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
@@ -568,7 +583,18 @@ public class JoinProbeCompiler
             this.joinProbeFactory = joinProbeFactory;
 
             try {
-                constructor = operatorFactoryClass.getConstructor(int.class, PlanNodeId.class, LookupSourceFactory.class, List.class, List.class, JoinType.class, JoinProbeFactory.class);
+                constructor = operatorFactoryClass.getConstructor(
+                        int.class,
+                        PlanNodeId.class,
+                        LookupSourceFactory.class,
+                        List.class,
+                        List.class,
+                        JoinType.class,
+                        JoinProbeFactory.class,
+                        OptionalInt.class,
+                        List.class,
+                        OptionalInt.class,
+                        PartitioningSpillerFactory.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -581,10 +607,25 @@ public class JoinProbeCompiler
                 LookupSourceFactory lookupSourceFactory,
                 List<? extends Type> probeTypes,
                 List<? extends Type> probeOutputTypes,
-                JoinType joinType)
+                JoinType joinType,
+                OptionalInt totalOperatorsCount,
+                List<Integer> probeJoinChannels,
+                OptionalInt probeHashChannel,
+                PartitioningSpillerFactory partitioningSpillerFactory)
         {
             try {
-                return constructor.newInstance(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeOutputTypes, joinType, joinProbeFactory);
+                return constructor.newInstance(
+                        operatorId,
+                        planNodeId,
+                        lookupSourceFactory,
+                        probeTypes,
+                        probeOutputTypes,
+                        joinType,
+                        joinProbeFactory,
+                        totalOperatorsCount,
+                        probeJoinChannels,
+                        probeHashChannel,
+                        partitioningSpillerFactory);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
