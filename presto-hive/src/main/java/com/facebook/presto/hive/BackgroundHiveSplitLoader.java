@@ -514,10 +514,24 @@ public class BackgroundHiveSplitLoader
                 @Override
                 protected HiveSplit computeNext()
                 {
-                    if (!blockLocationIterator.hasNext()) {
-                        return endOfData();
+                    BlockLocation blockLocation;
+                    while (true) {
+                        if (!blockLocationIterator.hasNext()) {
+                            return endOfData();
+                        }
+
+                        blockLocation = blockLocationIterator.peek();
+
+                        if (chunkOffset < blockLocation.getLength()) {
+                            break;
+                        }
+
+                        // Move on to the next block if the current one is completed (or if the current one is empty).
+                        // HDFS does not produce zero-length blocks in getFileBlockLocations. But other FS implementations may.
+                        checkState(chunkOffset == blockLocation.getLength(), "Error splitting blocks");
+                        blockLocationIterator.next();
+                        chunkOffset = 0;
                     }
-                    BlockLocation blockLocation = blockLocationIterator.peek();
 
                     List<HostAddress> addresses;
                     try {
@@ -557,12 +571,6 @@ public class BackgroundHiveSplitLoader
                             columnCoercions);
 
                     chunkOffset += chunkLength;
-
-                    if (chunkOffset >= blockLocation.getLength()) {
-                        checkState(chunkOffset == blockLocation.getLength(), "Error splitting blocks");
-                        blockLocationIterator.next();
-                        chunkOffset = 0;
-                    }
 
                     return result;
                 }
