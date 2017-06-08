@@ -31,6 +31,8 @@ import com.facebook.presto.type.VarcharOperators;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -602,6 +604,48 @@ public final class JsonUtil
                 return BooleanOperators.castToInteger(false);
             default:
                 throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.INTEGER, parser.getText()));
+        }
+    }
+
+    public static Long currentTokenAsSmallint(JsonParser parser)
+            throws IOException
+    {
+        switch (parser.currentToken()) {
+            case VALUE_NULL:
+                return null;
+            case VALUE_STRING:
+                return VarcharOperators.castToSmallint(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT:
+                return DoubleOperators.castToSmallint(parser.getDoubleValue());
+            case VALUE_NUMBER_INT:
+                return (long) Shorts.checkedCast(parser.getLongValue());
+            case VALUE_TRUE:
+                return BooleanOperators.castToSmallint(true);
+            case VALUE_FALSE:
+                return BooleanOperators.castToSmallint(false);
+            default:
+                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.SMALLINT, parser.getText()));
+        }
+    }
+
+    public static Long currentTokenAsTinyint(JsonParser parser)
+            throws IOException
+    {
+        switch (parser.currentToken()) {
+            case VALUE_NULL:
+                return null;
+            case VALUE_STRING:
+                return VarcharOperators.castToTinyint(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT:
+                return DoubleOperators.castToTinyint(parser.getDoubleValue());
+            case VALUE_NUMBER_INT:
+                return (long) SignedBytes.checkedCast(parser.getLongValue());
+            case VALUE_TRUE:
+                return BooleanOperators.castToTinyint(true);
+            case VALUE_FALSE:
+                return BooleanOperators.castToTinyint(false);
+            default:
+                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.TINYINT, parser.getText()));
         }
     }
 
