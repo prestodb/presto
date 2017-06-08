@@ -277,17 +277,6 @@ public final class FunctionAssertions
 
         List<Object> results = new ArrayList<>();
 
-        //
-        // If the projection does not need bound values, execute query using full engine
-        if (!needsBoundValue(projectionExpression)) {
-            MaterializedResult result = runner.execute("SELECT " + projection);
-            assertType(result.getTypes(), expectedType);
-            assertEquals(result.getTypes().size(), 1);
-            assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-            results.add(queryResult);
-        }
-
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(Optional.empty(), projectionRowExpression, compiler);
         assertType(operatorFactory.getTypes(), expectedType);
