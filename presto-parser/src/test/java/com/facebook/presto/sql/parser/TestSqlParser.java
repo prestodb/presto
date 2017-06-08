@@ -541,13 +541,13 @@ public class TestSqlParser
                         new LongLiteral("3"))));
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:1: mismatched input '<EOF>'\\E.*")
     public void testEmptyExpression()
     {
         SQL_PARSER.createExpression("");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:1: mismatched input '<EOF>'\\E.*")
     public void testEmptyStatement()
     {
         SQL_PARSER.createStatement("");
@@ -589,13 +589,13 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select *\nfrom x\nwhere from");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:14: no viable alternative at input '<EOF>'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:14: mismatched input '<EOF>'\\E.*")
     public void testParseErrorEndOfInput()
     {
         SQL_PARSER.createStatement("select * from");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:16: no viable alternative at input '<EOF>'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:16: mismatched input '<EOF>'\\E.*")
     public void testParseErrorEndOfInputWhitespace()
     {
         SQL_PARSER.createStatement("select * from  ");
@@ -1137,10 +1137,10 @@ public class TestSqlParser
                         Optional.empty()));
     }
 
-    @Test
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:18: mismatched input '+'\\E.*")
     public void testGroupingFunctionWithExpressions()
     {
-        assertInvalidStatement("SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2", "line 1:18: mismatched input '+' expecting {'.', ')', ','}");
+        SQL_PARSER.createStatement("SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2");
     }
 
     @Test
