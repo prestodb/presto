@@ -50,7 +50,7 @@ public final class PartitionedLookupSourceFactory
     private int partitionsSet;
 
     @GuardedBy("this")
-    private Supplier<LookupSource> lookupSourceSupplier;
+    private TrackingLookupSourceSupplier lookupSourceSupplier;
 
     @GuardedBy("this")
     private final List<SettableFuture<LookupSource>> lookupSourceFutures = new ArrayList<>();
@@ -90,7 +90,7 @@ public final class PartitionedLookupSourceFactory
     public synchronized ListenableFuture<LookupSource> createLookupSource()
     {
         if (lookupSourceSupplier != null) {
-            return Futures.immediateFuture(lookupSourceSupplier.get());
+            return Futures.immediateFuture(lookupSourceSupplier.getLookupSource());
         }
 
         SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
@@ -102,7 +102,7 @@ public final class PartitionedLookupSourceFactory
     {
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
 
-        Supplier<LookupSource> lookupSourceSupplier = null;
+        TrackingLookupSourceSupplier lookupSourceSupplier = null;
         List<SettableFuture<LookupSource>> lookupSourceFutures = null;
         synchronized (this) {
             if (destroyed.isDone()) {
@@ -122,7 +122,7 @@ public final class PartitionedLookupSourceFactory
                     this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitionLookupSource);
                 }
                 else {
-                    this.lookupSourceSupplier = partitionLookupSource;
+                    this.lookupSourceSupplier = TrackingLookupSourceSupplier.from(partitionLookupSource);
                 }
 
                 // store lookup source supplier and futures into local variables so they can be used outside of the lock
@@ -133,9 +133,20 @@ public final class PartitionedLookupSourceFactory
 
         if (lookupSourceSupplier != null) {
             for (SettableFuture<LookupSource> lookupSourceFuture : lookupSourceFutures) {
-                lookupSourceFuture.set(lookupSourceSupplier.get());
+                lookupSourceFuture.set(lookupSourceSupplier.getLookupSource());
             }
         }
+    }
+
+    @Override
+    public OuterPositionIterator getOuterPositionIterator()
+    {
+        TrackingLookupSourceSupplier lookupSourceSupplier;
+        synchronized (this) {
+            checkState(this.lookupSourceSupplier != null, "lookup source not ready yet");
+            lookupSourceSupplier = this.lookupSourceSupplier;
+        }
+        return lookupSourceSupplier.getOuterPositionIterator();
     }
 
     @Override
