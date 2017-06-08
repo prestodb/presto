@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 import org.testng.annotations.Test;
 
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -39,6 +40,9 @@ public class TestDbResourceGroupConfigurationManager
 {
     static H2DaoProvider setup(String prefix)
     {
+        //  Set the language for test as some exception messages use the language specified in locale. See #6655 for details.
+        Locale.setDefault(new Locale("en", "US"));
+
         DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime());
         return new H2DaoProvider(config);
     }
