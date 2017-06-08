@@ -28,6 +28,11 @@ public interface LookupSourceFactory
 
     ListenableFuture<LookupSource> createLookupSource();
 
+    /**
+     * Can be called only after {@link #createLookupSource()} is done and all users of {@link LookupSource}-s finished.
+     */
+    OuterPositionIterator getOuterPositionIterator();
+
     Map<Symbol, Integer> getLayout();
 
     // this is only here for the index lookup source
