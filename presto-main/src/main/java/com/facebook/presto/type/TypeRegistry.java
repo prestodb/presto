@@ -25,6 +25,8 @@ import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.RegexLibrary;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -83,6 +85,8 @@ import static java.util.Objects.requireNonNull;
 public final class TypeRegistry
         implements TypeManager
 {
+    private final RegexLibrary regexLibrary;
+
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
@@ -93,10 +97,21 @@ public final class TypeRegistry
         this(ImmutableSet.of());
     }
 
-    @Inject
     public TypeRegistry(Set<Type> types)
     {
+        this(types, new FeaturesConfig().getRegexLibrary());
+    }
+
+    @Inject
+    public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig)
+    {
+        this(types, featuresConfig.getRegexLibrary());
+    }
+
+    public TypeRegistry(Set<Type> types, RegexLibrary regexLibrary)
+    {
         requireNonNull(types, "types is null");
+        this.regexLibrary = requireNonNull(regexLibrary, "regexLibrary is null");
 
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
         this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
@@ -496,9 +511,9 @@ public final class TypeRegistry
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
                     case JoniRegexpType.NAME:
-                        return Optional.of(JONI_REGEXP);
+                        return regexLibrary == RegexLibrary.JONI ? Optional.of(JONI_REGEXP) : Optional.empty();
                     case Re2JRegexpType.NAME:
-                        return Optional.of(RE2J_REGEXP);
+                        return regexLibrary == RegexLibrary.RE2J ? Optional.of(RE2J_REGEXP) : Optional.empty();
                     case LikePatternType.NAME:
                         return Optional.of(LIKE_PATTERN);
                     case JsonPathType.NAME:
@@ -515,9 +530,9 @@ public final class TypeRegistry
                         CharType charType = (CharType) sourceType;
                         return Optional.of(createVarcharType(charType.getLength()));
                     case JoniRegexpType.NAME:
-                        return Optional.of(JONI_REGEXP);
+                        return regexLibrary == RegexLibrary.JONI ? Optional.of(JONI_REGEXP) : Optional.empty();
                     case Re2JRegexpType.NAME:
-                        return Optional.of(RE2J_REGEXP);
+                        return regexLibrary == RegexLibrary.RE2J ? Optional.of(RE2J_REGEXP) : Optional.empty();
                     case LikePatternType.NAME:
                         return Optional.of(LIKE_PATTERN);
                     case JsonPathType.NAME:

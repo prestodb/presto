@@ -258,7 +258,7 @@ public class LocalQueryRunner
 
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
-        this.typeRegistry = new TypeRegistry();
+        this.typeRegistry = new TypeRegistry(ImmutableSet.of(), featuresConfig);
         this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler());
         this.indexManager = new IndexManager();

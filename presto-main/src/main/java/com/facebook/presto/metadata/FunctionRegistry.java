@@ -495,6 +495,8 @@ public class FunctionRegistry
                 .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(CharOperators.class)
+                .scalars(JoniRegexpFunctions.class)
+                .scalars(Re2JRegexpFunctions.class)
                 .scalar(DecimalOperators.Negation.class)
                 .scalar(DecimalOperators.HashCode.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
@@ -580,15 +582,6 @@ public class FunctionRegistry
                 .function(TRY_CAST);
 
         builder.function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg()));
-
-        switch (featuresConfig.getRegexLibrary()) {
-            case JONI:
-                builder.scalars(JoniRegexpFunctions.class);
-                break;
-            case RE2J:
-                builder.scalars(Re2JRegexpFunctions.class);
-                break;
-        }
 
         addFunctions(builder.getFunctions());
 
