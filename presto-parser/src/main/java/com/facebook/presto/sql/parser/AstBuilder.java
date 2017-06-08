@@ -914,9 +914,9 @@ class AstBuilder
     }
 
     @Override
-    public Node visitLateral(SqlBaseParser.LateralContext ctx)
+    public Node visitLateral(SqlBaseParser.LateralContext context)
     {
-        return new Lateral(getLocation(ctx), (Query) visit(ctx.query()));
+        return new Lateral(getLocation(context), (Query) visit(context.query()));
     }
 
     @Override
