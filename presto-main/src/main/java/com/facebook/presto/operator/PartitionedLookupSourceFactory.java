@@ -33,6 +33,7 @@ import static com.facebook.presto.operator.PartitionedLookupSource.createPartiti
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static java.lang.Thread.holdsLock;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceFactory
@@ -42,9 +43,11 @@ public final class PartitionedLookupSourceFactory
     private final List<Type> outputTypes;
     private final Map<Symbol, Integer> layout;
     private final List<Type> hashChannelTypes;
-    private final Supplier<LookupSource>[] partitions;
     private final boolean outer;
     private final SettableFuture<?> destroyed = SettableFuture.create();
+
+    @GuardedBy("this")
+    private final Supplier<LookupSource>[] partitions;
 
     @GuardedBy("this")
     private int partitionsSet;
@@ -102,8 +105,7 @@ public final class PartitionedLookupSourceFactory
     {
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
 
-        TrackingLookupSourceSupplier lookupSourceSupplier = null;
-        List<SettableFuture<LookupSourceProvider>> lookupSourceFutures = null;
+        boolean completed;
         synchronized (this) {
             if (destroyed.isDone()) {
                 return;
@@ -112,29 +114,41 @@ public final class PartitionedLookupSourceFactory
             checkState(partitions[partitionIndex] == null, "Partition already set");
             partitions[partitionIndex] = partitionLookupSource;
             partitionsSet++;
+            completed = partitionsSet == partitions.length;
+        }
+        if (completed) {
+            supplyLookupSources();
+        }
+    }
 
-            if (partitionsSet == partitions.length) {
-                if (partitionsSet != 1) {
-                    List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
-                    this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer);
-                }
-                else if (outer) {
-                    this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitionLookupSource);
-                }
-                else {
-                    this.lookupSourceSupplier = TrackingLookupSourceSupplier.nonTracking(partitionLookupSource);
-                }
+    private void supplyLookupSources()
+    {
+        checkState(!holdsLock(this));
 
-                // store lookup source supplier and futures into local variables so they can be used outside of the lock
-                lookupSourceSupplier = this.lookupSourceSupplier;
-                lookupSourceFutures = ImmutableList.copyOf(this.lookupSourceFutures);
+        TrackingLookupSourceSupplier lookupSourceSupplier;
+        List<SettableFuture<LookupSourceProvider>> lookupSourceFutures;
+        synchronized (this) {
+            checkState(partitionsSet == partitions.length, "Not all set yet");
+            checkState(this.lookupSourceSupplier == null, "Already supplied");
+
+            if (partitionsSet != 1) {
+                List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
+                this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer);
             }
+            else if (outer) {
+                this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitions[0]);
+            }
+            else {
+                this.lookupSourceSupplier = TrackingLookupSourceSupplier.nonTracking(partitions[0]);
+            }
+
+            // store lookup source supplier and futures into local variables so they can be used outside of the lock
+            lookupSourceSupplier = this.lookupSourceSupplier;
+            lookupSourceFutures = ImmutableList.copyOf(this.lookupSourceFutures);
         }
 
-        if (lookupSourceSupplier != null) {
-            for (SettableFuture<LookupSourceProvider> lookupSourceFuture : lookupSourceFutures) {
-                lookupSourceFuture.set(new SimpleLookupSourceProvider(lookupSourceSupplier.getLookupSource()));
-            }
+        for (SettableFuture<LookupSourceProvider> lookupSourceFuture : lookupSourceFutures) {
+            lookupSourceFuture.set(new SimpleLookupSourceProvider(lookupSourceSupplier.getLookupSource()));
         }
     }
 
