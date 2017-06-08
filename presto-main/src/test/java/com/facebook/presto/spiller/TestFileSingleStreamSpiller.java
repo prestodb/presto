@@ -34,6 +34,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -80,14 +81,16 @@ public class TestFileSingleStreamSpiller
         // for spilling memory should be accounted only during spill() method is executing
         assertEquals(memoryContext.getBytes(), 0);
 
-        ImmutableList<Page> spilledPages = ImmutableList.copyOf(spiller.getSpilledPages());
+        Iterator<Page> spilledPagesIterator = spiller.getSpilledPages();
+        assertEquals(memoryContext.getBytes(), FileSingleStreamSpiller.BUFFER_SIZE);
+        ImmutableList<Page> spilledPages = ImmutableList.copyOf(spilledPagesIterator);
+        assertEquals(memoryContext.getBytes(), 0);
 
         assertEquals(4, spilledPages.size());
         for (int i = 0; i < 4; ++i) {
             PageAssertions.assertPageEquals(TYPES, page, spilledPages.get(i));
         }
 
-        assertEquals(memoryContext.getBytes(), FileSingleStreamSpiller.BUFFER_SIZE);
         spiller.close();
         assertEquals(0, FileUtils.listFiles(spillPath).size());
         assertEquals(memoryContext.getBytes(), 0);

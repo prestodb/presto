@@ -20,6 +20,7 @@ import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.util.PrestoIterators;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
@@ -32,6 +33,7 @@ import io.airlift.slice.SliceOutput;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.io.Closeable;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -46,6 +48,7 @@ import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeSerialize
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
+import static com.facebook.presto.util.PrestoCloseables.combineCloseables;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -155,10 +158,10 @@ public class FileSingleStreamSpiller
         writable = false;
         try {
             InputStream input = new FileInputStream(targetFileName.toFile());
+            Closeable resources = closer.register(combineCloseables(input, () -> memoryContext.setBytes(0)));
             memoryContext.setBytes(BUFFER_SIZE);
-            closer.register(input);
-            closer.register(() -> memoryContext.setBytes(0));
-            return PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input, BUFFER_SIZE));
+            Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input, BUFFER_SIZE));
+            return PrestoIterators.closeWhenExhausted(pages, resources);
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);
