@@ -72,6 +72,7 @@ import com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.optimizations.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
+import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedNoAggregationSubqueryToJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedSingleRowSubqueryToProject;
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
@@ -191,6 +192,7 @@ public class PlanOptimizers
                                 new TransformCorrelatedInPredicateToJoin(), // must be run after PruneUnreferencedOutputs
                                 new ImplementFilteredAggregations())
                 ),
+                new TransformCorrelatedNoAggregationSubqueryToJoin(),
                 new TransformCorrelatedSingleRowSubqueryToProject(),
                 new PredicatePushDown(metadata, sqlParser),
                 new PruneUnreferencedOutputs(),
