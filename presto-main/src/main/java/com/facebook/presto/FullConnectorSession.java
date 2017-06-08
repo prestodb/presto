@@ -125,6 +125,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public Map<String, String> getProperties()
+    {
+        return properties;
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

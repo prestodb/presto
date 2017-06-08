@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -112,6 +113,27 @@ public class TestingConnectorSession
             return type.cast(metadata.getDefaultValue());
         }
         return type.cast(metadata.decode(value));
+    }
+
+    @Override
+    public Map<String, String> getProperties()
+    {
+        Map<String, String> result = new HashMap<>();
+        for (String key : properties.keySet()) {
+            PropertyMetadata<?> metadata = properties.get(key);
+            if (metadata == null) {
+                throw new PrestoException(INVALID_SESSION_PROPERTY, "Empty metadata for property " + key);
+            }
+            String value;
+            if (propertyValues.get(key) == null) {
+                value = metadata.getDefaultValue().toString();
+            }
+            else {
+                value = metadata.decode(propertyValues.get(key)).toString();
+            }
+            result.put(key, value);
+        }
+        return result;
     }
 
     @Override
