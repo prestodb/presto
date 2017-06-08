@@ -85,6 +85,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.amazonaws.services.s3.Headers.CRYPTO_KEYWRAP_ALGORITHM;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -315,7 +316,7 @@ public class PrestoS3FileSystem
         }
 
         return new FileStatus(
-                getObjectSize(metadata),
+                getObjectSize(metadata, path),
                 false,
                 1,
                 BLOCK_SIZE.toBytes(),
@@ -323,10 +324,32 @@ public class PrestoS3FileSystem
                 qualifiedPath(path));
     }
 
-    private static long getObjectSize(ObjectMetadata metadata)
+    private long getObjectSize(ObjectMetadata metadata, Path path)
+            throws IOException
     {
         String length = metadata.getUserMetadata().get(UNENCRYPTED_CONTENT_LENGTH);
-        return (length != null) ? Long.parseLong(length) : metadata.getContentLength();
+
+        if (length != null) {
+            return Long.parseLong(length);
+        }
+
+        String cryptoAlgorithm = metadata.getUserMetadata().get(CRYPTO_KEYWRAP_ALGORITHM);
+        if ("kms".equalsIgnoreCase(cryptoAlgorithm)) {
+            long decryptedLength = metadata.getContentLength();
+
+            try (FSDataInputStream inputStream = this.open(path)) {
+                int eofOffset = 25;
+                long startingPos = (decryptedLength > eofOffset) ? decryptedLength - eofOffset : 0;
+
+                inputStream.seek(startingPos);
+
+                while (inputStream.read() != -1) {
+                    startingPos++;
+                }
+                return startingPos;
+            }
+        }
+        return metadata.getContentLength();
     }
 
     @Override
