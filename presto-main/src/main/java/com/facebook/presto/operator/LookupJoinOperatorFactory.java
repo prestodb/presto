@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
-import com.facebook.presto.operator.LookupSource.OuterPositionIterator;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -83,9 +82,8 @@ public class LookupJoinOperatorFactory
             // when all join operators finish (and lookup source is ready), set the outer position future to start the outer operator
             ListenableFuture<LookupSource> lookupSourceAfterProbeFinished = transformAsync(probeReferenceCount.getFreeFuture(), ignored -> lookupSourceFactory.createLookupSource());
             ListenableFuture<OuterPositionIterator> outerPositionsFuture = transform(lookupSourceAfterProbeFinished, lookupSource -> {
-                try (LookupSource ignore = lookupSource) {
-                    return lookupSource.getOuterPositionIterator();
-                }
+                lookupSource.close();
+                return lookupSourceFactory.getOuterPositionIterator();
             });
 
             lookupSourceFactoryUsersCount.retain();

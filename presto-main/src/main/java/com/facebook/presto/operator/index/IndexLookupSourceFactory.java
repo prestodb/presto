@@ -15,6 +15,7 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.LookupSourceFactory;
+import com.facebook.presto.operator.OuterPositionIterator;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.type.Type;
@@ -100,6 +101,12 @@ public class IndexLookupSourceFactory
         IndexLoader indexLoader = indexLoaderSupplier.get();
         indexLoader.setContext(taskContext);
         return Futures.immediateFuture(new IndexLookupSource(indexLoader));
+    }
+
+    @Override
+    public OuterPositionIterator getOuterPositionIterator()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
