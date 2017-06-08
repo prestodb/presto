@@ -50,6 +50,7 @@ public class TestRoles
     private static final String SHORT_TABLE_NAME = "test_table";
     private static final String SCHEMA_NAME = "default";
     private static final String TABLE_NAME = format("%s.%s", SCHEMA_NAME, SHORT_TABLE_NAME);
+    private static final String CREATE_TABLE_SQL = format("CREATE TABLE %s (foo BIGINT)", TABLE_NAME);
     private static final Set<String> TEST_ROLES = ImmutableSet.of(ROLE1, ROLE2, ROLE3);
     private static final Set<String> TEST_USERS = ImmutableSet.of(ALICE, BOB);
 
@@ -576,7 +577,7 @@ public class TestRoles
     {
         onPresto().executeQuery("CREATE ROLE role1");
         onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery(format("CREATE TABLE %s (foo BIGINT)", TABLE_NAME));
+        onPresto().executeQuery(CREATE_TABLE_SQL);
         QueryAssert.assertThat(() -> onPrestoAlice().executeQuery(format("SELECT * FROM %s", TABLE_NAME))).
                 failsWithMessage(format("Access Denied: Cannot select from table %s", TABLE_NAME));
         onPresto().executeQuery(format("GRANT ALL PRIVILEGES ON %s TO ROLE role1", TABLE_NAME));
@@ -592,7 +593,7 @@ public class TestRoles
     {
         onPresto().executeQuery("CREATE ROLE role1");
         onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery(format("CREATE TABLE %s (foo BIGINT)", TABLE_NAME));
+        onPresto().executeQuery(CREATE_TABLE_SQL);
         onPresto().executeQuery(format("GRANT SELECT ON %s TO ROLE role1", TABLE_NAME));
         QueryAssert.assertThat(onPrestoAlice().executeQuery(format("SELECT * FROM %s", TABLE_NAME))).hasNoRows();
         onPresto().executeQuery(format("REVOKE ALL PRIVILEGES ON %s FROM ROLE role1", TABLE_NAME));
@@ -606,7 +607,7 @@ public class TestRoles
     {
         onPresto().executeQuery("CREATE ROLE role1");
         onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery(format("CREATE TABLE %s (foo BIGINT)", TABLE_NAME));
+        onPresto().executeQuery(CREATE_TABLE_SQL);
         QueryAssert.assertThat(() -> onPrestoAlice().executeQuery(format("SELECT * FROM %s", TABLE_NAME))).
                 failsWithMessage(format("Access Denied: Cannot select from table %s", TABLE_NAME));
         onPresto().executeQuery(format("GRANT SELECT ON %s TO ROLE role1", TABLE_NAME));
@@ -621,7 +622,7 @@ public class TestRoles
     {
         onPresto().executeQuery("CREATE ROLE role1");
         onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery(format("CREATE TABLE %s (foo BIGINT)", TABLE_NAME));
+        onPresto().executeQuery(CREATE_TABLE_SQL);
         onPresto().executeQuery(format("GRANT SELECT ON %s TO ROLE role1", TABLE_NAME));
         onPresto().executeQuery(format("GRANT SELECT ON %s TO USER alice", TABLE_NAME));
         QueryAssert.assertThat(onPrestoAlice().executeQuery(format("SELECT * FROM %s", TABLE_NAME))).hasNoRows();
@@ -633,7 +634,7 @@ public class TestRoles
     public void testGrantToPublicRevokeFromUser()
             throws Exception
     {
-        onPresto().executeQuery(format("CREATE TABLE %s (foo BIGINT)", TABLE_NAME));
+        onPresto().executeQuery(CREATE_TABLE_SQL);
         QueryAssert.assertThat(() -> onPrestoAlice().executeQuery(format("SELECT * FROM %s", TABLE_NAME))).
                 failsWithMessage(format("Access Denied: Cannot select from table %s", TABLE_NAME));
         onPresto().executeQuery(format("GRANT SELECT ON %s TO ROLE public", TABLE_NAME));
@@ -702,7 +703,7 @@ public class TestRoles
     public void testAdminCanDropAnyTable()
             throws Exception
     {
-        onPrestoAlice().executeQuery(format("CREATE TABLE hive.%s (foo BIGINT)", TABLE_NAME));
+        onPrestoAlice().executeQuery(CREATE_TABLE_SQL);
         assertAdminExecute(format("DROP TABLE hive.%s", TABLE_NAME));
     }
 
@@ -710,7 +711,7 @@ public class TestRoles
     public void testAdminCanRenameAnyTable()
             throws Exception
     {
-        onPrestoAlice().executeQuery(format("CREATE TABLE hive.%s (foo BIGINT)", TABLE_NAME));
+        onPrestoAlice().executeQuery(CREATE_TABLE_SQL);
         assertAdminExecute(format("ALTER TABLE hive.%s RENAME TO hive.%s_1", TABLE_NAME, TABLE_NAME));
         onPrestoAlice().executeQuery(format("DROP TABLE hive.%s_1", TABLE_NAME));
     }
@@ -719,7 +720,7 @@ public class TestRoles
     public void testAdminCanAddColumnToAnyTable()
             throws Exception
     {
-        onPrestoAlice().executeQuery(format("CREATE TABLE hive.%s (foo BIGINT)", TABLE_NAME));
+        onPrestoAlice().executeQuery(CREATE_TABLE_SQL);
         assertAdminExecute(format("ALTER TABLE hive.%s ADD COLUMN bar DATE", TABLE_NAME));
         onPrestoAlice().executeQuery(format("DROP TABLE hive.%s", TABLE_NAME));
     }
@@ -728,7 +729,7 @@ public class TestRoles
     public void testAdminCanRenameColumnInAnyTable()
             throws Exception
     {
-        onPrestoAlice().executeQuery(format("CREATE TABLE hive.%s (foo BIGINT)", TABLE_NAME));
+        onPrestoAlice().executeQuery(CREATE_TABLE_SQL);
         assertAdminExecute(format("ALTER TABLE hive.%s RENAME COLUMN foo TO bar", TABLE_NAME));
         onPrestoAlice().executeQuery(format("DROP TABLE hive.%s", TABLE_NAME));
     }
@@ -743,7 +744,7 @@ public class TestRoles
         onPresto().executeQuery("GRANT role1 TO USER bob");
         onPresto().executeQuery("GRANT role2 TO USER bob");
 
-        onPrestoAlice().executeQuery(format("CREATE TABLE hive.%s (foo BIGINT)", TABLE_NAME));
+        onPrestoAlice().executeQuery(CREATE_TABLE_SQL);
         onPrestoAlice().executeQuery(format("GRANT SELECT ON hive.%s TO ROLE role1", TABLE_NAME));
         onPrestoAlice().executeQuery(format("GRANT INSERT ON hive.%s TO ROLE role2", TABLE_NAME));
 
