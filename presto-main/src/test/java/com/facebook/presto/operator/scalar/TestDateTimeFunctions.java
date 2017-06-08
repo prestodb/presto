@@ -222,6 +222,12 @@ public class TestDateTimeFunctions
     }
 
     @Test
+    public void testFromUnixTimeException()
+    {
+        assertInvalidFunction("from_unixtime(0,0,841)", "Invalid offset minutes 841");
+    }
+
+    @Test
     public void testToUnixTime()
     {
         assertFunction("to_unixtime(" + TIMESTAMP_LITERAL + ")", DOUBLE, TIMESTAMP.getMillis() / 1000.0);

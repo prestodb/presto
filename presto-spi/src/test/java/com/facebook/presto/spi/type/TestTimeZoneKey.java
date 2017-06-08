@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -193,5 +194,13 @@ public class TestTimeZoneKey
         }
         // Zone file should not (normally) be changed, so let's make is more difficult
         assertEquals(hasher.hash().asLong(), 5498515770239515435L, "zone-index.properties file contents changed!");
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Invalid offset minutes .*")
+    public void testCheckArgument()
+            throws Exception
+    {
+        final short offsetTimeZoneOverMax = 15 * 60;
+        TimeZoneKey.getTimeZoneKeyForOffset(offsetTimeZoneOverMax);
     }
 }
