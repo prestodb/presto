@@ -3661,11 +3661,11 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testAggregationOverRigthJoinOverSingleStreamProbe()
+    public void testAggregationOverRightJoinOverSingleStreamProbe()
     {
         // this should return one row since value is always 'value'
         // this test verifies that the two streams produced by the right join
-        // are handled gathered for the aggergation operator
+        // are handled gathered for the aggregation operator
         assertQueryOrdered("" +
                         "SELECT\n" +
                         "  value\n" +
