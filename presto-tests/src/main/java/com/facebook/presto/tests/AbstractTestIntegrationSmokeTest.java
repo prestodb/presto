@@ -15,6 +15,8 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -147,6 +149,14 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "line 1:31: Column name 'A' specified more than once");
         assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
                 "line 1:49: Column name 'orderkey' specified more than once");
+    }
+
+    @Test
+    public void testKafkaEngineWillNotFailMetaQuery()
+    {
+        getQueryRunner().createCatalog("kafka", "kafka", ImmutableMap.of());
+
+        assertQuery("SELECT * FROM system.jdbc.columns WHERE TABLE_CAT = 'kafka' AND TABLE_NAME LIKE '%'");
     }
 
     private MaterializedResult getExpectedTableDescription(boolean dateSupported, boolean parametrizedVarchar)
