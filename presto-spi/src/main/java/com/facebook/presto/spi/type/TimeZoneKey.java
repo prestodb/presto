@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -28,9 +29,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Character.isDigit;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -291,13 +294,13 @@ public final class TimeZoneKey
 
     private static String zoneIdForOffset(long offset)
     {
-        return String.format("%s%02d:%02d", offset < 0 ? "-" : "+", abs(offset / 60), abs(offset % 60));
+        return format("%s%02d:%02d", offset < 0 ? "-" : "+", abs(offset / 60), abs(offset % 60));
     }
 
     private static void checkArgument(boolean check, String message, Object... args)
     {
         if (!check) {
-            throw new IllegalArgumentException(String.format(message, args));
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format(message, args));
         }
     }
 }
