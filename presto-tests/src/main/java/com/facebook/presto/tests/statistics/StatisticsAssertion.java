@@ -26,6 +26,11 @@ import java.util.function.Predicate;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
+import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
+import static com.facebook.presto.tests.statistics.Metrics.distinctValuesCount;
+import static com.facebook.presto.tests.statistics.Metrics.highValue;
+import static com.facebook.presto.tests.statistics.Metrics.lowValue;
+import static com.facebook.presto.tests.statistics.Metrics.nullsFraction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -64,6 +69,21 @@ public class StatisticsAssertion
     public static class Checks
     {
         private final List<MetricsCheck<?>> checks = new ArrayList<>();
+
+        public Checks verifyExactColumnStatistics(String columnName)
+        {
+            verifyColumnStatistics(columnName, noError());
+            return this;
+        }
+
+        public Checks verifyColumnStatistics(String columnName, MetricComparisonStrategy<Double> strategy)
+        {
+            estimate(nullsFraction(columnName), strategy);
+            estimate(distinctValuesCount(columnName), strategy);
+            estimate(lowValue(columnName), strategy);
+            estimate(highValue(columnName), strategy);
+            return this;
+        }
 
         public <T> Checks estimate(Metric<T> metric, MetricComparisonStrategy<T> strategy)
         {
