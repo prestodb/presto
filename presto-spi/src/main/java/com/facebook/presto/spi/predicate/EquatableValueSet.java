@@ -153,6 +153,12 @@ public class EquatableValueSet
     }
 
     @Override
+    public boolean containsValue(Block block, int position)
+    {
+        return whiteList == entries.contains(ValueEntry.create(type, block, position));
+    }
+
+    @Override
     public DiscreteValues getDiscreteValues()
     {
         return new DiscreteValues()
@@ -292,66 +298,5 @@ public class EquatableValueSet
         return Objects.equals(this.type, other.type)
                 && this.whiteList == other.whiteList
                 && Objects.equals(this.entries, other.entries);
-    }
-
-    public static class ValueEntry
-    {
-        private final Type type;
-        private final Block block;
-
-        @JsonCreator
-        public ValueEntry(
-                @JsonProperty("type") Type type,
-                @JsonProperty("block") Block block)
-        {
-            this.type = requireNonNull(type, "type is null");
-            this.block = requireNonNull(block, "block is null");
-
-            if (block.getPositionCount() != 1) {
-                throw new IllegalArgumentException("Block should only have one position");
-            }
-        }
-
-        public static ValueEntry create(Type type, Object value)
-        {
-            return new ValueEntry(type, Utils.nativeValueToBlock(type, value));
-        }
-
-        @JsonProperty
-        public Type getType()
-        {
-            return type;
-        }
-
-        @JsonProperty
-        public Block getBlock()
-        {
-            return block;
-        }
-
-        public Object getValue()
-        {
-            return Utils.blockToNativeValue(type, block);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return (int) type.hash(block, 0);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final ValueEntry other = (ValueEntry) obj;
-            return Objects.equals(this.type, other.type)
-                    && type.equalTo(this.block, 0, other.block, 0);
-        }
     }
 }

@@ -39,6 +39,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory.synchronousFilterAndProjectOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -71,7 +72,7 @@ public class HandTpchQuery6
 
         Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata()).compileProjection(field(0, BIGINT));
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = synchronousFilterAndProjectOperator(
                 1,
                 new PlanNodeId("test"),
                 () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(projection.get())),

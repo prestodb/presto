@@ -72,7 +72,6 @@ import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
-import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
@@ -180,6 +179,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
+import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory.synchronousFilterAndProjectOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -808,7 +808,7 @@ public class LocalQueryRunner
                 sqlParser,
                 defaultSession));
 
-        return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        return synchronousFilterAndProjectOperator(
                 operatorId,
                 planNodeId,
                 () -> new PageProcessor(Optional.empty(), projections.build()),
