@@ -138,7 +138,7 @@ public class TestJoinProbeCompiler
             page = new Page(page.getBlock(0), page.getBlock(1), TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), page.getBlock(0)));
             outputPage = new Page(page.getBlock(0), page.getBlock(2));
         }
-        JoinProbe joinProbe = probeFactory.createJoinProbe(lookupSource, page);
+        JoinProbe joinProbe = probeFactory.createJoinProbe(page);
 
         // verify channel count
         assertEquals(joinProbe.getOutputChannelCount(), outputChannels.size());
@@ -150,7 +150,7 @@ public class TestJoinProbeCompiler
             pageBuilder.declarePosition();
             joinProbe.appendTo(pageBuilder);
 
-            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, page, page));
+            assertEquals(joinProbe.getCurrentJoinPosition(lookupSource), lookupSource.getJoinPosition(position, page, page));
         }
         assertFalse(joinProbe.advanceNextPosition());
         assertPageEquals(outputTypes, pageBuilder.build(), outputPage);

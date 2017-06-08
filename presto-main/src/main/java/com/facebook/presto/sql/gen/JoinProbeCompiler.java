@@ -149,16 +149,14 @@ public class JoinProbeCompiler
 
         classDefinition.declareDefaultConstructor(a(PUBLIC));
 
-        Parameter lookupSource = arg("lookupSource", LookupSource.class);
         Parameter page = arg("page", Page.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "createJoinProbe", type(JoinProbe.class), lookupSource, page);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "createJoinProbe", type(JoinProbe.class), page);
 
         method.getBody()
                 .newObject(joinProbeClass)
                 .dup()
-                .append(lookupSource)
                 .append(page)
-                .invokeConstructor(joinProbeClass, LookupSource.class, Page.class)
+                .invokeConstructor(joinProbeClass, Page.class)
                 .retObject();
 
         DynamicClassLoader classLoader = new DynamicClassLoader(joinProbeClass.getClassLoader());
@@ -204,7 +202,6 @@ public class JoinProbeCompiler
                 type(JoinProbe.class));
 
         // declare fields
-        FieldDefinition lookupSourceField = classDefinition.declareField(a(PRIVATE, FINAL), "lookupSource", LookupSource.class);
         FieldDefinition positionCountField = classDefinition.declareField(a(PRIVATE, FINAL), "positionCount", int.class);
         List<FieldDefinition> blockFields = new ArrayList<>();
         for (int i = 0; i < types.size(); i++) {
@@ -222,11 +219,11 @@ public class JoinProbeCompiler
         FieldDefinition positionField = classDefinition.declareField(a(PRIVATE), "position", int.class);
         FieldDefinition probeHashBlockField = classDefinition.declareField(a(PRIVATE, FINAL), "probeHashBlock", Block.class);
 
-        generateConstructor(classDefinition, probeChannels, probeHashChannel, lookupSourceField, blockFields, probeBlockFields, probeBlocksArrayField, probePageField, pageField, probeHashBlockField, positionField, positionCountField);
+        generateConstructor(classDefinition, probeChannels, probeHashChannel, blockFields, probeBlockFields, probeBlocksArrayField, probePageField, pageField, probeHashBlockField, positionField, positionCountField);
         generateGetChannelCountMethod(classDefinition, probeOutputChannels.size());
         generateAppendToMethod(classDefinition, callSiteBinder, types, probeOutputChannels, blockFields, positionField);
         generateAdvanceNextPosition(classDefinition, positionField, positionCountField);
-        generateGetCurrentJoinPosition(classDefinition, callSiteBinder, lookupSourceField, probePageField, pageField, probeHashChannel, probeHashBlockField, positionField);
+        generateGetCurrentJoinPosition(classDefinition, callSiteBinder, probePageField, pageField, probeHashChannel, probeHashBlockField, positionField);
         generateCurrentRowContainsNull(classDefinition, probeBlockFields, positionField);
         generateGetPosition(classDefinition, positionField);
         generateGetPage(classDefinition, pageField);
@@ -237,7 +234,6 @@ public class JoinProbeCompiler
     private static void generateConstructor(ClassDefinition classDefinition,
             List<Integer> probeChannels,
             Optional<Integer> probeHashChannel,
-            FieldDefinition lookupSourceField,
             List<FieldDefinition> blockFields,
             List<FieldDefinition> probeChannelFields,
             FieldDefinition probeBlocksArrayField,
@@ -247,9 +243,8 @@ public class JoinProbeCompiler
             FieldDefinition positionField,
             FieldDefinition positionCountField)
     {
-        Parameter lookupSource = arg("lookupSource", LookupSource.class);
         Parameter page = arg("page", Page.class);
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), lookupSource, page);
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), page);
 
         Variable thisVariable = constructorDefinition.getThis();
 
@@ -258,9 +253,6 @@ public class JoinProbeCompiler
                 .comment("super();")
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
-
-        constructor.comment("this.lookupSource = lookupSource;")
-                .append(thisVariable.setField(lookupSourceField, lookupSource));
 
         constructor.comment("this.positionCount = page.getPositionCount();")
                 .append(thisVariable.setField(positionCountField, page.invoke("getPositionCount", int.class)));
@@ -392,17 +384,18 @@ public class JoinProbeCompiler
 
     private static void generateGetCurrentJoinPosition(ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
-            FieldDefinition lookupSourceField,
             FieldDefinition probePageField,
             FieldDefinition pageField,
             Optional<Integer> probeHashChannel,
             FieldDefinition probeHashBlockField,
             FieldDefinition positionField)
     {
+        Parameter lookupSource = arg("lookupSource", LookupSource.class);
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 "getCurrentJoinPosition",
-                type(long.class));
+                type(long.class),
+                lookupSource);
 
         Variable thisVariable = method.getThis();
         BytecodeBlock body = method.getBody()
@@ -415,7 +408,7 @@ public class JoinProbeCompiler
         BytecodeExpression allChannelsPage = thisVariable.getField(pageField);
         BytecodeExpression probeHashBlock = thisVariable.getField(probeHashBlockField);
         if (probeHashChannel.isPresent()) {
-            body.append(thisVariable.getField(lookupSourceField).invoke("getJoinPosition", long.class,
+            body.append(lookupSource.invoke("getJoinPosition", long.class,
                     position,
                     hashChannelsPage,
                     allChannelsPage,
@@ -426,7 +419,7 @@ public class JoinProbeCompiler
                     .retLong();
         }
         else {
-            body.append(thisVariable.getField(lookupSourceField).invoke("getJoinPosition", long.class, position, hashChannelsPage, allChannelsPage)).retLong();
+            body.append(lookupSource.invoke("getJoinPosition", long.class, position, hashChannelsPage, allChannelsPage)).retLong();
         }
     }
 
@@ -489,7 +482,7 @@ public class JoinProbeCompiler
         public ReflectionJoinProbeFactory(Class<? extends JoinProbe> joinProbeClass)
         {
             try {
-                constructor = joinProbeClass.getConstructor(LookupSource.class, Page.class);
+                constructor = joinProbeClass.getConstructor(Page.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -497,10 +490,10 @@ public class JoinProbeCompiler
         }
 
         @Override
-        public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
+        public JoinProbe createJoinProbe(Page page)
         {
             try {
-                return constructor.newInstance(lookupSource, page);
+                return constructor.newInstance(page);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
