@@ -20,10 +20,14 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -32,6 +36,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.text.DateFormat;
@@ -49,10 +55,13 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -68,6 +77,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -77,6 +87,20 @@ public class TestArrayOperators
         extends AbstractTestFunctions
 {
     public TestArrayOperators() {}
+
+    @BeforeClass
+    public void setUp()
+    {
+        registerScalar(getClass());
+    }
+
+    @ScalarFunction
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.JSON)
+    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    {
+        return slice;
+    }
 
     @Test
     public void testStackRepresentation()
@@ -189,21 +213,70 @@ public class TestArrayOperators
     public void testJsonToArray()
             throws Exception
     {
-        assertFunction("CAST(JSON '[1, 2, 3]' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L));
-        assertFunction("CAST(JSON '[1, null, 3]' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), asList(1L, null, 3L));
-        assertFunction("CAST(JSON '[1, 2.0, 3]' AS ARRAY<DOUBLE>)", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0, 3.0));
-        assertFunction("CAST(JSON '[1.0, 2.5, 3.0]' AS ARRAY<DOUBLE>)", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.5, 3.0));
-        assertFunction("CAST(JSON '[1, 2.5, 3]' AS ARRAY<REAL>)", new ArrayType(REAL), ImmutableList.of(1.0f, 2.5f, 3.0f));
-        assertFunction("CAST(JSON '[-1, null, -3]' AS ARRAY<REAL>)", new ArrayType(REAL), asList(-1.0f, null, -3.0f));
-        assertFunction("CAST(JSON '[\"puppies\", \"kittens\"]' AS ARRAY<VARCHAR>)", new ArrayType(VARCHAR), ImmutableList.of("puppies", "kittens"));
-        assertFunction("CAST(JSON '[true, false]' AS ARRAY<BOOLEAN>)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
-        assertFunction("CAST(JSON '[[1], [null]]' AS ARRAY<ARRAY<BIGINT>>)", new ArrayType(new ArrayType(BIGINT)), asList(asList(1L), asList((Long) null)));
+        // special values
+        assertFunction("CAST(CAST (null AS JSON) AS ARRAY<BIGINT>)", new ArrayType(BIGINT), null);
         assertFunction("CAST(JSON 'null' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), null);
-        assertFunction("CAST(JSON '[5, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]' AS ARRAY<JSON>)", new ArrayType(JSON), ImmutableList.of("5", "[1,2,3]", "\"e\"", "{\"a\":\"b\"}", "null", "\"null\"", "[null]"));
-        assertInvalidCast("CAST(JSON '[1, null, 3]' AS ARRAY<TIMESTAMP>)");
-        assertInvalidCast("CAST(JSON '[1, null, 3]' AS ARRAY<ARRAY<TIMESTAMP>>)");
-        assertInvalidCast("CAST(JSON '[1, 2, 3]' AS ARRAY<BOOLEAN>)");
-        assertInvalidCast("CAST(JSON '[\"puppies\", \"kittens\"]' AS ARRAY<BIGINT>)");
+        assertFunction("CAST(JSON '[]' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("CAST(JSON '[null, null]' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), Lists.newArrayList(null, null));
+
+        // boolean
+        assertFunction("CAST(JSON '[true, false, 12, 0, 12.3, 0.0, \"true\", \"false\", null]' AS ARRAY<BOOLEAN>)",
+                new ArrayType(BOOLEAN),
+                asList(true, false, true, false, true, false, true, false, null));
+
+        // tinyint, smallint, integer, bigint
+        assertFunction("CAST(JSON '[true, false, 12, 12.7, \"12\", null]' AS ARRAY<TINYINT>)",
+                new ArrayType(TINYINT),
+                asList((byte) 1, (byte) 0, (byte) 12, (byte) 13, (byte) 12, null));
+        assertFunction("CAST(JSON '[true, false, 12345, 12345.6, \"12345\", null]' AS ARRAY<SMALLINT>)",
+                new ArrayType(SMALLINT),
+                asList((short) 1, (short) 0, (short) 12345, (short) 12346, (short) 12345, null));
+        assertFunction("CAST(JSON '[true, false, 12345678, 12345678.9, \"12345678\", null]' AS ARRAY<INTEGER>)",
+                new ArrayType(INTEGER),
+                asList(1, 0, 12345678, 12345679, 12345678, null));
+        assertFunction("CAST(JSON '[true, false, 1234567891234567, 1234567891234567.8, \"1234567891234567\", null]' AS ARRAY<BIGINT>)",
+                new ArrayType(BIGINT),
+                asList(1L, 0L, 1234567891234567L, 1234567891234568L, 1234567891234567L, null));
+
+        // real, double, decimal
+        assertFunction("CAST(JSON '[true, false, 12345, 12345.67, \"3.14\", \"NaN\", \"Infinity\", \"-Infinity\", null]' AS ARRAY<REAL>)",
+                new ArrayType(REAL),
+                asList(1.0f, 0.0f, 12345.0f, 12345.67f, 3.14f, Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, null));
+        assertFunction("CAST(JSON '[true, false, 1234567890, 1234567890.1, \"3.14\", \"NaN\", \"Infinity\", \"-Infinity\", null]' AS ARRAY<DOUBLE>)",
+                new ArrayType(DOUBLE),
+                asList(1.0, 0.0, 1234567890.0, 1234567890.1, 3.14, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, null));
+        assertFunction("CAST(JSON '[true, false, 128, 123.456, \"3.14\", null]' AS ARRAY<DECIMAL(10, 5)>)",
+                new ArrayType(createDecimalType(10, 5)),
+                asList(decimal("1.00000"), decimal("0.00000"), decimal("128.00000"), decimal("123.45600"), decimal("3.14000"), null));
+        assertFunction("CAST(JSON '[true, false, 128, 12345678.12345678, \"3.14\", null]' AS ARRAY<DECIMAL(38, 8)>)",
+                new ArrayType(createDecimalType(38, 8)),
+                asList(decimal("1.00000000"), decimal("0.00000000"), decimal("128.00000000"), decimal("12345678.12345678"), decimal("3.14000000"), null));
+
+        // varchar, json
+        assertFunction("CAST(JSON '[true, false, 12, 12.3, \"puppies\", \"kittens\", \"null\", \"\", null]' AS ARRAY<VARCHAR>)",
+                new ArrayType(VARCHAR),
+                asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null));
+        assertFunction("CAST(JSON '[5, 3.14, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]' AS ARRAY<JSON>)",
+                new ArrayType(JSON),
+                ImmutableList.of("5", "3.14", "[1,2,3]", "\"e\"", "{\"a\":\"b\"}", "null", "\"null\"", "[null]"));
+
+        // nested array/map
+        assertFunction("CAST(JSON '[[1, 2], [3, null], [], [null, null], null]' AS ARRAY<ARRAY<BIGINT>>)",
+                new ArrayType(new ArrayType(BIGINT)),
+                asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null));
+
+        // invalid cast
+        assertInvalidCast("CAST(JSON '{\"a\": 1}' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Expected a json array, but got {\n{\"a\":1}");
+        assertInvalidCast("CAST(JSON '[1, 2, 3]' AS ARRAY<ARRAY<BIGINT>>)", "Cannot cast to array(array(bigint)). Expected a json array, but got 1\n[1,2,3]");
+        assertInvalidCast("CAST(JSON '[1, {}]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Unexpected token when cast to bigint: {\n[1,{}]");
+        assertInvalidCast("CAST(JSON '[[1], {}]' AS ARRAY<ARRAY<BIGINT>>)", "Cannot cast to array(array(bigint)). Expected a json array, but got {\n[[1],{}]");
+
+        assertInvalidCast("CAST(unchecked_to_json('1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint).\n1, 2, 3");
+        assertInvalidCast("CAST(unchecked_to_json('[1] 2') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Unexpected trailing token: 2\n[1] 2");
+        assertInvalidCast("CAST(unchecked_to_json('[1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint).\n[1, 2, 3");
+
+        assertInvalidCast("CAST(JSON '[\"a\", \"b\"]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Can not cast 'a' to BIGINT\n[\"a\",\"b\"]");
+        assertInvalidCast("CAST(JSON '[1234567890123.456]' AS ARRAY<INTEGER>)", "Cannot cast to array(integer). Out of range for integer: 1.234567890123456E12\n[1.234567890123456E12]");
     }
 
     @Test

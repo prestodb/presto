@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
@@ -31,6 +32,8 @@ import com.facebook.presto.type.VarcharOperators;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -48,18 +51,25 @@ import java.util.TreeMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
+import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
+import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -68,6 +78,15 @@ import static java.math.RoundingMode.HALF_UP;
 
 public final class JsonUtil
 {
+    public static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
+
+    // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
+    // `OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());` preserves input order.
+    // Be aware. Using it arbitrarily can produce invalid json (ordered by key is required in Presto).
+    private static final ObjectMapper OBJECT_MAPPED_UNORDERED = new ObjectMapper(JSON_FACTORY);
+
+    private static final int MAX_JSON_LENGTH_IN_ERROR_MESSAGE = 10_000;
+
     private JsonUtil() {}
 
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
@@ -80,6 +99,16 @@ public final class JsonUtil
             throws IOException
     {
         return factory.createGenerator((OutputStream) output);
+    }
+
+    public static String truncateIfNecessaryForErrorMessage(Slice json)
+    {
+        if (json.length() <= MAX_JSON_LENGTH_IN_ERROR_MESSAGE) {
+            return json.toStringUtf8();
+        }
+        else {
+            return json.slice(0, MAX_JSON_LENGTH_IN_ERROR_MESSAGE).toStringUtf8() + "...(truncated)";
+        }
     }
 
     public static boolean canCastToJson(Type type)
@@ -768,5 +797,276 @@ public final class JsonUtil
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale));
         }
         return result;
+    }
+
+    // given a JSON parser, write to the BlockBuilder
+    public interface BlockBuilderAppender
+    {
+        void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException;
+
+        static BlockBuilderAppender createBlockBuilderAppender(Type type)
+        {
+            String baseType = type.getTypeSignature().getBase();
+            switch (baseType) {
+                case StandardTypes.BOOLEAN:
+                    return new BooleanBlockBuilderAppender();
+                case StandardTypes.TINYINT:
+                    return new TinyintBlockBuilderAppender();
+                case StandardTypes.SMALLINT:
+                    return new SmallintBlockBuilderAppender();
+                case StandardTypes.INTEGER:
+                    return new IntegerBlockBuilderAppender();
+                case StandardTypes.BIGINT:
+                    return new BigintBlockBuilderAppender();
+                case StandardTypes.REAL:
+                    return new RealBlockBuilderAppender();
+                case StandardTypes.DOUBLE:
+                    return new DoubleBlockBuilderAppender();
+                case StandardTypes.DECIMAL:
+                    if (isShortDecimal(type)) {
+                        return new ShortDecimalBlockBuilderAppender((DecimalType) type);
+                    }
+                    else {
+                        return new LongDecimalBlockBuilderAppender((DecimalType) type);
+                    }
+                case StandardTypes.VARCHAR:
+                    return new VarcharBlockBuilderAppender(type);
+                case StandardTypes.JSON:
+                    return (parser, blockBuilder) -> {
+                        String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
+                        JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
+                    };
+                case StandardTypes.ARRAY:
+                    return new ArrayBlockBuilderAppender(createBlockBuilderAppender(((ArrayType) type).getElementType()));
+                case StandardTypes.MAP:
+                    throw new UnsupportedOperationException();
+                default:
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            }
+        }
+    }
+
+    private static class BooleanBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Boolean result = currentTokenAsBoolean(parser);
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                BOOLEAN.writeBoolean(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class TinyintBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Long result = currentTokenAsTinyint(parser);
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                TINYINT.writeLong(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class SmallintBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Long result = currentTokenAsInteger(parser);
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                SMALLINT.writeLong(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class IntegerBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Long result = currentTokenAsInteger(parser);
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                INTEGER.writeLong(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class BigintBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Long result = currentTokenAsBigint(parser);
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                BIGINT.writeLong(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class RealBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Long result = currentTokenAsReal(parser);
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                REAL.writeLong(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class DoubleBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Double result = currentTokenAsDouble(parser);
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                DOUBLE.writeDouble(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class ShortDecimalBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        DecimalType type;
+
+        ShortDecimalBlockBuilderAppender(DecimalType type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Long result = currentTokenAsShortDecimal(parser, type.getPrecision(), type.getScale());
+
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                type.writeLong(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class LongDecimalBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        DecimalType type;
+
+        LongDecimalBlockBuilderAppender(DecimalType type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Slice result = currentTokenAsLongDecimal(parser, type.getPrecision(), type.getScale());
+
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                type.writeSlice(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class VarcharBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        Type type;
+
+        VarcharBlockBuilderAppender(Type type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Slice result = currentTokenAsVarchar(parser);
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                type.writeSlice(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class ArrayBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        BlockBuilderAppender elementAppender;
+
+        ArrayBlockBuilderAppender(BlockBuilderAppender elementAppender)
+        {
+            this.elementAppender = elementAppender;
+        }
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+                blockBuilder.appendNull();
+                return;
+            }
+
+            if (parser.getCurrentToken() != START_ARRAY) {
+                throw new JsonCastException(format("Expected a json array, but got %s", parser.getText()));
+            }
+            BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
+            while (parser.nextToken() != END_ARRAY) {
+                elementAppender.append(parser, entryBuilder);
+            }
+            blockBuilder.closeEntry();
+        }
     }
 }
