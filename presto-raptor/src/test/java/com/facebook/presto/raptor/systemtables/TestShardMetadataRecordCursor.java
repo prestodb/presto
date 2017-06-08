@@ -146,6 +146,12 @@ public class TestShardMetadataRecordCursor
                 new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid3.toString()), null, 300L, 30L, 3L, utf8Slice("fedcba0987654321"), null, null));
 
         assertEquals(actual, expected);
+
+        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, TupleDomain.all())) {
+            actual = getMaterializedResults(cursor, SHARD_METADATA.getColumns());
+        }
+        assertEquals(actual.size(), 3);
+        assertEquals(actual, expected);
     }
 
     @Test

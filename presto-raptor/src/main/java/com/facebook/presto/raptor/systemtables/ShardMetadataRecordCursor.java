@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
@@ -278,7 +279,8 @@ public class ShardMetadataRecordCursor
                     columnNames,
                     TYPES,
                     ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
-                    tupleDomain);
+                    tupleDomain,
+                    Optional.of(format("shards.table_id = %d", tableId)));
             return statement.executeQuery();
         }
         catch (SQLException | DBIException e) {
