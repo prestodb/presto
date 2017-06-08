@@ -123,16 +123,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = probePages
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
@@ -175,16 +166,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
@@ -220,16 +202,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -266,16 +239,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -305,16 +269,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = probePages
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         // expected
@@ -360,16 +315,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = probePages
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -417,16 +363,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -467,16 +404,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -514,16 +442,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -564,16 +483,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -610,16 +520,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
@@ -661,16 +562,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel(),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
@@ -720,6 +612,34 @@ public class TestHashJoinOperator
             hashChannels.add(probe.getTypes().size() + build.getHashChannel().get());
         }
         return hashChannels.build();
+    }
+
+    private OperatorFactory probeOuterJoinOperatorFactory(LookupSourceFactory lookupSourceFactory, RowPagesBuilder probePages)
+    {
+        return LOOKUP_JOIN_OPERATORS.probeOuterJoin(
+                0,
+                new PlanNodeId("test"),
+                lookupSourceFactory,
+                probePages.getTypes(),
+                Ints.asList(0),
+                probePages.getHashChannel(),
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
+    }
+
+    private OperatorFactory innerJoinOperatorFactory(LookupSourceFactory lookupSourceFactory, RowPagesBuilder probePages)
+    {
+        return LOOKUP_JOIN_OPERATORS.innerJoin(
+                0,
+                new PlanNodeId("test"),
+                lookupSourceFactory,
+                probePages.getTypes(),
+                Ints.asList(0),
+                probePages.getHashChannel(),
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
     }
 
     private LookupSourceFactory buildHash(
