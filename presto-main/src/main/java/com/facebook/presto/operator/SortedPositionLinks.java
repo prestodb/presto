@@ -147,12 +147,24 @@ public final class SortedPositionLinks
                 }
             }
 
-            return lessThanFunction -> {
-                checkState(lessThanFunction.isPresent(), "Using SortedPositionLinks without lessThanFunction");
-                return new SortedPositionLinks(
-                        arrayPositionLinksFactoryBuilder.build().create(Optional.empty()),
-                        sortedPositionLinks,
-                        lessThanFunction.get());
+            Factory arrayPositionLinksFactory = arrayPositionLinksFactoryBuilder.build();
+            return new Factory()
+            {
+                @Override
+                public PositionLinks create(Optional<JoinFilterFunction> lessThanFunction)
+                {
+                    checkState(lessThanFunction.isPresent(), "Using SortedPositionLinks without lessThanFunction");
+                    return new SortedPositionLinks(
+                            arrayPositionLinksFactory.create(Optional.empty()),
+                            sortedPositionLinks,
+                            lessThanFunction.get());
+                }
+
+                @Override
+                public long checksum()
+                {
+                    return arrayPositionLinksFactory.checksum();
+                }
             };
         }
 

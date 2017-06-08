@@ -14,9 +14,13 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
+import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
@@ -46,9 +50,25 @@ public final class ArrayPositionLinks
         }
 
         @Override
-        public Factory build()
+        public PositionLinks.Factory build()
         {
-            return filterFunction -> new ArrayPositionLinks(positionLinks);
+            return new PositionLinks.Factory()
+            {
+                @Override
+                public PositionLinks create(Optional<JoinFilterFunction> joinFilterFunction)
+                {
+                    return new ArrayPositionLinks(positionLinks);
+                }
+
+                @Override
+                public long checksum()
+                {
+                    Hasher hasher = Hashing.goodFastHash(32).newHasher();
+                    IntStream.of(positionLinks)
+                            .forEach(hasher::putInt);
+                    return hasher.hash().asLong();
+                }
+            };
         }
 
         @Override
