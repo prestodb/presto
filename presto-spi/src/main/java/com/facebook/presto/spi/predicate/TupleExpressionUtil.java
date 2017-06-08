@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.predicate;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -84,52 +85,61 @@ public class TupleExpressionUtil
 
     public static <T> TupleDomain<T> toTupleDomain(TupleExpression<T> expression)
     {
-        Map<T, Domain> domainMap = expression.accept(new TupleDomainTranslator<T>(), null);
-        return TupleDomain.withColumnDomains(domainMap);
+
+        Optional<Map<T, Domain>> domainMap = expression.accept(new TupleDomainTranslator<T>(), null);
+        if (domainMap.isPresent()) {
+            return TupleDomain.withColumnDomains(domainMap.get());
+        }
+        return TupleDomain.none();
     }
 
     private static class TupleDomainTranslator<T>
-            implements TupleExpressionVisitor<Map<T, Domain>, Void, T>
+            implements TupleExpressionVisitor<Optional<Map<T, Domain>>, Void, T>
     {
         @Override
-        public Map<T, Domain> visitDomainExpression(DomainExpression<T> expression, Void context)
+        public Optional<Map<T, Domain>> visitDomainExpression(DomainExpression<T> expression, Void context)
         {
             Map<T, Domain> map = new HashMap<>();
             map.put(expression.getColumn(), expression.getDomain());
-            return map;
+            return Optional.of(map);
         }
 
         @Override
-        public Map<T, Domain> visitAndExpression(AndExpression<T> expression, Void context)
+        public Optional<Map<T, Domain>> visitAndExpression(AndExpression<T> expression, Void context)
         {
             Map<T, Domain> returnMap = new HashMap<>();
-            returnMap.putAll(expression.getLeftExpression().accept(this, context));
-            returnMap.putAll(expression.getRightExpression().accept(this, context));
-            return returnMap;
+            Optional<Map<T, Domain>> leftDomain = expression.getLeftExpression().accept(this, context);
+            Optional<Map<T, Domain>> rightDomain = expression.getRightExpression().accept(this, context);
+            if (!leftDomain.isPresent() || !rightDomain.isPresent()) {
+                return Optional.empty();
+            }
+            returnMap.putAll(expression.getLeftExpression().accept(this, context).get());
+            returnMap.putAll(expression.getRightExpression().accept(this, context).get());
+            return Optional.of(returnMap);
         }
 
         @Override
-        public Map<T, Domain> visitOrExpression(OrExpression<T> expression, Void context)
+        public Optional<Map<T, Domain>> visitOrExpression(OrExpression<T> expression, Void context)
         {
-            return new HashMap<>();
+            return Optional.of(Collections.<T, Domain>emptyMap());
         }
 
         @Override
-        public Map<T, Domain> visitNotExpression(NotExpression<T> expression, Void context)
+        public Optional<Map<T, Domain>> visitNotExpression(NotExpression<T> expression, Void context)
         {
             return expression.getExpression().accept(this, context);
         }
 
         @Override
-        public Map<T, Domain> visitAllExpression(AllExpression<T> expression, Void context)
+        public Optional<Map<T, Domain>> visitAllExpression(AllExpression<T> expression, Void context)
         {
-            return new HashMap<>();
+            return Optional.of(Collections.<T, Domain>emptyMap());
         }
 
         @Override
-        public Map<T, Domain> visitNoneExpression(NoneExpression<T> expression, Void context)
+        public Optional<Map<T, Domain>> visitNoneExpression(NoneExpression<T> expression, Void context)
         {
-            return new HashMap<>();
+            return Optional.empty();
         }
     }
 
@@ -162,3 +172,4 @@ public class TupleExpressionUtil
         return baseExpression;
     }
 }
+
