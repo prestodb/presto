@@ -23,12 +23,17 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.BigintOperators;
+import com.facebook.presto.type.BooleanOperators;
+import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.UnknownType;
+import com.facebook.presto.type.VarcharOperators;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -51,7 +56,9 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class JsonUtil
@@ -525,6 +532,140 @@ public final class JsonUtil
                 }
                 jsonGenerator.writeEndArray();
             }
+        }
+    }
+
+    // utility classes and functions for cast from JSON
+    public static Slice currentTokenAsVarchar(JsonParser parser)
+            throws IOException
+    {
+        switch (parser.currentToken()) {
+            case VALUE_NULL:
+                return null;
+            case VALUE_STRING:
+                return Slices.utf8Slice(parser.getText());
+            case VALUE_NUMBER_FLOAT:
+                // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
+                return DoubleOperators.castToVarchar(parser.getDoubleValue());
+            case VALUE_NUMBER_INT:
+                // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
+                // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
+                return Slices.utf8Slice(parser.getText());
+            case VALUE_TRUE:
+                return BooleanOperators.castToVarchar(true);
+            case VALUE_FALSE:
+                return BooleanOperators.castToVarchar(false);
+            default:
+                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.VARCHAR, parser.getText()));
+        }
+    }
+
+    public static Long currentTokenAsBigint(JsonParser parser)
+            throws IOException
+    {
+        switch (parser.currentToken()) {
+            case VALUE_NULL:
+                return null;
+            case VALUE_STRING:
+                return VarcharOperators.castToBigint(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT:
+                return DoubleOperators.castToLong(parser.getDoubleValue());
+            case VALUE_NUMBER_INT:
+                return parser.getLongValue();
+            case VALUE_TRUE:
+                return BooleanOperators.castToBigint(true);
+            case VALUE_FALSE:
+                return BooleanOperators.castToBigint(false);
+            default:
+                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.BIGINT, parser.getText()));
+        }
+    }
+
+    public static Long currentTokenAsInteger(JsonParser parser)
+            throws IOException
+    {
+        switch (parser.currentToken()) {
+            case VALUE_NULL:
+                return null;
+            case VALUE_STRING:
+                return VarcharOperators.castToInteger(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT:
+                return DoubleOperators.castToInteger(parser.getDoubleValue());
+            case VALUE_NUMBER_INT:
+                return (long) toIntExact(parser.getLongValue());
+            case VALUE_TRUE:
+                return BooleanOperators.castToInteger(true);
+            case VALUE_FALSE:
+                return BooleanOperators.castToInteger(false);
+            default:
+                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.INTEGER, parser.getText()));
+        }
+    }
+
+    public static Double currentTokenAsDouble(JsonParser parser)
+            throws IOException
+    {
+        switch (parser.currentToken()) {
+            case VALUE_NULL:
+                return null;
+            case VALUE_STRING:
+                return VarcharOperators.castToDouble(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT:
+                return parser.getDoubleValue();
+            case VALUE_NUMBER_INT:
+                // An alternative is calling getLongValue and then BigintOperators.castToDouble.
+                // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
+                return parser.getDoubleValue();
+            case VALUE_TRUE:
+                return BooleanOperators.castToDouble(true);
+            case VALUE_FALSE:
+                return BooleanOperators.castToDouble(false);
+            default:
+                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.DOUBLE, parser.getText()));
+        }
+    }
+
+    public static Long currentTokenAsReal(JsonParser parser)
+            throws IOException
+    {
+        switch (parser.currentToken()) {
+            case VALUE_NULL:
+                return null;
+            case VALUE_STRING:
+                return VarcharOperators.castToFloat(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT:
+                return (long) floatToRawIntBits(parser.getFloatValue());
+            case VALUE_NUMBER_INT:
+                // An alternative is calling getLongValue and then BigintOperators.castToReal.
+                // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
+                return (long) floatToRawIntBits(parser.getFloatValue());
+            case VALUE_TRUE:
+                return BooleanOperators.castToReal(true);
+            case VALUE_FALSE:
+                return BooleanOperators.castToReal(false);
+            default:
+                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.REAL, parser.getText()));
+        }
+    }
+
+    public static Boolean currentTokenAsBoolean(JsonParser parser)
+            throws IOException
+    {
+        switch (parser.currentToken()) {
+            case VALUE_NULL:
+                return null;
+            case VALUE_STRING:
+                return VarcharOperators.castToBoolean(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT:
+                return DoubleOperators.castToBoolean(parser.getDoubleValue());
+            case VALUE_NUMBER_INT:
+                return BigintOperators.castToBoolean(parser.getLongValue());
+            case VALUE_TRUE:
+                return true;
+            case VALUE_FALSE:
+                return false;
+            default:
+                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.BOOLEAN, parser.getText()));
         }
     }
 }
