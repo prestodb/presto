@@ -88,6 +88,15 @@ public class PlanNodeSearcher
         return Optional.empty();
     }
 
+    public <T extends PlanNode> Optional<T> findSingle()
+    {
+        List<T> all = findAll();
+        if (all.size() == 1) {
+            return Optional.of(all.get(0));
+        }
+        return Optional.empty();
+    }
+
     public <T extends PlanNode> List<T> findAll()
     {
         ImmutableList.Builder<T> nodes = ImmutableList.builder();

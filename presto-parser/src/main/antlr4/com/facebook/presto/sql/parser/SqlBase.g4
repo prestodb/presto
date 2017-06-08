@@ -474,6 +474,7 @@ nonReserved
     | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
     | ALL | SOME | ANY
+    | LATERAL
     ;
 
 SELECT: 'SELECT';
