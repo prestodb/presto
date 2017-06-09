@@ -13,39 +13,36 @@
  */
 package com.facebook.presto.execution.resourceGroups.db;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.TestingSessionFactory;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
-import com.facebook.presto.resourceGroups.db.H2DaoProvider;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
-import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.tpch.TpchQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
+import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
+import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
+import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDao;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSelectors;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.newDashboardSession;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.newRejectionSession;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.newSession;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForCompleteQueryCount;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForRunningQueryCount;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
@@ -54,7 +51,6 @@ import static org.testng.Assert.assertEquals;
 public class TestQueues
 {
     // Copy of TestQueues with tests for db reconfiguration of resource groups
-    private static final String NAME = "h2";
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
 
     @Test(timeOut = 60_000)
@@ -231,158 +227,5 @@ public class TestQueues
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
             waitForQueryState(queryRunner, secondDashboardQuery, FAILED);
         }
-    }
-
-    private static Session newSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
-                .setSource("adhoc")
-                .build();
-    }
-
-    private static Session newDashboardSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
-                .setSource("dashboard")
-                .build();
-    }
-
-    private static Session newRejectionSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
-                .setSource("reject")
-                .build();
-    }
-
-    private static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
-    {
-        return queryRunner.getCoordinator().getQueryManager().createQuery(new TestingSessionFactory(session), sql).getQueryId();
-    }
-
-    private static void cancelQuery(DistributedQueryRunner queryRunner, QueryId queryId)
-    {
-        queryRunner.getCoordinator().getQueryManager().cancelQuery(queryId);
-    }
-
-    private static void waitForCompleteQueryCount(DistributedQueryRunner queryRunner, int expectedCount)
-            throws InterruptedException
-    {
-        waitForQueryCount(queryRunner, TERMINAL_QUERY_STATES, expectedCount);
-    }
-
-    private static void waitForRunningQueryCount(DistributedQueryRunner queryRunner, int expectedCount)
-            throws InterruptedException
-    {
-        waitForQueryCount(queryRunner, ImmutableSet.of(RUNNING), expectedCount);
-    }
-
-    private static void waitForQueryCount(DistributedQueryRunner queryRunner, Set<QueryState> countingStates, int expectedCount)
-            throws InterruptedException
-    {
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        while (queryManager.getAllQueryInfo().stream().filter(q -> countingStates.contains(q.getState())).count() != expectedCount) {
-            MILLISECONDS.sleep(500);
-        }
-    }
-
-    private static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, QueryState expectedQueryState)
-            throws InterruptedException
-    {
-        waitForQueryState(queryRunner, queryId, ImmutableSet.of(expectedQueryState));
-    }
-
-    private static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, Set<QueryState> expectedQueryStates)
-            throws InterruptedException
-    {
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        while (!expectedQueryStates.contains(queryManager.getQueryInfo(queryId).getState())) {
-            MILLISECONDS.sleep(500);
-        }
-    }
-
-    private static String getDbConfigUrl()
-    {
-        Random rnd = new Random();
-        return "jdbc:h2:mem:test_" + Math.abs(rnd.nextLong());
-    }
-
-    private static H2ResourceGroupsDao getDao(String url)
-    {
-        DbResourceGroupConfig dbResourceGroupConfig = new DbResourceGroupConfig()
-                .setConfigDbUrl(url);
-        H2ResourceGroupsDao dao = new H2DaoProvider(dbResourceGroupConfig).get();
-        dao.createResourceGroupsTable();
-        dao.createSelectorsTable();
-        dao.createResourceGroupsGlobalPropertiesTable();
-        return dao;
-    }
-
-    private static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao)
-            throws Exception
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("experimental.resource-groups-enabled", "true");
-        Map<String, String> properties = builder.build();
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), 2, ImmutableMap.of(), properties, new SqlParserOptions());
-        try {
-            Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
-            queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
-            queryRunner.getCoordinator().getResourceGroupManager().get()
-                    .setConfigurationManager(NAME, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl));
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-            setup(queryRunner, dao);
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
-    }
-
-    static DistributedQueryRunner getSimpleQueryRunner()
-            throws Exception
-    {
-        String dbConfigUrl = getDbConfigUrl();
-        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("experimental.resource-groups-enabled", "true");
-        Map<String, String> properties = builder.build();
-        DistributedQueryRunner queryRunner = TpchQueryRunner.createQueryRunner(properties);
-        Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
-        queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
-        queryRunner.getCoordinator().getResourceGroupManager().get()
-                .setConfigurationManager(NAME, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl));
-        setup(queryRunner, dao);
-        return queryRunner;
-    }
-
-    private static void setup(DistributedQueryRunner queryRunner, H2ResourceGroupsDao dao)
-            throws InterruptedException
-    {
-        dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
-        dao.insertResourceGroup(1, "global", "1MB", 100, 1000, null, null, null, null, null, null, null, null);
-        dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, null, null, null, null, null, null, null, 1L);
-        dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, null, null, null, null, null, null, null, 1L);
-        dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, null, null, null, null, null, null, null, 3L);
-        dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, null, null, 3L);
-        dao.insertSelector(2, "user.*", "test");
-        dao.insertSelector(4, "user.*", "(?i).*adhoc.*");
-        dao.insertSelector(5, "user.*", "(?i).*dashboard.*");
-        // Selectors are loaded last
-        while (getSelectors(queryRunner).size() != 3) {
-            MILLISECONDS.sleep(500);
-        }
-    }
-
-    private static List<ResourceGroupSelector> getSelectors(DistributedQueryRunner queryRunner)
-    {
-        return queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager().getSelectors();
     }
 }
