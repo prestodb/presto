@@ -96,7 +96,7 @@ There are three selectors that define which queries run in which resource group:
   * The last selector is a catch all, which puts all queries into the user's adhoc group.
 
 All together these selectors implement the policy that ``bob`` is an admin and
-all other users are subject to the follow limits:
+all other users are subject to the following limits:
 
   * Users are allowed to have up to 2 adhoc queries running. Additionally, they may run one pipeline.
 
@@ -146,7 +146,7 @@ all other users are subject to the follow limits:
         {
           "name": "admin",
           "softMemoryLimit": "100%",
-          "maxRunning": 100,
+          "maxRunning": 200,
           "maxQueued": 100,
           "schedulingPolicy": "query_priority",
           "jmxExport": true
