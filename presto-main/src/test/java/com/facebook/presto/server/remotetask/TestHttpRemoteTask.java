@@ -20,7 +20,6 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.TaskTestUtils;
@@ -36,6 +35,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -85,20 +85,24 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertTrue;
 
 public class TestHttpRemoteTask
 {
     // This 30 sec per-test timeout should never be reached because the test should fail and do proper cleanup after 20 sec.
-    private static final Duration IDLE_TIMEOUT = new Duration(3, SECONDS);
-    private static final Duration FAIL_TIMEOUT = new Duration(20, SECONDS);
-    private static final TaskManagerConfig TASK_MANAGER_CONFIG = new TaskManagerConfig()
-            // Shorten status refresh wait and info update interval so that we can have a shorter test timeout
-            .setStatusRefreshMaxWait(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 100, MILLISECONDS))
-            .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10, MILLISECONDS));
+    private static final Duration IDLE_TIMEOUT = new Duration(3_000, MILLISECONDS);
+    private static final Duration FAIL_TIMEOUT = new Duration(20_000, MILLISECONDS);
+    // Shorten status refresh wait and info update interval so that we can have a shorter test timeout
+    private static final Duration STATUS_REFRESH_MAX_WAIT = new Duration(30, MILLISECONDS);
+    private static final Duration INFO_UPDATE_INTERVAL = new Duration(300, MILLISECONDS);
+    private static final Backoff MAX_CLEANUP_RETRY_BACKOFF = new Backoff(
+            new Duration(5_000, MILLISECONDS),
+            new Duration(5_000, MILLISECONDS),
+            Ticker.systemTicker(),
+            new Duration(0, MILLISECONDS),
+            new Duration(50, MILLISECONDS));
 
-    private static final boolean TRACE_HTTP = false;
+    private static final boolean TRACE_HTTP = true;
 
     @Test(timeOut = 30000)
     public void testRemoteTaskMismatch()
@@ -108,7 +112,7 @@ public class TestHttpRemoteTask
     }
 
     @Test(timeOut = 30000)
-    public void testRejectedExecutionWhenVersionIsHigh()
+    public void testRemoteTaskMismatchWhenVersionIsHigh()
             throws Exception
     {
         runTest(TestCase.TASK_MISMATCH_WHEN_VERSION_IS_HIGH);
@@ -199,14 +203,19 @@ public class TestHttpRemoteTask
                     {
                         JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
+                        QueryManagerConfig config = new QueryManagerConfig();
                         return new HttpRemoteTaskFactory(
-                                new QueryManagerConfig(),
-                                TASK_MANAGER_CONFIG,
                                 testingHttpClient,
                                 new TestSqlTaskManager.MockLocationFactory(),
                                 taskStatusCodec,
                                 taskInfoCodec,
                                 taskUpdateRequestCodec,
+                                config.getRemoteTaskMinErrorDuration(),
+                                config.getRemoteTaskMaxErrorDuration(),
+                                STATUS_REFRESH_MAX_WAIT,
+                                INFO_UPDATE_INTERVAL,
+                                MAX_CLEANUP_RETRY_BACKOFF,
+                                config.getRemoteTaskMaxCallbackThreads(),
                                 new RemoteTaskStats());
                     }
                 }

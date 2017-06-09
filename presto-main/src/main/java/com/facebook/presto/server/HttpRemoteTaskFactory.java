@@ -26,6 +26,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.Node;
@@ -47,6 +48,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -66,6 +68,7 @@ public class HttpRemoteTaskFactory
     private final Duration maxErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoUpdateInterval;
+    private final Backoff maxCleanupRetryBackoff;
     private final ExecutorService coreExecutor;
     private final Executor executor;
     private final ThreadPoolExecutorMBean executorMBean;
@@ -74,7 +77,8 @@ public class HttpRemoteTaskFactory
     private final RemoteTaskStats stats;
 
     @Inject
-    public HttpRemoteTaskFactory(QueryManagerConfig config,
+    public HttpRemoteTaskFactory(
+            QueryManagerConfig config,
             TaskManagerConfig taskConfig,
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
@@ -83,23 +87,52 @@ public class HttpRemoteTaskFactory
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             RemoteTaskStats stats)
     {
+        this(
+            httpClient,
+            locationFactory,
+            taskStatusCodec,
+            taskInfoCodec,
+            taskUpdateRequestCodec,
+            config.getRemoteTaskMinErrorDuration(),
+            config.getRemoteTaskMaxErrorDuration(),
+            taskConfig.getStatusRefreshMaxWait(),
+            taskConfig.getInfoUpdateInterval(),
+            new Backoff(new Duration(2, TimeUnit.MINUTES), new Duration(2, TimeUnit.MINUTES)),
+            config.getRemoteTaskMaxCallbackThreads(),
+            requireNonNull(stats, "stats is null"));
+    }
+
+    public HttpRemoteTaskFactory(
+            HttpClient httpClient,
+            LocationFactory locationFactory,
+            JsonCodec<TaskStatus> taskStatusCodec,
+            JsonCodec<TaskInfo> taskInfoCodec,
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            Duration minErrorDuration,
+            Duration maxErrorDuration,
+            Duration taskStatusRefreshMaxWait,
+            Duration taskInfoUpdateInterval,
+            Backoff maxCleanupRetryBackoff,
+            int remoteTaskMaxCallbackThreads,
+            RemoteTaskStats stats)
+    {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
         this.taskStatusCodec = taskStatusCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-        checkArgument(config.getRemoteTaskMaxErrorDuration().compareTo(config.getRemoteTaskMinErrorDuration()) >= 0, "max error duration is less than min error duration");
-        this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
-        this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
-        this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
-        this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
+        checkArgument(maxErrorDuration.compareTo(minErrorDuration) >= 0, "max error duration is less than min error duration");
+        this.minErrorDuration = minErrorDuration;
+        this.maxErrorDuration = maxErrorDuration;
+        this.taskStatusRefreshMaxWait = taskStatusRefreshMaxWait;
+        this.taskInfoUpdateInterval = taskInfoUpdateInterval;
+        this.maxCleanupRetryBackoff = maxCleanupRetryBackoff;
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
-        this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
+        this.executor = new BoundedExecutor(coreExecutor, remoteTaskMaxCallbackThreads);
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
-        this.stats = requireNonNull(stats, "stats is null");
-
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
+        this.stats = stats;
     }
 
     @Managed
@@ -127,7 +160,8 @@ public class HttpRemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo)
     {
-        return new HttpRemoteTask(session,
+        return new HttpRemoteTask(
+                session,
                 taskId,
                 node.getNodeIdentifier(),
                 locationFactory.createTaskLocation(node, taskId),
@@ -142,6 +176,7 @@ public class HttpRemoteTaskFactory
                 maxErrorDuration,
                 taskStatusRefreshMaxWait,
                 taskInfoUpdateInterval,
+                maxCleanupRetryBackoff,
                 summarizeTaskInfo,
                 taskStatusCodec,
                 taskInfoCodec,
