@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -248,10 +249,7 @@ public class Analysis
 
     public void setGroupingSets(QuerySpecification node, List<List<Expression>> expressions)
     {
-        groupByExpressions.put(NodeRef.of(node),
-                expressions.stream()
-                        .map(ImmutableList::copyOf)
-                        .collect(toImmutableList()));
+        groupByExpressions.put(NodeRef.of(node), listOfListsCopy(expressions));
     }
 
     public boolean isTypeOnlyCoercion(Expression expression)
