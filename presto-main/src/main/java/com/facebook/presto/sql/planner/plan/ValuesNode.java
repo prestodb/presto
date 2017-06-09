@@ -23,6 +23,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 
 @Immutable
@@ -39,7 +40,7 @@ public class ValuesNode
     {
         super(id);
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
-        this.rows = ImmutableList.copyOf(rows);
+        this.rows = listOfListsCopy(rows);
 
         for (List<Expression> row : rows) {
             checkArgument(row.size() == outputSymbols.size() || row.size() == 0,

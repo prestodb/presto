@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -122,7 +123,7 @@ public class AggregationNode
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
         requireNonNull(groupingSets, "groupingSets is null");
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
-        this.groupingSets = ImmutableList.copyOf(groupingSets);
+        this.groupingSets = listOfListsCopy(groupingSets);
         this.step = step;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);

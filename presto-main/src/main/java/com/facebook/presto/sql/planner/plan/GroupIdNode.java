@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
@@ -60,7 +61,7 @@ public class GroupIdNode
     {
         super(id);
         this.source = requireNonNull(source);
-        this.groupingSets = ImmutableList.copyOf(requireNonNull(groupingSets));
+        this.groupingSets = listOfListsCopy(requireNonNull(groupingSets, "groupingSets is null"));
         this.groupingSetMappings = ImmutableMap.copyOf(requireNonNull(groupingSetMappings));
         this.argumentMappings = ImmutableMap.copyOf(requireNonNull(argumentMappings));
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
