@@ -55,7 +55,7 @@ public class TestPushAggregationThroughOuterJoin
                                         Optional.empty()
                                 ))
                         .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
-                        .groupingSets(ImmutableList.of(ImmutableList.of(p.symbol("COL1", BIGINT))))))
+                        .addGroupingSet(p.symbol("COL1", BIGINT))))
                 .matches(
                         project(ImmutableMap.of(
                                 "COL1", expression("COL1"),
@@ -94,7 +94,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty()))
                         .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
-                        .groupingSets(ImmutableList.of(ImmutableList.of(p.symbol("COL1", BIGINT))))))
+                        .addGroupingSet(p.symbol("COL1", BIGINT))))
                 .matches(
                         project(ImmutableMap.of(
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)"),
@@ -134,7 +134,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty()))
                         .addAggregation(new Symbol("AVG"), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
-                        .groupingSets(ImmutableList.of(ImmutableList.of(new Symbol("COL1"))))))
+                        .addGroupingSet(new Symbol("COL1"))))
                 .doesNotFire();
     }
 
@@ -152,7 +152,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty()))
                         .addAggregation(new Symbol("AVG"), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
-                        .groupingSets(ImmutableList.of(ImmutableList.of(new Symbol("COL1"), new Symbol("COL3")))))
+                        .addGroupingSet(new Symbol("COL1"), new Symbol("COL3")))
                 )
                 .doesNotFire();
     }

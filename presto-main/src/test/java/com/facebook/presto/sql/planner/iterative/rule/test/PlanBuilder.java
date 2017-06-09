@@ -69,6 +69,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
@@ -128,7 +129,7 @@ public class PlanBuilder
     {
         private PlanNode source;
         private Map<Symbol, Aggregation> assignments = new HashMap<>();
-        private List<List<Symbol>> groupingSets = ImmutableList.of();
+        private List<List<Symbol>> groupingSets = new ArrayList<>();
         private Step step = Step.SINGLE;
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
@@ -160,7 +161,19 @@ public class PlanBuilder
 
         public AggregationBuilder groupingSets(List<List<Symbol>> groupingSets)
         {
-            this.groupingSets = ImmutableList.copyOf(groupingSets);
+            checkState(this.groupingSets.isEmpty(), "groupingSets already defined");
+            this.groupingSets.addAll(groupingSets);
+            return this;
+        }
+
+        public AggregationBuilder addGroupingSet(Symbol... symbols)
+        {
+            return addGroupingSet(ImmutableList.copyOf(symbols));
+        }
+
+        public AggregationBuilder addGroupingSet(List<Symbol> symbols)
+        {
+            groupingSets.add(ImmutableList.copyOf(symbols));
             return this;
         }
 
@@ -184,6 +197,7 @@ public class PlanBuilder
 
         protected AggregationNode build()
         {
+            checkState(!groupingSets.isEmpty(), "No grouping sets defined; use globalGrouping/addGroupingSet/addEmptyGroupingSet method");
             return new AggregationNode(
                     idAllocator.getNextId(),
                     source,

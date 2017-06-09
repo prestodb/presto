@@ -301,13 +301,13 @@ public class TestAddIntermediateAggregations
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {
-                    af.groupingSets(ImmutableList.of(ImmutableList.of(p.symbol("c", BIGINT))))
+                    af.addGroupingSet(p.symbol("c", BIGINT))
                             .step(AggregationNode.Step.FINAL)
                             .addAggregation(p.symbol("c", BIGINT), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
-                                            p.aggregation(ap -> ap.groupingSets(ImmutableList.of(ImmutableList.of(p.symbol("b", BIGINT))))
+                                            p.aggregation(ap -> ap.addGroupingSet(p.symbol("b", BIGINT))
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b", BIGINT), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
