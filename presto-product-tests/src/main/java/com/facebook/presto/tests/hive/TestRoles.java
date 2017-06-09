@@ -253,14 +253,20 @@ public class TestRoles
     public void testRevokeRoleFromUser()
             throws Exception
     {
+        onPresto().executeQuery(CREATE_TABLE_SQL);
         onPresto().executeQuery("CREATE ROLE role1");
+        onPresto().executeQuery(format("GRANT select on %s to ROLE role1", TABLE_NAME));
         onPresto().executeQuery("GRANT role1 TO USER alice");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
                         row("alice", "USER", "role1", "NO"));
-
+        onPrestoAlice().executeQuery("SET ROLE role1");
+        QueryAssert.assertThat(onPrestoAlice().executeQuery(format("SELECT * FROM %s", TABLE_NAME))).hasNoRows();
         onPresto().executeQuery("REVOKE role1 FROM USER alice");
+        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery(format("SELECT * FROM %s", TABLE_NAME))).
+                failsWithMessage(format("Access Denied: Cannot set role role1"));
+        onPrestoAlice().executeQuery("SET ROLE public");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"));
