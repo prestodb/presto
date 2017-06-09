@@ -30,6 +30,7 @@ import java.util.Set;
 import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.facebook.presto.tests.TestGroups.ROLES;
 import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
@@ -249,7 +250,8 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "YES"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    // QUARANTINE due to SWARM-4677
+    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS, QUARANTINE})
     public void testRevokeRoleFromUser()
             throws Exception
     {
