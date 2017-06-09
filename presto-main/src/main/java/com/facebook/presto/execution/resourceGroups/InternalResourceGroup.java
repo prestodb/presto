@@ -16,11 +16,13 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -517,6 +519,34 @@ public class InternalResourceGroup
             if (query.getState().isDone()) {
                 queryFinished(query);
             }
+        }
+    }
+
+    List<QueryId> getRunningQueryIds()
+    {
+        synchronized (root) {
+            return ImmutableList.copyOf(runningQueries).stream()
+                    .map(QueryExecution::getQueryId)
+                    .collect(toImmutableList());
+        }
+    }
+
+    List<QueryId> getQueuedQueryIds()
+    {
+        synchronized (root) {
+            return ImmutableList.copyOf(queuedQueries).stream()
+                    .map(QueryExecution::getQueryId)
+                    .collect(toImmutableList());
+        }
+    }
+
+    List<InternalResourceGroup> getActiveSubGroups()
+    {
+        synchronized (root) {
+            return ImmutableList.<InternalResourceGroup>builder()
+                    .addAll(dirtySubGroups)
+                    .addAll(eligibleSubGroups)
+                    .build();
         }
     }
 

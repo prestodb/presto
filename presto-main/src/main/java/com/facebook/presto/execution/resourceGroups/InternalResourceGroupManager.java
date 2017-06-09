@@ -86,14 +86,16 @@ public final class InternalResourceGroupManager
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
+    private final QueryQueueInfoCache queryQueueInfoCache;
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManagerFactory builtinFactory, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
+    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManagerFactory builtinFactory, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter, QueryQueueInfoCache queryQueueInfoCache)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
         requireNonNull(builtinFactory, "builtinFactory is null");
         addConfigurationManagerFactory(builtinFactory);
+        this.queryQueueInfoCache = requireNonNull(queryQueueInfoCache, "queryQueueInfoCache is null");
     }
 
     @Override
@@ -222,6 +224,7 @@ public final class InternalResourceGroupManager
                 log.error(e, "Exception while processing queued queries for %s", group);
             }
         }
+        queryQueueInfoCache.refresh(rootGroups);
     }
 
     private synchronized void createGroupIfNecessary(ResourceGroupId id, Session session, Executor executor)

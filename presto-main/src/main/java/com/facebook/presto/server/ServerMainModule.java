@@ -39,6 +39,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.QueryQueueInfoCache;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
@@ -366,6 +367,7 @@ public class ServerMainModule
         binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
 
         // system connector
+        binder.bind(QueryQueueInfoCache.class).in(Scopes.SINGLETON);
         binder.install(new SystemConnectorModule());
 
         // splits

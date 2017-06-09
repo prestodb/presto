@@ -69,6 +69,7 @@ public class SystemConnectorModule
         globalTableBinder.addBinding().to(TableJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TableTypeJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(UdtJdbcTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(QueryQueueInfoSystemTable.class).in(Scopes.SINGLETON);
 
         Multibinder.newSetBinder(binder, Procedure.class);
 

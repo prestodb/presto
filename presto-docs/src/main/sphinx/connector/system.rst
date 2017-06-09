@@ -72,6 +72,14 @@ The tasks table contains information about the tasks involved in a
 Presto query including where they were executed and and how many rows
 and bytes each task processed.
 
+``runtime.query_queues``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The query_queues table contains information about currently running and
+queued queries on the Presto Cluster. From this table you can find out
+the approximate order of queued queries within their respective resource
+groups.
+
 ``runtime.transactions``
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
