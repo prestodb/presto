@@ -59,6 +59,13 @@ public interface SystemAccessControl
     void checkCanSetSystemSessionProperty(Identity identity, String propertyName);
 
     /**
+     * Check if identity is allowed to access the specified catalog
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanAccessCatalog(Identity identity, String catalogName);
+
+    /**
      * Filter the list of catalogs to those visible to the identity.
      */
     default Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
