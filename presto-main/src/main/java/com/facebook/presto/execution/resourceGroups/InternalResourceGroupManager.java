@@ -16,6 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import com.facebook.presto.server.ResourceGroupStateInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
@@ -44,6 +45,7 @@ import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
@@ -101,6 +103,15 @@ public final class InternalResourceGroupManager
     {
         checkArgument(groups.containsKey(id), "Group %s does not exist", id);
         return groups.get(id).getInfo();
+    }
+
+    @Override
+    public ResourceGroupStateInfo getResourceGroupStateInfo(ResourceGroupId id)
+    {
+        if (!groups.containsKey(id)) {
+            throw new NoSuchElementException();
+        }
+        return groups.get(id).getStateInfo();
     }
 
     @Override

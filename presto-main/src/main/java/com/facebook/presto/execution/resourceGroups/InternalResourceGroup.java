@@ -15,6 +15,8 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.server.QueryStateInfo;
+import com.facebook.presto.server.ResourceGroupStateInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -40,6 +42,7 @@ import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
+import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
@@ -145,17 +148,6 @@ public class InternalResourceGroup
                     .map(InternalResourceGroup::getInfo)
                     .collect(toImmutableList());
 
-            ResourceGroupState resourceGroupState;
-            if (canRunMore()) {
-                resourceGroupState = CAN_RUN;
-            }
-            else if (canQueueMore()) {
-                resourceGroupState = CAN_QUEUE;
-            }
-            else {
-                resourceGroupState = FULL;
-            }
-
             return new ResourceGroupInfo(
                     id,
                     new DataSize(softMemoryLimitBytes, BYTE),
@@ -163,12 +155,60 @@ public class InternalResourceGroup
                     runningTimeLimit,
                     maxQueuedQueries,
                     queuedTimeLimit,
-                    resourceGroupState,
+                    getState(),
                     eligibleSubGroups.size(),
                     new DataSize(cachedMemoryUsageBytes, BYTE),
                     runningQueries.size() + descendantRunningQueries,
                     queuedQueries.size() + descendantQueuedQueries,
                     infos);
+        }
+    }
+
+    public ResourceGroupStateInfo getStateInfo()
+    {
+        synchronized (root) {
+            return new ResourceGroupStateInfo(
+                    id,
+                    getState(),
+                    DataSize.succinctBytes(softMemoryLimitBytes),
+                    DataSize.succinctBytes(cachedMemoryUsageBytes),
+                    maxRunningQueries,
+                    maxQueuedQueries,
+                    runningTimeLimit,
+                    queuedTimeLimit,
+                    getAggregatedRunningQueriesInfo(),
+                    queuedQueries.size() + descendantQueuedQueries);
+        }
+    }
+
+    private ResourceGroupState getState()
+    {
+        synchronized (root) {
+            if (canRunMore()) {
+                return CAN_RUN;
+            }
+            else if (canQueueMore()) {
+                return CAN_QUEUE;
+            }
+            else {
+                return FULL;
+            }
+        }
+    }
+
+    private List<QueryStateInfo> getAggregatedRunningQueriesInfo()
+    {
+        synchronized (root) {
+            if (subGroups.isEmpty()) {
+                return runningQueries.stream()
+                        .map(QueryExecution::getQueryInfo)
+                        .map(queryInfo -> createQueryStateInfo(queryInfo, Optional.of(id), Optional.empty()))
+                        .collect(toImmutableList());
+            }
+            return subGroups.values().stream()
+                    .map(InternalResourceGroup::getAggregatedRunningQueriesInfo)
+                    .flatMap(List::stream)
+                    .collect(toImmutableList());
         }
     }
 
