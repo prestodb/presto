@@ -60,7 +60,7 @@ public class FileSingleStreamSpillerFactory
     private final PagesSerdeFactory serdeFactory;
     private final List<Path> spillPaths;
     private final SpillerStats spillerStats;
-    private final double minimumFreeSpaceThreshold;
+    private final double maxUsedSpaceThreshold;
     private int roundRobinIndex;
 
     @Inject
@@ -101,7 +101,7 @@ public class FileSingleStreamSpillerFactory
                         format("spill path %s is not writable; adjust experimental.spiller-spill-path config property or filesystem permissions", path));
             }
         });
-        this.minimumFreeSpaceThreshold = requireNonNull(maxUsedSpaceThreshold, "maxUsedSpaceThreshold can not be null");
+        this.maxUsedSpaceThreshold = requireNonNull(maxUsedSpaceThreshold, "maxUsedSpaceThreshold can not be null");
         this.roundRobinIndex = 0;
     }
 
@@ -153,7 +153,7 @@ public class FileSingleStreamSpillerFactory
     {
         try {
             FileStore fileStore = getFileStore(path);
-            return fileStore.getUsableSpace() > fileStore.getTotalSpace() * (1.0 - minimumFreeSpaceThreshold);
+            return fileStore.getUsableSpace() > fileStore.getTotalSpace() * (1.0 - maxUsedSpaceThreshold);
         }
         catch (IOException e) {
             throw new PrestoException(OUT_OF_SPILL_SPACE, "Cannot determine free space for spill", e);
