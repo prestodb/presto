@@ -52,5 +52,15 @@ public interface PositionLinks
          * since JoinFilterFunction is not thread safe...
          */
         Function<Optional<JoinFilterFunction>, PositionLinks> build();
+
+        /**
+         * @return number of linked elements
+         */
+        int size();
+
+        default boolean isEmpty()
+        {
+            return size() == 0;
+        }
     }
 }
