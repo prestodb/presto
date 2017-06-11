@@ -67,6 +67,18 @@ public class CoefficientBasedCostCalculator
 
     private final Metadata metadata;
 
+    //2017 by xw
+    private static Map<PlanNodeId, PlanNodeCost> planNodeCosts;
+    private static Map<List<Symbol>,PlanNodeCost> scannernodemap;
+
+    //2017 by xw
+    public static Map<List<Symbol>,PlanNodeCost> getScannerMap(){
+        return scannernodemap;
+    }
+
+    public static Map<PlanNodeId, PlanNodeCost> getplanNodeCosts(){
+        return planNodeCosts;
+    }
     @Inject
     public CoefficientBasedCostCalculator(Metadata metadata)
     {
@@ -77,8 +89,9 @@ public class CoefficientBasedCostCalculator
     public Map<PlanNodeId, PlanNodeCost> calculateCostForPlan(Session session, Map<Symbol, Type> types, PlanNode planNode)
     {
         Visitor visitor = new Visitor(session, types);
-        planNode.accept(visitor, null);
-        return ImmutableMap.copyOf(visitor.getCosts());
+        scannernodemap=ImmutableMap.copyOf(visitor.getMap());
+        planNodeCosts=ImmutableMap.copyOf(visitor.getCosts());
+        return planNodeCosts;
     }
 
     private class Visitor
@@ -88,16 +101,27 @@ public class CoefficientBasedCostCalculator
         private final Map<PlanNodeId, PlanNodeCost> costs;
         private final Map<Symbol, Type> types;
 
+        //2017 by xw
+        private final Map<List<Symbol>,PlanNodeCost> map;
+
         public Visitor(Session session, Map<Symbol, Type> types)
         {
             this.costs = new HashMap<>();
             this.session = session;
             this.types = ImmutableMap.copyOf(types);
+            // 2017 by xw
+            this.map = new HashMap<>();
         }
 
         public Map<PlanNodeId, PlanNodeCost> getCosts()
         {
             return ImmutableMap.copyOf(costs);
+        }
+
+        //2017 by xw
+        public Map<List<Symbol>,PlanNodeCost> getMap()
+        {
+            return ImmutableMap.copyOf(map);
         }
 
         @Override
@@ -192,6 +216,8 @@ public class CoefficientBasedCostCalculator
                     .build();
 
             costs.put(node.getId(), tableScanCost);
+            //2017 by xw
+            map.put(node.getOutputSymbols(),tableScanCost);
             return tableScanCost;
         }
 
