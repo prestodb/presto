@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import java.util.Iterator;
@@ -44,6 +45,11 @@ public class IterativeOptimizer
     private final RuleStore ruleStore;
     private final StatsRecorder stats;
 
+    //2017 by xw
+    private final Set<Rule> rules;
+    public Set<Rule> getrules(){
+        return rules;
+    }
     public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
     {
         this(stats, ImmutableList.of(), rules);
@@ -57,6 +63,8 @@ public class IterativeOptimizer
                 .build();
 
         this.stats = stats;
+        //2017 by xw
+        this.rules= ImmutableSet.copyOf(newRules);
 
         stats.registerAll(newRules);
     }

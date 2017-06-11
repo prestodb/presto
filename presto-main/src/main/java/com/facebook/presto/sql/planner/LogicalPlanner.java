@@ -32,6 +32,8 @@ import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -60,11 +62,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -77,6 +75,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+
 
 public class LogicalPlanner
 {
@@ -93,6 +92,9 @@ public class LogicalPlanner
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final CostCalculator costCalculator;
+
+    //2017 by xw
+    private static Map<PlanNodeId, PlanNodeCost> planNodeCosts;
 
     public LogicalPlanner(Session session,
             List<PlanOptimizer> planOptimizers,
@@ -127,8 +129,18 @@ public class LogicalPlanner
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
+                if(optimizer instanceof IterativeOptimizer) {
+                    Set<Rule> rules= ((IterativeOptimizer) optimizer).getrules();
+                    Iterator<Rule> it = rules.iterator();
+                    Rule r= it.next();
+                    if(r!=null&&r.getClass().getSimpleName().equals("JoinOrderRule"))
+                        planNodeCosts = costCalculator.calculateCostForPlan(session, symbolAllocator.getTypes(),
+                                root);
+                }
+
                 root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+                //i++; //i=34  joinorderRule
             }
         }
 

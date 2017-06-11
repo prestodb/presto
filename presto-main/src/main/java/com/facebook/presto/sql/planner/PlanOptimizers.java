@@ -18,37 +18,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
-import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
-import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
-import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
-import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
-import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
-import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
-import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
-import com.facebook.presto.sql.planner.iterative.rule.MergeAdjacentWindows;
-import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
-import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
-import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
-import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
-import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
-import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
-import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
-import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
-import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
-import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
-import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
-import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExchange;
-import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughUnion;
-import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
-import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
-import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
-import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
-import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
-import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
-import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
-import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
+import com.facebook.presto.sql.planner.iterative.rule.*;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -223,11 +193,15 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())
                 ),
                 new MetadataQueryOptimizer(metadata),
-                new IterativeOptimizer(
+                /*new IterativeOptimizer(
                         stats,
                         ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins()), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                         ImmutableSet.of(new EliminateCrossJoins())
-                ),
+                ),*/
+                //2017 by xwsilent
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableSet.of(new JoinOrderRule())),
                 new PredicatePushDown(metadata, sqlParser),
                 projectionPushDown);
 
