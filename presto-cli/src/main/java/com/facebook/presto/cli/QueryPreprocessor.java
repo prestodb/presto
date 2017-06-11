@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -36,6 +37,7 @@ import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.propagateIfPossible;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -100,9 +102,9 @@ public final class QueryPreprocessor
         Future<String> task = executeInNewThread("Query preprocessor", () -> {
             String result;
             int exitCode;
+            Future<String> readStderr;
             try {
                 ProcessBuilder processBuilder = new ProcessBuilder(preprocessorCommand);
-                processBuilder.redirectErrorStream(true);
                 processBuilder.environment().put(ENV_PRESTO_CATALOG, catalog.orElse(""));
                 processBuilder.environment().put(ENV_PRESTO_SCHEMA, schema.orElse(""));
 
@@ -117,6 +119,17 @@ public final class QueryPreprocessor
                             outputStream.write(query.getBytes(UTF_8));
                         }
                         return null;
+                    });
+
+                    // read stderr
+                    readStderr = executeInNewThread("Query preprocessor read stderr", () -> {
+                        StringBuilder builder = new StringBuilder();
+                        try (InputStream inputStream = process.getErrorStream()) {
+                            CharStreams.copy(new InputStreamReader(inputStream, UTF_8), builder);
+                        }
+                        catch (IOException | RuntimeException ignored) {
+                        }
+                        return builder.toString();
                     });
 
                     // read response
@@ -155,7 +168,11 @@ public final class QueryPreprocessor
 
             // check we got a valid exit code
             if (exitCode != 0) {
-                throw new QueryPreprocessorException("Query preprocessor failed:\n\n" + result);
+                Optional<String> errorMessage = tryGetFutureValue(readStderr, 100, MILLISECONDS)
+                        .flatMap(value -> Optional.ofNullable(emptyToNull(value.trim())));
+
+                throw new QueryPreprocessorException("Query preprocessor exited " + exitCode +
+                        errorMessage.map(message1 -> "\n===\n" + message1 + "\n===").orElse(""));
             }
             return result;
         });
