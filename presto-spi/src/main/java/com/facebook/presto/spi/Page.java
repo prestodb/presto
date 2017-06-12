@@ -252,6 +252,17 @@ public class Page
         return blocks[0].getPositionCount();
     }
 
+    public static Page mask(Page page, int[] retainedPositions)
+    {
+        requireNonNull(page, "page is null");
+        requireNonNull(retainedPositions, "retainedPositions is null");
+
+        Block[] blocks = Arrays.stream(page.getBlocks())
+                .map(block -> new DictionaryBlock(block, retainedPositions))
+                .toArray(Block[]::new);
+        return new Page(retainedPositions.length, blocks);
+    }
+
     private static class DictionaryBlockIndexes
     {
         private final List<DictionaryBlock> blocks = new ArrayList<>();
