@@ -115,7 +115,7 @@ public class TestDictionaryAwarePageProjection
         Block dictionary = createLongSequenceBlock(0, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> index % dictionarySize);
-        return new DictionaryBlock(blockSize, dictionary, ids);
+        return new DictionaryBlock(dictionary, ids);
     }
 
     private static DictionaryBlock createDictionaryBlockWithUnusedEntries(int dictionarySize, int blockSize)
@@ -123,7 +123,7 @@ public class TestDictionaryAwarePageProjection
         Block dictionary = createLongSequenceBlock(-10, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> (index % dictionarySize) + 10);
-        return new DictionaryBlock(blockSize, dictionary, ids);
+        return new DictionaryBlock(dictionary, ids);
     }
 
     private static void testProject(Block block, Class<? extends Block> expectedResultType)

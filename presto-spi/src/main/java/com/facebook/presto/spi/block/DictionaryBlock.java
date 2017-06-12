@@ -272,7 +272,7 @@ public class DictionaryBlock
             }
             newIds[i] = oldIndexToNewIndex.get(oldIndex);
         }
-        return new DictionaryBlock(positions.size(), dictionary.copyPositions(positionsToCopy), newIds);
+        return new DictionaryBlock(dictionary.copyPositions(positionsToCopy), newIds);
     }
 
     @Override
@@ -291,7 +291,7 @@ public class DictionaryBlock
             throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
         }
         int[] newIds = Arrays.copyOfRange(ids, idsOffset + position, idsOffset + position + length);
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(length, dictionary, newIds);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, newIds);
         return dictionaryBlock.compact();
     }
 
