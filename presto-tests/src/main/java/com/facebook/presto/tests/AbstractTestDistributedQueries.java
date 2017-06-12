@@ -352,6 +352,17 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testDropColumn()
+    {
+        assertUpdate("CREATE TABLE test_drop_column AS SELECT 123 x, 111 a", 1);
+
+        assertUpdate("ALTER TABLE test_drop_column DROP COLUMN x");
+        assertQueryFails("SELECT x FROM test_drop_column", ".* Column 'x' cannot be resolved");
+
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN a", "Cannot drop the only column in a table");
+    }
+
+    @Test
     public void testAddColumn()
     {
         assertUpdate("CREATE TABLE test_add_column AS SELECT 123 x", 1);
