@@ -20,6 +20,8 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -27,10 +29,24 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchan
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestPushProjectionThroughExchange
 {
-    private final RuleTester tester = new RuleTester();
+    private RuleTester tester;
+
+    @BeforeClass
+    public void setUp()
+    {
+        tester = new RuleTester();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        closeAllRuntimeException(tester);
+        tester = null;
+    }
 
     @Test
     public void testDoesNotFireNoExchange()

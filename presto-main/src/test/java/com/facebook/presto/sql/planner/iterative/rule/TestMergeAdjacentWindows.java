@@ -27,6 +27,8 @@ import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -41,10 +43,24 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestMergeAdjacentWindows
 {
-    private final RuleTester tester = new RuleTester();
+    private RuleTester tester;
+
+    @BeforeClass
+    public void setUp()
+    {
+        tester = new RuleTester();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        closeAllRuntimeException(tester);
+        tester = null;
+    }
 
     private static final WindowNode.Frame frame = new WindowNode.Frame(WindowFrame.Type.RANGE, UNBOUNDED_PRECEDING,
             Optional.empty(), CURRENT_ROW, Optional.empty());
