@@ -164,7 +164,7 @@ public class TestDictionaryBlock
             }
             ids[i] = index;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
     }
 
     private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount)
@@ -175,7 +175,7 @@ public class TestDictionaryBlock
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
     }
 
     private static void assertDictionaryIds(DictionaryBlock dictionaryBlock, int... expected)
