@@ -540,6 +540,13 @@ public class OperatorContext
         }
 
         @Override
+        public void close()
+        {
+            // Only products of SpillContext.newLocalSpillContext() should be closed.
+            throw new UnsupportedOperationException(format("%s should not be closed directly", getClass()));
+        }
+
+        @Override
         public String toString()
         {
             return toStringHelper(this)
