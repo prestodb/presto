@@ -47,6 +47,7 @@ import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrincipalType.ROLE;
 import static com.facebook.presto.hive.metastore.PrincipalType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -343,6 +344,30 @@ public class TestingHiveMetastore
                 newDataColumns.add(new Column(newColumnName, fieldSchema.getType(), fieldSchema.getComment()));
             }
             else {
+                newDataColumns.add(fieldSchema);
+            }
+        }
+
+        Table newTable = Table.builder(oldTable)
+                .setDataColumns(newDataColumns.build())
+                .build();
+        relations.put(name, newTable);
+    }
+
+    @Override
+    public synchronized void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        SchemaTableName name = new SchemaTableName(databaseName, tableName);
+        Table oldTable = getRequiredTable(name);
+
+        verifyCanDropColumn(this, databaseName, tableName, columnName);
+        if (!oldTable.getColumn(columnName).isPresent()) {
+            throw new ColumnNotFoundException(name, columnName);
+        }
+
+        ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
+        for (Column fieldSchema : oldTable.getDataColumns()) {
+            if (!fieldSchema.getName().equals(columnName)) {
                 newDataColumns.add(fieldSchema);
             }
         }

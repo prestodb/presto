@@ -19,6 +19,7 @@ import com.facebook.presto.hive.PartitionOfflineException;
 import com.facebook.presto.hive.TableOfflineException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.common.FileUtils;
@@ -57,6 +58,7 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -600,6 +602,19 @@ public class MetastoreUtil
                 throw new PartitionOfflineException(tableName, partitionName.get(), true, prestoOffline);
             }
             throw new TableOfflineException(tableName, true, prestoOffline);
+        }
+    }
+
+    public static void verifyCanDropColumn(ExtendedHiveMetastore metastore, String databaseName, String tableName, String columnName)
+    {
+        Table table = metastore.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+
+        if (table.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop partition columns");
+        }
+        if (table.getDataColumns().size() <= 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only column in a table");
         }
     }
 }

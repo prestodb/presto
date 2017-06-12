@@ -37,6 +37,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiDat
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiPrivilegeGrantInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiTable;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -200,6 +201,20 @@ public class BridgingHiveMetastore
         for (FieldSchema fieldSchema : table.getSd().getCols()) {
             if (fieldSchema.getName().equals(oldColumnName)) {
                 fieldSchema.setName(newColumnName);
+            }
+        }
+        alterTable(databaseName, tableName, table);
+    }
+
+    @Override
+    public void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        verifyCanDropColumn(this, databaseName, tableName, columnName);
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        for (FieldSchema fieldSchema : table.getSd().getCols()) {
+            if (fieldSchema.getName().equals(columnName)) {
+                table.getSd().getCols().remove(fieldSchema);
             }
         }
         alterTable(databaseName, tableName, table);
