@@ -8,10 +8,8 @@ Synopsis
 .. code-block:: none
 
     GRANT ( privilege [, ...] | ( ALL PRIVILEGES ) )
-    ON [ TABLE ] table_name TO ( grantee | PUBLIC )
+    ON [ TABLE ] table_name TO ( user | USER user | ROLE role )
     [ WITH GRANT OPTION ]
-
-Usage of the term ``grantee`` denotes both users and roles.
 
 Description
 -----------
@@ -43,7 +41,7 @@ Grant ``SELECT`` privilege on the table ``nation`` to user ``alice``, additional
 
 Grant ``SELECT`` privilege on the table ``orders`` to everyone::
 
-    GRANT SELECT ON orders TO PUBLIC;
+    GRANT SELECT ON orders TO ROLE PUBLIC;
 
 Limitations
 -----------

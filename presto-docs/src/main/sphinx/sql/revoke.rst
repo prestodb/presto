@@ -9,9 +9,7 @@ Synopsis
 
     REVOKE [ GRANT OPTION FOR ]
     ( privilege [, ...] | ALL PRIVILEGES )
-    ON [ TABLE ] table_name FROM ( grantee | PUBLIC )
-
-Usage of the term ``grantee`` denotes both users and roles.
+    ON [ TABLE ] table_name FROM ( user | USER user | ROLE role )
 
 Description
 -----------
@@ -39,7 +37,7 @@ Revoke ``INSERT`` and ``SELECT`` privileges on the table ``orders`` from user ``
 
 Revoke ``SELECT`` privilege on the table ``nation`` from everyone, additionally revoking the privilege to grant ``SELECT`` privilege::
 
-    REVOKE GRANT OPTION FOR SELECT ON nation FROM PUBLIC;
+    REVOKE GRANT OPTION FOR SELECT ON nation FROM ROLE PUBLIC;
 
 Revoke all privileges on the table ``test`` from user ``alice``::
 

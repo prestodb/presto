@@ -28,20 +28,20 @@ public class Grant
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES
     private final boolean table;
     private final QualifiedName tableName;
-    private final String grantee;
+    private final PrincipalSpecification grantee;
     private final boolean withGrantOption;
 
-    public Grant(Optional<List<String>> privileges, boolean table, QualifiedName tableName, String grantee, boolean withGrantOption)
+    public Grant(Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
     {
         this(Optional.empty(), privileges, table, tableName, grantee, withGrantOption);
     }
 
-    public Grant(NodeLocation location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, String grantee, boolean withGrantOption)
+    public Grant(NodeLocation location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
     {
         this(Optional.of(location), privileges, table, tableName, grantee, withGrantOption);
     }
 
-    private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, String grantee, boolean withGrantOption)
+    private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
     {
         super(location);
         requireNonNull(privileges, "privileges is null");
@@ -67,7 +67,7 @@ public class Grant
         return tableName;
     }
 
-    public String getGrantee()
+    public PrincipalSpecification getGrantee()
     {
         return grantee;
     }
