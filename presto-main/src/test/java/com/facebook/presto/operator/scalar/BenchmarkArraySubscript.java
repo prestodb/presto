@@ -203,7 +203,7 @@ public class BenchmarkArraySubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = ThreadLocalRandom.current().nextInt(0, dictionarySize);
             }
-            return new DictionaryBlock(positionCount * mapSize, dictionaryBlock, keyIds);
+            return new DictionaryBlock(dictionaryBlock, keyIds);
         }
 
         private static String randomString(int length)

@@ -192,7 +192,7 @@ public class TestPageProcessorCompiler
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

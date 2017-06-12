@@ -98,7 +98,7 @@ public class TestDictionaryBlockEncoding
         }
 
         BlockEncoding blockEncoding = new DictionaryBlockEncoding(new VariableWidthBlockEncoding());
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(positionCount, dictionary, ids);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         blockEncoding.writeBlock(sliceOutput, dictionaryBlock);
