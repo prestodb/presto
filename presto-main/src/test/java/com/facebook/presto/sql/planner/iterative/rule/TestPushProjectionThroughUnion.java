@@ -21,6 +21,8 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -28,10 +30,24 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.union;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestPushProjectionThroughUnion
 {
-    private final RuleTester tester = new RuleTester();
+    private RuleTester tester;
+
+    @BeforeClass
+    public void setUp()
+    {
+        tester = new RuleTester();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        closeAllRuntimeException(tester);
+        tester = null;
+    }
 
     @Test
     public void testDoesNotFire()
