@@ -51,7 +51,7 @@ General Properties
     For example, output buffers, code caches, etc. This also accounts for
     memory that is not tracked by the memory tracking system.
 
-    This purpose of this property is to prevent the JVM from running out of
+    The purpose of this property is to prevent the JVM from running out of
     memory (OOM). The default value is suitable for smaller JVM heap sizes or
     clusters with many concurrent queries. If running fewer queries with a
     large heap, a smaller value may work. Basically, set this value large
