@@ -1573,13 +1573,32 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("GRANT INSERT, DELETE ON t TO u",
-                new Grant(Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), identifier("u"), false));
-        assertStatement("GRANT SELECT ON t TO PUBLIC WITH GRANT OPTION",
-                new Grant(Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), identifier("PUBLIC"), true));
-        assertStatement("GRANT ALL PRIVILEGES ON t TO u",
-                new Grant(Optional.empty(), false, QualifiedName.of("t"), identifier("u"), false));
-        assertStatement("GRANT taco ON t TO PUBLIC WITH GRANT OPTION",
-                new Grant(Optional.of(ImmutableList.of("taco")), false, QualifiedName.of("t"), identifier("PUBLIC"), true));
+                new Grant(
+                        Optional.of(ImmutableList.of("INSERT", "DELETE")),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u")),
+                        false));
+        assertStatement("GRANT SELECT ON t TO ROLE PUBLIC WITH GRANT OPTION",
+                new Grant(
+                        Optional.of(ImmutableList.of("SELECT")),
+                        false, QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("PUBLIC")),
+                        true));
+        assertStatement("GRANT ALL PRIVILEGES ON t TO USER u",
+                new Grant(
+                        Optional.empty(),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u")),
+                        false));
+        assertStatement("GRANT taco ON \"t\" TO ROLE \"public\" WITH GRANT OPTION",
+                new Grant(
+                        Optional.of(ImmutableList.of("taco")),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("public")),
+                        true));
     }
 
     @Test
@@ -1587,13 +1606,33 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("REVOKE INSERT, DELETE ON t FROM u",
-                new Revoke(false, Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), identifier("u")));
-        assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM PUBLIC",
-                new Revoke(true, Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), identifier("PUBLIC")));
-        assertStatement("REVOKE ALL PRIVILEGES ON TABLE t FROM u",
-                new Revoke(false, Optional.empty(), true, QualifiedName.of("t"), identifier("u")));
-        assertStatement("REVOKE taco ON TABLE t FROM u",
-                new Revoke(false, Optional.of(ImmutableList.of("taco")), true, QualifiedName.of("t"), identifier("u")));
+                new Revoke(
+                        false,
+                        Optional.of(ImmutableList.of("INSERT", "DELETE")),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
+        assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM ROLE PUBLIC",
+                new Revoke(
+                        true,
+                        Optional.of(ImmutableList.of("SELECT")),
+                        false,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("PUBLIC"))));
+        assertStatement("REVOKE ALL PRIVILEGES ON TABLE t FROM USER u",
+                new Revoke(
+                        false,
+                        Optional.empty(),
+                        true,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
+        assertStatement("REVOKE taco ON TABLE \"t\" FROM \"u\"",
+                new Revoke(
+                        false,
+                        Optional.of(ImmutableList.of("taco")),
+                        true,
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
     }
 
     @Test
