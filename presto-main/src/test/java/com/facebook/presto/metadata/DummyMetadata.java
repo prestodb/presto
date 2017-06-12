@@ -193,6 +193,12 @@ public class DummyMetadata
     }
 
     @Override
+    public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();

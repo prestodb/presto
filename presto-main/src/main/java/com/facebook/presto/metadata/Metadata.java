@@ -140,6 +140,11 @@ public interface Metadata
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
 
     /**
+     * Drop the specified column.
+     */
+    void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
