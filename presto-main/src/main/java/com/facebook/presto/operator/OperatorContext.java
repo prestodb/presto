@@ -509,7 +509,7 @@ public class OperatorContext
 
     @ThreadSafe
     private class OperatorSpillContext
-        implements SpillContext
+            implements SpillContext
     {
         private final DriverContext driverContext;
 
