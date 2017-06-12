@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -25,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
@@ -114,5 +118,25 @@ public interface HiveMetastore
         // a table can only be owned by a user
         Optional<Table> table = getTable(databaseName, tableName);
         return table.isPresent() && user.equals(table.get().getOwner());
+    }
+
+    default void checkCanDropColumn(String databaseName, String tableName, String columnName)
+    {
+        Optional<Table> table = getTable(databaseName, tableName);
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+
+        Optional<List<String>> partitionNames = getPartitionNames(databaseName, tableName);
+        partitionNames.ifPresent(partitions -> {
+            if (partitions.contains(columnName)) {
+                throw new PrestoException(NOT_SUPPORTED, "Cannot drop partition columns in a table");
+            }
+        });
+
+        int columnSize = table.get().getSd().getColsSize() - partitionNames.map(List::size).orElse(0);
+        if (columnSize <= 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only column in a table");
+        }
     }
 }

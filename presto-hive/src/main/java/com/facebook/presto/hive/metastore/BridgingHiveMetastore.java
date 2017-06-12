@@ -205,6 +205,19 @@ public class BridgingHiveMetastore
         alterTable(databaseName, tableName, table);
     }
 
+    @Override
+    public void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        delegate.checkCanDropColumn(databaseName, tableName, columnName);
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName).get();
+        for (FieldSchema fieldSchema : table.getSd().getCols()) {
+            if (fieldSchema.getName().equals(columnName)) {
+                table.getSd().getCols().remove(fieldSchema);
+            }
+        }
+        alterTable(databaseName, tableName, table);
+    }
+
     private void alterTable(String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
     {
         delegate.alterTable(databaseName, tableName, table);
