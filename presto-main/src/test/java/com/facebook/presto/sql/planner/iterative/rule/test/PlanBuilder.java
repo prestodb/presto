@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -448,6 +449,54 @@ public class PlanBuilder
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
+    }
+
+    public OutputNode output(Consumer<OutputBuilder> outputBuilderConsumer)
+    {
+        OutputBuilder outputBuilder = new OutputBuilder();
+        outputBuilderConsumer.accept(outputBuilder);
+        return outputBuilder.build();
+    }
+
+    public OutputNode output(PlanNode source, List<String> columnNames, List<Symbol> symbols)
+    {
+        checkArgument(columnNames.size() == symbols.size(), "columnNames and outputs size do not match");
+        OutputBuilder outputBuilder = new OutputBuilder();
+        outputBuilder.source(source);
+        for (int columnIndex = 0; columnIndex < columnNames.size(); ++columnIndex) {
+            outputBuilder.column(symbols.get(columnIndex), columnNames.get(columnIndex));
+        }
+        return outputBuilder.build();
+    }
+
+    public class OutputBuilder
+    {
+        private PlanNode source;
+        private List<String> columnNames = new ArrayList<>();
+        private List<Symbol> outputs = new ArrayList<>();
+
+        public OutputBuilder source(PlanNode source)
+        {
+            this.source = source;
+            return this;
+        }
+
+        public OutputBuilder column(Symbol symbol)
+        {
+            return column(symbol, symbol.getName());
+        }
+
+        public OutputBuilder column(Symbol symbol, String columnName)
+        {
+            outputs.add(symbol);
+            columnNames.add(columnName);
+            return this;
+        }
+
+        protected OutputNode build()
+        {
+            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputs);
+        }
     }
 
     public static Expression expression(String sql)
