@@ -92,6 +92,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -1115,6 +1116,11 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("select a as foo FROM (values (1,2),(3,2)) t(a,b) GROUP BY GROUPING SETS ((a), (a, b)) HAVING b IS NOT NULL ORDER BY -a", "VALUES 3, 1");
         assertQueryOrdered("select max(a) FROM (values (1,2),(3,2)) t(a,b) ORDER BY max(-a)", "VALUES 3");
         assertQueryFails("SELECT max(a) AS a FROM (values (1,2)) t(a,b) GROUP BY b ORDER BY max(a+b)", ".*Invalid reference to output projection attribute from ORDER BY aggregation");
+        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY a", "VALUES (-2, 2), (-1, 1)");
+        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY t.a", "VALUES (-1, 1), (-2, 2)");
+        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY a ORDER BY t.a", "VALUES (-1, 1), (-2, 2)");
+        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY a ORDER BY t.a+2*a", "VALUES (-2, 2), (-1, 1)");
+        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY t.a+2*a", "VALUES (-2, 2), (-1, 1)");
 
         // lambdas
         assertQueryOrdered("SELECT x as y FROM (values (1,2), (2,3)) t(x, y) GROUP BY x ORDER BY apply(x, x -> -x) + 2*x", "VALUES 1, 2");
@@ -1182,6 +1188,20 @@ public abstract class AbstractTestQueries
                         "GROUP BY x\n" +
                         "ORDER BY sum(cast(t.x AS double))",
                 "VALUES ('1.0', 1.0)");
+
+        Session legacyOrderBy = Session.builder(getSession())
+                .setSystemProperty(LEGACY_ORDER_BY, "true")
+                .build();
+
+        for (Session session : asList(getSession(), legacyOrderBy)) {
+            for (String groupBy : asList("x.letter", "letter")) {
+                for (String orderBy : asList("x.letter", "letter")) {
+                    for (String output : asList("", ", letter", ", letter as y")) {
+                        assertQueryOrdered(session, format("select count(*) %s from (select substr(name,1,1) letter from nation) x group by %s order by %s", output, groupBy, orderBy));
+                    }
+                }
+            }
+        }
     }
 
     @Test
