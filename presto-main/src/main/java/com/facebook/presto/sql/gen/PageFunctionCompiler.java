@@ -223,6 +223,11 @@ public class PageFunctionCompiler
         Variable positions = scope.declareVariable(int[].class, "positions");
         Variable index = scope.declareVariable(int.class, "index");
 
+        // reset block builder before using since a previous run may have thrown leaving data in the block builder
+        body.append(thisVariable.setField(
+                blockBuilder,
+                thisVariable.getField(blockBuilder).invoke("newBlockBuilderLike", BlockBuilder.class, newInstance(BlockBuilderStatus.class))));
+
         IfStatement ifStatement = new IfStatement()
                 .condition(selectedPositions.invoke("isList", boolean.class));
         body.append(ifStatement);
@@ -243,9 +248,6 @@ public class PageFunctionCompiler
 
         Variable block = scope.declareVariable(Block.class, "block");
         body.append(block.set(thisVariable.getField(blockBuilder).invoke("build", Block.class)))
-                .append(thisVariable.setField(
-                        blockBuilder,
-                        thisVariable.getField(blockBuilder).invoke("newBlockBuilderLike", BlockBuilder.class, newInstance(BlockBuilderStatus.class))))
                 .append(block.ret());
 
         return method;
