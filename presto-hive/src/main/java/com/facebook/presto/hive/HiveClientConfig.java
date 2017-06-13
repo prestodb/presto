@@ -96,6 +96,7 @@ public class HiveClientConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
+    private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
     private boolean rcfileOptimizedWriterEnabled;
 
@@ -646,6 +647,19 @@ public class HiveClientConfig
     public HiveClientConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
     {
         this.orcStreamBufferSize = orcStreamBufferSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcMaxReadBlockSize()
+    {
+        return orcMaxReadBlockSize;
+    }
+
+    @Config("hive.orc.max-read-block-size")
+    public HiveClientConfig setOrcMaxReadBlockSize(DataSize orcMaxReadBlockSize)
+    {
+        this.orcMaxReadBlockSize = orcMaxReadBlockSize;
         return this;
     }
 

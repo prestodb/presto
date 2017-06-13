@@ -53,6 +53,7 @@ import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
@@ -64,13 +65,17 @@ public class OrcRecordReader
     private final OrcDataSource orcDataSource;
 
     private final StreamReader[] streamReaders;
+    private final long[] maxBytesPerCell;
+    private long maxCombinedBytesPerRow;
 
     private final long totalRowCount;
     private final long splitLength;
     private final Set<Integer> presentColumns;
+    private final long maxBlockBytes;
     private long currentPosition;
     private long currentStripePosition;
     private int currentBatchSize;
+    private int maxBatchSize = MAX_BATCH_SIZE;
 
     private final List<StripeInformation> stripes;
     private final StripeReader stripeReader;
@@ -107,6 +112,7 @@ public class OrcRecordReader
             MetadataReader metadataReader,
             DataSize maxMergeDistance,
             DataSize maxReadSize,
+            DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
             AbstractAggregatedMemoryContext systemMemoryUsage)
             throws IOException
@@ -134,6 +140,8 @@ public class OrcRecordReader
             }
         }
         this.presentColumns = presentColumns.build();
+
+        this.maxBlockBytes = requireNonNull(maxBlockSize, "maxBlockSize is null").toBytes();
 
         // it is possible that old versions of orc use 0 to mean there are no row groups
         checkArgument(rowsInRowGroup > 0, "rowsInRowGroup must be greater than zero");
@@ -195,6 +203,7 @@ public class OrcRecordReader
                 metadataReader);
 
         streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());
+        maxBytesPerCell = new long[streamReaders.length];
     }
 
     private static boolean splitContainsStripe(long splitOffset, long splitLength, StripeInformation stripe)
@@ -279,6 +288,14 @@ public class OrcRecordReader
         return splitLength;
     }
 
+    /**
+     * Returns the sum of the largest cells in size from each column
+     */
+    public long getMaxCombinedBytesPerRow()
+    {
+        return maxCombinedBytesPerRow;
+    }
+
     @Override
     public void close()
             throws IOException
@@ -308,7 +325,7 @@ public class OrcRecordReader
             }
         }
 
-        currentBatchSize = toIntExact(min(MAX_BATCH_SIZE, currentGroupRowCount - nextRowInGroup));
+        currentBatchSize = toIntExact(min(maxBatchSize, currentGroupRowCount - nextRowInGroup));
 
         for (StreamReader column : streamReaders) {
             if (column != null) {
@@ -322,7 +339,16 @@ public class OrcRecordReader
     public Block readBlock(Type type, int columnIndex)
             throws IOException
     {
-        return streamReaders[columnIndex].readBlock(type);
+        Block block = streamReaders[columnIndex].readBlock(type);
+        if (block.getPositionCount() > 0) {
+            long bytesPerCell = block.getSizeInBytes() / block.getPositionCount();
+            if (maxBytesPerCell[columnIndex] < bytesPerCell) {
+                maxCombinedBytesPerRow = maxCombinedBytesPerRow - maxBytesPerCell[columnIndex] + bytesPerCell;
+                maxBytesPerCell[columnIndex] = bytesPerCell;
+                maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / maxCombinedBytesPerRow)));
+            }
+        }
+        return block;
     }
 
     public StreamReader getStreamReader(int index)

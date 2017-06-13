@@ -176,6 +176,7 @@ public class OrcPageSource
         closed = true;
 
         try {
+            stats.addMaxCombinedBytesPerRow(recordReader.getMaxCombinedBytesPerRow());
             recordReader.close();
         }
         catch (IOException e) {

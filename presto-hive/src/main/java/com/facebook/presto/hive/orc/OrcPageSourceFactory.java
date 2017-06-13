@@ -60,6 +60,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NA
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
@@ -122,6 +123,7 @@ public class OrcPageSourceFactory
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
+                getOrcMaxReadBlockSize(session),
                 isOrcBloomFiltersEnabled(session),
                 stats));
     }
@@ -142,6 +144,7 @@ public class OrcPageSourceFactory
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
             DataSize streamBufferSize,
+            DataSize maxReadBlockSize,
             boolean orcBloomFiltersEnabled,
             FileFormatDataSourceStats stats)
     {
@@ -162,7 +165,7 @@ public class OrcPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize);
+            OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize, maxReadBlockSize);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
