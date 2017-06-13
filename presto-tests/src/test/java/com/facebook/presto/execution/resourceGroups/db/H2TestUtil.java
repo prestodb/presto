@@ -40,7 +40,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class H2TestUtil
 {
-    private static final String NAME = "h2";
+    private static final String CONFIGURATION_MANAGER_TYPE = "h2";
 
     private H2TestUtil() {}
 
@@ -121,7 +121,7 @@ class H2TestUtil
             Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
             queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
             queryRunner.getCoordinator().getResourceGroupManager().get()
-                    .setConfigurationManager(NAME, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl));
+                    .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl));
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
             setup(queryRunner, dao);
@@ -145,7 +145,7 @@ class H2TestUtil
         Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
         queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
         queryRunner.getCoordinator().getResourceGroupManager().get()
-                .setConfigurationManager(NAME, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl));
+                .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl));
         setup(queryRunner, dao);
         return queryRunner;
     }
