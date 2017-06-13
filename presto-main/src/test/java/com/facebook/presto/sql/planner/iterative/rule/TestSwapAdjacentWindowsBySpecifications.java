@@ -128,10 +128,10 @@ public class TestSwapAdjacentWindowsBySpecifications
                                                 new WindowNode.Function(new FunctionCall(QualifiedName.of("avg"), windowAB, false, ImmutableList.of(new SymbolReference("b"))), signature, frame)),
                                         p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))))
                 .matches(window(specificationAB,
-                                ImmutableList.of(functionCall("avg", Optional.empty(), ImmutableList.of(columnBAlias))),
-                                window(specificationA,
-                                    ImmutableList.of(functionCall("avg", Optional.empty(), ImmutableList.of(columnAAlias))),
-                                    values(ImmutableMap.of(columnAAlias, 0, columnBAlias, 1)))));
+                        ImmutableList.of(functionCall("avg", Optional.empty(), ImmutableList.of(columnBAlias))),
+                        window(specificationA,
+                                ImmutableList.of(functionCall("avg", Optional.empty(), ImmutableList.of(columnAAlias))),
+                                values(ImmutableMap.of(columnAAlias, 0, columnBAlias, 1)))));
     }
 
     @Test
