@@ -15,11 +15,15 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.Node;
@@ -33,6 +37,8 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
+import static java.lang.Double.isFinite;
+import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
@@ -47,7 +53,7 @@ public class ScalarStatsCalculator
 
     public SymbolStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session, Map<Symbol, Type> types)
     {
-        return new Visitor(inputStatistics, session, types).process(scalarExpression);
+        return new Visitor(inputStatistics, session).process(scalarExpression);
     }
 
     private class Visitor
@@ -55,13 +61,11 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final Map<Symbol, Type> types;
 
-        Visitor(PlanNodeStatsEstimate input, Session session, Map<Symbol, Type> types)
+        Visitor(PlanNodeStatsEstimate input, Session session)
         {
             this.input = input;
             this.session = session;
-            this.types = types;
         }
 
         @Override
@@ -100,6 +104,56 @@ public class ScalarStatsCalculator
                 estimate.setHighValue(doubleValue.getAsDouble());
             }
             return estimate.build();
+        }
+
+        protected SymbolStatsEstimate visitCast(Cast node, Void context)
+        {
+            SymbolStatsEstimate sourceStats = process(node.getExpression());
+            TypeSignature targetType = TypeSignature.parseTypeSignature(node.getType());
+
+            // todo - make this general postprocessing rule.
+            double distinctValuesCount = sourceStats.getDistinctValuesCount();
+            double lowValue = sourceStats.getLowValue();
+            double highValue = sourceStats.getHighValue();
+
+            if (isIntegralType(targetType)) {
+                // todo handle low/high value changes if range gets narrower due to cast (e.g. BIGINT -> SMALLINT)
+                if (isFinite(lowValue)) {
+                    lowValue = Math.round(lowValue);
+                }
+                if (isFinite(highValue)) {
+                    highValue = Math.round(highValue);
+                }
+                if (isFinite(lowValue) && isFinite(highValue)) {
+                    double integersInRange = highValue - lowValue + 1;
+                    if (!isNaN(distinctValuesCount) && distinctValuesCount > integersInRange) {
+                        distinctValuesCount = integersInRange;
+                    }
+                }
+            }
+
+            return SymbolStatsEstimate.builder()
+                    .setNullsFraction(sourceStats.getNullsFraction())
+                    .setLowValue(lowValue)
+                    .setHighValue(highValue)
+                    .setDistinctValuesCount(distinctValuesCount)
+                    .build();
+        }
+
+        private boolean isIntegralType(TypeSignature targetType)
+        {
+            switch (targetType.getBase()) {
+                case StandardTypes.BIGINT:
+                case StandardTypes.INTEGER:
+                case StandardTypes.SMALLINT:
+                case StandardTypes.TINYINT:
+                    return true;
+                case StandardTypes.DECIMAL:
+                    DecimalType decimalType = (DecimalType) metadata.getType(targetType);
+                    return decimalType.getScale() == 0;
+                default:
+                    return false;
+            }
         }
     }
 }
