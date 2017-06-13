@@ -153,7 +153,6 @@ public class PlanOptimizers
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughSemiJoin(),
                                         new MergeLimitWithDistinct(),
-
                                         new PruneValuesColumns(),
                                         new PruneTableScanColumns()))
                                 .build()
