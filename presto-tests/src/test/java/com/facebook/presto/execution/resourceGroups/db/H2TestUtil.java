@@ -44,7 +44,7 @@ class H2TestUtil
 
     private H2TestUtil() {}
 
-    public static Session newSession()
+    public static Session adhocSession()
     {
         return testSessionBuilder()
                 .setCatalog("tpch")
@@ -53,7 +53,7 @@ class H2TestUtil
                 .build();
     }
 
-    public static Session newDashboardSession()
+    public static Session dashboardSession()
     {
         return testSessionBuilder()
                 .setCatalog("tpch")
@@ -62,7 +62,7 @@ class H2TestUtil
                 .build();
     }
 
-    public static Session newRejectionSession()
+    public static Session rejectingSession()
     {
         return testSessionBuilder()
                 .setCatalog("tpch")
