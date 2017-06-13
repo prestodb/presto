@@ -44,10 +44,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
+import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -60,6 +62,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.math.RoundingMode.HALF_UP;
 
 public final class JsonUtil
 {
@@ -667,5 +670,59 @@ public final class JsonUtil
             default:
                 throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.BOOLEAN, parser.getText()));
         }
+    }
+
+    public static Long currentTokenAsShortDecimal(JsonParser parser, int precision, int scale)
+            throws IOException
+    {
+        BigDecimal bigDecimal = currentTokenAsJavaDecimal(parser, precision, scale);
+        return bigDecimal != null ? bigDecimal.unscaledValue().longValue() : null;
+    }
+
+    public static Slice currentTokenAsLongDecimal(JsonParser parser, int precision, int scale)
+            throws IOException
+    {
+        BigDecimal bigDecimal = currentTokenAsJavaDecimal(parser, precision, scale);
+        if (bigDecimal == null) {
+            return null;
+        }
+        return encodeUnscaledValue(bigDecimal.unscaledValue());
+    }
+
+    // TODO: Instead of having BigDecimal as an intermediate step,
+    // an alternative way is to make currentTokenAsShortDecimal and currentTokenAsLongDecimal
+    // directly return the Long or Slice representation of the cast result
+    // by calling the corresponding cast-to-decimal function, similar to other JSON cast function.
+    private static BigDecimal currentTokenAsJavaDecimal(JsonParser parser, int precision, int scale)
+            throws IOException
+    {
+        BigDecimal result;
+        switch (parser.getCurrentToken()) {
+            case VALUE_NULL:
+                return null;
+            case VALUE_STRING:
+                result = new BigDecimal(parser.getText());
+                result = result.setScale(scale, HALF_UP);
+                break;
+            case VALUE_NUMBER_FLOAT:
+            case VALUE_NUMBER_INT:
+                result = parser.getDecimalValue();
+                result = result.setScale(scale, HALF_UP);
+                break;
+            case VALUE_TRUE:
+                result = BigDecimal.ONE.setScale(scale, HALF_UP);
+                break;
+            case VALUE_FALSE:
+                result = BigDecimal.ZERO.setScale(scale, HALF_UP);
+                break;
+            default:
+                throw new JsonCastException(format("Unexpected token when cast to DECIMAL(%s,%s): %s", precision, scale, parser.getText()));
+        }
+
+        if (result.precision() > precision) {
+            // TODO: Should we use NUMERIC_VALUE_OUT_OF_RANGE instead?
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale));
+        }
+        return result;
     }
 }
