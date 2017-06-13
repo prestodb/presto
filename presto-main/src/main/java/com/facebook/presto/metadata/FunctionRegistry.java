@@ -105,6 +105,7 @@ import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
 import com.facebook.presto.operator.scalar.RepeatFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.SequenceFunction;
+import com.facebook.presto.operator.scalar.SessionFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.TypeOfFunction;
 import com.facebook.presto.operator.scalar.UrlFunctions;
@@ -446,6 +447,7 @@ public class FunctionRegistry
                 .aggregate(BitwiseAndAggregation.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
+                .scalars(SessionFunctions.class)
                 .scalars(StringFunctions.class)
                 .scalars(VarbinaryFunctions.class)
                 .scalars(UrlFunctions.class)

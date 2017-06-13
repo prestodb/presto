@@ -1237,6 +1237,7 @@ public class TestExpressionCompiler
     {
         assertExecute("now()", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(TEST_SESSION.getStartTime(), TEST_SESSION.getTimeZoneKey()));
         assertExecute("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(TEST_SESSION.getStartTime(), TEST_SESSION.getTimeZoneKey()));
+        assertExecute("current_user", VARCHAR, utf8Slice(TEST_SESSION.getUser()));
 
         Futures.allAsList(futures).get();
     }

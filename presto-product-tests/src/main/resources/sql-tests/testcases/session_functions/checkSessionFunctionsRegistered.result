@@ -1,0 +1,2 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
+ current_user | varchar | | scalar | true | current user |

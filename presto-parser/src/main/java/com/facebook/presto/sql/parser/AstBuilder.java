@@ -1146,6 +1146,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCurrentUserFunction(SqlBaseParser.CurrentUserFunctionContext context)
+    {
+        return new FunctionCall(getLocation(context.CURRENT_USER()), QualifiedName.of("current_user"), ImmutableList.of());
+    }
+
+    @Override
     public Node visitExtract(SqlBaseParser.ExtractContext context)
     {
         String fieldString = context.identifier().getText();
