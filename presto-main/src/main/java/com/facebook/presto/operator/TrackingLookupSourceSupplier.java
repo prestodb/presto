@@ -23,7 +23,7 @@ public interface TrackingLookupSourceSupplier
 
     OuterPositionIterator getOuterPositionIterator();
 
-    static TrackingLookupSourceSupplier from(Supplier<LookupSource> lookupSourceSupplier)
+    static TrackingLookupSourceSupplier nonTracking(Supplier<LookupSource> lookupSourceSupplier)
     {
         requireNonNull(lookupSourceSupplier, "lookupSourceSupplier is null");
         return new TrackingLookupSourceSupplier()

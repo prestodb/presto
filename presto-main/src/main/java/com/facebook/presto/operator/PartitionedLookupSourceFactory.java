@@ -122,7 +122,7 @@ public final class PartitionedLookupSourceFactory
                     this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitionLookupSource);
                 }
                 else {
-                    this.lookupSourceSupplier = TrackingLookupSourceSupplier.from(partitionLookupSource);
+                    this.lookupSourceSupplier = TrackingLookupSourceSupplier.nonTracking(partitionLookupSource);
                 }
 
                 // store lookup source supplier and futures into local variables so they can be used outside of the lock
