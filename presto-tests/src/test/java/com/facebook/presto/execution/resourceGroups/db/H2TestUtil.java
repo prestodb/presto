@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -112,14 +111,11 @@ class H2TestUtil
     public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao)
             throws Exception
     {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("experimental.resource-groups-enabled", "true");
-        Map<String, String> properties = builder.build();
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(
                 testSessionBuilder().setCatalog("tpch").setSchema("tiny").build(),
                 2,
+                ImmutableMap.of("experimental.resource-groups-enabled", "true"),
                 ImmutableMap.of(),
-                properties,
                 new SqlParserOptions());
         try {
             Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
