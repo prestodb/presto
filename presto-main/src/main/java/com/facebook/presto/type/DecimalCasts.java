@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
+import com.facebook.presto.util.JsonCastException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
@@ -33,8 +34,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -69,6 +68,8 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
+import static com.facebook.presto.util.JsonUtil.currentTokenAsLongDecimal;
+import static com.facebook.presto.util.JsonUtil.currentTokenAsShortDecimal;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
@@ -620,59 +621,36 @@ public final class DecimalCasts
     public static Slice jsonToLongDecimal(Slice json, long precision, long scale, BigInteger tenToScale)
             throws IOException
     {
-        BigDecimal bigDecimal = jsonToDecimal(json, precision, scale);
-        if (bigDecimal == null) {
-            return null;
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+            parser.nextToken();
+            Slice result = currentTokenAsLongDecimal(parser, intPrecision(precision), intScale(scale));
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
+            return result;
         }
-        return encodeUnscaledValue(bigDecimal.unscaledValue());
+        catch (IOException | NumberFormatException | JsonCastException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
+        }
     }
 
     @UsedByGeneratedCode
     public static Long jsonToShortDecimal(Slice json, long precision, long scale, long tenToScale)
             throws IOException
     {
-        BigDecimal bigDecimal = jsonToDecimal(json, precision, scale);
-        return bigDecimal != null ? bigDecimal.unscaledValue().longValue() : null;
-    }
-
-    @Nullable
-    private static BigDecimal jsonToDecimal(Slice json, long precision, long scale)
-    {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
-            BigDecimal result;
-            switch (parser.getCurrentToken()) {
-                case VALUE_NULL:
-                    result = null;
-                    break;
-                case VALUE_STRING:
-                    result = new BigDecimal(parser.getText());
-                    result = result.setScale(intScale(scale), HALF_UP);
-                    break;
-                case VALUE_NUMBER_FLOAT:
-                case VALUE_NUMBER_INT:
-                    result = parser.getDecimalValue();
-                    result = result.setScale(intScale(scale), HALF_UP);
-                    break;
-                case VALUE_TRUE:
-                    result = BigDecimal.ONE.setScale(intScale(scale), HALF_UP);
-                    break;
-                case VALUE_FALSE:
-                    result = BigDecimal.ZERO.setScale(intScale(scale), HALF_UP);
-                    break;
-                default:
-                    throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale));
-            }
-            checkCondition(
-                    parser.nextToken() == null &&
-                            (result == null || result.precision() <= precision),
-                    INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
-
+            Long result = currentTokenAsShortDecimal(parser, intPrecision(precision), intScale(scale));
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
             return result;
         }
-        catch (IOException | NumberFormatException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale));
+        catch (IOException | NumberFormatException | JsonCastException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
         }
+    }
+
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static int intPrecision(long precision)
+    {
+        return (int) precision;
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
