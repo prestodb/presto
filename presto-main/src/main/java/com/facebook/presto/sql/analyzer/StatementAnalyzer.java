@@ -901,7 +901,7 @@ class StatementAnalyzer
                 // Original ORDER BY scope "sees" FROM query fields. However, during planning
                 // and when aggregation is present, ORDER BY expressions should only be resolvable against
                 // output scope, group by expressions and aggregation expressions.
-                computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), outputScope, aggregations, groupByExpressions, analysis.getGroupingOperations(node));
+                computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), sourceScope, outputScope, aggregations, groupByExpressions, analysis.getGroupingOperations(node));
             }
 
             return outputScope;
@@ -1582,7 +1582,7 @@ class StatementAnalyzer
             return orderByScope;
         }
 
-        private Scope computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope outputScope, List<FunctionCall> aggregations, List<List<Expression>> groupByExpressions, List<GroupingOperation> groupingOperations)
+        private Scope computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope sourceScope, Scope outputScope, List<FunctionCall> aggregations, List<List<Expression>> groupByExpressions, List<GroupingOperation> groupingOperations)
         {
             // This scope is only used for planning. When aggregation is present then
             // only output fields, groups and aggregation expressions should be visible from ORDER BY expression
@@ -1593,20 +1593,27 @@ class StatementAnalyzer
             orderByAggregationExpressionsBuilder.addAll(aggregations);
             orderByAggregationExpressionsBuilder.addAll(groupingOperations);
 
-            // Don't add aggregate expression that contains references to output column because the names would clash in TranslationMap during planning.
+            // Don't add aggregate complex expressions that contains references to output column because the names would clash in TranslationMap during planning.
             List<Expression> orderByExpressionsReferencingOutputScope = AstUtils.preOrder(node)
                     .filter(Expression.class::isInstance)
                     .map(Expression.class::cast)
                     .filter(expression -> hasReferencesToScope(expression, analysis, outputScope))
                     .collect(toImmutableList());
             List<Expression> orderByAggregationExpressions = orderByAggregationExpressionsBuilder.build().stream()
-                    .filter(expression -> !orderByExpressionsReferencingOutputScope.contains(expression))
+                    .filter(expression -> !orderByExpressionsReferencingOutputScope.contains(expression) || analysis.getColumnReferences().contains(NodeRef.of(expression)))
                     .collect(toImmutableList());
 
             // generate placeholder fields
+            Set<Field> seen = new HashSet<>();
             List<Field> orderByAggregationSourceFields = orderByAggregationExpressions.stream()
-                    .map(analysis::getType)
-                    .map(type -> Field.newUnqualified(Optional.empty(), type))
+                    .map(expression -> {
+                        // generate qualified placeholder field for GROUP BY expressions that are column references
+                        Optional<Field> sourceField = sourceScope.tryResolveField(expression)
+                                .filter(resolvedField -> seen.add(resolvedField.getField()))
+                                .map(ResolvedField::getField);
+                        return sourceField
+                                .orElse(Field.newUnqualified(Optional.empty(), analysis.getType(expression)));
+                    })
                     .collect(toImmutableList());
 
             Scope orderByAggregationScope = Scope.builder()

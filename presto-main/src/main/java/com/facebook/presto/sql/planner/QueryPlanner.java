@@ -170,7 +170,10 @@ class QueryPlanner
                 List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
                 builder = project(builder, Iterables.concat(outputs, orderByAggregates));
                 outputs = toSymbolReferences(computeOutputs(builder, outputs));
-                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()), orderByAggregates);
+                List<Expression> complexOrderByAggregatesToRemap = orderByAggregates.stream()
+                        .filter(expression -> !analysis.getColumnReferences().contains(NodeRef.of(expression)))
+                        .collect(toImmutableList());
+                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()), complexOrderByAggregatesToRemap);
             }
 
             builder = window(builder, node.getOrderBy().get());
