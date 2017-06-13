@@ -23,7 +23,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.tpch.TpchQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -116,7 +115,12 @@ class H2TestUtil
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         builder.put("experimental.resource-groups-enabled", "true");
         Map<String, String> properties = builder.build();
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), 2, ImmutableMap.of(), properties, new SqlParserOptions());
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(
+                testSessionBuilder().setCatalog("tpch").setSchema("tiny").build(),
+                2,
+                ImmutableMap.of(),
+                properties,
+                new SqlParserOptions());
         try {
             Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
             queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
@@ -138,16 +142,7 @@ class H2TestUtil
     {
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("experimental.resource-groups-enabled", "true");
-        Map<String, String> properties = builder.build();
-        DistributedQueryRunner queryRunner = TpchQueryRunner.createQueryRunner(properties);
-        Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
-        queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
-        queryRunner.getCoordinator().getResourceGroupManager().get()
-                .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl));
-        setup(queryRunner, dao);
-        return queryRunner;
+        return createQueryRunner(dbConfigUrl, dao);
     }
 
     private static void setup(DistributedQueryRunner queryRunner, H2ResourceGroupsDao dao)
