@@ -265,6 +265,21 @@ public class TestArrayOperators
                 new ArrayType(new ArrayType(BIGINT)),
                 asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null));
 
+        assertFunction("CAST(JSON '[" +
+                        "{\"a\": 1, \"b\": 2}, " +
+                        "{\"none\": null, \"three\": 3}, " +
+                        "{}, " +
+                        "{\"h1\": null,\"h2\": null}, " +
+                        "null]' " +
+                        "AS ARRAY<MAP<VARCHAR, BIGINT>>)",
+                new ArrayType(mapType(VARCHAR, BIGINT)),
+                asList(
+                        ImmutableMap.of("a", 1L, "b", 2L),
+                        asMap(ImmutableList.of("none", "three"), asList(null, 3L)),
+                        ImmutableMap.of(),
+                        asMap(ImmutableList.of("h1", "h2"), asList(null, null)),
+                        null));
+
         // invalid cast
         assertInvalidCast("CAST(JSON '{\"a\": 1}' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Expected a json array, but got {\n{\"a\":1}");
         assertInvalidCast("CAST(JSON '[1, 2, 3]' AS ARRAY<ARRAY<BIGINT>>)", "Cannot cast to array(array(bigint)). Expected a json array, but got 1\n[1,2,3]");

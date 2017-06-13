@@ -45,10 +45,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -64,17 +66,24 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
+import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
+import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
+import static java.util.Objects.requireNonNull;
 
 public final class JsonUtil
 {
@@ -577,6 +586,7 @@ public final class JsonUtil
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
+            case FIELD_NAME:
                 return Slices.utf8Slice(parser.getText());
             case VALUE_NUMBER_FLOAT:
                 // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
@@ -601,6 +611,7 @@ public final class JsonUtil
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
+            case FIELD_NAME:
                 return VarcharOperators.castToBigint(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT:
                 return DoubleOperators.castToLong(parser.getDoubleValue());
@@ -622,6 +633,7 @@ public final class JsonUtil
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
+            case FIELD_NAME:
                 return VarcharOperators.castToInteger(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT:
                 return DoubleOperators.castToInteger(parser.getDoubleValue());
@@ -643,6 +655,7 @@ public final class JsonUtil
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
+            case FIELD_NAME:
                 return VarcharOperators.castToSmallint(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT:
                 return DoubleOperators.castToSmallint(parser.getDoubleValue());
@@ -664,6 +677,7 @@ public final class JsonUtil
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
+            case FIELD_NAME:
                 return VarcharOperators.castToTinyint(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT:
                 return DoubleOperators.castToTinyint(parser.getDoubleValue());
@@ -685,6 +699,7 @@ public final class JsonUtil
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
+            case FIELD_NAME:
                 return VarcharOperators.castToDouble(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT:
                 return parser.getDoubleValue();
@@ -708,6 +723,7 @@ public final class JsonUtil
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
+            case FIELD_NAME:
                 return VarcharOperators.castToFloat(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT:
                 return (long) floatToRawIntBits(parser.getFloatValue());
@@ -731,6 +747,7 @@ public final class JsonUtil
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
+            case FIELD_NAME:
                 return VarcharOperators.castToBoolean(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT:
                 return DoubleOperators.castToBoolean(parser.getDoubleValue());
@@ -774,6 +791,7 @@ public final class JsonUtil
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
+            case FIELD_NAME:
                 result = new BigDecimal(parser.getText());
                 result = result.setScale(scale, HALF_UP);
                 break;
@@ -840,7 +858,12 @@ public final class JsonUtil
                 case StandardTypes.ARRAY:
                     return new ArrayBlockBuilderAppender(createBlockBuilderAppender(((ArrayType) type).getElementType()));
                 case StandardTypes.MAP:
-                    throw new UnsupportedOperationException();
+                    MapType mapType = (MapType) type;
+                    return new MapBlockBuilderAppender(
+                            createBlockBuilderAppender(mapType.getKeyType()),
+                            createBlockBuilderAppender(mapType.getValueType()),
+                            mapType.getKeyType()
+                    );
                 default:
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
             }
@@ -1067,6 +1090,151 @@ public final class JsonUtil
                 elementAppender.append(parser, entryBuilder);
             }
             blockBuilder.closeEntry();
+        }
+    }
+
+    private static class MapBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        BlockBuilderAppender keyAppender;
+        BlockBuilderAppender valueAppender;
+        Type keyType;
+
+        MapBlockBuilderAppender(BlockBuilderAppender keyAppender, BlockBuilderAppender valueAppender, Type keyType)
+        {
+            this.keyAppender = keyAppender;
+            this.valueAppender = valueAppender;
+            this.keyType = keyType;
+        }
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+                blockBuilder.appendNull();
+                return;
+            }
+
+            if (parser.getCurrentToken() != START_OBJECT) {
+                throw new JsonCastException(format("Expected a json object, but got %s", parser.getText()));
+            }
+            BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
+            HashTable entryBuilderHashTable = new HashTable(keyType, entryBuilder);
+            int position = 0;
+            while (parser.nextToken() != END_OBJECT) {
+                keyAppender.append(parser, entryBuilder);
+                parser.nextToken();
+                valueAppender.append(parser, entryBuilder);
+                if (!entryBuilderHashTable.addIfAbsent(position)) {
+                    throw new JsonCastException("Duplicate keys are not allowed");
+                }
+                position += 2;
+            }
+            blockBuilder.closeEntry();
+        }
+    }
+
+    // TODO: This class might be useful to other Map functions (transform_key, cast map to map, map_concat, etc)
+    // It is caller's responsibility to make the block data synchronized with the hash table
+    public static class HashTable
+    {
+        private static final int EXPECTED_ENTRIES = 20;
+        private static final float FILL_RATIO = 0.75f;
+        private static final int EMPTY_SLOT = -1;
+
+        private final Type type;
+        private final BlockBuilder block;
+
+        private int[] positionByHash;
+        private int hashCapacity;
+        private int maxFill;
+        private int hashMask;
+        private int size;
+
+        public HashTable(Type type, BlockBuilder block)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.block = requireNonNull(block, "block is null");
+
+            hashCapacity = arraySize(EXPECTED_ENTRIES, FILL_RATIO);
+            this.maxFill = calculateMaxFill(hashCapacity);
+            this.hashMask = hashCapacity - 1;
+            positionByHash = new int[hashCapacity];
+            Arrays.fill(positionByHash, EMPTY_SLOT);
+        }
+
+        public boolean contains(int position)
+        {
+            checkArgument(position >= 0, "position is negative");
+            return positionByHash[getHashPosition(position)] != EMPTY_SLOT;
+        }
+
+        public boolean addIfAbsent(int position)
+        {
+            checkArgument(position >= 0, "position is negative");
+            int hashPosition = getHashPosition(position);
+            if (positionByHash[hashPosition] == EMPTY_SLOT) {
+                positionByHash[hashPosition] = position;
+                size++;
+                if (size >= maxFill) {
+                    rehash();
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        private int getHashPosition(int position)
+        {
+            int hashPosition = getMaskedHash(hashPosition(type, block, position));
+            while (true) {
+                if (positionByHash[hashPosition] == EMPTY_SLOT) {
+                    return hashPosition;
+                }
+                else if (positionEqualsPosition(type, block, positionByHash[hashPosition], block, position)) {
+                    return hashPosition;
+                }
+                hashPosition = getMaskedHash(hashPosition + 1);
+            }
+        }
+
+        private void rehash()
+        {
+            long newCapacityLong = hashCapacity * 2L;
+            if (newCapacityLong > Integer.MAX_VALUE) {
+                throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+            }
+            int newCapacity = (int) newCapacityLong;
+            hashCapacity = newCapacity;
+            hashMask = newCapacity - 1;
+            maxFill = calculateMaxFill(newCapacity);
+            int[] oldPositionByHash = positionByHash;
+            positionByHash = new int[newCapacity];
+            Arrays.fill(positionByHash, EMPTY_SLOT);
+            for (int position : oldPositionByHash) {
+                if (position != EMPTY_SLOT) {
+                    positionByHash[getHashPosition(position)] = position;
+                }
+            }
+        }
+
+        private static int calculateMaxFill(int hashSize)
+        {
+            checkArgument(hashSize > 0, "hashSize must be greater than 0");
+            int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
+            if (maxFill == hashSize) {
+                maxFill--;
+            }
+            checkArgument(hashSize > maxFill, "hashSize must be larger than maxFill");
+            return maxFill;
+        }
+
+        private int getMaskedHash(long rawHash)
+        {
+            return (int) (rawHash & hashMask);
         }
     }
 }
