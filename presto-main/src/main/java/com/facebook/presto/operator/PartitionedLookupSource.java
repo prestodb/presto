@@ -25,6 +25,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -61,7 +62,7 @@ public class PartitionedLookupSource
             };
         }
         else {
-            return TrackingLookupSourceSupplier.from(
+            return TrackingLookupSourceSupplier.nonTracking(
                     () -> new PartitionedLookupSource(
                             getPartitionsLookupSources(partitions),
                             hashChannelTypes,
@@ -249,6 +250,7 @@ public class PartitionedLookupSource
         {
             private final LookupSource[] lookupSources;
             private final boolean[][] visitedPositions;
+            private final AtomicBoolean finished = new AtomicBoolean();
             private final AtomicLong referenceCount = new AtomicLong();
 
             public Factory(List<Supplier<LookupSource>> partitions)
@@ -263,24 +265,27 @@ public class PartitionedLookupSource
 
             public OuterPositionTracker create()
             {
-                return new OuterPositionTracker(visitedPositions, referenceCount);
+                return new OuterPositionTracker(visitedPositions, finished, referenceCount);
             }
 
             public OuterPositionIterator getOuterPositionIterator()
             {
                 // touching atomic values ensures memory visibility between commit and getVisitedPositions
                 verify(referenceCount.get() == 0);
+                finished.set(true);
                 return new PartitionedLookupOuterPositionIterator(lookupSources, visitedPositions);
             }
         }
 
         private final boolean[][] visitedPositions; // shared across multiple operators/drivers
+        private final AtomicBoolean finished; // shared across multiple operators/drivers
         private final AtomicLong referenceCount; // shared across multiple operators/drivers
         private boolean written; // unique per each operator/driver
 
-        private OuterPositionTracker(boolean[][] visitedPositions, AtomicLong referenceCount)
+        private OuterPositionTracker(boolean[][] visitedPositions, AtomicBoolean finished, AtomicLong referenceCount)
         {
             this.visitedPositions = visitedPositions;
+            this.finished = finished;
             this.referenceCount = referenceCount;
         }
 
@@ -291,7 +296,8 @@ public class PartitionedLookupSource
         {
             if (!written) {
                 written = true;
-                incrementReferenceCount();
+                verify(!finished.get());
+                referenceCount.incrementAndGet();
             }
             visitedPositions[partition][position] = true;
         }
@@ -302,11 +308,6 @@ public class PartitionedLookupSource
                 // touching atomic values ensures memory visibility between commit and getVisitedPositions
                 referenceCount.decrementAndGet();
             }
-        }
-
-        private void incrementReferenceCount()
-        {
-            referenceCount.incrementAndGet();
         }
     }
 }
