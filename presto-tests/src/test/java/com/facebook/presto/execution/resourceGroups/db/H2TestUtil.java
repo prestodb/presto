@@ -93,8 +93,7 @@ class H2TestUtil
 
     public static String getDbConfigUrl()
     {
-        Random rnd = new Random();
-        return "jdbc:h2:mem:test_" + Math.abs(rnd.nextLong());
+        return "jdbc:h2:mem:test_" + Math.abs(new Random().nextLong());
     }
 
     public static H2ResourceGroupsDao getDao(String url)
