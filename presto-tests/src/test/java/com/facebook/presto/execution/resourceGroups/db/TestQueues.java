@@ -32,14 +32,14 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.adhocSession;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.dashboardSession;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDao;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSelectors;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.newDashboardSession;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.newRejectionSession;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.newSession;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.rejectingSession;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForCompleteQueryCount;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForRunningQueryCount;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
@@ -78,13 +78,13 @@ public class TestQueues
         try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             // submit first "dashboard" query
-            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
 
             // wait for the first "dashboard" query to start
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
             waitForRunningQueryCount(queryRunner, 1);
             // submit second "dashboard" query
-            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             MILLISECONDS.sleep(2000);
             // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
@@ -93,16 +93,16 @@ public class TestQueues
             dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, null, null, null, null, null, null, null, 1L);
             dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, null, null, null, null, null, null, null, 3L);
             waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
-            QueryId thirdDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
             waitForRunningQueryCount(queryRunner, 2);
             // submit first non "dashboard" query
-            QueryId firstNonDashboardQuery = createQuery(queryRunner, newSession(), LONG_LASTING_QUERY);
+            QueryId firstNonDashboardQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
             // wait for the first non "dashboard" query to start
             waitForQueryState(queryRunner, firstNonDashboardQuery, RUNNING);
             waitForRunningQueryCount(queryRunner, 3);
             // submit second non "dashboard" query
-            QueryId secondNonDashboardQuery = createQuery(queryRunner, newSession(), LONG_LASTING_QUERY);
+            QueryId secondNonDashboardQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
             // wait for the second non "dashboard" query to start
             waitForQueryState(queryRunner, secondNonDashboardQuery, RUNNING);
             waitForRunningQueryCount(queryRunner, 4);
@@ -122,8 +122,8 @@ public class TestQueues
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
         try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
-            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
-            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
 
             ImmutableSet<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
@@ -138,20 +138,20 @@ public class TestQueues
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
         try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
-            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
 
-            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
-            QueryId thirdDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
 
             // Allow one more query to run and resubmit third query
             dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, null, null, null, null, null, null, null, 1L);
             dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, null, null, null, null, null, null, null, 3L);
             waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
-            thirdDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
 
             // Lower running queries in dashboard resource groups and wait until groups are reconfigured
@@ -177,7 +177,7 @@ public class TestQueues
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
         try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
             // Verify the query cannot be submitted
-            QueryId queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
+            QueryId queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
@@ -188,14 +188,14 @@ public class TestQueues
                 MILLISECONDS.sleep(500);
             }
             // Verify the query can be submitted
-            queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
+            queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, RUNNING);
             dao.deleteSelector(4, "user.*", "(?i).*reject.*");
             while (getSelectors(queryRunner).size() != selectorCount) {
                 MILLISECONDS.sleep(500);
             }
             // Verify the query cannot be submitted
-            queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
+            queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, FAILED);
         }
     }
@@ -208,7 +208,7 @@ public class TestQueues
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
         try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
             dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, null, "3s", 3L);
-            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
         }
     }
@@ -221,9 +221,9 @@ public class TestQueues
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
         try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
             dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, "5s", null, 3L);
-            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
-            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
             waitForQueryState(queryRunner, secondDashboardQuery, FAILED);
         }
