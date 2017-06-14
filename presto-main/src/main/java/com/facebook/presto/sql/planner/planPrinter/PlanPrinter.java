@@ -30,7 +30,6 @@ import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.OrderingScheme;
@@ -1313,11 +1312,11 @@ public class PlanPrinter
         private String formatPlanNodeStats(PlanNode node)
         {
             PlanNodeStatsEstimate stats = lookup.getStats(node, session, types);
-            Estimate outputRowCount = stats.getOutputRowCount();
-            Estimate outputSizeInBytes = stats.getOutputSizeInBytes();
+            double outputRowCount = stats.getOutputRowCount();
+            double outputSizeInBytes = stats.getOutputSizeInBytes();
             return String.format("{rows: %s, bytes: %s}",
-                    outputRowCount.isValueUnknown() ? "?" : String.valueOf((long) outputRowCount.getValue()),
-                    outputSizeInBytes.isValueUnknown() ? "?" : succinctBytes((long) outputSizeInBytes.getValue()));
+                    Double.isNaN(outputRowCount) ? "?" : String.valueOf((long) outputRowCount),
+                    Double.isNaN(outputSizeInBytes) ? "?" : succinctBytes((long) outputSizeInBytes));
         }
     }
 

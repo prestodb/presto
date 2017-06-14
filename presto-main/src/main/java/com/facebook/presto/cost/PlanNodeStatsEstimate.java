@@ -13,45 +13,50 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.spi.statistics.Estimate;
-
 import java.util.Objects;
 import java.util.function.Function;
 
-import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
-import static java.util.Objects.requireNonNull;
+import static java.lang.Double.NaN;
 
 public class PlanNodeStatsEstimate
 {
     public static final PlanNodeStatsEstimate UNKNOWN_STATS = PlanNodeStatsEstimate.builder().build();
 
-    private final Estimate outputRowCount;
-    private final Estimate outputSizeInBytes;
+    private final double outputRowCount;
+    private final double outputSizeInBytes;
 
-    private PlanNodeStatsEstimate(Estimate outputRowCount, Estimate outputSizeInBytes)
+    private PlanNodeStatsEstimate(double outputRowCount, double outputSizeInBytes)
     {
-        this.outputRowCount = requireNonNull(outputRowCount, "outputRowCount can not be null");
-        this.outputSizeInBytes = requireNonNull(outputSizeInBytes, "outputSizeInBytes can not be null");
+        this.outputRowCount = outputRowCount;
+        this.outputSizeInBytes = outputSizeInBytes;
     }
 
-    public Estimate getOutputRowCount()
+    /**
+     * Returns estimated number of rows.
+     * Unknown value is represented by {@link Double#NaN}
+     */
+    public double getOutputRowCount()
     {
         return outputRowCount;
     }
 
-    public Estimate getOutputSizeInBytes()
+    /**
+     * Returns estimated data size.
+     * Unknown value is represented by {@link Double#NaN}
+     */
+    public double getOutputSizeInBytes()
     {
         return outputSizeInBytes;
     }
 
     public PlanNodeStatsEstimate mapOutputRowCount(Function<Double, Double> mappingFunction)
     {
-        return buildFrom(this).setOutputRowCount(outputRowCount.map(mappingFunction)).build();
+        return buildFrom(this).setOutputRowCount(mappingFunction.apply(outputRowCount)).build();
     }
 
     public PlanNodeStatsEstimate mapOutputSizeInBytes(Function<Double, Double> mappingFunction)
     {
-        return buildFrom(this).setOutputSizeInBytes(outputRowCount.map(mappingFunction)).build();
+        return buildFrom(this).setOutputSizeInBytes(mappingFunction.apply(outputRowCount)).build();
     }
 
     @Override
@@ -93,16 +98,16 @@ public class PlanNodeStatsEstimate
 
     public static final class Builder
     {
-        private Estimate outputRowCount = unknownValue();
-        private Estimate outputSizeInBytes = unknownValue();
+        private double outputRowCount = NaN;
+        private double outputSizeInBytes = NaN;
 
-        public Builder setOutputRowCount(Estimate outputRowCount)
+        public Builder setOutputRowCount(double outputRowCount)
         {
             this.outputRowCount = outputRowCount;
             return this;
         }
 
-        public Builder setOutputSizeInBytes(Estimate outputSizeInBytes)
+        public Builder setOutputSizeInBytes(double outputSizeInBytes)
         {
             this.outputSizeInBytes = outputSizeInBytes;
             return this;

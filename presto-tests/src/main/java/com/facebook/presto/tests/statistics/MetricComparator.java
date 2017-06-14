@@ -15,7 +15,6 @@ package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -83,8 +82,8 @@ public class MetricComparator
     private PlanNodeStatsEstimate toPlanNodeStats(PlanNodeStats operatorStats)
     {
         return PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(new Estimate(operatorStats.getPlanNodeOutputPositions()))
-                .setOutputSizeInBytes(new Estimate(operatorStats.getPlanNodeOutputDataSize().toBytes()))
+                .setOutputRowCount(operatorStats.getPlanNodeOutputPositions())
+                .setOutputSizeInBytes(operatorStats.getPlanNodeOutputDataSize().toBytes())
                 .build();
     }
 
@@ -95,8 +94,8 @@ public class MetricComparator
         return new MetricComparison(node, metric, estimatedStats, executionCount);
     }
 
-    private Optional<Double> asOptional(Estimate estimate)
+    private Optional<Double> asOptional(double value)
     {
-        return estimate.isValueUnknown() ? Optional.empty() : Optional.of(estimate.getValue());
+        return Double.isNaN(value) ? Optional.empty() : Optional.of(value);
     }
 }
