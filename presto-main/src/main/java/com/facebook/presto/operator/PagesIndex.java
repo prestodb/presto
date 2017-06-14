@@ -158,6 +158,7 @@ public class PagesIndex
         valueAddresses.clear();
         valueAddresses.trim();
         positionCount = 0;
+        nextBlockToCompact = 0;
         pagesMemorySize = 0;
 
         estimatedSize = calculateEstimatedSize();
