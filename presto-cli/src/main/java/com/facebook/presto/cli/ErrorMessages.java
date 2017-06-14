@@ -14,29 +14,19 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
-
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import com.google.common.base.Throwables;
 
 public class ErrorMessages
 {
-    private ErrorMessages()
-    {}
+    private ErrorMessages() {}
 
     public static String createErrorMessage(Throwable throwable, ClientSession session)
     {
         StringBuilder builder = new StringBuilder();
         builder.append("Error running command: " + throwable.getMessage());
         if (session.isDebug()) {
-            builder.append(getStackTraceString(throwable));
+            builder.append(Throwables.getStackTraceAsString(throwable));
         }
         return builder.toString();
-    }
-
-    private static String getStackTraceString(Throwable throwable)
-    {
-        StringWriter errors = new StringWriter();
-        throwable.printStackTrace(new PrintWriter(errors));
-        return errors.toString();
     }
 }
