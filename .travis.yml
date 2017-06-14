@@ -153,6 +153,7 @@ after_script:
       --include='**/' \
       --include='**/surefire-reports/**.xml' \
       --include='**/surefire-reports/emailable-report.html' \
+      --include='**/product-tests-presto-jvm-error-file.log' \
       --exclude='*' \
       . /tmp/job_artifacts/
     wget https://api.travis-ci.org/jobs/${TRAVIS_JOB_ID}/log.txt?deansi=true -O /tmp/job_artifacts/log.txt
