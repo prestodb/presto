@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.IntPredicate;
 
@@ -46,10 +47,15 @@ public class GenericPartitioningSpiller
         implements PartitioningSpiller
 {
     private final List<Type> types;
-    private final PageBuilder[] pageBuilders;
     private final PartitionFunction partitionFunction;
-    private final SingleStreamSpiller[] spillers;
     private final Closer closer = Closer.create();
+    private final SingleStreamSpillerFactory spillerFactory;
+    private final SpillContext spillContext;
+    private final AggregatedMemoryContext memoryContext;
+
+    private final PageBuilder[] pageBuilders;
+    private final Optional<SingleStreamSpiller>[] spillers;
+
     private boolean readingStarted;
     private Set<Integer> spilledPartitions = new HashSet<>();
 
@@ -64,13 +70,19 @@ public class GenericPartitioningSpiller
 
         this.types = requireNonNull(types, "types is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
+        this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
+        this.spillContext = closer.register(requireNonNull(spillContext, "spillContext is null"));
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        closer.register(memoryContext::close);
+
         int partitionCount = partitionFunction.getPartitionCount();
-        this.spillers = new SingleStreamSpiller[partitionCount];
         this.pageBuilders = new PageBuilder[partitionCount];
+        //noinspection unchecked
+        this.spillers = new Optional[partitionCount];
 
         for (int partition = 0; partition < partitionCount; partition++) {
             pageBuilders[partition] = new PageBuilder(types);
-            spillers[partition] = closer.register(spillerFactory.create(types, spillContext.newLocalSpillContext(), memoryContext.newLocalMemoryContext()));
+            spillers[partition] = Optional.empty();
         }
     }
 
@@ -80,7 +92,7 @@ public class GenericPartitioningSpiller
         readingStarted = true;
         getFutureValue(flush(partition));
         spilledPartitions.remove(partition);
-        return spillers[partition].getSpilledPages();
+        return getSpillter(partition).getSpilledPages();
     }
 
     @Override
@@ -149,7 +161,19 @@ public class GenericPartitioningSpiller
         }
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return spillers[partition].spill(page);
+        return getSpillter(partition).spill(page);
+    }
+
+    private synchronized SingleStreamSpiller getSpillter(int partition)
+    {
+        Optional<SingleStreamSpiller> spiller = spillers[partition];
+        if (!spiller.isPresent()) {
+            spiller = Optional.of(closer.register(
+                    spillerFactory.create(types, spillContext.newLocalSpillContext(), memoryContext.newLocalMemoryContext())
+            ));
+            spillers[partition] = spiller;
+        }
+        return spiller.get();
     }
 
     @Override
