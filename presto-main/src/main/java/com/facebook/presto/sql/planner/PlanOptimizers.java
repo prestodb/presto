@@ -123,6 +123,13 @@ public class PlanOptimizers
         Set<Rule> predicatePushDownRules = ImmutableSet.of(
                 new MergeFilters());
 
+        // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
+        Set<Rule> columnPruningRules = ImmutableSet.of(
+                new PruneSemiJoinColumns(),
+                new PruneSemiJoinFilteringSourceColumns(),
+                new PruneValuesColumns(),
+                new PruneTableScanColumns());
+
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 stats,
                 ImmutableSet.of(
@@ -143,6 +150,7 @@ public class PlanOptimizers
                         stats,
                         ImmutableSet.<Rule>builder()
                                 .addAll(predicatePushDownRules)
+                                .addAll(columnPruningRules)
                                 .addAll(ImmutableSet.of(
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
@@ -154,11 +162,7 @@ public class PlanOptimizers
                                         new MergeLimitWithTopN(),
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughSemiJoin(),
-                                        new MergeLimitWithDistinct(),
-                                        new PruneSemiJoinColumns(),
-                                        new PruneSemiJoinFilteringSourceColumns(),
-                                        new PruneValuesColumns(),
-                                        new PruneTableScanColumns()))
+                                        new MergeLimitWithDistinct()))
                                 .build()
                 ),
                 new IterativeOptimizer(
