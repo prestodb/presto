@@ -24,36 +24,33 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import org.fusesource.jansi.Ansi;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 
-import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 
 public class ErrorMessages
 {
-    private static final String TECHNICAL_DETAILS_HEADER = "\n=========   TECHNICAL DETAILS   =========\n";
-    private static final String SESSION_INTRO = "[ Session information ]\n";
-    private static final String ERROR_MESSAGE_INTRO = "[ Error message ]\n";
-    private static final String STACKTRACE_INTRO = "[ Stack trace ]\n";
-    private static final String TECHNICAL_DETAILS_END = "========= TECHNICAL DETAILS END =========\n\n";
-
     private ErrorMessages() {}
 
 
-    public static String createQueryErrorMessage(StatementClient client)
+    public static String createQueryErrorMessage(StatementClient client, boolean useAnsiEscapeCodes)
     {
-        return standardQueryErrorMessage(client);
+        StringBuilder builder = new StringBuilder();
+        QueryError error = extractQueryError(client);
+
+        builder.append(String.format("Query %s failed: %s%n", client.finalResults().getId(), error.getMessage()));
+        if (client.isDebug() && (error.getFailureInfo() != null)) {
+            builder.append(Throwables.getStackTraceAsString(error.getFailureInfo().toException()));
+        }
+        if (error.getErrorLocation() != null) {
+            errorLocationMessage(builder, client.getQuery(), error.getErrorLocation(), useAnsiEscapeCodes);
+        }
+
+        return builder.toString();
     }
 
     public static String createExceptionMessage(Throwable throwable, ClientSession session)
-    {
-        return runtimeExceptionErrorMessage(throwable, session);
-    }
-
-    private static String runtimeExceptionErrorMessage(Throwable throwable, ClientSession session)
     {
         StringBuilder builder = new StringBuilder();
 
@@ -69,35 +66,17 @@ public class ErrorMessages
 
     private static void technicalDetailsRuntimeExceptionErrorMessage(StringBuilder builder, Throwable throwable, ClientSession session)
     {
-        builder.append(TECHNICAL_DETAILS_HEADER);
-        builder.append(ERROR_MESSAGE_INTRO);
+        builder.append("\n=========   TECHNICAL DETAILS   =========\n");
+        builder.append("[ Error message ]\n");
         builder.append(throwable.getMessage() + "\n\n");
-        builder.append(SESSION_INTRO);
+        builder.append("[ Session information ]\n");
         builder.append(session + "\n\n");
-        builder.append(STACKTRACE_INTRO);
+        builder.append("[ Stack trace ]\n");
         builder.append(Throwables.getStackTraceAsString(throwable));
-        builder.append(TECHNICAL_DETAILS_END);
+        builder.append("========= TECHNICAL DETAILS END =========\n\n");
     }
 
-    private static String standardQueryErrorMessage(StatementClient client)
-    {
-        StringBuilder builder = new StringBuilder();
-        QueryError error = extractQueryError(client);
-
-        builder.append(String.format("Query %s failed: %s%n", client.finalResults().getId(), error.getMessage()));
-        if (client.isDebug() && (error.getFailureInfo() != null)) {
-            StringWriter errors = new StringWriter();
-            error.getFailureInfo().toException().printStackTrace(new PrintWriter(errors));
-            builder.append(errors.toString());
-        }
-        if (error.getErrorLocation() != null) {
-            errorLocationMessage(builder, client.getQuery(), error.getErrorLocation());
-        }
-
-        return builder.toString();
-    }
-
-    private static void errorLocationMessage(StringBuilder builder, String query, ErrorLocation location)
+    private static void errorLocationMessage(StringBuilder builder, String query, ErrorLocation location, boolean useAnsiEscapeCodes)
     {
         List<String> lines = ImmutableList.copyOf(Splitter.on('\n').split(query).iterator());
 
@@ -109,7 +88,7 @@ public class ErrorMessages
             bad = " <EOF>";
         }
 
-        if (REAL_TERMINAL) {
+        if (useAnsiEscapeCodes) {
             Ansi ansi = Ansi.ansi();
 
             ansi.fg(Ansi.Color.CYAN);

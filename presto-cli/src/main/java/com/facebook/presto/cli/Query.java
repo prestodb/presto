@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.facebook.presto.cli.ErrorMessages.createQueryErrorMessage;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -144,7 +145,7 @@ public class Query
             errorChannel.println("Query is gone (server restarted?)");
         }
         else if (client.isFailed()) {
-            errorChannel.println(createQueryErrorMessage(client));
+            errorChannel.println(createQueryErrorMessage(client, REAL_TERMINAL));
         }
     }
 
