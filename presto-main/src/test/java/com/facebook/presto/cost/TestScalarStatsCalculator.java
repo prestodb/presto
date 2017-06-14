@@ -17,8 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.StringLiteral;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import java.util.Map;
 
@@ -37,6 +42,34 @@ public class TestScalarStatsCalculator
     {
         calculator = new ScalarStatsCalculator(MetadataManager.createTestMetadataManager());
         session = testSessionBuilder().build();
+    }
+
+    @Test
+    public void testLiteral()
+    {
+        assertCalculate(new DoubleLiteral("7.5"))
+                .distinctValuesCount(1.0)
+                .lowValue(7.5)
+                .highValue(7.5)
+                .nullsFraction(0.0);
+
+        assertCalculate(new DecimalLiteral("75.5"))
+                .distinctValuesCount(1.0)
+                .lowValue(75.5)
+                .highValue(75.5)
+                .nullsFraction(0.0);
+
+        assertCalculate(new StringLiteral("blah"))
+                .distinctValuesCount(1.0)
+                .lowValueUnknown()
+                .highValueUnknown()
+                .nullsFraction(0.0);
+
+        assertCalculate(new NullLiteral())
+                .distinctValuesCount(0.0)
+                .lowValueUnknown()
+                .highValueUnknown()
+                .nullsFraction(1.0);
     }
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression)
