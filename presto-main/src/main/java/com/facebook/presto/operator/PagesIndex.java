@@ -155,8 +155,10 @@ public class PagesIndex
     {
         for (ObjectArrayList<Block> channel : channels) {
             channel.clear();
+            channel.trim();
         }
         valueAddresses.clear();
+        valueAddresses.trim();
         positionCount = 0;
         pagesMemorySize = 0;
 
