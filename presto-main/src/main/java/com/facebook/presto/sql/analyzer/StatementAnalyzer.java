@@ -966,7 +966,7 @@ class StatementAnalyzer
                         throw new SemanticException(TYPE_MISMATCH,
                                 node,
                                 "column %d in %s query has incompatible types: %s, %s",
-                                i, outputFieldTypes[i].getDisplayName(), setOperationName, descFieldType.getDisplayName());
+                                i, setOperationName, outputFieldTypes[i].getDisplayName(), descFieldType.getDisplayName());
                     }
                     outputFieldTypes[i] = commonSuperType.get();
                 }
