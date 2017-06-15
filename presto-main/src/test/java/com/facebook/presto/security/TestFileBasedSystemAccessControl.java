@@ -42,12 +42,12 @@ public class TestFileBasedSystemAccessControl
     private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
     private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
-    private TransactionManager transactionManager;
 
     @Test
     public void testCatalogOperations()
     {
-       AccessControlManager accessControlManager = newAccessControlManager();
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager);
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -64,7 +64,8 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void testSchemaOperations()
     {
-        AccessControlManager accessControlManager = newAccessControlManager();
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager);
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -85,7 +86,8 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void testTableOperations()
     {
-        AccessControlManager accessControlManager = newAccessControlManager();
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager);
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -110,7 +112,8 @@ public class TestFileBasedSystemAccessControl
     public void testViewOperations()
             throws Exception
     {
-        AccessControlManager accessControlManager = newAccessControlManager();
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager);
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -128,10 +131,9 @@ public class TestFileBasedSystemAccessControl
         }));
     }
 
-    private AccessControlManager newAccessControlManager()
+    private AccessControlManager newAccessControlManager(TransactionManager transactionManager)
     {
-        transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager =  new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
 
         String path = this.getClass().getClassLoader().getResource("catalog.json").getPath();
         accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", path));
