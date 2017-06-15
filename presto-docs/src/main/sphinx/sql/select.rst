@@ -817,3 +817,30 @@ row. The returned value is ``NULL`` if the subquery produces no rows::
     WHERE regionkey = (SELECT max(regionkey) FROM region)
 
 .. note:: Currently only single column can be returned from the scalar subquery.
+
+LATERAL
+^^^^^^^
+Subqueries appearing in FROM can be preceded by the key word LATERAL. 
+This allows them to reference columns provided by preceding FROM items.
+
+A LATERAL item can appear at top level in the FROM list, or within a JOIN tree. 
+In the latter case it can also refer to any items that are on the left-hand side 
+of a JOIN that it is on the right-hand side of.
+
+.. note:: Currently only LATERAL CROSS JOIN is supported.
+single column can be returned from the scalar subquery.
+
+When a FROM item contains LATERAL cross-references, evaluation proceeds as follows: 
+for each row of the FROM item providing the cross-referenced column(s), 
+or set of rows of multiple FROM items providing the columns, 
+the LATERAL item is evaluated using that row or row set's values of the columns. 
+The resulting row(s) are joined as usual with the rows they were computed from. 
+This is repeated for each row or set of rows from the column source table(s).
+
+LATERAL is primarily useful when the cross-referenced column is necessary for 
+computing the row(s) to be joined. Please see the below example:
+
+    SELECT name, x, y
+    FROM nation,
+    LATERAL (SELECT name || ' :-' x),
+    LATERAL (SELECT x || ')' as y)
