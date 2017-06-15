@@ -142,7 +142,10 @@ public final class JsonUtil
             return canCastToJson(((ArrayType) type).getElementType());
         }
         if (type instanceof MapType) {
-            return isValidJsonObjectKeyType(((MapType) type).getKeyType()) && canCastToJson(((MapType) type).getValueType());
+            MapType mapType = (MapType) type;
+            return (mapType.getKeyType().getTypeSignature().getBase().equals(UnknownType.NAME) ||
+                    isValidJsonObjectKeyType(mapType.getKeyType())) &&
+                    canCastToJson(mapType.getValueType());
         }
         if (type instanceof RowType) {
             return type.getTypeParameters().stream().allMatch(JsonUtil::canCastToJson);
@@ -150,11 +153,34 @@ public final class JsonUtil
         return false;
     }
 
+    public static boolean canCastFromJson(Type type)
+    {
+        String baseType = type.getTypeSignature().getBase();
+        if (baseType.equals(StandardTypes.BOOLEAN) ||
+                baseType.equals(StandardTypes.TINYINT) ||
+                baseType.equals(StandardTypes.SMALLINT) ||
+                baseType.equals(StandardTypes.INTEGER) ||
+                baseType.equals(StandardTypes.BIGINT) ||
+                baseType.equals(StandardTypes.REAL) ||
+                baseType.equals(StandardTypes.DOUBLE) ||
+                baseType.equals(StandardTypes.VARCHAR) ||
+                baseType.equals(StandardTypes.DECIMAL) ||
+                baseType.equals(StandardTypes.JSON)) {
+            return true;
+        }
+        if (type instanceof ArrayType) {
+            return canCastFromJson(((ArrayType) type).getElementType());
+        }
+        if (type instanceof MapType) {
+            return isValidJsonObjectKeyType(((MapType) type).getKeyType()) && canCastFromJson(((MapType) type).getValueType());
+        }
+        return false;
+    }
+
     private static boolean isValidJsonObjectKeyType(Type type)
     {
         String baseType = type.getTypeSignature().getBase();
-        return baseType.equals(UnknownType.NAME) ||
-                baseType.equals(StandardTypes.BOOLEAN) ||
+        return baseType.equals(StandardTypes.BOOLEAN) ||
                 baseType.equals(StandardTypes.TINYINT) ||
                 baseType.equals(StandardTypes.SMALLINT) ||
                 baseType.equals(StandardTypes.INTEGER) ||
