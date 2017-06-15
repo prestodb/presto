@@ -51,7 +51,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
-import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
@@ -266,15 +265,25 @@ public class HiveSplitManager
                     }
                 }
 
-                Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
-                checkCondition(
-                        partitionBucketProperty.equals(bucketProperty),
-                        HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH,
-                        "Hive table (%s) bucketing property (%s) does not match partition (%s) bucketing property (%s)",
-                        hivePartition.getTableName(),
-                        bucketProperty,
-                        hivePartition.getPartitionId(),
-                        partitionBucketProperty);
+                if (bucketProperty.isPresent()) {
+                    Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
+                    if (!partitionBucketProperty.isPresent()) {
+                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                "Hive table (%s) is bucketed but partition (%s) is not bucketed",
+                                hivePartition.getTableName(),
+                                hivePartition.getPartitionId()));
+                    }
+                    if (!bucketProperty.equals(partitionBucketProperty)) {
+                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                "Hive table (%s) bucketing (columns=%s, buckets=%s) does not match partition (%s) bucketing (columns=%s, buckets=%s)",
+                                hivePartition.getTableName(),
+                                bucketProperty.get().getBucketedBy(),
+                                bucketProperty.get().getBucketCount(),
+                                hivePartition.getPartitionId(),
+                                partitionBucketProperty.get().getBucketedBy(),
+                                partitionBucketProperty.get().getBucketCount()));
+                    }
+                }
 
                 results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), columnCoercions.build()));
             }
