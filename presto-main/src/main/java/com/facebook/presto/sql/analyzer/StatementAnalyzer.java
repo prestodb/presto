@@ -195,6 +195,7 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 class StatementAnalyzer
@@ -961,7 +962,7 @@ class StatementAnalyzer
                 int outputFieldSize = outputFieldTypes.length;
                 RelationType relationType = relationScope.getRelationType();
                 int descFieldSize = relationType.getVisibleFields().size();
-                String setOperationName = node.getClass().getSimpleName();
+                String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
                 if (outputFieldSize != descFieldSize) {
                     throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
                             node,
