@@ -17,16 +17,23 @@ package com.facebook.presto.tests.statistics;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
+import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
+import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
+import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
+import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.assertTrue;
 
 public class StatisticsAssertion
 {
@@ -52,19 +59,40 @@ public class StatisticsAssertion
 
     public static class Result
     {
+        private static final Predicate<PlanNode> IS_OUTPUT_NODE = OutputNode.class::isInstance;
+
         private final List<MetricComparison> metricComparisons;
 
         public Result(List<MetricComparison> metricComparisons)
         {
-            Preconditions.checkArgument(metricComparisons.isEmpty(), "No metric ");
+            checkArgument(!metricComparisons.isEmpty(), "No metric comparisons given");
             this.metricComparisons = ImmutableList.copyOf(metricComparisons);
         }
 
-        public void matches()
+        public Result estimate(Metric metric, MetricComparisonStrategy strategy)
         {
-            metricComparisons.stream()
-                    .map(MetricComparison::result)
-                    .forEach(result -> assertEquals(result, MATCH));
+            return testMetrics(metric, metricComparison -> metricComparison.result(strategy) == MATCH);
+        }
+
+        private Result testMetrics(Metric metric, Predicate<MetricComparison> assertCondition)
+        {
+            List<MetricComparison> testMetrics = metricComparisons.stream()
+                    .filter(metricComparison -> metricComparison.getMetric() == metric)
+                    .filter(metricComparison -> IS_OUTPUT_NODE.test(metricComparison.getPlanNode()))
+                    .collect(toList());
+            assertTrue(testMetrics.size() > 0, "No metric found for: " + metric);
+            assertTrue(testMetrics.stream().allMatch(assertCondition), "Following metrics do not match: " + testMetrics);
+            return this;
+        }
+
+        public Result noEstimate(Metric metric)
+        {
+            return testMetrics(metric, metricComparison -> metricComparison.result(defaultTolerance()) == NO_ESTIMATE);
+        }
+
+        public Result noBaseline(Metric metric)
+        {
+            return testMetrics(metric, metricComparison -> metricComparison.result(defaultTolerance()) == NO_BASELINE);
         }
     }
 }

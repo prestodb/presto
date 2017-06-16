@@ -92,7 +92,7 @@ public class MetricComparator
     {
         Optional<Double> estimatedCost = asOptional(metric.getValue(estimate));
         Optional<Double> executionCost = execution.flatMap(e -> asOptional(metric.getValue(e)));
-        return new MetricComparison(node, metric, estimatedCost, executionCost, tolerance);
+        return new MetricComparison(node, metric, estimatedCost, executionCost);
     }
 
     private Optional<Double> asOptional(Estimate estimate)
