@@ -70,7 +70,7 @@ public class TestIterativeOptimizer
     @Test(timeOut = 1000)
     public void optimizerTimeoutsOnNonConvergingPlan()
     {
-        PlanOptimizer optimizer = new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new NonConvergingRule()));
+        PlanOptimizer optimizer = new IterativeOptimizer(new StatsRecorder(), queryRunner.getCostCalculator(), ImmutableSet.of(new NonConvergingRule()));
 
         try {
             queryRunner.inTransaction(transactionSession -> {

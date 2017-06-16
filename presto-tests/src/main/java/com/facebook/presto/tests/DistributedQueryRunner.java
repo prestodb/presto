@@ -15,7 +15,6 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -29,6 +28,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -229,9 +229,9 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public CostCalculator getCostCalculator()
+    public Lookup getLookup()
     {
-        return coordinator.getCostCalculator();
+        return coordinator.getLookup();
     }
 
     @Override

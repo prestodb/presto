@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.StageId;
@@ -23,6 +22,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -45,16 +45,16 @@ public class ExplainAnalyzeOperator
         private final PlanNodeId planNodeId;
         private final QueryPerformanceFetcher queryPerformanceFetcher;
         private final Metadata metadata;
-        private final CostCalculator costCalculator;
+        private final Lookup lookup;
         private boolean closed;
 
-        public ExplainAnalyzeOperatorFactory(int operatorId, PlanNodeId planNodeId, QueryPerformanceFetcher queryPerformanceFetcher, Metadata metadata, CostCalculator costCalculator)
+        public ExplainAnalyzeOperatorFactory(int operatorId, PlanNodeId planNodeId, QueryPerformanceFetcher queryPerformanceFetcher, Metadata metadata, Lookup lookup)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.lookup = requireNonNull(lookup, "costCalculator is null");
         }
 
         @Override
@@ -68,7 +68,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, costCalculator);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, lookup);
         }
 
         @Override
@@ -80,23 +80,23 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, costCalculator);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, lookup);
         }
     }
 
     private final OperatorContext operatorContext;
     private final QueryPerformanceFetcher queryPerformanceFetcher;
     private final Metadata metadata;
-    private final CostCalculator costCalculator;
+    private final Lookup lookup;
     private boolean finishing;
     private boolean outputConsumed;
 
-    public ExplainAnalyzeOperator(OperatorContext operatorContext, QueryPerformanceFetcher queryPerformanceFetcher, Metadata metadata, CostCalculator costCalculator)
+    public ExplainAnalyzeOperator(OperatorContext operatorContext, QueryPerformanceFetcher queryPerformanceFetcher, Metadata metadata, Lookup lookup)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.lookup = requireNonNull(lookup, "costCalculator is null");
     }
 
     @Override
@@ -151,7 +151,7 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get(), metadata, costCalculator, operatorContext.getSession());
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get(), metadata, lookup, operatorContext.getSession());
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         VARCHAR.writeString(builder, plan);
 

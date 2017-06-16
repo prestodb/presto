@@ -16,23 +16,24 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import net.jcip.annotations.ThreadSafe;
 
 import java.util.Map;
 
 /**
  * Interface of cost calculator.
  *
- * It's responsibility is to provide approximation of cost of execution of plan node.
- * Example implementations may be based on table statistics or data samples.
+ * Obtains estimated cost for output produced by given PlanNode
+ * Implementation may use lookup to compute needed traits for self/source nodes.
  */
+@ThreadSafe
 public interface CostCalculator
 {
-    Map<PlanNodeId, PlanNodeCost> calculateCostForPlan(Session session, Map<Symbol, Type> types, PlanNode planNode);
-
-    default PlanNodeCost calculateCostForNode(Session session, Map<Symbol, Type> types, PlanNode planNode)
-    {
-        return calculateCostForPlan(session, types, planNode).get(planNode.getId());
-    }
+    PlanNodeCost calculateCost(
+            PlanNode planNode,
+            Lookup lookup,
+            Session session,
+            Map<Symbol, Type> types);
 }

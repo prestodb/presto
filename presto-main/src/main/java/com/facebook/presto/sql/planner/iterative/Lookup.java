@@ -13,10 +13,17 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
+import java.util.Map;
 import java.util.function.Function;
 
+import static com.facebook.presto.cost.PlanNodeCost.UNKNOWN_COST;
 import static com.google.common.base.Verify.verify;
 
 public interface Lookup
@@ -24,11 +31,13 @@ public interface Lookup
     /**
      * Resolves a node by materializing GroupReference nodes
      * representing symbolic references to other nodes.
-     *
+     * <p>
      * If the node is not a GroupReference, it returns the
      * argument as is.
      */
     PlanNode resolve(PlanNode node);
+
+    PlanNodeCost getCost(PlanNode node, Session session, Map<Symbol, Type> types);
 
     /**
      * A Lookup implementation that does not perform lookup. It satisfies contract
@@ -36,20 +45,48 @@ public interface Lookup
      */
     static Lookup noLookup()
     {
-        return node -> {
-            verify(!(node instanceof GroupReference), "Unexpected GroupReference");
-            return node;
+        return new Lookup()
+        {
+            @Override
+            public PlanNode resolve(PlanNode node)
+            {
+                verify(!(node instanceof GroupReference), "Unexpected GroupReference");
+                return node;
+            }
+
+            @Override
+            public PlanNodeCost getCost(PlanNode node, Session session, Map<Symbol, Type> types)
+            {
+                return UNKNOWN_COST;
+            }
         };
     }
 
     static Lookup from(Function<GroupReference, PlanNode> resolver)
     {
-        return node -> {
-            if (node instanceof GroupReference) {
-                return resolver.apply((GroupReference) node);
+        return from(resolver,
+                (planNode, lookup, session, types) -> UNKNOWN_COST);
+    }
+
+    static Lookup from(Function<GroupReference, PlanNode> resolver, CostCalculator costCalculator)
+    {
+        return new Lookup()
+        {
+            @Override
+            public PlanNode resolve(PlanNode node)
+            {
+                if (node instanceof GroupReference) {
+                    return resolver.apply((GroupReference) node);
+                }
+
+                return node;
             }
 
-            return node;
+            @Override
+            public PlanNodeCost getCost(PlanNode node, Session session, Map<Symbol, Type> types)
+            {
+                return costCalculator.calculateCost(resolve(node), this, session, types);
+            }
         };
     }
 }

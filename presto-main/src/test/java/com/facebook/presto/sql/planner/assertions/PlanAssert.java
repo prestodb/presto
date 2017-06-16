@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -28,18 +27,13 @@ public final class PlanAssert
 {
     private PlanAssert() {}
 
-    public static void assertPlan(Session session, Metadata metadata, CostCalculator costCalculator, Plan actual, PlanMatchPattern pattern)
+    public static void assertPlan(Session session, Metadata metadata, Lookup lookup, Plan actual, PlanMatchPattern pattern)
     {
-        assertPlan(session, metadata, costCalculator, actual, Lookup.noLookup(), pattern);
-    }
-
-    public static void assertPlan(Session session, Metadata metadata, CostCalculator costCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
-    {
-        MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, actual.getPlanNodeCosts(), lookup), pattern);
+        MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, lookup, actual.getTypes()), pattern);
         if (!matches.isMatch()) {
-            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, costCalculator, session);
+            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, lookup, session);
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
-            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, costCalculator, session);
+            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, lookup, session);
             throw new AssertionError(format(
                     "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n] which resolves to [\n\n%s\n]",
                     pattern,

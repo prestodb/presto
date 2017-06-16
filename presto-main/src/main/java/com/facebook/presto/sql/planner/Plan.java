@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class Plan
@@ -29,15 +34,17 @@ public class Plan
     private final Map<Symbol, Type> types;
     private final Map<PlanNodeId, PlanNodeCost> planNodeCosts;
 
-    public Plan(PlanNode root, Map<Symbol, Type> types, Map<PlanNodeId, PlanNodeCost> planNodeCosts)
+    public Plan(PlanNode root, Map<Symbol, Type> types, Lookup lookup, Session session)
     {
         requireNonNull(root, "root is null");
         requireNonNull(types, "types is null");
-        requireNonNull(planNodeCosts, "planNodeCosts is null");
+        requireNonNull(lookup, "lookup is null");
 
         this.root = root;
         this.types = ImmutableMap.copyOf(types);
-        this.planNodeCosts = planNodeCosts;
+        this.planNodeCosts = getPlanNodes(root)
+                .stream()
+                .collect(toImmutableMap(PlanNode::getId, node -> lookup.getCost(node, session, types)));
     }
 
     public PlanNode getRoot()
@@ -53,5 +60,15 @@ public class Plan
     public Map<PlanNodeId, PlanNodeCost> getPlanNodeCosts()
     {
         return planNodeCosts;
+    }
+
+    private List<PlanNode> getPlanNodes(PlanNode root)
+    {
+        ImmutableList.Builder<PlanNode> planNodes = ImmutableList.builder();
+        planNodes.add(root);
+        for (PlanNode source : root.getSources()) {
+            planNodes.addAll(getPlanNodes(source));
+        }
+        return planNodes.build();
     }
 }

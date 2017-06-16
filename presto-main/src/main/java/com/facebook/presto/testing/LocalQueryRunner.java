@@ -123,6 +123,8 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.StatelessLookup;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -211,7 +213,6 @@ public class LocalQueryRunner
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
-    private final CostCalculator costCalculator;
     private final TestingAccessControlManager accessControl;
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -221,6 +222,8 @@ public class LocalQueryRunner
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
     private final SpillerFactory spillerFactory;
+    private final CostCalculator costCalculator;
+    private final Lookup lookup;
 
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
@@ -286,7 +289,6 @@ public class LocalQueryRunner
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
-        this.costCalculator = new CoefficientBasedCostCalculator(metadata);
         this.accessControl = new TestingAccessControlManager(transactionManager);
         this.pageSourceManager = new PageSourceManager();
 
@@ -363,6 +365,8 @@ public class LocalQueryRunner
 
         SpillerStats spillerStats = new SpillerStats();
         this.spillerFactory = new GenericSpillerFactory(new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig));
+        this.costCalculator = new CoefficientBasedCostCalculator(metadata);
+        this.lookup = new StatelessLookup(costCalculator);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
@@ -404,6 +408,11 @@ public class LocalQueryRunner
     }
 
     @Override
+    public Lookup getLookup()
+    {
+        return lookup;
+    }
+
     public CostCalculator getCostCalculator()
     {
         return costCalculator;
@@ -566,7 +575,7 @@ public class LocalQueryRunner
         Plan plan = createPlan(session, sql);
 
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, costCalculator, session));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, lookup, session));
         }
 
         SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan);
@@ -680,7 +689,7 @@ public class LocalQueryRunner
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        return new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer())).get();
+        return new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer()), costCalculator).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
@@ -708,11 +717,11 @@ public class LocalQueryRunner
                 metadata,
                 accessControl,
                 sqlParser,
-                costCalculator,
+                lookup,
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser, costCalculator);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser, lookup);
 
         Analysis analysis = analyzer.analyze(statement);
         return logicalPlanner.plan(analysis, stage);

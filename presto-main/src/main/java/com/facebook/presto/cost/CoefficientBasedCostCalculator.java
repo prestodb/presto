@@ -24,6 +24,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -31,7 +32,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -40,20 +40,16 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.cost.PlanNodeCost.UNKNOWN_COST;
 
 /**
- * Simple implementation of CostCalculator. It make many arbitrary decisions (e.g filtering selectivity, join matching).
+ * Simple implementation of StatsCalculator. It make many arbitrary decisions (e.g filtering selectivity, join matching).
  * It serves POC purpose. To be replaced with more advanced implementation.
  */
 @ThreadSafe
@@ -74,125 +70,104 @@ public class CoefficientBasedCostCalculator
     }
 
     @Override
-    public Map<PlanNodeId, PlanNodeCost> calculateCostForPlan(Session session, Map<Symbol, Type> types, PlanNode planNode)
+    public PlanNodeCost calculateCost(
+            PlanNode planNode,
+            Lookup lookup,
+            Session session,
+            Map<Symbol, Type> types)
     {
-        Visitor visitor = new Visitor(session, types);
-        planNode.accept(visitor, null);
-        return ImmutableMap.copyOf(visitor.getCosts());
+        Visitor visitor = new Visitor(lookup, session, types);
+        return planNode.accept(visitor, null);
     }
 
     private class Visitor
             extends PlanVisitor<PlanNodeCost, Void>
     {
+        private final Lookup lookup;
         private final Session session;
-        private final Map<PlanNodeId, PlanNodeCost> costs;
         private final Map<Symbol, Type> types;
 
-        public Visitor(Session session, Map<Symbol, Type> types)
+        public Visitor(Lookup lookup, Session session, Map<Symbol, Type> types)
         {
-            this.costs = new HashMap<>();
+            this.lookup = lookup;
             this.session = session;
             this.types = ImmutableMap.copyOf(types);
         }
 
-        public Map<PlanNodeId, PlanNodeCost> getCosts()
+        private PlanNodeCost lookupStats(PlanNode sourceNode)
         {
-            return ImmutableMap.copyOf(costs);
+            return lookup.getCost(sourceNode, session, types);
         }
 
         @Override
         protected PlanNodeCost visitPlan(PlanNode node, Void context)
         {
-            visitSources(node);
-            costs.put(node.getId(), UNKNOWN_COST);
+            // TODO: Explicitly visit GroupIdNode and throw an IllegalArgumentException
+            // this can only be done once we get rid of the StatelessLookup
             return UNKNOWN_COST;
         }
 
         @Override
         public PlanNodeCost visitOutput(OutputNode node, Void context)
         {
-            return copySourceCost(node);
+            return lookupStats(node.getSource());
         }
 
         @Override
         public PlanNodeCost visitFilter(FilterNode node, Void context)
         {
-            PlanNodeCost sourceCost;
-            if (node.getSource() instanceof TableScanNode) {
-                sourceCost = visitTableScanWithPredicate((TableScanNode) node.getSource(), node.getPredicate());
-            }
-            else {
-                sourceCost = visitSource(node);
-            }
-
-            final double filterCoefficient = FILTER_COEFFICIENT;
-            PlanNodeCost filterCost = sourceCost
-                    .mapOutputRowCount(value -> value * filterCoefficient);
-            costs.put(node.getId(), filterCost);
-            return filterCost;
+            PlanNodeCost sourceCost = lookupStats(node.getSource());
+            return sourceCost.mapOutputRowCount(value -> value * FILTER_COEFFICIENT);
         }
 
         @Override
         public PlanNodeCost visitProject(ProjectNode node, Void context)
         {
-            return copySourceCost(node);
+            return lookupStats(node.getSource());
         }
 
         @Override
         public PlanNodeCost visitJoin(JoinNode node, Void context)
         {
-            List<PlanNodeCost> sourceCosts = visitSources(node);
-            PlanNodeCost leftCost = sourceCosts.get(0);
-            PlanNodeCost rightCost = sourceCosts.get(1);
+            PlanNodeCost leftCost = lookupStats(node.getLeft());
+            PlanNodeCost rightCost = lookupStats(node.getRight());
 
             PlanNodeCost.Builder joinCost = PlanNodeCost.builder();
             if (!leftCost.getOutputRowCount().isValueUnknown() && !rightCost.getOutputRowCount().isValueUnknown()) {
                 double rowCount = Math.max(leftCost.getOutputRowCount().getValue(), rightCost.getOutputRowCount().getValue()) * JOIN_MATCHING_COEFFICIENT;
                 joinCost.setOutputRowCount(new Estimate(rowCount));
             }
-
-            costs.put(node.getId(), joinCost.build());
             return joinCost.build();
         }
 
         @Override
         public PlanNodeCost visitExchange(ExchangeNode node, Void context)
         {
-            List<PlanNodeCost> sourceCosts = visitSources(node);
             Estimate rowCount = new Estimate(0);
-            for (PlanNodeCost sourceCost : sourceCosts) {
-                if (sourceCost.getOutputRowCount().isValueUnknown()) {
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNodeCost childCost = lookupStats(node.getSources().get(i));
+                if (childCost.getOutputRowCount().isValueUnknown()) {
                     rowCount = Estimate.unknownValue();
                 }
                 else {
-                    rowCount = rowCount.map(value -> value + sourceCost.getOutputRowCount().getValue());
+                    rowCount = rowCount.map(value -> value + childCost.getOutputRowCount().getValue());
                 }
             }
 
-            PlanNodeCost exchangeCost = PlanNodeCost.builder()
+            return PlanNodeCost.builder()
                     .setOutputRowCount(rowCount)
                     .build();
-            costs.put(node.getId(), exchangeCost);
-            return exchangeCost;
         }
 
         @Override
         public PlanNodeCost visitTableScan(TableScanNode node, Void context)
         {
-            return visitTableScanWithPredicate(node, BooleanLiteral.TRUE_LITERAL);
-        }
-
-        private PlanNodeCost visitTableScanWithPredicate(TableScanNode node, Expression predicate)
-        {
-            Constraint<ColumnHandle> constraint = getConstraint(node, predicate);
+            Constraint<ColumnHandle> constraint = getConstraint(node, BooleanLiteral.TRUE_LITERAL);
 
             TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
-            PlanNodeCost tableScanCost = PlanNodeCost.builder()
+            return PlanNodeCost.builder()
                     .setOutputRowCount(tableStatistics.getRowCount())
                     .build();
-
-            costs.put(node.getId(), tableScanCost);
-            return tableScanCost;
         }
 
         private Constraint<ColumnHandle> getConstraint(TableScanNode node, Expression predicate)
@@ -214,66 +189,38 @@ public class CoefficientBasedCostCalculator
         public PlanNodeCost visitValues(ValuesNode node, Void context)
         {
             Estimate valuesCount = new Estimate(node.getRows().size());
-            PlanNodeCost valuesCost = PlanNodeCost.builder()
+            return PlanNodeCost.builder()
                     .setOutputRowCount(valuesCount)
                     .build();
-            costs.put(node.getId(), valuesCost);
-            return valuesCost;
         }
 
         @Override
         public PlanNodeCost visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
-            visitSources(node);
-            PlanNodeCost nodeCost = PlanNodeCost.builder()
+            return PlanNodeCost.builder()
                     .setOutputRowCount(new Estimate(1.0))
                     .build();
-            costs.put(node.getId(), nodeCost);
-            return nodeCost;
         }
 
         @Override
         public PlanNodeCost visitSemiJoin(SemiJoinNode node, Void context)
         {
-            visitSources(node);
-            PlanNodeCost sourceStatitics = costs.get(node.getSource().getId());
-            PlanNodeCost semiJoinCost = sourceStatitics.mapOutputRowCount(rowCount -> rowCount * JOIN_MATCHING_COEFFICIENT);
-            costs.put(node.getId(), semiJoinCost);
-            return semiJoinCost;
+            PlanNodeCost sourceStats = lookupStats(node.getSource());
+            return sourceStats.mapOutputRowCount(rowCount -> rowCount * JOIN_MATCHING_COEFFICIENT);
         }
 
         @Override
         public PlanNodeCost visitLimit(LimitNode node, Void context)
         {
-            PlanNodeCost sourceCost = visitSource(node);
+            PlanNodeCost sourceStats = lookupStats(node.getSource());
             PlanNodeCost.Builder limitCost = PlanNodeCost.builder();
-            if (sourceCost.getOutputRowCount().getValue() < node.getCount()) {
-                limitCost.setOutputRowCount(sourceCost.getOutputRowCount());
+            if (sourceStats.getOutputRowCount().getValue() < node.getCount()) {
+                limitCost.setOutputRowCount(sourceStats.getOutputRowCount());
             }
             else {
                 limitCost.setOutputRowCount(new Estimate(node.getCount()));
             }
-            costs.put(node.getId(), limitCost.build());
             return limitCost.build();
-        }
-
-        private PlanNodeCost copySourceCost(PlanNode node)
-        {
-            PlanNodeCost sourceCost = visitSource(node);
-            costs.put(node.getId(), sourceCost);
-            return sourceCost;
-        }
-
-        private List<PlanNodeCost> visitSources(PlanNode node)
-        {
-            return node.getSources().stream()
-                    .map(source -> source.accept(this, null))
-                    .collect(Collectors.toList());
-        }
-
-        private PlanNodeCost visitSource(PlanNode node)
-        {
-            return Iterables.getOnlyElement(visitSources(node));
         }
     }
 }
