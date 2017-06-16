@@ -36,6 +36,8 @@ Currently, the following statistics are available in Presto:
    * **data size**: the data size that needs to be read
    * **null count**: the number of null values
    * **distinct value count**: the estimated number of distinct values
+   * **low value**: the smallest value in the column
+   * **high value**: the largest value in the column
 
 
 The set of statistics available for a particular query depends on the connector being used and can also vary by table or
@@ -54,7 +56,7 @@ There are two flavors of the command:
 
 In both cases, the ``SHOW STATS`` command outputs two types of rows.
 For each column in the table there is a row with ``column_name`` equal to the name of that column.
-These rows expose column-related statistics for a table (data size, nulls count, distinct values count).
+These rows expose column-related statistics for a table (data size, nulls count, distinct values count, min value, max value).
 Additionally there is one row with NULL as the ``column_name``. This row contains table-layout wide statistics - for now just the row count.
 
 For example:
@@ -63,25 +65,25 @@ For example:
 
     presto:default> SHOW STATS FOR nation;
 
-     column_name | data_size | distinct_values_count | nulls_fraction | row_count
-    -------------+-----------+-----------------------+----------------+-----------
-     comment     | NULL      |                  31.0 |            0.0 | NULL
-     nationkey   | NULL      |                  19.0 |            0.0 | NULL
-     name        | NULL      |                  24.0 |            0.0 | NULL
-     regionkey   | NULL      |                   5.0 |            0.0 | NULL
-     NULL        | NULL      | NULL                  | NULL           |      25.0
+     column_name | data_size | distinct_values_count | nulls_fraction | row_count |     low_value      |     high_value
+    -------------+-----------+-----------------------+----------------+-----------+--------------------+--------------------
+     regionkey   | NULL      |                   5.0 |            0.0 | NULL      | 0                  | 4
+     name        | NULL      |                  25.0 |            0.0 | NULL      | ALGERIA            | VIETNAM
+     comment     | NULL      |                  25.0 |            0.0 | NULL      |  haggle. carefu... | y final package...
+     nationkey   | NULL      |                  25.0 |            0.0 | NULL      | 0                  | 24
+     NULL        | NULL      | NULL                  | NULL           |      25.0 | NULL               | NULL
      (5 rows)
 
 
     presto:default> SHOW STATS FOR (SELECT * FROM nation WHERE nationkey > 10);
 
-     column_name | data_size | distinct_values_count | nulls_fraction | row_count
-    -------------+-----------+-----------------------+----------------+-----------
-     comment     | NULL      |                  21.0 |            0.0 | NULL
-     nationkey   | NULL      |                   9.0 |            0.0 | NULL
-     name        | NULL      |                  14.0 |            0.0 | NULL
-     regionkey   | NULL      |                   3.0 |            0.0 | NULL
-     NULL        | NULL      | NULL                  | NULL           |      15.0
+     column_name | data_size | distinct_values_count | nulls_fraction | row_count |     low_value      |     high_value
+    -------------+-----------+-----------------------+----------------+-----------+--------------------+--------------------
+     regionkey   | NULL      |                   5.0 |            0.0 | NULL      | 0                  | 4
+     name        | NULL      |                   9.0 |            0.0 | NULL      | IRAN               | VIETNAM
+     comment     | NULL      |                  14.0 |            0.0 | NULL      |  pending excuse... | y final package...
+     nationkey   | NULL      |                   3.0 |            0.0 | NULL      | 10                 | 24
+     NULL        | NULL      | NULL                  | NULL           |      25.0 | NULL               | NULL
      (5 rows)
 
 If provided ``SELECT`` will filter out all of the partitions (all table layouts),
@@ -104,13 +106,13 @@ For example:
 
     presto:default> SHOW STATS FOR (SELECT comment FROM nation WHERE nationkey > 10);
 
-     column_name | data_size | distinct_values_count | nulls_fraction | row_count
-    -------------+-----------+-----------------------+----------------+-----------
-     comment     | NULL      |                  21.0 |            0.0 | NULL
-     nationkey   | NULL      |                   9.0 |            0.0 | NULL
-     name        | NULL      |                  14.0 |            0.0 | NULL
-     regionkey   | NULL      |                   3.0 |            0.0 | NULL
-     NULL        | NULL      | NULL                  | NULL           |      15.0
+     column_name | data_size | distinct_values_count | nulls_fraction | row_count |     low_value      |     high_value
+    -------------+-----------+-----------------------+----------------+-----------+--------------------+--------------------
+     regionkey   | NULL      |                   5.0 |            0.0 | NULL      | 0                  | 4
+     name        | NULL      |                   9.0 |            0.0 | NULL      | IRAN               | VIETNAM
+     comment     | NULL      |                  14.0 |            0.0 | NULL      |  pending excuse... | y final package...
+     nationkey   | NULL      |                   3.0 |            0.0 | NULL      | 10                 | 24
+     NULL        | NULL      | NULL                  | NULL           |      25.0 | NULL               | NULL
      (5 rows)
 
 
