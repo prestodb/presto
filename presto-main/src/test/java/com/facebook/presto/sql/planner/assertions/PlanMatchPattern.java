@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -229,6 +230,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern sort(PlanMatchPattern source)
     {
         return node(SortNode.class, source);
+    }
+
+    public static PlanMatchPattern topN(long count, List<String> orderBy, PlanMatchPattern source)
+    {
+        return node(TopNNode.class, source).with(new TopNMatcher(count, toSymbolAliases(orderBy)));
     }
 
     public static PlanMatchPattern output(PlanMatchPattern source)
