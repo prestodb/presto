@@ -77,7 +77,7 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
     private boolean pushAggregationThroughJoin = true;
-    private boolean useNewStatsCalculator = false;
+    private boolean useNewStatsCalculator = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
