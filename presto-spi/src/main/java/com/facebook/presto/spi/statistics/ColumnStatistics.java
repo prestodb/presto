@@ -25,7 +25,7 @@ public final class ColumnStatistics
 {
     private final Map<String, Estimate> statistics;
     private static final String DATA_SIZE_STATISTIC_KEY = "data_size";
-    private static final String NULLS_COUNT_STATISTIC_KEY = "nulls_count";
+    private static final String NULLS_FRACTION_STATISTIC_KEY = "nulls_fraction";
     private static final String DISTINCT_VALUES_STATITIC_KEY = "distinct_values_count";
 
     private ColumnStatistics(Estimate dataSize, Estimate nullsCount, Estimate distinctValuesCount)
@@ -34,11 +34,11 @@ public final class ColumnStatistics
         statistics = createStatisticsMap(dataSize, nullsCount, distinctValuesCount);
     }
 
-    private static Map<String, Estimate> createStatisticsMap(Estimate dataSize, Estimate nullsCount, Estimate distinctValuesCount)
+    private static Map<String, Estimate> createStatisticsMap(Estimate dataSize, Estimate nullsFraction, Estimate distinctValuesCount)
     {
         Map<String, Estimate> statistics = new HashMap<>();
         statistics.put(DATA_SIZE_STATISTIC_KEY, dataSize);
-        statistics.put(NULLS_COUNT_STATISTIC_KEY, nullsCount);
+        statistics.put(NULLS_FRACTION_STATISTIC_KEY, nullsFraction);
         statistics.put(DISTINCT_VALUES_STATITIC_KEY, distinctValuesCount);
         return unmodifiableMap(statistics);
     }
@@ -48,9 +48,9 @@ public final class ColumnStatistics
         return statistics.get(DATA_SIZE_STATISTIC_KEY);
     }
 
-    public Estimate getNullsCount()
+    public Estimate getNullsFraction()
     {
-        return statistics.get(NULLS_COUNT_STATISTIC_KEY);
+        return statistics.get(NULLS_FRACTION_STATISTIC_KEY);
     }
 
     public Estimate getDistinctValuesCount()
@@ -71,7 +71,7 @@ public final class ColumnStatistics
     public static final class Builder
     {
         private Estimate dataSize = unknownValue();
-        private Estimate nullsCount = unknownValue();
+        private Estimate nullsFraction = unknownValue();
         private Estimate distinctValuesCount = unknownValue();
 
         public Builder setDataSize(Estimate dataSize)
@@ -80,9 +80,9 @@ public final class ColumnStatistics
             return this;
         }
 
-        public Builder setNullsCount(Estimate nullsCount)
+        public Builder setNullsFraction(Estimate nullsFraction)
         {
-            this.nullsCount = nullsCount;
+            this.nullsFraction = nullsFraction;
             return this;
         }
 
@@ -94,7 +94,7 @@ public final class ColumnStatistics
 
         public ColumnStatistics build()
         {
-            return new ColumnStatistics(dataSize, nullsCount, distinctValuesCount);
+            return new ColumnStatistics(dataSize, nullsFraction, distinctValuesCount);
         }
     }
 }
