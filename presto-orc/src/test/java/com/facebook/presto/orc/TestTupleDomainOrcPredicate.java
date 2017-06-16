@@ -20,6 +20,7 @@ import com.facebook.presto.orc.metadata.statistics.DecimalStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
+import com.facebook.presto.orc.metadata.statistics.TimestampStatistics;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
@@ -48,6 +49,7 @@ import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
@@ -88,7 +90,7 @@ public class TestTupleDomainOrcPredicate
         if (trueValueCount != null) {
             booleanStatistics = new BooleanStatistics(trueValueCount);
         }
-        return new ColumnStatistics(numberOfValues, booleanStatistics, null, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, booleanStatistics, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -118,7 +120,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics integerColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, new IntegerStatistics(minimum, maximum), null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, null, new IntegerStatistics(minimum, maximum), null, null, null, null, null, null);
     }
 
     @Test
@@ -148,7 +150,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics doubleColumnStats(Long numberOfValues, Double minimum, Double maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null);
+        return new ColumnStatistics(numberOfValues, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null, null);
     }
 
     @Test
@@ -238,7 +240,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics stringColumnStats(Long numberOfValues, String minimum, String maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(getMinSlice(minimum), getMaxSlice(maximum)), null, null, null);
+        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(getMinSlice(minimum), getMaxSlice(maximum)), null, null, null, null);
     }
 
     @Test
@@ -268,7 +270,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics dateColumnStats(Long numberOfValues, Integer minimum, Integer maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, null, null, new DateStatistics(minimum, maximum), null, null);
+        return new ColumnStatistics(numberOfValues, null, null, null, null, new DateStatistics(minimum, maximum), null, null, null);
     }
 
     @Test
@@ -325,7 +327,7 @@ public class TestTupleDomainOrcPredicate
     {
         BigDecimal minimumDecimal = minimum == null ? null : new BigDecimal(minimum);
         BigDecimal maximumDecimal = maximum == null ? null : new BigDecimal(maximum);
-        return new ColumnStatistics(numberOfValues, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal), null);
+        return new ColumnStatistics(numberOfValues, null, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal), null);
     }
 
     private static Long shortDecimal(String value)
@@ -336,5 +338,35 @@ public class TestTupleDomainOrcPredicate
     private static Slice longDecimal(String value)
     {
         return encodeScaledValue(new BigDecimal(value));
+    }
+
+    @Test
+    public void testTimestamp()
+            throws Exception
+    {
+        assertEquals(getDomain(TIMESTAMP, 0, null), none(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 10, null), all(TIMESTAMP));
+
+        assertEquals(getDomain(TIMESTAMP, 0, timestampColumnStats(null, null, null)), none(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 0, timestampColumnStats(0L, null, null)), none(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 0, timestampColumnStats(0L, 100L, 100L)), none(TIMESTAMP));
+
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(0L, null, null)), onlyNull(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(10L, null, null)), notNull(TIMESTAMP));
+
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(10L, 100L, 100L)), singleValue(TIMESTAMP, 100L));
+
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(10L, 0L, 100L)), create(ValueSet.ofRanges(range(TIMESTAMP, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(10L, null, 100L)), create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP, 100L)), false));
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(10L, 0L, null)), create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP, 0L)), false));
+
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(5L, 0L, 100L)), create(ValueSet.ofRanges(range(TIMESTAMP, 0L, true, 100L, true)), true));
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(5L, null, 100L)), create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP, 100L)), true));
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(5L, 0L, null)), create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP, 0L)), true));
+    }
+
+    private static ColumnStatistics timestampColumnStats(Long numberOfValues, Long minimum, Long maximum)
+    {
+        return new ColumnStatistics(numberOfValues, null, null, null, null, null, new TimestampStatistics(minimum, maximum), null, null);
     }
 }

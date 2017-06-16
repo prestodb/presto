@@ -26,6 +26,7 @@ import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+import com.facebook.presto.orc.metadata.statistics.TimestampStatistics;
 import com.facebook.presto.orc.proto.OrcProto;
 import com.facebook.presto.orc.proto.OrcProto.RowIndexEntry;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
@@ -214,6 +215,7 @@ public class OrcMetadataReader
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup),
+                toTimestampStatistics(hiveWriterVersion, statistics.getTimestampStatistics(), isRowGroup),
                 toDecimalStatistics(statistics.getDecimalStatistics()),
                 null);
     }
@@ -389,6 +391,25 @@ public class OrcMetadataReader
         return new DateStatistics(
                 dateStatistics.hasMinimum() ? dateStatistics.getMinimum() : null,
                 dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);
+    }
+
+    private static TimestampStatistics toTimestampStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.TimestampStatistics timestampStatistics, boolean isRowGroup)
+    {
+        /*
+        Skip the file and stripe TimestampStatistics when the ORC File is written using old ORC Writer.
+        TimestampStatistics in ORC are fixed in this patch https://issues.apache.org/jira/browse/HIVE-8732.
+         */
+        if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
+            return null;
+        }
+
+        if (!timestampStatistics.hasMinimum() && !timestampStatistics.hasMaximum()) {
+            return null;
+        }
+
+        return new TimestampStatistics(
+                timestampStatistics.hasMinimum() ? timestampStatistics.getMinimum() : null,
+                timestampStatistics.hasMaximum() ? timestampStatistics.getMaximum() : null);
     }
 
     private static OrcType toType(OrcProto.Type type)

@@ -21,6 +21,7 @@ public class ColumnStatistics
     private final DoubleStatistics doubleStatistics;
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
+    private final TimestampStatistics timestampStatistics;
     private final DecimalStatistics decimalStatistics;
     private final HiveBloomFilter bloomFilter;
 
@@ -31,6 +32,7 @@ public class ColumnStatistics
             DoubleStatistics doubleStatistics,
             StringStatistics stringStatistics,
             DateStatistics dateStatistics,
+            TimestampStatistics timestampStatistics,
             DecimalStatistics decimalStatistics,
             HiveBloomFilter bloomFilter)
     {
@@ -40,6 +42,7 @@ public class ColumnStatistics
         this.doubleStatistics = doubleStatistics;
         this.stringStatistics = stringStatistics;
         this.dateStatistics = dateStatistics;
+        this.timestampStatistics = timestampStatistics;
         this.decimalStatistics = decimalStatistics;
         this.bloomFilter = bloomFilter;
     }
@@ -84,6 +87,11 @@ public class ColumnStatistics
         return decimalStatistics;
     }
 
+    public TimestampStatistics getTimestampStatistics()
+    {
+        return timestampStatistics;
+    }
+
     public HiveBloomFilter getBloomFilter()
     {
         return bloomFilter;
@@ -98,6 +106,7 @@ public class ColumnStatistics
                 doubleStatistics,
                 stringStatistics,
                 dateStatistics,
+                timestampStatistics,
                 decimalStatistics,
                 bloomFilter);
     }

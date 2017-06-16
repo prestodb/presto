@@ -204,6 +204,7 @@ public class DwrfMetadataReader
                 toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 null,
                 null,
+                null,
                 null);
     }
 
