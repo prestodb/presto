@@ -14,14 +14,11 @@
 package com.facebook.presto.sql.util;
 
 import com.facebook.presto.sql.tree.Node;
+import com.google.common.collect.TreeTraverser;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.Spliterators;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
+import static com.google.common.collect.Iterables.unmodifiableIterable;
 import static java.util.Objects.requireNonNull;
 
 public class AstUtils
@@ -37,32 +34,9 @@ public class AstUtils
 
     public static Stream<Node> preOrder(Node node)
     {
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(new PreOrderIterator(node), 0), false);
-    }
-
-    private static final class PreOrderIterator
-            implements Iterator<Node>
-    {
-        private final Deque<Node> remaining = new ArrayDeque<>();
-
-        public PreOrderIterator(Node node)
-        {
-            remaining.push(node);
-        }
-
-        @Override
-        public boolean hasNext()
-        {
-            return remaining.size() > 0;
-        }
-
-        @Override
-        public Node next()
-        {
-            Node node = remaining.pop();
-            node.getChildren().forEach(remaining::push);
-            return node;
-        }
+        return TreeTraverser.using((Node n) -> unmodifiableIterable(n.getChildren()))
+                .preOrderTraversal(requireNonNull(node, "node is null"))
+                .stream();
     }
 
     private AstUtils() {}
