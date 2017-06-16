@@ -169,6 +169,6 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 typeTranslator,
                 prestoVersion,
-                new MetastoreHiveStatisticsProvider(typeManager, metastore));
+                new MetastoreHiveStatisticsProvider(typeManager, metastore, timeZone));
     }
 }
