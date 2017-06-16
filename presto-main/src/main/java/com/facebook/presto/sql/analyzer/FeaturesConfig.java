@@ -72,7 +72,7 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
     private boolean pushAggregationThroughJoin = true;
-    private boolean useNewStatsCalculator = false;
+    private boolean useNewStatsCalculator = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
