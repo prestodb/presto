@@ -77,7 +77,7 @@ public class TpchMetadata
 
     private static final Set<String> ORDER_STATUS_VALUES = ImmutableSet.of("F", "O", "P");
     private static final Set<NullableValue> ORDER_STATUS_NULLABLE_VALUES = ORDER_STATUS_VALUES.stream()
-            .map(value -> new NullableValue(getPrestoType(OrderColumn.ORDER_STATUS.getType()), Slices.utf8Slice(value)))
+            .map(value -> new NullableValue(getPrestoType(OrderColumn.ORDER_STATUS), Slices.utf8Slice(value)))
             .collect(toSet());
 
     private final String connectorId;
@@ -211,7 +211,7 @@ public class TpchMetadata
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(columnNaming.getName(column), getPrestoType(column.getType())));
+            columns.add(new ColumnMetadata(columnNaming.getName(column), getPrestoType(column)));
         }
         columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, null, true));
 
@@ -298,7 +298,7 @@ public class TpchMetadata
 
     private TpchColumnHandle toColumnHandle(TpchColumn column)
     {
-        return new TpchColumnHandle(columnNaming.getName(column), getPrestoType(column.getType()));
+        return new TpchColumnHandle(columnNaming.getName(column), getPrestoType(column));
     }
 
     @Override
@@ -399,8 +399,9 @@ public class TpchMetadata
         }
     }
 
-    public static Type getPrestoType(TpchColumnType tpchType)
+    public static Type getPrestoType(TpchColumn<?> column)
     {
+        TpchColumnType tpchType = column.getType();
         switch (tpchType.getBase()) {
             case IDENTIFIER:
                 return BigintType.BIGINT;
