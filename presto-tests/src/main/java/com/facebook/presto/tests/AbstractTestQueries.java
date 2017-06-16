@@ -69,6 +69,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
@@ -5668,6 +5669,17 @@ public abstract class AbstractTestQueries
         }
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "line 1:1: Schema 'unknown' does not exist");
+        }
+
+        try {
+            computeActual("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA");
+            fail("Showing tables in an unknown catalog and unknown schema should fail with unknown catalog");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), MISSING_CATALOG);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:1: Catalog 'unknowncatalog' does not exist");
         }
     }
 

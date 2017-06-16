@@ -74,6 +74,12 @@ public class DummyMetadata implements Metadata
     }
 
     @Override
+    public boolean catalogExists(Session session, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean schemaExists(Session session, CatalogSchemaName schema)
     {
         throw new UnsupportedOperationException();

@@ -55,6 +55,8 @@ public interface Metadata
 
     boolean schemaExists(Session session, CatalogSchemaName schema);
 
+    boolean catalogExists(Session session, String catalogName);
+
     List<String> listSchemaNames(Session session, String catalogName);
 
     /**

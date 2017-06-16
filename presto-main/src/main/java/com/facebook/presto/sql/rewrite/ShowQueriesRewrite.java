@@ -115,6 +115,7 @@ import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.QueryUtil.unaliasedName;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -184,6 +185,10 @@ final class ShowQueriesRewrite
             CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
 
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), schema);
+
+            if (!metadata.catalogExists(session, schema.getCatalogName())) {
+                throw new SemanticException(MISSING_CATALOG, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
+            }
 
             if (!metadata.schemaExists(session, schema)) {
                 throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName());
