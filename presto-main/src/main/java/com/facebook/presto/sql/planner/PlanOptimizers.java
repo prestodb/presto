@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -108,15 +110,17 @@ public class PlanOptimizers
             SqlParser sqlParser,
             FeaturesConfig featuresConfig,
             MBeanExporter exporter,
+            CostComparator costComparator,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            CostCalculator estimatedExchangesCostCalculator)
+            @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator)
     {
         this(metadata,
                 sqlParser,
                 featuresConfig,
                 false,
                 exporter,
+                costComparator,
                 statsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator);
@@ -140,6 +144,7 @@ public class PlanOptimizers
             FeaturesConfig featuresConfig,
             boolean forceSingleNode,
             MBeanExporter exporter,
+            CostComparator costComparator,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             CostCalculator estimatedExchangesCostCalculator)

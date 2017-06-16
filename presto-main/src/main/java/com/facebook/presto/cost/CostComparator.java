@@ -14,7 +14,10 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
+
+import javax.inject.Inject;
 
 import java.util.Comparator;
 
@@ -25,6 +28,12 @@ public class CostComparator
     private final double cpuWeight;
     private final double memoryWeight;
     private final double networkWeight;
+
+    @Inject
+    public CostComparator(FeaturesConfig featuresConfig)
+    {
+        this(featuresConfig.getCpuCostWeight(), featuresConfig.getMemoryCostWeight(), featuresConfig.getNetworkCostWeight());
+    }
 
     @VisibleForTesting
     public CostComparator(double cpuWeight, double memoryWeight, double networkWeight)
