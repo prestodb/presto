@@ -66,6 +66,9 @@ public class BenchmarkDriverOptions
     @Option(name = "--debug", title = "debug", description = "Enable debug information (default: false)")
     public boolean debug;
 
+    @Option(name = "--quiet", title = "quiet", description = "Enable quiet mode (less verbose error messages) (default: false)")
+    public boolean quiet;
+
     @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
@@ -98,6 +101,7 @@ public class BenchmarkDriverOptions
                 toProperties(this.sessionProperties),
                 null,
                 debug,
+                quiet,
                 clientRequestTimeout);
     }
 
