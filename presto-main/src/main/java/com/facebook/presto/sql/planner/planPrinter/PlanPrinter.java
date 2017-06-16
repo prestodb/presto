@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageStats;
@@ -124,6 +125,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Double.isFinite;
+import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -1227,13 +1229,25 @@ public class PlanPrinter
 
         private String formatCost(PlanNode node)
         {
-            PlanNodeStatsEstimate cost = lookup.getStats(node, session, types);
-            double outputRowCount = cost.getOutputRowCount();
-            double outputSizeInBytes = cost.getOutputSizeInBytes();
-            return String.format("{rows: %s, bytes: %s}",
-                    Double.isNaN(outputRowCount) ? "?" : String.valueOf((long) outputRowCount),
-                    Double.isNaN(outputSizeInBytes) ? "?" : succinctBytes((long) outputSizeInBytes));
+            PlanNodeStatsEstimate stats = lookup.getStats(node, session, types);
+            PlanNodeCostEstimate cost = lookup.getCumulativeCost(node, session, types);
+            return String.format("{rows: %s, bytes: %s, cpu: %s, memory: %s, network: %s}",
+                    formatEstimate(stats.getOutputRowCount()),
+                    formatEstimateAsDataSize(stats.getOutputSizeInBytes()),
+                    formatEstimate(cost.getCpuCost()),
+                    formatEstimateAsDataSize(cost.getMemoryCost()),
+                    formatEstimate(cost.getNetworkCost()));
         }
+    }
+
+    private static String formatEstimate(double value)
+    {
+        return isNaN(value) ? "?" : String.valueOf(value);
+    }
+
+    private static String formatEstimateAsDataSize(double value)
+    {
+        return isNaN(value) ? "?" : succinctBytes((long) value).toString();
     }
 
     private static String formatHash(Optional<Symbol>... hashes)
