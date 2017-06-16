@@ -13,37 +13,26 @@
  */
 package com.facebook.presto.sql.util;
 
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Node;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.Spliterators;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import static java.util.Objects.requireNonNull;
 
 public class AstUtils
 {
     public static boolean nodeContains(Node node, Node subNode)
     {
-        return new DefaultTraversalVisitor<Boolean, AtomicBoolean>()
-        {
-            @Override
-            public Boolean process(Node node, AtomicBoolean findResultHolder)
-            {
-                if (!findResultHolder.get()) {
-                    if (node == subNode) {
-                        findResultHolder.set(true);
-                    }
-                    else {
-                        super.process(node, findResultHolder);
-                    }
-                }
-                return findResultHolder.get();
-            }
-        }.process(node, new AtomicBoolean(false));
+        requireNonNull(node, "node is null");
+        requireNonNull(subNode, "subNode is null");
+
+        return preOrder(node)
+                .anyMatch(childNode -> childNode == subNode);
     }
 
     public static Stream<Node> preOrder(Node node)
