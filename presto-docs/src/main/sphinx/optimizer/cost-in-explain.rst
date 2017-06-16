@@ -16,7 +16,7 @@ For example:
     presto:default> EXPLAIN SELECT comment FROM nation_with_column_stats WHERE nationkey > 3
 
     - Output[comment] => [comment:varchar(152)] {rows: ?, bytes: ?}
-    - RemoteExchange[GATHER] => comment:varchar(152) {rows: 12, bytes: ?}
+      - RemoteExchange[GATHER] => comment:varchar(152) {rows: 12, bytes: ?}
         - ScanFilterProject[table = hive:hive:default:nation_with_column_stats,
                                     originalConstraint = (""nationkey"" > BIGINT '3'),
                                     filterPredicate = (""nationkey"" > BIGINT '3')] => [comment:varchar(152)] {rows: 25, bytes: ?}/{rows: 12, bytes: ?}/{rows: 12, bytes: ?}

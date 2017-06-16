@@ -34,12 +34,12 @@ Currently, the following statistics are available in Presto:
  * For each column in a table:
 
    * **data size**: the data size that needs to be read
-   * **null count**: the number of null values
-   * **distinct value count**: the estimated number of distinct values
+   * **nulls fraction**: the fraction of null values
+   * **distinct value count**: the number of distinct values
 
 
 The set of statistics available for a particular query depends on the connector being used and can also vary by table or
-even table layout. For example, the Hive connector does not currently provide statistics on data size.
+even by table layout. For example, the Hive connector does not currently provide statistics on data size.
 
 Displaying Table Statistics
 ---------------------------
@@ -124,21 +124,21 @@ If statistics are not updated automatically, the user needs to trigger a statist
 
 The following command can be used in the Hive CLI to update table statistics for non-partitioned table ``t``::
 
-        ANALYZE TABLE t COMPUTE STATISTICS FOR COLUMNS
+        hive> ANALYZE TABLE t COMPUTE STATISTICS FOR COLUMNS
 
 For partitioned tables, partitioning information must be specified in the command.
 Assuming table ``t`` has two partitioning keys ``a`` and ``b``, the following command would
 update the table statistics for all partitions::
 
-        ANALYZE TABLE t PARTITION (a, b) COMPUTE STATISTICS FOR COLUMNS``
+        hive> ANALYZE TABLE t PARTITION (a, b) COMPUTE STATISTICS FOR COLUMNS
 
 It is also possible to update statistics for just a subset of partitions.
 This command will update statistics for all partitions for which partitioning key ``a`` is equal to ``1``::
 
-        ANALYZE TABLE t PARTITION (a=1, b) COMPUTE STATISTICS FOR COLUMNS``
+        hive> ANALYZE TABLE t PARTITION (a=1, b) COMPUTE STATISTICS FOR COLUMNS
 
 And this command will update statistics for just one partition::
 
-        ANALYZE TABLE t PARTITION (a=1, b=5) COMPUTE STATISTICS FOR COLUMNS``
+        hive> ANALYZE TABLE t PARTITION (a=1, b=5) COMPUTE STATISTICS FOR COLUMNS
 
 For documentation on Hive's statistics mechanism see https://cwiki.apache.org/confluence/display/Hive/StatsDev
