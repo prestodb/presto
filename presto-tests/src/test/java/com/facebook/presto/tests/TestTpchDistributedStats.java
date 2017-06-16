@@ -16,7 +16,6 @@ package com.facebook.presto.tests;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.tests.statistics.Metric;
 import com.facebook.presto.tests.statistics.MetricComparator;
 import com.facebook.presto.tests.statistics.MetricComparison;
@@ -32,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.DIFFER;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
@@ -115,9 +113,7 @@ public class TestTpchDistributedStats
         String queryId = executeQuery(query);
         Plan queryPlan = getQueryPlan(queryId);
 
-        List<PlanNode> allPlanNodes = searchFrom(queryPlan.getRoot()).findAll();
-
-        System.out.println(format("Query TPCH [%s] produces [%s] plan nodes.\n", queryNumber, allPlanNodes.size()));
+        System.out.println(format("Query TPCH [%s].\n", queryNumber));
 
         List<MetricComparison> comparisons = new MetricComparator().getMetricComparisons(queryPlan, getOutputStageInfo(queryId));
 
@@ -126,7 +122,11 @@ public class TestTpchDistributedStats
                         .collect(groupingBy(MetricComparison::getMetric, groupingBy(MetricComparison::result)));
 
         metricSummaries.forEach((metricName, resultSummaries) -> {
-            System.out.println(format("Summary for metric [%s]", metricName));
+            int resultsCount = resultSummaries.values()
+                    .stream()
+                    .mapToInt(List::size)
+                    .sum();
+            System.out.println(format("Summary for metric [%s] contains [%s] results", metricName, resultsCount));
             outputSummary(resultSummaries, NO_ESTIMATE);
             outputSummary(resultSummaries, NO_BASELINE);
             outputSummary(resultSummaries, DIFFER);
