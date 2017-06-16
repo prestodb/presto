@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator;
@@ -133,25 +132,18 @@ public class CoefficientBasedStatsCalculator
             PlanNodeStatsEstimate rightStats = lookupStats(node.getRight());
 
             PlanNodeStatsEstimate.Builder joinStats = PlanNodeStatsEstimate.builder();
-            if (!leftStats.getOutputRowCount().isValueUnknown() && !rightStats.getOutputRowCount().isValueUnknown()) {
-                double rowCount = Math.max(leftStats.getOutputRowCount().getValue(), rightStats.getOutputRowCount().getValue()) * JOIN_MATCHING_COEFFICIENT;
-                joinStats.setOutputRowCount(new Estimate(rowCount));
-            }
+            double rowCount = Math.max(leftStats.getOutputRowCount(), rightStats.getOutputRowCount()) * JOIN_MATCHING_COEFFICIENT;
+            joinStats.setOutputRowCount(rowCount);
             return joinStats.build();
         }
 
         @Override
         public PlanNodeStatsEstimate visitExchange(ExchangeNode node, Void context)
         {
-            Estimate rowCount = new Estimate(0);
+            double rowCount = 0;
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNodeStatsEstimate childStats = lookupStats(node.getSources().get(i));
-                if (childStats.getOutputRowCount().isValueUnknown()) {
-                    rowCount = Estimate.unknownValue();
-                }
-                else {
-                    rowCount = rowCount.map(value -> value + childStats.getOutputRowCount().getValue());
-                }
+                rowCount = rowCount + childStats.getOutputRowCount();
             }
 
             return PlanNodeStatsEstimate.builder()
@@ -166,7 +158,7 @@ public class CoefficientBasedStatsCalculator
 
             TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
             return PlanNodeStatsEstimate.builder()
-                    .setOutputRowCount(tableStatistics.getRowCount())
+                    .setOutputRowCount(tableStatistics.getRowCount().getValue())
                     .build();
         }
 
@@ -188,7 +180,7 @@ public class CoefficientBasedStatsCalculator
         @Override
         public PlanNodeStatsEstimate visitValues(ValuesNode node, Void context)
         {
-            Estimate valuesCount = new Estimate(node.getRows().size());
+            double valuesCount = node.getRows().size();
             return PlanNodeStatsEstimate.builder()
                     .setOutputRowCount(valuesCount)
                     .build();
@@ -198,7 +190,7 @@ public class CoefficientBasedStatsCalculator
         public PlanNodeStatsEstimate visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
             return PlanNodeStatsEstimate.builder()
-                    .setOutputRowCount(new Estimate(1.0))
+                    .setOutputRowCount(1.0)
                     .build();
         }
 
@@ -214,11 +206,11 @@ public class CoefficientBasedStatsCalculator
         {
             PlanNodeStatsEstimate sourceStats = lookupStats(node.getSource());
             PlanNodeStatsEstimate.Builder limitStats = PlanNodeStatsEstimate.builder();
-            if (sourceStats.getOutputRowCount().getValue() < node.getCount()) {
+            if (sourceStats.getOutputRowCount() < node.getCount()) {
                 limitStats.setOutputRowCount(sourceStats.getOutputRowCount());
             }
             else {
-                limitStats.setOutputRowCount(new Estimate(node.getCount()));
+                limitStats.setOutputRowCount(node.getCount());
             }
             return limitStats.build();
         }

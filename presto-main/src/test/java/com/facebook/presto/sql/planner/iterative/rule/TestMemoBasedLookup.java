@@ -17,7 +17,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -74,7 +73,7 @@ public class TestMemoBasedLookup
         MemoBasedLookup lookup = new MemoBasedLookup(memo, new NodeCountingStatsCalculator());
 
         PlanNodeStatsEstimate actualCost = lookup.getStats(memo.getNode(memo.getRootGroup()), queryRunner.getDefaultSession(), ImmutableMap.of());
-        PlanNodeStatsEstimate expectedCost = PlanNodeStatsEstimate.builder().setOutputRowCount(new Estimate(3)).build();
+        PlanNodeStatsEstimate expectedCost = PlanNodeStatsEstimate.builder().setOutputRowCount(3).build();
         assertEquals(actualCost, expectedCost);
     }
 
@@ -153,12 +152,12 @@ public class TestMemoBasedLookup
             double outputRows = 1;
             for (PlanNode source : planNode.getSources()) {
                 PlanNodeStatsEstimate sourceStats = lookup.getStats(source, session, types);
-                if (!sourceStats.getOutputRowCount().isValueUnknown()) {
-                    outputRows += sourceStats.getOutputRowCount().getValue();
+                if (!Double.isNaN(sourceStats.getOutputRowCount())) {
+                    outputRows += sourceStats.getOutputRowCount();
                 }
             }
             return PlanNodeStatsEstimate.builder()
-                    .setOutputRowCount(new Estimate(outputRows))
+                    .setOutputRowCount(outputRows)
                     .build();
         }
     }
