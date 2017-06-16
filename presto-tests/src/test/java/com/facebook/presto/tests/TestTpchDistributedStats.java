@@ -13,12 +13,9 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.tests.statistics.Metric;
-import com.facebook.presto.tests.statistics.MetricComparator;
 import com.facebook.presto.tests.statistics.MetricComparison;
+import com.facebook.presto.tests.statistics.StatisticsAssertion;
 import com.facebook.presto.tpch.ColumnNaming;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -40,42 +37,27 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.groupingBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestTpchDistributedStats
 {
     public static final int NUMBER_OF_TPCH_QUERIES = 22;
 
-    DistributedQueryRunner runner;
+    private final StatisticsAssertion statisticsAssertion;
 
     public TestTpchDistributedStats()
             throws Exception
     {
-        runner = createQueryRunnerWithoutCatalogs(emptyMap(), emptyMap());
+        DistributedQueryRunner runner = createQueryRunnerWithoutCatalogs(emptyMap(), emptyMap());
         runner.createCatalog("tpch", "tpch", ImmutableMap.of(
                 "tpch.column-naming", ColumnNaming.STANDARD.name()
         ));
+        statisticsAssertion = new StatisticsAssertion(runner);
     }
 
     @Test
     void testEstimateForSimpleQuery()
     {
-        String queryId = executeQuery("SELECT * FROM NATION");
-
-        Plan queryPlan = getQueryPlan(queryId);
-
-        MetricComparison rootOutputRowCountComparison = getRootOutputRowCountComparison(queryId, queryPlan);
-        assertEquals(rootOutputRowCountComparison.result(), MATCH);
-    }
-
-    private MetricComparison getRootOutputRowCountComparison(String queryId, Plan queryPlan)
-    {
-        List<MetricComparison> comparisons = new MetricComparator().getMetricComparisons(queryPlan, getOutputStageInfo(queryId));
-        return comparisons.stream()
-                .filter(comparison -> comparison.getMetric().equals(Metric.OUTPUT_ROW_COUNT))
-                .filter(comparison -> comparison.getPlanNode().equals(queryPlan.getRoot()))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("No comparison for root node found"));
+        statisticsAssertion.check("SELECT * FROM NATION").matches();
     }
 
     /**
@@ -103,19 +85,11 @@ public class TestTpchDistributedStats
         }
     }
 
-    private Plan getQueryPlan(String queryId)
-    {
-        return runner.getQueryPlan(new QueryId(queryId));
-    }
-
     private void summarizeQuery(int queryNumber, String query)
     {
-        String queryId = executeQuery(query);
-        Plan queryPlan = getQueryPlan(queryId);
-
         System.out.println(format("Query TPCH [%s].\n", queryNumber));
 
-        List<MetricComparison> comparisons = new MetricComparator().getMetricComparisons(queryPlan, getOutputStageInfo(queryId));
+        List<MetricComparison> comparisons = statisticsAssertion.metricComparisons(query);
 
         Map<Metric, Map<MetricComparison.Result, List<MetricComparison>>> metricSummaries =
                 comparisons.stream()
@@ -137,16 +111,6 @@ public class TestTpchDistributedStats
         System.out.println("Detailed results:\n");
 
         comparisons.forEach(System.out::println);
-    }
-
-    private String executeQuery(String query)
-    {
-        return runner.executeWithQueryId(runner.getDefaultSession(), query).getQueryId();
-    }
-
-    private StageInfo getOutputStageInfo(String queryId)
-    {
-        return runner.getQueryInfo(new QueryId(queryId)).getOutputStage().get();
     }
 
     private void outputSummary(Map<MetricComparison.Result, List<MetricComparison>> resultSummaries, MetricComparison.Result result)
