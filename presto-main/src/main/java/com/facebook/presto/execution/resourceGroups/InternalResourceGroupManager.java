@@ -59,6 +59,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManagerFactory.LEGACY_RESOURCE_GROUP_MANAGER;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -276,11 +277,16 @@ public final class InternalResourceGroupManager
                 session.getClientTags(),
                 getQueryPriority(session),
                 determineQueryType(queryExecution));
-        for (ResourceGroupSelector selector : configurationManager.get().getSelectors()) {
-            Optional<ResourceGroupId> group = selector.match(context);
-            if (group.isPresent()) {
-                return group.get();
+        try {
+            for (ResourceGroupSelector selector : configurationManager.get().getSelectors()) {
+                Optional<ResourceGroupId> group = selector.match(context);
+                if (group.isPresent()) {
+                    return group.get();
+                }
             }
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Resource group selection failed", e);
         }
         throw new PrestoException(QUERY_REJECTED, "Query did not match any selection rule");
     }
