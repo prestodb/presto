@@ -13,35 +13,16 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.tests.statistics.Metric;
-import com.facebook.presto.tests.statistics.MetricComparison;
 import com.facebook.presto.tests.statistics.StatisticsAssertion;
 import com.facebook.presto.tpch.ColumnNaming;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Resources;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.IntStream;
-
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.DIFFER;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunnerWithoutCatalogs;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
-import static java.util.stream.Collectors.groupingBy;
 
 public class TestTpchDistributedStats
 {
-    public static final int NUMBER_OF_TPCH_QUERIES = 22;
-
     private final StatisticsAssertion statisticsAssertion;
 
     public TestTpchDistributedStats()
@@ -58,63 +39,5 @@ public class TestTpchDistributedStats
     void testEstimateForSimpleQuery()
     {
         statisticsAssertion.check("SELECT * FROM NATION").matches();
-    }
-
-    /**
-     * This is a development tool for manual inspection of differences between
-     * cost estimates and actual execution costs. Its outputs need to be inspected
-     * manually because at this point no sensible assertions can be formulated
-     * for the entirety of TPCH queries.
-     */
-    @Test(enabled = false)
-    void testCostEstimatesVsRealityDifferences()
-    {
-        IntStream.rangeClosed(1, NUMBER_OF_TPCH_QUERIES)
-                .filter(i -> i != 15) //query 15 creates a view, which TPCH connector does not support.
-                .forEach(i -> summarizeQuery(i, getTpchQuery(i)));
-    }
-
-    private String getTpchQuery(int i)
-    {
-        try {
-            String queryClassPath = "/io/airlift/tpch/queries/q" + i + ".sql";
-            return Resources.toString(getClass().getResource(queryClassPath), Charset.defaultCharset());
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private void summarizeQuery(int queryNumber, String query)
-    {
-        System.out.println(format("Query TPCH [%s].\n", queryNumber));
-
-        List<MetricComparison> comparisons = statisticsAssertion.metricComparisons(query);
-
-        Map<Metric, Map<MetricComparison.Result, List<MetricComparison>>> metricSummaries =
-                comparisons.stream()
-                        .collect(groupingBy(MetricComparison::getMetric, groupingBy(MetricComparison::result)));
-
-        metricSummaries.forEach((metricName, resultSummaries) -> {
-            int resultsCount = resultSummaries.values()
-                    .stream()
-                    .mapToInt(List::size)
-                    .sum();
-            System.out.println(format("Summary for metric [%s] contains [%s] results", metricName, resultsCount));
-            outputSummary(resultSummaries, NO_ESTIMATE);
-            outputSummary(resultSummaries, NO_BASELINE);
-            outputSummary(resultSummaries, DIFFER);
-            outputSummary(resultSummaries, MATCH);
-            System.out.println();
-        });
-
-        System.out.println("Detailed results:\n");
-
-        comparisons.forEach(System.out::println);
-    }
-
-    private void outputSummary(Map<MetricComparison.Result, List<MetricComparison>> resultSummaries, MetricComparison.Result result)
-    {
-        System.out.println(format("[%s]\t-\t[%s]", result, resultSummaries.getOrDefault(result, emptyList()).size()));
     }
 }
