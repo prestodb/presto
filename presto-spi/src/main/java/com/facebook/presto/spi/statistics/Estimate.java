@@ -34,6 +34,11 @@ public final class Estimate
         return new Estimate(UNKNOWN_VALUE);
     }
 
+    public static final Estimate zeroValue()
+    {
+        return new Estimate(0);
+    }
+
     public Estimate(double value)
     {
         this.value = value;
@@ -57,6 +62,14 @@ public final class Estimate
         else {
             return new Estimate(mappingFunction.apply(value));
         }
+    }
+
+    public Estimate add(Estimate other)
+    {
+        if (isValueUnknown() || other.isValueUnknown()) {
+            return unknownValue();
+        }
+        return new Estimate(value + other.getValue());
     }
 
     @Override

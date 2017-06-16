@@ -15,6 +15,8 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.spi.type.Type;
@@ -32,11 +34,13 @@ public class StatelessLookup
         implements Lookup
 {
     private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
 
     @Inject
-    public StatelessLookup(StatsCalculator statsCalculator)
+    public StatelessLookup(StatsCalculator statsCalculator, CostCalculator costCalculator)
     {
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
 
     @Override
@@ -49,6 +53,16 @@ public class StatelessLookup
     public PlanNodeStatsEstimate getStats(PlanNode planNode, Session session, Map<Symbol, Type> types)
     {
         return statsCalculator.calculateStats(
+                planNode,
+                this,
+                session,
+                types);
+    }
+
+    @Override
+    public PlanNodeCostEstimate getCumulativeCost(PlanNode planNode, Session session, Map<Symbol, Type> types)
+    {
+        return costCalculator.calculateCumulativeCost(
                 planNode,
                 this,
                 session,
