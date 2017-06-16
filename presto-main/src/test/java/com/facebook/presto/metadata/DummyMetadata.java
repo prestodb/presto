@@ -41,7 +41,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
-public class DummyMetadata implements Metadata
+public class DummyMetadata
+        implements Metadata
 {
     @Override
     public void verifyComparableOrderableContract()
@@ -93,10 +94,10 @@ public class DummyMetadata implements Metadata
 
     @Override
     public List<TableLayoutResult> getLayouts(
-        Session session,
-        TableHandle tableHandle,
-        Constraint<ColumnHandle> constraint,
-        Optional<Set<ColumnHandle>> desiredColumns)
+            Session session,
+            TableHandle tableHandle,
+            Constraint<ColumnHandle> constraint,
+            Optional<Set<ColumnHandle>> desiredColumns)
     {
         throw new UnsupportedOperationException();
     }
@@ -343,11 +344,11 @@ public class DummyMetadata implements Metadata
 
     @Override
     public Optional<ResolvedIndex> resolveIndex(
-        Session session,
-        TableHandle tableHandle,
-        Set<ColumnHandle> indexableColumns,
-        Set<ColumnHandle> outputColumns,
-        TupleDomain<ColumnHandle> tupleDomain)
+            Session session,
+            TableHandle tableHandle,
+            Set<ColumnHandle> indexableColumns,
+            Set<ColumnHandle> outputColumns,
+            TupleDomain<ColumnHandle> tupleDomain)
     {
         throw new UnsupportedOperationException();
     }
