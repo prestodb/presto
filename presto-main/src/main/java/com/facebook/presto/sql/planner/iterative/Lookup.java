@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -23,7 +23,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import java.util.Map;
 import java.util.function.Function;
 
-import static com.facebook.presto.cost.PlanNodeCost.UNKNOWN_COST;
+import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.google.common.base.Verify.verify;
 
 public interface Lookup
@@ -37,7 +37,7 @@ public interface Lookup
      */
     PlanNode resolve(PlanNode node);
 
-    PlanNodeCost getCost(PlanNode node, Session session, Map<Symbol, Type> types);
+    PlanNodeStatsEstimate getStats(PlanNode node, Session session, Map<Symbol, Type> types);
 
     /**
      * A Lookup implementation that does not perform lookup. It satisfies contract
@@ -55,9 +55,9 @@ public interface Lookup
             }
 
             @Override
-            public PlanNodeCost getCost(PlanNode node, Session session, Map<Symbol, Type> types)
+            public PlanNodeStatsEstimate getStats(PlanNode node, Session session, Map<Symbol, Type> types)
             {
-                return UNKNOWN_COST;
+                return UNKNOWN_STATS;
             }
         };
     }
@@ -65,10 +65,10 @@ public interface Lookup
     static Lookup from(Function<GroupReference, PlanNode> resolver)
     {
         return from(resolver,
-                (planNode, lookup, session, types) -> UNKNOWN_COST);
+                (planNode, lookup, session, types) -> UNKNOWN_STATS);
     }
 
-    static Lookup from(Function<GroupReference, PlanNode> resolver, CostCalculator costCalculator)
+    static Lookup from(Function<GroupReference, PlanNode> resolver, StatsCalculator statsCalculator)
     {
         return new Lookup()
         {
@@ -83,9 +83,9 @@ public interface Lookup
             }
 
             @Override
-            public PlanNodeCost getCost(PlanNode node, Session session, Map<Symbol, Type> types)
+            public PlanNodeStatsEstimate getStats(PlanNode node, Session session, Map<Symbol, Type> types)
             {
-                return costCalculator.calculateCost(resolve(node), this, session, types);
+                return statsCalculator.calculateStats(resolve(node), this, session, types);
             }
         };
     }

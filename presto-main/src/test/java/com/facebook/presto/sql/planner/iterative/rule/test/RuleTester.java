@@ -55,7 +55,7 @@ public class RuleTester
 
     public RuleAssert assertThat(Rule rule)
     {
-        return new RuleAssert(metadata, session, rule, transactionManager, accessControl, queryRunner.getCostCalculator());
+        return new RuleAssert(metadata, session, rule, transactionManager, accessControl, queryRunner.getStatsCalculator());
     }
 
     @Override

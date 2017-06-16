@@ -21,14 +21,14 @@ import java.util.function.Function;
 import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
 import static java.util.Objects.requireNonNull;
 
-public class PlanNodeCost
+public class PlanNodeStatsEstimate
 {
-    public static final PlanNodeCost UNKNOWN_COST = PlanNodeCost.builder().build();
+    public static final PlanNodeStatsEstimate UNKNOWN_STATS = PlanNodeStatsEstimate.builder().build();
 
     private final Estimate outputRowCount;
     private final Estimate outputSizeInBytes;
 
-    private PlanNodeCost(Estimate outputRowCount, Estimate outputSizeInBytes)
+    private PlanNodeStatsEstimate(Estimate outputRowCount, Estimate outputSizeInBytes)
     {
         this.outputRowCount = requireNonNull(outputRowCount, "outputRowCount can not be null");
         this.outputSizeInBytes = requireNonNull(outputSizeInBytes, "outputSizeInBytes can not be null");
@@ -44,12 +44,12 @@ public class PlanNodeCost
         return outputSizeInBytes;
     }
 
-    public PlanNodeCost mapOutputRowCount(Function<Double, Double> mappingFunction)
+    public PlanNodeStatsEstimate mapOutputRowCount(Function<Double, Double> mappingFunction)
     {
         return buildFrom(this).setOutputRowCount(outputRowCount.map(mappingFunction)).build();
     }
 
-    public PlanNodeCost mapOutputSizeInBytes(Function<Double, Double> mappingFunction)
+    public PlanNodeStatsEstimate mapOutputSizeInBytes(Function<Double, Double> mappingFunction)
     {
         return buildFrom(this).setOutputSizeInBytes(outputRowCount.map(mappingFunction)).build();
     }
@@ -57,7 +57,7 @@ public class PlanNodeCost
     @Override
     public String toString()
     {
-        return "PlanNodeCost{outputRowCount=" + outputRowCount + ", outputSizeInBytes=" + outputSizeInBytes + '}';
+        return "PlanNodeStatsEstimate{outputRowCount=" + outputRowCount + ", outputSizeInBytes=" + outputSizeInBytes + '}';
     }
 
     @Override
@@ -69,7 +69,7 @@ public class PlanNodeCost
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        PlanNodeCost that = (PlanNodeCost) o;
+        PlanNodeStatsEstimate that = (PlanNodeStatsEstimate) o;
         return Objects.equals(outputRowCount, that.outputRowCount) &&
                 Objects.equals(outputSizeInBytes, that.outputSizeInBytes);
     }
@@ -85,7 +85,7 @@ public class PlanNodeCost
         return new Builder();
     }
 
-    public static Builder buildFrom(PlanNodeCost other)
+    public static Builder buildFrom(PlanNodeStatsEstimate other)
     {
         return builder().setOutputRowCount(other.getOutputRowCount())
                 .setOutputSizeInBytes(other.getOutputSizeInBytes());
@@ -108,9 +108,9 @@ public class PlanNodeCost
             return this;
         }
 
-        public PlanNodeCost build()
+        public PlanNodeStatsEstimate build()
         {
-            return new PlanNodeCost(outputRowCount, outputSizeInBytes);
+            return new PlanNodeStatsEstimate(outputRowCount, outputSizeInBytes);
         }
     }
 }

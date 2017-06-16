@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -32,7 +32,7 @@ public class Plan
 {
     private final PlanNode root;
     private final Map<Symbol, Type> types;
-    private final Map<PlanNodeId, PlanNodeCost> planNodeCosts;
+    private final Map<PlanNodeId, PlanNodeStatsEstimate> planNodeStatsEstimates;
 
     public Plan(PlanNode root, Map<Symbol, Type> types, Lookup lookup, Session session)
     {
@@ -42,9 +42,9 @@ public class Plan
 
         this.root = root;
         this.types = ImmutableMap.copyOf(types);
-        this.planNodeCosts = getPlanNodes(root)
+        this.planNodeStatsEstimates = getPlanNodes(root)
                 .stream()
-                .collect(toImmutableMap(PlanNode::getId, node -> lookup.getCost(node, session, types)));
+                .collect(toImmutableMap(PlanNode::getId, node -> lookup.getStats(node, session, types)));
     }
 
     public PlanNode getRoot()
@@ -57,9 +57,9 @@ public class Plan
         return types;
     }
 
-    public Map<PlanNodeId, PlanNodeCost> getPlanNodeCosts()
+    public Map<PlanNodeId, PlanNodeStatsEstimate> getPlanNodeStatsEstimates()
     {
-        return planNodeCosts;
+        return planNodeStatsEstimates;
     }
 
     private List<PlanNode> getPlanNodes(PlanNode root)

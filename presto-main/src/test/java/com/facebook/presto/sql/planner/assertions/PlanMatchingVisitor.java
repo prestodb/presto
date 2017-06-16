@@ -122,7 +122,7 @@ final class PlanMatchingVisitor
 
             // Try upMatching this node with the the aliases gathered from the source nodes.
             SymbolAliases allSourceAliases = sourcesMatch.getAliases();
-            MatchResult matchResult = pattern.detailMatches(node, lookup.getCost(node, session, types), session, metadata, allSourceAliases);
+            MatchResult matchResult = pattern.detailMatches(node, lookup.getStats(node, session, types), session, metadata, allSourceAliases);
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on node %s", node));
                 result = match(allSourceAliases.withNewAliases(matchResult.getAliases()));
@@ -147,7 +147,7 @@ final class PlanMatchingVisitor
                  * 2) Collect the aliases from the source nodes so we can add them to
                  *    SymbolAliases. They'll be needed further up.
                  */
-            MatchResult matchResult = pattern.detailMatches(node, lookup.getCost(node, session, types), session, metadata, new SymbolAliases());
+            MatchResult matchResult = pattern.detailMatches(node, lookup.getStats(node, session, types), session, metadata, new SymbolAliases());
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on leaf node %s", node));
                 result = matchResult;

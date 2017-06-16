@@ -485,7 +485,7 @@ public class TestMergeWindows
         LocalQueryRunner queryRunner = getQueryRunner();
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new IterativeOptimizer(new StatsRecorder(), queryRunner.getCostCalculator(), ImmutableSet.of(
+                new IterativeOptimizer(new StatsRecorder(), queryRunner.getStatsCalculator(), ImmutableSet.of(
                         new RemoveRedundantIdentityProjections(),
                         new SwapAdjacentWindowsBySpecifications(),
                         new MergeAdjacentWindows())),

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests.statistics;
 
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.sql.planner.Plan;
@@ -43,13 +43,13 @@ public class MetricComparator
     public List<MetricComparison> getMetricComparisons(Plan queryPlan, StageInfo outputStageInfo)
     {
         return metrics.stream().flatMap(metric -> {
-            Map<PlanNodeId, PlanNodeCost> estimates = queryPlan.getPlanNodeCosts();
-            Map<PlanNodeId, PlanNodeCost> actuals = extractActualCosts(outputStageInfo);
+            Map<PlanNodeId, PlanNodeStatsEstimate> estimates = queryPlan.getPlanNodeStatsEstimates();
+            Map<PlanNodeId, PlanNodeStatsEstimate> actuals = extractActualCosts(outputStageInfo);
             return estimates.entrySet().stream().map(entry -> {
                 // todo refactor to stay in PlanNodeId domain ????
                 PlanNode node = planNodeForId(queryPlan, entry.getKey());
-                PlanNodeCost estimate = entry.getValue();
-                Optional<PlanNodeCost> execution = Optional.ofNullable(actuals.get(node.getId()));
+                PlanNodeStatsEstimate estimate = entry.getValue();
+                Optional<PlanNodeStatsEstimate> execution = Optional.ofNullable(actuals.get(node.getId()));
                 return createMetricComparison(metric, node, estimate, execution);
             });
         }).collect(Collectors.toList());
@@ -62,14 +62,14 @@ public class MetricComparator
                 .findOnlyElement();
     }
 
-    private Map<PlanNodeId, PlanNodeCost> extractActualCosts(StageInfo outputStageInfo)
+    private Map<PlanNodeId, PlanNodeStatsEstimate> extractActualCosts(StageInfo outputStageInfo)
     {
         Stream<Map<PlanNodeId, PlanNodeStats>> stagesStatsStream =
                 getAllStages(Optional.of(outputStageInfo)).stream()
                         .map(PlanNodeStatsSummarizer::aggregatePlanNodeStats);
 
         Map<PlanNodeId, PlanNodeStats> mergedStats = mergeStats(stagesStatsStream);
-        return transformValues(mergedStats, this::toPlanNodeCost);
+        return transformValues(mergedStats, this::toPlanNodeStatsEstimate);
     }
 
     private Map<PlanNodeId, PlanNodeStats> mergeStats(Stream<Map<PlanNodeId, PlanNodeStats>> stagesStatsStream)
@@ -80,15 +80,15 @@ public class MetricComparator
         return mergeMaps(stagesStatsStream, allowNoDuplicates);
     }
 
-    private PlanNodeCost toPlanNodeCost(PlanNodeStats operatorStats)
+    private PlanNodeStatsEstimate toPlanNodeStatsEstimate(PlanNodeStats operatorStats)
     {
-        return PlanNodeCost.builder()
+        return PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(new Estimate(operatorStats.getPlanNodeOutputPositions()))
                 .setOutputSizeInBytes(new Estimate(operatorStats.getPlanNodeOutputDataSize().toBytes()))
                 .build();
     }
 
-    private MetricComparison createMetricComparison(Metric metric, PlanNode node, PlanNodeCost estimate, Optional<PlanNodeCost> execution)
+    private MetricComparison createMetricComparison(Metric metric, PlanNode node, PlanNodeStatsEstimate estimate, Optional<PlanNodeStatsEstimate> execution)
     {
         Optional<Double> estimatedCost = asOptional(metric.getValue(estimate));
         Optional<Double> executionCost = execution.flatMap(e -> asOptional(metric.getValue(e)));

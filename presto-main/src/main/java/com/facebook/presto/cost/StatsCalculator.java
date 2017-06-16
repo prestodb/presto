@@ -23,15 +23,15 @@ import net.jcip.annotations.ThreadSafe;
 import java.util.Map;
 
 /**
- * Interface of cost calculator.
+ * Interface of stats calculator.
  *
- * Obtains estimated cost for output produced by given PlanNode
+ * Obtains estimated stats for output produced by given PlanNode
  * Implementation may use lookup to compute needed traits for self/source nodes.
  */
 @ThreadSafe
-public interface CostCalculator
+public interface StatsCalculator
 {
-    PlanNodeCost calculateCost(
+    PlanNodeStatsEstimate calculateStats(
             PlanNode planNode,
             Lookup lookup,
             Session session,
