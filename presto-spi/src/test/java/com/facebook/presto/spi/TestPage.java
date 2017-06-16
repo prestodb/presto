@@ -87,7 +87,7 @@ public class TestPage
         int otherDictionaryUsedPositions = 30;
         int[] otherDictionaryIds = getDictionaryIds(positionCount, otherDictionaryUsedPositions);
         SliceArrayBlock dictionary3 = new SliceArrayBlock(70, createExpectedValues(70));
-        DictionaryBlock randomSourceIdBlock = new DictionaryBlock(positionCount, dictionary3, otherDictionaryIds);
+        DictionaryBlock randomSourceIdBlock = new DictionaryBlock(dictionary3, otherDictionaryIds);
 
         Page page = new Page(commonSourceIdBlock1, randomSourceIdBlock, commonSourceIdBlock2);
         page.compact();
