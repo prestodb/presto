@@ -17,6 +17,7 @@ import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.QueryId;
 import io.airlift.http.server.HttpServerInfo;
@@ -35,15 +36,15 @@ public class HttpLocationFactory
     private final URI baseUri;
 
     @Inject
-    public HttpLocationFactory(InternalNodeManager nodeManager, HttpServerInfo httpServerInfo)
+    public HttpLocationFactory(InternalNodeManager nodeManager, HttpServerInfo httpServerInfo, InternalCommunicationConfig config)
     {
-        this(nodeManager, httpServerInfo.getHttpUri());
+        this(nodeManager, config.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri());
     }
 
     public HttpLocationFactory(InternalNodeManager nodeManager, URI baseUri)
     {
-        this.nodeManager = nodeManager;
-        this.baseUri = baseUri;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.baseUri = requireNonNull(baseUri, "baseUri is null");
     }
 
     @Override
