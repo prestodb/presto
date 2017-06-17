@@ -126,7 +126,7 @@ final class PrestoDriverUri
 
         return uriBuilder()
                 .scheme(scheme)
-                .host(address.getHostText()).port(address.getPort())
+                .host(address.getHost()).port(address.getPort())
                 .build();
     }
 
