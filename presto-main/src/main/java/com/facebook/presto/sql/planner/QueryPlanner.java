@@ -70,7 +70,6 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -78,7 +77,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -89,6 +87,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -864,9 +863,8 @@ class QueryPlanner
 
     private static Map<Expression, Symbol> symbolsForExpressions(PlanBuilder builder, Iterable<? extends Expression> expressions)
     {
-        Set<Expression> added = new HashSet<>();
-        return StreamSupport.stream(expressions.spliterator(), false)
-                .filter(added::add)
+        return stream(expressions)
+                .distinct()
                 .collect(toImmutableMap(expression -> expression, builder::translate));
     }
 
