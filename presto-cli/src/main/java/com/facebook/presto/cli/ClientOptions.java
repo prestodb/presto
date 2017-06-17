@@ -171,7 +171,7 @@ public class ClientOptions
 
         HostAndPort host = HostAndPort.fromString(server);
         try {
-            return new URI("http", null, host.getHostText(), host.getPortOrDefault(80), null, null, null);
+            return new URI("http", null, host.getHost(), host.getPortOrDefault(80), null, null, null);
         }
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
