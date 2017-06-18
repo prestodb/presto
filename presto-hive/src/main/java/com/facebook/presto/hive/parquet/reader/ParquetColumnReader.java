@@ -156,11 +156,11 @@ public abstract class ParquetColumnReader
         while (valueCount < nextBatchSize) {
             if (page == null) {
                 readNextPage();
+                repetitionLevel = repetitionReader.readLevel();
             }
             int numValues = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
             readValues(blockBuilder, numValues, type, positions);
             valueCount += numValues;
-            updatePosition(numValues);
         }
         checkArgument(valueCount == nextBatchSize, "valueCount " + valueCount + " not equals to batchSize " + nextBatchSize);
 
@@ -170,32 +170,41 @@ public abstract class ParquetColumnReader
     }
 
     private void readValues(BlockBuilder blockBuilder, int numValues, Type type, IntList positions)
+            throws IOException
     {
-        definitionLevel = definitionReader.readLevel();
-        repetitionLevel = repetitionReader.readLevel();
-        int valueCount = 0;
-        for (int i = 0; i < numValues; i++) {
-            do {
-                readValue(blockBuilder, type);
-                try {
-                    valueCount++;
-                    repetitionLevel = repetitionReader.readLevel();
-                    if (repetitionLevel == 0) {
-                        positions.add(valueCount);
-                        valueCount = 0;
-                        if (i == numValues - 1) {
-                            return;
-                        }
+        int rowElementsCount = 0;
+        int rowsCount = 0;
+        int totalCount = 0;
+        while (rowsCount < numValues) {
+            definitionLevel = definitionReader.readLevel();
+            readValue(blockBuilder, type);
+            rowElementsCount++;
+            totalCount++;
+            if (totalCount == remainingValueCountInPage) {
+                updatePosition(totalCount);
+                if (pageReader.isLastPage()) {
+                    positions.add(rowElementsCount);
+                    rowsCount++;
+                    if (rowsCount == numValues) {
+                        updatePosition(totalCount);
+                        return;
                     }
-                    definitionLevel = definitionReader.readLevel();
                 }
-                catch (IllegalArgumentException expected) {
-                    // Reading past repetition stream, RunLengthBitPackingHybridDecoder throws IllegalArgumentException
-                    positions.add(valueCount);
+                totalCount = 0;
+                readNextPage();
+            }
+            repetitionLevel = repetitionReader.readLevel();
+            if (repetitionLevel == 0) {
+                positions.add(rowElementsCount);
+                rowsCount++;
+                if (rowsCount == numValues) {
+                    updatePosition(totalCount);
                     return;
                 }
-            } while (repetitionLevel != 0);
+                rowElementsCount = 0;
+            }
         }
+        updatePosition(totalCount);
     }
 
     private void skipValues(int offset)
@@ -231,6 +240,7 @@ public abstract class ParquetColumnReader
         while (valuePosition < readOffset) {
             if (page == null) {
                 readNextPage();
+                repetitionLevel = repetitionReader.readLevel();
             }
             int offset = Math.min(remainingValueCountInPage, readOffset - valuePosition);
             skipValues(offset);

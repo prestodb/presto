@@ -34,8 +34,8 @@ class ParquetPageReader
     private final ParquetDictionaryPage compressedDictionaryPage;
 
     public ParquetPageReader(CompressionCodecName codec,
-            List<ParquetDataPage> compressedPages,
-            ParquetDictionaryPage compressedDictionaryPage)
+                             List<ParquetDataPage> compressedPages,
+                             ParquetDictionaryPage compressedDictionaryPage)
     {
         this.codec = codec;
         this.compressedPages = new LinkedList<>(compressedPages);
@@ -110,5 +110,10 @@ class ParquetPageReader
         catch (IOException e) {
             throw new RuntimeException("Error reading dictionary page", e);
         }
+    }
+
+    public boolean isLastPage()
+    {
+        return compressedPages.isEmpty();
     }
 }
