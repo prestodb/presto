@@ -56,9 +56,6 @@
         <dep.nifty.version>0.15.1</dep.nifty.version>
         <dep.swift.version>0.15.2</dep.swift.version>
 
-        <cli.skip-execute>true</cli.skip-execute>
-        <cli.main-class>None</cli.main-class>
-
         <!-- use a fractional hour timezone offset for tests -->
         <air.test.timezone>Asia/Katmandu</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
@@ -1160,26 +1157,6 @@
     </build>
 
     <profiles>
-        <!-- run cli for development: mvn -am -pl presto-cli -P cli compile exec:java -->
-        <profile>
-            <id>cli</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <configuration>
-                            <skip>${cli.skip-execute}</skip>
-                            <executable>${java.home}/bin/java</executable>
-                            <mainClass>${cli.main-class}</mainClass>
-                            <arguments>
-                                <argument>--debug</argument>
-                            </arguments>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
         <profile>
             <id>eclipse-compiler</id>
             <build>
