@@ -14,14 +14,12 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -29,30 +27,15 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchan
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestPushProjectionThroughExchange
+        extends RuleTest
 {
-    private RuleTester tester;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-    }
-
     @Test
     public void testDoesNotFireNoExchange()
             throws Exception
     {
-        tester.assertThat(new PushProjectionThroughExchange())
+        getRuleTester().assertThat(new PushProjectionThroughExchange())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("x", BIGINT), new LongLiteral("3")),
@@ -64,7 +47,7 @@ public class TestPushProjectionThroughExchange
     public void testDoesNotFireNarrowingProjection()
             throws Exception
     {
-        tester.assertThat(new PushProjectionThroughExchange())
+        getRuleTester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol b = p.symbol("b", BIGINT);
@@ -87,7 +70,7 @@ public class TestPushProjectionThroughExchange
     public void testSimpleMultipleInputs()
             throws Exception
     {
-        tester.assertThat(new PushProjectionThroughExchange())
+        getRuleTester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol b = p.symbol("b", BIGINT);
@@ -128,7 +111,7 @@ public class TestPushProjectionThroughExchange
     public void testPartitioningColumnAndHashWithoutIdentityMappingInProjection()
             throws Exception
     {
-        tester.assertThat(new PushProjectionThroughExchange())
+        getRuleTester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol b = p.symbol("b", BIGINT);

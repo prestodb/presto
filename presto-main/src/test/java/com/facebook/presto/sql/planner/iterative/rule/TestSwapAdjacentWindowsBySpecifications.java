@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTest;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -25,8 +25,6 @@ import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -39,25 +37,10 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestSwapAdjacentWindowsBySpecifications
+            extends RuleTest
 {
-    private RuleTester tester;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-    }
-
     private WindowNode.Frame frame;
     private Signature signature;
 
@@ -79,7 +62,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     public void doesNotFireOnPlanWithoutWindowFunctions()
             throws Exception
     {
-        tester.assertThat(new SwapAdjacentWindowsBySpecifications())
+        getRuleTester().assertThat(new SwapAdjacentWindowsBySpecifications())
                 .on(p -> p.values(p.symbol("a", BIGINT)))
                 .doesNotFire();
     }
@@ -88,7 +71,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     public void doesNotFireOnPlanWithSingleWindowNode()
             throws Exception
     {
-        tester.assertThat(new SwapAdjacentWindowsBySpecifications())
+        getRuleTester().assertThat(new SwapAdjacentWindowsBySpecifications())
                 .on(p -> p.window(new WindowNode.Specification(
                                 ImmutableList.of(p.symbol("a", BIGINT)),
                                 ImmutableList.of(),
@@ -112,7 +95,7 @@ public class TestSwapAdjacentWindowsBySpecifications
         Optional<Window> windowAB = Optional.of(new Window(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b")), Optional.empty(), Optional.empty()));
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester.assertThat(new SwapAdjacentWindowsBySpecifications())
+        getRuleTester().assertThat(new SwapAdjacentWindowsBySpecifications())
                 .on(p ->
                         p.window(new WindowNode.Specification(
                                         ImmutableList.of(p.symbol("a", BIGINT)),
@@ -140,7 +123,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     {
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester.assertThat(new SwapAdjacentWindowsBySpecifications())
+        getRuleTester().assertThat(new SwapAdjacentWindowsBySpecifications())
                 .on(p ->
                         p.window(new WindowNode.Specification(
                                         ImmutableList.of(p.symbol("a", BIGINT)),

@@ -17,15 +17,13 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -35,29 +33,14 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strict
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestPruneTableScanColumns
+        extends RuleTest
 {
-    private RuleTester tester;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-    }
-
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester.assertThat(new PruneTableScanColumns())
+        getRuleTester().assertThat(new PruneTableScanColumns())
                 .on(p ->
                 {
                     Symbol orderdate = p.symbol("orderdate", DATE);
@@ -82,7 +65,7 @@ public class TestPruneTableScanColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester.assertThat(new PruneTableScanColumns())
+        getRuleTester().assertThat(new PruneTableScanColumns())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("y", BIGINT), expression("x")),

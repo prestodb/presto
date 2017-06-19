@@ -16,37 +16,19 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
-
 public class TestRemoveEmptyDelete
+        extends RuleTest
 {
-    private RuleTester tester;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-    }
-
     @Test
     public void testDoesNotFire()
             throws Exception
     {
-        tester.assertThat(new RemoveEmptyDelete())
+        getRuleTester().assertThat(new RemoveEmptyDelete())
                 .on(p -> p.tableDelete(
                         new SchemaTableName("sch", "tab"),
                         p.tableScan(ImmutableList.of(), ImmutableMap.of()),
@@ -58,7 +40,7 @@ public class TestRemoveEmptyDelete
     @Test
     public void test()
     {
-        tester.assertThat(new RemoveEmptyDelete())
+        getRuleTester().assertThat(new RemoveEmptyDelete())
                 .on(p -> p.tableDelete(
                         new SchemaTableName("sch", "tab"),
                         p.values(),
