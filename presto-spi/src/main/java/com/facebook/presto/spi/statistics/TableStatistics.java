@@ -71,12 +71,18 @@ public final class TableStatistics
         private Estimate rowCount = unknownValue();
         private Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new HashMap<>();
 
+        /**
+         * @return this {@code Builder} object
+         */
         public Builder setRowCount(Estimate rowCount)
         {
             this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
             return this;
         }
 
+        /**
+         * @return this {@code Builder} object
+         */
         public Builder setColumnStatistics(ColumnHandle columnName, ColumnStatistics columnStatistics)
         {
             requireNonNull(columnName, "columnName can not be null");
