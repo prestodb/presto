@@ -137,21 +137,19 @@ public class RcFileReader
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(readColumns));
 
-        checkArgument(offset >= 0, "offset is negative");
-        checkArgument(offset < dataSource.getSize(), "offset is greater than data size");
-        checkArgument(length >= 1, "length must be at least 1");
+        verify(offset >= 0, "offset is negative");
+        verify(offset < dataSource.getSize(), "offset is greater than data size");
+        verify(length >= 1, "length must be at least 1");
         this.length = length;
         this.end = offset + length;
-        checkArgument(end <= dataSource.getSize(), "offset plus length is greater than data size");
+        verify(end <= dataSource.getSize(), "offset plus length is greater than data size");
 
         // read header
         Slice magic = input.readSlice(RCFILE_MAGIC.length());
         boolean compressed;
         if (RCFILE_MAGIC.equals(magic)) {
             version = input.readByte();
-            if (version > CURRENT_VERSION) {
-                throw corrupt("RCFile version %s not supported: %s", version, dataSource);
-            }
+            verify(version <= CURRENT_VERSION, "RCFile version %s not supported: %s", version, dataSource);
             validateWrite(validation -> validation.getVersion() == version, "Unexpected file version");
             compressed = input.readBoolean();
         }
@@ -160,19 +158,14 @@ public class RcFileReader
 
             // first version of RCFile used magic SEQ with version 6
             byte sequenceFileVersion = input.readByte();
-            if (sequenceFileVersion != SEQUENCE_FILE_VERSION) {
-                throw corrupt("File %s is a SequenceFile not an RCFile", dataSource);
-            }
+            verify(sequenceFileVersion == SEQUENCE_FILE_VERSION, "File %s is a SequenceFile not an RCFile", dataSource);
 
             // this is the first version of RCFile
             this.version = FIRST_VERSION;
 
             Slice keyClassName = readLengthPrefixedString(input);
             Slice valueClassName = readLengthPrefixedString(input);
-            if (!RCFILE_KEY_BUFFER_NAME.equals(keyClassName) || !RCFILE_VALUE_BUFFER_NAME.equals(valueClassName)) {
-                throw corrupt("File %s is a SequenceFile not an RCFile", dataSource);
-            }
-
+            verify(RCFILE_KEY_BUFFER_NAME.equals(keyClassName) && RCFILE_VALUE_BUFFER_NAME.equals(valueClassName), "File %s is a SequenceFile not an RCFile", dataSource);
             compressed = input.readBoolean();
 
             // RC file is never block compressed
@@ -197,12 +190,8 @@ public class RcFileReader
 
         // read metadata
         int metadataEntries = Integer.reverseBytes(input.readInt());
-        if (metadataEntries < 0) {
-            throw corrupt("Invalid metadata entry count %s in RCFile %s", metadataEntries, dataSource);
-        }
-        if (metadataEntries > MAX_METADATA_ENTRIES) {
-            throw corrupt("Too many metadata entries (%s) in RCFile %s", metadataEntries, dataSource);
-        }
+        verify(metadataEntries >= 0, "Invalid metadata entry count %s in RCFile %s", metadataEntries, dataSource);
+        verify(metadataEntries <= MAX_METADATA_ENTRIES, "Too many metadata entries (%s) in RCFile %s", metadataEntries, dataSource);
         ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
         for (int i = 0; i < metadataEntries; i++) {
             metadataBuilder.put(readLengthPrefixedString(input).toStringUtf8(), readLengthPrefixedString(input).toStringUtf8());
@@ -220,9 +209,7 @@ public class RcFileReader
         }
 
         // initialize columns
-        if (columnCount > MAX_COLUMN_COUNT) {
-            throw corrupt("Too many columns (%s) in RCFile %s", columnCountString, dataSource);
-        }
+        verify(columnCount <= MAX_COLUMN_COUNT, "Too many columns (%s) in RCFile %s", columnCountString, dataSource);
         columns = new Column[columnCount];
         for (Entry<Integer, Type> entry : readColumns.entrySet()) {
             if (entry.getKey() < columnCount) {
@@ -339,16 +326,12 @@ public class RcFileReader
         }
 
         // read uncompressed size of row group (which is useless information)
-        if (input.remaining() < SIZE_OF_INT) {
-            throw corrupt("RCFile truncated %s", dataSource);
-        }
+        verify(input.remaining() >= SIZE_OF_INT, "RCFile truncated %s", dataSource);
         int unusedRowGroupSize = Integer.reverseBytes(input.readInt());
 
         // read sequence sync if present
         if (unusedRowGroupSize == -1) {
-            if (input.remaining() < SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_INT) {
-                throw corrupt("RCFile truncated %s", dataSource);
-            }
+            verify(input.remaining() >= SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_INT, "RCFile truncated %s", dataSource);
 
             // The full sync sequence is "0xFFFFFFFF syncFirst syncSecond".  If
             // this sequence begins in our segment, we must continue process until the
@@ -361,9 +344,7 @@ public class RcFileReader
                 return -1;
             }
 
-            if (syncFirst != input.readLong() || syncSecond != input.readLong()) {
-                throw corrupt("Invalid sync in RCFile %s", dataSource);
-            }
+            verify(syncFirst == input.readLong() && syncSecond == input.readLong(), "Invalid sync in RCFile %s", dataSource);
 
             // read the useless uncompressed length
             unusedRowGroupSize = Integer.reverseBytes(input.readInt());
@@ -371,9 +352,7 @@ public class RcFileReader
         else if (rowsRead > 0) {
             validateWrite(writeValidation -> false, "Expected sync sequence for every row group except the first one");
         }
-        if (unusedRowGroupSize <= 0) {
-            throw corrupt("Invalid uncompressed row group length %s", unusedRowGroupSize);
-        }
+        verify(unusedRowGroupSize > 0, "Invalid uncompressed row group length %s", unusedRowGroupSize);
 
         // read row group header
         int uncompressedHeaderSize = Integer.reverseBytes(input.readInt());
@@ -396,9 +375,7 @@ public class RcFileReader
             header = buffer;
         }
         else {
-            if (compressedHeaderSize != uncompressedHeaderSize) {
-                throw corrupt("Invalid RCFile %s", dataSource);
-            }
+            verify(compressedHeaderSize == uncompressedHeaderSize, "Invalid RCFile %s", dataSource);
             header = compressedHeaderBuffer;
         }
         BasicSliceInput headerInput = header.getInput();
@@ -433,9 +410,7 @@ public class RcFileReader
         }
 
         // this value is not used but validate it is correct since it might signal corruption
-        if (unusedRowGroupSize != totalCompressedDataSize + uncompressedHeaderSize) {
-            throw corrupt("Invalid row group size");
-        }
+        verify(unusedRowGroupSize == totalCompressedDataSize + uncompressedHeaderSize, "Invalid row group size");
 
         validateWriteRowGroupChecksum();
         validateWritePageChecksum();
@@ -481,11 +456,16 @@ public class RcFileReader
             throws RcFileCorruptionException
     {
         int length = toIntExact(readVInt(in));
-        if (length > MAX_METADATA_STRING_LENGTH) {
-            throw corrupt("Metadata string value is too long (%s) in RCFile %s", length, in);
-        }
-
+        verify(length <= MAX_METADATA_STRING_LENGTH, "Metadata string value is too long (%s) in RCFile %s", length, in);
         return in.readSlice(length);
+    }
+
+    private void verify(boolean expression, String messageFormat, Object... args)
+            throws RcFileCorruptionException
+    {
+        if (!expression) {
+            throw corrupt(messageFormat, args);
+        }
     }
 
     private RcFileCorruptionException corrupt(String messageFormat, Object... args)
