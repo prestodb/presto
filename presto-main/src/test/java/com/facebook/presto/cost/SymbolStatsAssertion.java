@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.cost;
 
+import static com.facebook.presto.cost.EstimateAssertion.assertEstimateEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class SymbolStatsAssertion
@@ -36,7 +36,7 @@ public class SymbolStatsAssertion
     public SymbolStatsAssertion nullsFraction(double expected)
     {
         // we bind nullsFraction and nonNullsFraction together
-        assertEquals(statistics.getNullsFraction(), expected, "nullsFraction mismatch");
+        assertEstimateEquals(statistics.getNullsFraction(), expected, "nullsFraction mismatch");
         return this;
     }
 
@@ -47,9 +47,9 @@ public class SymbolStatsAssertion
         return this;
     }
 
-    public SymbolStatsAssertion lowValue(Object expected)
+    public SymbolStatsAssertion lowValue(double expected)
     {
-        assertEquals(statistics.getLowValue(), expected, "lowValue mismatch");
+        assertEstimateEquals(statistics.getLowValue(), expected, "lowValue mismatch");
         return this;
     }
 
@@ -58,9 +58,9 @@ public class SymbolStatsAssertion
         return lowValue(NEGATIVE_INFINITY);
     }
 
-    public SymbolStatsAssertion highValue(Object expected)
+    public SymbolStatsAssertion highValue(double expected)
     {
-        assertEquals(statistics.getHighValue(), expected, "highValue mismatch");
+        assertEstimateEquals(statistics.getHighValue(), expected, "highValue mismatch");
         return this;
     }
 
@@ -78,7 +78,7 @@ public class SymbolStatsAssertion
 
     public SymbolStatsAssertion distinctValuesCount(double expected)
     {
-        assertEquals(statistics.getDistinctValuesCount(), expected, "distinctValuesCount mismatch");
+        assertEstimateEquals(statistics.getDistinctValuesCount(), expected, "distinctValuesCount mismatch");
         return this;
     }
 
@@ -90,7 +90,7 @@ public class SymbolStatsAssertion
 
     public SymbolStatsAssertion averageRowSize(double expected)
     {
-        assertEquals(statistics.getAverageRowSize(), expected, "average row size mismatch");
+        assertEstimateEquals(statistics.getAverageRowSize(), expected, "average row size mismatch");
         return this;
     }
 
