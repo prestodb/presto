@@ -49,20 +49,23 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <executions>
                     <execution>
+                        <id>validate-reserved</id>
                         <phase>validate</phase>
                         <goals>
                             <goal>java</goal>
                         </goals>
+                        <configuration>
+                            <mainClass>com.facebook.presto.sql.ReservedIdentifiers</mainClass>
+                            <arguments>
+                                <argument>validateDocs</argument>
+                                <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
+                            </arguments>
+                        </configuration>
                     </execution>
                 </executions>
                 <configuration>
                     <includeProjectDependencies>false</includeProjectDependencies>
                     <includePluginDependencies>true</includePluginDependencies>
-                    <mainClass>com.facebook.presto.sql.ReservedIdentifiers</mainClass>
-                    <arguments>
-                        <argument>validateDocs</argument>
-                        <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
-                    </arguments>
                 </configuration>
                 <dependencies>
                     <dependency>
