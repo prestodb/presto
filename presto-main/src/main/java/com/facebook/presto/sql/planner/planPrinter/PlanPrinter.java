@@ -108,6 +108,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -1223,10 +1224,17 @@ public class PlanPrinter
 
         private void printCost(int indent, PlanNode... nodes)
         {
-            String costString = Joiner.on("/").join(Arrays.stream(nodes)
-                    .map(this::formatCost)
-                    .collect(toImmutableList()));
-            print(indent, "Cost: %s", costString);
+            if (Arrays.stream(nodes).anyMatch(this::isKnownCost)) {
+                String costString = Joiner.on("/").join(Arrays.stream(nodes)
+                        .map(this::formatCost)
+                        .collect(toImmutableList()));
+                print(indent, "Cost: %s", costString);
+            }
+        }
+
+        private boolean isKnownCost(PlanNode node)
+        {
+            return !Objects.equals(UNKNOWN_COST, costs.getOrDefault(node.getId(), UNKNOWN_COST));
         }
 
         private String formatCost(PlanNode node)
