@@ -17,8 +17,8 @@ import com.facebook.presto.sql.planner.Symbol;
 
 import java.util.function.Consumer;
 
+import static com.facebook.presto.cost.EstimateAssertion.assertEstimateEquals;
 import static com.google.common.collect.Sets.union;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class PlanNodeStatsAssertion
@@ -37,7 +37,7 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion outputRowsCount(double expected)
     {
-        assertEquals(actual.getOutputRowCount(), expected, "outputRowsCount mismatch");
+        assertEstimateEquals(actual.getOutputRowCount(), expected, "outputRowsCount mismatch");
         return this;
     }
 
@@ -76,7 +76,7 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion equalTo(PlanNodeStatsEstimate expected)
     {
-        assertEquals(actual.getOutputRowCount(), expected.getOutputRowCount());
+        assertEstimateEquals(actual.getOutputRowCount(), expected.getOutputRowCount(), "outputRowCount mismatch");
 
         for (Symbol symbol : union(expected.getSymbolsWithKnownStatistics(), actual.getSymbolsWithKnownStatistics())) {
             assertSymbolStatsEqual(symbol, actual.getSymbolStatistics(symbol), expected.getSymbolStatistics(symbol));
@@ -86,10 +86,10 @@ public class PlanNodeStatsAssertion
 
     private void assertSymbolStatsEqual(Symbol symbol, SymbolStatsEstimate actual, SymbolStatsEstimate expected)
     {
-        assertEquals(actual.getNullsFraction(), expected.getNullsFraction(), "nullsFraction mismatch for " + symbol.getName());
-        assertEquals(actual.getLowValue(), expected.getLowValue(), "lowValue mismatch for " + symbol.getName());
-        assertEquals(actual.getHighValue(), expected.getHighValue(), "lowValue mismatch for " + symbol.getName());
-        assertEquals(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "lowValue mismatch for " + symbol.getName());
-        assertEquals(actual.getAverageRowSize(), expected.getAverageRowSize(), "average row size mismatch for " + symbol.getName());
+        assertEstimateEquals(actual.getNullsFraction(), expected.getNullsFraction(), "nullsFraction mismatch for " + symbol.getName());
+        assertEstimateEquals(actual.getLowValue(), expected.getLowValue(), "lowValue mismatch for " + symbol.getName());
+        assertEstimateEquals(actual.getHighValue(), expected.getHighValue(), "highValue mismatch for " + symbol.getName());
+        assertEstimateEquals(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "distinct values count mismatch for " + symbol.getName());
+        assertEstimateEquals(actual.getAverageRowSize(), expected.getAverageRowSize(), "average row size mismatch for " + symbol.getName());
     }
 }
