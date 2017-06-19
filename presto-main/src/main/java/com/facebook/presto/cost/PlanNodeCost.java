@@ -96,12 +96,18 @@ public class PlanNodeCost
         private Estimate outputRowCount = unknownValue();
         private Estimate outputSizeInBytes = unknownValue();
 
+        /**
+         * @return this {@code Builder} object
+         */
         public Builder setOutputRowCount(Estimate outputRowCount)
         {
             this.outputRowCount = outputRowCount;
             return this;
         }
 
+        /**
+         * @return this {@code Builder} object
+         */
         public Builder setOutputSizeInBytes(Estimate outputSizeInBytes)
         {
             this.outputSizeInBytes = outputSizeInBytes;
