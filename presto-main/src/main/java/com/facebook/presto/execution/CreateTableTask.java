@@ -31,6 +31,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -43,6 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -74,9 +76,14 @@ public class CreateTableTask
     @Override
     public ListenableFuture<?> execute(CreateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
+        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters);
+    }
+
+    @VisibleForTesting
+    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
-        Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isPresent()) {
@@ -155,7 +162,14 @@ public class CreateTableTask
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
 
-        metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
+        try {
+            metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
+        }
+        catch (PrestoException e) {
+            if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()) || !statement.isNotExists()) {
+                throw e;
+            }
+        }
 
         return immediateFuture(null);
     }
