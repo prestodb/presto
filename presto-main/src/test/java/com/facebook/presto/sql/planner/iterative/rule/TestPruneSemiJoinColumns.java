@@ -15,13 +15,11 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -34,29 +32,14 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestPruneSemiJoinColumns
+        extends RuleTest
 {
-    private RuleTester tester;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-    }
-
     @Test
     public void testSemiJoinNotNeeded()
     {
-        tester.assertThat(new PruneSemiJoinColumns())
+        getRuleTester().assertThat(new PruneSemiJoinColumns())
                 .on(p -> buildProjectedSemiJoin(p, symbol -> symbol.getName().equals("leftValue")))
                 .matches(
                         strictProject(
@@ -67,7 +50,7 @@ public class TestPruneSemiJoinColumns
     @Test
     public void testAllColumnsNeeded()
     {
-        tester.assertThat(new PruneSemiJoinColumns())
+        getRuleTester().assertThat(new PruneSemiJoinColumns())
                 .on(p -> buildProjectedSemiJoin(p, symbol -> true))
                 .doesNotFire();
     }
@@ -75,7 +58,7 @@ public class TestPruneSemiJoinColumns
     @Test
     public void testKeysNotNeeded()
     {
-        tester.assertThat(new PruneSemiJoinColumns())
+        getRuleTester().assertThat(new PruneSemiJoinColumns())
                 .on(p -> buildProjectedSemiJoin(p, symbol -> (symbol.getName().equals("leftValue") || symbol.getName().equals("match"))))
                 .doesNotFire();
     }
@@ -83,7 +66,7 @@ public class TestPruneSemiJoinColumns
     @Test
     public void testValueNotNeeded()
     {
-        tester.assertThat(new PruneSemiJoinColumns())
+        getRuleTester().assertThat(new PruneSemiJoinColumns())
                 .on(p -> buildProjectedSemiJoin(p, symbol -> symbol.getName().equals("match")))
                 .matches(
                         strictProject(

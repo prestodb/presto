@@ -17,7 +17,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTest;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -29,8 +29,6 @@ import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -50,34 +48,20 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.testng.Assert.assertEquals;
 import static org.testng.AssertJUnit.assertFalse;
 import static org.testng.AssertJUnit.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestEliminateCrossJoins
+            extends RuleTest
 {
-    private RuleTester tester;
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-    }
 
     @Test
     public void testEliminateCrossJoin()
     {
-        tester.assertThat(new EliminateCrossJoins())
+        getRuleTester().assertThat(new EliminateCrossJoins())
                 .setSystemProperty(REORDER_JOINS, "true")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
@@ -98,7 +82,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testRetainOutgoingGroupReferences()
     {
-        tester.assertThat(new EliminateCrossJoins())
+        getRuleTester().assertThat(new EliminateCrossJoins())
                 .setSystemProperty(REORDER_JOINS, "true")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
@@ -117,7 +101,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testDoNotReorderOuterJoin()
     {
-        tester.assertThat(new EliminateCrossJoins())
+        getRuleTester().assertThat(new EliminateCrossJoins())
                 .setSystemProperty(REORDER_JOINS, "true")
                 .on(crossJoinAndJoin(JoinNode.Type.LEFT))
                 .doesNotFire();

@@ -15,40 +15,23 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestInlineProjections
+            extends RuleTest
 {
-    private RuleTester tester;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-    }
-
     @Test
     public void test()
     {
-        tester.assertThat(new InlineProjections())
+        getRuleTester().assertThat(new InlineProjections())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -89,7 +72,7 @@ public class TestInlineProjections
     public void testIdentityProjections()
             throws Exception
     {
-        tester.assertThat(new InlineProjections())
+        getRuleTester().assertThat(new InlineProjections())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("output", BIGINT), expression("value")),
