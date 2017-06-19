@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -27,8 +27,6 @@ import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -43,25 +41,10 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestMergeAdjacentWindows
+            extends BaseRuleTest
 {
-    private RuleTester tester;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-    }
-
     private static final WindowNode.Frame frame = new WindowNode.Frame(WindowFrame.Type.RANGE, UNBOUNDED_PRECEDING,
             Optional.empty(), CURRENT_ROW, Optional.empty());
     private static final Signature signature = new Signature(
@@ -77,7 +60,7 @@ public class TestMergeAdjacentWindows
     public void testPlanWithoutWindowNode()
             throws Exception
     {
-        tester.assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new MergeAdjacentWindows())
                 .on(p -> p.values(p.symbol("a", BIGINT)))
                 .doesNotFire();
     }
@@ -86,7 +69,7 @@ public class TestMergeAdjacentWindows
     public void testPlanWithSingleWindowNode()
             throws Exception
     {
-        tester.assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -98,7 +81,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testDistinctAdjacentWindowSpecifications()
     {
-        tester.assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -115,7 +98,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testNonWindowIntermediateNode()
     {
-        tester.assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -138,7 +121,7 @@ public class TestMergeAdjacentWindows
     {
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester.assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -158,7 +141,7 @@ public class TestMergeAdjacentWindows
     {
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester.assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -182,7 +165,7 @@ public class TestMergeAdjacentWindows
 
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester.assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),

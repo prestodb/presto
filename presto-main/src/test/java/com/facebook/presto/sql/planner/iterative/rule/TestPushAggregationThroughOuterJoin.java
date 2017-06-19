@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,11 +37,12 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.ex
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestPushAggregationThroughOuterJoin
+        extends BaseRuleTest
 {
     @Test
     public void testPushesAggregationThroughLeftJoin()
     {
-        new RuleTester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -82,7 +83,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testPushesAggregationThroughRightJoin()
     {
-        new RuleTester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 JoinNode.Type.RIGHT,
@@ -122,7 +123,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testDoesNotFireWhenNotDistinct()
     {
-        new RuleTester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 JoinNode.Type.LEFT,
@@ -141,7 +142,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testDoesNotFireWhenGroupingOnInner()
     {
-        new RuleTester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(JoinNode.Type.LEFT,
                                 p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"))),
