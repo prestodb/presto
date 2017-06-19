@@ -1223,10 +1223,17 @@ public class PlanPrinter
 
         private void printCost(int indent, PlanNode... nodes)
         {
-            String costString = Joiner.on("/").join(Arrays.stream(nodes)
-                    .map(this::formatCost)
-                    .collect(toImmutableList()));
-            print(indent, "Cost: %s", costString);
+            if (Arrays.stream(nodes).anyMatch(this::isKnownCost)) {
+                String costString = Joiner.on("/").join(Arrays.stream(nodes)
+                        .map(this::formatCost)
+                        .collect(toImmutableList()));
+                print(indent, "Cost: %s", costString);
+            }
+        }
+
+        private boolean isKnownCost(PlanNode node)
+        {
+            return !UNKNOWN_COST.equals(costs.getOrDefault(node.getId(), UNKNOWN_COST));
         }
 
         private String formatCost(PlanNode node)
