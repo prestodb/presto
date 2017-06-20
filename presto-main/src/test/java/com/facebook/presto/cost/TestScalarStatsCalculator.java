@@ -83,6 +83,24 @@ public class TestScalarStatsCalculator
     }
 
     @Test
+    public void testSymbolReference()
+    {
+        SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
+                .setLowValue(-1)
+                .setHighValue(10)
+                .setDistinctValuesCount(4)
+                .setNullsFraction(0.1)
+                .setAverageRowSize(2.0)
+                .build();
+        PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("x"), xStats)
+                .build();
+
+        assertCalculate(expression("x"), inputStatistics).isEqualTo(xStats);
+        assertCalculate(expression("y"), inputStatistics).isEqualTo(SymbolStatsEstimate.UNKNOWN_STATS);
+    }
+
+    @Test
     public void testCastDoubleToBigint()
     {
         Map<Symbol, Type> types = ImmutableMap.of(new Symbol("a"), DOUBLE);
