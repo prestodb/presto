@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.util;
 
+import java.util.stream.DoubleStream;
+
 public final class MoreMath
 {
     private MoreMath()
@@ -61,5 +63,19 @@ public final class MoreMath
         else { // use relative error
             return diff / Math.min((absA + absB), Float.MAX_VALUE) < epsilon;
         }
+    }
+
+    public static double min(double... values)
+    {
+        return DoubleStream.of(values)
+                .min()
+                .getAsDouble();
+    }
+
+    public static double max(double... values)
+    {
+        return DoubleStream.of(values)
+                .max()
+                .getAsDouble();
     }
 }

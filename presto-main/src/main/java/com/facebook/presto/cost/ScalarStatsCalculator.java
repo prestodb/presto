@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
@@ -37,8 +38,11 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
+import static com.facebook.presto.util.MoreMath.max;
+import static com.facebook.presto.util.MoreMath.min;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
+import static java.lang.Math.abs;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
@@ -153,6 +157,75 @@ public class ScalarStatsCalculator
                     return decimalType.getScale() == 0;
                 default:
                     return false;
+            }
+        }
+
+        @Override
+        protected SymbolStatsEstimate visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        {
+            requireNonNull(node, "node is null");
+            SymbolStatsEstimate left = process(node.getLeft());
+            SymbolStatsEstimate right = process(node.getRight());
+
+            SymbolStatsEstimate.Builder result = SymbolStatsEstimate.builder()
+                    .setAverageRowSize(Math.max(left.getAverageRowSize(), right.getAverageRowSize()))
+                    .setNullsFraction(left.getNullsFraction() + right.getNullsFraction() - left.getNullsFraction() * right.getNullsFraction())
+                    // TODO make a generic rule which cap NDV for all kind of expressions to rows count and range length (if finite)
+                    .setDistinctValuesCount(min(left.getDistinctValuesCount() * right.getDistinctValuesCount(), input.getOutputRowCount()));
+
+            double leftLow = left.getLowValue();
+            double leftHigh = left.getHighValue();
+            double rightLow = right.getLowValue();
+            double rightHigh = right.getHighValue();
+            if (node.getType() == ArithmeticBinaryExpression.Type.DIVIDE && rightLow < 0 && rightHigh > 0) {
+                result.setLowValue(Double.NEGATIVE_INFINITY)
+                        .setHighValue(Double.POSITIVE_INFINITY);
+            }
+            else if (node.getType() == ArithmeticBinaryExpression.Type.MODULUS) {
+                double maxDivisor = max(abs(rightLow), abs(rightHigh));
+                if (leftHigh <= 0) {
+                    result.setLowValue(max(-maxDivisor, leftLow))
+                            .setHighValue(0);
+                }
+                else if (leftLow >= 0) {
+                    result.setLowValue(0)
+                            .setHighValue(min(maxDivisor, leftHigh));
+                }
+                else {
+                    result.setLowValue(max(-maxDivisor, leftLow))
+                            .setHighValue(min(maxDivisor, leftHigh));
+                }
+            }
+            else {
+                double v1 = operate(node.getType(), leftLow, rightLow);
+                double v2 = operate(node.getType(), leftLow, rightHigh);
+                double v3 = operate(node.getType(), leftHigh, rightLow);
+                double v4 = operate(node.getType(), leftHigh, rightHigh);
+                double lowValue = min(v1, v2, v3, v4);
+                double highValue = max(v1, v2, v3, v4);
+
+                result.setLowValue(lowValue)
+                        .setHighValue(highValue);
+            }
+
+            return result.build();
+        }
+
+        private double operate(ArithmeticBinaryExpression.Type type, double left, double right)
+        {
+            switch (type) {
+                case ADD:
+                    return left + right;
+                case SUBTRACT:
+                    return left - right;
+                case MULTIPLY:
+                    return left * right;
+                case DIVIDE:
+                    return left / right;
+                case MODULUS:
+                    return left % right;
+                default:
+                    throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Type: " + type);
             }
         }
     }
