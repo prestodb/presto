@@ -99,4 +99,12 @@ public class SymbolStatsAssertion
         assertTrue(isNaN(statistics.getAverageRowSize()), "expected unknown dataSize but got " + statistics.getAverageRowSize());
         return this;
     }
+
+    public SymbolStatsAssertion isEqualTo(SymbolStatsEstimate expected) {
+        return nullsFraction(expected.getNullsFraction())
+                .lowValue(expected.getLowValue())
+                .highValue(expected.getHighValue())
+                .distinctValuesCount(expected.getDistinctValuesCount())
+                .averageRowSize(expected.getAverageRowSize());
+    }
 }
