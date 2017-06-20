@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 class Util
@@ -86,5 +87,36 @@ class Util
                         idAllocator.getNextId(),
                         node,
                         Assignments.identity(restrictedOutputs)));
+    }
+
+    /**
+     * @return The original node, with identity projections possibly inserted between node and each child, limiting the columns to those permitted.
+     * Returns a present Optional iff at least one child was rewritten.
+     */
+    @SafeVarargs
+    public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<Symbol>... permittedChildOutputsArgs)
+    {
+        List<Set<Symbol>> permittedChildOutputs = ImmutableList.copyOf(permittedChildOutputsArgs);
+
+        checkArgument(
+                (node.getSources().size() == permittedChildOutputs.size()),
+                "Mismatched child (%d) and permitted outputs (%d) sizes",
+                node.getSources().size(),
+                permittedChildOutputs.size());
+
+        ImmutableList.Builder<PlanNode> newChildrenBuilder = ImmutableList.builder();
+        boolean rewroteChildren = false;
+
+        for (int i = 0; i < node.getSources().size(); ++i) {
+            PlanNode oldChild = node.getSources().get(i);
+            Optional<PlanNode> newChild = restrictOutputs(idAllocator, oldChild, permittedChildOutputs.get(i));
+            rewroteChildren |= newChild.isPresent();
+            newChildrenBuilder.add(newChild.orElse(oldChild));
+        }
+
+        if (!rewroteChildren) {
+            return Optional.empty();
+        }
+        return Optional.of(node.replaceChildren(newChildrenBuilder.build()));
     }
 }
