@@ -308,10 +308,10 @@ public class TestRaptorAccessControl
     public void checkCanGrantTablePrivilege()
     {
         metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
-        accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER1, SELECT, TABLE_TEST1_TABLE1);
+        accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER1, SELECT, TABLE_TEST1_TABLE1, USER2.getUser(), false);
 
         try {
-            accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER2, SELECT, TABLE_TEST1_TABLE1);
+            accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER2, SELECT, TABLE_TEST1_TABLE1, USER1.getUser(), false);
             fail();
         }
         catch (AccessDeniedException expected) {
@@ -319,10 +319,11 @@ public class TestRaptorAccessControl
 
         metadata.grantTablePrivileges(SESSION_USER1, TABLE_TEST1_TABLE1, ImmutableSet.of(SELECT, INSERT), USER2.getUser(), true);
 
-        accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER2, SELECT, TABLE_TEST1_TABLE1);
-        accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER2, INSERT, TABLE_TEST1_TABLE1);
+        accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER2, SELECT, TABLE_TEST1_TABLE1, USER1.getUser(), false);
+        accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER2, INSERT, TABLE_TEST1_TABLE1, USER1.getUser(), false);
         try {
-            accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER2, UPDATE, TABLE_TEST1_TABLE1);
+            accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER2, UPDATE, TABLE_TEST1_TABLE1, USER1.getUser(), false);
+            fail();
         }
         catch (AccessDeniedException expected) {
         }
@@ -332,20 +333,62 @@ public class TestRaptorAccessControl
     public void checkCanRevokeTablePrivilege()
     {
         metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
-        accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER1, SELECT, TABLE_TEST1_TABLE1);
+        accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER1, SELECT, TABLE_TEST1_TABLE1, USER2.getUser(), false);
 
         try {
-            accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER2, SELECT, TABLE_TEST1_TABLE1);
+            accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER2, SELECT, TABLE_TEST1_TABLE1, USER1.getUser(), false);
             fail();
         }
         catch (AccessDeniedException expected) {
         }
 
         metadata.grantTablePrivileges(SESSION_USER1, TABLE_TEST1_TABLE1, ImmutableSet.of(SELECT, INSERT), USER2.getUser(), true);
-        accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER2, SELECT, TABLE_TEST1_TABLE1);
-        accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER2, INSERT, TABLE_TEST1_TABLE1);
+        accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER2, SELECT, TABLE_TEST1_TABLE1, USER1.getUser(), false);
+        accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER2, INSERT, TABLE_TEST1_TABLE1, USER1.getUser(), false);
         try {
-            accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER2, UPDATE, TABLE_TEST1_TABLE1);
+            accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER2, UPDATE, TABLE_TEST1_TABLE1, USER1.getUser(), false);
+            fail();
+        }
+        catch (AccessDeniedException expected) {
+        }
+    }
+
+    @Test
+    public void checkCanSelectFromTableByRole()
+    {
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+
+        try {
+            accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
+            fail();
+        }
+        catch (AccessDeniedException expected) {
+        }
+
+        metadata.grantTablePrivileges(SESSION_USER1, TABLE_TEST1_TABLE1, ImmutableSet.of(SELECT), "users", false);
+
+        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
+    }
+
+    @Test
+    public void checkCanSelectAndDeleteFromTableByRole()
+    {
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+
+        try {
+            accessControl.checkCanDeleteFromTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
+            fail();
+        }
+        catch (AccessDeniedException expected) {
+        }
+
+        metadata.grantTablePrivileges(SESSION_USER1, TABLE_TEST1_TABLE1, ImmutableSet.of(SELECT, DELETE), "users", false);
+
+        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
+        accessControl.checkCanDeleteFromTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
+
+        try {
+            accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
             fail();
         }
         catch (AccessDeniedException expected) {

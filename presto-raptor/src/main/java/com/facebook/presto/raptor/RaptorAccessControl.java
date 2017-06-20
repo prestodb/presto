@@ -29,9 +29,10 @@ import com.google.inject.Inject;
 import org.skife.jdbi.v2.IDBI;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.metadata.RaptorPrivilegeInfo.RaptorPrivilege.DELETE;
 import static com.facebook.presto.raptor.metadata.RaptorPrivilegeInfo.RaptorPrivilege.INSERT;
@@ -208,7 +209,7 @@ public class RaptorAccessControl
         }
     }
 
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
         if (checkTablePermission(transactionHandle, identity, tableName, OWNERSHIP)) {
             return;
@@ -220,7 +221,7 @@ public class RaptorAccessControl
         }
     }
 
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
         if (checkTablePermission(transactionHandle, identity, tableName, OWNERSHIP)) {
             return;
@@ -238,39 +239,52 @@ public class RaptorAccessControl
             return true;
         }
 
-        List<RaptorGrantInfo> raptorGrantInfos = dao.getGrantInfos(tableName.getSchemaName(), tableName.getTableName(), identity.getUser());
-
-        long maskOnFile = raptorGrantInfos.stream()
-                .map(RaptorGrantInfo::getPrivilegeInfo)
-                .flatMap(Set::stream)
-                .map(RaptorPrivilegeInfo::getRaptorPrivilege)
-                .mapToLong(RaptorPrivilege::getMaskValue)
-                .reduce(0, (a, b) -> a | b);
+        List<RaptorGrantInfo> raptorGrantInfos = dao.getGrantInfos(tableName.getSchemaName(), tableName.getTableName());
+        Map<String, Long> userMasks = new HashMap<>();
+        for (RaptorGrantInfo grantInfo : raptorGrantInfos) {
+            String user = grantInfo.getGrantee().getUser();
+            long mask = grantInfo.getPrivilegeInfo().stream()
+                    .map(RaptorPrivilegeInfo::getRaptorPrivilege)
+                    .mapToLong(RaptorPrivilege::getMaskValue)
+                    .reduce(0, (a, b) -> a | b);
+            userMasks.put(user, userMasks.getOrDefault(user, 0L) | mask);
+        }
 
         long maskRequired = Arrays.stream(requiredPrivileges)
                 .mapToLong(RaptorPrivilege::getMaskValue)
                 .reduce(0, (a, b) -> a | b);
 
-        return maskOnFile != 0 &&
-                (maskOnFile & maskRequired) == maskRequired;
+        for (Map.Entry<String, Long> entry : userMasks.entrySet()) {
+            if (identity.getUser().equals(entry.getKey()) || identityManager.belongsToRole(transaction, identity, entry.getKey())) {
+                if ((entry.getValue() & maskRequired) == maskRequired) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private boolean getGrantOptionForPrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
-        List<RaptorGrantInfo> grantInfos = dao.getGrantInfos(tableName.getSchemaName(), tableName.getTableName(), identity.getUser());
+        List<RaptorGrantInfo> grantInfos = dao.getGrantInfos(tableName.getSchemaName(), tableName.getTableName());
 
         if (grantInfos == null) {
             return false;
         }
 
-        Set<PrivilegeInfo> privileges = grantInfos.stream()
-                .map(RaptorGrantInfo::getPrivilegeInfo)
-                .flatMap(Set::stream)
-                .map(RaptorPrivilegeInfo::toPrivilegeInfo)
-                .flatMap(Set::stream)
-                .collect(Collectors.toSet());
+        PrivilegeInfo requiredPrivilege = new PrivilegeInfo(privilege, true);
+        for (RaptorGrantInfo grantInfo : grantInfos) {
+            if (grantInfo.getGrantee().equals(identity) || identityManager.belongsToRole(transaction, identity, grantInfo.getGrantee().getUser())) {
+                if (grantInfo.getPrivilegeInfo().stream()
+                        .map(RaptorPrivilegeInfo::toPrivilegeInfo)
+                        .anyMatch(infos -> infos.contains(requiredPrivilege))) {
+                    return true;
+                }
+            }
+        }
 
-        return privileges.contains(new PrivilegeInfo(privilege, true));
+        return false;
     }
 
     private boolean isAdmin(ConnectorTransactionHandle transaction, Identity identity)

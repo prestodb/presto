@@ -324,6 +324,12 @@ public interface MetadataDao
     @Mapper(RaptorGrantInfo.Mapper.class)
     List<RaptorGrantInfo> getGrantInfos(@Bind("schemaName") String schemaName, @Bind("tableName") String tableName, @Bind("grantee") String grantee);
 
+    @SqlQuery(TABLE_PREVILEGE_SELECT +
+            "WHERE t.schema_name = :schemaName\n" +
+            "  AND t.table_name = :tableName")
+    @Mapper(RaptorGrantInfo.Mapper.class)
+    List<RaptorGrantInfo> getGrantInfos(@Bind("schemaName") String schemaName, @Bind("tableName") String tableName);
+
     @SqlUpdate("REPLACE INTO table_privileges (table_id, grantee, grantor, privilege_mask, is_grantable, with_hierarchy)\n" +
             "VALUES (:tableId, :grantee, :grantor, :privilegeMask, :isGrantable, :withHierarchy)")
     void insertTablePrivileges(@Bind("tableId") long tableId, @Bind("grantee") String grantee, @Bind("grantor") String grantor,
