@@ -25,6 +25,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
+import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType;
+import com.facebook.presto.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
@@ -80,7 +82,6 @@ import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
 import com.facebook.presto.sql.planner.optimizations.DesugaringOptimizer;
-import com.facebook.presto.sql.planner.optimizations.DetermineJoinDistributionType;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
@@ -386,7 +387,17 @@ public class PlanOptimizers
                         new PushTopNThroughUnion())));
 
         if (!forceSingleNode) {
-            builder.add(new DetermineJoinDistributionType()); // Must run before AddExchanges
+            builder.add((new IterativeOptimizer(
+                    stats,
+                    statsCalculator,
+                    estimatedExchangesCostCalculator,
+                    ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.DetermineJoinDistributionType()),
+                    ImmutableSet.of(new DetermineJoinDistributionType(costComparator))))); // Must run before AddExchanges
+            builder.add((new IterativeOptimizer(
+                    stats,
+                    statsCalculator,
+                    estimatedExchangesCostCalculator,
+                    ImmutableSet.of(new DetermineSemiJoinDistributionType(costComparator))))); // Must run before AddExchanges
             builder.add(
                     new IterativeOptimizer(
                             stats,
