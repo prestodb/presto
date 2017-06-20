@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
-import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 
 /**
  * Cross joins don't support output symbol selection, so push the project-off through the node.
@@ -63,8 +63,6 @@ public class PruneCrossJoinColumns
                 .map(ImmutableSet::copyOf)
                 .map(dependencies ->
                         parent.replaceChildren(ImmutableList.of(
-                                joinNode.replaceChildren(ImmutableList.of(
-                                        restrictOutputs(idAllocator, joinNode.getLeft(), dependencies).orElse(joinNode.getLeft()),
-                                        restrictOutputs(idAllocator, joinNode.getRight(), dependencies).orElse(joinNode.getRight()))))));
+                                restrictChildOutputs(idAllocator, joinNode, dependencies, dependencies).get())));
     }
 }
