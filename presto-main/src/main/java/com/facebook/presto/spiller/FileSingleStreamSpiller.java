@@ -63,7 +63,7 @@ public class FileSingleStreamSpiller
     private final PagesSerde serde;
     private final SpillerStats spillerStats;
     private final SpillContext localSpillContext;
-    private final LocalMemoryContext memoryContext;
+    private final LocalMemoryContext memoryContext; // TODO remove? If not we shall declare much more memory (avg/max/3rd quartile page size)
 
     private final ListeningExecutorService executor;
 
