@@ -330,6 +330,35 @@ public class TestScalarStatsCalculator
                 .build();
     }
 
+    @Test
+    public void testCoalesceExpression()
+    {
+        PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                        .setLowValue(-1)
+                        .setHighValue(10)
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0.1)
+                        .setAverageRowSize(2.0)
+                        .build())
+                .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder()
+                        .setLowValue(-2)
+                        .setHighValue(5)
+                        .setDistinctValuesCount(3)
+                        .setNullsFraction(0.2)
+                        .setAverageRowSize(2.0)
+                        .build())
+                .setOutputRowCount(10)
+                .build();
+
+        assertCalculate(expression("coalesce(x, y)"), relationStats)
+                .distinctValuesCount(5)
+                .lowValue(-2)
+                .highValue(10)
+                .nullsFraction(0.02)
+                .averageRowSize(2.0);
+    }
+
     private Expression expression(String sqlExpression)
     {
         return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(sqlExpression));
