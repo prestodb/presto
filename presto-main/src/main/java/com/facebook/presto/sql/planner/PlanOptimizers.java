@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
+import com.facebook.presto.sql.planner.iterative.rule.PruneAggregationColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
 import com.facebook.presto.sql.planner.iterative.rule.PruneCrossJoinColumns;
@@ -141,6 +142,7 @@ public class PlanOptimizers
 
         // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
         Set<Rule> columnPruningRules = ImmutableSet.of(
+                new PruneAggregationColumns(),
                 new PruneAggregationSourceColumns(),
                 new PruneCrossJoinColumns(),
                 new PruneIndexSourceColumns(),
