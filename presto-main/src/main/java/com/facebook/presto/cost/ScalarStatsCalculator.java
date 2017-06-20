@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.Node;
@@ -226,6 +227,45 @@ public class ScalarStatsCalculator
                     return left % right;
                 default:
                     throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Type: " + type);
+            }
+        }
+
+        @Override
+        protected SymbolStatsEstimate visitCoalesceExpression(CoalesceExpression node, Void context)
+        {
+            requireNonNull(node, "node is null");
+            SymbolStatsEstimate result = null;
+            for (Expression operand : node.getOperands()) {
+                SymbolStatsEstimate operandEstimates = process(operand);
+                if (result != null) {
+                    result = estimateCoalesce(result, operandEstimates);
+                }
+                else {
+                    result = operandEstimates;
+                }
+            }
+            return requireNonNull(result, "result is null");
+        }
+
+        private SymbolStatsEstimate estimateCoalesce(SymbolStatsEstimate left, SymbolStatsEstimate right)
+        {
+            // Question to reviewer: do you have a method to check if fraction is empty or saturated?
+            if (left.getNullsFraction() == 0) {
+                return left;
+            }
+            else if (left.getNullsFraction() == 1.0) {
+                return right;
+            }
+            else {
+                return SymbolStatsEstimate.builder()
+                        .setLowValue(min(left.getLowValue(), right.getLowValue()))
+                        .setHighValue(max(left.getHighValue(), right.getLowValue()))
+                        .setDistinctValuesCount(left.getDistinctValuesCount() +
+                                min(right.getDistinctValuesCount(), input.getOutputRowCount() * left.getNullsFraction()))
+                        .setNullsFraction(left.getNullsFraction() * right.getNullsFraction())
+                        // TODO check if dataSize estimatation method is correct
+                        .setAverageRowSize(max(left.getAverageRowSize(), right.getAverageRowSize()))
+                        .build();
             }
         }
     }
