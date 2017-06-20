@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -43,13 +45,15 @@ public class IterativeOptimizer
     private final List<PlanOptimizer> legacyRules;
     private final RuleStore ruleStore;
     private final StatsRecorder stats;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
 
-    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
+    public IterativeOptimizer(StatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule> rules)
     {
-        this(stats, ImmutableList.of(), rules);
+        this(stats, statsCalculator, costCalculator, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
+    public IterativeOptimizer(StatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleStore = RuleStore.builder()
@@ -57,6 +61,8 @@ public class IterativeOptimizer
                 .build();
 
         this.stats = stats;
+        this.statsCalculator = statsCalculator;
+        this.costCalculator = costCalculator;
 
         stats.registerAll(newRules);
     }
@@ -74,7 +80,7 @@ public class IterativeOptimizer
         }
 
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(memo::resolve);
+        Lookup lookup = new MemoBasedLookup(memo, statsCalculator, costCalculator);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         exploreGroup(memo.getRootGroup(), new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session));

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -25,6 +24,7 @@ import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.tree.ExplainType.Type;
@@ -46,7 +46,7 @@ public class QueryExplainer
     private final Metadata metadata;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
-    private final CostCalculator costCalculator;
+    private final Lookup lookup;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     @Inject
@@ -55,14 +55,14 @@ public class QueryExplainer
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
-            CostCalculator costCalculator,
+            Lookup lookup,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this(planOptimizers.get(),
                 metadata,
                 accessControl,
                 sqlParser,
-                costCalculator,
+                lookup,
                 dataDefinitionTask);
     }
 
@@ -71,14 +71,14 @@ public class QueryExplainer
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
-            CostCalculator costCalculator,
+            Lookup lookup,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.lookup = requireNonNull(lookup, "lookup is null");
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
@@ -98,10 +98,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters);
-                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, costCalculator, session);
+                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, lookup, session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters);
-                return PlanPrinter.textDistributedPlan(subPlan, metadata, costCalculator, session);
+                return PlanPrinter.textDistributedPlan(subPlan, metadata, lookup, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -138,7 +138,7 @@ public class QueryExplainer
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser, costCalculator);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser, lookup);
         return logicalPlanner.plan(analysis);
     }
 

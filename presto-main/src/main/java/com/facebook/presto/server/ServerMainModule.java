@@ -21,8 +21,13 @@ import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
-import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.LocationFactory;
@@ -114,6 +119,8 @@ import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.StatelessLookup;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.transaction.ForTransactionManager;
@@ -349,7 +356,13 @@ public class ServerMainModule
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
         // statistics calculator
-        binder.bind(CostCalculator.class).to(CoefficientBasedCostCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(CostComparator.class).in(Scopes.SINGLETON);
+        binder.bind(StatsCalculator.class).to(CoefficientBasedStatsCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostCalculator.class)
+                .annotatedWith(EstimatedExchanges.class)
+                .to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(Lookup.class).to(StatelessLookup.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);

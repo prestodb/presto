@@ -75,10 +75,10 @@ public class TpchRecordSet<E extends TpchEntity>
         this.table = table;
         this.columns = ImmutableList.copyOf(columns);
 
-        this.columnTypes = ImmutableList.copyOf(transform(columns, column -> getPrestoType(column.getType())));
+        this.columnTypes = ImmutableList.copyOf(transform(columns, TpchMetadata::getPrestoType));
 
         columnHandles = this.columns.stream()
-                .map(column -> new TpchColumnHandle(column.getColumnName(), getPrestoType(column.getType())))
+                .map(column -> new TpchColumnHandle(column.getColumnName(), getPrestoType(column)))
                 .collect(toList());
         this.predicate = predicate.map(TpchRecordSet::convertToPredicate);
     }
@@ -135,7 +135,7 @@ public class TpchRecordSet<E extends TpchEntity>
         @Override
         public Type getType(int field)
         {
-            return getPrestoType(getTpchColumn(field).getType());
+            return getPrestoType(getTpchColumn(field));
         }
 
         @Override

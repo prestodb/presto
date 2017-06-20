@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -31,7 +30,6 @@ public class RuleTester
         implements Closeable
 {
     private final Metadata metadata;
-    private final CostCalculator costCalculator;
     private final Session session;
     private final LocalQueryRunner queryRunner;
     private final TransactionManager transactionManager;
@@ -39,26 +37,43 @@ public class RuleTester
 
     public RuleTester()
     {
-        session = testSessionBuilder()
+        this(createQueryRunner());
+    }
+
+    private static LocalQueryRunner createQueryRunner()
+    {
+        Session session = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .build();
 
-        queryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner queryRunner = new LocalQueryRunner(session);
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
+        return queryRunner;
+    }
 
+    public RuleTester(LocalQueryRunner queryRunner)
+    {
+        this.queryRunner = queryRunner;
+        this.session = queryRunner.getDefaultSession();
         this.metadata = queryRunner.getMetadata();
-        this.costCalculator = queryRunner.getCostCalculator();
         this.transactionManager = queryRunner.getTransactionManager();
         this.accessControl = queryRunner.getAccessControl();
     }
 
     public RuleAssert assertThat(Rule rule)
     {
-        return new RuleAssert(metadata, costCalculator, session, rule, transactionManager, accessControl);
+        return new RuleAssert(
+                metadata,
+                session,
+                rule,
+                transactionManager,
+                accessControl,
+                queryRunner.getStatsCalculator(),
+                queryRunner.getEstimatedExchangesCostCalculator());
     }
 
     @Override

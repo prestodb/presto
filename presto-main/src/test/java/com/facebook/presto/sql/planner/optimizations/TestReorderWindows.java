@@ -274,13 +274,15 @@ public class TestReorderWindows
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(new StatsRecorder(),
+                        queryRunner.getStatsCalculator(),
+                        queryRunner.getEstimatedExchangesCostCalculator(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new SwapAdjacentWindowsBySpecifications())),
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getLookup(), actualPlan, pattern);
             return null;
         });
     }

@@ -14,8 +14,11 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
@@ -59,7 +62,6 @@ public abstract class AbstractTestQueryFramework
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
-    private CostCalculator costCalculator;
 
     protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
     {
@@ -73,7 +75,6 @@ public abstract class AbstractTestQueryFramework
         queryRunner = queryRunnerSupplier.get();
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
-        costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
     }
 
     @AfterClass(alwaysRun = true)
@@ -295,13 +296,23 @@ public abstract class AbstractTestQueryFramework
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
-        List<PlanOptimizer> optimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer())).get();
+        CostCalculator costCalculator = new CostCalculatorUsingExchanges(queryRunner.getNodeCount());
+        List<PlanOptimizer> optimizers = new PlanOptimizers(
+                metadata,
+                sqlParser,
+                featuresConfig,
+                forceSingleNode,
+                new MBeanExporter(new TestingMBeanServer()),
+                new CostComparator(featuresConfig),
+                new CoefficientBasedStatsCalculator(metadata),
+                costCalculator,
+                new CostCalculatorWithEstimatedExchanges(costCalculator, queryRunner.getNodeCount())).get();
         return new QueryExplainer(
                 optimizers,
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,
-                costCalculator,
+                queryRunner.getLookup(),
                 ImmutableMap.of());
     }
 

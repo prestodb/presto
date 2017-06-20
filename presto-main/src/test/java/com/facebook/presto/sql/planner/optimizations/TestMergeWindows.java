@@ -485,14 +485,18 @@ public class TestMergeWindows
         LocalQueryRunner queryRunner = getQueryRunner();
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(
-                        new RemoveRedundantIdentityProjections(),
-                        new SwapAdjacentWindowsBySpecifications(),
-                        new MergeAdjacentWindows())),
+                new IterativeOptimizer(
+                        new StatsRecorder(),
+                        queryRunner.getStatsCalculator(),
+                        queryRunner.getEstimatedExchangesCostCalculator(),
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new SwapAdjacentWindowsBySpecifications(),
+                                new MergeAdjacentWindows())),
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getLookup(), actualPlan, pattern);
             return null;
         });
     }
