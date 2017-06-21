@@ -20,10 +20,9 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlock;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.joda.time.DateTimeZone;
@@ -125,8 +124,9 @@ public class MapStreamReader
             }
         }
 
-        Type keyType = type.getTypeParameters().get(0);
-        Type valueType = type.getTypeParameters().get(1);
+        MapType mapType = (MapType) type;
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
 
         int entryCount = 0;
         for (int length : lengthVector) {
@@ -146,26 +146,25 @@ public class MapStreamReader
             values = valueType.createBlockBuilder(new BlockBuilderStatus(), 1).build();
         }
 
-        InterleavedBlock keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, lengthVector);
+        Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, lengthVector);
 
         // convert lengths into offsets into the keyValueBlock (e.g., two positions per entry)
         int[] offsets = new int[nextBatchSize + 1];
         for (int i = 1; i < offsets.length; i++) {
-            int length = lengthVector[i - 1] * 2;
+            int length = lengthVector[i - 1];
             offsets[i] = offsets[i - 1] + length;
         }
-        ArrayBlock arrayBlock = new ArrayBlock(nextBatchSize, nullVector, offsets, keyValueBlock);
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return arrayBlock;
+        return mapType.createBlockFromKeyValue(nullVector, offsets, keyValueBlock[0], keyValueBlock[1]);
     }
 
-    private static InterleavedBlock createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)
+    private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)
     {
         if (!hasNull(keys)) {
-            return new InterleavedBlock(new Block[] {keys, values});
+            return new Block[] {keys, values};
         }
 
         //
@@ -191,7 +190,7 @@ public class MapStreamReader
 
         Block newKeys = keys.copyPositions(nonNullPositions);
         Block newValues = values.copyPositions(nonNullPositions);
-        return new InterleavedBlock(new Block[] {newKeys, newValues});
+        return new Block[] {newKeys, newValues};
     }
 
     private static boolean hasNull(Block keys)
