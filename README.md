@@ -83,3 +83,4 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Consider using String formatting (printf style formatting using the Java `Formatter` class): `format("Session property %s is invalid: %s", name, value)` (note that `format()` should always be statically imported). Sometimes, if you only need to append something, consider using the `+` operator.
 * Avoid using the ternary operator except for trivial expressions.
 * Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
+* When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
