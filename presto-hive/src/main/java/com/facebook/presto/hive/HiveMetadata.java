@@ -741,8 +741,7 @@ public class HiveMetadata
         }
         JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(targetPath));
         String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
-        Set<String> fileNames = partitionUpdate.getFileNames().stream()
-                .collect(Collectors.toSet());
+        Set<String> fileNames = ImmutableSet.copyOf(partitionUpdate.getFileNames());
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
             String fileName = HiveWriterFactory.computeBucketedFileName(filePrefix, i) + fileExtension;
