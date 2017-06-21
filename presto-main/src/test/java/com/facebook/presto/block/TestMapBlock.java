@@ -19,11 +19,11 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.type.MapType;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +37,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestMapBlock
         extends AbstractTestBlock
@@ -52,11 +53,11 @@ public class TestMapBlock
         Map<String, Long>[] result = new Map[entryCounts.length];
         for (int rowNumber = 0; rowNumber < entryCounts.length; rowNumber++) {
             int entryCount = entryCounts[rowNumber];
-            ImmutableMap.Builder<String, Long> builder = ImmutableMap.builder();
+            Map<String, Long> map = new HashMap<>();
             for (int entryNumber = 0; entryNumber < entryCount; entryNumber++) {
-                builder.put("key" + entryNumber, rowNumber * 100L + entryNumber);
+                map.put("key" + entryNumber, entryNumber == 5 ? null : rowNumber * 100L + entryNumber);
             }
-            result[rowNumber] = builder.build();
+            result[rowNumber] = map;
         }
         return result;
     }
@@ -137,7 +138,12 @@ public class TestMapBlock
             BlockBuilder elementBlockBuilder = mapBlockBuilder.beginBlockEntry();
             for (Map.Entry<String, Long> entry : map.entrySet()) {
                 VARCHAR.writeSlice(elementBlockBuilder, utf8Slice(entry.getKey()));
-                BIGINT.writeLong(elementBlockBuilder, entry.getValue());
+                if (entry.getValue() == null) {
+                    elementBlockBuilder.appendNull();
+                }
+                else {
+                    BIGINT.writeLong(elementBlockBuilder, entry.getValue());
+                }
             }
             mapBlockBuilder.closeEntry();
         }
@@ -162,15 +168,37 @@ public class TestMapBlock
 
         assertFalse(mapBlock.isNull(position));
         SingleMapBlock elementBlock = (SingleMapBlock) mapType.getObject(mapBlock, position);
-        // assert inserted keys
+        assertEquals(elementBlock.getPositionCount(), map.size() * 2);
+
+        // Test new/hash-index access: assert inserted keys
         for (Map.Entry<String, Long> entry : map.entrySet()) {
             int pos = elementBlock.seekKey(utf8Slice(entry.getKey()));
             assertNotEquals(pos, -1);
-            assertEquals(BIGINT.getLong(elementBlock, pos), (long) entry.getValue());
+            if (entry.getValue() == null) {
+                assertTrue(elementBlock.isNull(pos));
+            }
+            else {
+                assertFalse(elementBlock.isNull(pos));
+                assertEquals(BIGINT.getLong(elementBlock, pos), (long) entry.getValue());
+            }
         }
-        // assert non-existent keys
+        // Test new/hash-index access: assert non-existent keys
         for (int i = 0; i < 10; i++) {
             assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i)), -1);
+        }
+
+        // Test legacy/iterative access
+        for (int i = 0; i < elementBlock.getPositionCount(); i += 2) {
+            String actualKey = VARCHAR.getSlice(elementBlock, i).toStringUtf8();
+            Long actualValue;
+            if (elementBlock.isNull(i + 1)) {
+                actualValue = null;
+            }
+            else {
+                actualValue = BIGINT.getLong(elementBlock, i + 1);
+            }
+            assertTrue(map.containsKey(actualKey));
+            assertEquals(actualValue, map.get(actualKey));
         }
     }
 }
