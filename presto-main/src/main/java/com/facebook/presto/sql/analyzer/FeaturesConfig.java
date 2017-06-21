@@ -21,6 +21,8 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 
 import java.nio.file.Path;
@@ -70,6 +72,8 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
     private boolean pushAggregationThroughJoin = true;
+    private double memoryRevokingTarget = 0.5;
+    private double memoryRevokingThreshold = 0.9;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -376,6 +380,36 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerThreads(int spillerThreads)
     {
         this.spillerThreads = spillerThreads;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMemoryRevokingThreshold()
+    {
+        return memoryRevokingThreshold;
+    }
+
+    @Config("experimental.memory-revoking-threshold")
+    @ConfigDescription("Revoke memory when memory pool is filled over threshold")
+    public FeaturesConfig setMemoryRevokingThreshold(double memoryRevokingThreshold)
+    {
+        this.memoryRevokingThreshold = memoryRevokingThreshold;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMemoryRevokingTarget()
+    {
+        return memoryRevokingTarget;
+    }
+
+    @Config("experimental.memory-revoking-target")
+    @ConfigDescription("When revoking memory, try to revoke so much that pool is filled below target at the end")
+    public FeaturesConfig setMemoryRevokingTarget(double memoryRevokingTarget)
+    {
+        this.memoryRevokingTarget = memoryRevokingTarget;
         return this;
     }
 

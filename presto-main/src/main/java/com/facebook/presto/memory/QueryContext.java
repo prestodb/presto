@@ -207,6 +207,11 @@ public class QueryContext
         });
     }
 
+    public synchronized MemoryPool getMemoryPool()
+    {
+        return memoryPool;
+    }
+
     public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled)
     {
         TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, verboseStats, cpuTimerEnabled);
