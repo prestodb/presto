@@ -27,6 +27,8 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunner
 {
+    private static final int DEFAULT_WORKER_COUNT = 4;
+
     private TpchQueryRunner() {}
 
     public static DistributedQueryRunner createQueryRunner()
@@ -44,7 +46,13 @@ public final class TpchQueryRunner
     public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunnerWithoutCatalogs(extraProperties, coordinatorProperties);
+        return createQueryRunner(extraProperties, coordinatorProperties, DEFAULT_WORKER_COUNT);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> coordinatorProperties, int nodeCount)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = createQueryRunnerWithoutCatalogs(extraProperties, coordinatorProperties, nodeCount);
         try {
             queryRunner.createCatalog("tpch", "tpch");
 
@@ -59,13 +67,19 @@ public final class TpchQueryRunner
     public static DistributedQueryRunner createQueryRunnerWithoutCatalogs(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
             throws Exception
     {
+        return createQueryRunnerWithoutCatalogs(extraProperties, coordinatorProperties, DEFAULT_WORKER_COUNT);
+    }
+
+    public static DistributedQueryRunner createQueryRunnerWithoutCatalogs(Map<String, String> extraProperties, Map<String, String> coordinatorProperties, int nodeCount)
+            throws Exception
+    {
         Session session = testSessionBuilder()
                 .setSource("test")
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4, extraProperties, coordinatorProperties, new SqlParserOptions());
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, nodeCount, extraProperties, coordinatorProperties, new SqlParserOptions());
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
