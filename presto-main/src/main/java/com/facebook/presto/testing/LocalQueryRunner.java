@@ -227,6 +227,7 @@ public class LocalQueryRunner
     private final ConnectorManager connectorManager;
     private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
+    private final boolean alwaysRevokeMemory;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -238,19 +239,31 @@ public class LocalQueryRunner
                 new FeaturesConfig()
                         .setOptimizeMixedDistinctAggregations(true)
                         .setIterativeOptimizerEnabled(true),
+                false,
                 false);
+    }
+
+    public LocalQueryRunner(Session defaultSession, boolean alwaysRevokeMemory)
+    {
+        this(defaultSession,
+                new FeaturesConfig()
+                        .setOptimizeMixedDistinctAggregations(true)
+                        .setIterativeOptimizerEnabled(true),
+                false,
+                alwaysRevokeMemory);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
     {
-        this(defaultSession, featuresConfig, false);
+        this(defaultSession, featuresConfig, false, false);
     }
 
-    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, boolean withInitialTransaction)
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
 
+        this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
         this.transactionCheckExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
         this.finalizerService = new FinalizerService();
@@ -368,7 +381,7 @@ public class LocalQueryRunner
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
     {
         checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), true);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), true, false);
     }
 
     @Override
@@ -531,6 +544,12 @@ public class LocalQueryRunner
             while (!done) {
                 boolean processed = false;
                 for (Driver driver : drivers) {
+                    if (alwaysRevokeMemory) {
+                        driver.getDriverContext().getOperatorContexts().stream()
+                                .filter(operatorContext -> operatorContext.getOperatorStats().getRevocableMemoryReservation().getValue() > 0)
+                                .forEach(OperatorContext::requestMemoryRevoking);
+                    }
+
                     if (!driver.isFinished()) {
                         driver.process();
                         processed = true;
