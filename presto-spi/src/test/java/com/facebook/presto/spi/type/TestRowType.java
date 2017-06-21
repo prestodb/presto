@@ -35,6 +35,7 @@ public class TestRowType
                 DOUBLE,
                 new ArrayType(VARCHAR),
                 new MapType(
+                        true,
                         BOOLEAN,
                         DOUBLE,
                         methodHandle(TestMapType.class, "throwUnsupportedOperation"),
@@ -55,6 +56,7 @@ public class TestRowType
                 DOUBLE,
                 new ArrayType(VARCHAR),
                 new MapType(
+                        true,
                         BOOLEAN,
                         DOUBLE,
                         methodHandle(TestMapType.class, "throwUnsupportedOperation"),

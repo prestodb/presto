@@ -34,6 +34,7 @@ public class MapBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
 
+    private final boolean useNewMapBlock;
     private final MethodHandle keyBlockHashCode;
 
     @Nullable
@@ -49,6 +50,7 @@ public class MapBlockBuilder
     private boolean currentEntryOpened;
 
     public MapBlockBuilder(
+            boolean useNewMapBlock,
             Type keyType,
             Type valueType,
             MethodHandle keyBlockNativeEquals,
@@ -58,6 +60,7 @@ public class MapBlockBuilder
             int expectedEntries)
     {
         this(
+                useNewMapBlock,
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -71,6 +74,7 @@ public class MapBlockBuilder
     }
 
     private MapBlockBuilder(
+            boolean useNewMapBlock,
             Type keyType,
             MethodHandle keyBlockNativeEquals,
             MethodHandle keyNativeHashCode,
@@ -84,7 +88,16 @@ public class MapBlockBuilder
     {
         super(keyType, keyNativeHashCode, keyBlockNativeEquals);
 
-        this.keyBlockHashCode = requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
+        this.useNewMapBlock = useNewMapBlock;
+        if (useNewMapBlock) {
+            requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
+        }
+        else {
+            if (keyBlockHashCode != null) {
+                throw new IllegalArgumentException("When useNewMapBlock is false, keyBlockHashCode should be null.");
+            }
+        }
+        this.keyBlockHashCode = keyBlockHashCode;
         this.blockBuilderStatus = blockBuilderStatus;
 
         this.positionCount = 0;
@@ -195,7 +208,7 @@ public class MapBlockBuilder
             hashTables = Arrays.copyOf(hashTables, newSize);
             Arrays.fill(hashTables, oldSize, hashTables.length, -1);
         }
-        buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount, keyBlockHashCode, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
+        buildHashTable(useNewMapBlock, keyBlockBuilder, previousAggregatedEntryCount, entryCount, keyBlockHashCode, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(entryCount * HASH_MULTIPLIER * Integer.BYTES);
         }
@@ -297,6 +310,7 @@ public class MapBlockBuilder
     {
         int newSize = calculateBlockResetSize(getPositionCount());
         return new MapBlockBuilder(
+                useNewMapBlock,
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -316,8 +330,12 @@ public class MapBlockBuilder
         return hashTable;
     }
 
-    static void buildHashTable(Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
+    static void buildHashTable(boolean useNewMapBlock, Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
     {
+        if (!useNewMapBlock) {
+            return;
+        }
+
         // This method assumes that keyBlock has no duplicated entries (in the specified range)
         for (int i = 0; i < keyCount; i++) {
             if (keyBlock.isNull(keyOffset + i)) {

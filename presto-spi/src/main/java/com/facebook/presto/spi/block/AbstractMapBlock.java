@@ -36,8 +36,10 @@ public abstract class AbstractMapBlock
     public AbstractMapBlock(Type keyType, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
-        this.keyNativeHashCode = requireNonNull(keyNativeHashCode, "keyNativeHashCode is null");
-        this.keyBlockNativeEquals = requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals is null");
+        // keyNativeHashCode can only be null due to map block kill switch. deprecated.new-map-block
+        this.keyNativeHashCode = keyNativeHashCode;
+        // keyBlockNativeEquals can only be null due to map block kill switch. deprecated.new-map-block
+        this.keyBlockNativeEquals = keyBlockNativeEquals;
     }
 
     protected abstract Block getKeys();

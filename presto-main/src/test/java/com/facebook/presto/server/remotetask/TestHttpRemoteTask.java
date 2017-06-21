@@ -33,6 +33,7 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
@@ -80,6 +81,7 @@ import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.lang.String.format;
@@ -181,6 +183,7 @@ public class TestHttpRemoteTask
                     public void configure(Binder binder)
                     {
                         binder.bind(JsonMapper.class);
+                        configBinder(binder).bindConfig(FeaturesConfig.class);
                         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
                         binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);

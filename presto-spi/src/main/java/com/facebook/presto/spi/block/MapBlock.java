@@ -170,6 +170,7 @@ public class MapBlock
     }
 
     public static MapBlock fromKeyValueBlock(
+            boolean useNewMapBlock,
             boolean[] mapIsNull,
             int[] offsets,
             Block keyBlock,
@@ -198,7 +199,7 @@ public class MapBlock
             if (keyCount < 0) {
                 throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
             }
-            buildHashTable(keyBlock, keyOffset, keyCount, keyBlockHashCode, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
+            buildHashTable(useNewMapBlock, keyBlock, keyOffset, keyCount, keyBlockHashCode, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
         }
 
         return new MapBlock(

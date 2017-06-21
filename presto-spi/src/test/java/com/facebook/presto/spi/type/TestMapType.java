@@ -27,6 +27,7 @@ public class TestMapType
     public void testMapDisplayName()
     {
         MapType mapType = new MapType(
+                true,
                 BIGINT,
                 createVarcharType(42),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
@@ -35,6 +36,7 @@ public class TestMapType
         assertEquals(mapType.getDisplayName(), "map(bigint, varchar(42))");
 
         mapType = new MapType(
+                true,
                 BIGINT,
                 VARCHAR,
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
