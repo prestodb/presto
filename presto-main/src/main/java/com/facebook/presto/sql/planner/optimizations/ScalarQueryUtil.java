@@ -18,7 +18,6 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -86,12 +85,6 @@ public final class ScalarQueryUtil
 
         @Override
         public Boolean visitProject(ProjectNode node, Void context)
-        {
-            return node.getSource().accept(this, null);
-        }
-
-        @Override
-        public Boolean visitFilter(FilterNode node, Void context)
         {
             return node.getSource().accept(this, null);
         }

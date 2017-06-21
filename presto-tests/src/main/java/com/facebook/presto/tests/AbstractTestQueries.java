@@ -8879,6 +8879,10 @@ public abstract class AbstractTestQueries
                 "SELECT name FROM nation");
 
         assertQuery(
+                "SELECT name FROM nation, LATERAL (SELECT 1 WHERE name = 'ola')",
+                "SELECT 1 WHERE false");
+
+        assertQuery(
                 "SELECT nationkey, a FROM nation, LATERAL (SELECT max(region.name) FROM region WHERE region.regionkey <= nation.regionkey) t(a) ORDER BY nationkey LIMIT 1",
                 "VALUES (0, 'AFRICA')");
 
