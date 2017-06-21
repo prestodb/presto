@@ -40,6 +40,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 
@@ -67,6 +68,7 @@ public final class OperatorAssertion
             if (handledBlocked(operator)) {
                 continue;
             }
+            handleMemoryRevoking(operator);
 
             if (input.hasNext() && operator.needsInput()) {
                 operator.addInput(input.next());
@@ -91,6 +93,7 @@ public final class OperatorAssertion
             if (handledBlocked(operator)) {
                 continue;
             }
+            handleMemoryRevoking(operator);
             operator.finish();
             Page outputPage = operator.getOutput();
             if (outputPage != null && outputPage.getPositionCount() != 0) {
@@ -114,6 +117,14 @@ public final class OperatorAssertion
             return true;
         }
         return false;
+    }
+
+    private static void handleMemoryRevoking(Operator operator)
+    {
+        if (!operator.getOperatorContext().isWaitingForRevocableMemory().isDone()) {
+            getFutureValue(operator.startMemoryRevoke());
+            operator.finishMemoryRevoke();
+        }
     }
 
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input)
