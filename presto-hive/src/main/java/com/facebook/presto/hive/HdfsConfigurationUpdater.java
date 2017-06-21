@@ -133,7 +133,7 @@ public class HdfsConfigurationUpdater
         return result;
     }
 
-    public void updateConfiguration(PrestoHadoopConfiguration config)
+    public void updateConfiguration(Configuration config)
     {
         copy(resourcesConfiguration, config);
 
