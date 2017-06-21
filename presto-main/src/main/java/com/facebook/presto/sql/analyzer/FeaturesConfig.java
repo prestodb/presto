@@ -66,7 +66,7 @@ public class FeaturesConfig
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
-    private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -346,15 +346,15 @@ public class FeaturesConfig
         return this;
     }
 
-    public DataSize getOperatorMemoryLimitBeforeSpill()
+    public DataSize getAggregationOperatorUnspillMemoryLimit()
     {
-        return operatorMemoryLimitBeforeSpill;
+        return aggregationOperatorUnspillMemoryLimit;
     }
 
-    @Config("experimental.operator-memory-limit-before-spill")
-    public FeaturesConfig setOperatorMemoryLimitBeforeSpill(DataSize operatorMemoryLimitBeforeSpill)
+    @Config("experimental.aggregation-operator-unspill-memory-limit")
+    public FeaturesConfig setAggregationOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
     {
-        this.operatorMemoryLimitBeforeSpill = operatorMemoryLimitBeforeSpill;
+        this.aggregationOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
         return this;
     }
 

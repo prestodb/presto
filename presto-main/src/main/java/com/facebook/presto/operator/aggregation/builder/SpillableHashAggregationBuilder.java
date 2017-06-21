@@ -52,7 +52,7 @@ public class SpillableHashAggregationBuilder
     private final List<Integer> groupByChannels;
     private final Optional<Integer> hashChannel;
     private final OperatorContext operatorContext;
-    private final long memorySizeBeforeSpill;
+    private final long memoryLimitForMerge;
     private final long memoryLimitForMergeWithMemory;
     private Optional<Spiller> spiller = Optional.empty();
     private Optional<MergingHashAggregationBuilder> merger = Optional.empty();
@@ -75,7 +75,7 @@ public class SpillableHashAggregationBuilder
             List<Integer> groupByChannels,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
-            DataSize memoryLimitBeforeSpill,
+            DataSize memoryLimitForMerge,
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
             JoinCompiler joinCompiler)
@@ -87,7 +87,7 @@ public class SpillableHashAggregationBuilder
         this.groupByChannels = groupByChannels;
         this.hashChannel = hashChannel;
         this.operatorContext = operatorContext;
-        this.memorySizeBeforeSpill = memoryLimitBeforeSpill.toBytes();
+        this.memoryLimitForMerge = memoryLimitForMerge.toBytes();
         this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;
         this.joinCompiler = joinCompiler;
@@ -235,7 +235,7 @@ public class SpillableHashAggregationBuilder
                         .add(hashAggregationBuilder.buildHashSortedResult())
                         .build());
 
-        return mergeSortedPages(mergedSpilledPages, max(memorySizeBeforeSpill - memoryLimitForMergeWithMemory, 1L));
+        return mergeSortedPages(mergedSpilledPages, max(memoryLimitForMerge - memoryLimitForMergeWithMemory, 1L));
     }
 
     private Iterator<Page> mergeFromDisk()
@@ -249,10 +249,10 @@ public class SpillableHashAggregationBuilder
                 hashAggregationBuilder.buildIntermediateTypes(),
                 spiller.get().getSpills());
 
-        return mergeSortedPages(mergedSpilledPages, memorySizeBeforeSpill);
+        return mergeSortedPages(mergedSpilledPages, memoryLimitForMerge);
     }
 
-    private Iterator<Page> mergeSortedPages(Iterator<Page> sortedPages, long memorySizeBeforeSpill)
+    private Iterator<Page> mergeSortedPages(Iterator<Page> sortedPages, long memoryLimitForMerge)
     {
         merger = Optional.of(new MergingHashAggregationBuilder(
                 accumulatorFactories,
@@ -263,7 +263,7 @@ public class SpillableHashAggregationBuilder
                 operatorContext,
                 sortedPages,
                 operatorContext.getSystemMemoryContext().newLocalMemoryContext(),
-                memorySizeBeforeSpill,
+                memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler));
 
