@@ -24,9 +24,11 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.InterleavedBlock;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor;
 import com.google.common.collect.ImmutableList;
 
@@ -49,8 +51,8 @@ public final class MapConcatFunction
     private static final String FUNCTION_NAME = "map_concat";
     private static final String DESCRIPTION = "Concatenates given maps";
 
-    private static final MethodHandle USER_STATE_FACTORY = methodHandle(MapConcatFunction.class, "createMapState", Type.class, Type.class);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConcatFunction.class, "mapConcat", Type.class, Type.class, Object.class, Block[].class);
+    private static final MethodHandle USER_STATE_FACTORY = methodHandle(MapConcatFunction.class, "createMapState", MapType.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConcatFunction.class, "mapConcat", MapType.class, Object.class, Block[].class);
 
     private MapConcatFunction()
     {
@@ -90,13 +92,16 @@ public final class MapConcatFunction
 
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
+        MapType mapType = (MapType) typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(valueType.getTypeSignature())));
 
         MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                 Block.class,
                 Block.class,
                 arity,
-                METHOD_HANDLE.bindTo(keyType).bindTo(valueType),
-                USER_STATE_FACTORY.bindTo(keyType).bindTo(valueType));
+                METHOD_HANDLE.bindTo(mapType),
+                USER_STATE_FACTORY.bindTo(mapType));
 
         return new ScalarFunctionImplementation(
                 false,
@@ -109,13 +114,13 @@ public final class MapConcatFunction
     }
 
     @UsedByGeneratedCode
-    public static Object createMapState(Type keyType, Type valueType)
+    public static Object createMapState(MapType mapType)
     {
-        return new PageBuilder(ImmutableList.of(keyType, valueType));
+        return new PageBuilder(ImmutableList.of(mapType));
     }
 
     @UsedByGeneratedCode
-    public static Block mapConcat(Type keyType, Type valueType, Object state, Block[] maps)
+    public static Block mapConcat(MapType mapType, Object state, Block[] maps)
     {
         int entries = 0;
         int lastMapIndex = maps.length - 1;
@@ -137,17 +142,19 @@ public final class MapConcatFunction
         }
 
         // TODO: we should move TypedSet into user state as well
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
         TypedSet typedSet = new TypedSet(keyType, entries / 2);
-        BlockBuilder keyBlockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder valueBlockBuilder = pageBuilder.getBlockBuilder(1);
+        BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
 
         // the last map
         Block map = maps[lastMapIndex];
         int total = 0;
         for (int i = 0; i < map.getPositionCount(); i += 2) {
             typedSet.add(map, i);
-            keyType.appendTo(map, i, keyBlockBuilder);
-            valueType.appendTo(map, i + 1, valueBlockBuilder);
+            keyType.appendTo(map, i, blockBuilder);
+            valueType.appendTo(map, i + 1, blockBuilder);
             total++;
         }
         // the map between the last and the first
@@ -156,8 +163,8 @@ public final class MapConcatFunction
             for (int i = 0; i < map.getPositionCount(); i += 2) {
                 if (!typedSet.contains(map, i)) {
                     typedSet.add(map, i);
-                    keyType.appendTo(map, i, keyBlockBuilder);
-                    valueType.appendTo(map, i + 1, valueBlockBuilder);
+                    keyType.appendTo(map, i, blockBuilder);
+                    valueType.appendTo(map, i + 1, blockBuilder);
                     total++;
                 }
             }
@@ -166,16 +173,14 @@ public final class MapConcatFunction
         map = maps[firstMapIndex];
         for (int i = 0; i < map.getPositionCount(); i += 2) {
             if (!typedSet.contains(map, i)) {
-                keyType.appendTo(map, i, keyBlockBuilder);
-                valueType.appendTo(map, i + 1, valueBlockBuilder);
+                keyType.appendTo(map, i, blockBuilder);
+                valueType.appendTo(map, i + 1, blockBuilder);
                 total++;
             }
         }
-        pageBuilder.declarePositions(total);
 
-        Block[] blocks = new Block[2];
-        blocks[0] = keyBlockBuilder.getRegion(keyBlockBuilder.getPositionCount() - total, total);
-        blocks[1] = valueBlockBuilder.getRegion(valueBlockBuilder.getPositionCount() - total, total);
-        return new InterleavedBlock(blocks);
+        mapBlockBuilder.closeEntry();
+        pageBuilder.declarePosition();
+        return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }
 }

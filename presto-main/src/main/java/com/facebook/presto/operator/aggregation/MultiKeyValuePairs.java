@@ -16,12 +16,8 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
@@ -86,7 +82,7 @@ public class MultiKeyValuePairs
     /**
      * Serialize as a multimap: map(key, array(value)), each key can be associated with multiple values
      */
-    public Block toMultimapNativeEncoding()
+    public void toMultimapNativeEncoding(BlockBuilder blockBuilder)
     {
         Block keys = keyBlockBuilder.build();
         Block values = valueBlockBuilder.build();
@@ -109,13 +105,12 @@ public class MultiKeyValuePairs
         // Write keys and value arrays into one Block
         Block distinctKeys = distinctKeyBlockBuilder.build();
         Type valueArrayType = new ArrayType(valueType);
-        BlockBuilder multimapBlockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueArrayType), new BlockBuilderStatus(), distinctKeyBlockBuilder.getPositionCount());
+        BlockBuilder multimapBlockBuilder = blockBuilder.beginBlockEntry();
         for (int i = 0; i < distinctKeys.getPositionCount(); i++) {
             keyType.appendTo(distinctKeys, i, multimapBlockBuilder);
             valueArrayType.writeObject(multimapBlockBuilder, valueArrayBlockBuilders.get(i).build());
         }
-
-        return multimapBlockBuilder.build();
+        blockBuilder.closeEntry();
     }
 
     public long estimatedInMemorySize()

@@ -146,9 +146,7 @@ public class MultimapAggregationFunction
             out.appendNull();
         }
         else {
-            Block block = pairs.toMultimapNativeEncoding();
-            out.writeObject(block);
-            out.closeEntry();
+            pairs.toMultimapNativeEncoding(out);
         }
     }
 }

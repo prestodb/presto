@@ -18,11 +18,8 @@ import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -93,15 +90,15 @@ public class TypedHistogram
         return counts;
     }
 
-    public Block serialize()
+    public void serialize(BlockBuilder out)
     {
         Block valuesBlock = values.build();
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(type, BIGINT), new BlockBuilderStatus(), valuesBlock.getPositionCount() * 2);
+        BlockBuilder blockBuilder = out.beginBlockEntry();
         for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
             type.appendTo(valuesBlock, i, blockBuilder);
             BIGINT.writeLong(blockBuilder, counts.get(i));
         }
-        return blockBuilder.build();
+        out.closeEntry();
     }
 
     public void addAll(TypedHistogram other)
