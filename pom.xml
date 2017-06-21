@@ -650,6 +650,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook.swift</groupId>
+                <artifactId>swift-javadoc</artifactId>
+                <version>${dep.swift.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.nifty</groupId>
                 <artifactId>nifty-core</artifactId>
                 <version>${dep.nifty.version}</version>

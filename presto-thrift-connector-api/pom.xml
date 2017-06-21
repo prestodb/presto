@@ -47,6 +47,21 @@
             <artifactId>jackson-annotations</artifactId>
         </dependency>
 
+        <!-- swift dependencies below are needed only for compilation -->
+        <!-- swift-javadoc registers a custom javadoc processing class which stores javadoc and ordering in metadata for swift classes -->
+        <!-- so that this information is included in Thrift IDL when it's generated using swift2thrift generator -->
+        <dependency>
+            <groupId>com.facebook.swift</groupId>
+            <artifactId>swift-javadoc</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.swift</groupId>
+            <artifactId>swift-codec</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
