@@ -15,9 +15,9 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -78,7 +78,7 @@ public class PlanNodeDecorrelator
             return Optional.empty();
         }
 
-        if (!DependencyExtractor.extractUnique(predicate).containsAll(correlation)) {
+        if (!SymbolsExtractor.extractUnique(predicate).containsAll(correlation)) {
             return Optional.empty();
         }
 
@@ -118,7 +118,7 @@ public class PlanNodeDecorrelator
 
     private Predicate<Expression> isUsingPredicate(List<Symbol> symbols)
     {
-        return expression -> symbols.stream().anyMatch(DependencyExtractor.extractUnique(expression)::contains);
+        return expression -> symbols.stream().anyMatch(SymbolsExtractor.extractUnique(expression)::contains);
     }
 
     private PlanNode updateFilterNode(PlanNodeSearcher filterNodeSearcher, List<Expression> newPredicates)
@@ -145,7 +145,7 @@ public class PlanNodeDecorrelator
 
     private PlanNode ensureJoinSymbolsAreReturned(PlanNode scalarAggregationSource, List<Expression> joinPredicate)
     {
-        Set<Symbol> joinExpressionSymbols = DependencyExtractor.extractUnique(joinPredicate);
+        Set<Symbol> joinExpressionSymbols = SymbolsExtractor.extractUnique(joinPredicate);
         ExtendProjectionRewriter extendProjectionRewriter = new ExtendProjectionRewriter(
                 idAllocator,
                 joinExpressionSymbols);
@@ -157,7 +157,7 @@ public class PlanNodeDecorrelator
             PlanNode node,
             List<Symbol> correlation)
     {
-        if (DependencyExtractor.extractUnique(node, lookup).stream().anyMatch(correlation::contains)) {
+        if (SymbolsExtractor.extractUnique(node, lookup).stream().anyMatch(correlation::contains)) {
             // node is still correlated ; /
             return Optional.empty();
         }

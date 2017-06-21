@@ -18,12 +18,12 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -261,7 +261,7 @@ public class PartialAggregationPushDown
 
         private boolean allAggregationsOn(Map<Symbol, Aggregation> aggregations, List<Symbol> outputSymbols)
         {
-            Set<Symbol> inputs = DependencyExtractor.extractUnique(aggregations.values().stream().map(Aggregation::getCall).collect(toImmutableList()));
+            Set<Symbol> inputs = SymbolsExtractor.extractUnique(aggregations.values().stream().map(Aggregation::getCall).collect(toImmutableList()));
             return outputSymbols.containsAll(inputs);
         }
 

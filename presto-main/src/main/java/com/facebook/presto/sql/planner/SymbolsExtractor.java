@@ -33,9 +33,9 @@ import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpress
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
 import static java.util.Objects.requireNonNull;
 
-public final class DependencyExtractor
+public final class SymbolsExtractor
 {
-    private DependencyExtractor() {}
+    private SymbolsExtractor() {}
 
     public static Set<Symbol> extractUnique(PlanNode node)
     {
@@ -45,9 +45,6 @@ public final class DependencyExtractor
         return uniqueSymbols.build();
     }
 
-    // TODO: this is a temporary hack. We need to clarify the semantics of extractUniqueNonRecursive and extractUnique.
-    // The notion of extracting dependencies recursively is odd, since the dependencies to a plan node are the inputs
-    // to its expressions. We need to figure out if the distinction between the two functions is needed at all.
     public static Set<Symbol> extractUniqueNonRecursive(PlanNode node)
     {
         ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.planner.DependencyExtractor;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 
 public final class WindowNodeUtil
@@ -26,7 +26,7 @@ public final class WindowNodeUtil
                 || parent.getOrderBy().stream().anyMatch(child.getCreatedSymbols()::contains)
                 || parent.getWindowFunctions().values().stream()
                 .map(WindowNode.Function::getFunctionCall)
-                .map(DependencyExtractor::extractUnique)
+                .map(SymbolsExtractor::extractUnique)
                 .flatMap(symbols -> symbols.stream())
                 .anyMatch(child.getCreatedSymbols()::contains);
     }

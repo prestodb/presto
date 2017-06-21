@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -45,7 +45,7 @@ class Util
     public static Optional<List<Symbol>> pruneInputs(Collection<Symbol> availableInputs, Collection<Expression> expressions)
     {
         Set<Symbol> available = new HashSet<>(availableInputs);
-        Set<Symbol> required = DependencyExtractor.extractUnique(expressions);
+        Set<Symbol> required = SymbolsExtractor.extractUnique(expressions);
 
         // we need to compute the intersection in case some dependencies are symbols from
         // the outer scope (i.e., correlated queries)
