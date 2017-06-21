@@ -19,6 +19,7 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.server.ServerMainModule;
@@ -310,7 +311,7 @@ public abstract class AbstractTestQueryFramework
                 new CostComparator(featuresConfig),
                 new SelectingStatsCalculator(
                         new CoefficientBasedStatsCalculator(metadata),
-                        ServerMainModule.createNewStatsCalculator(metadata)),
+                        ServerMainModule.createNewStatsCalculator(metadata, new FilterStatsCalculator(metadata))),
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, queryRunner.getNodeCount())).get();
         return new QueryExplainer(
