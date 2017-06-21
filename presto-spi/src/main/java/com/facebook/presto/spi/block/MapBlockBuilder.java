@@ -51,14 +51,16 @@ public class MapBlockBuilder
     public MapBlockBuilder(
             Type keyType,
             Type valueType,
-            MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode,
+            MethodHandle keyBlockNativeEquals,
+            MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode,
             BlockBuilderStatus blockBuilderStatus,
             int expectedEntries)
     {
         this(
                 keyType,
-                keyBlockNativeEquals, keyNativeHashCode,
+                keyBlockNativeEquals,
+                keyNativeHashCode,
                 keyBlockHashCode,
                 blockBuilderStatus,
                 keyType.createBlockBuilder(blockBuilderStatus, expectedEntries),
@@ -70,7 +72,8 @@ public class MapBlockBuilder
 
     private MapBlockBuilder(
             Type keyType,
-            MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode,
+            MethodHandle keyBlockNativeEquals,
+            MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode,
             @Nullable BlockBuilderStatus blockBuilderStatus,
             BlockBuilder keyBlockBuilder,
@@ -295,7 +298,8 @@ public class MapBlockBuilder
         int newSize = calculateBlockResetSize(getPositionCount());
         return new MapBlockBuilder(
                 keyType,
-                keyBlockNativeEquals, keyNativeHashCode,
+                keyBlockNativeEquals,
+                keyNativeHashCode,
                 keyBlockHashCode,
                 blockBuilderStatus,
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
