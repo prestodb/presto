@@ -133,6 +133,7 @@ import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -738,7 +739,7 @@ public class HiveMetadata
             // fast path for common case
             return ImmutableList.of();
         }
-        JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(targetPath));
+        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(targetPath));
         String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
         Set<String> fileNames = partitionUpdate.getFileNames().stream()
                 .collect(Collectors.toSet());
@@ -756,7 +757,7 @@ public class HiveMetadata
 
     private void createEmptyFile(Path path, Table table, Optional<Partition> partition, List<String> fileNames)
     {
-        JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(path));
+        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(path));
 
         Properties schema;
         StorageFormat format;

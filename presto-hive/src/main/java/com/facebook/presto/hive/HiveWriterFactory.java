@@ -63,6 +63,7 @@ import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -201,7 +202,7 @@ public class HiveWriterFactory
                                         entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
         Configuration conf = hdfsEnvironment.getConfiguration(writePath);
-        this.conf = new JobConf(conf);
+        this.conf = toJobConf(conf);
 
         // make sure the FileSystem is created with the correct Configuration object
         try {
