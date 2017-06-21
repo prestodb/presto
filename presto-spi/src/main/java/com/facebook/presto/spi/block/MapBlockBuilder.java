@@ -312,7 +312,7 @@ public class MapBlockBuilder
         return hashTable;
     }
 
-    private static void buildHashTable(Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
+    static void buildHashTable(Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
     {
         // This method assumes that keyBlock has no duplicated entries (in the specified range)
         for (int i = 0; i < keyCount; i++) {

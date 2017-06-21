@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.MapBlock;
 import com.facebook.presto.spi.block.MapBlockBuilder;
 
 import java.lang.invoke.MethodHandle;
@@ -222,5 +223,18 @@ public class MapType
     public String getDisplayName()
     {
         return "map(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
+    }
+
+    public MapBlock createBlockFromKeyValue(boolean[] mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
+    {
+        return MapBlock.fromKeyValueBlock(
+                mapIsNull,
+                offsets,
+                keyBlock,
+                valueBlock,
+                this,
+                keyBlockNativeEquals,
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 }

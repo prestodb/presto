@@ -23,8 +23,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
@@ -68,6 +72,12 @@ public class TestMapBlock
         assertBlockFilteredPositions(expectedValues, blockBuilder, Ints.asList(2, 3, 5, 6));
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(2, 3, 5, 6));
 
+        Block block = createBlockWithValuesFromKeyValueBlock(expectedValues);
+
+        assertBlock(block, expectedValues);
+        assertBlockFilteredPositions(expectedValues, block, Ints.asList(0, 1, 3, 4, 7));
+        assertBlockFilteredPositions(expectedValues, block, Ints.asList(2, 3, 5, 6));
+
         Map<String, Long>[] expectedValuesWithNull = (Map<String, Long>[]) alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
 
@@ -77,6 +87,12 @@ public class TestMapBlock
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(0, 1, 5, 6, 7, 10, 11, 12, 15));
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, Ints.asList(2, 3, 4, 9, 13, 14));
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(2, 3, 4, 9, 13, 14));
+
+        Block blockWithNull = createBlockWithValuesFromKeyValueBlock(expectedValuesWithNull);
+
+        assertBlock(blockWithNull, expectedValuesWithNull);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, Ints.asList(0, 1, 5, 6, 7, 10, 11, 12, 15));
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, Ints.asList(2, 3, 4, 9, 13, 14));
     }
 
     private BlockBuilder createBlockBuilderWithValues(Map<String, Long>[] maps)
@@ -87,6 +103,29 @@ public class TestMapBlock
             createBlockBuilderWithValues(map, mapBlockBuilder);
         }
         return mapBlockBuilder;
+    }
+
+    private Block createBlockWithValuesFromKeyValueBlock(Map<String, Long>[] maps)
+    {
+        List<String> keys = new ArrayList<>();
+        List<Long> values = new ArrayList<>();
+        int[] offsets = new int[maps.length + 1];
+        boolean[] mapIsNull = new boolean[maps.length];
+        for (int i = 0; i < maps.length; i++) {
+            Map<String, Long> map = maps[i];
+            mapIsNull[i] = map == null;
+            if (map == null) {
+                offsets[i + 1] = offsets[i];
+            }
+            else {
+                for (Map.Entry<String, Long> entry : map.entrySet()) {
+                    keys.add(entry.getKey());
+                    values.add(entry.getValue());
+                }
+                offsets[i + 1] = offsets[i] + map.size();
+            }
+        }
+        return mapType(VARCHAR, BIGINT).createBlockFromKeyValue(mapIsNull, offsets, createStringsBlock(keys), createLongsBlock(values));
     }
 
     private void createBlockBuilderWithValues(Map<String, Long> map, BlockBuilder mapBlockBuilder)

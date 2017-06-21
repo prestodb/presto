@@ -14,12 +14,15 @@
 
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.MapBlockBuilder.buildHashTable;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -45,7 +48,7 @@ public class MapBlock
      * @param keyBlockNativeEquals (T, Block, int)boolean
      * @param keyNativeHashCode (T)long
      */
-    public MapBlock(
+    MapBlock(
             int startOffset,
             int positionCount,
             boolean[] mapIsNull,
@@ -164,5 +167,50 @@ public class MapBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    public static MapBlock fromKeyValueBlock(
+            boolean[] mapIsNull,
+            int[] offsets,
+            Block keyBlock,
+            Block valueBlock,
+            MapType mapType,
+            MethodHandle keyBlockNativeEquals,
+            MethodHandle keyNativeHashCode,
+            MethodHandle keyBlockHashCode)
+    {
+        if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
+            throw new IllegalArgumentException(format("keyBlock position count does not match valueBlock position count. %s %s", keyBlock.getPositionCount(), valueBlock.getPositionCount()));
+        }
+        int elementCount = keyBlock.getPositionCount();
+        if (mapIsNull.length != offsets.length - 1) {
+            throw new IllegalArgumentException(format("mapIsNull.length-1 does not match offsets.length. %s %s", mapIsNull.length - 1, offsets.length));
+        }
+        int mapCount = mapIsNull.length;
+        if (offsets[mapCount] != elementCount) {
+            throw new IllegalArgumentException(format("Last element of offsets does not match keyBlock position count. %s %s", offsets[mapCount], keyBlock.getPositionCount()));
+        }
+        int[] hashTables = new int[elementCount * HASH_MULTIPLIER];
+        Arrays.fill(hashTables, -1);
+        for (int i = 0; i < mapCount; i++) {
+            int keyOffset = offsets[i];
+            int keyCount = offsets[i + 1] - keyOffset;
+            if (keyCount < 0) {
+                throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
+            }
+            buildHashTable(keyBlock, keyOffset, keyCount, keyBlockHashCode, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
+        }
+
+        return new MapBlock(
+                0,
+                mapCount,
+                mapIsNull,
+                offsets,
+                keyBlock,
+                valueBlock,
+                hashTables,
+                mapType.getKeyType(),
+                keyBlockNativeEquals,
+                keyNativeHashCode);
     }
 }
