@@ -49,7 +49,9 @@ public class PartitionedLookupSource
                 public LookupSource getLookupSource()
                 {
                     return new PartitionedLookupSource(
-                            getPartitionsLookupSources(partitions),
+                            partitions.stream()
+                                    .map(Supplier::get)
+                                    .collect(toImmutableList()),
                             hashChannelTypes,
                             Optional.of(outerPositionTrackerFactory.create()));
                 }
@@ -64,17 +66,12 @@ public class PartitionedLookupSource
         else {
             return TrackingLookupSourceSupplier.nonTracking(
                     () -> new PartitionedLookupSource(
-                            getPartitionsLookupSources(partitions),
+                            partitions.stream()
+                                    .map(Supplier::get)
+                                    .collect(toImmutableList()),
                             hashChannelTypes,
                             Optional.empty()));
         }
-    }
-
-    private static List<LookupSource> getPartitionsLookupSources(List<Supplier<LookupSource>> partitions)
-    {
-        return partitions.stream()
-                .map(Supplier::get)
-                .collect(toImmutableList());
     }
 
     private final LookupSource[] lookupSources;
@@ -255,7 +252,9 @@ public class PartitionedLookupSource
 
             public Factory(List<Supplier<LookupSource>> partitions)
             {
-                this.lookupSources = getPartitionsLookupSources(partitions).stream().toArray(LookupSource[]::new);
+                this.lookupSources = partitions.stream()
+                        .map(Supplier::get)
+                        .toArray(LookupSource[]::new);
 
                 visitedPositions = Arrays.stream(this.lookupSources)
                         .map(LookupSource::getJoinPositionCount)
