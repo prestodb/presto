@@ -11,18 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
@@ -31,7 +30,16 @@ public class TestRowType
     @Test
     public void testRowDisplayName()
     {
-        List<Type> types = asList(BOOLEAN, DOUBLE, new ArrayType(VARCHAR), mapType(BOOLEAN, DOUBLE));
+        List<Type> types = asList(
+                BOOLEAN,
+                DOUBLE,
+                new ArrayType(VARCHAR),
+                new MapType(
+                        BOOLEAN,
+                        DOUBLE,
+                        methodHandle(TestMapType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestMapType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestMapType.class, "throwUnsupportedOperation")));
         Optional<List<String>> names = Optional.of(asList("bool_col", "double_col", "array_col", "map_col"));
         RowType row = new RowType(types, names);
         assertEquals(
@@ -42,10 +50,24 @@ public class TestRowType
     @Test
     public void testRowDisplayNoColumnNames()
     {
-        List<Type> types = asList(BOOLEAN, DOUBLE, new ArrayType(VARCHAR), mapType(BOOLEAN, DOUBLE));
+        List<Type> types = asList(
+                BOOLEAN,
+                DOUBLE,
+                new ArrayType(VARCHAR),
+                new MapType(
+                        BOOLEAN,
+                        DOUBLE,
+                        methodHandle(TestMapType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestMapType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestMapType.class, "throwUnsupportedOperation")));
         RowType row = new RowType(types, Optional.empty());
         assertEquals(
                 row.getDisplayName(),
                 "row(boolean, double, array(varchar), map(boolean, double))");
+    }
+
+    public static void throwUnsupportedOperation()
+    {
+        throw new UnsupportedOperationException();
     }
 }

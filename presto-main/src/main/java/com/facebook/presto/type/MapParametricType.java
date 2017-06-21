@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -21,12 +21,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
-import com.facebook.presto.spi.type.AbstractType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,8 +28,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
-import static com.facebook.presto.type.TypeUtils.hashPosition;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -49,20 +41,33 @@ public class RowType
 
     public RowType(List<Type> fieldTypes, Optional<List<String>> fieldNames)
     {
-        super(new TypeSignature(
-                        ROW,
-                        Lists.transform(fieldTypes, Type::getTypeSignature),
-                        fieldNames.orElse(ImmutableList.of()).stream()
-                                .collect(toImmutableList())),
-                Block.class);
+        super(toTypeSignature(fieldTypes, fieldNames), Block.class);
 
-        ImmutableList.Builder<RowField> builder = ImmutableList.builder();
+        List<RowField> fields = new ArrayList<>();
         for (int i = 0; i < fieldTypes.size(); i++) {
             int index = i;
-            builder.add(new RowField(fieldTypes.get(i), fieldNames.map((names) -> names.get(index))));
+            fields.add(new RowField(fieldTypes.get(i), fieldNames.map((names) -> names.get(index))));
         }
-        fields = builder.build();
-        this.fieldTypes = ImmutableList.copyOf(fieldTypes);
+        this.fields = fields;
+        this.fieldTypes = fieldTypes;
+    }
+
+    private static TypeSignature toTypeSignature(List<Type> fieldTypes, Optional<List<String>> fieldNames)
+    {
+        int size = fieldTypes.size();
+        if (size == 0) {
+            throw new IllegalArgumentException("Row type must have at least 1 field");
+        }
+
+        List<TypeSignature> elementTypeSignatures = new ArrayList<>();
+        List<String> literalParameters = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            elementTypeSignatures.add(fieldTypes.get(i).getTypeSignature());
+            if (fieldNames.isPresent()) {
+                literalParameters.add(fieldNames.get().get(i));
+            }
+        }
+        return new TypeSignature(ROW, elementTypeSignatures, literalParameters);
     }
 
     @Override
@@ -87,17 +92,21 @@ public class RowType
     public String getDisplayName()
     {
         // Convert to standard sql name
-        List<String> fieldDisplayNames = new ArrayList<>();
+        StringBuilder result = new StringBuilder();
+        result.append(ROW).append('(');
         for (RowField field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
-                fieldDisplayNames.add(field.getName().get() + " " + typeDisplayName);
+                result.append(field.getName().get()).append(' ').append(typeDisplayName);
             }
             else {
-                fieldDisplayNames.add(typeDisplayName);
+                result.append(typeDisplayName);
             }
+            result.append(", ");
         }
-        return ROW + "(" + Joiner.on(", ").join(fieldDisplayNames) + ")";
+        result.setLength(result.length() - 2);
+        result.append(')');
+        return result.toString();
     }
 
     @Override
@@ -233,7 +242,7 @@ public class RowType
         long result = 1;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             Type elementType = fields.get(i).getType();
-            result = 31 * result + hashPosition(elementType, arrayBlock, i);
+            result = 31 * result + TypeUtils.hashPosition(elementType, arrayBlock, i);
         }
         return result;
     }

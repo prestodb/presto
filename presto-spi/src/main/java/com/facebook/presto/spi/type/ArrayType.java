@@ -11,20 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
-import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.AbstractArrayBlock;
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.AbstractType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -32,8 +26,9 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static com.facebook.presto.spi.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.spi.type.TypeUtils.hashPosition;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayType
@@ -92,7 +87,7 @@ public class ArrayType
         Block array = getObject(block, position);
         long hash = 0;
         for (int i = 0; i < array.getPositionCount(); i++) {
-            hash = CombineHashFunction.getHash(hash, hashPosition(elementType, array, i));
+            hash = 31 * hash + hashPosition(elementType, array, i);
         }
         return hash;
     }
@@ -210,7 +205,7 @@ public class ArrayType
     @Override
     public List<Type> getTypeParameters()
     {
-        return ImmutableList.of(getElementType());
+        return singletonList(getElementType());
     }
 
     @Override

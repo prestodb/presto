@@ -13,13 +13,18 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+
 public final class TypeUtils
 {
+    public static final int NULL_HASH_CODE = 0;
+
     private TypeUtils()
     {
     }
@@ -81,6 +86,21 @@ public final class TypeUtils
         }
         else {
             type.writeObject(blockBuilder, value);
+        }
+    }
+
+    static long hashPosition(Type type, Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return NULL_HASH_CODE;
+        }
+        return type.hash(block, position);
+    }
+
+    static void checkElementNotNull(boolean isNull, String errorMsg)
+    {
+        if (isNull) {
+            throw new PrestoException(NOT_SUPPORTED, errorMsg);
         }
     }
 }

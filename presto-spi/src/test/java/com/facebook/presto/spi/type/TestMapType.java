@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.block.MethodHandleUtil;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 
 public class TestMapType
@@ -26,10 +26,25 @@ public class TestMapType
     @Test
     public void testMapDisplayName()
     {
-        MapType mapType = mapType(BIGINT, createVarcharType(42));
+        MapType mapType = new MapType(
+                BIGINT,
+                createVarcharType(42),
+                MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
+                MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
+                MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"));
         assertEquals(mapType.getDisplayName(), "map(bigint, varchar(42))");
 
-        mapType = mapType(BIGINT, VARCHAR);
+        mapType = new MapType(
+                BIGINT,
+                VARCHAR,
+                MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
+                MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
+                MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"));
         assertEquals(mapType.getDisplayName(), "map(bigint, varchar)");
+    }
+
+    public static void throwUnsupportedOperation()
+    {
+        throw new UnsupportedOperationException();
     }
 }

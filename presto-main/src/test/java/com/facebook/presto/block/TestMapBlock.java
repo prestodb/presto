@@ -18,7 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.SingleMapBlock;
-import com.facebook.presto.type.MapType;
+import com.facebook.presto.spi.type.MapType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.Test;

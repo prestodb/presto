@@ -15,8 +15,10 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;

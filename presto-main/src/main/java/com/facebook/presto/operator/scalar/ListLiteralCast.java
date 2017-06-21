@@ -17,7 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.type.ListLiteralType;
 import com.google.common.collect.ImmutableList;
 

@@ -11,19 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.MapBlockBuilder;
-import com.facebook.presto.spi.type.AbstractType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
@@ -31,9 +25,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.type.TypeUtils.hashPosition;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.spi.type.TypeUtils.hashPosition;
+import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class MapType
@@ -48,13 +43,15 @@ public class MapType
     private final MethodHandle keyBlockHashCode;
     private final MethodHandle keyBlockNativeEquals;
 
-    MapType(Type keyType, Type valueType, MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode, MethodHandle keyBlockHashCode)
+    public MapType(Type keyType, Type valueType, MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode, MethodHandle keyBlockHashCode)
     {
         super(new TypeSignature(StandardTypes.MAP,
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(valueType.getTypeSignature())),
                 Block.class);
-        checkArgument(keyType.isComparable(), "key type must be comparable");
+        if (!keyType.isComparable()) {
+            throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));
+        }
         this.keyType = keyType;
         this.valueType = valueType;
         this.keyBlockNativeEquals = requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals is null");
@@ -218,7 +215,7 @@ public class MapType
     @Override
     public List<Type> getTypeParameters()
     {
-        return ImmutableList.of(getKeyType(), getValueType());
+        return asList(getKeyType(), getValueType());
     }
 
     @Override

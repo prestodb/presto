@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
