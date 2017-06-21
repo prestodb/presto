@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -171,9 +170,15 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<?> startMemoryRevoke()
     {
-        return NOT_BLOCKED;
+        throw new UnsupportedOperationException("startMemoryRevoke not supported for InMemoryHashAggregationBuilder");
+    }
+
+    @Override
+    public void finishMemoryRevoke()
+    {
+        throw new UnsupportedOperationException("finishMemoryRevoke not supported for InMemoryHashAggregationBuilder");
     }
 
     public long getSizeInMemory()
