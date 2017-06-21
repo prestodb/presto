@@ -142,14 +142,15 @@ public class TestReorderWindows
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
                                         .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
-                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                .specification(windowA)
-                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                        anyTree(
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(windowB)
-                                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                        anyTree(LINEITEM_TABLESCAN_DOQPRSST))))));
+                                project(
+                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(windowA)
+                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                project(
+                                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                        .specification(windowB)
+                                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                anyTree(LINEITEM_TABLESCAN_DOQPRSST)))))));
 
         assertPlan(sql, pattern);
     }
