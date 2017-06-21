@@ -78,6 +78,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -772,7 +773,7 @@ public class PruneUnreferencedOutputs
             PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
 
             // remove unused lateral nodes
-            if (subquery.getOutputSymbols().isEmpty() && node.getType() == LateralJoinNode.Type.INNER) {
+            if (intersection(ImmutableSet.copyOf(subquery.getOutputSymbols()), context.get()).isEmpty() && isScalar(subquery)) {
                 return context.rewrite(node.getInput(), context.get());
             }
 
