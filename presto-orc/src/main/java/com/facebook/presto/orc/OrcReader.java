@@ -64,12 +64,12 @@ public class OrcReader
     private Optional<OrcDecompressor> decompressor = Optional.empty();
 
     // This is based on the Apache Hive ORC code
-    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, DataSize maxMergeDistance, DataSize maxReadSize, DataSize maxBlockSize)
+    public OrcReader(OrcDataSource orcDataSource, MetadataReader delegate, DataSize maxMergeDistance, DataSize maxReadSize, DataSize maxBlockSize)
             throws IOException
     {
         orcDataSource = wrapWithCacheIfTiny(requireNonNull(orcDataSource, "orcDataSource is null"), maxMergeDistance);
         this.orcDataSource = orcDataSource;
-        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), requireNonNull(metadataReader, "metadataReader is null"));
+        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), requireNonNull(delegate, "delegate is null"));
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxReadSize = requireNonNull(maxReadSize, "maxReadSize is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
