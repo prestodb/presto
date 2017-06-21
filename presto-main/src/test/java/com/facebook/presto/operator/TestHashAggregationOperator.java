@@ -128,6 +128,8 @@ public class TestHashAggregationOperator
     public void testHashAggregation(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
             throws Exception
     {
+        // TODO FIXME 1) fix the test so that it spills and 2) test that it spills when it should
+
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
