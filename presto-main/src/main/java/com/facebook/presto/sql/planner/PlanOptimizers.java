@@ -52,6 +52,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinFilteringSour
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
@@ -158,6 +159,7 @@ public class PlanOptimizers
                 new PruneSemiJoinFilteringSourceColumns(),
                 new PruneTopNColumns(),
                 new PruneValuesColumns(),
+                new PruneWindowColumns(),
                 new PruneTableScanColumns());
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
