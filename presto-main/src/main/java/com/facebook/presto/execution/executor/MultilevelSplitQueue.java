@@ -36,38 +36,35 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class MultilevelSplitQueue
 {
     static final long LEVEL_CONTRIBUTION_CAP = SECONDS.toNanos(30);
-    static final int[] LEVELS = {0, 1, 10, 60, 300};
+    static final int[] LEVEL_THRESHOLD_SECONDS = {0, 1, 10, 60, 300};
 
     @GuardedBy("lock")
     private final List<PriorityQueue<PrioritizedSplitRunner>> levelWaitingSplits;
+    @GuardedBy("lock")
+    private final long[] levelScheduledTime = new long[LEVEL_THRESHOLD_SECONDS.length];
+
     private final AtomicLong[] levelMinPriority;
-
-    private final ReentrantLock lock;
-    private final Condition notEmpty;
-
     private final List<CounterStat> selectedLevelCounters;
 
-    @GuardedBy("lock")
-    private final long[] levelScheduledTime = new long[LEVELS.length];
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition notEmpty = lock.newCondition();
 
     private final boolean levelAbsolutePriority;
     private final double levelPriorityMultiplier;
 
     public MultilevelSplitQueue(boolean levelAbsolutePriority, double levelPriorityMultiplier)
     {
-        this.levelMinPriority = new AtomicLong[LEVELS.length];
-        this.levelWaitingSplits = new ArrayList<>(LEVELS.length);
+        this.levelMinPriority = new AtomicLong[LEVEL_THRESHOLD_SECONDS.length];
+        this.levelWaitingSplits = new ArrayList<>(LEVEL_THRESHOLD_SECONDS.length);
         ImmutableList.Builder<CounterStat> counters = ImmutableList.builder();
 
-        for (int i = 0; i < LEVELS.length; i++) {
+        for (int i = 0; i < LEVEL_THRESHOLD_SECONDS.length; i++) {
             levelMinPriority[i] = new AtomicLong(-1);
             levelWaitingSplits.add(new PriorityQueue<>());
             counters.add(new CounterStat());
         }
 
         this.selectedLevelCounters = counters.build();
-        this.lock = new ReentrantLock();
-        this.notEmpty = lock.newCondition();
 
         this.levelAbsolutePriority = levelAbsolutePriority;
         this.levelPriorityMultiplier = levelPriorityMultiplier;
@@ -94,7 +91,7 @@ public class MultilevelSplitQueue
         split.setReady();
         lock.lock();
         try {
-            levelWaitingSplits.get(split.getLevel()).offer(split);
+            levelWaitingSplits.get(split.getPriority().getLevel()).offer(split);
             notEmpty.signal();
         }
         finally {
@@ -118,8 +115,8 @@ public class MultilevelSplitQueue
                     continue;
                 }
 
-                int selectedLevel = result.getLevel();
-                levelMinPriority[selectedLevel].set(result.getLevelPriority());
+                int selectedLevel = result.getPriority().getLevel();
+                levelMinPriority[selectedLevel].set(result.getPriority().getLevelPriority());
                 selectedLevelCounters.get(selectedLevel).update(1);
 
                 return result;
@@ -140,7 +137,7 @@ public class MultilevelSplitQueue
         long expectedScheduledTime = updateLevelTimes();
         double worstRatio = 1;
         int selectedLevel = -1;
-        for (int level = 0; level < LEVELS.length; level++) {
+        for (int level = 0; level < LEVEL_THRESHOLD_SECONDS.length; level++) {
             if (!levelWaitingSplits.get(level).isEmpty()) {
                 double ratio = levelScheduledTime[level] == 0 ? 0 : expectedScheduledTime / (1.0 * levelScheduledTime[level]);
                 if (selectedLevel == -1 || ratio > worstRatio) {
@@ -167,7 +164,7 @@ public class MultilevelSplitQueue
         do {
             double currentMultiplier = levelPriorityMultiplier;
             updated = false;
-            for (int level = 0; level < LEVELS.length; level++) {
+            for (int level = 0; level < LEVEL_THRESHOLD_SECONDS.length; level++) {
                 currentMultiplier /= levelPriorityMultiplier;
                 long levelExpectedTime = (long) (level0ExpectedTime * currentMultiplier);
 
@@ -215,7 +212,7 @@ public class MultilevelSplitQueue
         long remainingTaskTime = quantaNanos;
 
         for (int currentLevel = oldLevel; currentLevel < newLevel; currentLevel++) {
-            long timeAccruedToLevel = Math.min(SECONDS.toNanos(LEVELS[currentLevel + 1] - LEVELS[currentLevel]), remainingLevelContribution);
+            long timeAccruedToLevel = Math.min(SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[currentLevel + 1] - LEVEL_THRESHOLD_SECONDS[currentLevel]), remainingLevelContribution);
             addLevelTime(currentLevel, timeAccruedToLevel);
             remainingLevelContribution -= timeAccruedToLevel;
             remainingTaskTime -= timeAccruedToLevel;
@@ -282,13 +279,13 @@ public class MultilevelSplitQueue
     public static int computeLevel(long threadUsageNanos)
     {
         long seconds = NANOSECONDS.toSeconds(threadUsageNanos);
-        for (int i = 0; i < (LEVELS.length - 1); i++) {
-            if (seconds < LEVELS[i + 1]) {
+        for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
+            if (seconds < LEVEL_THRESHOLD_SECONDS[i + 1]) {
                 return i;
             }
         }
 
-        return LEVELS.length - 1;
+        return LEVEL_THRESHOLD_SECONDS.length - 1;
     }
 
     @VisibleForTesting

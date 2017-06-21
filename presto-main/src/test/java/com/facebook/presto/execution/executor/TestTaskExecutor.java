@@ -18,16 +18,22 @@ import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 
-import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVELS;
+import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -38,6 +44,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestTaskExecutor
 {
@@ -148,10 +155,9 @@ public class TestTaskExecutor
             TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId("longQuanta", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS));
 
             Phaser globalPhaser = new Phaser();
-            globalPhaser.bulkRegister(2);
 
-            TestingJob shortQuantaDriver = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), 10, 10);
-            TestingJob longQuantaDriver = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), 10, 20);
+            TestingJob shortQuantaDriver = new TestingJob(ticker, new Phaser(1), new Phaser(), globalPhaser, 10, 10);
+            TestingJob longQuantaDriver = new TestingJob(ticker, new Phaser(1), new Phaser(), globalPhaser, 10, 20);
 
             taskExecutor.enqueueSplits(shortQuantaTaskHandle, true, ImmutableList.of(shortQuantaDriver));
             taskExecutor.enqueueSplits(longQuantaTaskHandle, true, ImmutableList.of(longQuantaDriver));
@@ -160,9 +166,7 @@ public class TestTaskExecutor
                 globalPhaser.arriveAndAwaitAdvance();
             }
 
-            MILLISECONDS.sleep(1);
-
-            assertEquals(shortQuantaDriver.getCompletedPhases(), 8);
+            assertTrue(shortQuantaDriver.getCompletedPhases() >= 7);
             assertEquals(longQuantaDriver.getCompletedPhases(), 4);
 
             globalPhaser.arriveAndDeregister();
@@ -189,20 +193,19 @@ public class TestTaskExecutor
 
             int quantaTimeMills = 500;
             int phasesPerSecond = 1000 / quantaTimeMills;
-            int totalPhases = LEVELS[LEVELS.length - 1] * phasesPerSecond;
+            int totalPhases = LEVEL_THRESHOLD_SECONDS[LEVEL_THRESHOLD_SECONDS.length - 1] * phasesPerSecond;
             TestingJob driver1 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), totalPhases, quantaTimeMills);
             TestingJob driver2 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), totalPhases, quantaTimeMills);
 
             taskExecutor.enqueueSplits(testTaskHandle, true, ImmutableList.of(driver1, driver2));
 
             int completedPhases = 0;
-            for (int i = 0; i < (LEVELS.length - 1); i++) {
-                for (; (completedPhases / phasesPerSecond) < LEVELS[i + 1]; completedPhases++) {
+            for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
+                for (; (completedPhases / phasesPerSecond) < LEVEL_THRESHOLD_SECONDS[i + 1]; completedPhases++) {
                     globalPhaser.arriveAndAwaitAdvance();
                 }
 
-                MILLISECONDS.sleep(1);
-                assertEquals(taskExecutor.getRunningTasksForLevel(i + 1), 1);
+                assertEquals(testTaskHandle.getPriority().getLevel(), i + 1);
             }
 
             globalPhaser.arriveAndDeregister();
@@ -212,7 +215,7 @@ public class TestTaskExecutor
         }
     }
 
-    @Test(invocationCount = 5)
+    @Test(invocationCount = 100)
     public void testLevelMultipliers()
             throws Exception
     {
@@ -222,7 +225,7 @@ public class TestTaskExecutor
         ticker.increment(20, MILLISECONDS);
 
         try {
-            for (int i = 0; i < (LEVELS.length - 1); i++) {
+            for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
                 TaskHandle[] taskHandles = {
                         taskExecutor.addTask(new TaskId("test1", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS)),
                         taskExecutor.addTask(new TaskId("test2", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS)),
@@ -230,56 +233,43 @@ public class TestTaskExecutor
                 };
 
                 // move task 0 to next level
-                Phaser task0Phaser = new Phaser(2);
+                TestingJob task0Job = new TestingJob(ticker, new Phaser(1), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i + 1] * 1000);
                 taskExecutor.enqueueSplits(
                         taskHandles[0],
                         true,
-                        ImmutableList.of(new TestingJob(ticker, task0Phaser, new Phaser(), new Phaser(), 1, LEVELS[i + 1] * 1000)));
-                task0Phaser.arriveAndAwaitAdvance();
-                task0Phaser.arriveAndAwaitAdvance();
-                task0Phaser.arriveAndDeregister();
-
-                MILLISECONDS.sleep(1);
-                assertEquals(taskExecutor.getRunningTasksForLevel(i + 1), 1);
-
+                        ImmutableList.of(task0Job));
                 // move tasks 1 and 2 to this level
-                Phaser task1And2Phaser = new Phaser(2);
+                TestingJob task1Job = new TestingJob(ticker, new Phaser(1), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000);
                 taskExecutor.enqueueSplits(
                         taskHandles[1],
                         true,
-                        ImmutableList.of(new TestingJob(ticker, task1And2Phaser, new Phaser(), new Phaser(), 1, LEVELS[i] * 1000)));
+                        ImmutableList.of(task1Job));
+                TestingJob task2Job = new TestingJob(ticker, new Phaser(1), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000);
                 taskExecutor.enqueueSplits(
                         taskHandles[2],
                         true,
-                        ImmutableList.of(new TestingJob(ticker, task1And2Phaser, new Phaser(), new Phaser(), 1, LEVELS[i] * 1000)));
-                task1And2Phaser.arriveAndAwaitAdvance();
-                task1And2Phaser.arriveAndAwaitAdvance();
-                task1And2Phaser.arriveAndDeregister();
+                        ImmutableList.of(task2Job));
 
-                MILLISECONDS.sleep(1);
-                assertEquals(taskExecutor.getRunningTasksForLevel(i), 2);
+                task0Job.getCompletedFuture().get();
+                task1Job.getCompletedFuture().get();
+                task2Job.getCompletedFuture().get();
 
                 // then, start new drivers for all tasks
                 Phaser globalPhaser = new Phaser(2);
-                int phasesForNextLevel = LEVELS[i + 1] - LEVELS[i];
+                int phasesForNextLevel = LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i];
                 TestingJob[] drivers = new TestingJob[6];
                 for (int j = 0; j < 6; j++) {
                     drivers[j] = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), phasesForNextLevel, 1000);
                 }
 
-                MILLISECONDS.sleep(1);
-
                 taskExecutor.enqueueSplits(taskHandles[0], true, ImmutableList.of(drivers[0], drivers[1]));
                 taskExecutor.enqueueSplits(taskHandles[1], true, ImmutableList.of(drivers[2], drivers[3]));
                 taskExecutor.enqueueSplits(taskHandles[2], true, ImmutableList.of(drivers[4], drivers[5]));
-
-                MILLISECONDS.sleep(1);
 
                 // run all three drivers
                 long lowerLevelStart = taskHandles[1].getScheduledNanos() + taskHandles[2].getScheduledNanos();
                 long higherLevelStart = taskHandles[0].getScheduledNanos();
                 while (Arrays.stream(drivers).noneMatch(TestingJob::isFinished)) {
-                    NANOSECONDS.sleep(1);
                     globalPhaser.arriveAndAwaitAdvance();
 
                     long lowerLevelTime = (taskHandles[1].getScheduledNanos() + taskHandles[2].getScheduledNanos()) - lowerLevelStart;
@@ -319,8 +309,8 @@ public class TestTaskExecutor
             Phaser verificationComplete = new Phaser();
             verificationComplete.register();
 
-            TestingJob driver1 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
-            TestingJob driver2 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
+            TestingJob driver1 = new TestingJob(ticker, new Phaser(1), beginPhase, new Phaser(), 10, 0);
+            TestingJob driver2 = new TestingJob(ticker, new Phaser(1), beginPhase, new Phaser(), 10, 0);
 
             // force enqueue a split
             taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1));
@@ -347,13 +337,13 @@ public class TestTaskExecutor
         TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS));
         TaskHandle handle1 = new TaskHandle(new TaskId("test1", 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS));
 
-        for (int i = 0; i < (LEVELS.length - 1); i++) {
-            long levelAdvanceTime = SECONDS.toNanos(LEVELS[i + 1] - LEVELS[i]);
+        for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
+            long levelAdvanceTime = SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]);
             handle0.addScheduledNanos(levelAdvanceTime);
-            assertEquals(handle0.getLevel(), i + 1);
+            assertEquals(handle0.getPriority().getLevel(), i + 1);
 
             handle1.addScheduledNanos(levelAdvanceTime);
-            assertEquals(handle1.getLevel(), i + 1);
+            assertEquals(handle1.getPriority().getLevel(), i + 1);
 
             assertEquals(splitQueue.getLevelScheduledTime()[i], 2 * Math.min(levelAdvanceTime, LEVEL_CONTRIBUTION_CAP));
             assertEquals(splitQueue.getLevelScheduledTime()[i + 1], 0);
@@ -371,8 +361,8 @@ public class TestTaskExecutor
         handle0.addScheduledNanos(quantaNanos);
         long cappedNanos = Math.min(quantaNanos, LEVEL_CONTRIBUTION_CAP);
 
-        for (int i = 0; i < (LEVELS.length - 1); i++) {
-            long thisLevelTime = Math.min(SECONDS.toNanos(LEVELS[i + 1] - LEVELS[i]), cappedNanos);
+        for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
+            long thisLevelTime = Math.min(SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]), cappedNanos);
             assertEquals(splitQueue.getLevelScheduledTime()[i], thisLevelTime);
             cappedNanos -= thisLevelTime;
         }
@@ -391,6 +381,8 @@ public class TestTaskExecutor
 
         private final AtomicInteger firstPhase = new AtomicInteger(-1);
         private final AtomicInteger lastPhase = new AtomicInteger(-1);
+
+        private final SettableFuture<?> completed = SettableFuture.create();
 
         public TestingJob(TestingTicker ticker, Phaser globalPhaser, Phaser beginQuantaPhaser, Phaser endQuantaPhaser, int requiredPhases, int quantaTimeMillis)
         {
@@ -432,7 +424,13 @@ public class TestTaskExecutor
             firstPhase.compareAndSet(-1, phase - 1);
             lastPhase.set(phase);
             endQuantaPhaser.arriveAndAwaitAdvance();
-            completedPhases.getAndIncrement();
+            if (completedPhases.incrementAndGet() >= requiredPhases) {
+                endQuantaPhaser.arriveAndDeregister();
+                beginQuantaPhaser.arriveAndDeregister();
+                globalPhaser.arriveAndDeregister();
+                completed.set(null);
+            }
+
             return Futures.immediateFuture(null);
         }
 
@@ -445,18 +443,17 @@ public class TestTaskExecutor
         @Override
         public boolean isFinished()
         {
-            boolean isFinished = completedPhases.get() >= requiredPhases;
-            if (isFinished) {
-                endQuantaPhaser.arriveAndDeregister();
-                beginQuantaPhaser.arriveAndDeregister();
-                globalPhaser.arriveAndDeregister();
-            }
-            return isFinished;
+            return completed.isDone();
         }
 
         @Override
         public void close()
         {
+        }
+
+        public Future<?> getCompletedFuture()
+        {
+            return completed;
         }
     }
 }

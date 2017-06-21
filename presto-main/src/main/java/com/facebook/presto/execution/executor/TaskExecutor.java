@@ -307,7 +307,7 @@ public class TaskExecutor
 
     private void splitFinished(PrioritizedSplitRunner split)
     {
-        completedSplitsPerLevel.incrementAndGet(split.getLevel());
+        completedSplitsPerLevel.incrementAndGet(split.getPriority().getLevel());
         synchronized (this) {
             allSplits.remove(split);
 
@@ -470,6 +470,7 @@ public class TaskExecutor
                                 blockedSplits.put(split, blocked);
                                 blocked.addListener(() -> {
                                     blockedSplits.remove(split);
+                                    // reset the level priority to prevent previously-blocked splits from starving existing splits
                                     split.resetLevelPriority();
                                     waitingSplits.offer(split);
                                 }, executor);
@@ -766,7 +767,7 @@ public class TaskExecutor
     {
         int count = 0;
         for (TaskHandle task : tasks) {
-            if (task.getLevel() == level) {
+            if (task.getPriority().getLevel() == level) {
                 count++;
             }
         }

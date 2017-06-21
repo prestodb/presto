@@ -54,7 +54,7 @@ class PrioritizedSplitRunner
 
     private final AtomicBoolean destroyed = new AtomicBoolean();
 
-    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority());
+    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
 
     private final AtomicLong lastRun = new AtomicLong();
     private final AtomicLong lastReady = new AtomicLong();
@@ -220,7 +220,7 @@ class PrioritizedSplitRunner
     @Override
     public int compareTo(PrioritizedSplitRunner o)
     {
-        int result = Long.compare(priority.get().getLevelPriority(), o.getLevelPriority());
+        int result = Long.compare(priority.get().getLevelPriority(), o.getPriority().getLevelPriority());
         if (result != 0) {
             return result;
         }
@@ -233,14 +233,9 @@ class PrioritizedSplitRunner
         return splitId;
     }
 
-    public int getLevel()
+    public Priority getPriority()
     {
-        return priority.get().getLevel();
-    }
-
-    public long getLevelPriority()
-    {
-        return priority.get().getLevelPriority();
+        return priority.get();
     }
 
     public String getInfo()

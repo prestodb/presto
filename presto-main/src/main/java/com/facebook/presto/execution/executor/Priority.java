@@ -40,11 +40,6 @@ public final class Priority
     private final int level;
     private final long levelPriority;
 
-    public Priority()
-    {
-        this(0, 0);
-    }
-
     public Priority(int level, long levelPriority)
     {
         this.level = level;

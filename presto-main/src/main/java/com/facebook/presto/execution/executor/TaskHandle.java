@@ -53,7 +53,7 @@ public class TaskHandle
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
-    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority());
+    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
     private final MultilevelSplitQueue splitQueue;
 
     public TaskHandle(TaskId taskId, MultilevelSplitQueue splitQueue, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
@@ -90,16 +90,6 @@ public class TaskHandle
     public synchronized boolean isDestroyed()
     {
         return destroyed;
-    }
-
-    public int getLevel()
-    {
-        return priority.get().getLevel();
-    }
-
-    public long getLevelPriority()
-    {
-        return priority.get().getLevelPriority();
     }
 
     public Priority getPriority()
