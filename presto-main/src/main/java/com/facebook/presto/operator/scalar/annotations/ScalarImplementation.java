@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.IsNull;
@@ -318,7 +319,14 @@ public class ScalarImplementation
         public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
             Signature signature = applyBoundVariables(this.signature, boundVariables, this.signature.getArgumentTypes().size());
-            return functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
+            ScalarFunctionImplementation scalarFunctionImplementation = functionRegistry.getScalarFunctionImplementation(signature);
+            if (scalarFunctionImplementation.getInstanceFactory().isPresent()) {
+                // TODO: This feature is useful for a few casts, e.g. MapToMapCast, JsonToMapCast
+                // Implementing this requires a revamp because we must be able to defer binding of MethodHandles,
+                // and be able to express such need in a recursive way in ScalarFunctionImplementation.
+                throw new UnsupportedOperationException("OperatorDependency/FunctionDependency cannot refer to methods with instance factory");
+            }
+            return scalarFunctionImplementation.getMethodHandle();
         }
     }
 
