@@ -477,6 +477,8 @@ public class HashAggregationOperator
             aggregationBuilder.close();
             aggregationBuilder = null;
         }
+        operatorContext.setMemoryReservation(0);
+        operatorContext.setRevocableMemoryReservation(0);
     }
 
     private Page getGlobalAggregationOutput()
