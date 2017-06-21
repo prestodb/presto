@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -89,7 +89,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .flatMap(entry -> DependencyExtractor.extractAll(entry).stream())
+                .flatMap(entry -> SymbolsExtractor.extractAll(entry).stream())
                 .collect(toSet());
 
         Assignments.Builder childAssignments = Assignments.builder();
@@ -137,7 +137,7 @@ public class InlineProjections
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
                 .getExpressions().stream()
-                .flatMap(expression -> DependencyExtractor.extractAll(expression).stream())
+                .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         // find references to simple constants
@@ -167,7 +167,7 @@ public class InlineProjections
         return AstUtils.preOrder(expression)
                 .filter(TryExpression.class::isInstance)
                 .map(TryExpression.class::cast)
-                .flatMap(tryExpression -> DependencyExtractor.extractAll(tryExpression).stream())
+                .flatMap(tryExpression -> SymbolsExtractor.extractAll(tryExpression).stream())
                 .collect(toSet());
     }
 }

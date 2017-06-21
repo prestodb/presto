@@ -16,11 +16,11 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -177,7 +177,7 @@ public class PruneUnreferencedOutputs
             Set<Symbol> expectedFilterInputs = new HashSet<>();
             if (node.getFilter().isPresent()) {
                 expectedFilterInputs = ImmutableSet.<Symbol>builder()
-                        .addAll(DependencyExtractor.extractUnique(node.getFilter().get()))
+                        .addAll(SymbolsExtractor.extractUnique(node.getFilter().get()))
                         .addAll(context.get())
                         .build();
             }
@@ -314,7 +314,7 @@ public class PruneUnreferencedOutputs
                 if (context.get().contains(symbol)) {
                     Aggregation aggregation = entry.getValue();
                     FunctionCall call = aggregation.getCall();
-                    expectedInputs.addAll(DependencyExtractor.extractUnique(call));
+                    expectedInputs.addAll(SymbolsExtractor.extractUnique(call));
                     if (aggregation.getMask().isPresent()) {
                         expectedInputs.add(aggregation.getMask().get());
                     }
@@ -361,7 +361,7 @@ public class PruneUnreferencedOutputs
 
                 if (context.get().contains(symbol)) {
                     FunctionCall call = function.getFunctionCall();
-                    expectedInputs.addAll(DependencyExtractor.extractUnique(call));
+                    expectedInputs.addAll(SymbolsExtractor.extractUnique(call));
 
                     functionsBuilder.put(symbol, entry.getValue());
                 }
@@ -412,7 +412,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitFilter(FilterNode node, RewriteContext<Set<Symbol>> context)
         {
             Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(DependencyExtractor.extractUnique(node.getPredicate()))
+                    .addAll(SymbolsExtractor.extractUnique(node.getPredicate()))
                     .addAll(context.get())
                     .build();
 
@@ -503,7 +503,7 @@ public class PruneUnreferencedOutputs
                 Expression expression = node.getAssignments().get(output);
 
                 if (context.get().contains(output)) {
-                    expectedInputs.addAll(DependencyExtractor.extractUnique(expression));
+                    expectedInputs.addAll(SymbolsExtractor.extractUnique(expression));
                     builder.put(output, expression);
                 }
             }
@@ -734,7 +734,7 @@ public class PruneUnreferencedOutputs
                 Symbol output = entry.getKey();
                 Expression expression = entry.getValue();
                 if (context.get().contains(output)) {
-                    subqueryAssignmentsSymbolsBuilder.addAll(DependencyExtractor.extractUnique(expression));
+                    subqueryAssignmentsSymbolsBuilder.addAll(SymbolsExtractor.extractUnique(expression));
                     subqueryAssignments.put(output, expression);
                 }
             }
@@ -743,7 +743,7 @@ public class PruneUnreferencedOutputs
             PlanNode subquery = context.rewrite(node.getSubquery(), subqueryAssignmentsSymbols);
 
             // prune not used correlation symbols
-            Set<Symbol> subquerySymbols = DependencyExtractor.extractUnique(subquery);
+            Set<Symbol> subquerySymbols = SymbolsExtractor.extractUnique(subquery);
             List<Symbol> newCorrelation = node.getCorrelation().stream()
                     .filter(subquerySymbols::contains)
                     .collect(toImmutableList());
@@ -777,7 +777,7 @@ public class PruneUnreferencedOutputs
             }
 
             // prune not used correlation symbols
-            Set<Symbol> subquerySymbols = DependencyExtractor.extractUnique(subquery);
+            Set<Symbol> subquerySymbols = SymbolsExtractor.extractUnique(subquery);
             List<Symbol> newCorrelation = node.getCorrelation().stream()
                     .filter(subquerySymbols::contains)
                     .collect(toImmutableList());
