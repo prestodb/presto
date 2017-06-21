@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.MapBlock;
 import com.facebook.presto.spi.block.MapBlockBuilder;
+import com.facebook.presto.spi.block.SingleMapBlock;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
@@ -180,10 +181,13 @@ public class MapType
             return null;
         }
 
-        Block mapBlock = block.getObject(position, Block.class);
+        Block singleMapBlock = block.getObject(position, Block.class);
+        if (!(singleMapBlock instanceof SingleMapBlock)) {
+            throw new UnsupportedOperationException("Map is encoded with legacy block representation");
+        }
         Map<Object, Object> map = new HashMap<>();
-        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(session, mapBlock, i), valueType.getObjectValue(session, mapBlock, i + 1));
+        for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
+            map.put(keyType.getObjectValue(session, singleMapBlock, i), valueType.getObjectValue(session, singleMapBlock, i + 1));
         }
 
         return Collections.unmodifiableMap(map);
