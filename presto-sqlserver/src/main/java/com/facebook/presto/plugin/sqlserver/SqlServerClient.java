@@ -17,13 +17,16 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcSplit;
 import com.facebook.presto.spi.PrestoException;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 
@@ -35,32 +38,42 @@ public class SqlServerClient
             throws SQLException
     {
         super(connectorId, config, "\"", new SQLServerDriver());
+        connectionProperties.setProperty("applicationName", "Presto");
+        connectionProperties.setProperty("sendStringParametersAsUnicode", "false");
+    }
+
+    @Override
+    public Connection getConnection(JdbcSplit split)
+            throws SQLException
+    {
+        Connection connection = super.getConnection(split);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("SET QUOTED_IDENTIFIER, ANSI_NULLS, CONCAT_NULL_YIELDS_NULL, ARITHABORT ON");
+        }
+        catch (SQLException e) {
+            connection.close();
+            throw e;
+        }
+        return connection;
     }
 
     @Override
     public void commitCreateTable(JdbcOutputTableHandle handle)
     {
-        StringBuilder sql = new StringBuilder()
-                .append("sp_rename ")
-                .append(singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(", ")
-                .append(singleQuote(handle.getTableName()));
-
-        try (Connection connection = getConnection(handle)) {
-            execute(connection, sql.toString());
+        try (Connection connection = getConnection(handle);
+                PreparedStatement statement = connection.prepareStatement("EXEC sp_rename ?, ?")) {
+            statement.setString(1, quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()));
+            statement.setString(2, handle.getTableName());
+            statement.executeUpdate();
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
     }
 
-    private static String singleQuote(String catalog, String schema, String table)
+    @Override
+    protected String quoted(String name)
     {
-        return singleQuote(catalog + "." + schema + "." + table);
-    }
-
-    private static String singleQuote(String literal)
-    {
-        return "\'" + literal + "\'";
+        return '[' + name.replace("]", "]]") + ']';
     }
 }
