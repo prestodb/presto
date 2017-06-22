@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.type.Type;
@@ -46,7 +46,7 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
-    private final CostCalculator costCalculator;
+    private final StatsCalculator statsCalculator;
     private Session session;
     private final Rule rule;
 
@@ -57,10 +57,10 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
         this.metadata = metadata;
-        this.costCalculator = costCalculator;
+        this.statsCalculator = statsCalculator;
         this.session = session;
         this.rule = rule;
         this.transactionManager = transactionManager;
@@ -98,7 +98,7 @@ public class RuleAssert
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, costCalculator, session, 2))));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, statsCalculator, session, 2))));
         }
     }
 
@@ -134,8 +134,8 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            Map<PlanNodeId, PlanNodeCost> planNodeCosts = costCalculator.calculateCostForPlan(session, types, actual);
-            assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), ruleApplication.lookup, pattern);
+            Map<PlanNodeId, PlanNodeStatsEstimate> planNodeStats = statsCalculator.calculateStatsForPlan(session, types, actual);
+            assertPlan(session, metadata, statsCalculator, new Plan(actual, types, planNodeStats), ruleApplication.lookup, pattern);
             return null;
         });
     }
@@ -157,7 +157,7 @@ public class RuleAssert
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, costCalculator, session, 2));
+        return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, statsCalculator, session, 2));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

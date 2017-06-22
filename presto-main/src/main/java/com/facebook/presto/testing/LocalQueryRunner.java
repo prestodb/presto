@@ -29,8 +29,8 @@ import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SchemaPropertiesSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.connector.system.TransactionsSystemTable;
-import com.facebook.presto.cost.CoefficientBasedCostCalculator;
-import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
@@ -211,7 +211,7 @@ public class LocalQueryRunner
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
-    private final CostCalculator costCalculator;
+    private final StatsCalculator statsCalculator;
     private final TestingAccessControlManager accessControl;
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -287,7 +287,7 @@ public class LocalQueryRunner
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
-        this.costCalculator = new CoefficientBasedCostCalculator(metadata);
+        this.statsCalculator = new CoefficientBasedStatsCalculator(metadata);
         this.accessControl = new TestingAccessControlManager(transactionManager);
         this.pageSourceManager = new PageSourceManager();
 
@@ -407,9 +407,9 @@ public class LocalQueryRunner
     }
 
     @Override
-    public CostCalculator getCostCalculator()
+    public StatsCalculator getStatsCalculator()
     {
-        return costCalculator;
+        return statsCalculator;
     }
 
     @Override
@@ -569,7 +569,7 @@ public class LocalQueryRunner
         Plan plan = createPlan(session, sql);
 
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, costCalculator, session));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, statsCalculator, session));
         }
 
         SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan);
@@ -580,7 +580,7 @@ public class LocalQueryRunner
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 sqlParser,
-                costCalculator,
+                statsCalculator,
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -711,11 +711,11 @@ public class LocalQueryRunner
                 metadata,
                 accessControl,
                 sqlParser,
-                costCalculator,
+                statsCalculator,
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser, costCalculator);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser, statsCalculator);
 
         Analysis analysis = analyzer.analyze(statement);
         return logicalPlanner.plan(analysis, stage);

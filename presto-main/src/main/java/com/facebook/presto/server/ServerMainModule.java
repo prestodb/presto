@@ -21,8 +21,8 @@ import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
-import com.facebook.presto.cost.CoefficientBasedCostCalculator;
-import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.LocationFactory;
@@ -349,7 +349,7 @@ public class ServerMainModule
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
         // statistics calculator
-        binder.bind(CostCalculator.class).to(CoefficientBasedCostCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(StatsCalculator.class).to(CoefficientBasedStatsCalculator.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
