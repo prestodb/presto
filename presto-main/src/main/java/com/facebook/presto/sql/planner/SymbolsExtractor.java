@@ -35,8 +35,13 @@ import static java.util.Objects.requireNonNull;
 
 public final class SymbolsExtractor
 {
-    private SymbolsExtractor() {}
+    private SymbolsExtractor()
+    {
+    }
 
+    /**
+     * Computes all symbols declared by a logical plan
+     */
     public static Set<Symbol> extractAll(PlanNode node)
     {
         return ImmutableSet.<Symbol>builder()
