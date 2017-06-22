@@ -29,6 +29,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class TransformUncorrelatedLateralToJoin
         implements PlanOptimizer
 {
