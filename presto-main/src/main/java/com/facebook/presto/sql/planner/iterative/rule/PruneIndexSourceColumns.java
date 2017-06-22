@@ -13,15 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 import java.util.List;
@@ -29,63 +26,44 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneIndexSourceColumns
-        implements Rule
+        extends ProjectOffPushDownRule<IndexSourceNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
-
-    @Override
-    public Pattern getPattern()
+    public PruneIndexSourceColumns()
     {
-        return PATTERN;
+        super(IndexSourceNode.class);
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, IndexSourceNode indexSourceNode, Set<Symbol> referencedOutputs)
     {
-        ProjectNode parent = (ProjectNode) node;
-
-        PlanNode source = context.getLookup().resolve(parent.getSource());
-        if (!(source instanceof IndexSourceNode)) {
-            return Optional.empty();
-        }
-
-        IndexSourceNode indexSourceNode = (IndexSourceNode) source;
-
-        Optional<Set<Symbol>> prunedIndexSourceOutputs = pruneInputs(indexSourceNode.getOutputSymbols(), parent.getAssignments().getExpressions());
-        if (!prunedIndexSourceOutputs.isPresent()) {
-            return Optional.empty();
-        }
-
-        Set<Symbol> newLookupSymbols = indexSourceNode.getLookupSymbols().stream()
-                .filter(prunedIndexSourceOutputs.get()::contains)
+        Set<Symbol> prunedLookupSymbols = indexSourceNode.getLookupSymbols().stream()
+                .filter(referencedOutputs::contains)
                 .collect(toImmutableSet());
 
-        Map<Symbol, ColumnHandle> newAssignments = Maps.filterEntries(
+        Map<Symbol, ColumnHandle> prunedAssignments = Maps.filterEntries(
                 indexSourceNode.getAssignments(),
-                entry -> prunedIndexSourceOutputs.get().contains(entry.getKey()) ||
+                entry -> referencedOutputs.contains(entry.getKey()) ||
                         tupleDomainReferencesColumnHandle(indexSourceNode.getEffectiveTupleDomain(), entry.getValue()));
 
-        List<Symbol> prunedIndexSourceOutputList =
+        List<Symbol> prunedOutputList =
                 indexSourceNode.getOutputSymbols().stream()
-                        .filter(prunedIndexSourceOutputs.get()::contains)
+                        .filter(referencedOutputs::contains)
                         .collect(toImmutableList());
 
         return Optional.of(
-                parent.replaceChildren(ImmutableList.of(
-                        new IndexSourceNode(
-                                indexSourceNode.getId(),
-                                indexSourceNode.getIndexHandle(),
-                                indexSourceNode.getTableHandle(),
-                                indexSourceNode.getLayout(),
-                                newLookupSymbols,
-                                prunedIndexSourceOutputList,
-                                newAssignments,
-                                indexSourceNode.getEffectiveTupleDomain()))));
+                new IndexSourceNode(
+                        indexSourceNode.getId(),
+                        indexSourceNode.getIndexHandle(),
+                        indexSourceNode.getTableHandle(),
+                        indexSourceNode.getLayout(),
+                        prunedLookupSymbols,
+                        prunedOutputList,
+                        prunedAssignments,
+                        indexSourceNode.getEffectiveTupleDomain()));
     }
 
     private static boolean tupleDomainReferencesColumnHandle(
