@@ -104,80 +104,80 @@ public class RuleAssert
 
     public void matches(PlanMatchPattern pattern)
     {
-      RuleApplication ruleApplication = applyRule();
-      Map<Symbol, Type> types = ruleApplication.types;
+        RuleApplication ruleApplication = applyRule();
+        Map<Symbol, Type> types = ruleApplication.types;
 
-      if (!ruleApplication.wasRuleApplied()) {
-          fail(String.format(
-                  "%s did not fire for:\n%s",
-                  rule.getClass().getName(),
-                  formatPlan(plan, types)));
-      }
+        if (!ruleApplication.wasRuleApplied()) {
+            fail(String.format(
+                    "%s did not fire for:\n%s",
+                    rule.getClass().getName(),
+                    formatPlan(plan, types)));
+        }
 
-      PlanNode actual = ruleApplication.getResult();
+        PlanNode actual = ruleApplication.getResult();
 
-      if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
-          fail(String.format(
-                  "%s: rule fired but return the original plan:\n%s",
-                  rule.getClass().getName(),
-                  formatPlan(plan, types)));
-      }
+        if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
+            fail(String.format(
+                    "%s: rule fired but return the original plan:\n%s",
+                    rule.getClass().getName(),
+                    formatPlan(plan, types)));
+        }
 
-      if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
-          fail(String.format(
-                  "%s: output schema of transformed and original plans are not equivalent\n" +
-                          "\texpected: %s\n" +
-                          "\tactual:   %s",
-                  rule.getClass().getName(),
-                  plan.getOutputSymbols(),
-                  actual.getOutputSymbols()));
-      }
+        if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
+            fail(String.format(
+                    "%s: output schema of transformed and original plans are not equivalent\n" +
+                            "\texpected: %s\n" +
+                            "\tactual:   %s",
+                    rule.getClass().getName(),
+                    plan.getOutputSymbols(),
+                    actual.getOutputSymbols()));
+        }
 
-      inTransaction(session -> {
-          Map<PlanNodeId, PlanNodeCost> planNodeCosts = costCalculator.calculateCostForPlan(session, types, actual);
-          assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), ruleApplication.lookup, pattern);
-          return null;
-      });
-  }
+        inTransaction(session -> {
+            Map<PlanNodeId, PlanNodeCost> planNodeCosts = costCalculator.calculateCostForPlan(session, types, actual);
+            assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), ruleApplication.lookup, pattern);
+            return null;
+        });
+    }
 
-  private RuleApplication applyRule()
-  {
-      SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-      Memo memo = new Memo(idAllocator, plan);
-      Lookup lookup = Lookup.from(memo::resolve);
+    private RuleApplication applyRule()
+    {
+        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
+        Memo memo = new Memo(idAllocator, plan);
+        Lookup lookup = Lookup.from(memo::resolve);
 
-      if (!rule.getPattern().matches(plan)) {
-          return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
-      }
+        if (!rule.getPattern().matches(plan)) {
+            return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
+        }
 
-      Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), lookup, idAllocator, symbolAllocator, session));
+        Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), lookup, idAllocator, symbolAllocator, session));
 
-      return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
-  }
+        return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
+    }
 
-  private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
-  {
-      return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, costCalculator, session, 2));
-  }
+    private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
+    {
+        return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, costCalculator, session, 2));
+    }
 
-  private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
-  {
-      return transaction(transactionManager, accessControl)
-              .singleStatement()
-              .execute(session, session -> {
-                  // metadata.getCatalogHandle() registers the catalog for the transaction
-                  session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-                  return transactionSessionConsumer.apply(session);
-              });
-  }
+    private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
+    {
+        return transaction(transactionManager, accessControl)
+                .singleStatement()
+                .execute(session, session -> {
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
+                    session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
+                    return transactionSessionConsumer.apply(session);
+                });
+    }
 
-  private static class RuleApplication
-  {
-      private final Lookup lookup;
-      private final Map<Symbol, Type> types;
-      private final Optional<PlanNode> result;
+    private static class RuleApplication
+    {
+        private final Lookup lookup;
+        private final Map<Symbol, Type> types;
+        private final Optional<PlanNode> result;
 
-      public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.types = requireNonNull(types, "types is null");
