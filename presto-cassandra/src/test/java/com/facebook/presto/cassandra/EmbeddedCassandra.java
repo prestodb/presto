@@ -81,6 +81,7 @@ public final class EmbeddedCassandra
                 .withClusterName("TestCluster")
                 .addContactPointsWithPorts(ImmutableList.of(
                         new InetSocketAddress(HOST, PORT)))
+                .withMaxSchemaAgreementWaitSeconds(30)
                 .build();
 
         CassandraSession session = new NativeCassandraSession(
