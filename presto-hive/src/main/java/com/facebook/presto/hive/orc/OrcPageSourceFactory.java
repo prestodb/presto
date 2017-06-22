@@ -98,6 +98,7 @@ public class OrcPageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -115,6 +116,7 @@ public class OrcPageSourceFactory
                 path,
                 start,
                 length,
+                fileSize,
                 columns,
                 useOrcColumnNames,
                 effectivePredicate,
@@ -136,6 +138,7 @@ public class OrcPageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             List<HiveColumnHandle> columns,
             boolean useOrcColumnNames,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -151,9 +154,8 @@ public class OrcPageSourceFactory
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            long size = fileSystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = fileSystem.open(path);
-            orcDataSource = new HdfsOrcDataSource(new OrcDataSourceId(path.toString()), size, maxMergeDistance, maxBufferSize, streamBufferSize, inputStream, stats);
+            orcDataSource = new HdfsOrcDataSource(new OrcDataSourceId(path.toString()), fileSize, maxMergeDistance, maxBufferSize, streamBufferSize, inputStream, stats);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

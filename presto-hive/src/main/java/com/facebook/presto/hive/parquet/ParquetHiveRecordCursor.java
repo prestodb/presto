@@ -124,6 +124,7 @@ public class ParquetHiveRecordCursor
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
@@ -163,6 +164,7 @@ public class ParquetHiveRecordCursor
                 path,
                 start,
                 length,
+                fileSize,
                 columns,
                 useParquetColumnNames,
                 predicatePushdownEnabled,
@@ -320,6 +322,7 @@ public class ParquetHiveRecordCursor
             Path path,
             long start,
             long length,
+            long fileSize,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
             boolean predicatePushdownEnabled,
@@ -328,7 +331,7 @@ public class ParquetHiveRecordCursor
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length);
+            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length, fileSize);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER));
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();

@@ -94,6 +94,7 @@ public class ParquetPageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -114,6 +115,7 @@ public class ParquetPageSourceFactory
                 path,
                 start,
                 length,
+                fileSize,
                 schema,
                 columns,
                 useParquetColumnNames,
@@ -129,6 +131,7 @@ public class ParquetPageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
@@ -141,8 +144,8 @@ public class ParquetPageSourceFactory
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length);
-            ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(fileSystem, path);
+            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length, fileSize);
+            ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(fileSystem, path, fileSize);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 

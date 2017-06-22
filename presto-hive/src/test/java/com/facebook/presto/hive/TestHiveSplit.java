@@ -47,6 +47,7 @@ public class TestHiveSplit
                 "path",
                 42,
                 88,
+                88,
                 schema,
                 partitionKeys,
                 addresses,
@@ -65,6 +66,7 @@ public class TestHiveSplit
         assertEquals(actual.getPath(), expected.getPath());
         assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getLength(), expected.getLength());
+        assertEquals(actual.getFileSize(), expected.getFileSize());
         assertEquals(actual.getSchema(), expected.getSchema());
         assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
         assertEquals(actual.getAddresses(), expected.getAddresses());
