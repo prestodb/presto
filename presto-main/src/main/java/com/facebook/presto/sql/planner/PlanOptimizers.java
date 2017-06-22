@@ -195,12 +195,13 @@ public class PlanOptimizers
                         stats,
                         ImmutableSet.of(new TransformExistsApplyToLateralNode(metadata.getFunctionRegistry()))),
                 new TransformQuantifiedComparisonApplyToLateralJoin(metadata),
-                new RemoveUnreferencedScalarLateralNodes(),
                 new IterativeOptimizer(stats,
                         ImmutableList.of(
+                                new RemoveUnreferencedScalarLateralNodes(),
                                 new TransformUncorrelatedLateralToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin()),
                         ImmutableSet.of(
+                                new com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes(),
                                 new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin(),
                                 new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin()
                         )

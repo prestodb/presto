@@ -31,6 +31,7 @@ import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWit
 /**
  * Remove LateralJoinNodes with unreferenced scalar input, e.g: "SELECT (SELECT 1)".
  */
+@Deprecated
 public class RemoveUnreferencedScalarLateralNodes
         implements PlanOptimizer
 {
