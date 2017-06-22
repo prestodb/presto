@@ -767,11 +767,6 @@ public class PruneUnreferencedOutputs
         {
             PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
 
-            // remove unused lateral nodes
-            if (intersection(ImmutableSet.copyOf(subquery.getOutputSymbols()), context.get()).isEmpty() && isScalar(subquery)) {
-                return context.rewrite(node.getInput(), context.get());
-            }
-
             // prune not used correlation symbols
             Set<Symbol> subquerySymbols = SymbolsExtractor.extractUnique(subquery);
             List<Symbol> newCorrelation = node.getCorrelation().stream()
