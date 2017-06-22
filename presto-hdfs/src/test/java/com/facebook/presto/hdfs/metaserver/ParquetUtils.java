@@ -26,6 +26,7 @@
 //import org.testng.annotations.Test;
 //
 //import java.io.IOException;
+//import java.util.Random;
 //
 ///**
 // * presto-root
@@ -35,7 +36,7 @@
 //public class ParquetUtils
 //{
 //    private Configuration conf = new Configuration();
-//    private final String path = "hdfs://127.0.0.1:9000/warehouse/default/book/book01.parquet";
+//    private final String path = "hdfs://127.0.0.1:9000/warehouse/test/student/student03.parquet";
 //    private final int blockSize = 256 * 1024 * 1024;
 //    private final int pageSize = 6 * 1024;
 //    private final int dictionaryPageSize = 512;
@@ -43,10 +44,12 @@
 //    private final boolean validating = false;
 //    private final CompressionCodecName compressionCodecName = CompressionCodecName.UNCOMPRESSED;
 //    private final ParquetProperties.WriterVersion writerVersion = ParquetProperties.WriterVersion.PARQUET_2_0;
-//    private final MessageType schema = MessageTypeParser.parseMessageType("message book {" +
+//    private final MessageType schema = MessageTypeParser.parseMessageType("message employee {" +
 //            "required binary name; " +
-//            "required double price; " +
-//            "required int64 publishtime; " +
+//            "required int32 age; " +
+//            "required double salary; " +
+//            "required int64 time; " +
+//            "required binary comment; " +
 //            "}");
 //    private GroupWriteSupport groupWriteSupport = new GroupWriteSupport();
 //    private SimpleGroupFactory simpleGroupFactory = new SimpleGroupFactory(schema);
@@ -70,14 +73,19 @@
 //                    writerVersion,
 //                    conf
 //            );
-//            for (int i = 0; i < 10; i++) {
+//            long start = System.currentTimeMillis();
+//            for (int i = 0; i < 200000; i++) {
 //                parquetWriter.write(
 //                        simpleGroupFactory.newGroup()
-//                        .append("name", "harry potter")
-//                        .append("price", 10.0)
-//                        .append("publishtime", System.currentTimeMillis())
+//                        .append("name", "ron")  //harry, hermione, ron
+//                                .append("age", new Random(100L).nextInt(6))
+//                        .append("salary", 10.0)
+//                        .append("time", System.currentTimeMillis())
+//                        .append("comment", "thisis")
 //                );
 //            }
+//            long end = System.currentTimeMillis();
+//            System.out.println("Starting: " + start + "\nEnding: " + end);
 //            parquetWriter.close();
 //        }
 //        catch (IOException e) {

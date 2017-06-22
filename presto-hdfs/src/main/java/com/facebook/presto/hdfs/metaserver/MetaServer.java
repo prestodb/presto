@@ -79,5 +79,7 @@ public interface MetaServer
 
     List<String> getBlocks(long fiberId, String timeB, String timeE);
 
+    List<String> filterBlocks(String db, String table, Optional<Long> fiberId, Optional<Long> timeLow, Optional<Long> timeHigh);
+
     void shutdown();
 }

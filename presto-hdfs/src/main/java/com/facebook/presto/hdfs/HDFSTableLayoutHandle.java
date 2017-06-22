@@ -15,13 +15,16 @@ package com.facebook.presto.hdfs;
 
 import com.facebook.presto.hdfs.function.Function;
 import com.facebook.presto.hdfs.function.Function0;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.IntegerType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -37,10 +40,16 @@ implements ConnectorTableLayoutHandle
     private final HDFSColumnHandle timestampColumn;
     private final Function fiberFunction;
     private final StorageFormat storageFormat;
+    private Optional<TupleDomain<ColumnHandle>> predicates;
 
     public HDFSTableLayoutHandle(HDFSTableHandle table)
     {
-        this(table, new HDFSColumnHandle("null", IntegerType.INTEGER, "", HDFSColumnHandle.ColumnType.REGULAR, ""), new HDFSColumnHandle("null", IntegerType.INTEGER, "", HDFSColumnHandle.ColumnType.REGULAR, ""), new Function0(), StorageFormat.PARQUET);
+        this(table,
+                new HDFSColumnHandle("null", IntegerType.INTEGER, "", HDFSColumnHandle.ColumnType.REGULAR, ""),
+                new HDFSColumnHandle("null", IntegerType.INTEGER, "", HDFSColumnHandle.ColumnType.REGULAR, ""),
+                new Function0(80),
+                StorageFormat.PARQUET,
+                Optional.empty());
     }
 
     @JsonCreator
@@ -49,13 +58,15 @@ implements ConnectorTableLayoutHandle
             @JsonProperty("fiberColumn") HDFSColumnHandle fiberColumn,
             @JsonProperty("timestampColumn") HDFSColumnHandle timestampColumn,
             @JsonProperty("fiberFunction") Function fiberFunction,
-            @JsonProperty("storageFormat") StorageFormat storageFormat)
+            @JsonProperty("storageFormat") StorageFormat storageFormat,
+            @JsonProperty("predicates") Optional<TupleDomain<ColumnHandle>> predicates)
     {
         this.table = requireNonNull(table, "table is null");
         this.fiberColumn = requireNonNull(fiberColumn, "fiberColumn is null");
         this.timestampColumn = requireNonNull(timestampColumn, "timestampColumn is null");
         this.fiberFunction = requireNonNull(fiberFunction, "fiberFunc is null");
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
+        this.predicates = requireNonNull(predicates, "predicates is null");
     }
 
     @JsonProperty
@@ -92,6 +103,17 @@ implements ConnectorTableLayoutHandle
     public StorageFormat getStorageFormat()
     {
         return storageFormat;
+    }
+
+    public void setPredicates(Optional<TupleDomain<ColumnHandle>> predicates)
+    {
+        this.predicates = predicates;
+    }
+
+    @JsonProperty
+    public Optional<TupleDomain<ColumnHandle>> getPredicates()
+    {
+        return predicates;
     }
 
     @Override

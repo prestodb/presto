@@ -21,7 +21,6 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -92,7 +91,8 @@ public class JDBCDriver
                 }
                 recordList.add(record);
             }
-        } catch (SQLException e) {
+        }
+        catch (SQLException e) {
             log.debug("Error sql: " + sql);
             log.error(e, "Sql execute error.");
         }
@@ -105,7 +105,8 @@ public class JDBCDriver
                 PreparedStatement statement = connection.prepareStatement(sql)
                 ) {
             return statement.executeUpdate();
-        } catch (SQLException e) {
+        }
+        catch (SQLException e) {
             e.printStackTrace();
             log.debug("Error sql: " + sql);
             log.error(e, "DDL error");

@@ -71,7 +71,7 @@ import static jline.internal.Configuration.getUserHome;
 public class Console
         implements Runnable
 {
-    private static final String PROMPT_NAME = "presto";
+    private static final String PROMPT_NAME = "paraflow";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
 
     // create a parser with all identifier options enabled, since this is only used for USE statements

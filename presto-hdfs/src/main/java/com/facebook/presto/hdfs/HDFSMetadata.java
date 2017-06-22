@@ -28,6 +28,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,6 +48,7 @@ implements ConnectorMetadata
 {
     private final String connectorId;
     private final MetaServer metaServer;
+    private final Logger logger = Logger.get(HDFSMetadata.class);
 
     @Inject
     public HDFSMetadata(MetaServer metaServer, HDFSConnectorId connectorId)
@@ -92,12 +94,12 @@ implements ConnectorMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        // TODO how to deal with desired columns?
         // get table name from ConnectorTableHandle
         HDFSTableHandle hdfsTable = checkType(table, HDFSTableHandle.class, "table");
         SchemaTableName tableName = hdfsTable.getSchemaTableName();
         // create HDFSTableLayoutHandle
         HDFSTableLayoutHandle tableLayout = metaServer.getTableLayout(connectorId, tableName.getSchemaName(), tableName.getTableName()).orElse(null);
+        tableLayout.setPredicates(constraint.getSummary() != null ? Optional.of(constraint.getSummary()) : Optional.empty());
         // ConnectorTableLayout layout = new ConnectorTableLayout(HDFSTableLayoutHandle)
         ConnectorTableLayout layout = getTableLayout(session, tableLayout);
 
@@ -108,7 +110,8 @@ implements ConnectorMetadata
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         // TODO add fiber and timestamp as new LocalProperty into ConnectorTableLayout ?
-        return new ConnectorTableLayout(handle);
+        HDFSTableLayoutHandle layoutHandle = checkType(handle, HDFSTableLayoutHandle.class, "tableLayoutHandle");
+        return new ConnectorTableLayout(layoutHandle);
     }
 
     /**

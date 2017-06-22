@@ -21,7 +21,7 @@ import com.google.common.hash.Hashing;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 /**
@@ -35,18 +35,21 @@ import java.util.Objects;
 public final class Function0 implements Function
 {
     private final int seed;
+    private final int fiberNum;
     private final HashFunction hasher;
 
     @JsonCreator
-    public Function0(@JsonProperty("seed") int seed)
+    public Function0(@JsonProperty("seed") int seed,
+                     @JsonProperty("fiberNum") int fiberNum)
     {
         this.seed = seed;
+        this.fiberNum = fiberNum;
         this.hasher = Hashing.murmur3_128(seed);
     }
 
-    public Function0()
+    public Function0(int fiberNum)
     {
-        this(1318007700);
+        this(1318007700, fiberNum);
     }
 
     @JsonProperty
@@ -58,7 +61,8 @@ public final class Function0 implements Function
     @Override
     public long apply(String v)
     {
-        return hasher.hashString(v.subSequence(0, v.length()), Charset.defaultCharset()).asLong();
+        long k = hasher.hashString(v.subSequence(0, v.length()), StandardCharsets.UTF_8).asLong();
+        return ((k % fiberNum) + fiberNum) % fiberNum;
     }
 
     @Override

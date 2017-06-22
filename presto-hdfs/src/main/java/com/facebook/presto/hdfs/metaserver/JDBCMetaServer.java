@@ -142,7 +142,8 @@ implements MetaServer
                     initFlag++;
                     log.info("Table " + tbl + " already exists.");
                 }
-            } catch (SQLException e) {
+            }
+            catch (SQLException e) {
                 log.error(e, "jdbc meta getTables error");
             }
         }
@@ -353,7 +354,7 @@ implements MetaServer
         HDFSColumnHandle fiberCol = getColumnHandle(connectorId, fiberColName, tableName, databaseName);
         HDFSColumnHandle timeCol = getColumnHandle(connectorId, timeColName, tableName, databaseName);
 
-        tableLayout = new HDFSTableLayoutHandle(tableHandle, fiberCol, timeCol, function, StorageFormat.PARQUET);
+        tableLayout = new HDFSTableLayoutHandle(tableHandle, fiberCol, timeCol, function, StorageFormat.PARQUET, Optional.empty());
         return Optional.of(tableLayout);
     }
 
@@ -423,6 +424,7 @@ implements MetaServer
         records = jdbcDriver.executeQuery(sql, colFields);
         if (records.size() != 1) {
             log.error("Match more/less than one column");
+            log.error(sql);
             throw new RecordMoreLessException();
         }
         JDBCRecord fiberColRecord = records.get(0);
@@ -965,6 +967,40 @@ implements MetaServer
         records.forEach(record -> resultL.add(record.getString(fields[0])));
         return resultL;
     }
+
+    /**
+     * Filter blocks
+     * */
+    @Override
+    public List<String> filterBlocks(String db, String table, Optional<Long> fiberId, Optional<Long> timeLow, Optional<Long> timeHigh)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("SELECT DISTINCT path FROM blockfiles WHERE db_name='")
+                .append(db)
+                .append("' AND table_name='")
+                .append(table)
+                .append("'");
+        fiberId.ifPresent(aLong -> sb.append(" AND fiberid=").append(aLong));
+        if (timeLow.isPresent() && !timeHigh.isPresent()) {
+            sb.append(" AND time_e>=").append(timeLow.get());
+        }
+        else if (!timeLow.isPresent() && timeHigh.isPresent()) {
+            sb.append(" AND time_b<=").append(timeHigh.get());
+        }
+        else if (timeHigh.isPresent() && timeLow.isPresent()) {
+            sb.append(" AND ");
+            sb.append("((").append(timeLow.get()).append("<=time_b AND time_b<=").append(timeHigh.get()).append(")")
+            .append(" OR (").append(timeLow.get()).append("<=time_e AND time_e<=").append(timeHigh.get()).append(")")
+            .append(" OR (").append(timeLow.get()).append(">=time_b AND time_e>=").append(timeHigh.get()).append("))");
+        }
+        sb.append(";");
+        List<String> resultL = new ArrayList<>();
+        String[] fields = {"path"};
+        List<JDBCRecord> records = jdbcDriver.executeQuery(sb.toString(), fields);
+        records.forEach(record -> resultL.add(record.getString(fields[0])));
+        return resultL;
+    }
+
     private HDFSColumnHandle.ColumnType getColType(String typeName)
     {
         log.debug("Get col type " + typeName);
@@ -1033,7 +1069,7 @@ implements MetaServer
     private Function parseFunction(String function)
     {
         switch (function) {
-            case "function0": return new Function0();
+            case "function0": return new Function0(80);
         }
         return null;
     }

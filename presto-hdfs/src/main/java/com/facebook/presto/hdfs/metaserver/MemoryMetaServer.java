@@ -146,6 +146,12 @@ public class MemoryMetaServer
     }
 
     @Override
+    public List<String> filterBlocks(String db, String table, Optional<Long> fiberId, Optional<Long> timeLow, Optional<Long> timeHigh)
+    {
+        return null;
+    }
+
+    @Override
     public void shutdown()
     {
     }

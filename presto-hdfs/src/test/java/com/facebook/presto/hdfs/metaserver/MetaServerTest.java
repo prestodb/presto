@@ -16,7 +16,6 @@ package com.facebook.presto.hdfs.metaserver;
 import com.facebook.presto.hdfs.HDFSColumnHandle;
 import com.facebook.presto.hdfs.HDFSConfig;
 import com.facebook.presto.hdfs.HDFSDatabase;
-import com.facebook.presto.hdfs.HDFSTable;
 import com.facebook.presto.hdfs.HDFSTableHandle;
 import com.facebook.presto.hdfs.HDFSTableLayoutHandle;
 import com.facebook.presto.hdfs.StorageFormat;
@@ -191,8 +190,8 @@ public class MetaServerTest
         HDFSTableHandle handle = new HDFSTableHandle(connectorId, "test", "student", "hdfs://127.0.0.1:9000/warehouse/test/student");
         HDFSColumnHandle name = new HDFSColumnHandle("name", VarcharType.createVarcharType(20), "", HDFSColumnHandle.ColumnType.FIBER_COL, connectorId);
         HDFSColumnHandle time = new HDFSColumnHandle("time", TimestampType.TIMESTAMP, "", HDFSColumnHandle.ColumnType.TIME_COL, connectorId);
-        Function function = new Function0();
-        HDFSTableLayoutHandle result = new HDFSTableLayoutHandle(handle, name, time, function, StorageFormat.PARQUET);
+        Function function = new Function0(80);
+        HDFSTableLayoutHandle result = new HDFSTableLayoutHandle(handle, name, time, function, StorageFormat.PARQUET, Optional.empty());
 
         assertEquals(tableLayoutHandle, result);
         System.out.println(tableLayoutHandle);

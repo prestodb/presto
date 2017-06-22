@@ -26,7 +26,7 @@ public class VersionOption
     {
         if (version) {
             String clientVersion = Presto.class.getPackage().getImplementationVersion();
-            System.out.println("Presto CLI " + firstNonNull(clientVersion, "(version unknown)"));
+            System.out.println("Paraflow " + firstNonNull(clientVersion, "(version unknown)"));
         }
         return version;
     }
