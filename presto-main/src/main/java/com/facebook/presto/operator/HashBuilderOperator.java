@@ -455,6 +455,10 @@ public class HashBuilderOperator
             return;
         }
 
+        if (finishMemoryRevoke.isPresent()) {
+            return;
+        }
+
         switch (state) {
             case CONSUMING_INPUT:
                 finishInput();
@@ -646,6 +650,8 @@ public class HashBuilderOperator
 
         lookupSourceSupplier = null;
         state = State.DISPOSED;
+        finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {
+        });
 
         try (Closer closer = Closer.create()) {
             closer.register(index::clear);
