@@ -14,20 +14,20 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import static java.util.Objects.requireNonNull;
 
-public class PlanCostMatcher
+public class PlanStatsMatcher
         implements Matcher
 {
-    private final PlanNodeCost expectedCost;
+    private final PlanNodeStatsEstimate expectedStats;
 
-    PlanCostMatcher(PlanNodeCost expectedCost)
+    PlanStatsMatcher(PlanNodeStatsEstimate expectedStats)
     {
-        this.expectedCost = requireNonNull(expectedCost, "expectedCost is null");
+        this.expectedStats = requireNonNull(expectedStats, "expectedStats is null");
     }
 
     @Override
@@ -37,14 +37,14 @@ public class PlanCostMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, PlanNodeStatsEstimate stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        return new MatchResult(expectedCost.equals(cost));
+        return new MatchResult(expectedStats.equals(stats));
     }
 
     @Override
     public String toString()
     {
-        return "expectedCost(" + expectedCost + ")";
+        return "expectedStats(" + expectedStats + ")";
     }
 }
