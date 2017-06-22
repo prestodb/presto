@@ -15,10 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -86,38 +83,13 @@ public final class SymbolsExtractor
     // to extract qualified name with prefix
     public static Set<QualifiedName> extractNames(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
-        ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-        new QualifiedNameBuilderVisitor(columnReferences).process(expression, builder);
-        return builder.build();
-    }
+        requireNonNull(expression, "expression is null");
+        requireNonNull(columnReferences, "columnReferences is null");
 
-    private static class QualifiedNameBuilderVisitor
-            extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
-    {
-        private final Set<NodeRef<Expression>> columnReferences;
-
-        private QualifiedNameBuilderVisitor(Set<NodeRef<Expression>> columnReferences)
-        {
-            this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
-        }
-
-        @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<QualifiedName> builder)
-        {
-            if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                builder.add(DereferenceExpression.getQualifiedName(node));
-            }
-            else {
-                process(node.getBase(), builder);
-            }
-            return null;
-        }
-
-        @Override
-        protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<QualifiedName> builder)
-        {
-            builder.add(QualifiedName.of(node.getName()));
-            return null;
-        }
+        return AstUtils.preOrder(expression)
+                .filter(node -> columnReferences.contains(NodeRef.of(node)))
+                .map(Expression.class::cast)
+                .map(QualifiedName::from)
+                .collect(toImmutableSet());
     }
 }
