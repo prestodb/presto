@@ -239,13 +239,22 @@ public class PlanBuilder
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
+        return tableScan(symbols, assignments, null);
+    }
+
+    public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint)
+    {
         TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
-        return tableScan(tableHandle, symbols, assignments);
+        return tableScan(tableHandle, symbols, assignments, originalConstraint);
     }
 
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        Expression originalConstraint = null;
+        return tableScan(tableHandle, symbols, assignments, null);
+    }
+
+    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint)
+    {
         return new TableScanNode(
                 idAllocator.getNextId(),
                 tableHandle,
