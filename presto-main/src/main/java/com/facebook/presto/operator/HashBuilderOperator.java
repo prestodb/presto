@@ -21,6 +21,7 @@ import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunction
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.HashCode;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -31,8 +32,8 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Queue;
 
 import static com.facebook.presto.operator.Operators.checkSuccess;
@@ -250,7 +251,7 @@ public class HashBuilderOperator
     private Optional<ListenableFuture<List<Page>>> unspillInProgress = Optional.empty();
     @Nullable
     private LookupSourceSupplier lookupSourceSupplier;
-    private OptionalLong lookupSourceChecksum = OptionalLong.empty();
+    private Optional<HashCode> lookupSourceChecksum = Optional.empty();
 
     private Optional<Runnable> finishMemoryRevoke = Optional.empty();
 
@@ -410,7 +411,7 @@ public class HashBuilderOperator
                 index.clear();
                 operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
                 operatorContext.setRevocableMemoryReservation(0L);
-                lookupSourceChecksum = OptionalLong.of(lookupSourceSupplier.checksum());
+                lookupSourceChecksum = Optional.of(lookupSourceSupplier.checksum());
                 lookupSourceSupplier = null;
                 state = State.LOOKUP_SOURCE_SPILLED;
             });
@@ -584,7 +585,7 @@ public class HashBuilderOperator
 
         LookupSourceSupplier partition = buildLookupSource();
         lookupSourceChecksum.ifPresent(lookupSourceSupplierChecksum ->
-                checkState(partition.checksum() == lookupSourceSupplierChecksum, "Unspilled lookupSource checksum does not match original one"));
+                checkState(Objects.equals(partition.checksum(), lookupSourceSupplierChecksum), "Unspilled lookupSource checksum does not match original one"));
         operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());
 
         spilledLookupSourceHandle.setLookupSource(partition);
