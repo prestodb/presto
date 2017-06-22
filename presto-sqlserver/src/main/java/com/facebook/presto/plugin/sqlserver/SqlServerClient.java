@@ -67,6 +67,7 @@ public class SqlServerClient
             .put(DATE, "date")
             .put(TIME, "time")
             .put(TIMESTAMP, "datetime2")
+            .put(TIMESTAMP_WITH_TIME_ZONE, "datetimeoffset")
             .build();
 
     @Inject

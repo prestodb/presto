@@ -19,7 +19,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.microsoft.sqlserver.jdbc.ISQLServerPreparedStatement;
 import io.airlift.slice.Slice;
+import microsoft.sql.DateTimeOffset;
 
 import java.sql.Connection;
 import java.sql.Date;
@@ -36,10 +38,14 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -51,7 +57,7 @@ public class SqlServerRecordSink
     private static final TimeZone UTC = TimeZone.getTimeZone("UTC");
 
     private final Connection connection;
-    private final PreparedStatement statement;
+    private final ISQLServerPreparedStatement statement;
     private final int fieldCount;
     private final List<Type> columnTypes;
 
@@ -69,7 +75,7 @@ public class SqlServerRecordSink
         }
 
         try {
-            statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle));
+            statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle)).unwrap(ISQLServerPreparedStatement.class);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -150,6 +156,11 @@ public class SqlServerRecordSink
             else if (TIMESTAMP.equals(columnTypes.get(field))) {
                 Calendar cal = Calendar.getInstance(UTC);
                 statement.setTimestamp(next(), new Timestamp(value), cal);
+            }
+            else if (TIMESTAMP_WITH_TIME_ZONE.equals(columnTypes.get(field))) {
+                Calendar cal = Calendar.getInstance(getTimeZoneForKey(unpackZoneKey(value)));
+                long millisUtc = unpackMillisUtc(value);
+                statement.setDateTimeOffset(next(), DateTimeOffset.valueOf(new Timestamp(millisUtc), cal));
             }
             else {
                 statement.setLong(next(), value);
