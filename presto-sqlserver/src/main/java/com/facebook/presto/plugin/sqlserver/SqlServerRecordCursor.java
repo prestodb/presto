@@ -23,8 +23,10 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
+import com.microsoft.sqlserver.jdbc.ISQLServerResultSet;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import microsoft.sql.DateTimeOffset;
 
 import java.sql.Connection;
 import java.sql.Date;
@@ -41,12 +43,14 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -66,7 +70,7 @@ public class SqlServerRecordCursor
     private final List<JdbcColumnHandle> columnHandles;
     private final Connection connection;
     private final PreparedStatement statement;
-    private final ResultSet resultSet;
+    private final ISQLServerResultSet resultSet;
 
     private boolean closed;
 
@@ -78,7 +82,7 @@ public class SqlServerRecordCursor
             connection = requireNonNull(jdbcClient, "jdbcClient is null").getConnection(requireNonNull(split, "split was null"));
             statement = jdbcClient.buildSql(connection, split, columnHandles);
             log.debug("Executing: %s", statement.toString());
-            resultSet = statement.executeQuery();
+            resultSet = statement.executeQuery().unwrap(ISQLServerResultSet.class);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -175,6 +179,10 @@ public class SqlServerRecordCursor
                 Calendar cal = Calendar.getInstance(UTC);
                 Timestamp ts = resultSet.getTimestamp(field + 1, cal);
                 return ts.getTime();
+            }
+            if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                DateTimeOffset dto = this.resultSet.getDateTimeOffset(field + 1);
+                return packDateTimeWithZone(dto.getTimestamp().getTime(), dto.getMinutesOffset());
             }
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for long: " + type.getTypeSignature());
         }
