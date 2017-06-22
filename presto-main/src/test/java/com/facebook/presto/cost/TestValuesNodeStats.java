@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -32,6 +33,13 @@ public class TestValuesNodeStats
     public void setUp()
     {
         tester = new StatsCalculatorTester();
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        tester.close();
+        tester = null;
     }
 
     @Test
