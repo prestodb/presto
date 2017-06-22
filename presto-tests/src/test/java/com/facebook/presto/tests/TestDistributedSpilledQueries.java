@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
 
@@ -62,5 +63,19 @@ public class TestDistributedSpilledQueries
             queryRunner.close();
             throw e;
         }
+    }
+
+    @Test(invocationCount = 50)
+    @Override
+    public void testCorrelatedInPredicateSubqueries()
+    {
+        super.testCorrelatedInPredicateSubqueries();
+    }
+
+    @Test(invocationCount = 50)
+    @Override
+    public void testGroupByAsJoinProbe()
+    {
+        super.testGroupByAsJoinProbe();
     }
 }
