@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -32,7 +32,7 @@ public class RuleTester
         implements Closeable
 {
     private final Metadata metadata;
-    private final CostCalculator costCalculator;
+    private final StatsCalculator statsCalculator;
     private final Session session;
     private final LocalQueryRunner queryRunner;
     private final TransactionManager transactionManager;
@@ -52,7 +52,7 @@ public class RuleTester
                 ImmutableMap.<String, String>of());
 
         this.metadata = queryRunner.getMetadata();
-        this.costCalculator = queryRunner.getCostCalculator();
+        this.statsCalculator = queryRunner.getStatsCalculator();
         this.transactionManager = queryRunner.getTransactionManager();
         this.accessControl = queryRunner.getAccessControl();
     }
@@ -62,14 +62,14 @@ public class RuleTester
         this.queryRunner = queryRunner;
         this.session = queryRunner.getDefaultSession();
         this.metadata = queryRunner.getMetadata();
-        this.costCalculator = queryRunner.getCostCalculator();
+        this.statsCalculator = queryRunner.getStatsCalculator();
         this.transactionManager = queryRunner.getTransactionManager();
         this.accessControl = queryRunner.getAccessControl();
     }
 
     public RuleAssert assertThat(Rule rule)
     {
-        return new RuleAssert(metadata, costCalculator, session, rule, transactionManager, accessControl);
+        return new RuleAssert(metadata, statsCalculator, session, rule, transactionManager, accessControl);
     }
 
     @Override
