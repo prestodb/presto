@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -183,6 +184,41 @@ public final class QueryAssertions
                         expectedSubset.getMaterializedRows().size(),
                         Joiner.on("\n    ").join(Iterables.limit(expectedSubset, 100))));
             }
+        }
+    }
+
+    protected static void assertQueryFailsEventually(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
+                return;
+            }
+            catch (AssertionError e) {
+                if (nanosSince(start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            sleepUninterruptibly(50, MILLISECONDS);
+        }
+    }
+
+    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        try {
+            queryRunner.execute(session, sql);
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(sql, ex, expectedMessageRegExp);
+        }
+    }
+
+    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
+    {
+        if (!nullToEmpty(exception.getMessage()).matches(regex)) {
+            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
         }
     }
 

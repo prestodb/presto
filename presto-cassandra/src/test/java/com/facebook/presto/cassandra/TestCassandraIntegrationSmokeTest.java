@@ -331,8 +331,10 @@ public class TestCassandraIntegrationSmokeTest
                 .build(), new Duration(1, MINUTES));
 
         // There is no way to figure out what the exactly keyspace we want to retrieve tables from
-        assertQueryFails("SHOW TABLES FROM cassandra.keyspace_3",
-                "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)");
+        assertQueryFailsEventually(
+                "SHOW TABLES FROM cassandra.keyspace_3",
+                "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
+                new Duration(1, MINUTES));
 
         session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
         session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
@@ -359,11 +361,14 @@ public class TestCassandraIntegrationSmokeTest
                 .build(), new Duration(1, MINUTES));
 
         // There is no way to figure out what the exactly table is being queried
-        assertQueryFails("SHOW COLUMNS FROM cassandra.keyspace_4.table_4",
-                "More than one table has been found for the case insensitive table name: table_4 -> \\(TaBlE_4, tAbLe_4\\)");
-        assertQueryFails("SELECT * FROM cassandra.keyspace_4.table_4",
-                "More than one table has been found for the case insensitive table name: table_4 -> \\(TaBlE_4, tAbLe_4\\)");
-
+        assertQueryFailsEventually(
+                "SHOW COLUMNS FROM cassandra.keyspace_4.table_4",
+                "More than one table has been found for the case insensitive table name: table_4 -> \\(TaBlE_4, tAbLe_4\\)",
+                new Duration(1, MINUTES));
+        assertQueryFailsEventually(
+                "SELECT * FROM cassandra.keyspace_4.table_4",
+                "More than one table has been found for the case insensitive table name: table_4 -> \\(TaBlE_4, tAbLe_4\\)",
+                new Duration(1, MINUTES));
         session.execute("DROP KEYSPACE keyspace_4");
     }
 
@@ -381,10 +386,14 @@ public class TestCassandraIntegrationSmokeTest
                 .row("table_5")
                 .build(), new Duration(1, MINUTES));
 
-        assertQueryFails("SHOW COLUMNS FROM cassandra.keyspace_5.table_5",
-                "More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)");
-        assertQueryFails("SELECT * FROM cassandra.keyspace_5.table_5",
-                "More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)");
+        assertQueryFailsEventually(
+                "SHOW COLUMNS FROM cassandra.keyspace_5.table_5",
+                "More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
+                new Duration(1, MINUTES));
+        assertQueryFailsEventually(
+                "SELECT * FROM cassandra.keyspace_5.table_5",
+                "More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
+                new Duration(1, MINUTES));
 
         session.execute("DROP KEYSPACE keyspace_5");
     }
