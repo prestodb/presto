@@ -21,6 +21,7 @@ import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
+import com.facebook.presto.cost.AggregationStatsRule;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.ComposableStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
@@ -492,6 +493,7 @@ public class ServerMainModule
         rules.add(new ProjectStatsRule(scalarStatsCalculator));
         rules.add(new FilterStatsRule(filterStatsCalculator));
         rules.add(new JoinStatsRule(filterStatsCalculator));
+        rules.add(new AggregationStatsRule());
         return new ComposableStatsCalculator(rules.build());
     }
 
