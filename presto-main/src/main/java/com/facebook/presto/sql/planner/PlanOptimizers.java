@@ -197,7 +197,10 @@ public class PlanOptimizers
                 new TransformQuantifiedComparisonApplyToLateralJoin(metadata),
                 new RemoveUnreferencedScalarLateralNodes(),
                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                new TransformUncorrelatedLateralToJoin(),
+                new IterativeOptimizer(stats,
+                        ImmutableList.of(new TransformUncorrelatedLateralToJoin()),
+                        ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin())
+                ),
                 new IterativeOptimizer(
                         stats,
                         ImmutableList.of(new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry())),
