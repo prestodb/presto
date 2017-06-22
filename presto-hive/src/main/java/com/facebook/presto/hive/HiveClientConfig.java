@@ -99,6 +99,7 @@ public class HiveClientConfig
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
     private boolean rcfileOptimizedWriterEnabled;
+    private boolean rcfileWriterValidate = true;
 
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
@@ -686,6 +687,19 @@ public class HiveClientConfig
     public HiveClientConfig setRcfileOptimizedWriterEnabled(boolean rcfileOptimizedWriterEnabled)
     {
         this.rcfileOptimizedWriterEnabled = rcfileOptimizedWriterEnabled;
+        return this;
+    }
+
+    public boolean isRcfileWriterValidate()
+    {
+        return rcfileWriterValidate;
+    }
+
+    @Config("hive.rcfile.writer.validate")
+    @ConfigDescription("Validate RCFile after write by re-reading the whole file")
+    public HiveClientConfig setRcfileWriterValidate(boolean rcfileWriterValidate)
+    {
+        this.rcfileWriterValidate = rcfileWriterValidate;
         return this;
     }
 

@@ -111,7 +111,7 @@ public final class HiveSessionProperties
                 booleanSessionProperty(
                         RCFILE_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: RCFile: Validate writer files",
-                        true,
+                        config.isRcfileWriterValidate(),
                         false),
                 booleanSessionProperty(
                         STATISTICS_ENABLED,
