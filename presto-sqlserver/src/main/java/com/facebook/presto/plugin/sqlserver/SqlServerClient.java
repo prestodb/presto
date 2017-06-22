@@ -19,6 +19,9 @@ import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
 import com.facebook.presto.plugin.jdbc.JdbcSplit;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 
 import javax.inject.Inject;
@@ -33,6 +36,9 @@ import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 public class SqlServerClient
         extends BaseJdbcClient
 {
+    private static final int MSSQL_VARCHAR_MAX = 8000;
+    private static final int MSSQL_CHAR_MAX = 8000;
+
     @Inject
     public SqlServerClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
             throws SQLException
@@ -69,6 +75,27 @@ public class SqlServerClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    protected String toSqlType(Type type)
+    {
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded() || varcharType.getLengthSafe() > MSSQL_VARCHAR_MAX) {
+                return "varchar(max)";
+            }
+            return "varchar(" + ((VarcharType) type).getLengthSafe() + ')';
+        }
+        if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            if (charType.getLength() > MSSQL_CHAR_MAX) {
+                return "char(max)";
+            }
+            return "char(" + charType.getLength() + ')';
+        }
+
+        return super.toSqlType(type);
     }
 
     @Override
