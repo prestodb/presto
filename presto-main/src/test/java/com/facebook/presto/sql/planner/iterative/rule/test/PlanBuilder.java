@@ -390,7 +390,17 @@ public class PlanBuilder
 
     public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
     {
-        return new JoinNode(idAllocator.getNextId(),
+        return join(joinType, left, right, Optional.empty(), criteria);
+    }
+
+    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Expression filter, JoinNode.EquiJoinClause... criteria)
+    {
+        return join(joinType, left, right, Optional.of(filter), criteria);
+    }
+
+    private JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Optional<Expression> filter, JoinNode.EquiJoinClause... criteria)
+    {
+        return join(
                 joinType,
                 left,
                 right,
@@ -399,11 +409,9 @@ public class PlanBuilder
                         .addAll(left.getOutputSymbols())
                         .addAll(right.getOutputSymbols())
                         .build(),
+                filter,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-        );
+                Optional.empty());
     }
 
     public JoinNode join(
