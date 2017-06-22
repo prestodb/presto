@@ -92,7 +92,7 @@ public class GenericPartitioningSpiller
         readingStarted = true;
         getFutureValue(flush(partition));
         spilledPartitions.remove(partition);
-        return getSpillter(partition).getSpilledPages();
+        return getSpiller(partition).getSpilledPages();
     }
 
     @Override
@@ -161,10 +161,10 @@ public class GenericPartitioningSpiller
         }
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return getSpillter(partition).spill(page);
+        return getSpiller(partition).spill(page);
     }
 
-    private synchronized SingleStreamSpiller getSpillter(int partition)
+    private synchronized SingleStreamSpiller getSpiller(int partition)
     {
         Optional<SingleStreamSpiller> spiller = spillers[partition];
         if (!spiller.isPresent()) {
