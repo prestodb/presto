@@ -112,7 +112,7 @@ public class PlanFragmenter
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
         {
-            Set<Symbol> dependencies = SymbolExtractor.extract(root);
+            Set<Symbol> dependencies = SymbolsExtractor.extractAll(root);
 
             List<PlanNodeId> schedulingOrder = new SchedulingOrderVisitor().getSchedulingOrder(root);
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));

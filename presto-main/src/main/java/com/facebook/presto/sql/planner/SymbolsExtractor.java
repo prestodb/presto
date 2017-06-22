@@ -37,6 +37,14 @@ public final class SymbolsExtractor
 {
     private SymbolsExtractor() {}
 
+    public static Set<Symbol> extractAll(PlanNode node)
+    {
+        return ImmutableSet.<Symbol>builder()
+                .addAll(node.getOutputSymbols())
+                .addAll(extractUnique(node))
+                .build();
+    }
+
     public static Set<Symbol> extractUnique(PlanNode node)
     {
         ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
