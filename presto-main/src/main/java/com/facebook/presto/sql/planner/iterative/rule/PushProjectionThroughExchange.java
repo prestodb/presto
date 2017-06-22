@@ -30,13 +30,14 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.plan.Assignments.identity;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 
 /**
  * Transforms:
@@ -158,12 +159,8 @@ public class PushProjectionThroughExchange
                 newSourceBuilder.build(),
                 inputsBuilder.build());
 
-        if (!result.getOutputSymbols().equals(project.getOutputSymbols())) {
-            // we need to strip unnecessary symbols (hash, partitioning columns).
-            result = new ProjectNode(idAllocator.getNextId(), result, identity(project.getOutputSymbols()));
-        }
-
-        return Optional.of(result);
+        // we need to strip unnecessary symbols (hash, partitioning columns).
+        return Optional.of(restrictOutputs(idAllocator, result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));
     }
 
     private boolean isSymbolToSymbolProjection(ProjectNode project)
