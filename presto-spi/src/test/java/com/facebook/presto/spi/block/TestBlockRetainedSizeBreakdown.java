@@ -20,6 +20,7 @@ import it.unimi.dsi.fastutil.Hash.Strategy;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenCustomHashMap;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -35,21 +36,13 @@ public class TestBlockRetainedSizeBreakdown
 {
     private static final int EXPECTED_ENTRIES = 100;
 
-    private int objectSize;
-    private final Object2LongOpenCustomHashMap<Object> trackedObjects = new Object2LongOpenCustomHashMap<>(new ObjectStrategy());
-
-    private final BiConsumer<Object, Long> consumer = (object, size) -> {
-        objectSize += size;
-        trackedObjects.addTo(object, 1);
-    };
-
     @Test
     public void testArrayBlock()
     {
         BlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
             BlockBuilder arrayElementBuilder = arrayBlockBuilder.beginBlockEntry();
-            writeNativeValue(BIGINT, arrayElementBuilder, castIntegerToObect(i, BIGINT));
+            writeNativeValue(BIGINT, arrayElementBuilder, castIntegerToObject(i, BIGINT));
             arrayBlockBuilder.closeEntry();
         }
         checkRetainedSize(arrayBlockBuilder.build(), false);
@@ -156,17 +149,22 @@ public class TestBlockRetainedSizeBreakdown
         }
     }
 
-    private void checkRetainedSize(Block block, boolean getRegionCreateNewObjects)
+    private static void checkRetainedSize(Block block, boolean getRegionCreateNewObjects)
     {
-        objectSize = 0;
-        trackedObjects.clear();
+        AtomicLong objectSize = new AtomicLong();
+        Object2LongOpenCustomHashMap<Object> trackedObjects = new Object2LongOpenCustomHashMap<>(new ObjectStrategy());
+
+        BiConsumer<Object, Long> consumer = (object, size) -> {
+            objectSize.addAndGet(size);
+            trackedObjects.addTo(object, 1);
+        };
 
         block.retainedBytesForEachPart(consumer);
-        assertEquals(objectSize, block.getRetainedSizeInBytes());
+        assertEquals(objectSize.get(), block.getRetainedSizeInBytes());
 
         Block copyBlock = block.getRegion(0, block.getPositionCount() / 2);
         copyBlock.retainedBytesForEachPart(consumer);
-        assertEquals(objectSize, block.getRetainedSizeInBytes() + copyBlock.getRetainedSizeInBytes());
+        assertEquals(objectSize.get(), block.getRetainedSizeInBytes() + copyBlock.getRetainedSizeInBytes());
 
         assertEquals(trackedObjects.getLong(block), 1);
         assertEquals(trackedObjects.getLong(copyBlock), 1);
@@ -180,11 +178,11 @@ public class TestBlockRetainedSizeBreakdown
     private static void writeEntries(int expectedEntries, BlockBuilder blockBuilder, Type type)
     {
         for (int i = 0; i < expectedEntries; i++) {
-            writeNativeValue(type, blockBuilder, castIntegerToObect(i, type));
+            writeNativeValue(type, blockBuilder, castIntegerToObject(i, type));
         }
     }
 
-    private static Object castIntegerToObect(int value, Type type)
+    private static Object castIntegerToObject(int value, Type type)
     {
         if (type == INTEGER || type == TINYINT || type == BIGINT) {
             return (long) value;
