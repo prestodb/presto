@@ -65,7 +65,7 @@ public class EqualityInference
             // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
             // TODO: be more precise in determining the cost of an expression
             return ComparisonChain.start()
-                    .compare(SymbolsExtractor.extractAll(expression1).size(), SymbolsExtractor.extractAll(expression2).size())
+                    .compare(SymbolsExtractor.extractAll(expression1).count(), SymbolsExtractor.extractAll(expression2).count())
                     .compare(SubExpressionExtractor.extract(expression1).size(), SubExpressionExtractor.extract(expression2).size())
                     .compare(expression1.toString(), expression2.toString())
                     .result();
