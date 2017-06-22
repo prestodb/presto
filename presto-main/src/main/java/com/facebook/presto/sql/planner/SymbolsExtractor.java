@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -23,6 +22,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -77,9 +77,10 @@ public final class SymbolsExtractor
 
     public static Stream<Symbol> extractAll(Expression expression)
     {
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        new SymbolBuilderVisitor().process(expression, builder);
-        return builder.build().stream();
+        return AstUtils.preOrder(expression)
+                .filter(SymbolReference.class::isInstance)
+                .map(SymbolReference.class::cast)
+                .map(Symbol::from);
     }
 
     // to extract qualified name with prefix
@@ -88,17 +89,6 @@ public final class SymbolsExtractor
         ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
         new QualifiedNameBuilderVisitor(columnReferences).process(expression, builder);
         return builder.build();
-    }
-
-    private static class SymbolBuilderVisitor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
-    {
-        @Override
-        protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
-        {
-            builder.add(Symbol.from(node));
-            return null;
-        }
     }
 
     private static class QualifiedNameBuilderVisitor
