@@ -26,11 +26,13 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressions;
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 public final class SymbolsExtractor
@@ -63,23 +65,21 @@ public final class SymbolsExtractor
 
     public static Set<Symbol> extractUnique(Expression expression)
     {
-        return ImmutableSet.copyOf(extractAll(expression));
+        return extractUnique(ImmutableList.of(expression));
     }
 
     public static Set<Symbol> extractUnique(Iterable<? extends Expression> expressions)
     {
-        ImmutableSet.Builder<Symbol> unique = ImmutableSet.builder();
-        for (Expression expression : expressions) {
-            unique.addAll(extractAll(expression));
-        }
-        return unique.build();
+        return stream(expressions)
+                .flatMap(SymbolsExtractor::extractAll)
+                .collect(toImmutableSet());
     }
 
-    public static List<Symbol> extractAll(Expression expression)
+    public static Stream<Symbol> extractAll(Expression expression)
     {
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
         new SymbolBuilderVisitor().process(expression, builder);
-        return builder.build();
+        return builder.build().stream();
     }
 
     // to extract qualified name with prefix
