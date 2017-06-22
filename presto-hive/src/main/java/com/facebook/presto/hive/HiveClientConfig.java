@@ -98,8 +98,8 @@ public class HiveClientConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
-    private boolean rcfileOptimizedWriterEnabled;
-    private boolean rcfileWriterValidate = true;
+    private boolean rcfileOptimizedWriterEnabled = true;
+    private boolean rcfileWriterValidate;
 
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
