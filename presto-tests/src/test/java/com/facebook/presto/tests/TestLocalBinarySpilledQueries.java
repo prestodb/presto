@@ -21,6 +21,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
 
@@ -65,5 +66,19 @@ public class TestLocalBinarySpilledQueries
         sessionPropertyManager.addConnectorSessionProperties(new ConnectorId(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
 
         return localQueryRunner;
+    }
+
+    @Test(invocationCount = 50)
+    @Override
+    public void testCorrelatedInPredicateSubqueries()
+    {
+        super.testCorrelatedInPredicateSubqueries();
+    }
+
+    @Test(invocationCount = 50)
+    @Override
+    public void testGroupByAsJoinProbe()
+    {
+        super.testGroupByAsJoinProbe();
     }
 }

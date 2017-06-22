@@ -7196,7 +7196,7 @@ public abstract class AbstractTestQueries
                 "VALUES (2), (7)");
     }
 
-    @Test
+    @Test(invocationCount = 100)
     public void testCorrelatedInPredicateSubqueries()
     {
         String errorMsg = "Unexpected node: com.facebook.presto.sql.planner.plan.ApplyNode";
