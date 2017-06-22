@@ -13,67 +13,41 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
-import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneMarkDistinctColumns
-        implements Rule
+        extends ProjectOffPushDownRule<MarkDistinctNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
-
-    @Override
-    public Pattern getPattern()
+    public PruneMarkDistinctColumns()
     {
-        return PATTERN;
+        super(MarkDistinctNode.class);
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, MarkDistinctNode markDistinctNode, Set<Symbol> referencedOutputs)
     {
-        ProjectNode parent = (ProjectNode) node;
-
-        PlanNode child = context.getLookup().resolve(parent.getSource());
-        if (!(child instanceof MarkDistinctNode)) {
-            return Optional.empty();
-        }
-
-        MarkDistinctNode markDistinctNode = (MarkDistinctNode) child;
-
-        Optional<Set<Symbol>> prunedOutputs = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
-        if (!prunedOutputs.isPresent()) {
-            return Optional.empty();
-        }
-
-        if (!prunedOutputs.get().contains(markDistinctNode.getMarkerSymbol())) {
-            return Optional.of(
-                    node.replaceChildren(ImmutableList.of(markDistinctNode.getSource())));
+        if (!referencedOutputs.contains(markDistinctNode.getMarkerSymbol())) {
+            return Optional.of(markDistinctNode.getSource());
         }
 
         Set<Symbol> requiredInputs = Streams.concat(
-                prunedOutputs.get().stream()
+                referencedOutputs.stream()
                         .filter(symbol -> !symbol.equals(markDistinctNode.getMarkerSymbol())),
                 markDistinctNode.getDistinctSymbols().stream(),
                 markDistinctNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
-        return restrictOutputs(context.getIdAllocator(), markDistinctNode.getSource(), requiredInputs)
-                .map(prunedMarkDistinctSource ->
-                        parent.replaceChildren(ImmutableList.of(
-                                markDistinctNode.replaceChildren(ImmutableList.of(
-                                        prunedMarkDistinctSource)))));
+        return restrictChildOutputs(idAllocator, markDistinctNode, requiredInputs);
     }
 }
