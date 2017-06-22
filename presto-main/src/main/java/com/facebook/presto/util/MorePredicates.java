@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.optimizations;
+package com.facebook.presto.util;
 
 import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysFalse;
 
-public class Predicates
+public class MorePredicates
 {
-    private Predicates() {}
+    private MorePredicates() {}
 
     public static <T> Predicate<T> isInstanceOfAny(Class... classes)
     {
