@@ -15,26 +15,18 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import java.util.function.Predicate;
 
+import static com.google.common.base.Predicates.alwaysFalse;
+
 public class Predicates
 {
     private Predicates() {}
 
     public static <T> Predicate<T> isInstanceOfAny(Class... classes)
     {
-        Predicate predicate = alwaysFalse();
+        Predicate<T> predicate = alwaysFalse();
         for (Class clazz : classes) {
             predicate = predicate.or(clazz::isInstance);
         }
         return predicate;
-    }
-
-    public static <T> Predicate<T> alwaysTrue()
-    {
-        return x -> true;
-    }
-
-    public static <T> Predicate<T> alwaysFalse()
-    {
-        return x -> false;
     }
 }
