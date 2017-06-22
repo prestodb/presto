@@ -20,7 +20,8 @@ import static java.util.Objects.requireNonNull;
 
 public class MoreStreams
 {
-    public static boolean isEmpty(Stream<?> stream) {
+    public static boolean isEmpty(Stream<?> stream)
+    {
         requireNonNull(stream, "stream is null");
         return stream.noneMatch(alwaysTrue());
     }
