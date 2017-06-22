@@ -58,7 +58,7 @@ import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.google.common.base.Predicates.alwaysTrue;
+import static com.facebook.presto.util.MoreStreams.isEmpty;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -264,7 +264,7 @@ public class EffectivePredicateExtractor
         // Conjuncts without any symbol dependencies cannot be applied to the effective predicate (e.g. FALSE literal)
         return conjuncts.stream()
                 .map(expression -> pullExpressionThroughSymbols(expression, outputSymbols))
-                .map(expression -> SymbolsExtractor.extractAll(expression).anyMatch(alwaysTrue()) ? TRUE_LITERAL : expression)
+                .map(expression -> isEmpty(SymbolsExtractor.extractAll(expression)) ? TRUE_LITERAL : expression)
                 .map(expressionOrNullSymbols(nullSymbolScopes))
                 .collect(toImmutableList());
     }
