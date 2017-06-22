@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -40,14 +40,14 @@ final class PlanMatchingVisitor
 {
     private final Metadata metadata;
     private final Session session;
-    private final Map<PlanNodeId, PlanNodeCost> planCost;
+    private final Map<PlanNodeId, PlanNodeStatsEstimate> planStats;
     private final Lookup lookup;
 
-    PlanMatchingVisitor(Session session, Metadata metadata, Map<PlanNodeId, PlanNodeCost> planCost, Lookup lookup)
+    PlanMatchingVisitor(Session session, Metadata metadata, Map<PlanNodeId, PlanNodeStatsEstimate> planStats, Lookup lookup)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.planCost = requireNonNull(planCost, "planCost is null");
+        this.planStats = requireNonNull(planStats, "planStats is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
@@ -123,7 +123,7 @@ final class PlanMatchingVisitor
 
             // Try upMatching this node with the the aliases gathered from the source nodes.
             SymbolAliases allSourceAliases = sourcesMatch.getAliases();
-            MatchResult matchResult = pattern.detailMatches(node, planCost.get(node.getId()), session, metadata, allSourceAliases);
+            MatchResult matchResult = pattern.detailMatches(node, planStats.get(node.getId()), session, metadata, allSourceAliases);
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on node %s", node));
                 result = match(allSourceAliases.withNewAliases(matchResult.getAliases()));
@@ -148,7 +148,7 @@ final class PlanMatchingVisitor
                  * 2) Collect the aliases from the source nodes so we can add them to
                  *    SymbolAliases. They'll be needed further up.
                  */
-            MatchResult matchResult = pattern.detailMatches(node, planCost.get(node.getId()), session, metadata, new SymbolAliases());
+            MatchResult matchResult = pattern.detailMatches(node, planStats.get(node.getId()), session, metadata, new SymbolAliases());
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on leaf node %s", node));
                 result = matchResult;

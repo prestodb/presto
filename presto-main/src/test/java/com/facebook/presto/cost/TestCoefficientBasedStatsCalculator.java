@@ -30,12 +30,12 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
-public class TestCoefficientBasedCostCalculator
+public class TestCoefficientBasedStatsCalculator
 {
     private final LocalQueryRunner queryRunner;
-    private final CostCalculator costCalculator;
+    private final StatsCalculator statsCalculator;
 
-    public TestCoefficientBasedCostCalculator()
+    public TestCoefficientBasedStatsCalculator()
     {
         this.queryRunner = new LocalQueryRunner(testSessionBuilder()
                 .setCatalog("local")
@@ -48,17 +48,17 @@ public class TestCoefficientBasedCostCalculator
                 new TpchConnectorFactory(1, true),
                 ImmutableMap.<String, String>of());
 
-        costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
+        statsCalculator = new CoefficientBasedStatsCalculator(queryRunner.getMetadata());
     }
 
     @Test
-    public void testCostCalculatorUsesLayout()
+    public void testStatsCalculatorUsesLayout()
     {
         assertPlan("SELECT orderstatus FROM orders WHERE orderstatus = 'P'",
                 anyTree(
                         node(FilterNode.class,
                                 node(TableScanNode.class)
-                                        .withCost(PlanNodeCost.builder()
+                                        .withStats(PlanNodeStatsEstimate.builder()
                                                 .setOutputRowCount(new Estimate(363.0))
                                                 .setOutputSizeInBytes(unknownValue())
                                                 .build()))));
@@ -67,7 +67,7 @@ public class TestCoefficientBasedCostCalculator
                 anyTree(
                         node(FilterNode.class,
                                 node(TableScanNode.class)
-                                        .withCost(PlanNodeCost.builder()
+                                        .withStats(PlanNodeStatsEstimate.builder()
                                                 .setOutputRowCount(new Estimate(15000.0))
                                                 .setOutputSizeInBytes(unknownValue())
                                                 .build()))));
@@ -82,7 +82,7 @@ public class TestCoefficientBasedCostCalculator
     {
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), costCalculator, actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), statsCalculator, actualPlan, pattern);
             return null;
         });
     }
