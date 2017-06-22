@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -60,11 +59,11 @@ public class TestPruneSemiJoinFilteringSourceColumns
 
     private static PlanNode buildSemiJoin(PlanBuilder p, Predicate<Symbol> filteringSourceSymbolFilter)
     {
-        Symbol match = p.symbol("match", BIGINT);
-        Symbol leftKey = p.symbol("leftKey", BIGINT);
-        Symbol rightKey = p.symbol("rightKey", BIGINT);
-        Symbol rightKeyHash = p.symbol("rightKeyHash", BIGINT);
-        Symbol rightValue = p.symbol("rightValue", BIGINT);
+        Symbol match = p.symbol("match");
+        Symbol leftKey = p.symbol("leftKey");
+        Symbol rightKey = p.symbol("rightKey");
+        Symbol rightKeyHash = p.symbol("rightKeyHash");
+        Symbol rightValue = p.symbol("rightValue");
         List<Symbol> filteringSourceSymbols = ImmutableList.of(rightKey, rightKeyHash, rightValue);
         return p.semiJoin(
                 leftKey,

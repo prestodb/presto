@@ -57,15 +57,15 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c", BIGINT), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b", BIGINT), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a", BIGINT))))));
+                                                            p.values(p.symbol("a"))))));
                 }))
                 .matches(
                         aggregation(
@@ -112,15 +112,15 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c", BIGINT), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b", BIGINT), expression("count(*)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), expression("count(*)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a", BIGINT))))));
+                                                            p.values(p.symbol("a"))))));
                 }))
                 .matches(
                         aggregation(
@@ -165,7 +165,7 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c", BIGINT), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
@@ -173,9 +173,9 @@ public class TestAddIntermediateAggregations
                                                     ExchangeNode.Scope.REMOTE,
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
-                                                            .addAggregation(p.symbol("b", BIGINT), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                            .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
                                                             .source(
-                                                                    p.values(p.symbol("a", BIGINT)))))));
+                                                                    p.values(p.symbol("a")))))));
                 }))
                 .matches(
                         aggregation(
@@ -219,15 +219,15 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c", BIGINT), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b", BIGINT), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a", BIGINT))))));
+                                                            p.values(p.symbol("a"))))));
                 }))
                 .doesNotFire();
     }
@@ -243,15 +243,15 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c", BIGINT), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b", BIGINT), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a", BIGINT))))));
+                                                            p.values(p.symbol("a"))))));
                 }))
                 .matches(
                         aggregation(
@@ -284,17 +284,17 @@ public class TestAddIntermediateAggregations
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {
-                    af.addGroupingSet(p.symbol("c", BIGINT))
+                    af.addGroupingSet(p.symbol("c"))
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c", BIGINT), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
-                                            p.aggregation(ap -> ap.addGroupingSet(p.symbol("b", BIGINT))
+                                            p.aggregation(ap -> ap.addGroupingSet(p.symbol("b"))
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b", BIGINT), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a", BIGINT))))));
+                                                            p.values(p.symbol("a"))))));
                 }))
                 .doesNotFire();
     }
@@ -310,17 +310,17 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c", BIGINT), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.project(
-                                                    Assignments.identity(p.symbol("b", BIGINT)),
+                                                    Assignments.identity(p.symbol("b")),
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
-                                                            .addAggregation(p.symbol("b", BIGINT), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                            .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
                                                             .source(
-                                                                    p.values(p.symbol("a", BIGINT)))))));
+                                                                    p.values(p.symbol("a")))))));
                 }))
                 .matches(
                         aggregation(

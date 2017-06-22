@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -46,7 +45,7 @@ public class TestPruneTableScanColumns
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
                     return p.project(
-                            Assignments.of(p.symbol("x", BIGINT), totalprice.toSymbolReference()),
+                            Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),
@@ -68,10 +67,10 @@ public class TestPruneTableScanColumns
         tester().assertThat(new PruneTableScanColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y", BIGINT), expression("x")),
+                                Assignments.of(p.symbol("y"), expression("x")),
                                 p.tableScan(
-                                        ImmutableList.of(p.symbol("x", BIGINT)),
-                                        ImmutableMap.of(p.symbol("x", BIGINT), new TestingColumnHandle("x")))))
+                                        ImmutableList.of(p.symbol("x")),
+                                        ImmutableMap.of(p.symbol("x"), new TestingColumnHandle("x")))))
                 .doesNotFire();
     }
 }

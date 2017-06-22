@@ -55,7 +55,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnPlanWithoutApplyNode()
     {
         tester.assertThat(rule)
-                .on(p -> p.values(p.symbol("a", BIGINT)))
+                .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
 
@@ -64,9 +64,9 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester.assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr", BIGINT)),
-                        p.values(p.symbol("corr", BIGINT)),
-                        p.values(p.symbol("a", BIGINT))))
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        p.values(p.symbol("a"))))
                 .doesNotFire();
     }
 
@@ -76,8 +76,8 @@ public class TestTransformCorrelatedScalarAggregationToJoin
         tester.assertThat(rule)
                 .on(p -> p.lateral(
                         ImmutableList.of(),
-                        p.values(p.symbol("a", BIGINT)),
-                        p.values(p.symbol("b", BIGINT))))
+                        p.values(p.symbol("a")),
+                        p.values(p.symbol("b"))))
                 .doesNotFire();
     }
 
@@ -86,12 +86,12 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester.assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr", BIGINT)),
-                        p.values(p.symbol("corr", BIGINT)),
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
                     p.aggregation(ab -> ab
-                        .source(p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))
-                        .addAggregation(p.symbol("sum", BIGINT), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addGroupingSet(p.symbol("b", BIGINT)))))
+                        .source(p.values(p.symbol("a"), p.symbol("b")))
+                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addGroupingSet(p.symbol("b")))))
                 .doesNotFire();
     }
 
@@ -100,11 +100,11 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester.assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr", BIGINT)),
-                        p.values(p.symbol("corr", BIGINT)),
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
                     p.aggregation(ab -> ab
-                        .source(p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))
-                        .addAggregation(p.symbol("sum", BIGINT), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .source(p.values(p.symbol("a"), p.symbol("b")))
+                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                         .globalGrouping())))
                 .matches(
                         project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
@@ -122,12 +122,12 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester.assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr", BIGINT)),
-                        p.values(p.symbol("corr", BIGINT)),
-                        p.project(Assignments.of(p.symbol("expr", BIGINT), p.expression("sum + 1")),
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
                             p.aggregation(ab -> ab
-                                .source(p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))
-                                .addAggregation(p.symbol("sum", BIGINT), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                 .globalGrouping()))))
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),

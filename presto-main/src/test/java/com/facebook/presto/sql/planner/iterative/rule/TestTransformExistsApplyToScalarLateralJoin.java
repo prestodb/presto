@@ -27,7 +27,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -63,15 +62,15 @@ public class TestTransformExistsApplyToScalarLateralJoin
     public void testDoesNotFire()
     {
         tester.assertThat(transformExistsApplyToScalarApply)
-                .on(p -> p.values(p.symbol("a", BIGINT)))
+                .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
 
         tester.assertThat(transformExistsApplyToScalarApply)
                 .on(p ->
                         p.lateral(
-                                ImmutableList.of(p.symbol("a", BIGINT)),
-                                p.values(p.symbol("a", BIGINT)),
-                                p.values(p.symbol("a", BIGINT)))
+                                ImmutableList.of(p.symbol("a")),
+                                p.values(p.symbol("a")),
+                                p.values(p.symbol("a")))
                 )
                 .doesNotFire();
     }
@@ -86,7 +85,7 @@ public class TestTransformExistsApplyToScalarLateralJoin
                                 Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT \"a\")")),
                                 ImmutableList.of(),
                                 p.values(),
-                                p.values(p.symbol("a", BIGINT)))
+                                p.values(p.symbol("a")))
                 )
                 .matches(lateral(
                         ImmutableList.of(),
