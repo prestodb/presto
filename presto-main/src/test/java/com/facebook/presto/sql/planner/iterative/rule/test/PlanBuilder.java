@@ -106,6 +106,11 @@ public class PlanBuilder
         return new LimitNode(idAllocator.getNextId(), source, limit, false);
     }
 
+    public MarkDistinctNode markDistinct(PlanNode source, Symbol markerSymbol, List<Symbol> distinctSymbols)
+    {
+        return new MarkDistinctNode(idAllocator.getNextId(), source, markerSymbol, distinctSymbols, Optional.empty());
+    }
+
     public SampleNode sample(double sampleRatio, SampleNode.Type type, PlanNode source)
     {
         return new SampleNode(idAllocator.getNextId(), source, sampleRatio, type);
