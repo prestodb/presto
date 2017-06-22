@@ -399,6 +399,7 @@ public class HashBuilderOperator
                 operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
                 operatorContext.setRevocableMemoryReservation(0L);
                 state = State.SPILLING_INPUT;
+                // TODO we could immediately call lookupSourceFactory.setPartitionSpilledLookupSource
             });
             return spillIndex();
         }
