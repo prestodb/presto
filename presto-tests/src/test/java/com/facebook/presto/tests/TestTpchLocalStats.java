@@ -176,4 +176,25 @@ public class TestTpchLocalStats
                         .verifyColumnStatistics("s_nationkey", relativeError(0.15))
                         .verifyColumnStatistics("n_nationkey", relativeError(0.10)));
     }
+
+    @Test
+    public void testAggregation()
+    {
+        statisticsAssertion.check("SELECT count() AS count FROM nation",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .verifyNoColumnStatistics("count"));
+
+        statisticsAssertion.check("SELECT n_name, count() AS count FROM nation GROUP BY n_name",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .verifyNoColumnStatistics("count")
+                        .verifyExactColumnStatistics("n_name"));
+
+        statisticsAssertion.check("SELECT n_name, count() AS count FROM nation, region GROUP BY n_name",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .verifyNoColumnStatistics("count")
+                        .verifyExactColumnStatistics("n_name"));
+    }
 }

@@ -85,6 +85,15 @@ public class StatisticsAssertion
             return this;
         }
 
+        public Checks verifyNoColumnStatistics(String columnName)
+        {
+            noEstimate(nullsFraction(columnName));
+            noEstimate(distinctValuesCount(columnName));
+            noEstimate(lowValue(columnName));
+            noEstimate(highValue(columnName));
+            return this;
+        }
+
         public <T> Checks estimate(Metric<T> metric, MetricComparisonStrategy<T> strategy)
         {
             checks.add(new MetricsCheck<>(metric, strategy, MATCH));

@@ -102,4 +102,9 @@ public final class MoreMath
         }
         return max(left, right);
     }
+
+    public static boolean isPositiveOrNan(double value)
+    {
+        return value > 0 || isNaN(value);
+    }
 }
