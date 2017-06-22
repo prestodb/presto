@@ -37,9 +37,11 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -133,7 +135,10 @@ public class SqlServerRecordSink
     public void appendLong(long value)
     {
         try {
-            if (DATE.equals(columnTypes.get(field))) {
+            if (REAL.equals(columnTypes.get(field))) {
+                statement.setFloat(next(), intBitsToFloat((int) value));
+            }
+            else if (DATE.equals(columnTypes.get(field))) {
                 Calendar cal = Calendar.getInstance(UTC);
                 long utcMillis = TimeUnit.DAYS.toMillis(value);
                 statement.setDate(next(), new Date(utcMillis), cal);
