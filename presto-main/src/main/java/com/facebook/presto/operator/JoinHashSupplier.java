@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import com.google.common.hash.HashCode;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
@@ -77,9 +78,9 @@ public class JoinHashSupplier
     }
 
     @Override
-    public long checksum()
+    public HashCode checksum()
     {
-        return positionLinks.map(PositionLinks.Factory::checksum).orElse(0L);
+        return positionLinks.map(PositionLinks.Factory::checksum).orElse(HashCode.fromLong(0));
     }
 
     @Override

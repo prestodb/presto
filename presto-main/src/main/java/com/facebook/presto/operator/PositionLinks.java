@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
+import com.google.common.hash.HashCode;
 
 import java.util.Optional;
 
@@ -74,6 +75,6 @@ public interface PositionLinks
         /**
          * @return a checksum for this {@link PositionLinks}, useful when entity is restored from spilled data
          */
-        long checksum();
+        HashCode checksum();
     }
 }

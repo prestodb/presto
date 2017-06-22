@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
+import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.openjdk.jol.info.ClassLayout;
@@ -61,12 +62,12 @@ public final class ArrayPositionLinks
                 }
 
                 @Override
-                public long checksum()
+                public HashCode checksum()
                 {
                     Hasher hasher = Hashing.goodFastHash(32).newHasher();
                     IntStream.of(positionLinks)
                             .forEach(hasher::putInt);
-                    return hasher.hash().asLong();
+                    return hasher.hash();
                 }
             };
         }

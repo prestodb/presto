@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
+import com.google.common.hash.HashCode;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -161,7 +162,7 @@ public final class SortedPositionLinks
                 }
 
                 @Override
-                public long checksum()
+                public HashCode checksum()
                 {
                     return arrayPositionLinksFactory.checksum();
                 }
