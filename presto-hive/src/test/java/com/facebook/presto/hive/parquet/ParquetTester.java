@@ -164,7 +164,7 @@ public class ParquetTester
     {
         Path path = new Path(tempFile.getFile().toURI());
         FileSystem fileSystem = path.getFileSystem(jobConf);
-        ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(fileSystem, path);
+        ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(fileSystem, path, fileSystem.getFileStatus(path).getLen());
         FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
         MessageType fileSchema = fileMetaData.getSchema();
 
