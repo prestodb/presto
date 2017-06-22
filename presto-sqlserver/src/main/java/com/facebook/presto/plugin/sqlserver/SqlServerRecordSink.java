@@ -26,6 +26,8 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.List;
@@ -35,6 +37,8 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -133,6 +137,14 @@ public class SqlServerRecordSink
                 Calendar cal = Calendar.getInstance(UTC);
                 long utcMillis = TimeUnit.DAYS.toMillis(value);
                 statement.setDate(next(), new Date(utcMillis), cal);
+            }
+            else if (TIME.equals(columnTypes.get(field))) {
+                Calendar cal = Calendar.getInstance(UTC);
+                statement.setTime(next(), new Time(value), cal);
+            }
+            else if (TIMESTAMP.equals(columnTypes.get(field))) {
+                Calendar cal = Calendar.getInstance(UTC);
+                statement.setTimestamp(next(), new Timestamp(value), cal);
             }
             else {
                 statement.setLong(next(), value);
