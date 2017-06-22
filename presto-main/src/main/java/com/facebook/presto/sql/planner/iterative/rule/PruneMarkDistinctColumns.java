@@ -26,7 +26,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -58,7 +57,7 @@ public class PruneMarkDistinctColumns
 
         MarkDistinctNode markDistinctNode = (MarkDistinctNode) child;
 
-        Optional<List<Symbol>> prunedOutputs = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
+        Optional<Set<Symbol>> prunedOutputs = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
         if (!prunedOutputs.isPresent()) {
             return Optional.empty();
         }

@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 import java.util.Set;
@@ -61,8 +60,7 @@ public class PruneJoinColumns
             return Optional.empty();
         }
 
-        Optional<Set<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions())
-                .map(ImmutableSet::copyOf);
+        Optional<Set<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
         if (!dependencies.isPresent()) {
             return Optional.empty();
         }

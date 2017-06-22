@@ -29,9 +29,11 @@ import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PruneValuesColumns
         implements Rule
@@ -56,12 +58,14 @@ public class PruneValuesColumns
 
         ValuesNode values = (ValuesNode) child;
 
-        Optional<List<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
+        Optional<Set<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
         if (!dependencies.isPresent()) {
             return Optional.empty();
         }
 
-        List<Symbol> newOutputs = dependencies.get();
+        List<Symbol> newOutputs = child.getOutputSymbols().stream()
+                .filter(dependencies.get()::contains)
+                .collect(toImmutableList());
 
         // for each output of project, the corresponding column in the values node
         int[] mapping = new int[newOutputs.size()];
