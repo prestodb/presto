@@ -67,8 +67,8 @@ that catalog name instead of ``sqlserver`` in the above examples.
 SQL Server Connector Limitations
 --------------------------------
 
-Presto supports connecting to SQL Server 2016, SQL Server 2014, SQL Server 2012
-and Azure SQL Database.
+Presto supports connecting to SQL Server 2016, SQL Server 2014, SQL Server 2012,
+SQL Server 2008 R2, SQL Server 2008 and Azure SQL Database.
 
 Presto supports the following SQL Server data types.
 The following table shows the mappings between SQL Server and Presto data types.
@@ -76,13 +76,34 @@ The following table shows the mappings between SQL Server and Presto data types.
 ============================= ============================
 SQL Server Type               Presto Type
 ============================= ============================
+``bit``                       ``boolean``
 ``bigint``                    ``bigint``
-``smallint``                  ``smallint``
 ``int``                       ``integer``
+``smallint``                  ``smallint``
+``tinyint``                   ``tinyint``
+``real``                      ``real``
 ``float``                     ``double``
+``decimal``                   ``double``
+``numeric``                   ``double``
 ``char(n)``                   ``char(n)``
+``char(max)``                 ``char``
+``nchar(n)``                  ``char(n)``
+``nchar(max)``                ``char``
 ``varchar(n)``                ``varchar(n)``
+``varchar(max)``              ``varchar``
+``nvarchar(n)``               ``varchar(n)``
+``nvarchar(max)``             ``varchar``
+``text``                      ``varchar``
+``ntext``                     ``varchar``
 ``date``                      ``date``
+``time``                      ``time``
+``datetime``                  ``timestamp``
+``smalldatetime``             ``timestamp``
+``datetime2``                 ``timestamp``
+``datetimeoffset``            ``timestamp with time zone``
+``money``                     ``double``
+``smallmoney``                ``double``
+``uniqueidentifier``          ``char(36)``
 ============================= ============================
 
 Complete list of `SQL Server data types
