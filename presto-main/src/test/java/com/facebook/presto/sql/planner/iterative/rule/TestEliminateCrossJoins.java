@@ -40,7 +40,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -65,16 +64,14 @@ public class TestEliminateCrossJoins
                 .setSystemProperty(REORDER_JOINS, "true")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
-                        project(
+                        join(INNER,
+                                ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("cySymbol"), new Symbol("bySymbol"))),
                                 join(INNER,
-                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("cySymbol"), new Symbol("bySymbol"))),
-                                        join(INNER,
-                                                ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("axSymbol"), new Symbol("cxSymbol"))),
-                                                any(),
-                                                any()
-                                        ),
+                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("axSymbol"), new Symbol("cxSymbol"))),
+                                        any(),
                                         any()
-                                )
+                                ),
+                                any()
                         )
                 );
     }
@@ -86,14 +83,12 @@ public class TestEliminateCrossJoins
                 .setSystemProperty(REORDER_JOINS, "true")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
-                        any(
+                        node(JoinNode.class,
                                 node(JoinNode.class,
-                                        node(JoinNode.class,
-                                                node(GroupReference.class),
-                                                node(GroupReference.class)
-                                        ),
+                                        node(GroupReference.class),
                                         node(GroupReference.class)
-                                )
+                                ),
+                                node(GroupReference.class)
                         )
                 );
     }

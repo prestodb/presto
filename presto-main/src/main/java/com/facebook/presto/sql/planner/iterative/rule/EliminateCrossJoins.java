@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -40,6 +41,7 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -200,15 +202,8 @@ public class EliminateCrossJoins
                     Assignments.copyOf(graph.getAssignments().get()));
         }
 
-        if (!result.getOutputSymbols().equals(expectedOutputSymbols)) {
-            // Introduce a projection to constrain the outputs to what was originally expected
-            // Some nodes are sensitive to what's produced (e.g., DistinctLimit node)
-            result = new ProjectNode(
-                    idAllocator.getNextId(),
-                    result,
-                    Assignments.identity(expectedOutputSymbols));
-        }
-
-        return result;
+        // If needed, introduce a projection to constrain the outputs to what was originally expected
+        // Some nodes are sensitive to what's produced (e.g., DistinctLimit node)
+        return restrictOutputs(idAllocator, result, ImmutableSet.copyOf(expectedOutputSymbols)).orElse(result);
     }
 }
