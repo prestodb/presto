@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -24,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Predicate;
 
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -45,7 +45,7 @@ final class ExpressionTreeUtils
             Iterable<? extends Node> nodes,
             Class<T> clazz)
     {
-        return extractExpressions(nodes, clazz, Predicates.alwaysTrue());
+        return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
     private static Predicate<FunctionCall> isAggregationPredicate(FunctionRegistry functionRegistry)
