@@ -48,7 +48,7 @@ public class SqlServerClientModule
         binder.bind(JdbcConnectorId.class).toInstance(new JdbcConnectorId(connectorId));
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcRecordSetProvider.class).to(SqlServerRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(SqlServerClient.class).in(Scopes.SINGLETON);
