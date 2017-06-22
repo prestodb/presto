@@ -27,10 +27,12 @@ import static com.facebook.presto.SystemSessionProperties.USE_NEW_STATS_CALCULAT
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class StatsCalculatorTester
+        implements AutoCloseable
 {
     private final StatsCalculator statsCalculator;
     private final Metadata metadata;
     private final Session session;
+    private final LocalQueryRunner queryRunner;
 
     public StatsCalculatorTester()
     {
@@ -42,6 +44,7 @@ public class StatsCalculatorTester
         this.statsCalculator = queryRunner.getStatsCalculator();
         this.session = queryRunner.getDefaultSession();
         this.metadata = queryRunner.getMetadata();
+        this.queryRunner = queryRunner;
     }
 
     private static LocalQueryRunner createQueryRunner()
@@ -60,5 +63,11 @@ public class StatsCalculatorTester
     public StatsCalculatorAssertion assertStatsFor(Function<PlanBuilder, PlanNode> planProvider)
     {
         return new StatsCalculatorAssertion(statsCalculator, metadata, session).on(planProvider);
+    }
+
+    @Override
+    public void close()
+    {
+        queryRunner.close();
     }
 }
