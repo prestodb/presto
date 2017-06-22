@@ -46,15 +46,23 @@ public class RemoveUnreferencedScalarLateralNodes
         @Override
         public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<PlanNode> context)
         {
-            if (node.getInput().getOutputSymbols().isEmpty() && isScalar(node.getInput())) {
-                return context.rewrite(node.getSubquery());
+            PlanNode input = node.getInput();
+            PlanNode subquery = node.getSubquery();
+
+            if (isUnreferencedScalar(input)) {
+                return context.rewrite(subquery);
             }
 
-            if (node.getSubquery().getOutputSymbols().isEmpty() && isScalar(node.getSubquery())) {
-                return context.rewrite(node.getInput());
+            if (isUnreferencedScalar(subquery)) {
+                return context.rewrite(input);
             }
 
             return context.defaultRewrite(node);
+        }
+
+        private boolean isUnreferencedScalar(PlanNode input)
+        {
+            return input.getOutputSymbols().isEmpty() && isScalar(input);
         }
     }
 }
