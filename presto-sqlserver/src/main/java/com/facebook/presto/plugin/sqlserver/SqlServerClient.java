@@ -22,6 +22,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.collect.ImmutableMap;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 
 import javax.inject.Inject;
@@ -30,14 +31,41 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
 public class SqlServerClient
         extends BaseJdbcClient
 {
     private static final int MSSQL_VARCHAR_MAX = 8000;
     private static final int MSSQL_CHAR_MAX = 8000;
+
+    private static final Map<Type, String> MSSQL_SQL_TYPES = ImmutableMap.<Type, String>builder()
+            .put(BOOLEAN, "bit")
+            .put(BIGINT, "bigint")
+            .put(INTEGER, "int")
+            .put(SMALLINT, "smallint")
+            .put(TINYINT, "tinyint")
+            .put(DOUBLE, "float(53)")
+            .put(REAL, "float(24)")
+            .put(VARBINARY, "varbinary(max)")
+            .put(DATE, "date")
+            .put(TIME, "time")
+            .put(TIMESTAMP, "datetime2")
+            .build();
 
     @Inject
     public SqlServerClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
@@ -95,7 +123,11 @@ public class SqlServerClient
             return "char(" + charType.getLength() + ')';
         }
 
-        return super.toSqlType(type);
+        String sqlType = MSSQL_SQL_TYPES.get(type);
+        if (sqlType != null) {
+            return sqlType;
+        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getTypeSignature());
     }
 
     @Override
