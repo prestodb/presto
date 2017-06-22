@@ -13,13 +13,23 @@
  */
 package com.facebook.presto.plugin.sqlserver;
 
-import com.facebook.presto.plugin.jdbc.JdbcPlugin;
+import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.google.common.collect.ImmutableList;
+
+import static com.google.common.base.MoreObjects.firstNonNull;
 
 public class SqlServerPlugin
-        extends JdbcPlugin
+        implements Plugin
 {
-    public SqlServerPlugin()
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        super("sqlserver", new SqlServerClientModule());
+        return ImmutableList.of(new SqlServerConnectorFactory("sqlserver", getClassLoader()));
+    }
+
+    private static ClassLoader getClassLoader()
+    {
+        return firstNonNull(Thread.currentThread().getContextClassLoader(), SqlServerPlugin.class.getClassLoader());
     }
 }
