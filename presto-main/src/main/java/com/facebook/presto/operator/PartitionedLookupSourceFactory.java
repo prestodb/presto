@@ -206,6 +206,17 @@ public final class PartitionedLookupSourceFactory
             }
 
             partitions[partitionIndex] = () -> spilledLookupSource;
+
+            if (lookupSourceSupplier != null) {
+                /*
+                 * lookupSourceSupplier exists so the now-spilled partition is still referenced by it. Need to re-create lookupSourceSupplier to let the memory go
+                 * and to prevent probe side accessing the partition.
+                 */
+                verify(!completed, "lookupSourceSupplier already exist, so should not think completing now");
+                verify(!outer, "We are about to reset lookupSourceSupplier which is tracking for outer join's sake");
+                verify(partitions.length > 1, "We are about to create partitioned lookup source for only one partition");
+                lookupSourceSupplier = createPartitionedLookupSourceSupplier(ImmutableList.copyOf(partitions), hashChannelTypes, outer);
+            }
         }
         finally {
             rwLock.writeLock().unlock();
