@@ -31,8 +31,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
 /**

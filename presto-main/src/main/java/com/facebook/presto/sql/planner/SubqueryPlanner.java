@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -44,6 +43,7 @@ import com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -399,7 +399,7 @@ class SubqueryPlanner
     private static boolean isAggregationWithEmptyGroupBy(PlanNode planNode)
     {
         return searchFrom(planNode)
-                .skipOnlyWhen(Predicates.isInstanceOfAny(ProjectNode.class))
+                .skipOnlyWhen(MorePredicates.isInstanceOfAny(ProjectNode.class))
                 .where(AggregationNode.class::isInstance)
                 .findFirst()
                 .map(AggregationNode.class::cast)
