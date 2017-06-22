@@ -106,23 +106,16 @@ public class Scope
 
     public Optional<ResolvedField> tryResolveField(Expression expression)
     {
-        QualifiedName qualifiedName = asQualifiedName(expression);
-        if (qualifiedName != null) {
-            return tryResolveField(expression, qualifiedName);
-        }
-        return Optional.empty();
+        return asQualifiedName(expression)
+                .flatMap(qualifiedName -> tryResolveField(expression, qualifiedName));
     }
 
-    private static QualifiedName asQualifiedName(Expression expression)
+    private static Optional<QualifiedName> asQualifiedName(Expression expression)
     {
-        QualifiedName name = null;
-        if (expression instanceof Identifier) {
-            name = QualifiedName.of(((Identifier) expression).getName());
+        if (expression instanceof Identifier || expression instanceof DereferenceExpression) {
+            return Optional.of(QualifiedName.from(expression));
         }
-        else if (expression instanceof DereferenceExpression) {
-            name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
-        }
-        return name;
+        return Optional.empty();
     }
 
     public Optional<ResolvedField> tryResolveField(Expression node, QualifiedName name)

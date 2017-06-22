@@ -24,6 +24,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +32,17 @@ public class QualifiedName
 {
     private final List<String> parts;
     private final List<String> originalParts;
+
+    public static QualifiedName from(Expression expression)
+    {
+        if (expression instanceof Identifier) {
+            return QualifiedName.of(((Identifier) expression).getName());
+        }
+        if (expression instanceof DereferenceExpression) {
+            return DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
+        }
+        throw new IllegalArgumentException(format("Unexpected expression: %s", expression));
+    }
 
     public static QualifiedName of(String first, String... rest)
     {
