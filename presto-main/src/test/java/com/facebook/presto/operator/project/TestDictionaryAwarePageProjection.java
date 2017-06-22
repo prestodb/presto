@@ -35,6 +35,7 @@ import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 public class TestDictionaryAwarePageProjection
 {
@@ -67,12 +68,31 @@ public class TestDictionaryAwarePageProjection
     }
 
     @Test
+    public void testRleBlockWithFailure()
+            throws Exception
+    {
+        Block value = createLongSequenceBlock(-43, -42);
+        RunLengthEncodedBlock block = new RunLengthEncodedBlock(value, 100);
+
+        testProjectFails(block, RunLengthEncodedBlock.class);
+    }
+
+    @Test
     public void testDictionaryBlock()
             throws Exception
     {
         DictionaryBlock block = createDictionaryBlock(10, 100);
 
         testProject(block, DictionaryBlock.class);
+    }
+
+    @Test
+    public void testDictionaryBlockWithFailure()
+            throws Exception
+    {
+        DictionaryBlock block = createDictionaryBlockWithFailure(10, 100);
+
+        testProjectFails(block, DictionaryBlock.class);
     }
 
     @Test
@@ -118,6 +138,14 @@ public class TestDictionaryAwarePageProjection
         return new DictionaryBlock(dictionary, ids);
     }
 
+    private static DictionaryBlock createDictionaryBlockWithFailure(int dictionarySize, int blockSize)
+    {
+        Block dictionary = createLongSequenceBlock(-10, dictionarySize - 10);
+        int[] ids = new int[blockSize];
+        Arrays.setAll(ids, index -> index % dictionarySize);
+        return new DictionaryBlock(dictionary, ids);
+    }
+
     private static DictionaryBlock createDictionaryBlockWithUnusedEntries(int dictionarySize, int blockSize)
     {
         Block dictionary = createLongSequenceBlock(-10, dictionarySize);
@@ -132,6 +160,14 @@ public class TestDictionaryAwarePageProjection
         testProjectList(block, expectedResultType, createProjection());
         testProjectRange(lazyWrapper(block), expectedResultType, createProjection());
         testProjectList(lazyWrapper(block), expectedResultType, createProjection());
+    }
+
+    private static void testProjectFails(Block block, Class<? extends Block> expectedResultType)
+    {
+        assertThrows(NegativeValueException.class, () -> testProjectRange(block, expectedResultType, createProjection()));
+        assertThrows(NegativeValueException.class, () -> testProjectList(block, expectedResultType, createProjection()));
+        assertThrows(NegativeValueException.class, () -> testProjectRange(lazyWrapper(block), expectedResultType, createProjection()));
+        assertThrows(NegativeValueException.class, () -> testProjectList(lazyWrapper(block), expectedResultType, createProjection()));
     }
 
     private static void testProjectRange(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection)
@@ -212,9 +248,18 @@ public class TestDictionaryAwarePageProjection
         private static long verifyPositive(long value)
         {
             if (value < 0) {
-                throw new IllegalArgumentException("value is negative: " + value);
+                throw new NegativeValueException(value);
             }
             return value;
+        }
+    }
+
+    private static class NegativeValueException
+            extends RuntimeException
+    {
+        public NegativeValueException(long value)
+        {
+            super("value is negative: " + value);
         }
     }
 }

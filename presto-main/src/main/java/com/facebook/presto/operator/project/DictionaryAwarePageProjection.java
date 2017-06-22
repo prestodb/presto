@@ -75,9 +75,11 @@ public class DictionaryAwarePageProjection
         if (block instanceof RunLengthEncodedBlock) {
             Block value = ((RunLengthEncodedBlock) block).getValue();
             Optional<Block> projectedValue = processDictionary(session, value);
-            // single value block is always considered effective
-            verify(projectedValue.isPresent());
-            return new RunLengthEncodedBlock(projectedValue.get(), selectedPositions.size());
+            // single value block is always considered effective, but the processing could have thrown
+            // in that case we fallback and process again so the correct error message sent
+            if (projectedValue.isPresent()) {
+                return new RunLengthEncodedBlock(projectedValue.get(), selectedPositions.size());
+            }
         }
 
         if (block instanceof DictionaryBlock) {
