@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -82,11 +81,11 @@ public class TestPruneSemiJoinColumns
 
     private static PlanNode buildProjectedSemiJoin(PlanBuilder p, Predicate<Symbol> projectionFilter)
     {
-        Symbol match = p.symbol("match", BIGINT);
-        Symbol leftKey = p.symbol("leftKey", BIGINT);
-        Symbol leftKeyHash = p.symbol("leftKeyHash", BIGINT);
-        Symbol leftValue = p.symbol("leftValue", BIGINT);
-        Symbol rightKey = p.symbol("rightKey", BIGINT);
+        Symbol match = p.symbol("match");
+        Symbol leftKey = p.symbol("leftKey");
+        Symbol leftKeyHash = p.symbol("leftKeyHash");
+        Symbol leftValue = p.symbol("leftValue");
+        Symbol rightKey = p.symbol("rightKey");
         List<Symbol> outputs = ImmutableList.of(match, leftKey, leftKeyHash, leftValue);
         return p.project(
                 Assignments.identity(

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -37,7 +36,7 @@ public class TestRemoveFullSample
                         p.sample(
                                 0.15,
                                 Type.BERNOULLI,
-                                p.values(p.symbol("a", BIGINT))))
+                                p.values(p.symbol("a"))))
                 .doesNotFire();
     }
 
@@ -53,7 +52,7 @@ public class TestRemoveFullSample
                                 p.filter(
                                         expression("b > 5"),
                                         p.values(
-                                                ImmutableList.of(p.symbol("a", BIGINT), p.symbol("b", BIGINT)),
+                                                ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 ImmutableList.of(
                                                         expressions("1", "10"),
                                                         expressions("2", "11"))))))

@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -70,8 +69,8 @@ public class TestPruneJoinChildrenColumns
     {
         tester().assertThat(new PruneJoinColumns())
                 .on(p -> {
-                    Symbol leftValue = p.symbol("leftValue", BIGINT);
-                    Symbol rightValue = p.symbol("rightValue", BIGINT);
+                    Symbol leftValue = p.symbol("leftValue");
+                    Symbol rightValue = p.symbol("rightValue");
                     return p.join(
                             JoinNode.Type.INNER,
                             p.values(leftValue),
@@ -87,12 +86,12 @@ public class TestPruneJoinChildrenColumns
 
     private static PlanNode buildJoin(PlanBuilder p, Predicate<Symbol> joinOutputFilter)
     {
-        Symbol leftKey = p.symbol("leftKey", BIGINT);
-        Symbol leftKeyHash = p.symbol("leftKeyHash", BIGINT);
-        Symbol leftValue = p.symbol("leftValue", BIGINT);
-        Symbol rightKey = p.symbol("rightKey", BIGINT);
-        Symbol rightKeyHash = p.symbol("rightKeyHash", BIGINT);
-        Symbol rightValue = p.symbol("rightValue", BIGINT);
+        Symbol leftKey = p.symbol("leftKey");
+        Symbol leftKeyHash = p.symbol("leftKeyHash");
+        Symbol leftValue = p.symbol("leftValue");
+        Symbol rightKey = p.symbol("rightKey");
+        Symbol rightKeyHash = p.symbol("rightKeyHash");
+        Symbol rightValue = p.symbol("rightValue");
         List<Symbol> outputs = ImmutableList.of(leftValue, rightValue);
         return p.join(
                 JoinNode.Type.INNER,

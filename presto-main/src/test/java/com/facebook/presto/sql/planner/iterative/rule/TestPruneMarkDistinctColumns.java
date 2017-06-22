@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -36,10 +35,10 @@ public class TestPruneMarkDistinctColumns
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
                 {
-                    Symbol key = p.symbol("key", BIGINT);
-                    Symbol key2 = p.symbol("key2", BIGINT);
-                    Symbol mark = p.symbol("mark", BIGINT);
-                    Symbol unused = p.symbol("unused", BIGINT);
+                    Symbol key = p.symbol("key");
+                    Symbol key2 = p.symbol("key2");
+                    Symbol mark = p.symbol("mark");
+                    Symbol unused = p.symbol("unused");
                     return p.project(
                             Assignments.of(key2, key.toSymbolReference()),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key, unused)));
@@ -57,10 +56,10 @@ public class TestPruneMarkDistinctColumns
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
                 {
-                    Symbol key = p.symbol("key", BIGINT);
-                    Symbol mark = p.symbol("mark", BIGINT);
-                    Symbol hash = p.symbol("hash", BIGINT);
-                    Symbol unused = p.symbol("unused", BIGINT);
+                    Symbol key = p.symbol("key");
+                    Symbol mark = p.symbol("mark");
+                    Symbol hash = p.symbol("hash");
+                    Symbol unused = p.symbol("unused");
                     return p.project(
                             Assignments.identity(mark),
                             p.markDistinct(
@@ -87,8 +86,8 @@ public class TestPruneMarkDistinctColumns
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
                 {
-                    Symbol key = p.symbol("key", BIGINT);
-                    Symbol mark = p.symbol("mark", BIGINT);
+                    Symbol key = p.symbol("key");
+                    Symbol mark = p.symbol("mark");
                     return p.project(
                             Assignments.identity(mark),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key)));
@@ -103,8 +102,8 @@ public class TestPruneMarkDistinctColumns
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
                 {
-                    Symbol key = p.symbol("key", BIGINT);
-                    Symbol mark = p.symbol("mark", BIGINT);
+                    Symbol key = p.symbol("key");
+                    Symbol mark = p.symbol("mark");
                     return p.project(
                             Assignments.identity(key, mark),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key)));

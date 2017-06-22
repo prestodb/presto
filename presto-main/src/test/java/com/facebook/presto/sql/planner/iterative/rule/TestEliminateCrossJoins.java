@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.REORDER_JOINS;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
@@ -236,10 +235,10 @@ public class TestEliminateCrossJoins
     private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
     {
         return p -> {
-            Symbol axSymbol = p.symbol("axSymbol", BIGINT);
-            Symbol bySymbol = p.symbol("bySymbol", BIGINT);
-            Symbol cxSymbol = p.symbol("cxSymbol", BIGINT);
-            Symbol cySymbol = p.symbol("cySymbol", BIGINT);
+            Symbol axSymbol = p.symbol("axSymbol");
+            Symbol bySymbol = p.symbol("bySymbol");
+            Symbol cxSymbol = p.symbol("cxSymbol");
+            Symbol cySymbol = p.symbol("cySymbol");
 
             // (a inner join b) inner join c on c.x = a.x and c.y = b.y
             return p.join(INNER,

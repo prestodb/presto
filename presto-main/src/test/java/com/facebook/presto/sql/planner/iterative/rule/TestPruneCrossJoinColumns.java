@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -86,8 +85,8 @@ public class TestPruneCrossJoinColumns
 
     private static PlanNode buildProjectedCrossJoin(PlanBuilder p, Predicate<Symbol> projectionFilter)
     {
-        Symbol leftValue = p.symbol("leftValue", BIGINT);
-        Symbol rightValue = p.symbol("rightValue", BIGINT);
+        Symbol leftValue = p.symbol("leftValue");
+        Symbol rightValue = p.symbol("rightValue");
         List<Symbol> outputs = ImmutableList.of(leftValue, rightValue);
         return p.project(
                 Assignments.identity(

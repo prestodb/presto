@@ -24,7 +24,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -47,16 +46,16 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         JoinNode.Type.LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"))),
-                                        p.values(p.symbol("COL2", BIGINT)),
-                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL1", BIGINT), p.symbol("COL2", BIGINT))),
-                                        ImmutableList.of(p.symbol("COL1", BIGINT), p.symbol("COL2", BIGINT)),
+                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                        p.values(p.symbol("COL2")),
+                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
+                                        ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")),
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()
                                 ))
                         .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
-                        .addGroupingSet(p.symbol("COL1", BIGINT))))
+                        .addGroupingSet(p.symbol("COL1"))))
                 .matches(
                         project(ImmutableMap.of(
                                 "COL1", expression("COL1"),
@@ -87,15 +86,15 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 JoinNode.Type.RIGHT,
-                                p.values(p.symbol("COL2", BIGINT)),
-                                p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"))),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL2", BIGINT), p.symbol("COL1", BIGINT))),
-                                ImmutableList.of(p.symbol("COL2", BIGINT), p.symbol("COL1", BIGINT)),
+                                p.values(p.symbol("COL2")),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL2"), p.symbol("COL1"))),
+                                ImmutableList.of(p.symbol("COL2"), p.symbol("COL1")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
                         .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
-                        .addGroupingSet(p.symbol("COL1", BIGINT))))
+                        .addGroupingSet(p.symbol("COL1"))))
                 .matches(
                         project(ImmutableMap.of(
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)"),
@@ -127,7 +126,7 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 JoinNode.Type.LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"), expressions("11"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"), expressions("11"))),
                                 p.values(new Symbol("COL2")),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
                                 ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
@@ -145,7 +144,7 @@ public class TestPushAggregationThroughOuterJoin
         tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(JoinNode.Type.LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(expressions("10"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
                                 p.values(new Symbol("COL2"), new Symbol("COL3")),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
                                 ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),

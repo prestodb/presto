@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -69,8 +68,8 @@ public class TestPruneJoinColumns
     {
         tester().assertThat(new PruneJoinColumns())
                 .on(p -> {
-                    Symbol leftValue = p.symbol("leftValue", BIGINT);
-                    Symbol rightValue = p.symbol("rightValue", BIGINT);
+                    Symbol leftValue = p.symbol("leftValue");
+                    Symbol rightValue = p.symbol("rightValue");
                     return p.project(
                             Assignments.of(),
                             p.join(
@@ -88,10 +87,10 @@ public class TestPruneJoinColumns
 
     private static PlanNode buildProjectedJoin(PlanBuilder p, Predicate<Symbol> projectionFilter)
     {
-        Symbol leftKey = p.symbol("leftKey", BIGINT);
-        Symbol leftValue = p.symbol("leftValue", BIGINT);
-        Symbol rightKey = p.symbol("rightKey", BIGINT);
-        Symbol rightValue = p.symbol("rightValue", BIGINT);
+        Symbol leftKey = p.symbol("leftKey");
+        Symbol leftValue = p.symbol("leftValue");
+        Symbol rightKey = p.symbol("rightKey");
+        Symbol rightValue = p.symbol("rightValue");
         List<Symbol> outputs = ImmutableList.of(leftKey, leftValue, rightKey, rightValue);
         return p.project(
                 Assignments.identity(
