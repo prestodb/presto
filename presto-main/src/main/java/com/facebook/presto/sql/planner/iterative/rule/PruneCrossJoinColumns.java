@@ -23,7 +23,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
@@ -60,7 +59,6 @@ public class PruneCrossJoinColumns
         }
 
         return pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions())
-                .map(ImmutableSet::copyOf)
                 .map(dependencies ->
                         parent.replaceChildren(ImmutableList.of(
                                 restrictChildOutputs(idAllocator, joinNode, dependencies, dependencies).get())));

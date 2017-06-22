@@ -21,10 +21,10 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -39,24 +39,20 @@ class Util
     }
 
     /**
-     * Prune the list of available inputs to those required by the given expressions.
+     * Prune the set of available inputs to those required by the given expressions.
      *
      * If all inputs are used, return Optional.empty() to indicate that no pruning is necessary.
      */
-    public static Optional<List<Symbol>> pruneInputs(Collection<Symbol> availableInputs, Collection<Expression> expressions)
+    public static Optional<Set<Symbol>> pruneInputs(Collection<Symbol> availableInputs, Collection<Expression> expressions)
     {
-        Set<Symbol> available = new HashSet<>(availableInputs);
-        Set<Symbol> required = SymbolsExtractor.extractUnique(expressions);
+        Set<Symbol> availableInputsSet = ImmutableSet.copyOf(availableInputs);
+        Set<Symbol> prunedInputs = Sets.filter(availableInputsSet, SymbolsExtractor.extractUnique(expressions)::contains);
 
-        // we need to compute the intersection in case some dependencies are symbols from
-        // the outer scope (i.e., correlated queries)
-        Set<Symbol> used = Sets.intersection(required, available);
-        if (used.size() == available.size()) {
-            // no need to prune... every available input is being used
+        if (prunedInputs.size() == availableInputsSet.size()) {
             return Optional.empty();
         }
 
-        return Optional.of(ImmutableList.copyOf(used));
+        return Optional.of(prunedInputs);
     }
 
     /**
