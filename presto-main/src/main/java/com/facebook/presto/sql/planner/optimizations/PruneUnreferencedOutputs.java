@@ -723,11 +723,6 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitApply(ApplyNode node, RewriteContext<Set<Symbol>> context)
         {
-            // remove unused apply nodes
-            if (intersection(node.getSubqueryAssignments().getSymbols(), context.get()).isEmpty()) {
-                return context.rewrite(node.getInput(), context.get());
-            }
-
             // extract symbols required subquery plan
             ImmutableSet.Builder<Symbol> subqueryAssignmentsSymbolsBuilder = ImmutableSet.builder();
             Assignments.Builder subqueryAssignments = Assignments.builder();
