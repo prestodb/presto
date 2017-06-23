@@ -144,17 +144,21 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public void finishRowGroup()
+    public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
+        ColumnStatistics statistics;
         if (type.isShort()) {
-            rowGroupColumnStatistics.add(shortDecimalStatisticsBuilder.buildColumnStatistics());
-            shortDecimalStatisticsBuilder = new ShortDecimalStatisticsBuilder(this.type.getScale());
+            statistics = shortDecimalStatisticsBuilder.buildColumnStatistics();
+            shortDecimalStatisticsBuilder = new ShortDecimalStatisticsBuilder(type.getScale());
         }
         else {
-            rowGroupColumnStatistics.add(longDecimalStatisticsBuilder.buildColumnStatistics());
+            statistics = longDecimalStatisticsBuilder.buildColumnStatistics();
             longDecimalStatisticsBuilder = new LongDecimalStatisticsBuilder();
         }
+        rowGroupColumnStatistics.add(statistics);
+
+        return ImmutableMap.of(column, statistics);
     }
 
     @Override

@@ -141,11 +141,13 @@ public class TimestampColumnWriter
     }
 
     @Override
-    public void finishRowGroup()
+    public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        rowGroupColumnStatistics.add(new ColumnStatistics((long) nonNullValueCount, null, null, null, null, null, null, null));
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null, null, null, null, null, null, null);
+        rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
+        return ImmutableMap.of(column, statistics);
     }
 
     @Override

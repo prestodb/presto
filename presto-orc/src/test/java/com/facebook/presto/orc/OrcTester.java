@@ -643,7 +643,8 @@ public class OrcTester
                     ORC_ROW_GROUP_SIZE,
                     new DataSize(32, MEGABYTE),
                     ImmutableMap.of(),
-                    HIVE_STORAGE_TIME_ZONE);
+                    HIVE_STORAGE_TIME_ZONE,
+                    true);
         }
         else {
             writer = createOrcWriter(
@@ -657,7 +658,8 @@ public class OrcTester
                     ORC_ROW_GROUP_SIZE,
                     new DataSize(32, MEGABYTE),
                     ImmutableMap.of(),
-                    HIVE_STORAGE_TIME_ZONE);
+                    HIVE_STORAGE_TIME_ZONE,
+                    true);
         }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1024);
@@ -668,6 +670,7 @@ public class OrcTester
 
         writer.write(new Page(blockBuilder.build()));
         writer.close();
+        writer.validate(new FileOrcDataSource(outputFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE)));
         return new DataSize(output.size(), Unit.BYTE);
     }
 

@@ -138,15 +138,19 @@ public class MapColumnWriter
     }
 
     @Override
-    public void finishRowGroup()
+    public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
 
-        rowGroupColumnStatistics.add(new ColumnStatistics((long) nonNullValueCount, null, null, null, null, null, null, null));
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null, null, null, null, null, null, null);
+        rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
 
-        keyWriter.finishRowGroup();
-        valueWriter.finishRowGroup();
+        ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
+        columnStatistics.put(column, statistics);
+        columnStatistics.putAll(keyWriter.finishRowGroup());
+        columnStatistics.putAll(valueWriter.finishRowGroup());
+        return columnStatistics.build();
     }
 
     @Override

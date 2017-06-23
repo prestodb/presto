@@ -46,6 +46,12 @@ public class OrcMetadataWriter
     private static final List<Integer> ORC_METADATA_VERSION = ImmutableList.of(0, 12);
 
     @Override
+    public List<Integer> getOrcMetadataVersion()
+    {
+        return ORC_METADATA_VERSION;
+    }
+
+    @Override
     public int writePostscript(SliceOutput output, int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize)
             throws IOException
     {
@@ -319,6 +325,12 @@ public class OrcMetadataWriter
                         .collect(toList()))
                 .build();
         return writeProtobufObject(output, rowIndexProtobuf);
+    }
+
+    @Override
+    public MetadataReader getMetadataReader()
+    {
+        return new OrcMetadataReader();
     }
 
     private static RowIndexEntry toRowGroupIndex(RowGroupIndex rowGroupIndex)

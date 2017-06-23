@@ -239,21 +239,22 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public void finishRowGroup()
+    public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
         checkState(inRowGroup);
         inRowGroup = false;
 
         if (directEncoded) {
-            directColumnWriter.finishRowGroup();
-            return;
+            return directColumnWriter.finishRowGroup();
         }
 
-        rowGroups.add(new DictionaryRowGroup(values, valueCount, statisticsBuilder.buildColumnStatistics()));
+        ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
+        rowGroups.add(new DictionaryRowGroup(values, valueCount, statistics));
         valueCount = 0;
         statisticsBuilder = new StringStatisticsBuilder();
         values = new IntBigArray();
+        return ImmutableMap.of(column, statistics);
     }
 
     @Override

@@ -20,6 +20,8 @@ import java.util.List;
 
 public interface MetadataWriter
 {
+    List<Integer> getOrcMetadataVersion();
+
     int writePostscript(SliceOutput output, int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize)
             throws IOException;
 
@@ -34,4 +36,6 @@ public interface MetadataWriter
 
     int writeRowIndexes(SliceOutput output, List<RowGroupIndex> rowGroupIndexes)
             throws IOException;
+
+    MetadataReader getMetadataReader();
 }

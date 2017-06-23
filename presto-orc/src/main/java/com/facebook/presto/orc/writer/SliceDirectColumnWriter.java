@@ -121,11 +121,15 @@ public class SliceDirectColumnWriter
     }
 
     @Override
-    public void finishRowGroup()
+    public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        rowGroupColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
+
+        ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
+        rowGroupColumnStatistics.add(statistics);
+
         statisticsBuilder = statisticsBuilderSupplier.get();
+        return ImmutableMap.of(column, statistics);
     }
 
     @Override

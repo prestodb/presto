@@ -131,13 +131,19 @@ public class StructColumnWriter
     }
 
     @Override
-    public void finishRowGroup()
+    public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        rowGroupColumnStatistics.add(new ColumnStatistics((long) nonNullValueCount, null, null, null, null, null, null, null));
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null, null, null, null, null, null, null);
+        rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
 
-        structFields.forEach(ColumnWriter::finishRowGroup);
+        ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
+        columnStatistics.put(column, statistics);
+        structFields.stream()
+                .map(ColumnWriter::finishRowGroup)
+                .forEach(columnStatistics::putAll);
+        return columnStatistics.build();
     }
 
     @Override
