@@ -19,6 +19,7 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +31,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class DoubleOutputStream
         implements ValueOutputStream<DoubleStreamCheckpoint>
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleOutputStream.class).instanceSize();
     private final OrcOutputBuffer buffer;
     private final List<DoubleStreamCheckpoint> checkpoints = new ArrayList<>();
 
@@ -83,7 +85,8 @@ public class DoubleOutputStream
     @Override
     public long getRetainedBytes()
     {
-        return buffer.getRetainedSize();
+        // NOTE: we do not include checkpoints because they should be small and it would be annoying to calculate the size
+        return INSTANCE_SIZE + buffer.getRetainedSize();
     }
 
     @Override

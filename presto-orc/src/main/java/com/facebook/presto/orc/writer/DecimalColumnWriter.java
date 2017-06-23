@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -55,6 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class DecimalColumnWriter
         implements ColumnWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalColumnWriter.class).instanceSize();
     private final int column;
     private final DecimalType type;
     private final ColumnEncoding columnEncoding;
@@ -231,7 +233,8 @@ public class DecimalColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        return dataStream.getRetainedBytes() + scaleStream.getRetainedBytes() + presentStream.getRetainedBytes();
+        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
+        return INSTANCE_SIZE + dataStream.getRetainedBytes() + scaleStream.getRetainedBytes() + presentStream.getRetainedBytes();
     }
 
     @Override

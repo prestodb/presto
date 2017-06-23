@@ -293,11 +293,13 @@ public class OrcWriter
         // convert dictionary encoded columns to direct if dictionary memory usage exceeded
         dictionaryCompressionOptimizer.optimize(bufferedBytes, stripeRowCount);
 
-        retainedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum());
-
-        if (stripeRowCount == stripeMaxRowCount || retainedBytes > stripeMaxBytes || dictionaryCompressionOptimizer.isFull()) {
+        // flush stripe if necessary
+        bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        if (stripeRowCount == stripeMaxRowCount || bufferedBytes > stripeMaxBytes || dictionaryCompressionOptimizer.isFull()) {
             writeStripe();
         }
+
+        retainedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum());
     }
 
     private void finishRowGroup()
@@ -371,6 +373,7 @@ public class OrcWriter
         rowGroupRowCount = 0;
         stripeRowCount = 0;
         stripeStartOffset = output.size();
+        bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
     }
 
     @Override

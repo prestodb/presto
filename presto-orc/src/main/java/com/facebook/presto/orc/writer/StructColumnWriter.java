@@ -27,6 +27,7 @@ import com.facebook.presto.spi.block.ColumnarRow;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ import static java.util.Objects.requireNonNull;
 public class StructColumnWriter
         implements ColumnWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnWriter.class).instanceSize();
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final int column;
@@ -222,7 +224,8 @@ public class StructColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        long retainedBytes = presentStream.getRetainedBytes();
+        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
+        long retainedBytes = INSTANCE_SIZE + presentStream.getRetainedBytes();
         for (ColumnWriter structField : structFields) {
             retainedBytes += structField.getRetainedBytes();
         }

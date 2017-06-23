@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -59,6 +60,7 @@ import static java.util.stream.Collectors.toList;
 public class SliceDictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize();
     private final int column;
     private final Type type;
     private final CompressionKind compression;
@@ -400,7 +402,10 @@ public class SliceDictionaryColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        return dataStream.getRetainedBytes() +
+        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
+        return INSTANCE_SIZE +
+                values.sizeOf() +
+                dataStream.getRetainedBytes() +
                 presentStream.getRetainedBytes() +
                 dictionaryDataStream.getRetainedBytes() +
                 dictionaryLengthStream.getRetainedBytes() +

@@ -20,6 +20,7 @@ import com.facebook.presto.orc.metadata.Stream;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +32,8 @@ import static com.google.common.base.Preconditions.checkState;
 public class ByteOutputStream
         implements ValueOutputStream<ByteStreamCheckpoint>
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteOutputStream.class).instanceSize();
+
     private static final int MIN_REPEAT_SIZE = 3;
     // A value out side of the range of a signed byte
     private static final int UNMATCHABLE_VALUE = Integer.MAX_VALUE;
@@ -160,7 +163,8 @@ public class ByteOutputStream
     @Override
     public long getRetainedBytes()
     {
-        return buffer.getRetainedSize() + SizeOf.sizeOf(sequenceBuffer);
+        // NOTE: we do not include checkpoints because they should be small and it would be annoying to calculate the size
+        return INSTANCE_SIZE + buffer.getRetainedSize() + SizeOf.sizeOf(sequenceBuffer);
     }
 
     @Override

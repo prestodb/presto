@@ -22,6 +22,7 @@ import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class LongOutputStreamV1
         implements LongOutputStream
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongOutputStreamV1.class).instanceSize();
     // todo use OrcStreamUtils
     private static final int MIN_REPEAT_SIZE = 3;
     private static final long UNMATCHABLE_DELTA_VALUE = Long.MAX_VALUE;
@@ -197,7 +199,8 @@ public class LongOutputStreamV1
     @Override
     public long getRetainedBytes()
     {
-        return buffer.getRetainedSize() + SizeOf.sizeOf(sequenceBuffer);
+        // NOTE: we do not include checkpoints because they should be small and it would be annoying to calculate the size
+        return INSTANCE_SIZE + buffer.getRetainedSize() + SizeOf.sizeOf(sequenceBuffer);
     }
 
     @Override
