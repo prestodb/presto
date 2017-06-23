@@ -97,6 +97,7 @@ public class HiveClientConfig
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
+    private boolean orcOptimizedWriterEnabled;
 
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
@@ -686,6 +687,20 @@ public class HiveClientConfig
     public HiveClientConfig setOrcDefaultBloomFilterFpp(double orcDefaultBloomFilterFpp)
     {
         this.orcDefaultBloomFilterFpp = orcDefaultBloomFilterFpp;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOrcOptimizedWriterEnabled()
+    {
+        return orcOptimizedWriterEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.orc.optimized-writer.enabled")
+    public HiveClientConfig setOrcOptimizedWriterEnabled(boolean orcOptimizedWriterEnabled)
+    {
+        this.orcOptimizedWriterEnabled = orcOptimizedWriterEnabled;
         return this;
     }
 
