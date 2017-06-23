@@ -15,7 +15,12 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
+
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DOUBLE;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -23,6 +28,8 @@ import static java.lang.Double.POSITIVE_INFINITY;
 public class TestDoubleStatisticsBuilder
         extends AbstractStatisticsBuilderTest<DoubleStatisticsBuilder, Double>
 {
+    private static final List<Long> ZERO_TO_42 = LongStream.rangeClosed(0, 42).boxed().collect(toImmutableList());
+
     public TestDoubleStatisticsBuilder()
     {
         super(DOUBLE, DoubleStatisticsBuilder::new, DoubleStatisticsBuilder::addValue);
@@ -41,6 +48,17 @@ public class TestDoubleStatisticsBuilder
         assertMinMaxValues(NEGATIVE_INFINITY, 42.42);
         assertMinMaxValues(42.42, POSITIVE_INFINITY);
         assertMinMaxValues(NEGATIVE_INFINITY, POSITIVE_INFINITY);
+
+        assertValues(0.0, 88.88, toDoubleList(0.0, 88.88, ZERO_TO_42));
+        assertValues(-88.88, 0.0, toDoubleList(-88.88, 0.0, ZERO_TO_42));
+        assertValues(-44.44, 44.44, toDoubleList(-44.44, 44.44, ZERO_TO_42));
+    }
+
+    private static List<Double> toDoubleList(Double minValue, Double maxValue, List<Long> values)
+    {
+        return values.stream()
+                .flatMap(value -> Stream.of(maxValue - value, minValue + value))
+                .collect(toImmutableList());
     }
 
     @Test

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.google.common.collect.ContiguousSet;
+import com.google.common.collect.DiscreteDomain;
+import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DATE;
@@ -41,6 +44,12 @@ public class TestDateStatisticsBuilder
         assertMinMaxValues(MIN_VALUE, 42);
         assertMinMaxValues(42, MAX_VALUE);
         assertMinMaxValues(MIN_VALUE, MAX_VALUE);
+
+        assertValues(-42, 0, ContiguousSet.create(Range.closed(-42, 0), DiscreteDomain.integers()).asList());
+        assertValues(-42, 42, ContiguousSet.create(Range.closed(-42, 42), DiscreteDomain.integers()).asList());
+        assertValues(0, 42, ContiguousSet.create(Range.closed(0, 42), DiscreteDomain.integers()).asList());
+        assertValues(MIN_VALUE, MIN_VALUE + 42, ContiguousSet.create(Range.closed(MIN_VALUE, MIN_VALUE + 42), DiscreteDomain.integers()).asList());
+        assertValues(MAX_VALUE - 42, MAX_VALUE, ContiguousSet.create(Range.closed(MAX_VALUE - 42, MAX_VALUE), DiscreteDomain.integers()).asList());
     }
 
     @Test
