@@ -29,13 +29,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class LongOutputStreamV1
         implements LongOutputStream
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongOutputStreamV1.class).instanceSize();
-    // todo use OrcStreamUtils
     private static final int MIN_REPEAT_SIZE = 3;
     private static final long UNMATCHABLE_DELTA_VALUE = Long.MAX_VALUE;
     private static final int MAX_DELTA = 127;
@@ -72,40 +72,49 @@ public class LongOutputStreamV1
             flushSequence();
         }
 
-        // update run count
-        long delta = value - lastValue;
-        if (isValidDelta(delta) && value == lastValue) {
-            runCount++;
-        }
-        else {
-            // run ended, so flush
-            if (runCount >= MIN_REPEAT_SIZE) {
-                flushSequence();
-            }
-            runCount = 1;
-        }
-
         // buffer value
         sequenceBuffer[size] = value;
         size++;
 
-        // before buffering value, check if a run started, and if so flush buffered literal values
-        if (runCount == MIN_REPEAT_SIZE && size > MIN_REPEAT_SIZE) {
-            // flush the sequence up to the beginning of the run, which must be MIN_REPEAT_SIZE
-            size -= MIN_REPEAT_SIZE;
-            runCount = 0;
+        // update run count
+        long delta = value - lastValue;
+        if (delta == lastDelta) {
+            // extend the run
+            runCount++;
 
-            flushSequence();
+            // if a run started, flush buffered literal values
+            if (runCount == MIN_REPEAT_SIZE && size > MIN_REPEAT_SIZE) {
+                // flush the literal sequence up to the beginning of the run, which must be MIN_REPEAT_SIZE
+                flushLiteralSequence(size - MIN_REPEAT_SIZE);
 
-            // reset the runCount to the MIN_REPEAT_SIZE
-            runCount = MIN_REPEAT_SIZE;
-            size = MIN_REPEAT_SIZE;
+                size = MIN_REPEAT_SIZE;
 
-            // note there is no reason to add the run values to the buffer since is is not used
-            // when in a run length sequence
+                // note there is no reason to add the run values to the buffer since it is not used
+                // when in a run length sequence
+            }
+        }
+        else {
+            // if a run ended, flush rle
+            if (runCount >= MIN_REPEAT_SIZE) {
+                flushRleSequence(runCount);
+
+                // the current value is the first literal of a new sequence
+                sequenceBuffer[0] = value;
+                size = 1;
+            }
+
+            if (size == 1 || !isValidDelta(delta)) {
+                // the run starts with this value
+                runCount = 1;
+                lastDelta = UNMATCHABLE_DELTA_VALUE;
+            }
+            else {
+                // this is a new run formed from the last value and the current value
+                runCount = 2;
+                lastDelta = delta;
+            }
         }
 
-        lastDelta = delta;
         lastValue = value;
     }
 
@@ -121,20 +130,39 @@ public class LongOutputStreamV1
         }
 
         if (runCount >= MIN_REPEAT_SIZE) {
-            buffer.writeByte(runCount - MIN_REPEAT_SIZE);
-            buffer.writeByte((byte) lastDelta);
-            writeVintToBuffer(lastValue);
+            flushRleSequence(runCount);
         }
         else {
-            buffer.writeByte(-size);
-            for (int i = 0; i < size; i++) {
-                writeVintToBuffer(sequenceBuffer[i]);
-            }
+            flushLiteralSequence(size);
         }
 
         size = 0;
         runCount = 0;
-        lastValue = UNMATCHABLE_DELTA_VALUE; // todo should this be last delta?
+        lastValue = 0;
+        lastDelta = UNMATCHABLE_DELTA_VALUE;
+    }
+
+    private void flushLiteralSequence(int literalCount)
+    {
+        verify(literalCount > 0);
+
+        buffer.writeByte(-literalCount);
+        for (int i = 0; i < literalCount; i++) {
+            writeVintToBuffer(sequenceBuffer[i]);
+        }
+    }
+
+    private void flushRleSequence(int runCount)
+    {
+        verify(runCount > 0);
+
+        buffer.writeByte(runCount - MIN_REPEAT_SIZE);
+        buffer.writeByte((byte) lastDelta);
+
+        // write the start value of the sequence
+        long totalDeltaSize = lastDelta * (this.runCount - 1);
+        long sequenceStartValue = lastValue - totalDeltaSize;
+        writeVintToBuffer(sequenceStartValue);
     }
 
     private void writeVintToBuffer(long value)
