@@ -32,11 +32,11 @@ public class CompressedMetadataWriter
     }
 
     @Override
-    public int writePostscript(SliceOutput output, PostScript postScript)
+    public int writePostscript(SliceOutput output, int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize)
             throws IOException
     {
         // postscript is not compressed
-        return metadataWriter.writePostscript(output, postScript);
+        return metadataWriter.writePostscript(output, footerLength, metadataLength, compression, compressionBlockSize);
     }
 
     @Override

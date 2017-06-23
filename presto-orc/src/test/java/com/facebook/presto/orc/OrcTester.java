@@ -460,7 +460,7 @@ public class OrcTester
                 // write old, read new
                 try (TempFile tempFile = new TempFile()) {
                     writeOrcColumnOld(tempFile.getFile(), format, compression, type, readValues.iterator());
-                    assertFileContentsNew(type, tempFile, readValues, false, false, metadataReader, format);
+                    assertFileContentsNew(type, tempFile, readValues, false, false, metadataReader, format, true);
                 }
 
                 // write new, read old and new
@@ -471,14 +471,14 @@ public class OrcTester
                         assertFileContentsOld(type, tempFile, format, readValues);
                     }
 
-                    assertFileContentsNew(type, tempFile, readValues, false, false, metadataReader, format);
+                    assertFileContentsNew(type, tempFile, readValues, false, false, metadataReader, format, false);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContentsNew(type, tempFile, readValues, true, false, metadataReader, format);
+                        assertFileContentsNew(type, tempFile, readValues, true, false, metadataReader, format, false);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContentsNew(type, tempFile, readValues, false, true, metadataReader, format);
+                        assertFileContentsNew(type, tempFile, readValues, false, true, metadataReader, format, false);
                     }
                 }
             }
@@ -492,10 +492,11 @@ public class OrcTester
             boolean skipFirstBatch,
             boolean skipStripe,
             MetadataReader metadataReader,
-            Format format)
+            Format format,
+            boolean isHiveWriter)
             throws IOException
     {
-        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues, format), type)) {
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues, format, isHiveWriter), type)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 

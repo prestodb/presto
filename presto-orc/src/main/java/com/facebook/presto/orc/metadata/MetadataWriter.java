@@ -20,7 +20,7 @@ import java.util.List;
 
 public interface MetadataWriter
 {
-    int writePostscript(SliceOutput output, PostScript postScript)
+    int writePostscript(SliceOutput output, int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize)
             throws IOException;
 
     int writeMetadata(SliceOutput output, Metadata metadata)

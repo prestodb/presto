@@ -26,12 +26,12 @@ public class TestStringStatisticsBuilder
     // U+0000 to U+D7FF
     private static final Slice LOW_BOTTOM_VALUE = utf8Slice("foo \u0000");
     private static final Slice LOW_TOP_VALUE = utf8Slice("foo \uD7FF");
-    // U+10000 to U+10FFFF
-    private static final Slice MEDIUM_BOTTOM_VALUE = utf8Slice("foo \uD800\uDC00");
-    private static final Slice MEDIUM_TOP_VALUE = utf8Slice("foo \uDBFF\uDFFF");
     // U+E000 to U+FFFF
-    private static final Slice HIGH_BOTTOM_VALUE = utf8Slice("foo \uE000");
-    private static final Slice HIGH_TOP_VALUE = utf8Slice("foo \uFFFF");
+    private static final Slice MEDIUM_BOTTOM_VALUE = utf8Slice("foo \uE000");
+    private static final Slice MEDIUM_TOP_VALUE = utf8Slice("foo \uFFFF");
+    // U+10000 to U+10FFFF
+    private static final Slice HIGH_BOTTOM_VALUE = utf8Slice("foo \uD800\uDC00");
+    private static final Slice HIGH_TOP_VALUE = utf8Slice("foo \uDBFF\uDFFF");
 
     public TestStringStatisticsBuilder()
     {

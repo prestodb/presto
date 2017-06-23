@@ -22,7 +22,6 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.OrcMetadataWriter;
 import com.facebook.presto.orc.metadata.OrcType;
-import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
@@ -51,7 +50,6 @@ import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -416,8 +414,7 @@ public class OrcWriter
 
         int footerLength = metadataWriter.writeFooter(output, footer);
 
-        PostScript postScript = new PostScript(HIVE_VERSION, footerLength, metadataLength, compression, COMPRESSION_BLOCK_SIZE, ORC_HIVE_8732);
-        int postScriptLength = metadataWriter.writePostscript(output, postScript);
+        int postScriptLength = metadataWriter.writePostscript(output, footerLength, metadataLength, compression, COMPRESSION_BLOCK_SIZE);
 
         output.writeByte(postScriptLength);
 

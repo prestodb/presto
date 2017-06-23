@@ -18,7 +18,6 @@ import io.airlift.slice.Slice;
 import java.util.List;
 import java.util.Optional;
 
-import static io.airlift.slice.SliceUtf8.compareUtf16BE;
 import static java.util.Objects.requireNonNull;
 
 public class StringStatisticsBuilder
@@ -44,10 +43,10 @@ public class StringStatisticsBuilder
             minimum = value;
             maximum = value;
         }
-        else if (compareUtf16BE(value, minimum) <= 0) {
+        else if (value.compareTo(minimum) <= 0) {
             minimum = value;
         }
-        else if (compareUtf16BE(value, maximum) >= 0) {
+        else if (value.compareTo(maximum) >= 0) {
             maximum = value;
         }
     }
