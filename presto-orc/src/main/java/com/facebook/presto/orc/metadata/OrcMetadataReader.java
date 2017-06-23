@@ -284,30 +284,38 @@ public class OrcMetadataReader
             return null;
         }
 
-        /*
-        The writer performs comparisons using java Strings to determine the minimum and maximum
-        values. This results in weird behaviors in the presence of surrogate pairs and special characters.
+        Slice maximum;
+        Slice minimum;
+        if (hiveWriterVersion != ORIGINAL) {
+            maximum = stringStatistics.hasMaximum() ? Slices.wrappedBuffer(stringStatistics.getMaximumBytes().toByteArray()) : null;
+            minimum = stringStatistics.hasMinimum() ? Slices.wrappedBuffer(stringStatistics.getMinimumBytes().toByteArray()) : null;
+        }
+        else {
+            /*
+            The original writer performs comparisons using java Strings to determine the minimum and maximum
+            values. This results in weird behaviors in the presence of surrogate pairs and special characters.
 
-        For example, unicode codepoint 0x1D403 has the following representations:
-        UTF-16: [0xD835, 0xDC03]
-        UTF-8: [0xF0, 0x9D, 0x90, 0x83]
+            For example, unicode codepoint 0x1D403 has the following representations:
+            UTF-16: [0xD835, 0xDC03]
+            UTF-8: [0xF0, 0x9D, 0x90, 0x83]
 
-        while codepoint 0xFFFD (the replacement character) has the following representations:
-        UTF-16: [0xFFFD]
-        UTF-8: [0xEF, 0xBF, 0xBD]
+            while codepoint 0xFFFD (the replacement character) has the following representations:
+            UTF-16: [0xFFFD]
+            UTF-8: [0xEF, 0xBF, 0xBD]
 
-        when comparisons between strings containing these characters are done with Java Strings (UTF-16),
-        0x1D403 < 0xFFFD, but when comparisons are done using raw codepoints or UTF-8, 0x1D403 > 0xFFFD
+            when comparisons between strings containing these characters are done with Java Strings (UTF-16),
+            0x1D403 < 0xFFFD, but when comparisons are done using raw codepoints or UTF-8, 0x1D403 > 0xFFFD
 
-        We use the following logic to ensure that we have a wider range of min-max
-        * if a min string has a surrogate character, the min string is truncated
-          at the first occurrence of the surrogate character (to exclude the surrogate character)
-        * if a max string has a surrogate character, the max string is truncated
-          at the first occurrence the surrogate character and 0xFF byte is appended to it.
+            We use the following logic to ensure that we have a wider range of min-max
+            * if a min string has a surrogate character, the min string is truncated
+              at the first occurrence of the surrogate character (to exclude the surrogate character)
+            * if a max string has a surrogate character, the max string is truncated
+              at the first occurrence the surrogate character and 0xFF byte is appended to it.
 
-         */
-        Slice minimum = stringStatistics.hasMinimum() ? getMinSlice(stringStatistics.getMinimum()) : null;
-        Slice maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
+            */
+            minimum = stringStatistics.hasMinimum() ? getMinSlice(stringStatistics.getMinimum()) : null;
+            maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
+        }
 
         return new StringStatistics(minimum, maximum);
     }
