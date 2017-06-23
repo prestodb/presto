@@ -109,11 +109,13 @@ public class FloatColumnWriter
     }
 
     @Override
-    public void finishRowGroup()
+    public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        rowGroupColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
+        ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
+        rowGroupColumnStatistics.add(statistics);
         statisticsBuilder = new DoubleStatisticsBuilder();
+        return ImmutableMap.of(column, statistics);
     }
 
     @Override

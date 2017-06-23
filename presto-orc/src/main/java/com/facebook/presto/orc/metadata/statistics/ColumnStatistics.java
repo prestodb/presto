@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata.statistics;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.orc.metadata.statistics.BooleanStatisticsBuilder.mergeBooleanStatistics;
 import static com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder.mergeDateStatistics;
@@ -21,6 +22,7 @@ import static com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilde
 import static com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
 import static com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
 import static com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ColumnStatistics
 {
@@ -109,6 +111,48 @@ public class ColumnStatistics
                 dateStatistics,
                 decimalStatistics,
                 bloomFilter);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ColumnStatistics that = (ColumnStatistics) o;
+        return Objects.equals(numberOfValues, that.numberOfValues) &&
+                Objects.equals(booleanStatistics, that.booleanStatistics) &&
+                Objects.equals(integerStatistics, that.integerStatistics) &&
+                Objects.equals(doubleStatistics, that.doubleStatistics) &&
+                Objects.equals(stringStatistics, that.stringStatistics) &&
+                Objects.equals(dateStatistics, that.dateStatistics) &&
+                Objects.equals(decimalStatistics, that.decimalStatistics) &&
+                Objects.equals(bloomFilter, that.bloomFilter);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(numberOfValues, booleanStatistics, integerStatistics, doubleStatistics, stringStatistics, dateStatistics, decimalStatistics, bloomFilter);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .omitNullValues()
+                .add("numberOfValues", numberOfValues)
+                .add("booleanStatistics", booleanStatistics)
+                .add("integerStatistics", integerStatistics)
+                .add("doubleStatistics", doubleStatistics)
+                .add("stringStatistics", stringStatistics)
+                .add("dateStatistics", dateStatistics)
+                .add("decimalStatistics", decimalStatistics)
+                .add("bloomFilter", bloomFilter)
+                .toString();
     }
 
     public static ColumnStatistics mergeColumnStatistics(List<ColumnStatistics> stats)
