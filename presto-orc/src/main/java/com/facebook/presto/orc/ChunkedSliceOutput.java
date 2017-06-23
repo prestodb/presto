@@ -25,7 +25,6 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -36,12 +35,14 @@ import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 
-public class ChunkedSliceOutput
+public final class ChunkedSliceOutput
         extends SliceOutput
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ChunkedSliceOutput.class).instanceSize();
     private static final int MINIMUM_CHUNK_SIZE = 4096;
     private static final int MAXIMUM_CHUNK_SIZE = 16 * 1024 * 1024;
+    // This must not be larger than MINIMUM_CHUNK_SIZE/2
+    private static final int MAX_UNUSED_BUFFER_SIZE = 128;
 
     private final ChunkSupplier chunkSupplier;
 
@@ -65,7 +66,7 @@ public class ChunkedSliceOutput
     {
         this.chunkSupplier = new ChunkSupplier(minChunkSize, maxChunkSize);
 
-        this.buffer = new byte[0];
+        this.buffer = chunkSupplier.get();
         this.slice = Slices.wrappedBuffer(buffer);
     }
 
@@ -75,12 +76,6 @@ public class ChunkedSliceOutput
                 .addAll(closedSlices)
                 .add(Slices.copyOf(slice, 0, bufferPosition))
                 .build();
-    }
-
-    @Override
-    public void reset(int position)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -95,6 +90,12 @@ public class ChunkedSliceOutput
         closedSlicesRetainedSize = 0;
         streamOffset = 0;
         bufferPosition = 0;
+    }
+
+    @Override
+    public void reset(int position)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -175,7 +176,7 @@ public class ChunkedSliceOutput
     public void writeBytes(Slice source, int sourceIndex, int length)
     {
         while (length > 0) {
-            int batch = ensureBatchSize(length);
+            int batch = tryEnsureBatchSize(length);
             slice.setBytes(bufferPosition, source, sourceIndex, batch);
             bufferPosition += batch;
             sourceIndex += batch;
@@ -193,7 +194,7 @@ public class ChunkedSliceOutput
     public void writeBytes(byte[] source, int sourceIndex, int length)
     {
         while (length > 0) {
-            int batch = ensureBatchSize(length);
+            int batch = tryEnsureBatchSize(length);
             slice.setBytes(bufferPosition, source, sourceIndex, batch);
             bufferPosition += batch;
             sourceIndex += batch;
@@ -206,7 +207,7 @@ public class ChunkedSliceOutput
             throws IOException
     {
         while (length > 0) {
-            int batch = ensureBatchSize(length);
+            int batch = tryEnsureBatchSize(length);
             slice.setBytes(bufferPosition, in, batch);
             bufferPosition += batch;
             length -= batch;
@@ -216,10 +217,10 @@ public class ChunkedSliceOutput
     @Override
     public void writeZero(int length)
     {
-        checkArgument(length >= 0, "length must be 0 or greater than 0.");
+        checkArgument(length >= 0, "length must be greater than or equal to 0");
 
         while (length > 0) {
-            int batch = ensureBatchSize(length);
+            int batch = tryEnsureBatchSize(length);
             Arrays.fill(buffer, bufferPosition, bufferPosition + batch, (byte) 0);
             bufferPosition += batch;
             length -= batch;
@@ -283,14 +284,12 @@ public class ChunkedSliceOutput
     }
 
     @Override
-    @Deprecated
     public Slice slice()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    @Deprecated
     public Slice getUnderlyingSlice()
     {
         throw new UnsupportedOperationException();
@@ -312,9 +311,7 @@ public class ChunkedSliceOutput
         return builder.toString();
     }
 
-    private static final int MAX_UNUSED_BUFFER_SIZE = 128;
-
-    private int ensureBatchSize(int length)
+    private int tryEnsureBatchSize(int length)
     {
         ensureWritableBytes(min(MAX_UNUSED_BUFFER_SIZE, length));
         return min(length, slice.length() - bufferPosition);
@@ -322,6 +319,7 @@ public class ChunkedSliceOutput
 
     private void ensureWritableBytes(int minWritableBytes)
     {
+        checkArgument(minWritableBytes <= MAX_UNUSED_BUFFER_SIZE);
         if (bufferPosition + minWritableBytes > slice.length()) {
             closeChunk();
         }
@@ -341,8 +339,10 @@ public class ChunkedSliceOutput
         bufferPosition = 0;
     }
 
+    // Chunk supplier creates buffers by doubling the size from min to max chunk size.
+    // The supplier also tracks all created buffers and can be reset to the beginning,
+    // reusing the buffers.
     private static class ChunkSupplier
-            implements Supplier<byte[]>
     {
         private final int maxChunkSize;
 
@@ -367,7 +367,6 @@ public class ChunkedSliceOutput
             usedBuffers.clear();
         }
 
-        @Override
         public byte[] get()
         {
             byte[] buffer;
