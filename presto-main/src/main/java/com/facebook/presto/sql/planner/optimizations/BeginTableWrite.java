@@ -44,7 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
+import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -199,7 +199,7 @@ public class BeginTableWrite
             }
             if (node instanceof JoinNode) {
                 JoinNode joinNode = (JoinNode) node;
-                if (joinNode.getType() == JoinNode.Type.INNER && isScalar(joinNode.getRight())) {
+                if (joinNode.getType() == JoinNode.Type.INNER && isAtMostScalar(joinNode.getRight())) {
                     PlanNode source = rewriteDeleteTableScan(joinNode.getLeft(), handle);
                     return replaceChildren(node, ImmutableList.of(source, joinNode.getRight()));
                 }

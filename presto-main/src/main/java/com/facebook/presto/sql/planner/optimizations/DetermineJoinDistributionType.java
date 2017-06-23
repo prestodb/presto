@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDistributedJoinEnabled;
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
+import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -122,7 +122,7 @@ public class DetermineJoinDistributionType
 
         private static boolean mustBroadcastJoin(JoinNode node)
         {
-            return isScalar(node.getRight()) || isCrossJoin(node);
+            return isAtMostScalar(node.getRight()) || isCrossJoin(node);
         }
 
         private static boolean isCrossJoin(JoinNode node)
