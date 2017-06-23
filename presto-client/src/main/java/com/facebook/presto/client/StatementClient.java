@@ -96,6 +96,7 @@ public class StatementClient
     private final TimeZoneKey timeZone;
     private final long requestTimeoutNanos;
     private final String user;
+    private final URI server;
 
     public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
@@ -111,6 +112,7 @@ public class StatementClient
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout().roundTo(NANOSECONDS);
         this.user = session.getUser();
+        this.server = session.getServer();
 
         Request request = buildQueryRequest(session, query);
         JsonResponse<QueryResults> response = httpClient.execute(request, responseHandler);
@@ -124,7 +126,7 @@ public class StatementClient
 
     private Request buildQueryRequest(ClientSession session, String query)
     {
-        Request.Builder builder = prepareRequest(preparePost(), uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
+        Request.Builder builder = prepareRequest(preparePost(), uriBuilderFrom(server).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
 
         if (session.getSource() != null) {
@@ -244,9 +246,8 @@ public class StatementClient
     private Request.Builder prepareRequest(Request.Builder builder, URI nextUri)
     {
         builder.setHeader(PrestoHeaders.PRESTO_USER, user);
-        builder.setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(nextUri);
-
+        builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
+        builder.setUri(uriBuilderFrom(server).replacePath(nextUri.getPath()).build());
         return builder;
     }
 
