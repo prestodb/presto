@@ -24,7 +24,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
+import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static java.util.Optional.empty;
 
 public class RemoveUnreferencedScalarLateralNodes

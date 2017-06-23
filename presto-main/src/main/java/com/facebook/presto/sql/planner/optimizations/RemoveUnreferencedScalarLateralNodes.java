@@ -25,7 +25,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
 import java.util.Map;
 
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
+import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 
 /**
