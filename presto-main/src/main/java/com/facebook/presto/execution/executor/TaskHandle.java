@@ -31,6 +31,7 @@ import java.util.function.DoubleSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class TaskHandle
@@ -58,10 +59,12 @@ public class TaskHandle
 
     public TaskHandle(TaskId taskId, MultilevelSplitQueue splitQueue, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
     {
-        this.taskId = taskId;
-        this.splitQueue = splitQueue;
-        this.utilizationSupplier = utilizationSupplier;
-        this.concurrencyController = new SplitConcurrencyController(initialSplitConcurrency, splitConcurrencyAdjustFrequency);
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.splitQueue = requireNonNull(splitQueue, "splitQueue is null");
+        this.utilizationSupplier = requireNonNull(utilizationSupplier, "utilizationSupplier is null");
+        this.concurrencyController = new SplitConcurrencyController(
+                initialSplitConcurrency,
+                requireNonNull(splitConcurrencyAdjustFrequency, "splitConcurrencyAdjustFrequency is null"));
     }
 
     public synchronized Priority addScheduledNanos(long durationNanos)
