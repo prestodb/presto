@@ -14,6 +14,8 @@
 package com.facebook.presto.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.List;
 
@@ -22,9 +24,23 @@ import static java.util.Objects.requireNonNull;
 
 public class PostScript
 {
+    public static final Slice MAGIC = Slices.utf8Slice("ORC");
+
     public enum HiveWriterVersion
     {
-        ORIGINAL, ORC_HIVE_8732;
+        ORIGINAL(0), ORC_HIVE_8732(1);
+
+        private final int orcWriterVersion;
+
+        HiveWriterVersion(int orcWriterVersion)
+        {
+            this.orcWriterVersion = orcWriterVersion;
+        }
+
+        public int getOrcWriterVersion()
+        {
+            return orcWriterVersion;
+        }
     }
 
     private final List<Integer> version;

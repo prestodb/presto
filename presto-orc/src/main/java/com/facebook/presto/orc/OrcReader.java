@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
+import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -47,7 +49,6 @@ public class OrcReader
 
     private static final Logger log = Logger.get(OrcReader.class);
 
-    private static final Slice MAGIC = Slices.utf8Slice("ORC");
     private static final int CURRENT_MAJOR_VERSION = 0;
     private static final int CURRENT_MINOR_VERSION = 12;
     private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
@@ -59,9 +60,9 @@ public class OrcReader
     private final DataSize maxBlockSize;
     private final HiveWriterVersion hiveWriterVersion;
     private final int bufferSize;
+    private final Optional<OrcDecompressor> decompressor;
     private final Footer footer;
     private final Metadata metadata;
-    private Optional<OrcDecompressor> decompressor = Optional.empty();
 
     // This is based on the Apache Hive ORC code
     public OrcReader(OrcDataSource orcDataSource, MetadataReader delegate, DataSize maxMergeDistance, DataSize maxReadSize, DataSize maxBlockSize)
@@ -109,21 +110,7 @@ public class OrcReader
         this.bufferSize = toIntExact(postScript.getCompressionBlockSize());
 
         // check compression codec is supported
-        switch (postScript.getCompression()) {
-            case UNCOMPRESSED:
-                break;
-            case ZLIB:
-                decompressor = Optional.of(new OrcZlibDecompressor(orcDataSource.getId(), bufferSize));
-                break;
-            case SNAPPY:
-                decompressor = Optional.of(new OrcSnappyDecompressor(orcDataSource.getId(), bufferSize));
-                break;
-            case ZSTD:
-                decompressor = Optional.of(new OrcZstdDecompressor(orcDataSource.getId(), bufferSize));
-                break;
-            default:
-                throw new UnsupportedOperationException("Unsupported compression type: " + postScript.getCompression());
-        }
+        this.decompressor = createOrcDecompressor(orcDataSource.getId(), postScript.getCompression(), bufferSize);
 
         this.hiveWriterVersion = postScript.getHiveWriterVersion();
 

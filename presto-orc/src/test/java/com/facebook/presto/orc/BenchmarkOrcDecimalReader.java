@@ -47,9 +47,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.orc.OrcTester.Compression.NONE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.writeOrcColumn;
+import static com.facebook.presto.orc.OrcTester.writeOrcColumnOld;
+import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -103,7 +103,7 @@ public class BenchmarkOrcDecimalReader
             temporary = createTempDir();
             dataPath = new File(temporary, randomUUID().toString());
 
-            writeOrcColumn(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues().iterator());
+            writeOrcColumnOld(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues().iterator());
         }
 
         @TearDown

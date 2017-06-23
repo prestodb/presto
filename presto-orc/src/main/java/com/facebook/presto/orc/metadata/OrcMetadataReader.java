@@ -45,8 +45,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
@@ -139,7 +139,7 @@ public class OrcMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(HiveWriterVersion hiveWriterVersion, List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -401,13 +401,17 @@ public class OrcMetadataReader
 
     private static OrcType toType(OrcProto.Type type)
     {
+        Optional<Integer> length = Optional.empty();
+        if (type.getKind() == OrcProto.Type.Kind.VARCHAR || type.getKind() == OrcProto.Type.Kind.CHAR) {
+            length = Optional.of(type.getMaximumLength());
+        }
         Optional<Integer> precision = Optional.empty();
         Optional<Integer> scale = Optional.empty();
         if (type.getKind() == OrcProto.Type.Kind.DECIMAL) {
             precision = Optional.of(type.getPrecision());
             scale = Optional.of(type.getScale());
         }
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), precision, scale);
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), length, precision, scale);
     }
 
     private static List<OrcType> toType(List<OrcProto.Type> types)
@@ -503,7 +507,7 @@ public class OrcMetadataReader
     {
         switch (compression) {
             case NONE:
-                return UNCOMPRESSED;
+                return NONE;
             case ZLIB:
                 return ZLIB;
             case SNAPPY:

@@ -327,7 +327,7 @@ public class StripeReader
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
         try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage)) {
-            return metadataReader.readStripeFooter(hiveWriterVersion, types, inputStream);
+            return metadataReader.readStripeFooter(types, inputStream);
         }
     }
 

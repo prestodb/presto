@@ -136,7 +136,7 @@ public abstract class AbstractTestOrcReader
     public void testLongPatchedBase()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), ImmutableList.of(30_000, 20_000))), 30_000));
+        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000))), 30_000));
     }
 
     @Test
@@ -363,7 +363,7 @@ public abstract class AbstractTestOrcReader
                         nCopies(1_000_000, null))),
                 200_000));
 
-        tester.assertRoundTrip(INTEGER, values);
+        tester.assertRoundTrip(INTEGER, values, false);
 
         tester.assertRoundTrip(
                 VARCHAR,

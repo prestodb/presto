@@ -15,5 +15,5 @@ package com.facebook.presto.orc.metadata;
 
 public enum CompressionKind
 {
-    UNCOMPRESSED, ZLIB, SNAPPY, ZSTD
+    NONE, ZLIB, SNAPPY, ZSTD
 }
