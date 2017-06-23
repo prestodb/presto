@@ -28,7 +28,7 @@ public abstract class AbstractArrayBlock
 
     protected abstract boolean[] getValueIsNull();
 
-    private int getOffset(int position)
+    int getOffset(int position)
     {
         return getOffsets()[position + getOffsetBase()];
     }
