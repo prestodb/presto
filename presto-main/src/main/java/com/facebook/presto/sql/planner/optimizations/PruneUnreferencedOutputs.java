@@ -723,11 +723,6 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitApply(ApplyNode node, RewriteContext<Set<Symbol>> context)
         {
-            // remove unused apply nodes
-            if (intersection(node.getSubqueryAssignments().getSymbols(), context.get()).isEmpty()) {
-                return context.rewrite(node.getInput(), context.get());
-            }
-
             // extract symbols required subquery plan
             ImmutableSet.Builder<Symbol> subqueryAssignmentsSymbolsBuilder = ImmutableSet.builder();
             Assignments.Builder subqueryAssignments = Assignments.builder();
@@ -771,11 +766,6 @@ public class PruneUnreferencedOutputs
         public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<Set<Symbol>> context)
         {
             PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
-
-            // remove unused lateral nodes
-            if (intersection(ImmutableSet.copyOf(subquery.getOutputSymbols()), context.get()).isEmpty() && isScalar(subquery)) {
-                return context.rewrite(node.getInput(), context.get());
-            }
 
             // prune not used correlation symbols
             Set<Symbol> subquerySymbols = SymbolsExtractor.extractUnique(subquery);
