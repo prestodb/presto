@@ -20,8 +20,11 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Optional;
@@ -29,23 +32,36 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static java.util.Optional.empty;
+import static java.util.stream.Collectors.toMap;
 
 final class TableScanMatcher
         implements Matcher
 {
     private final String expectedTableName;
     private final Optional<Map<String, Domain>> expectedConstraint;
+    private final Optional<Expression> expectedOriginalConstraint;
 
     TableScanMatcher(String expectedTableName)
     {
-        this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
-        expectedConstraint = Optional.empty();
+        this(expectedTableName, empty(), empty());
     }
 
     public TableScanMatcher(String expectedTableName, Map<String, Domain> expectedConstraint)
     {
+        this(expectedTableName, Optional.of(expectedConstraint), empty());
+    }
+
+    public TableScanMatcher(String expectedTableName, Expression originalConstraint)
+    {
+        this(expectedTableName, empty(), Optional.of(originalConstraint));
+    }
+
+    private TableScanMatcher(String expectedTableName, Optional<Map<String, Domain>> expectedConstraint, Optional<Expression> originalConstraint)
+    {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
-        this.expectedConstraint = Optional.of(requireNonNull(expectedConstraint, "expectedConstraint is null"));
+        this.expectedConstraint = requireNonNull(expectedConstraint, "expectedConstraint is null");
+        this.expectedOriginalConstraint = requireNonNull(originalConstraint, "expectedOriginalConstraint is null");
     }
 
     @Override
@@ -64,7 +80,8 @@ final class TableScanMatcher
         String actualTableName = tableMetadata.getTable().getTableName();
         return new MatchResult(
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
-                        domainMatches(tableScanNode, session, metadata));
+                        domainMatches(tableScanNode, session, metadata) &&
+                        originalConstraintMatches(tableScanNode));
     }
 
     private boolean domainMatches(TableScanNode tableScanNode, Session session, Metadata metadata)
@@ -95,6 +112,19 @@ final class TableScanMatcher
         return true;
     }
 
+    private boolean originalConstraintMatches(TableScanNode node)
+    {
+        return expectedOriginalConstraint
+                .map(expected -> {
+                    Map<String, SymbolReference> assignments = node.getOutputSymbols().stream()
+                            .collect(toMap(Symbol::getName, Symbol::toSymbolReference));
+                    SymbolAliases symbolAliases = SymbolAliases.builder().putAll(assignments).build();
+                    ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+                    return verifier.process(node.getOriginalConstraint(), expected);
+                })
+                .orElse(true);
+    }
+
     @Override
     public String toString()
     {
@@ -102,6 +132,7 @@ final class TableScanMatcher
                 .omitNullValues()
                 .add("expectedTableName", expectedTableName)
                 .add("expectedConstraint", expectedConstraint.orElse(null))
+                .add("expectedOriginalConstraint", expectedOriginalConstraint.orElse(null))
                 .toString();
     }
 }
