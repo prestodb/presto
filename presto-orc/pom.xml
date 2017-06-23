@@ -17,6 +17,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-array</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
         </dependency>
@@ -29,6 +34,11 @@
         <dependency>
             <groupId>com.facebook.presto.hive</groupId>
             <artifactId>hive-apache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>aircompressor</artifactId>
         </dependency>
 
         <dependency>
@@ -64,6 +74,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
         </dependency>
 
         <dependency>

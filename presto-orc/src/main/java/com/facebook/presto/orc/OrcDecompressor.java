@@ -13,8 +13,29 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.metadata.CompressionKind;
+
+import java.util.Optional;
+
 public interface OrcDecompressor
 {
+    static Optional<OrcDecompressor> createOrcDecompressor(OrcDataSourceId orcDataSourceId, CompressionKind compression, int bufferSize)
+            throws OrcCorruptionException
+    {
+        switch (compression) {
+            case NONE:
+                return Optional.empty();
+            case ZLIB:
+                return Optional.of(new OrcZlibDecompressor(orcDataSourceId, bufferSize));
+            case SNAPPY:
+                return Optional.of(new OrcSnappyDecompressor(orcDataSourceId, bufferSize));
+            case ZSTD:
+                return Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize));
+            default:
+                throw new OrcCorruptionException(orcDataSourceId, "Unknown compression type: " + compression);
+        }
+    }
+
     int decompress(byte[] input, int offset, int length, OutputBuffer output)
             throws OrcCorruptionException;
 

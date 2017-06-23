@@ -58,7 +58,8 @@ import static org.testng.Assert.fail;
 
 public final class TestingOrcPredicate
 {
-    private static final int ORC_ROW_GROUP_SIZE = 10_000;
+    public static final int ORC_STRIPE_SIZE = 30_000;
+    public static final int ORC_ROW_GROUP_SIZE = 10_000;
 
     private TestingOrcPredicate()
     {
@@ -153,19 +154,18 @@ public final class TestingOrcPredicate
             }
             else if (numberOfRows == ORC_ROW_GROUP_SIZE) {
                 // middle section
-                boolean foundMatch = false;
-
-                int length;
-                for (int offset = 0; offset < expectedValues.size(); offset += length) {
-                    length = Math.min(ORC_ROW_GROUP_SIZE, expectedValues.size() - offset);
-                    if (chunkMatchesStats(expectedValues.subList(offset, offset + length), columnStatistics)) {
-                        foundMatch = true;
-                        break;
-                    }
-                }
-                assertTrue(foundMatch);
+                matchMiddleSection(columnStatistics, ORC_ROW_GROUP_SIZE);
             }
-            else if (numberOfRows == expectedValues.size() % ORC_ROW_GROUP_SIZE) {
+            else if (numberOfRows == ORC_STRIPE_SIZE) {
+                // middle section
+                matchMiddleSection(columnStatistics, ORC_STRIPE_SIZE);
+            }
+            else if (numberOfRows == expectedValues.size() % ORC_ROW_GROUP_SIZE || numberOfRows == expectedValues.size() % ORC_STRIPE_SIZE) {
+                // tail section
+                List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
+                assertChunkStats(chunk, columnStatistics);
+            }
+            else if (numberOfRows == expectedValues.size() % ORC_STRIPE_SIZE) {
                 // tail section
                 List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
                 assertChunkStats(chunk, columnStatistics);
@@ -174,6 +174,18 @@ public final class TestingOrcPredicate
                 fail("Unexpected number of rows: " + numberOfRows);
             }
             return true;
+        }
+
+        private void matchMiddleSection(ColumnStatistics columnStatistics, int size)
+        {
+            int length;
+            for (int offset = 0; offset < expectedValues.size(); offset += length) {
+                length = Math.min(size, expectedValues.size() - offset);
+                if (chunkMatchesStats(expectedValues.subList(offset, offset + length), columnStatistics)) {
+                    return;
+                }
+            }
+            fail("match not found for middle section");
         }
 
         private void assertChunkStats(List<T> chunk, ColumnStatistics columnStatistics)

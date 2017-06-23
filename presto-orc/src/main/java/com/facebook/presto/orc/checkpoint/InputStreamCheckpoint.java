@@ -14,6 +14,9 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -28,11 +31,11 @@ public final class InputStreamCheckpoint
 
     public static long createInputStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {
-        if (!compressed) {
-            return createInputStreamCheckpoint(0, positionsList.nextPosition());
+        if (compressed) {
+            return createInputStreamCheckpoint(positionsList.nextPosition(), positionsList.nextPosition());
         }
         else {
-            return createInputStreamCheckpoint(positionsList.nextPosition(), positionsList.nextPosition());
+            return createInputStreamCheckpoint(0, positionsList.nextPosition());
         }
     }
 
@@ -50,6 +53,16 @@ public final class InputStreamCheckpoint
     {
         // low order bits contain the decompressed offset, so a simple cast here will suffice
         return (int) inputStreamCheckpoint;
+    }
+
+    public static List<Integer> createInputStreamPositionList(boolean compressed, long inputStreamCheckpoint)
+    {
+        if (compressed) {
+            return ImmutableList.of(decodeCompressedBlockOffset(inputStreamCheckpoint), decodeDecompressedOffset(inputStreamCheckpoint));
+        }
+        else {
+            return ImmutableList.of(decodeDecompressedOffset(inputStreamCheckpoint));
+        }
     }
 
     public static String inputStreamCheckpointToString(long inputStreamCheckpoint)

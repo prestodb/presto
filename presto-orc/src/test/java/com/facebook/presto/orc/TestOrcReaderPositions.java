@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
@@ -203,7 +204,7 @@ public class TestOrcReaderPositions
     private static void createMultiStripeFile(File file)
             throws IOException, ReflectiveOperationException, SerDeException
     {
-        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, BIGINT);
+        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, CompressionKind.NONE, BIGINT);
 
         @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", BIGINT);
@@ -251,7 +252,7 @@ public class TestOrcReaderPositions
     private static void createSequentialFile(File file, int count)
             throws IOException, ReflectiveOperationException, SerDeException
     {
-        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, BIGINT);
+        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, CompressionKind.NONE, BIGINT);
 
         @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", BIGINT);
