@@ -81,7 +81,6 @@ public final class HiveTestUtils
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
                 .add(new OrcFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig))
-                .add(new DwrfFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig))
                 .build();
     }
 
