@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
+
+import java.lang.invoke.MethodType;
 
 import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.spi.block.ColumnarTestUtils.alternatingNullValues;
@@ -124,7 +125,7 @@ public class TestColumnarMap
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][][] expectedValues)
     {
-        BlockBuilder blockBuilder = createMapBuilder(new BlockBuilderStatus(), 100, 100);
+        BlockBuilder blockBuilder = createMapBuilder(new BlockBuilderStatus(), 100);
         for (Slice[][] expectedMap : expectedValues) {
             if (expectedMap == null) {
                 blockBuilder.appendNull();
@@ -150,11 +151,22 @@ public class TestColumnarMap
         return blockBuilder;
     }
 
-    private static BlockBuilder createMapBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    private static BlockBuilder createMapBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        return new ArrayBlockBuilder(
-                new InterleavedBlockBuilder(ImmutableList.of(VARCHAR, VARCHAR), blockBuilderStatus, expectedEntries * 2, expectedBytesPerEntry),
+        return new MapBlockBuilder(
+                true,
+                VARCHAR,
+                VARCHAR,
+                MethodHandleUtil.methodHandle(Slice.class, "equals", Object.class).asType(MethodType.methodType(boolean.class, Slice.class, Slice.class)),
+                MethodHandleUtil.methodHandle(Slice.class, "hashCode").asType(MethodType.methodType(long.class, Slice.class)),
+                MethodHandleUtil.methodHandle(TestColumnarMap.class, "blockVarcharHashCode", Block.class, int.class),
                 blockBuilderStatus,
                 expectedEntries);
+    }
+
+    @SuppressWarnings("unused")
+    public static long blockVarcharHashCode(Block block, int position)
+    {
+        return block.hash(position, 0, block.getSliceLength(position));
     }
 }

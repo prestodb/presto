@@ -34,27 +34,22 @@ public class ColumnarMap
             return toColumnarMap((RunLengthEncodedBlock) block);
         }
 
-        if (!(block instanceof AbstractArrayBlock)) {
+        if (!(block instanceof AbstractMapBlock)) {
             throw new IllegalArgumentException("Invalid map block");
         }
 
-        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
-        Block arrayBlockValues = arrayBlock.getValues();
-        if (!(arrayBlockValues instanceof AbstractInterleavedBlock)) {
-            throw new IllegalArgumentException("Invalid map block");
-        }
-        AbstractInterleavedBlock interleavedBlock = (AbstractInterleavedBlock) arrayBlockValues;
+        AbstractMapBlock mapBlock = (AbstractMapBlock) block;
+
+        int offsetBase = mapBlock.getOffsetBase();
+        int[] offsets = mapBlock.getOffsets();
 
         // get the keys and values for visible region
-        int interleavedBlockOffset = 0;
-        int interleavedBlockLength = 0;
-        if (arrayBlock.getPositionCount() > 0) {
-            interleavedBlockOffset = arrayBlock.getOffset(0);
-            interleavedBlockLength = arrayBlock.getOffset(arrayBlock.getPositionCount()) - interleavedBlockOffset;
-        }
-        Block[] keysAndValues = interleavedBlock.computeSerializableSubBlocks(interleavedBlockOffset, interleavedBlockLength);
+        int firstEntryPosition = mapBlock.getOffset(0);
+        int totalEntryCount = mapBlock.getOffset(block.getPositionCount()) - firstEntryPosition;
+        Block keysBlock = mapBlock.getKeys().getRegion(firstEntryPosition, totalEntryCount);
+        Block valuesBlock = mapBlock.getValues().getRegion(firstEntryPosition, totalEntryCount);
 
-        return new ColumnarMap(block, arrayBlock.getOffsetBase(), arrayBlock.getOffsets(), keysAndValues[0], keysAndValues[1]);
+        return new ColumnarMap(block, offsetBase, offsets, keysBlock, valuesBlock);
     }
 
     private static ColumnarMap toColumnarMap(DictionaryBlock dictionaryBlock)
@@ -65,11 +60,11 @@ public class ColumnarMap
         int[] offsets = new int[dictionaryBlock.getPositionCount() + 1];
         for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
             int dictionaryId = dictionaryBlock.getId(position);
-            offsets[position + 1] = offsets[position] + (columnarMap.getEntryCount(dictionaryId) * 2);
+            offsets[position + 1] = offsets[position] + columnarMap.getEntryCount(dictionaryId);
         }
 
         // reindex dictionary
-        int[] dictionaryIds = new int[offsets[dictionaryBlock.getPositionCount()] / 2];
+        int[] dictionaryIds = new int[offsets[dictionaryBlock.getPositionCount()]];
         int nextDictionaryIndex = 0;
         for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
             int dictionaryId = dictionaryBlock.getId(position);
@@ -98,7 +93,7 @@ public class ColumnarMap
         int[] offsets = new int[rleBlock.getPositionCount() + 1];
         int entryCount = columnarMap.getEntryCount(0);
         for (int i = 0; i < offsets.length; i++) {
-            offsets[i] = i * entryCount * 2;
+            offsets[i] = i * entryCount;
         }
 
         // create indexes for a dictionary block of the elements
@@ -140,12 +135,12 @@ public class ColumnarMap
 
     public int getEntryCount(int position)
     {
-        return (offsets[position + 1 + offsetsOffset] - offsets[position + offsetsOffset]) / 2;
+        return (offsets[position + 1 + offsetsOffset] - offsets[position + offsetsOffset]);
     }
 
     private int getOffset(int position)
     {
-        return offsets[position + offsetsOffset] / 2;
+        return offsets[position + offsetsOffset];
     }
 
     public Block getKeysBlock()

@@ -62,7 +62,7 @@ public abstract class AbstractMapBlock
 
     protected abstract boolean[] getMapIsNull();
 
-    private int getOffset(int position)
+    int getOffset(int position)
     {
         return getOffsets()[position + getOffsetBase()];
     }
