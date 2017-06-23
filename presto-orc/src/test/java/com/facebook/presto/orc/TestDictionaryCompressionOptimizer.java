@@ -24,6 +24,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.orc.DictionaryCompressionOptimizer.DICTIONARY_MEMORY_MAX_RANGE;
 import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
@@ -149,13 +150,14 @@ public class TestDictionaryCompressionOptimizer
             throws Exception
     {
         int bytesPerEntry = 1024;
-        int dictionaryMaxMemoryBytes = megabytes(2);
+        int dictionaryMaxMemoryBytes = megabytes(32);
         double uniquePercentage = 0.5;
         TestDictionaryColumn column = directColumn(bytesPerEntry, uniquePercentage);
 
-        // construct a simulator that will hit the dictionary memory limit by estimating the number of rows at the memory limit, and then setting large limits around this value
+        // construct a simulator that will hit the dictionary (low) memory limit by estimating the number of rows at the memory limit, and then setting large limits around this value
         int stripeMaxBytes = megabytes(100);
-        int expectedMaxRowCount = (int) (dictionaryMaxMemoryBytes / bytesPerEntry / uniquePercentage);
+        int dictionaryMaxMemoryBytesLow = dictionaryMaxMemoryBytes - (int) DICTIONARY_MEMORY_MAX_RANGE.toBytes();
+        int expectedMaxRowCount = (int) (dictionaryMaxMemoryBytesLow / bytesPerEntry / uniquePercentage);
         DataSimulator simulator = new DataSimulator(stripeMaxBytes, expectedMaxRowCount / 2, expectedMaxRowCount * 2, dictionaryMaxMemoryBytes, 0, column);
 
         for (int loop = 0; loop < 3; loop++) {
@@ -230,9 +232,9 @@ public class TestDictionaryCompressionOptimizer
         int dictionaryMaxMemoryBytes = megabytes(16);
         TestDictionaryColumn column = directColumn(bytesPerEntry, 1.0);
 
-        // construct a simulator that will filp the column to direct and then hit the bytes limit
+        // construct a simulator that will flip the column to direct and then hit the bytes limit
         int stripeMaxBytes = megabytes(100);
-        int expectedRowCountAtFlip = dictionaryMaxMemoryBytes / bytesPerEntry;
+        int expectedRowCountAtFlip = (int) ((dictionaryMaxMemoryBytes - DICTIONARY_MEMORY_MAX_RANGE.toBytes()) / bytesPerEntry);
         int expectedMaxRowCountAtFull = stripeMaxBytes / bytesPerEntry;
         DataSimulator simulator = new DataSimulator(stripeMaxBytes, 1, expectedMaxRowCountAtFull, dictionaryMaxMemoryBytes, 0, column);
 
@@ -274,12 +276,12 @@ public class TestDictionaryCompressionOptimizer
             throws Exception
     {
         int bytesPerEntry = 1024;
-        int dictionaryMaxMemoryBytes = megabytes(2);
+        int dictionaryMaxMemoryBytes = megabytes(8);
         double directUniquePercentage = 0.75;
         TestDictionaryColumn directColumn = directColumn(bytesPerEntry, directUniquePercentage);
         TestDictionaryColumn dictionaryColumn = dictionaryColumn(bytesPerEntry, 1024);
 
-        // construct a simulator that will filp the column to direct and then hit the bytes limit
+        // construct a simulator that will flip the column to direct and then hit the bytes limit
         int stripeMaxBytes = megabytes(100);
         int expectedRowCountAtFlip = (int) (dictionaryMaxMemoryBytes / (bytesPerEntry * 2 * directUniquePercentage));
         int expectedMaxRowCountAtFull = stripeMaxBytes / (bytesPerEntry * 2);
@@ -326,7 +328,7 @@ public class TestDictionaryCompressionOptimizer
     public void testWideDictionaryAndNarrowDirectBytesLimit()
             throws Exception
     {
-        int dictionaryMaxMemoryBytes = megabytes(16);
+        int dictionaryMaxMemoryBytes = megabytes(32);
         int directBytesPerEntry = 100;
         double directUniquePercentage = 0.75;
         TestDictionaryColumn directColumn = directColumn(directBytesPerEntry, directUniquePercentage);
@@ -337,7 +339,8 @@ public class TestDictionaryCompressionOptimizer
 
         // construct a simulator that will flip the column to direct and then hit the bytes limit
         int stripeMaxBytes = megabytes(2000);
-        int expectedRowCountAtFlip = (int) (dictionaryMaxMemoryBytes / ((directBytesPerEntry + dictionaryBytesPerEntry) * directUniquePercentage));
+        int dictionaryMaxMemoryBytesLow = (int) (dictionaryMaxMemoryBytes - DICTIONARY_MEMORY_MAX_RANGE.toBytes());
+        int expectedRowCountAtFlip = (int) ((dictionaryMaxMemoryBytesLow - (dictionaryEntries * dictionaryBytesPerEntry)) / (directBytesPerEntry * directUniquePercentage));
         int maxRowCount = 10_000_000;
         DataSimulator simulator = new DataSimulator(stripeMaxBytes, 1, maxRowCount, dictionaryMaxMemoryBytes, 0, directColumn, dictionaryColumn);
 
