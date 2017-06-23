@@ -29,6 +29,9 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkState;
 
+/**
+ * This is a concatenation of all byte array content, and a separate length stream will be used to get the boundaries.
+ */
 public class ByteArrayOutputStream
         implements ValueOutputStream<ByteArrayStreamCheckpoint>
 {
@@ -47,12 +50,6 @@ public class ByteArrayOutputStream
     {
         this.buffer = new OrcOutputBuffer(compression, bufferSize);
         this.streamKind = streamKind;
-    }
-
-    @Override
-    public Class<ByteArrayStreamCheckpoint> getCheckpointType()
-    {
-        return ByteArrayStreamCheckpoint.class;
     }
 
     public void writeSlice(Slice value)

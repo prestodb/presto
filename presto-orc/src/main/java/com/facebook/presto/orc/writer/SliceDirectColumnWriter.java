@@ -66,7 +66,6 @@ public class SliceDirectColumnWriter
     private SliceColumnStatisticsBuilder statisticsBuilder;
 
     private boolean closed;
-    private boolean inRowGroup;
 
     public SliceDirectColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, boolean isDwrf, Supplier<SliceColumnStatisticsBuilder> statisticsBuilderSupplier)
     {
@@ -91,9 +90,7 @@ public class SliceDirectColumnWriter
     @Override
     public void beginRowGroup()
     {
-        checkState(!inRowGroup);
         checkState(!closed);
-        inRowGroup = true;
         presentStream.recordCheckpoint();
         lengthStream.recordCheckpoint();
         dataStream.recordCheckpoint();
@@ -103,7 +100,6 @@ public class SliceDirectColumnWriter
     public void writeBlock(Block block)
     {
         checkState(!closed);
-        checkState(inRowGroup);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
         // record nulls
@@ -125,9 +121,7 @@ public class SliceDirectColumnWriter
     @Override
     public void finishRowGroup()
     {
-        checkState(inRowGroup);
         checkState(!closed);
-        inRowGroup = false;
         rowGroupColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
         statisticsBuilder = statisticsBuilderSupplier.get();
     }
@@ -136,7 +130,6 @@ public class SliceDirectColumnWriter
     public void close()
     {
         checkState(!closed);
-        checkState(!inRowGroup);
         closed = true;
         lengthStream.close();
         dataStream.close();
@@ -144,7 +137,7 @@ public class SliceDirectColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStatistics()
+    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
         return ImmutableMap.of(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));

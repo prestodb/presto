@@ -147,13 +147,13 @@ public class StructColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStatistics()
+    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
         ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
         columnStatistics.put(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
         structFields.stream()
-                .map(ColumnWriter::getColumnStatistics)
+                .map(ColumnWriter::getColumnStripeStatistics)
                 .forEach(columnStatistics::putAll);
         return columnStatistics.build();
     }
@@ -171,7 +171,7 @@ public class StructColumnWriter
             int groupId = i;
             ColumnStatistics columnStatistics = rowGroupColumnStatistics.get(groupId);
             Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createDoubleColumnPositionList(compressed, presentCheckpoint);
+            List<Integer> positions = createStructColumnPositionList(compressed, presentCheckpoint);
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
@@ -186,7 +186,7 @@ public class StructColumnWriter
         return indexStreams.build();
     }
 
-    private static List<Integer> createDoubleColumnPositionList(
+    private static List<Integer> createStructColumnPositionList(
             boolean compressed,
             Optional<BooleanStreamCheckpoint> presentCheckpoint)
     {

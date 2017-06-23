@@ -158,13 +158,13 @@ public class MapColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStatistics()
+    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
         ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
         columnStatistics.put(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
-        columnStatistics.putAll(keyWriter.getColumnStatistics());
-        columnStatistics.putAll(valueWriter.getColumnStatistics());
+        columnStatistics.putAll(keyWriter.getColumnStripeStatistics());
+        columnStatistics.putAll(valueWriter.getColumnStripeStatistics());
         return columnStatistics.build();
     }
 

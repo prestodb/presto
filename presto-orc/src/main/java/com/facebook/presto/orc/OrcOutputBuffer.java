@@ -42,7 +42,7 @@ public class OrcOutputBuffer
         extends SliceOutput
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize();
-    private static final int MINIMUM_BUFFER_SIZE = 32 * 1096;
+    private static final int MINIMUM_BUFFER_SIZE = 32 * 1024;
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 4 * 1024;
     private static final int MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 1024 * 1024;
 
@@ -195,12 +195,14 @@ public class OrcOutputBuffer
     @Override
     public void writeFloat(float value)
     {
+        // This normalizes NaN values like `java.io.DataOutputStream` does
         writeInt(Float.floatToIntBits(value));
     }
 
     @Override
     public void writeDouble(double value)
     {
+        // This normalizes NaN values like `java.io.DataOutputStream` does
         writeLong(Double.doubleToLongBits(value));
     }
 
@@ -215,7 +217,6 @@ public class OrcOutputBuffer
     {
         // Write huge chunks direct to OutputStream
         if (length >= MINIMUM_BUFFER_SIZE) {
-            // todo fill buffer before flushing
             flushBufferToOutputStream();
             writeDirectlyToOutputStream(source, sourceIndex, length);
             bufferOffset += length;
@@ -346,7 +347,7 @@ public class OrcOutputBuffer
     @Override
     public String toString(Charset charset)
     {
-        return toString();
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -388,7 +389,7 @@ public class OrcOutputBuffer
             return;
         }
 
-        checkArgument(length <= buffer.length, "Write chunk length must be less than buffer size");
+        checkArgument(length <= buffer.length, "Write chunk length must be less than compression buffer size");
         int compressedSize = compressor.compress(chunk, offset, length, compressionBuffer, 0, compressionBuffer.length);
         if (compressedSize < length) {
             int chunkHeader = (compressedSize << 1);

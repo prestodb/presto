@@ -76,6 +76,7 @@ public final class ColumnWriters
 
             case CHAR:
                 checkArgument(!isDwrf, "DWRF does not support %s type", type);
+                // fall through
             case VARCHAR:
             case STRING:
                 return new SliceDictionaryColumnWriter(columnIndex, type, compression, bufferSize, isDwrf);

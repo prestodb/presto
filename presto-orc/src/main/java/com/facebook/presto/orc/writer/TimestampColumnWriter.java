@@ -121,7 +121,15 @@ public class TimestampColumnWriter
 
                 long seconds = (value / MILLIS_PER_SECOND) - baseTimestampInSeconds;
                 long millis = value % MILLIS_PER_SECOND;
-                long encodedNanos = millis == 0 ? 0 : millis << 3 | MILLIS_TO_NANOS_TRAILING_ZEROS;
+                // The "sub-second" value (i.e., the nanos value) typically has a large number of trailing
+                // zero, because many systems, like Presto, only record millisecond or microsecond precision
+                // timestamps. To optimize storage, if the value has more than two trailing zeros, the trailing
+                // decimal zero digits are removed, and the last three bits are used to record how many zeros
+                // were removed (minus one).
+                //
+                // Thus 1,000,000 nanoseconds would be serialized as '1' with `5` in
+                // the last three bytes: 0b0000_1110.
+                long encodedNanos = millis == 0 ? 0 : (millis << 3) | MILLIS_TO_NANOS_TRAILING_ZEROS;
 
                 secondsStream.writeLong(seconds);
                 nanosStream.writeLong(encodedNanos);
@@ -148,7 +156,7 @@ public class TimestampColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStatistics()
+    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
         return ImmutableMap.of(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
@@ -171,7 +179,7 @@ public class TimestampColumnWriter
             LongStreamCheckpoint secondsCheckpoint = secondsCheckpoints.get(groupId);
             LongStreamCheckpoint nanosCheckpoint = nanosCheckpoints.get(groupId);
             Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createSliceColumnPositionList(compressed, secondsCheckpoint, nanosCheckpoint, presentCheckpoint);
+            List<Integer> positions = createTimestampColumnPositionList(compressed, secondsCheckpoint, nanosCheckpoint, presentCheckpoint);
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
@@ -179,7 +187,7 @@ public class TimestampColumnWriter
         return ImmutableList.of(new Stream(column, StreamKind.ROW_INDEX, length, false));
     }
 
-    private static List<Integer> createSliceColumnPositionList(
+    private static List<Integer> createTimestampColumnPositionList(
             boolean compressed,
             LongStreamCheckpoint secondsCheckpoint,
             LongStreamCheckpoint nanosCheckpoint,

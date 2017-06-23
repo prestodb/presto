@@ -52,12 +52,6 @@ public class BooleanOutputStream
         this.byteOutputStream = byteOutputStream;
     }
 
-    @Override
-    public Class<BooleanStreamCheckpoint> getCheckpointType()
-    {
-        return BooleanStreamCheckpoint.class;
-    }
-
     public void writeBoolean(boolean value)
     {
         checkState(!closed);

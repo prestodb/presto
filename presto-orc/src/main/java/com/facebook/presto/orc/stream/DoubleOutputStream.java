@@ -40,12 +40,6 @@ public class DoubleOutputStream
         this.buffer = new OrcOutputBuffer(compression, bufferSize);
     }
 
-    @Override
-    public Class<DoubleStreamCheckpoint> getCheckpointType()
-    {
-        return DoubleStreamCheckpoint.class;
-    }
-
     public void writeDouble(double value)
     {
         checkState(!closed);

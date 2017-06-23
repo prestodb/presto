@@ -83,22 +83,22 @@ public class OrcType
     private final Optional<Integer> precision;
     private final Optional<Integer> scale;
 
-    public OrcType(OrcTypeKind orcTypeKind)
+    private OrcType(OrcTypeKind orcTypeKind)
     {
         this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
-    public OrcType(OrcTypeKind orcTypeKind, int length)
+    private OrcType(OrcTypeKind orcTypeKind, int length)
     {
         this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.of(length), Optional.empty(), Optional.empty());
     }
 
-    public OrcType(OrcTypeKind orcTypeKind, int precision, int scale)
+    private OrcType(OrcTypeKind orcTypeKind, int precision, int scale)
     {
         this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(precision), Optional.of(scale));
     }
 
-    public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames)
+    private OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames)
     {
         this(orcTypeKind, fieldTypeIndexes, fieldNames, Optional.empty(), Optional.empty(), Optional.empty());
     }
@@ -174,7 +174,7 @@ public class OrcType
                 .toString();
     }
 
-    public static List<OrcType> toOrcType(int nextFieldTypeIndex, Type type)
+    private static List<OrcType> toOrcType(int nextFieldTypeIndex, Type type)
     {
         if (BOOLEAN.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.BOOLEAN));
@@ -238,7 +238,7 @@ public class OrcType
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }
 
-    public static List<OrcType> createOrcArrayType(int nextFieldTypeIndex, Type itemType)
+    private static List<OrcType> createOrcArrayType(int nextFieldTypeIndex, Type itemType)
     {
         nextFieldTypeIndex++;
         List<OrcType> itemTypes = toOrcType(nextFieldTypeIndex, itemType);
@@ -249,7 +249,7 @@ public class OrcType
         return orcTypes;
     }
 
-    public static List<OrcType> createOrcMapType(int nextFieldTypeIndex, Type keyType, Type valueType)
+    private static List<OrcType> createOrcMapType(int nextFieldTypeIndex, Type keyType, Type valueType)
     {
         nextFieldTypeIndex++;
         List<OrcType> keyTypes = toOrcType(nextFieldTypeIndex, keyType);

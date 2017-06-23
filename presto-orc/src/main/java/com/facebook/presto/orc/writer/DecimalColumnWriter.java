@@ -58,7 +58,7 @@ public class DecimalColumnWriter
     private final int column;
     private final DecimalType type;
     private final ColumnEncoding columnEncoding;
-    private final CompressionKind compression;
+    private final boolean compressed;
     private final DecimalOutputStream dataStream;
     private final LongOutputStream scaleStream;
     private final PresentOutputStream presentStream;
@@ -76,13 +76,17 @@ public class DecimalColumnWriter
         checkArgument(!isDwrf, "DWRF does not support %s type", type);
         this.column = column;
         this.type = (DecimalType) requireNonNull(type, "type is null");
-        this.compression = requireNonNull(compression, "compression is null");
+        this.compressed = requireNonNull(compression, "compression is null") != NONE;
         this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
         this.dataStream = new DecimalOutputStream(compression, bufferSize);
         this.scaleStream = new LongOutputStreamV2(compression, bufferSize, true, SECONDARY);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
-        shortDecimalStatisticsBuilder = new ShortDecimalStatisticsBuilder(this.type.getScale());
-        longDecimalStatisticsBuilder = new LongDecimalStatisticsBuilder();
+        if (this.type.isShort()) {
+            shortDecimalStatisticsBuilder = new ShortDecimalStatisticsBuilder(this.type.getScale());
+        }
+        else {
+            longDecimalStatisticsBuilder = new LongDecimalStatisticsBuilder();
+        }
     }
 
     @Override
@@ -143,12 +147,12 @@ public class DecimalColumnWriter
         checkState(!closed);
         if (type.isShort()) {
             rowGroupColumnStatistics.add(shortDecimalStatisticsBuilder.buildColumnStatistics());
+            shortDecimalStatisticsBuilder = new ShortDecimalStatisticsBuilder(this.type.getScale());
         }
         else {
             rowGroupColumnStatistics.add(longDecimalStatisticsBuilder.buildColumnStatistics());
+            longDecimalStatisticsBuilder = new LongDecimalStatisticsBuilder();
         }
-        shortDecimalStatisticsBuilder = new ShortDecimalStatisticsBuilder(this.type.getScale());
-        longDecimalStatisticsBuilder = new LongDecimalStatisticsBuilder();
     }
 
     @Override
@@ -161,7 +165,7 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStatistics()
+    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
         return ImmutableMap.of(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
@@ -184,7 +188,7 @@ public class DecimalColumnWriter
             DecimalStreamCheckpoint dataCheckpoint = dataCheckpoints.get(groupId);
             LongStreamCheckpoint scaleCheckpoint = scaleCheckpoints.get(groupId);
             Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createDecimalColumnPositionList(compression != NONE, dataCheckpoint, scaleCheckpoint, presentCheckpoint);
+            List<Integer> positions = createDecimalColumnPositionList(compressed, dataCheckpoint, scaleCheckpoint, presentCheckpoint);
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
