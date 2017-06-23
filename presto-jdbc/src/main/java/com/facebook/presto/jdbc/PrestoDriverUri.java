@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -124,10 +123,12 @@ final class PrestoDriverUri
     {
         String scheme = (address.getPort() == 443 || useSecureConnection) ? "https" : "http";
 
-        return uriBuilder()
-                .scheme(scheme)
-                .host(address.getHost()).port(address.getPort())
-                .build();
+        try {
+            return new URI(scheme, null, address.getHost(), address.getPort(), null, null, null);
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void initCatalogAndSchema()

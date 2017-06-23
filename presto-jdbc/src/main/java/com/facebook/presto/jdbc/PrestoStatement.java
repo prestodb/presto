@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
@@ -238,6 +239,9 @@ public class PrestoStatement
             currentUpdateCount.set((updateCount != null) ? updateCount : 0);
 
             return false;
+        }
+        catch (ClientException e) {
+            throw new SQLException(e.getMessage(), e);
         }
         catch (RuntimeException e) {
             throw new SQLException("Error executing query", e);

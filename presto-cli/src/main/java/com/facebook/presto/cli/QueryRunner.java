@@ -13,38 +13,34 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.HttpRequestFilter;
-import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.http.client.spnego.KerberosConfig;
-import io.airlift.json.JsonCodec;
-import io.airlift.units.Duration;
+import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
+import java.io.File;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.client.OkHttpUtil.basicAuth;
+import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
+import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
+import static com.facebook.presto.client.OkHttpUtil.setupSsl;
+import static com.facebook.presto.client.OkHttpUtil.setupTimeouts;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class QueryRunner
         implements Closeable
 {
-    private final JsonCodec<QueryResults> queryResultsCodec;
     private final AtomicReference<ClientSession> session;
-    private final HttpClient httpClient;
+    private final OkHttpClient httpClient;
 
     public QueryRunner(
             ClientSession session,
-            JsonCodec<QueryResults> queryResultsCodec,
             Optional<HostAndPort> socksProxy,
             Optional<String> keystorePath,
             Optional<String> keystorePassword,
@@ -54,24 +50,33 @@ public class QueryRunner
             Optional<String> password,
             Optional<String> kerberosPrincipal,
             Optional<String> kerberosRemoteServiceName,
-            boolean authenticationEnabled,
-            KerberosConfig kerberosConfig)
+            Optional<String> kerberosConfigPath,
+            Optional<String> kerberosKeytabPath,
+            Optional<String> kerberosCredentialCachePath,
+            boolean kerberosUseCanonicalHostname,
+            boolean kerberosEnabled)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
-        this.queryResultsCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
-        this.httpClient = new JettyHttpClient(
-                getHttpClientConfig(
-                        socksProxy,
-                        keystorePath,
-                        keystorePassword,
-                        truststorePath,
-                        truststorePassword,
-                        kerberosPrincipal,
-                        kerberosRemoteServiceName,
-                        authenticationEnabled),
-                kerberosConfig,
-                Optional.empty(),
-                getRequestFilters(session, user, password));
+
+        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+
+        setupTimeouts(builder, 5, SECONDS);
+        setupSocksProxy(builder, socksProxy);
+        setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+        setupBasicAuth(builder, session, user, password);
+
+        if (kerberosEnabled) {
+            setupKerberos(
+                    builder,
+                    kerberosRemoteServiceName.orElseThrow(() -> new ClientException("Kerberos remote service name must be set")),
+                    kerberosUseCanonicalHostname,
+                    kerberosPrincipal,
+                    kerberosConfigPath.map(File::new),
+                    kerberosKeytabPath.map(File::new),
+                    kerberosCredentialCachePath.map(File::new));
+        }
+
+        this.httpClient = builder.build();
     }
 
     public ClientSession getSession()
@@ -91,79 +96,26 @@ public class QueryRunner
 
     public StatementClient startInternalQuery(String query)
     {
-        return new StatementClient(httpClient, queryResultsCodec, session.get(), query);
+        return new StatementClient(httpClient, session.get(), query);
     }
 
     @Override
     public void close()
     {
-        httpClient.close();
+        httpClient.dispatcher().executorService().shutdown();
+        httpClient.connectionPool().evictAll();
     }
 
-    public static QueryRunner create(
+    private static void setupBasicAuth(
+            OkHttpClient.Builder clientBuilder,
             ClientSession session,
-            Optional<HostAndPort> socksProxy,
-            Optional<String> keystorePath,
-            Optional<String> keystorePassword,
-            Optional<String> truststorePath,
-            Optional<String> truststorePassword,
             Optional<String> user,
-            Optional<String> password,
-            Optional<String> kerberosPrincipal,
-            Optional<String> kerberosRemoteServiceName,
-            boolean authenticationEnabled,
-            KerberosConfig kerberosConfig)
-    {
-        return new QueryRunner(
-                session,
-                jsonCodec(QueryResults.class),
-                socksProxy,
-                keystorePath,
-                keystorePassword,
-                truststorePath,
-                truststorePassword,
-                user,
-                password,
-                kerberosPrincipal,
-                kerberosRemoteServiceName,
-                authenticationEnabled,
-                kerberosConfig);
-    }
-
-    private static HttpClientConfig getHttpClientConfig(
-            Optional<HostAndPort> socksProxy,
-            Optional<String> keystorePath,
-            Optional<String> keystorePassword,
-            Optional<String> truststorePath,
-            Optional<String> truststorePassword,
-            Optional<String> kerberosPrincipal,
-            Optional<String> kerberosRemoteServiceName,
-            boolean authenticationEnabled)
-    {
-        HttpClientConfig httpClientConfig = new HttpClientConfig()
-                .setConnectTimeout(new Duration(5, TimeUnit.SECONDS))
-                .setRequestTimeout(new Duration(5, TimeUnit.SECONDS));
-
-        socksProxy.ifPresent(httpClientConfig::setSocksProxy);
-
-        httpClientConfig.setAuthenticationEnabled(authenticationEnabled);
-
-        keystorePath.ifPresent(httpClientConfig::setKeyStorePath);
-        keystorePassword.ifPresent(httpClientConfig::setKeyStorePassword);
-        truststorePath.ifPresent(httpClientConfig::setTrustStorePath);
-        truststorePassword.ifPresent(httpClientConfig::setTrustStorePassword);
-        kerberosPrincipal.ifPresent(httpClientConfig::setKerberosPrincipal);
-        kerberosRemoteServiceName.ifPresent(httpClientConfig::setKerberosRemoteServiceName);
-
-        return httpClientConfig;
-    }
-
-    private static Iterable<HttpRequestFilter> getRequestFilters(ClientSession session, Optional<String> user, Optional<String> password)
+            Optional<String> password)
     {
         if (user.isPresent() && password.isPresent()) {
-            checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"), "Authentication using username/password requires HTTPS to be enabled");
-            return ImmutableList.of(new LdapRequestFilter(user.get(), password.get()));
+            checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
+                    "Authentication using username/password requires HTTPS to be enabled");
+            clientBuilder.addInterceptor(basicAuth(user.get(), password.get()));
         }
-        return ImmutableList.of();
     }
 }
