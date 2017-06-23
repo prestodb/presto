@@ -37,6 +37,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -286,22 +288,27 @@ public class SliceDictionaryColumnWriter
         checkState(closed);
         checkState(!directEncoded);
 
-        // todo sort dictionary
         Block dictionaryElements = dictionary.getElementBlock();
-        for (int position = 1; position < dictionaryElements.getPositionCount(); position++) {
-            int length = dictionaryElements.getSliceLength(position);
-            dictionaryLengthStream.writeLong(length);
-            Slice value = dictionaryElements.getSlice(position, 0, length);
-            dictionaryDataStream.writeSlice(value);
+
+        // write dictionary in sorted order
+        int[] sortedDictionaryIndexes = getSortedDictionaryNullsLast(dictionaryElements);
+        for (int sortedDictionaryIndex : sortedDictionaryIndexes) {
+            if (!dictionaryElements.isNull(sortedDictionaryIndex)) {
+                int length = dictionaryElements.getSliceLength(sortedDictionaryIndex);
+                dictionaryLengthStream.writeLong(length);
+                Slice value = dictionaryElements.getSlice(sortedDictionaryIndex, 0, length);
+                dictionaryDataStream.writeSlice(value);
+            }
         }
         columnEncoding = new ColumnEncoding(isDwrf ? DICTIONARY : DICTIONARY_V2, dictionaryElements.getPositionCount() - 1);
 
-        // free the dictionary memory
-        dictionary.clear();
-        dictionaryDataStream.close();
-        dictionaryLengthStream.close();
+        // build index from original dictionary index to new sorted position
+        int[] originalDictionaryToSortedIndex = new int[sortedDictionaryIndexes.length];
+        for (int sortOrdinal = 0; sortOrdinal < sortedDictionaryIndexes.length; sortOrdinal++) {
+            int dictionaryIndex = sortedDictionaryIndexes[sortOrdinal];
+            originalDictionaryToSortedIndex[dictionaryIndex] = sortOrdinal;
+        }
 
-        // todo reindex based on sorted dictionary
         if (!rowGroups.isEmpty()) {
             presentStream.recordCheckpoint();
             dataStream.recordCheckpoint();
@@ -312,21 +319,64 @@ public class SliceDictionaryColumnWriter
                 presentStream.writeBoolean(dictionaryIndexes.get(position) != 0);
             }
             for (int position = 0; position < rowGroup.getValueCount(); position++) {
-                int dictionaryIndex = dictionaryIndexes.get(position);
-                // index zero is reserved for null
-                if (dictionaryIndex != 0) {
-                    int value = dictionaryIndex - 1;
-                    if (value < 0) {
+                int originalDictionaryIndex = dictionaryIndexes.get(position);
+                // index zero in original dictionary is reserved for null
+                if (originalDictionaryIndex != 0) {
+                    int sortedIndex = originalDictionaryToSortedIndex[originalDictionaryIndex];
+                    if (sortedIndex < 0) {
                         throw new IllegalArgumentException();
                     }
-                    dataStream.writeLong(value);
+                    dataStream.writeLong(sortedIndex);
                 }
             }
             presentStream.recordCheckpoint();
             dataStream.recordCheckpoint();
         }
+
+        // free the dictionary memory
+        dictionary.clear();
+        dictionaryDataStream.close();
+        dictionaryLengthStream.close();
+
         dataStream.close();
         presentStream.close();
+    }
+
+    private static int[] getSortedDictionaryNullsLast(Block elementBlock)
+    {
+        int[] sortedPositions = new int[elementBlock.getPositionCount()];
+        for (int i = 0; i < sortedPositions.length; i++) {
+            sortedPositions[i] = i;
+        }
+
+        IntArrays.quickSort(sortedPositions, 0, sortedPositions.length, new AbstractIntComparator() {
+            @Override
+            public int compare(int left, int right)
+            {
+                boolean nullLeft = elementBlock.isNull(left);
+                boolean nullRight = elementBlock.isNull(right);
+                if (nullLeft && nullRight) {
+                    return 0;
+                }
+                if (nullLeft) {
+                    return 1;
+                }
+                if (nullRight) {
+                    return -1;
+                }
+
+                return elementBlock.compareTo(
+                        left,
+                        0,
+                        elementBlock.getSliceLength(left),
+                        elementBlock,
+                        right,
+                        0,
+                        elementBlock.getSliceLength(right));
+            }
+        });
+
+        return sortedPositions;
     }
 
     @Override
