@@ -17,11 +17,16 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
+import static java.lang.Math.min;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -52,60 +57,53 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
 
         assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 0);
         aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(), 0);
+        assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.empty()), 0);
 
         assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 0);
         aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(), 0);
+        assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.empty()), 0);
 
         assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 0);
         aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(), 0);
+        assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.empty()), 0);
     }
 
     public void assertMinMaxValues(T expectedMin, T expectedMax)
     {
-        // add min then max
+        // just min
+        assertValues(expectedMin, expectedMin, ImmutableList.of(expectedMin));
+
+        // just max
+        assertValues(expectedMax, expectedMax, ImmutableList.of(expectedMax));
+
+        // both
+        assertValues(expectedMin, expectedMax, ImmutableList.of(expectedMin, expectedMax));
+    }
+
+    public void assertValues(T expectedMin, T expectedMax, List<T> values)
+    {
+        assertValuesInternal(expectedMin, expectedMax, values);
+        assertValuesInternal(expectedMin, expectedMax, ImmutableList.copyOf(values).reverse());
+
+        List<T> randomOrder = new ArrayList<>(values);
+        Collections.shuffle(randomOrder, new Random(42));
+        assertValuesInternal(expectedMin, expectedMax, randomOrder);
+    }
+
+    private void assertValuesInternal(T expectedMin, T expectedMax, List<T> values)
+    {
         B statisticsBuilder = statisticsBuilderSupplier.get();
         AggregateColumnStatistics aggregateColumnStatistics = new AggregateColumnStatistics();
         aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
         assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 0, null, null, aggregateColumnStatistics);
 
-        adder.accept(statisticsBuilder, expectedMin);
-        aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 1, expectedMin, expectedMin, aggregateColumnStatistics);
-
-        adder.accept(statisticsBuilder, expectedMin);
-        aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 2, expectedMin, expectedMin, aggregateColumnStatistics);
-
-        adder.accept(statisticsBuilder, expectedMax);
-        aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 3, expectedMin, expectedMax, aggregateColumnStatistics);
-
-        adder.accept(statisticsBuilder, expectedMax);
-        aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 4, expectedMin, expectedMax, aggregateColumnStatistics);
-
-        // add max then min
-        statisticsBuilder = statisticsBuilderSupplier.get();
-        aggregateColumnStatistics = new AggregateColumnStatistics();
-
-        adder.accept(statisticsBuilder, expectedMax);
-        aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 1, expectedMax, expectedMax, aggregateColumnStatistics);
-
-        adder.accept(statisticsBuilder, expectedMax);
-        aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 2, expectedMax, expectedMax, aggregateColumnStatistics);
-
-        adder.accept(statisticsBuilder, expectedMin);
-        aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 3, expectedMin, expectedMax, aggregateColumnStatistics);
-
-        adder.accept(statisticsBuilder, expectedMin);
-        aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
-        assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 4, expectedMin, expectedMax, aggregateColumnStatistics);
+        for (int loop = 0; loop < 4; loop++) {
+            for (T value : values) {
+                adder.accept(statisticsBuilder, value);
+                aggregateColumnStatistics.add(statisticsBuilder.buildColumnStatistics());
+            }
+            assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), values.size() * (loop + 1), expectedMin, expectedMax, aggregateColumnStatistics);
+        }
     }
 
     public static void assertNoColumnStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues)
@@ -128,12 +126,22 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
             AggregateColumnStatistics aggregateColumnStatistics)
     {
         assertColumnStatistics(columnStatistics, expectedNumberOfValues, expectedMin, expectedMax);
-        assertColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(), aggregateColumnStatistics.getTotalCount(), expectedMin, expectedMax);
+
+        // merge in forward order
+        int totalCount = aggregateColumnStatistics.getTotalCount();
+        assertColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.empty()), totalCount, expectedMin, expectedMax);
+        assertColumnStatistics(aggregateColumnStatistics.getMergedColumnStatisticsPairwise(Optional.empty()), totalCount, expectedMin, expectedMax);
+
+        // merge in a random order
+        for (int i = 0; i < 10; i++) {
+            assertColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.of(ThreadLocalRandom.current())), totalCount, expectedMin, expectedMax);
+            assertColumnStatistics(aggregateColumnStatistics.getMergedColumnStatisticsPairwise(Optional.of(ThreadLocalRandom.current())), totalCount, expectedMin, expectedMax);
+        }
 
         List<ColumnStatistics> statisticsList = aggregateColumnStatistics.getStatisticsList();
-        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, 0, 10)), aggregateColumnStatistics.getTotalCount() + 10);
-        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size(), 10)), aggregateColumnStatistics.getTotalCount() + 10);
-        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size() / 2, 10)), aggregateColumnStatistics.getTotalCount() + 10);
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, 0, 10)), totalCount + 10);
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size(), 10)), totalCount + 10);
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size() / 2, 10)), totalCount + 10);
     }
 
     static List<ColumnStatistics> insertEmptyColumnStatisticsAt(List<ColumnStatistics> statisticsList, int index, long numberOfValues)
@@ -220,9 +228,30 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
             return statisticsList.build();
         }
 
-        public ColumnStatistics getMergedColumnStatistics()
+        public ColumnStatistics getMergedColumnStatistics(Optional<Random> random)
         {
-            return mergeColumnStatistics(statisticsList.build());
+            List<ColumnStatistics> statistics = new ArrayList<>(statisticsList.build());
+            random.ifPresent(rand -> Collections.shuffle(statistics, rand));
+            return mergeColumnStatistics(ImmutableList.copyOf(statistics));
+        }
+
+        public ColumnStatistics getMergedColumnStatisticsPairwise(Optional<Random> random)
+        {
+            List<ColumnStatistics> statistics = new ArrayList<>(statisticsList.build());
+            random.ifPresent(rand -> Collections.shuffle(statistics, rand));
+            return getMergedColumnStatisticsPairwise(ImmutableList.copyOf(statistics));
+        }
+
+        private static ColumnStatistics getMergedColumnStatisticsPairwise(List<ColumnStatistics> statistics)
+        {
+            while (statistics.size() > 1) {
+                ImmutableList.Builder<ColumnStatistics> mergedStatistics = ImmutableList.builder();
+                for (int i = 0; i < statistics.size(); i += 2) {
+                    mergedStatistics.add(mergeColumnStatistics(statistics.subList(i, min(i + 2, statistics.size()))));
+                }
+                statistics = mergedStatistics.build();
+            }
+            return statistics.get(0);
         }
     }
 }

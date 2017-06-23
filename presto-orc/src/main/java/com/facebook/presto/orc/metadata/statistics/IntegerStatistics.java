@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata.statistics;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class IntegerStatistics
         implements RangeStatistics<Long>
@@ -23,6 +24,7 @@ public class IntegerStatistics
 
     public IntegerStatistics(Long minimum, Long maximum)
     {
+        checkArgument(minimum == null || maximum == null || minimum <= maximum, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
     }

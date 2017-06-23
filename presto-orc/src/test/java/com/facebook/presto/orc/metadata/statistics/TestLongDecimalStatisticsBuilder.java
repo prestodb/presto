@@ -13,11 +13,18 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.google.common.collect.ContiguousSet;
+import com.google.common.collect.DiscreteDomain;
+import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DECIMAL;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.math.BigDecimal.ZERO;
 
 public class TestLongDecimalStatisticsBuilder
         extends AbstractStatisticsBuilderTest<LongDecimalStatisticsBuilder, BigDecimal>
@@ -25,6 +32,7 @@ public class TestLongDecimalStatisticsBuilder
     private static final BigDecimal MEDIUM_VALUE = new BigDecimal("890.37492");
     private static final BigDecimal LARGE_POSITIVE_VALUE = new BigDecimal("123456789012345678901234567890.12345");
     private static final BigDecimal LARGE_NEGATIVE_VALUE = LARGE_POSITIVE_VALUE.negate();
+    private static final List<Long> ZERO_TO_42 = ContiguousSet.create(Range.closed(0L, 42L), DiscreteDomain.longs()).asList();
 
     public TestLongDecimalStatisticsBuilder()
     {
@@ -34,15 +42,27 @@ public class TestLongDecimalStatisticsBuilder
     @Test
     public void testMinMaxValues()
     {
-        assertMinMaxValues(BigDecimal.ZERO, BigDecimal.ZERO);
+        assertMinMaxValues(ZERO, ZERO);
         assertMinMaxValues(MEDIUM_VALUE, MEDIUM_VALUE);
         assertMinMaxValues(LARGE_NEGATIVE_VALUE, LARGE_NEGATIVE_VALUE);
         assertMinMaxValues(LARGE_POSITIVE_VALUE, LARGE_POSITIVE_VALUE);
 
-        assertMinMaxValues(BigDecimal.ZERO, MEDIUM_VALUE);
+        assertMinMaxValues(ZERO, MEDIUM_VALUE);
         assertMinMaxValues(MEDIUM_VALUE, MEDIUM_VALUE);
         assertMinMaxValues(LARGE_NEGATIVE_VALUE, MEDIUM_VALUE);
         assertMinMaxValues(MEDIUM_VALUE, LARGE_POSITIVE_VALUE);
         assertMinMaxValues(LARGE_NEGATIVE_VALUE, LARGE_POSITIVE_VALUE);
+
+        assertValues(ZERO, MEDIUM_VALUE, toBigDecimalList(ZERO, MEDIUM_VALUE, ZERO_TO_42));
+        assertValues(LARGE_NEGATIVE_VALUE, MEDIUM_VALUE, toBigDecimalList(LARGE_NEGATIVE_VALUE, MEDIUM_VALUE, ZERO_TO_42));
+        assertValues(MEDIUM_VALUE, LARGE_POSITIVE_VALUE, toBigDecimalList(MEDIUM_VALUE, LARGE_POSITIVE_VALUE, ZERO_TO_42));
+        assertValues(LARGE_NEGATIVE_VALUE, LARGE_POSITIVE_VALUE, toBigDecimalList(LARGE_NEGATIVE_VALUE, LARGE_POSITIVE_VALUE, ZERO_TO_42));
+    }
+
+    private static List<BigDecimal> toBigDecimalList(BigDecimal minValue, BigDecimal maxValue, List<Long> values)
+    {
+        return values.stream()
+                .flatMap(value -> Stream.of(maxValue.subtract(BigDecimal.valueOf(value)), minValue.add(BigDecimal.valueOf(value))))
+                .collect(toImmutableList());
     }
 }
