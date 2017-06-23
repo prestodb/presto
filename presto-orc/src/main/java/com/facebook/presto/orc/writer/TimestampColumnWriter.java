@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SliceOutput;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class TimestampColumnWriter
         implements ColumnWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize();
     private static final int MILLIS_PER_SECOND = 1000;
     private static final int MILLIS_TO_NANOS_TRAILING_ZEROS = 5;
 
@@ -222,7 +224,8 @@ public class TimestampColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        return secondsStream.getRetainedBytes() + nanosStream.getRetainedBytes() + presentStream.getRetainedBytes();
+        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
+        return INSTANCE_SIZE + secondsStream.getRetainedBytes() + nanosStream.getRetainedBytes() + presentStream.getRetainedBytes();
     }
 
     @Override

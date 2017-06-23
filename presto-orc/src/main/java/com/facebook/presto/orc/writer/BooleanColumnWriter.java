@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ import static java.util.Objects.requireNonNull;
 public class BooleanColumnWriter
         implements ColumnWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanColumnWriter.class).instanceSize();
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final int column;
@@ -181,7 +183,8 @@ public class BooleanColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        return dataStream.getRetainedBytes() + presentStream.getRetainedBytes();
+        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
+        return INSTANCE_SIZE + dataStream.getRetainedBytes() + presentStream.getRetainedBytes();
     }
 
     @Override

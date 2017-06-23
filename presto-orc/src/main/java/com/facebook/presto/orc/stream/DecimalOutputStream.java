@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.Decimals;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class DecimalOutputStream
         implements ValueOutputStream<DecimalStreamCheckpoint>
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalOutputStream.class).instanceSize();
     private final OrcOutputBuffer buffer;
     private final List<DecimalStreamCheckpoint> checkpoints = new ArrayList<>();
 
@@ -140,7 +142,8 @@ public class DecimalOutputStream
     @Override
     public long getRetainedBytes()
     {
-        return buffer.getRetainedSize();
+        // NOTE: we do not include checkpoints because they should be small and it would be annoying to calculate the size
+        return INSTANCE_SIZE + buffer.getRetainedSize();
     }
 
     @Override

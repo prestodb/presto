@@ -18,6 +18,7 @@ import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -31,6 +32,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class PresentOutputStream
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PresentOutputStream.class).instanceSize();
     private final OrcOutputBuffer buffer;
 
     // boolean stream will only exist if null values being recorded
@@ -119,10 +121,11 @@ public class PresentOutputStream
 
     public long getRetainedBytes()
     {
+        // NOTE: we do not include checkpoints because they should be small and it would be annoying to calculate the size
         if (booleanOutputStream == null) {
-            return buffer.getRetainedSize();
+            return INSTANCE_SIZE + buffer.getRetainedSize();
         }
-        return booleanOutputStream.getRetainedBytes();
+        return INSTANCE_SIZE + booleanOutputStream.getRetainedBytes();
     }
 
     public void reset()
