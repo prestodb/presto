@@ -25,6 +25,7 @@ import com.facebook.presto.orc.proto.OrcProto.Type.Builder;
 import com.facebook.presto.orc.proto.OrcProto.UserMetadataItem;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.MessageLite;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -40,17 +41,21 @@ import static java.util.stream.Collectors.toList;
 public class OrcMetadataWriter
         implements MetadataWriter
 {
+    // see https://github.com/prestodb/orc-protobuf/blob/master/src/main/protobuf/orc_proto.proto
+    private static final int ORC_WRITER_VERSION = 6;
+    private static final List<Integer> ORC_METADATA_VERSION = ImmutableList.of(0, 12);
+
     @Override
-    public int writePostscript(SliceOutput output, PostScript postScript)
+    public int writePostscript(SliceOutput output, int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize)
             throws IOException
     {
         OrcProto.PostScript postScriptProtobuf = OrcProto.PostScript.newBuilder()
-                .addAllVersion(postScript.getVersion())
-                .setFooterLength(postScript.getFooterLength())
-                .setMetadataLength(postScript.getMetadataLength())
-                .setCompression(toCompression(postScript.getCompression()))
-                .setCompressionBlockSize(postScript.getCompressionBlockSize())
-                .setWriterVersion(postScript.getHiveWriterVersion().getOrcWriterVersion())
+                .addAllVersion(ORC_METADATA_VERSION)
+                .setFooterLength(footerLength)
+                .setMetadataLength(metadataLength)
+                .setCompression(toCompression(compression))
+                .setCompressionBlockSize(compressionBlockSize)
+                .setWriterVersion(ORC_WRITER_VERSION)
                 .build();
 
         return writeProtobufObject(output, postScriptProtobuf);
@@ -204,7 +209,6 @@ public class OrcMetadataWriter
         }
 
         if (columnStatistics.getStringStatistics() != null) {
-            // todo this will need to be corrected for UTF8 -> UTF16 problems
             builder.setStringStatistics(OrcProto.StringStatistics.newBuilder()
                     .setMinimum(columnStatistics.getStringStatistics().getMin().toStringUtf8())
                     .setMaximum(columnStatistics.getStringStatistics().getMax().toStringUtf8())

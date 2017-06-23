@@ -65,7 +65,7 @@ public final class TestingOrcPredicate
     {
     }
 
-    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values, Format format)
+    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values, Format format, boolean isHiveWriter)
     {
         List<Object> expectedValues = newArrayList(values);
         if (BOOLEAN.equals(type)) {
@@ -104,7 +104,7 @@ public final class TestingOrcPredicate
             return new BasicOrcPredicate<>(expectedValues, Object.class, format == DWRF);
         }
         if (type instanceof VarcharType) {
-            return new StringOrcPredicate(expectedValues, format);
+            return new StringOrcPredicate(expectedValues, format, isHiveWriter);
         }
         if (type instanceof CharType) {
             return new CharOrcPredicate(expectedValues, format == DWRF);
@@ -323,11 +323,13 @@ public final class TestingOrcPredicate
             extends BasicOrcPredicate<String>
     {
         private final Format format;
+        private final boolean isHiveWriter;
 
-        public StringOrcPredicate(Iterable<?> expectedValues, Format format)
+        public StringOrcPredicate(Iterable<?> expectedValues, Format format, boolean isHiveWriter)
         {
             super(expectedValues, String.class, format == DWRF);
             this.format = format;
+            this.isHiveWriter = isHiveWriter;
         }
 
         @Override
@@ -352,7 +354,7 @@ public final class TestingOrcPredicate
             if (columnStatistics.getStringStatistics() != null) {
                 Slice chunkMin = Ordering.natural().nullsLast().min(slices);
                 Slice chunkMax = Ordering.natural().nullsFirst().max(slices);
-                if (format == DWRF) {
+                if (format == DWRF && isHiveWriter) {
                     // We use the OLD open source DWRF writer for tests which uses UTF-16be for string stats. These are widened by the our reader.
                     if (columnStatistics.getStringStatistics().getMin().compareTo(chunkMin) > 0) {
                         return false;

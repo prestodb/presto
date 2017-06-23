@@ -39,14 +39,17 @@ import static java.util.stream.Collectors.toList;
 public class DwrfMetadataWriter
         implements MetadataWriter
 {
+    private static final int DWRF_WRITER_VERSION = 1;
+
     @Override
-    public int writePostscript(SliceOutput output, PostScript postScript)
+    public int writePostscript(SliceOutput output, int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize)
             throws IOException
     {
         DwrfProto.PostScript postScriptProtobuf = DwrfProto.PostScript.newBuilder()
-                .setFooterLength(postScript.getFooterLength())
-                .setCompression(toCompression(postScript.getCompression()))
-                .setCompressionBlockSize(postScript.getCompressionBlockSize())
+                .setFooterLength(footerLength)
+                .setWriterVersion(DWRF_WRITER_VERSION)
+                .setCompression(toCompression(compression))
+                .setCompressionBlockSize(compressionBlockSize)
                 .build();
 
         return writeProtobufObject(output, postScriptProtobuf);
