@@ -33,7 +33,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.facebook.presto.util.MoreLists.filteredCopy;
 
 public class PruneValuesColumns
         implements Rule
@@ -63,9 +63,7 @@ public class PruneValuesColumns
             return Optional.empty();
         }
 
-        List<Symbol> newOutputs = child.getOutputSymbols().stream()
-                .filter(dependencies.get()::contains)
-                .collect(toImmutableList());
+        List<Symbol> newOutputs = filteredCopy(child.getOutputSymbols(), dependencies.get()::contains);
 
         // for each output of project, the corresponding column in the values node
         int[] mapping = new int[newOutputs.size()];
