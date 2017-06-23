@@ -14,6 +14,9 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -44,6 +47,14 @@ public final class BooleanStreamCheckpoint
     public ByteStreamCheckpoint getByteStreamCheckpoint()
     {
         return byteStreamCheckpoint;
+    }
+
+    public List<Integer> toPositionList(boolean compressed)
+    {
+        return ImmutableList.<Integer>builder()
+                .addAll(byteStreamCheckpoint.toPositionList(compressed))
+                .add(offset)
+                .build();
     }
 
     @Override

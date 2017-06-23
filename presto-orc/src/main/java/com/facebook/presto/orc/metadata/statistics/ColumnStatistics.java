@@ -13,6 +13,15 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import java.util.List;
+
+import static com.facebook.presto.orc.metadata.statistics.BooleanStatisticsBuilder.mergeBooleanStatistics;
+import static com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder.mergeDateStatistics;
+import static com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder.mergeDoubleStatistics;
+import static com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
+import static com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
+import static com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
+
 public class ColumnStatistics
 {
     private final Long numberOfValues;
@@ -100,5 +109,22 @@ public class ColumnStatistics
                 dateStatistics,
                 decimalStatistics,
                 bloomFilter);
+    }
+
+    public static ColumnStatistics mergeColumnStatistics(List<ColumnStatistics> stats)
+    {
+        long numberOfRows = stats.stream()
+                .mapToLong(ColumnStatistics::getNumberOfValues)
+                .sum();
+
+        return new ColumnStatistics(
+                numberOfRows,
+                mergeBooleanStatistics(stats).orElse(null),
+                mergeIntegerStatistics(stats).orElse(null),
+                mergeDoubleStatistics(stats).orElse(null),
+                mergeStringStatistics(stats).orElse(null),
+                mergeDateStatistics(stats).orElse(null),
+                mergeDecimalStatistics(stats).orElse(null),
+                null);
     }
 }
