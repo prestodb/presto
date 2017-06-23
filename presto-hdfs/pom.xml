@@ -127,12 +127,12 @@
             <!--<scope>test</scope>-->
         <!--</dependency>-->
 
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <!--<version>9.4.1212.jre7</version>-->
-            <!--<scope>test</scope>-->
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.postgresql</groupId>-->
+            <!--<artifactId>postgresql</artifactId>-->
+            <!--&lt;!&ndash;<version>9.4.1212.jre7</version>&ndash;&gt;-->
+            <!--&lt;!&ndash;<scope>test</scope>&ndash;&gt;-->
+        <!--</dependency>-->
 
         <dependency>
             <groupId>javax.validation</groupId>

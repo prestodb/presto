@@ -350,11 +350,15 @@ implements MetaServer
             return Optional.empty();
         }
 
-        // construct ColumnHandle
-        HDFSColumnHandle fiberCol = getColumnHandle(connectorId, fiberColName, tableName, databaseName);
-        HDFSColumnHandle timeCol = getColumnHandle(connectorId, timeColName, tableName, databaseName);
-
-        tableLayout = new HDFSTableLayoutHandle(tableHandle, fiberCol, timeCol, function, StorageFormat.PARQUET, Optional.empty());
+        if (fiberColName.equals("") || timeColName.equals("") || fiberColName == null || timeColName == null) {
+            tableLayout = new HDFSTableLayoutHandle(tableHandle);
+        }
+        else {
+            // construct ColumnHandle
+            HDFSColumnHandle fiberCol = getColumnHandle(connectorId, fiberColName, tableName, databaseName);
+            HDFSColumnHandle timeCol = getColumnHandle(connectorId, timeColName, tableName, databaseName);
+            tableLayout = new HDFSTableLayoutHandle(tableHandle, fiberCol, timeCol, function, StorageFormat.PARQUET, Optional.empty());
+        }
         return Optional.of(tableLayout);
     }
 
