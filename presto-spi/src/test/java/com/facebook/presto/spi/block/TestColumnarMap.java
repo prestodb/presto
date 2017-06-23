@@ -95,20 +95,20 @@ public class TestColumnarMap
         ColumnarMap columnarMap = toColumnarMap(block);
         assertEquals(columnarMap.getPositionCount(), expectedValues.length);
 
-        Block keysBlock = columnarMap.getNullSuppressedKeysBlock();
-        Block valuesBlock = columnarMap.getNullSuppressedValuesBlock();
+        Block keysBlock = columnarMap.getKeysBlock();
+        Block valuesBlock = columnarMap.getValuesBlock();
         int keysPosition = 0;
         int valuesPosition = 0;
         for (int position = 0; position < expectedValues.length; position++) {
             Slice[][] expectedMap = expectedValues[position];
             assertEquals(columnarMap.isNull(position), expectedMap == null);
             if (expectedMap == null) {
-                assertEquals(columnarMap.getLength(position), 0);
+                assertEquals(columnarMap.getEntryCount(position), 0);
                 continue;
             }
 
-            assertEquals(columnarMap.getLength(position), expectedMap.length);
-            for (int i = 0; i < columnarMap.getLength(position); i++) {
+            assertEquals(columnarMap.getEntryCount(position), expectedMap.length);
+            for (int i = 0; i < columnarMap.getEntryCount(position); i++) {
                 Slice[] expectedEntry = expectedMap[i];
 
                 Slice expectedKey = expectedEntry[0];

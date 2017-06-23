@@ -92,7 +92,7 @@ public class TestColumnarArray
         ColumnarArray columnarArray = toColumnarArray(block);
         assertEquals(columnarArray.getPositionCount(), expectedValues.length);
 
-        Block elementsBlock = columnarArray.getNullSuppressedElementsBlock();
+        Block elementsBlock = columnarArray.getElementsBlock();
         int elementsPosition = 0;
         for (int position = 0; position < expectedValues.length; position++) {
             T expectedArray = expectedValues[position];

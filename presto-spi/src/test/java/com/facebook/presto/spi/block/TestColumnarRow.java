@@ -95,7 +95,7 @@ public class TestColumnarRow
         assertEquals(columnarRow.getPositionCount(), expectedValues.length);
 
         for (int fieldId = 0; fieldId < FIELD_COUNT; fieldId++) {
-            Block fieldBlock = columnarRow.getNullSuppressedField(fieldId);
+            Block fieldBlock = columnarRow.getField(fieldId);
             int elementsPosition = 0;
             for (int position = 0; position < expectedValues.length; position++) {
                 T expectedRow = expectedValues[position];
