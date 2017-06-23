@@ -60,9 +60,9 @@ public final class ColumnarRow
         Block dictionary = dictionaryBlock.getDictionary();
         int[] newDictionaryIndex = new int[dictionary.getPositionCount()];
         int nextNewDictionaryIndex = 0;
-        for (int position1 = 0; position1 < dictionary.getPositionCount(); position1++) {
-            if (!dictionary.isNull(position1)) {
-                newDictionaryIndex[position1] = nextNewDictionaryIndex;
+        for (int position = 0; position < dictionary.getPositionCount(); position++) {
+            if (!dictionary.isNull(position)) {
+                newDictionaryIndex[position] = nextNewDictionaryIndex;
                 nextNewDictionaryIndex++;
             }
         }
@@ -81,7 +81,7 @@ public final class ColumnarRow
         ColumnarRow columnarRow = toColumnarRow(dictionaryBlock.getDictionary());
         Block[] fields = new Block[columnarRow.getFieldCount()];
         for (int i = 0; i < columnarRow.getFieldCount(); i++) {
-            fields[i] = new DictionaryBlock(nonNullPositionCount, columnarRow.getNullSuppressedField(i), dictionaryIds);
+            fields[i] = new DictionaryBlock(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
         }
         return new ColumnarRow(dictionaryBlock, fields);
     }
@@ -93,7 +93,7 @@ public final class ColumnarRow
 
         Block[] fields = new Block[columnarRow.getFieldCount()];
         for (int i = 0; i < columnarRow.getFieldCount(); i++) {
-            Block nullSuppressedField = columnarRow.getNullSuppressedField(i);
+            Block nullSuppressedField = columnarRow.getField(i);
             if (rleValue.isNull(0)) {
                 // the rle value is a null row so, all null-suppressed fields should empty
                 if (nullSuppressedField.getPositionCount() != 0) {
@@ -129,7 +129,14 @@ public final class ColumnarRow
         return fields.length;
     }
 
-    public Block getNullSuppressedField(int index)
+    /**
+     * Gets the specified field for all rows as a column.
+     *
+     * Note: A null row will not have an entry in the block, so the block
+     * will be the size of the non-null rows.  This block may still contain
+     * null values when the row is non-null but the field value is null.
+     */
+    public Block getField(int index)
     {
         return fields[index];
     }
