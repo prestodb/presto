@@ -119,19 +119,12 @@ public class DictionaryBuilder
             return blockPositionByHash.get(hashPosition);
         }
 
-        // todo we should be smarter to not recalculate the hash unless there was a rehash
-        addNewElement(hashPosition, block, position);
-        return blockPositionByHash.get(getHashPositionOfElement(block, position));
+        return addNewElement(hashPosition, block, position);
     }
 
     public int getEntryCount()
     {
         return elementBlock.getPositionCount();
-    }
-
-    public int positionOf(Block block, int position)
-    {
-        return blockPositionByHash.get(getHashPositionOfElement(block, position));
     }
 
     /**
@@ -143,12 +136,12 @@ public class DictionaryBuilder
         long hashPosition = getMaskedHash(block.hash(position, 0, length));
         while (true) {
             int blockPosition = blockPositionByHash.get(hashPosition);
-            // Doesn't have this element
             if (blockPosition == EMPTY_SLOT) {
+                // Doesn't have this element
                 return hashPosition;
             }
-            // Already has this element
             else if (elementBlock.getSliceLength(blockPosition) == length && block.equals(position, 0, elementBlock, blockPosition, 0, length)) {
+                // Already has this element
                 return hashPosition;
             }
 
@@ -156,7 +149,7 @@ public class DictionaryBuilder
         }
     }
 
-    private void addNewElement(long hashPosition, Block block, int position)
+    private int addNewElement(long hashPosition, Block block, int position)
     {
         if (block.isNull(position)) {
             throw new IllegalArgumentException("position is null");
@@ -164,12 +157,15 @@ public class DictionaryBuilder
         block.writeBytesTo(position, 0, block.getSliceLength(position), elementBlock);
         elementBlock.closeEntry();
 
-        blockPositionByHash.set(hashPosition, elementBlock.getPositionCount() - 1);
+        int newElementPositionInBlock = elementBlock.getPositionCount() - 1;
+        blockPositionByHash.set(hashPosition, newElementPositionInBlock);
 
         // increase capacity, if necessary
         if (elementBlock.getPositionCount() >= maxFill) {
             rehash(maxFill * 2);
         }
+
+        return newElementPositionInBlock;
     }
 
     private void rehash(int size)

@@ -22,8 +22,6 @@ import java.util.Optional;
 
 public interface ValueOutputStream<C extends StreamCheckpoint>
 {
-    Class<? extends C> getCheckpointType();
-
     void recordCheckpoint();
 
     void close();

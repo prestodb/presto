@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata.statistics;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class DoubleStatistics
         implements RangeStatistics<Double>
@@ -23,6 +24,8 @@ public class DoubleStatistics
 
     public DoubleStatistics(Double minimum, Double maximum)
     {
+        checkArgument(minimum == null || !minimum.isNaN(), "minimum is NaN");
+        checkArgument(maximum == null || !maximum.isNaN(), "maximum is NaN");
         this.minimum = minimum;
         this.maximum = maximum;
     }

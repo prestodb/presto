@@ -30,6 +30,9 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkState;
 
+/**
+ * This is only for mantissa/significant of a decimal and not the exponent.
+ */
 public class DecimalOutputStream
         implements ValueOutputStream<DecimalStreamCheckpoint>
 {
@@ -41,12 +44,6 @@ public class DecimalOutputStream
     public DecimalOutputStream(CompressionKind compression, int bufferSize)
     {
         this.buffer = new OrcOutputBuffer(compression, bufferSize);
-    }
-
-    @Override
-    public Class<DecimalStreamCheckpoint> getCheckpointType()
-    {
-        return DecimalStreamCheckpoint.class;
     }
 
     // todo rewrite without BigInteger
@@ -64,7 +61,7 @@ public class DecimalOutputStream
         }
         int length = value.bitLength();
         while (true) {
-            long lowBits = value.longValue() & 0x7fffffffffffffffL;
+            long lowBits = value.longValue() & 0x7fff_ffff_ffff_ffffL;
             length -= 63;
             // write out the next 63 bits worth of data
             for (int i = 0; i < 9; ++i) {

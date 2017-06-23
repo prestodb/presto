@@ -31,8 +31,8 @@ import static com.google.common.base.Preconditions.checkState;
 public class ByteOutputStream
         implements ValueOutputStream<ByteStreamCheckpoint>
 {
-    // todo use OrcStreamUtils
     private static final int MIN_REPEAT_SIZE = 3;
+    // A value out side of the range of a signed byte
     private static final int UNMATCHABLE_VALUE = Integer.MAX_VALUE;
 
     private final OrcOutputBuffer buffer;
@@ -54,12 +54,6 @@ public class ByteOutputStream
     public ByteOutputStream(OrcOutputBuffer buffer)
     {
         this.buffer = buffer;
-    }
-
-    @Override
-    public Class<ByteStreamCheckpoint> getCheckpointType()
-    {
-        return ByteStreamCheckpoint.class;
     }
 
     public void writeByte(byte value)
@@ -88,7 +82,6 @@ public class ByteOutputStream
         size++;
 
         // before buffering value, check if a run started, and if so flush buffered literal values
-        // this
         if (runCount == MIN_REPEAT_SIZE && size > MIN_REPEAT_SIZE) {
             // flush the sequence up to the beginning of the run, which must be MIN_REPEAT_SIZE
             size -= MIN_REPEAT_SIZE;

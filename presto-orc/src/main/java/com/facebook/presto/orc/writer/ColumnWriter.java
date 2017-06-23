@@ -42,7 +42,7 @@ public interface ColumnWriter
 
     void close();
 
-    Map<Integer, ColumnStatistics> getColumnStatistics();
+    Map<Integer, ColumnStatistics> getColumnStripeStatistics();
 
     /**
      * Write index streams to the output and return the streams in the

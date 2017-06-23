@@ -148,12 +148,12 @@ public class ListColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStatistics()
+    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
         ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
         columnStatistics.put(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
-        columnStatistics.putAll(elementWriter.getColumnStatistics());
+        columnStatistics.putAll(elementWriter.getColumnStripeStatistics());
         return columnStatistics.build();
     }
 

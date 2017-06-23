@@ -40,12 +40,6 @@ public class FloatOutputStream
         this.buffer = new OrcOutputBuffer(compression, bufferSize);
     }
 
-    @Override
-    public Class<FloatStreamCheckpoint> getCheckpointType()
-    {
-        return FloatStreamCheckpoint.class;
-    }
-
     public void writeFloat(float value)
     {
         checkState(!closed);
