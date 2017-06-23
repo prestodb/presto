@@ -26,7 +26,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 
 public class BooleanOutputStream
         implements ValueOutputStream<BooleanStreamCheckpoint>
@@ -58,25 +60,69 @@ public class BooleanOutputStream
     {
         checkState(!closed);
 
-        data <<= 1;
         if (value) {
-            data |= 0x1;
+            data |= 0x1 << (7 - bitsInData);
         }
         bitsInData++;
 
         if (bitsInData == 8) {
-            byteOutputStream.writeByte((byte) data);
-            data = 0;
-            bitsInData = 0;
+            flushData();
         }
     }
 
     public void writeBooleans(int count, boolean value)
     {
-        // todo write whole bytes
-        for (int i = 0; i < count; i++) {
-            writeBoolean(value);
+        checkArgument(count >= 0, "count is negative");
+        if (count == 0) {
+            return;
         }
+
+        if (bitsInData != 0) {
+            int bitsToWrite = Math.min(count, 8 - bitsInData);
+            if (value) {
+                data |= getLowBitMask(bitsToWrite);
+            }
+
+            bitsInData += bitsToWrite;
+            count -= bitsToWrite;
+            if (bitsInData == 8) {
+                flushData();
+            }
+            else {
+                // there were not enough bits to fill the current data
+                verify(count == 0);
+                return;
+            }
+        }
+
+        // at this point there should be no pending data
+        verify(bitsInData == 0);
+
+        // write 8 bits at a time
+        while (count >= 8) {
+            if (value) {
+                byteOutputStream.writeByte((byte) 0b1111_1111);
+            }
+            else {
+                byteOutputStream.writeByte((byte) 0b0000_0000);
+            }
+            count -= 8;
+        }
+
+        // buffer remaining bits
+        if (count > 0) {
+            if (value) {
+                data = getLowBitMask(count) << (8 - count);
+            }
+            bitsInData = count;
+        }
+    }
+
+    private void flushData()
+    {
+        byteOutputStream.writeByte((byte) data);
+        data = 0;
+        bitsInData = 0;
     }
 
     @Override
@@ -92,10 +138,7 @@ public class BooleanOutputStream
     {
         closed = true;
         if (bitsInData > 0) {
-            data <<= (8 - bitsInData);
-            byteOutputStream.writeByte((byte) data);
-            data = 0;
-            bitsInData = 0;
+            flushData();
         }
         byteOutputStream.close();
     }
@@ -143,5 +186,10 @@ public class BooleanOutputStream
         closed = false;
         byteOutputStream.reset();
         checkpointBitOffsets.clear();
+    }
+
+    private static int getLowBitMask(int bits)
+    {
+        return (0x1 << bits) - 1;
     }
 }
