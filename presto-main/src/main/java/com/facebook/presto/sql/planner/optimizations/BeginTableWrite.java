@@ -197,9 +197,12 @@ public class BeginTableWrite
                 PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
-            if (node instanceof JoinNode && (((JoinNode) node).getType() == JoinNode.Type.INNER) && isScalar(((JoinNode) node).getRight())) {
-                PlanNode source = rewriteDeleteTableScan(((JoinNode) node).getLeft(), handle);
-                return replaceChildren(node, ImmutableList.of(source, ((JoinNode) node).getRight()));
+            if (node instanceof JoinNode) {
+                JoinNode joinNode = (JoinNode) node;
+                if (joinNode.getType() == JoinNode.Type.INNER && isScalar(joinNode.getRight())) {
+                    PlanNode source = rewriteDeleteTableScan(joinNode.getLeft(), handle);
+                    return replaceChildren(node, ImmutableList.of(source, joinNode.getRight()));
+                }
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
         }
