@@ -65,7 +65,7 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
                     index++;
                     T actualValue = readValue(valueStream);
                     if (!actualValue.equals(expectedValue)) {
-                        assertEquals(actualValue, expectedValue);
+                        assertEquals(actualValue, expectedValue, "index=" + index);
                     }
                 }
             }

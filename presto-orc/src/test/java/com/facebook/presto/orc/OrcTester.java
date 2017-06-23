@@ -113,6 +113,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
+import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcWriter.createDwrfWriter;
 import static com.facebook.presto.orc.OrcWriter.createOrcWriter;
@@ -260,7 +261,7 @@ public class OrcTester
         orcTester.listTestsEnabled = true;
         orcTester.nullTestsEnabled = true;
         orcTester.skipBatchTestsEnabled = true;
-        orcTester.formats = ImmutableSet.of(ORC_12, DWRF);
+        orcTester.formats = ImmutableSet.of(ORC_12, ORC_11, DWRF);
         orcTester.compressions = ImmutableSet.of(ZLIB);
         return orcTester;
     }
