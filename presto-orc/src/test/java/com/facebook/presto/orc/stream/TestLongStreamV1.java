@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcWriter.DEFAULT_BUFFER_SIZE;
@@ -38,13 +39,33 @@ public class TestLongStreamV1
             throws IOException
     {
         List<List<Long>> groups = new ArrayList<>();
-        for (int groupIndex = 0; groupIndex < 3; groupIndex++) {
-            List<Long> group = new ArrayList<>();
-            for (int i = 0; i < 1000; i++) {
-                group.add((long) (groupIndex * 10_000 + i));
-            }
-            groups.add(group);
+        List<Long> group;
+
+        group = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            group.add((long) (i));
         }
+        groups.add(group);
+
+        group = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            group.add((long) (10_000 + (i * 17)));
+        }
+        groups.add(group);
+
+        group = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            group.add((long) (10_000 - (i * 17)));
+        }
+        groups.add(group);
+
+        group = new ArrayList<>();
+        Random random = new Random(22);
+        for (int i = 0; i < 1000; i++) {
+            group.add(-1000L + random.nextInt(17));
+        }
+        groups.add(group);
+
         testWriteValue(groups);
     }
 
