@@ -45,7 +45,12 @@ public abstract class AbstractInterleavedBlock
 
     Block[] computeSerializableSubBlocks()
     {
-        InterleavedBlock interleavedBlock = (InterleavedBlock) sliceRange(0, getPositionCount(), false);
+        return computeSerializableSubBlocks(0, getPositionCount());
+    }
+
+    Block[] computeSerializableSubBlocks(int position, int length)
+    {
+        InterleavedBlock interleavedBlock = (InterleavedBlock) sliceRange(position, length, false);
         Block[] result = new Block[interleavedBlock.getBlockCount()];
         for (int i = 0; i < result.length; i++) {
             result[i] = interleavedBlock.getBlock(i);
