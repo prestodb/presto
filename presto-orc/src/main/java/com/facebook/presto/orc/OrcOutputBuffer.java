@@ -17,6 +17,7 @@ import com.facebook.presto.orc.checkpoint.InputStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -145,7 +146,7 @@ public class OrcOutputBuffer
     @Override
     public int getRetainedSize()
     {
-        return slice.getRetainedSize() + INSTANCE_SIZE;
+        return toIntExact(INSTANCE_SIZE + compressedOutputStream.getRetainedSize() + slice.getRetainedSize() + SizeOf.sizeOf(compressionBuffer));
     }
 
     @Override

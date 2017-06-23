@@ -20,6 +20,7 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +31,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class BooleanOutputStream
         implements ValueOutputStream<BooleanStreamCheckpoint>
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanOutputStream.class).instanceSize();
     private final ByteOutputStream byteOutputStream;
     private final List<Integer> checkpointBitOffsets = new ArrayList<>();
 
@@ -128,7 +130,8 @@ public class BooleanOutputStream
     @Override
     public long getRetainedBytes()
     {
-        return byteOutputStream.getRetainedBytes();
+        // NOTE: we do not include checkpoints because they should be small and it would be annoying to calculate the size
+        return INSTANCE_SIZE + byteOutputStream.getRetainedBytes();
     }
 
     @Override
