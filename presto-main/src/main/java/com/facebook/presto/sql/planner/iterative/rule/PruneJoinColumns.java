@@ -29,7 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.facebook.presto.util.MoreLists.filteredCopy;
 
 /**
  * Non-cross joins support output symbol selection, so absorb any project-off into the node.
@@ -73,9 +73,7 @@ public class PruneJoinColumns
                                 joinNode.getLeft(),
                                 joinNode.getRight(),
                                 joinNode.getCriteria(),
-                                joinNode.getOutputSymbols().stream()
-                                        .filter(dependencies.get()::contains)
-                                        .collect(toImmutableList()),
+                                filteredCopy(joinNode.getOutputSymbols(), dependencies.get()::contains),
                                 joinNode.getFilter(),
                                 joinNode.getLeftHashSymbol(),
                                 joinNode.getRightHashSymbol(),

@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -26,6 +27,15 @@ public class MoreLists
     {
         return requireNonNull(lists, "lists is null").stream()
                 .map(ImmutableList::copyOf)
+                .collect(toImmutableList());
+    }
+
+    public static <T> List<T> filteredCopy(List<T> elements, Predicate<T> predicate)
+    {
+        requireNonNull(elements, "elements is null");
+        requireNonNull(predicate, "predicate is null");
+        return elements.stream()
+                .filter(predicate)
                 .collect(toImmutableList());
     }
 
