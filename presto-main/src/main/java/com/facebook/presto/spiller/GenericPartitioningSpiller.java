@@ -73,6 +73,13 @@ public class GenericPartitioningSpiller
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.spillContext = closer.register(requireNonNull(spillContext, "spillContext is null"));
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        /*
+         * TODO since com.facebook.presto.memory.AggregatedMemoryContext.updateBytes fails after close(), `closer.register(memoryContext::close)` should go after closing
+         * all the partitions' spillers. Otherwise their close()-s will fail WHEN they have some memory (e.g. if close() happens during reading, no
+         * concurrency required)
+         *
+         * Oh, this should be covered by tests of GenericPartitioningSpiller.
+         */
         closer.register(memoryContext::close);
 
         int partitionCount = partitionFunction.getPartitionCount();
@@ -169,6 +176,15 @@ public class GenericPartitioningSpiller
         Optional<SingleStreamSpiller> spiller = spillers[partition];
         if (!spiller.isPresent()) {
             spiller = Optional.of(closer.register(
+                    /*
+                     * TODO memoryContext is being exposed to the partition's spiller and will be used by background thread during writing. Alas, memoryContext
+                     * is not @ThreadSafe, so concurrent writing of partitions will corrupt it, which is probable cause of the exception i posted on slack #spill-join
+                     * on Thursday, Jun 22, 2017, 20:42 my local time.
+                     *
+                     * Anyway, @losipiuk suggested removal of memoryContext here. It's used to remove (4k) buffer allocations which usually present only small fraction
+                     * of memory allocated for pages. We can remove or leave--then we need to make it @ThreadSafe or provide synchronized wrapper (so that thread safety cost
+                     * is paid only here).
+                     */
                     spillerFactory.create(types, spillContext.newLocalSpillContext(), memoryContext.newLocalMemoryContext())
             ));
             spillers[partition] = spiller;
