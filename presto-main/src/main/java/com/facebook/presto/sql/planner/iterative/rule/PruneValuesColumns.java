@@ -25,10 +25,9 @@ import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.pushDownProjectOff;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
 
 public class PruneValuesColumns
@@ -45,39 +44,27 @@ public class PruneValuesColumns
     @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        ProjectNode parent = (ProjectNode) node;
+        return pushDownProjectOff(
+                context.getLookup(),
+                ValuesNode.class,
+                (ProjectNode) node,
+                (valuesNode, referencedOutputs) -> {
+                    List<Symbol> newOutputs = filteredCopy(valuesNode.getOutputSymbols(), referencedOutputs::contains);
 
-        PlanNode child = context.getLookup().resolve(parent.getSource());
-        if (!(child instanceof ValuesNode)) {
-            return Optional.empty();
-        }
+                    // for each output of project, the corresponding column in the values node
+                    int[] mapping = new int[newOutputs.size()];
+                    for (int i = 0; i < mapping.length; i++) {
+                        mapping[i] = valuesNode.getOutputSymbols().indexOf(newOutputs.get(i));
+                    }
 
-        ValuesNode values = (ValuesNode) child;
+                    ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
+                    for (List<Expression> row : valuesNode.getRows()) {
+                        rowsBuilder.add(Arrays.stream(mapping)
+                                .mapToObj(row::get)
+                                .collect(Collectors.toList()));
+                    }
 
-        Optional<Set<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
-        if (!dependencies.isPresent()) {
-            return Optional.empty();
-        }
-
-        List<Symbol> newOutputs = filteredCopy(child.getOutputSymbols(), dependencies.get()::contains);
-
-        // for each output of project, the corresponding column in the values node
-        int[] mapping = new int[newOutputs.size()];
-        for (int i = 0; i < mapping.length; i++) {
-            mapping[i] = values.getOutputSymbols().indexOf(newOutputs.get(i));
-        }
-
-        ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
-        for (List<Expression> row : values.getRows()) {
-            rowsBuilder.add(Arrays.stream(mapping)
-                    .mapToObj(row::get)
-                    .collect(Collectors.toList()));
-        }
-
-        return Optional.of(
-                new ProjectNode(
-                        parent.getId(),
-                        new ValuesNode(values.getId(), newOutputs, rowsBuilder.build()),
-                        parent.getAssignments()));
+                    return Optional.of(new ValuesNode(valuesNode.getId(), newOutputs, rowsBuilder.build()));
+                });
     }
 }

@@ -14,16 +14,14 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 
 import java.util.Optional;
-import java.util.Set;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.pushDownProjectOff;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.collect.Maps.filterKeys;
 
@@ -41,31 +39,18 @@ public class PruneTableScanColumns
     @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        ProjectNode parent = (ProjectNode) node;
-
-        PlanNode source = context.getLookup().resolve(parent.getSource());
-        if (!(source instanceof TableScanNode)) {
-            return Optional.empty();
-        }
-
-        TableScanNode child = (TableScanNode) source;
-
-        Optional<Set<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
-        if (!dependencies.isPresent()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(
-                new ProjectNode(
-                        parent.getId(),
+        return pushDownProjectOff(
+                context.getLookup(),
+                TableScanNode.class,
+                (ProjectNode) node,
+                (tableScanNode, referencedOutputs) -> Optional.of(
                         new TableScanNode(
-                                child.getId(),
-                                child.getTable(),
-                                filteredCopy(child.getOutputSymbols(), dependencies.get()::contains),
-                                filterKeys(child.getAssignments(), dependencies.get()::contains),
-                                child.getLayout(),
-                                child.getCurrentConstraint(),
-                                child.getOriginalConstraint()),
-                        parent.getAssignments()));
+                                tableScanNode.getId(),
+                                tableScanNode.getTable(),
+                                filteredCopy(tableScanNode.getOutputSymbols(), referencedOutputs::contains),
+                                filterKeys(tableScanNode.getAssignments(), referencedOutputs::contains),
+                                tableScanNode.getLayout(),
+                                tableScanNode.getCurrentConstraint(),
+                                tableScanNode.getOriginalConstraint())));
     }
 }

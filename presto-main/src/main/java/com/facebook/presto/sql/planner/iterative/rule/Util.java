@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -28,6 +29,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -114,5 +116,33 @@ class Util
             return Optional.empty();
         }
         return Optional.of(node.replaceChildren(newChildrenBuilder.build()));
+    }
+
+    /**
+     * A helper function for many PruneFooColumns rules, which push a project-off into (and possibly through) a Foo node.
+     * @param lookup the lookup for the iterative rule application
+     * @param targetNodeClass the Class object of the specific PlanNode type to look for
+     * @param parent the potentially-projecting-off project node
+     * @param targetNodePruner a function which attempts to rewrite the child of the project to output fewer columns, which
+     * takes the child node and the set of referenced outputs of the child, returning empty when unable to do so
+     * @param <N> the specific type of PlanNode to look for, typically inferred
+     * @return the rewritten project-off node, if the child's output was successfully pruned
+     */
+    public static <N extends PlanNode> Optional<PlanNode> pushDownProjectOff(
+            Lookup lookup,
+            Class<N> targetNodeClass,
+            ProjectNode parent,
+            BiFunction<N, Set<Symbol>, Optional<PlanNode>> targetNodePruner)
+    {
+        PlanNode child = lookup.resolve(parent.getSource());
+        if (!targetNodeClass.isInstance(child)) {
+            return Optional.empty();
+        }
+
+        N targetNode = targetNodeClass.cast(child);
+
+        return pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions())
+                .flatMap(referencedOutputs -> targetNodePruner.apply(targetNode, referencedOutputs))
+                .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)));
     }
 }
