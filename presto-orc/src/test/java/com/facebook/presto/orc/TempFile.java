@@ -29,7 +29,7 @@ class TempFile
     {
         tempDir = createTempDir();
         tempDir.mkdirs();
-        file = new File(tempDir, "data.rcfile");
+        file = new File(tempDir, "data.orc");
     }
 
     public File getFile()
