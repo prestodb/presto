@@ -33,6 +33,12 @@ import java.util.Map;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static com.facebook.presto.orc.OrcWriter.DEFAULT_DICTIONARY_MEMORY_MAX_SIZE;
+import static com.facebook.presto.orc.OrcWriter.DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
+import static com.facebook.presto.orc.OrcWriter.DEFAULT_STRIPE_MAX_ROW_COUNT;
+import static com.facebook.presto.orc.OrcWriter.DEFAULT_STRIPE_MAX_SIZE;
+import static com.facebook.presto.orc.OrcWriter.DEFAULT_STRIPE_MIN_ROW_COUNT;
+import static com.facebook.presto.orc.OrcWriter.createDwrfWriter;
 import static com.facebook.presto.orc.OrcWriter.createOrcWriter;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -45,6 +51,7 @@ public class OrcFileWriter
     private final List<Block> nullBlocks;
 
     public OrcFileWriter(
+            boolean isDwrf,
             OutputStream outputStream,
             List<String> columnNames,
             List<Type> fileColumnTypes,
@@ -53,18 +60,38 @@ public class OrcFileWriter
             Map<String, String> metadata,
             DateTimeZone hiveStorageTimeZone)
     {
-        orcWriter = createOrcWriter(
-                outputStream instanceof SliceOutput ? ((SliceOutput) outputStream) : new OutputStreamSliceOutput(outputStream),
-                columnNames,
-                fileColumnTypes,
-                compression,
-                OrcWriter.DEFAULT_STRIPE_MAX_SIZE,
-                OrcWriter.DEFAULT_STRIPE_MIN_ROW_COUNT,
-                OrcWriter.DEFAULT_STRIPE_MAX_ROW_COUNT,
-                OrcWriter.DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
-                OrcWriter.DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
-                metadata,
-                hiveStorageTimeZone);
+        if (!(outputStream instanceof SliceOutput)) {
+            outputStream = new OutputStreamSliceOutput(outputStream);
+        }
+
+        if (isDwrf) {
+            orcWriter = createDwrfWriter(
+                    (SliceOutput) outputStream,
+                    columnNames,
+                    fileColumnTypes,
+                    compression,
+                    DEFAULT_STRIPE_MAX_SIZE,
+                    DEFAULT_STRIPE_MIN_ROW_COUNT,
+                    DEFAULT_STRIPE_MAX_ROW_COUNT,
+                    DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
+                    DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
+                    metadata,
+                    hiveStorageTimeZone);
+        }
+        else {
+            orcWriter = createOrcWriter(
+                    (SliceOutput) outputStream,
+                    columnNames,
+                    fileColumnTypes,
+                    compression,
+                    DEFAULT_STRIPE_MAX_SIZE,
+                    DEFAULT_STRIPE_MIN_ROW_COUNT,
+                    DEFAULT_STRIPE_MAX_ROW_COUNT,
+                    DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
+                    DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
+                    metadata,
+                    hiveStorageTimeZone);
+        }
 
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "outputColumnInputIndexes is null");
 

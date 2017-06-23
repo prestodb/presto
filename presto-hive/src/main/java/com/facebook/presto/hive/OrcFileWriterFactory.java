@@ -39,6 +39,7 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -87,18 +88,18 @@ public class OrcFileWriterFactory
             return Optional.empty();
         }
 
-        if (!OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
+        boolean isDwrf;
+        if (OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
+            isDwrf = false;
+        }
+        else if (com.facebook.hive.orc.OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
+            isDwrf = true;
+        }
+        else {
             return Optional.empty();
         }
 
-        String compressionName = configuration.get(OrcTableProperties.COMPRESSION.getPropName());
-        CompressionKind compression;
-        try {
-            compression = CompressionKind.valueOf(compressionName);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unknown ORC compression type " + compressionName);
-        }
+        CompressionKind compression = getCompression(schema, configuration);
 
         // existing tables may have columns in a different order
         List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
@@ -115,6 +116,7 @@ public class OrcFileWriterFactory
             OutputStream outputStream = fileSystem.create(path);
 
             return Optional.of(new OrcFileWriter(
+                    isDwrf,
                     outputStream,
                     fileColumnNames,
                     fileColumnTypes,
@@ -129,5 +131,25 @@ public class OrcFileWriterFactory
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating DWRF file", e);
         }
+    }
+
+    private static CompressionKind getCompression(Properties schema, JobConf configuration)
+    {
+        String compressionName = schema.getProperty(OrcTableProperties.COMPRESSION.getPropName());
+        if (compressionName == null) {
+            compressionName = configuration.get("hive.exec.orc.default.compress");
+        }
+        if (compressionName == null) {
+            return CompressionKind.ZLIB;
+        }
+
+        CompressionKind compression;
+        try {
+            compression = CompressionKind.valueOf(compressionName.toUpperCase(ENGLISH));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unknown ORC compression type " + compressionName);
+        }
+        return compression;
     }
 }
