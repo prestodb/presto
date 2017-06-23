@@ -93,7 +93,7 @@ public class OrcWriter
 
     private final List<ColumnWriter> columnWriters;
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
-    private long stripStartOffset;
+    private long stripeStartOffset;
     private int stripeRowCount;
     private int rowGroupRowCount;
     private int bufferedBytes;
@@ -226,7 +226,7 @@ public class OrcWriter
 
         // this is not required but nice to have
         output.writeBytes(MAGIC);
-        stripStartOffset = output.size();
+        stripeStartOffset = output.size();
     }
 
     public int getBufferedBytes()
@@ -274,12 +274,10 @@ public class OrcWriter
 
         // write chunks
         bufferedBytes = 0;
-        retainedBytes = 0;
         for (int channel = 0; channel < chunk.getChannelCount(); channel++) {
             ColumnWriter writer = columnWriters.get(channel);
             writer.writeBlock(chunk.getBlock(channel));
             bufferedBytes += writer.getBufferedBytes();
-            retainedBytes += writer.getRetainedBytes();
         }
 
         // update stats
@@ -294,6 +292,8 @@ public class OrcWriter
 
         // convert dictionary encoded columns to direct if dictionary memory usage exceeded
         dictionaryCompressionOptimizer.optimize(bufferedBytes, stripeRowCount);
+
+        retainedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum());
 
         if (stripeRowCount == stripeMaxRowCount || retainedBytes > stripeMaxBytes || dictionaryCompressionOptimizer.isFull()) {
             writeStripe();
@@ -352,7 +352,7 @@ public class OrcWriter
         columnWriters.forEach(columnWriter -> columnEncodings.putAll(columnWriter.getColumnEncodings()));
 
         Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
-        columnWriters.forEach(columnWriter -> columnStatistics.putAll(columnWriter.getColumnStatistics()));
+        columnWriters.forEach(columnWriter -> columnStatistics.putAll(columnWriter.getColumnStripeStatistics()));
 
         // the 0th column is a struct column for the whole row
         columnEncodings.put(0, new ColumnEncoding(DIRECT, 0));
@@ -362,7 +362,7 @@ public class OrcWriter
         int footerLength = metadataWriter.writeStripeFooter(output, stripeFooter);
 
         closedStripes.add(new ClosedStripe(
-                new StripeInformation(stripeRowCount, stripStartOffset, indexLength, dataLength, footerLength),
+                new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footerLength),
                 new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()))));
 
         // open next stripe
@@ -370,7 +370,7 @@ public class OrcWriter
         dictionaryCompressionOptimizer.reset();
         rowGroupRowCount = 0;
         stripeRowCount = 0;
-        stripStartOffset = output.size();
+        stripeStartOffset = output.size();
     }
 
     @Override

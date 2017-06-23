@@ -76,7 +76,7 @@ public class ExceptionWrappingMetadataReader
 
     @Override
     public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
-            throws OrcCorruptionException
+            throws IOException
     {
         try {
             return delegate.readStripeFooter(types, inputStream);

@@ -94,12 +94,6 @@ public class LongOutputStreamV2
     }
 
     @Override
-    public Class<LongStreamCheckpoint> getCheckpointType()
-    {
-        return LongStreamCheckpoint.class;
-    }
-
-    @Override
     // This comes from the Apache Hive ORC code
     // todo most of this should be rewritten for readability and performance
     public void writeLong(long value)
@@ -732,7 +726,6 @@ public class LongOutputStreamV2
     public void recordCheckpoint()
     {
         checkState(!closed);
-        // todo verify
         checkpoints.add(new LongStreamV2Checkpoint(numLiterals, buffer.getCheckpoint()));
     }
 

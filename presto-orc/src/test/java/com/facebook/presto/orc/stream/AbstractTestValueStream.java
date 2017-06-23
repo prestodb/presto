@@ -60,14 +60,16 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
 
             R valueStream = createValueStream(sliceOutput.slice());
             for (List<T> group : groups) {
+                int index = 0;
                 for (T expectedValue : group) {
+                    index++;
                     T actualValue = readValue(valueStream);
                     if (!actualValue.equals(expectedValue)) {
                         assertEquals(actualValue, expectedValue);
                     }
                 }
             }
-            for (int groupIndex = 2; groupIndex >= 0; groupIndex--) {
+            for (int groupIndex = groups.size() - 1; groupIndex >= 0; groupIndex--) {
                 valueStream.seekToCheckpoint(checkpoints.get(groupIndex));
                 for (T expectedValue : groups.get(groupIndex)) {
                     T actualValue = readValue(valueStream);

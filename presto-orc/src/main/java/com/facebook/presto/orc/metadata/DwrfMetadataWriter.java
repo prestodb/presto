@@ -33,8 +33,8 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map.Entry;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
-import static java.util.stream.Collectors.toList;
 
 public class DwrfMetadataWriter
         implements MetadataWriter
@@ -71,16 +71,16 @@ public class DwrfMetadataWriter
                 .setRowIndexStride(footer.getRowsInRowGroup())
                 .addAllStripes(footer.getStripes().stream()
                         .map(DwrfMetadataWriter::toStripeInformation)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .addAllTypes(footer.getTypes().stream()
                         .map(DwrfMetadataWriter::toType)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .addAllStatistics(footer.getFileStats().stream()
                         .map(DwrfMetadataWriter::toColumnStatistics)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .addAllMetadata(footer.getUserMetadata().entrySet().stream()
                         .map(DwrfMetadataWriter::toUserMetadata)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .build();
 
         return writeProtobufObject(output, footerProtobuf);
@@ -196,10 +196,10 @@ public class DwrfMetadataWriter
         DwrfProto.StripeFooter footerProtobuf = DwrfProto.StripeFooter.newBuilder()
                 .addAllStreams(footer.getStreams().stream()
                         .map(DwrfMetadataWriter::toStream)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .addAllColumns(footer.getColumnEncodings().stream()
                         .map(DwrfMetadataWriter::toColumnEncoding)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .build();
 
         return writeProtobufObject(output, footerProtobuf);
@@ -262,7 +262,7 @@ public class DwrfMetadataWriter
         DwrfProto.RowIndex rowIndexProtobuf = DwrfProto.RowIndex.newBuilder()
                 .addAllEntry(rowGroupIndexes.stream()
                         .map(DwrfMetadataWriter::toRowGroupIndex)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .build();
         return writeProtobufObject(output, rowIndexProtobuf);
     }
@@ -272,7 +272,7 @@ public class DwrfMetadataWriter
         return RowIndexEntry.newBuilder()
                 .addAllPositions(rowGroupIndex.getPositions().stream()
                         .map(Integer::longValue)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .setStatistics(toColumnStatistics(rowGroupIndex.getColumnStatistics()))
                 .build();
     }

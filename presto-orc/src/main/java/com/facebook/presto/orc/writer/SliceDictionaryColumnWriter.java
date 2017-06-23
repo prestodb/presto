@@ -226,7 +226,7 @@ public class SliceDictionaryColumnWriter
             valueCount++;
 
             if (!block.isNull(position)) {
-                // todo this is only needed if not in dictionary
+                // todo min/max statistics only need to be updated if value was not already in the dictionary, but non-null count does
                 statisticsBuilder.addValue(type.getSlice(block, position));
 
                 rawBytes += block.getSliceLength(position);
@@ -267,11 +267,11 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStatistics()
+    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
         if (directEncoded) {
-            return directColumnWriter.getColumnStatistics();
+            return directColumnWriter.getColumnStripeStatistics();
         }
 
         return ImmutableMap.of(column, ColumnStatistics.mergeColumnStatistics(rowGroups.stream()
@@ -388,6 +388,7 @@ public class SliceDictionaryColumnWriter
     @Override
     public long getBufferedBytes()
     {
+        checkState(!closed);
         if (directEncoded) {
             return directColumnWriter.getBufferedBytes();
         }

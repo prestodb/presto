@@ -47,12 +47,6 @@ public class LongOutputStreamDwrf
     }
 
     @Override
-    public Class<LongStreamCheckpoint> getCheckpointType()
-    {
-        return LongStreamCheckpoint.class;
-    }
-
-    @Override
     public void writeLong(long value)
     {
         checkState(!closed);
