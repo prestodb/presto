@@ -35,6 +35,7 @@ public final class HiveSessionProperties
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
     private static final String ORC_MAX_READ_BLOCK_SIZE = "orc_max_read_block_size";
     private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
+    private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
@@ -88,6 +89,11 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_ENABLED,
                         "Experimental: ORC: Enable optimized writer",
                         config.isOrcOptimizedWriterEnabled(),
+                        false),
+                booleanSessionProperty(
+                        ORC_OPTIMIZED_WRITER_VALIDATE,
+                        "Experimental: ORC: Validate writer files",
+                        true,
                         false),
                 booleanSessionProperty(
                         PARQUET_OPTIMIZED_READER_ENABLED,
@@ -174,6 +180,11 @@ public final class HiveSessionProperties
     public static boolean isOrcOptimizedWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
     }
 
     public static boolean isParquetPredicatePushdownEnabled(ConnectorSession session)

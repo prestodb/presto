@@ -17,6 +17,7 @@ import com.google.common.primitives.Longs;
 import org.apache.hive.common.util.BloomFilter;
 
 import java.util.List;
+import java.util.Objects;
 
 public class HiveBloomFilter
         extends BloomFilter
@@ -34,5 +35,26 @@ public class HiveBloomFilter
         this.bitSet = new BitSet(bloomFilter.getBitSet().clone());
         this.numBits = bloomFilter.getBitSize();
         this.numHashFunctions = bloomFilter.getNumHashFunctions();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        HiveBloomFilter that = (HiveBloomFilter) o;
+        return Objects.equals(numBits, that.numBits) &&
+                Objects.equals(numHashFunctions, that.numHashFunctions) &&
+                Objects.equals(bitSet.getData(), that.bitSet.getData());
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(numBits, numHashFunctions, bitSet.getData());
     }
 }

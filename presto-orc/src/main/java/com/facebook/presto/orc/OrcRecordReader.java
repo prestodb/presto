@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.OrcWriteValidation.WriteChecksum;
+import com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -26,9 +28,11 @@ import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +56,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
+import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -72,6 +77,7 @@ public class OrcRecordReader
     private final long splitLength;
     private final Set<Integer> presentColumns;
     private final long maxBlockBytes;
+    private final Map<Integer, Type> includedColumns;
     private long currentPosition;
     private long currentStripePosition;
     private int currentBatchSize;
@@ -94,6 +100,9 @@ public class OrcRecordReader
 
     private final AbstractAggregatedMemoryContext systemMemoryUsage;
 
+    private final Optional<OrcWriteValidation> writeValidation;
+    private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
+
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
             OrcPredicate predicate,
@@ -114,7 +123,8 @@ public class OrcRecordReader
             DataSize maxReadSize,
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
-            AbstractAggregatedMemoryContext systemMemoryUsage)
+            AbstractAggregatedMemoryContext systemMemoryUsage,
+            Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
         requireNonNull(includedColumns, "includedColumns is null");
@@ -126,6 +136,10 @@ public class OrcRecordReader
         requireNonNull(decompressor, "decompressor is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
+
+        this.includedColumns = requireNonNull(includedColumns, "includedColumns is null");
+        this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
+        this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(includedColumns));
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -200,7 +214,8 @@ public class OrcRecordReader
                 rowsInRowGroup,
                 predicate,
                 hiveWriterVersion,
-                metadataReader);
+                metadataReader,
+                writeValidation);
 
         streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());
         maxBytesPerCell = new long[streamReaders.length];
@@ -301,6 +316,18 @@ public class OrcRecordReader
             throws IOException
     {
         orcDataSource.close();
+
+        if (writeChecksumBuilder.isPresent()) {
+            WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
+            validateWrite(validation -> validation.getChecksum().getTotalRowCount() == actualChecksum.getTotalRowCount(), "Invalid row count");
+            List<Long> columnHashes = actualChecksum.getColumnHashes();
+            for (int i = 0; i < columnHashes.size(); i++) {
+                int columnIndex = i;
+                validateWrite(validation -> validation.getChecksum().getColumnHashes().get(columnIndex).equals(columnHashes.get(columnIndex)),
+                        "Invalid checksum for column %s", columnIndex);
+            }
+            validateWrite(validation -> validation.getChecksum().getStripeHash() == actualChecksum.getStripeHash(), "Invalid stripes checksum");
+        }
     }
 
     public boolean isColumnPresent(int hiveColumnIndex)
@@ -333,6 +360,7 @@ public class OrcRecordReader
             }
         }
         nextRowInGroup += currentBatchSize;
+        validateWritePageChecksum();
         return currentBatchSize;
     }
 
@@ -410,6 +438,7 @@ public class OrcRecordReader
         }
 
         StripeInformation stripeInformation = stripes.get(currentStripe);
+        validateWriteStripe(stripeInformation.getNumberOfRows());
 
         Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
         if (stripe != null) {
@@ -423,6 +452,34 @@ public class OrcRecordReader
             }
 
             rowGroups = stripe.getRowGroups().iterator();
+        }
+    }
+
+    private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
+            throws OrcCorruptionException
+    {
+        if (writeValidation.isPresent() && !test.apply(writeValidation.get())) {
+            throw new OrcCorruptionException(orcDataSource.getId(), "Write validation failed: " + messageFormat, args);
+        }
+    }
+
+    private void validateWriteStripe(int rowCount)
+            throws IOException
+    {
+        if (writeChecksumBuilder.isPresent()) {
+            writeChecksumBuilder.get().addStripe(rowCount);
+        }
+    }
+
+    private void validateWritePageChecksum()
+            throws IOException
+    {
+        if (writeChecksumBuilder.isPresent()) {
+            Block[] blocks = new Block[streamReaders.length];
+            for (int columnIndex = 0; columnIndex < streamReaders.length; columnIndex++) {
+                blocks[columnIndex] = readBlock(includedColumns.get(columnIndex), columnIndex);
+            }
+            writeChecksumBuilder.get().addPage(new Page(currentBatchSize, blocks));
         }
     }
 

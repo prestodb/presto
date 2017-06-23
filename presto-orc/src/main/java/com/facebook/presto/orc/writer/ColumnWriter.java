@@ -38,7 +38,7 @@ public interface ColumnWriter
 
     void writeBlock(Block block);
 
-    void finishRowGroup();
+    Map<Integer, ColumnStatistics> finishRowGroup();
 
     void close();
 
