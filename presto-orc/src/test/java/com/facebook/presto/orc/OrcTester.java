@@ -443,7 +443,7 @@ public class OrcTester
             Format format)
             throws IOException
     {
-        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues, format == DWRF), type)) {
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues, format), type)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 

@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata.statistics;
 import io.airlift.slice.Slice;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class StringStatistics
         implements RangeStatistics<Slice>
@@ -25,6 +26,7 @@ public class StringStatistics
 
     public StringStatistics(Slice minimum, Slice maximum)
     {
+        checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
     }
