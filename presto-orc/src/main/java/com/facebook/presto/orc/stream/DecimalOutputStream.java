@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
+import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -84,25 +85,7 @@ public class DecimalOutputStream
     public void writeUnscaledValue(long value)
     {
         checkState(!closed);
-        value = (value << 1) ^ (value >> 63);
-        writeVLong(buffer, value);
-    }
-
-    // todo see if this can be faster
-    // todo share with long writer
-    private static void writeVLong(SliceOutput output, long value)
-    {
-        while (true) {
-            // if there are less than 7 bits left, we are done
-            if ((value & ~0b111_1111) == 0) {
-                output.write((byte) value);
-                return;
-            }
-            else {
-                output.write((byte) (0x80 | (value & 0x7f)));
-                value >>>= 7;
-            }
-        }
+        writeVLong(buffer, value, true);
     }
 
     @Override
