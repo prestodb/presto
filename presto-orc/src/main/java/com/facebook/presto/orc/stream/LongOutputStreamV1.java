@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -148,7 +149,7 @@ public class LongOutputStreamV1
 
         buffer.writeByte(-literalCount);
         for (int i = 0; i < literalCount; i++) {
-            writeVintToBuffer(sequenceBuffer[i]);
+            writeVLong(buffer, sequenceBuffer[i], signed);
         }
     }
 
@@ -162,31 +163,7 @@ public class LongOutputStreamV1
         // write the start value of the sequence
         long totalDeltaSize = lastDelta * (this.runCount - 1);
         long sequenceStartValue = lastValue - totalDeltaSize;
-        writeVintToBuffer(sequenceStartValue);
-    }
-
-    private void writeVintToBuffer(long value)
-    {
-        if (signed) {
-            value = (value << 1) ^ (value >> 63);
-        }
-        writeVLong(buffer, value);
-    }
-
-    // todo see if this can be faster
-    public static void writeVLong(SliceOutput output, long value)
-    {
-        while (true) {
-            // if there are less than 7 bits left, we are done
-            if ((value & ~0b111_1111) == 0) {
-                output.write((byte) value);
-                return;
-            }
-            else {
-                output.write((byte) (0x80 | (value & 0x7f)));
-                value >>>= 7;
-            }
-        }
+        writeVLong(buffer, sequenceStartValue, signed);
     }
 
     @Override
