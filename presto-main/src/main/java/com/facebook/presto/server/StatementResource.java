@@ -534,11 +534,12 @@ public class StatementResource
                 maxWait = new Duration(0, MILLISECONDS);
             }
 
-            if (bytes == 0) {
+            List<RowIterable> rowIterables = pages.build();
+            if (rowIterables.isEmpty()) {
                 return null;
             }
 
-            return Iterables.concat(pages.build());
+            return Iterables.concat(rowIterables);
         }
 
         private static boolean isQueryStarted(QueryInfo queryInfo)
