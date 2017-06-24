@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests.cassandra;
 
+import com.datastax.driver.core.utils.Bytes;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
@@ -64,50 +65,50 @@ public class TestInsertIntoCassandraTable
         assertThat(queryResult).hasNoRows();
 
         // TODO Following types are not supported now. We need to change null into the value after fixing it
-        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, timeuuid, decimal, uuid, varint
+        // frozen<set<type>>, list<type>, map<type,type>, set<type>
         query("INSERT INTO " + tableNameInDatabase +
                 "(a, b, bl, bo, d, do, f, fr, i, integer, l, m, s, t, ti, tu, u, v, vari) VALUES (" +
                 "'ascii value', " +
                 "BIGINT '99999', " +
-                "null, " +
+                "from_hex('00'), " +
                 "true, " +
-                "null, " +
+                "-123.45678, " +
                 "123.456789, " +
                 "REAL '123.45678', " +
                 "null, " +
-                "null, " +
+                "'0.0.0.0', " +
                 "123, "  +
                 "null, "  +
                 "null, "  +
                 "null, "  +
                 "'text value', " +
                 "timestamp '9999-12-31 23:59:59'," +
-                "null, " +
-                "null, " +
+                "'d2177dd0-eaa2-11de-a572-001b779c76e3'," +
+                "'01234567-0123-0123-0123-0123456789ab', " +
                 "'varchar value'," +
-                "null)");
+                "'123')");
 
         assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsOnly(
                 row(
                         "ascii value",
                         99999,
-                        null,
+                        Bytes.fromHexString("0x00").array(),
                         true,
-                        null,
+                        -123.45678,
                         123.456789,
                         123.45678,
                         null,
-                        null,
+                        "0.0.0.0",
                         123,
                         null,
                         null,
                         null,
                         "text value",
                         parseTimestampInUTC("9999-12-31 23:59:59"),
-                        null,
-                        null,
+                        "d2177dd0-eaa2-11de-a572-001b779c76e3",
+                        "01234567-0123-0123-0123-0123456789ab",
                         "varchar value",
-                        null));
+                        "123"));
 
         // insert null for all datatypes
         query("INSERT INTO " + tableNameInDatabase +

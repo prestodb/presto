@@ -49,6 +49,7 @@ public class CassandraConnectorRecordSinkProvider
                 handle.getTableName(),
                 handle.getColumnNames(),
                 handle.getColumnTypes(),
+                handle.getCassandraTypes(),
                 true);
     }
 
@@ -65,6 +66,7 @@ public class CassandraConnectorRecordSinkProvider
                 handle.getTableName(),
                 handle.getColumnNames(),
                 handle.getColumnTypes(),
+                handle.getCassandraTypes(),
                 false);
     }
 }

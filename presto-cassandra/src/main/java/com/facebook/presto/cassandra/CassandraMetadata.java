@@ -271,6 +271,7 @@ public class CassandraMetadata
     {
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+        ImmutableList.Builder<CassandraType> cassandraTypes = ImmutableList.builder();
         ImmutableList.Builder<ExtraColumnMetadata> columnExtra = ImmutableList.builder();
         columnExtra.add(new ExtraColumnMetadata("id", true));
         for (ColumnMetadata column : tableMetadata.getColumns()) {
@@ -289,10 +290,12 @@ public class CassandraMetadata
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i);
             Type type = types.get(i);
+            CassandraType cassandraType = toCassandraType(type);
+            cassandraTypes.add(cassandraType);
             queryBuilder.append(", ")
                     .append(name)
                     .append(" ")
-                    .append(toCassandraType(type).name().toLowerCase(ENGLISH));
+                    .append(cassandraType.name().toLowerCase(ENGLISH));
         }
         queryBuilder.append(") ");
 
@@ -307,7 +310,8 @@ public class CassandraMetadata
                 schemaName,
                 tableName,
                 columnNames.build(),
-                columnTypes.build());
+                columnTypes.build(),
+                cassandraTypes.build());
     }
 
     @Override
@@ -324,13 +328,15 @@ public class CassandraMetadata
         List<CassandraColumnHandle> columns = cassandraSession.getTable(schemaTableName).getColumns();
         List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).map(CassandraCqlUtils::validColumnName).collect(Collectors.toList());
         List<Type> columnTypes = columns.stream().map(CassandraColumnHandle::getType).collect(Collectors.toList());
+        List<CassandraType> cassandraTypes = columns.stream().map(CassandraColumnHandle::getCassandraType).collect(Collectors.toList());
 
         return new CassandraInsertTableHandle(
                 connectorId,
                 validSchemaName(table.getSchemaName()),
                 validTableName(table.getTableName()),
                 columnNames,
-                columnTypes);
+                columnTypes,
+                cassandraTypes);
     }
 
     @Override

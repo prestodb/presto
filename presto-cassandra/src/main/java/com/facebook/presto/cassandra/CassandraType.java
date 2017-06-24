@@ -63,6 +63,7 @@ public enum CassandraType
     COUNTER(BigintType.BIGINT, Long.class),
     DECIMAL(DoubleType.DOUBLE, BigDecimal.class),
     DOUBLE(DoubleType.DOUBLE, Double.class),
+    DATE(DateType.DATE, Date.class),
     FLOAT(RealType.REAL, Float.class),
     INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH), InetAddress.class),
     INT(IntegerType.INTEGER, Integer.class),
@@ -127,6 +128,8 @@ public enum CassandraType
                 return COUNTER;
             case CUSTOM:
                 return CUSTOM;
+            case DATE:
+                return DATE;
             case DECIMAL:
                 return DECIMAL;
             case DOUBLE:

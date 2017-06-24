@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -407,7 +408,7 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(execute(sql).getRowCount(), 0);
 
         // TODO Following types are not supported now. We need to change null into the value after fixing it
-        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, timeuuid, decimal, uuid, varint
+        // list<type>, map<type,type>, set<type>
         // timestamp can be inserted but the expected and actual values are not same
         execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
                 "key," +
@@ -430,20 +431,20 @@ public class TestCassandraIntegrationSmokeTest
                 "typeset" +
                 ") VALUES (" +
                 "'key1', " +
-                "null, " +
+                "'01234567-0123-0123-0123-0123456789ab', " +
                 "1, " +
                 "1000, " +
-                "null, " +
+                "from_hex('00'), " +
                 "timestamp '1970-01-01 08:34:05.0', " +
                 "'ansi1', " +
                 "true, " +
-                "null, " +
+                "-123.45678, " +
                 "0.3, " +
                 "cast('0.4' as real), " +
-                "null, " +
+                "'0.0.0.0', " +
                 "'varchar1', " +
-                "null, " +
-                "null, " +
+                "'123', " +
+                "'d2177dd0-eaa2-11de-a572-001b779c76e3', " +
                 "null, " +
                 "null, " +
                 "null " +
@@ -454,20 +455,20 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(rowCount, 1);
         assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
                 "key1",
-                null,
+                "01234567-0123-0123-0123-0123456789ab",
                 1,
                 1000L,
-                null,
+                Bytes.fromHexString("0x00").array(),
                 Timestamp.valueOf("1970-01-01 14:04:05.0"),
                 "ansi1",
                 true,
-                null,
+                -123.45678,
                 0.3,
                 (float) 0.4,
-                null,
+                "0.0.0.0",
                 "varchar1",
-                null,
-                null,
+                "123",
+                "d2177dd0-eaa2-11de-a572-001b779c76e3",
                 null,
                 null,
                 null

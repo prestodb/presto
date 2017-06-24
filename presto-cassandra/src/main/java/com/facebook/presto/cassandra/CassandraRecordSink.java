@@ -18,10 +18,13 @@ import com.datastax.driver.core.querybuilder.Insert;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -32,13 +35,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Float.intBitsToFloat;
@@ -54,6 +50,7 @@ public class CassandraRecordSink
     private final PreparedStatement insert;
     private final List<Object> values;
     private final List<Type> columnTypes;
+    private final List<CassandraType> cassandraTypes;
     private final boolean generateUUID;
 
     private int field = -1;
@@ -64,14 +61,17 @@ public class CassandraRecordSink
             String tableName,
             List<String> columnNames,
             List<Type> columnTypes,
+            List<CassandraType> cassandraTypes,
             boolean generateUUID)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession");
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(tableName, "tableName is null");
         requireNonNull(columnNames, "columnNames is null");
+        requireNonNull(cassandraTypes, "cassandraTypes is null");
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.generateUUID = generateUUID;
+        this.cassandraTypes = cassandraTypes;
 
         Insert insert = insertInto(schemaName, tableName);
         if (generateUUID) {
@@ -123,45 +123,77 @@ public class CassandraRecordSink
     @Override
     public void appendLong(long value)
     {
-        Type columnType = columnTypes.get(field);
-        if (DATE.equals(columnType)) {
-            append(DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value)));
-        }
-        else if (INTEGER.equals(columnType)) {
-            append(((Number) value).intValue());
-        }
-        else if (REAL.equals(columnType)) {
-            append(intBitsToFloat((int) value));
-        }
-        else if (TIMESTAMP.equals(columnType)) {
-            append(new Timestamp(value));
-        }
-        else if (BIGINT.equals(columnType)) {
-            append(value);
-        }
-        else {
-            throw new UnsupportedOperationException("Type is not supported: " + columnType);
+        CassandraType cassandraType = cassandraTypes.get(field);
+
+        switch (cassandraType) {
+            case DATE:
+            case TEXT:
+                append(DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value)));
+                return;
+            case INT:
+                append(((Number) value).intValue());
+                return;
+            case FLOAT:
+                append(intBitsToFloat((int) value));
+                return;
+            case TIMESTAMP:
+                append(new Timestamp(value));
+                return;
+            case BIGINT:
+                append(value);
+                return;
+            default:
+                throw new UnsupportedOperationException("Type is not supported: " + cassandraType);
         }
     }
 
     @Override
     public void appendDouble(double value)
     {
-        append(value);
+        CassandraType cassandraType = cassandraTypes.get(field);
+
+        switch (cassandraType) {
+            case DECIMAL:
+                append(new BigDecimal(value));
+                return;
+            case DOUBLE:
+                append(value);
+                return;
+            default:
+                throw new UnsupportedOperationException("Type is not supported: " + cassandraType);
+        }
     }
 
     @Override
     public void appendString(byte[] value)
     {
-        Type columnType = columnTypes.get(field);
-        if (VARBINARY.equals(columnType)) {
-            append(ByteBuffer.wrap(value));
-        }
-        else if (isVarcharType(columnType)) {
-            append(new String(value, UTF_8));
-        }
-        else {
-            throw new UnsupportedOperationException("Type is not supported: " + columnType);
+        CassandraType cassandraType = cassandraTypes.get(field);
+
+        switch (cassandraType) {
+            case BLOB:
+            case CUSTOM:
+                append(ByteBuffer.wrap(value));
+                return;
+            case UUID:
+            case TIMEUUID:
+                append(UUID.fromString(new String(value, UTF_8)));
+                return;
+            case VARINT:
+                append(new BigInteger(new String(value, UTF_8)));
+                return;
+            case INET:
+                append(InetAddresses.forString(new String(value, UTF_8)));
+                return;
+            case ASCII:
+            case TEXT:
+            case VARCHAR:
+                append(new String(value, UTF_8));
+                return;
+            case LIST:
+            case MAP:
+            case SET:
+            default:
+                throw new UnsupportedOperationException("Type is not supported: " + cassandraType);
         }
     }
 

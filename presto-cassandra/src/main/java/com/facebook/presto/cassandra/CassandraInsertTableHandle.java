@@ -32,6 +32,7 @@ public class CassandraInsertTableHandle
     private final String tableName;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
+    private final List<CassandraType> cassandraTypes;
 
     @JsonCreator
     public CassandraInsertTableHandle(
@@ -39,7 +40,8 @@ public class CassandraInsertTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("columnTypes") List<Type> columnTypes)
+            @JsonProperty("columnTypes") List<Type> columnTypes,
+            @JsonProperty("cassandraTypes") List<CassandraType> cassandraTypes)
     {
         this.connectorId = requireNonNull(connectorId, "clientId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -47,9 +49,12 @@ public class CassandraInsertTableHandle
 
         requireNonNull(columnNames, "columnNames is null");
         requireNonNull(columnTypes, "columnTypes is null");
+        requireNonNull(cassandraTypes, "cassandraTypes is null");
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
+        checkArgument(columnNames.size() == cassandraTypes.size(), "columnNames and cassandraTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
+        this.cassandraTypes = ImmutableList.copyOf(cassandraTypes);
     }
 
     @JsonProperty
@@ -80,6 +85,12 @@ public class CassandraInsertTableHandle
     public List<Type> getColumnTypes()
     {
         return columnTypes;
+    }
+
+    @JsonProperty
+    public List<CassandraType> getCassandraTypes()
+    {
+        return cassandraTypes;
     }
 
     @Override
