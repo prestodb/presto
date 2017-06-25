@@ -20,9 +20,9 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -38,6 +38,7 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getI
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -126,7 +127,7 @@ public class TestDoubleHistogramAggregation
     private static Map<Double, Double> extractSingleValue(Block block)
             throws IOException
     {
-        MapType mapType = new MapType(DOUBLE, DOUBLE);
+        MapType mapType = mapType(DOUBLE, DOUBLE);
         return (Map<Double, Double>) mapType.getObjectValue(null, block, 0);
     }
 

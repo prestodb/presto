@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -40,10 +41,11 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 
@@ -60,11 +62,16 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
+import static com.facebook.presto.metadata.MetadataListing.listSchemas;
+import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
+import static com.facebook.presto.metadata.MetadataListing.listTablePrivileges;
+import static com.facebook.presto.metadata.MetadataListing.listTables;
+import static com.facebook.presto.metadata.MetadataListing.listViews;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
@@ -75,10 +82,12 @@ public class InformationSchemaPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final Metadata metadata;
+    private final AccessControl accessControl;
 
-    public InformationSchemaPageSourceProvider(Metadata metadata)
+    public InformationSchemaPageSourceProvider(Metadata metadata, AccessControl accessControl)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -88,7 +97,7 @@ public class InformationSchemaPageSourceProvider
 
         List<Integer> channels = new ArrayList<>();
         for (ColumnHandle column : columns) {
-            String columnName = checkType(column, InformationSchemaColumnHandle.class, "column").getColumnName();
+            String columnName = ((InformationSchemaColumnHandle) column).getColumnName();
             int columnIndex = table.getColumnIndex(columnName);
             channels.add(columnIndex);
         }
@@ -106,8 +115,8 @@ public class InformationSchemaPageSourceProvider
 
     private InternalTable getInternalTable(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
     {
-        InformationSchemaTransactionHandle transaction = checkType(transactionHandle, InformationSchemaTransactionHandle.class, "transaction");
-        InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
+        InformationSchemaTransactionHandle transaction = (InformationSchemaTransactionHandle) transactionHandle;
+        InformationSchemaSplit split = (InformationSchemaSplit) connectorSplit;
 
         requireNonNull(columns, "columns is null");
 
@@ -146,6 +155,9 @@ public class InformationSchemaPageSourceProvider
         if (table.equals(TABLE_INTERNAL_PARTITIONS)) {
             return buildPartitions(session, catalog, filters);
         }
+        if (table.equals(TABLE_TABLE_PRIVILEGES)) {
+            return buildTablePrivileges(session, catalog, filters);
+        }
 
         throw new IllegalArgumentException(format("table does not exist: %s", table));
     }
@@ -153,17 +165,18 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildColumns(Session session, String catalogName, Map<String, NullableValue> filters)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_COLUMNS));
-        for (Entry<QualifiedObjectName, List<ColumnMetadata>> entry : getColumnsList(session, catalogName, filters).entrySet()) {
-            QualifiedObjectName tableName = entry.getKey();
+        QualifiedTablePrefix prefix = extractQualifiedTablePrefix(catalogName, filters);
+        for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
+            SchemaTableName tableName = entry.getKey();
             int ordinalPosition = 1;
             for (ColumnMetadata column : entry.getValue()) {
                 if (column.isHidden()) {
                     continue;
                 }
                 table.add(
-                        tableName.getCatalogName(),
+                        catalogName,
                         tableName.getSchemaName(),
-                        tableName.getObjectName(),
+                        tableName.getTableName(),
                         column.getName(),
                         ordinalPosition,
                         null,
@@ -177,37 +190,44 @@ public class InformationSchemaPageSourceProvider
         return table.build();
     }
 
-    private Map<QualifiedObjectName, List<ColumnMetadata>> getColumnsList(Session session, String catalogName, Map<String, NullableValue> filters)
-    {
-        return metadata.listTableColumns(session, extractQualifiedTablePrefix(catalogName, filters));
-    }
-
     private InternalTable buildTables(Session session, String catalogName, Map<String, NullableValue> filters)
     {
-        Set<QualifiedObjectName> tables = ImmutableSet.copyOf(getTablesList(session, catalogName, filters));
-        Set<QualifiedObjectName> views = ImmutableSet.copyOf(getViewsList(session, catalogName, filters));
+        QualifiedTablePrefix prefix = extractQualifiedTablePrefix(catalogName, filters);
+        Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
+        Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
 
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLES));
-        for (QualifiedObjectName name : union(tables, views)) {
+        for (SchemaTableName name : union(tables, views)) {
             // if table and view names overlap, the view wins
             String type = views.contains(name) ? "VIEW" : "BASE TABLE";
             table.add(
-                    name.getCatalogName(),
+                    catalogName,
                     name.getSchemaName(),
-                    name.getObjectName(),
+                    name.getTableName(),
                     type);
         }
         return table.build();
     }
 
-    private List<QualifiedObjectName> getTablesList(Session session, String catalogName, Map<String, NullableValue> filters)
+    private InternalTable buildTablePrivileges(Session session, String catalogName, Map<String, NullableValue> filters)
     {
-        return metadata.listTables(session, extractQualifiedTablePrefix(catalogName, filters));
-    }
-
-    private List<QualifiedObjectName> getViewsList(Session session, String catalogName, Map<String, NullableValue> filters)
-    {
-        return metadata.listViews(session, extractQualifiedTablePrefix(catalogName, filters));
+        QualifiedTablePrefix prefix = extractQualifiedTablePrefix(catalogName, filters);
+        List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLE_PRIVILEGES));
+        for (GrantInfo grant : grants) {
+            for (PrivilegeInfo privilegeInfo : grant.getPrivilegeInfo()) {
+                table.add(
+                        grant.getGrantor().orElse(null),
+                        grant.getIdentity().getUser(),
+                        catalogName,
+                        grant.getSchemaTableName().getSchemaName(),
+                        grant.getSchemaTableName().getTableName(),
+                        privilegeInfo.getPrivilege().name(),
+                        privilegeInfo.isGrantOption(),
+                        grant.getWithHierarchy().orElse(null));
+            }
+        }
+        return table.build();
     }
 
     private InternalTable buildViews(Session session, String catalogName, Map<String, NullableValue> filters)
@@ -231,7 +251,7 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildSchemata(Session session, String catalogName)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_SCHEMATA));
-        for (String schema : metadata.listSchemaNames(session, catalogName)) {
+        for (String schema : listSchemas(session, metadata, accessControl, catalogName)) {
             table.add(catalogName, schema);
         }
         return table.build();

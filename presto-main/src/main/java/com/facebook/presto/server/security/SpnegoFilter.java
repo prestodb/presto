@@ -75,7 +75,7 @@ public class SpnegoFilter
     private final GSSCredential serverCredential;
 
     @Inject
-    public SpnegoFilter(SecurityConfig config)
+    public SpnegoFilter(KerberosConfig config)
     {
         System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
 

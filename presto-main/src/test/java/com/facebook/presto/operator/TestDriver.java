@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -52,13 +53,14 @@ import java.util.function.Function;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.getRootCause;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
@@ -77,7 +79,7 @@ public class TestDriver
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -202,7 +204,7 @@ public class TestDriver
             fail("Expected InterruptedException");
         }
         catch (ExecutionException e) {
-            checkArgument(getRootCause(e) instanceof InterruptedException, "Expected root cause exception to be an instance of InterruptedException");
+            assertDriverInterrupted(e.getCause());
         }
     }
 
@@ -295,8 +297,15 @@ public class TestDriver
             fail("Expected InterruptedException");
         }
         catch (ExecutionException e) {
-            checkArgument(getRootCause(e) instanceof InterruptedException, "Expected root cause exception to be an instance of InterruptedException");
+            assertDriverInterrupted(e.getCause());
         }
+    }
+
+    private void assertDriverInterrupted(Throwable cause)
+    {
+        checkArgument(cause instanceof PrestoException, "Expected root cause exception to be an instance of PrestoException");
+        assertEquals(((PrestoException) cause).getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
+        assertEquals(cause.getMessage(), "Driver was interrupted");
     }
 
     private static Split newMockSplit()

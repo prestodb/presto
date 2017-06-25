@@ -16,7 +16,7 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
@@ -59,7 +59,7 @@ public class LongStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
         ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
@@ -77,7 +77,7 @@ public class LongStreamReader
     }
 
     @Override
-    public void startRowGroup(StreamSources dataStreamSources)
+    public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
         currentReader.startRowGroup(dataStreamSources);

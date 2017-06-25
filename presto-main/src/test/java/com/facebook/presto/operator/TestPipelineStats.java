@@ -33,6 +33,8 @@ import static org.testng.Assert.assertEquals;
 public class TestPipelineStats
 {
     public static final PipelineStats EXPECTED = new PipelineStats(
+            0,
+
             new DateTime(100),
             new DateTime(101),
             new DateTime(102),
@@ -45,6 +47,7 @@ public class TestPipelineStats
             1,
             3,
             2,
+            19,
             4,
 
             new DataSize(5, BYTE),
@@ -96,6 +99,7 @@ public class TestPipelineStats
         assertEquals(actual.getQueuedPartitionedDrivers(), 1);
         assertEquals(actual.getRunningDrivers(), 3);
         assertEquals(actual.getRunningPartitionedDrivers(), 2);
+        assertEquals(actual.getBlockedDrivers(), 19);
         assertEquals(actual.getCompletedDrivers(), 4);
 
         assertEquals(actual.getMemoryReservation(), new DataSize(5, BYTE));

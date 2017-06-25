@@ -20,8 +20,6 @@ import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.type.TypeRegistry;
@@ -34,6 +32,8 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionOptimizer
@@ -43,10 +43,10 @@ public class TestExpressionOptimizer
     {
         TypeRegistry typeManager = new TypeRegistry();
         ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
-        RowExpression expression = new ConstantExpression(1L, BIGINT);
+        RowExpression expression = constant(1L, BIGINT);
         for (int i = 0; i < 100; i++) {
             Signature signature = internalOperator(OperatorType.ADD.name(), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT));
-            expression = new CallExpression(signature, BIGINT, ImmutableList.of(expression, new ConstantExpression(1L, BIGINT)));
+            expression = new CallExpression(signature, BIGINT, ImmutableList.of(expression, constant(1L, BIGINT)));
         }
         optimizer.optimize(expression);
     }
@@ -58,11 +58,11 @@ public class TestExpressionOptimizer
         ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
         Signature signature = new Signature("TRY", SCALAR, BIGINT.getTypeSignature());
 
-        RowExpression tryExpression =  new CallExpression(signature, BIGINT, ImmutableList.of(new ConstantExpression(1L, BIGINT)));
-        assertEquals(optimizer.optimize(tryExpression), new ConstantExpression(1L, BIGINT));
+        RowExpression tryExpression =  new CallExpression(signature, BIGINT, ImmutableList.of(constant(1L, BIGINT)));
+        assertEquals(optimizer.optimize(tryExpression), constant(1L, BIGINT));
 
-        tryExpression =  new CallExpression(signature, BIGINT, ImmutableList.of(new InputReferenceExpression(1, BIGINT)));
-        assertEquals(optimizer.optimize(tryExpression), new InputReferenceExpression(1, BIGINT));
+        tryExpression =  new CallExpression(signature, BIGINT, ImmutableList.of(field(1, BIGINT)));
+        assertEquals(optimizer.optimize(tryExpression), field(1, BIGINT));
     }
 
     @Test
@@ -71,18 +71,18 @@ public class TestExpressionOptimizer
         TypeRegistry typeManager = new TypeRegistry();
         ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
 
-        assertEquals(optimizer.optimize(ifExpression(new ConstantExpression(true, BOOLEAN), 1L, 2L)), new ConstantExpression(1L, BIGINT));
-        assertEquals(optimizer.optimize(ifExpression(new ConstantExpression(false, BOOLEAN), 1L, 2L)), new ConstantExpression(2L, BIGINT));
-        assertEquals(optimizer.optimize(ifExpression(new ConstantExpression(null, BOOLEAN), 1L, 2L)), new ConstantExpression(2L, BIGINT));
+        assertEquals(optimizer.optimize(ifExpression(constant(true, BOOLEAN), 1L, 2L)), constant(1L, BIGINT));
+        assertEquals(optimizer.optimize(ifExpression(constant(false, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
+        assertEquals(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
 
         Signature bigintEquals = internalOperator(OperatorType.EQUAL.name(), BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
-        RowExpression condition = new CallExpression(bigintEquals, BOOLEAN, ImmutableList.of(new ConstantExpression(3L, BIGINT), new ConstantExpression(3L, BIGINT)));
-        assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), new ConstantExpression(1L, BIGINT));
+        RowExpression condition = new CallExpression(bigintEquals, BOOLEAN, ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
+        assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), constant(1L, BIGINT));
     }
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)
     {
         Signature signature = new Signature("IF", SCALAR, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
-        return new CallExpression(signature, BIGINT, ImmutableList.of(condition, new ConstantExpression(trueValue, BIGINT), new ConstantExpression(falseValue, BIGINT)));
+        return new CallExpression(signature, BIGINT, ImmutableList.of(condition, constant(trueValue, BIGINT), constant(falseValue, BIGINT)));
     }
 }

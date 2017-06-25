@@ -23,7 +23,7 @@ import com.facebook.presto.spi.function.WindowFunction;
 import java.util.Collection;
 import java.util.List;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class FunctionExtractor
 {

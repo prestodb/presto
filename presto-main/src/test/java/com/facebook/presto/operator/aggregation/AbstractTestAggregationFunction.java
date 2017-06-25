@@ -27,6 +27,8 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Lists;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -36,8 +38,22 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSig
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected final TypeRegistry typeRegistry = new TypeRegistry();
-    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+    protected TypeRegistry typeRegistry;
+    protected FunctionRegistry functionRegistry;
+
+    @BeforeClass
+    public final void initTestAggregationFunction()
+    {
+        typeRegistry = new TypeRegistry();
+        functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroyTestAggregationFunction()
+    {
+        functionRegistry = null;
+        typeRegistry = null;
+    }
 
     public abstract Block[] getSequenceBlocks(int start, int length);
 

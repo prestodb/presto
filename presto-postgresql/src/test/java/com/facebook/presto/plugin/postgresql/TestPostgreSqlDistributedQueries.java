@@ -35,7 +35,6 @@ import java.util.function.Function;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -54,7 +53,7 @@ public class TestPostgreSqlDistributedQueries
     public TestPostgreSqlDistributedQueries(TestingPostgreSqlServer postgreSqlServer)
             throws Exception
     {
-        super(createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
+        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
         this.postgreSqlServer = postgreSqlServer;
     }
 
@@ -62,7 +61,7 @@ public class TestPostgreSqlDistributedQueries
     public final void destroy()
             throws IOException
     {
-        closeAllRuntimeException(postgreSqlServer);
+        postgreSqlServer.close();
     }
 
     @Override
@@ -77,10 +76,10 @@ public class TestPostgreSqlDistributedQueries
     public void testDropTable()
     {
         assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(queryRunner.tableExists(getSession(), "test_drop"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
 
         assertUpdate("DROP TABLE test_drop");
-        assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
     }
 
     @Test
@@ -97,13 +96,13 @@ public class TestPostgreSqlDistributedQueries
     @Test
     public void testPrestoCreatedParameterizedVarchar()
     {
-        varcharDataTypeTest().execute(queryRunner, prestoCreateAsSelect("presto_test_parameterized_varchar"));
+        varcharDataTypeTest().execute(getQueryRunner(), prestoCreateAsSelect("presto_test_parameterized_varchar"));
     }
 
     @Test
     public void testPostgreSqlCreatedParameterizedVarchar()
     {
-        varcharDataTypeTest().execute(queryRunner, postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar"));
+        varcharDataTypeTest().execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar"));
     }
 
     private DataTypeTest varcharDataTypeTest()
@@ -119,25 +118,25 @@ public class TestPostgreSqlDistributedQueries
     @Test
     public void testPrestoCreatedParameterizedVarcharUnicode()
     {
-        unicodeVarcharDateTypeTest().execute(queryRunner, prestoCreateAsSelect("postgresql_test_parameterized_varchar_unicode"));
+        unicodeVarcharDateTypeTest().execute(getQueryRunner(), prestoCreateAsSelect("postgresql_test_parameterized_varchar_unicode"));
     }
 
     @Test
     public void testPostgreSqlCreatedParameterizedVarcharUnicode()
     {
-        unicodeVarcharDateTypeTest().execute(queryRunner, postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar_unicode"));
+        unicodeVarcharDateTypeTest().execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar_unicode"));
     }
 
     @Test
     public void testPrestoCreatedParameterizedCharUnicode()
     {
-        unicodeDataTypeTest(DataType::charDataType).execute(queryRunner, prestoCreateAsSelect("postgresql_test_parameterized_char_unicode"));
+        unicodeDataTypeTest(DataType::charDataType).execute(getQueryRunner(), prestoCreateAsSelect("postgresql_test_parameterized_char_unicode"));
     }
 
     @Test
     public void testPostgreSqlCreatedParameterizedCharUnicode()
     {
-        unicodeDataTypeTest(DataType::charDataType).execute(queryRunner, postgresCreateAndInsert("tpch.postgresql_test_parameterized_char_unicode"));
+        unicodeDataTypeTest(DataType::charDataType).execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_parameterized_char_unicode"));
     }
 
     private DataTypeTest unicodeVarcharDateTypeTest()
@@ -159,7 +158,7 @@ public class TestPostgreSqlDistributedQueries
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(queryRunner), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)

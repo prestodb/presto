@@ -33,6 +33,10 @@ Array Functions
 
     Returns an array of the elements in the union of ``x`` and ``y``, without duplicates.
 
+.. function:: array_except(x, y) -> array
+
+    Returns an array of elements in ``x`` but not in ``y``, without duplicates.
+
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
     Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
@@ -58,15 +62,20 @@ Array Functions
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
     Null elements will be placed at the end of the returned array.
 
+.. function:: arrays_overlap(x, y) -> boolean
+
+    Tests if arrays ``x`` and ``y`` have any any non-null elements in common.
+    Returns null if there are no non-null elements in common but either array contains null.
+
 .. function:: cardinality(x) -> bigint
 
     Returns the cardinality (size) of the array ``x``.
 
-.. function:: concat(x, y) -> array
+.. function:: concat(array1, array2, ..., arrayN) -> array
     :noindex:
 
-    Concatenates the arrays ``x`` and ``y``. This function provides the same
-    functionality as the SQL-standard concatenation operator (``||``).
+    Concatenates the arrays ``array1``, ``array2``, ``...``, ``arrayN``.
+    This function provides the same functionality as the SQL-standard concatenation operator (``||``).
 
 .. function:: contains(x, element) -> boolean
 
@@ -91,6 +100,10 @@ Array Functions
     :noindex:
 
     See :func:`reduce`.
+
+.. function:: repeat(element, count) -> array
+
+    Repeat ``element`` for ``count`` times.
 
 .. function:: reverse(x) -> array
     :noindex:
@@ -132,3 +145,8 @@ Array Functions
     If the arguments have an uneven length, missing values are filled with ``NULL``. ::
 
         SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
+
+.. function:: zip_with(array1, array2, function) -> array
+    :noindex:
+
+    See :func:`zip_with`.

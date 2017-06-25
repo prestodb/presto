@@ -16,25 +16,36 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.StatsRecorder;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.optimizations.PruneIdentityProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.fail;
 
 public class BasePlanTest
 {
-    private final LocalQueryRunner queryRunner;
+    private final Map<String, String> sessionProperties;
+
+    private LocalQueryRunner queryRunner;
 
     public BasePlanTest()
     {
@@ -43,18 +54,31 @@ public class BasePlanTest
 
     public BasePlanTest(Map<String, String> sessionProperties)
     {
+        this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
+    }
+
+    @BeforeClass
+    public final void initPlanTest()
+    {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
 
-        sessionProperties.entrySet().stream().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
+        sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
-        this.queryRunner = new LocalQueryRunner(sessionBuilder.build());
+        queryRunner = new LocalQueryRunner(sessionBuilder.build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroyPlanTest()
+    {
+        closeAllRuntimeException(queryRunner);
+        queryRunner = null;
     }
 
     protected LocalQueryRunner getQueryRunner()
@@ -69,34 +93,42 @@ public class BasePlanTest
 
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
-        queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
-            return null;
-        });
+        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
+
+        assertPlan(sql, stage, pattern, optimizers);
     }
 
     protected void assertPlanWithOptimizers(String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+    }
+
+    protected void assertPlanWithOptimizerFiltering(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, Predicate<PlanOptimizer> optimizerPredicate)
+    {
+        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true).stream()
+                .filter(optimizerPredicate)
+                .collect(toList());
+
+        assertPlan(sql, stage, pattern, optimizers);
+    }
+
+    protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
             return null;
         });
     }
 
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        LocalQueryRunner queryRunner = getQueryRunner();
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new PruneUnreferencedOutputs(),
-                new PruneIdentityProjections());
-        queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
-            return null;
-        });
+                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 
     protected Plan plan(String sql)
@@ -106,8 +138,13 @@ public class BasePlanTest
 
     protected Plan plan(String sql, LogicalPlanner.Stage stage)
     {
+        return plan(sql, stage, true);
+    }
+
+    protected Plan plan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
+    {
         try {
-            return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage));
+            return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode));
         }
         catch (RuntimeException ex) {
             fail("Invalid SQL: " + sql, ex);

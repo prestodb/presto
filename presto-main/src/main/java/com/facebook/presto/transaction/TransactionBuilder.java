@@ -21,6 +21,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionBuilder
@@ -104,7 +105,7 @@ public class TransactionBuilder
         }
         finally {
             if (success) {
-                transactionManager.asyncCommit(transactionId).join();
+                getFutureValue(transactionManager.asyncCommit(transactionId));
             }
             else {
                 transactionManager.asyncAbort(transactionId);
@@ -153,7 +154,7 @@ public class TransactionBuilder
         finally {
             if (managedTransaction) {
                 if (success) {
-                    transactionManager.asyncCommit(transactionSession.getTransactionId().get()).join();
+                    getFutureValue(transactionManager.asyncCommit(transactionSession.getTransactionId().get()));
                 }
                 else {
                     transactionManager.asyncAbort(transactionSession.getTransactionId().get());

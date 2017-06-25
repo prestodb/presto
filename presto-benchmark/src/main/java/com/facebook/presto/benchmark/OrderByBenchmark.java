@@ -16,6 +16,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -49,7 +50,8 @@ public class OrderByBenchmark
                 ImmutableList.of(1),
                 ROWS,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST),
+                new PagesIndex.TestingFactory());
 
         return ImmutableList.of(tableScanOperator, limitOperator, orderByOperator);
     }

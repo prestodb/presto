@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Storage;
@@ -48,7 +49,6 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
-import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -96,16 +96,14 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.isRowType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
-import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.padEnd;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -331,9 +329,9 @@ public final class HiveWriteUtils
         throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
-    public static void checkTableIsWritable(Table table)
+    public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)
     {
-        if (!table.getTableType().equals(MANAGED_TABLE.toString())) {
+        if (!writesToNonManagedTablesEnabled && !table.getTableType().equals(MANAGED_TABLE.toString())) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
         }
 
@@ -368,20 +366,7 @@ public final class HiveWriteUtils
         }
 
         // verify online
-        if (protectMode.offline) {
-            if (partitionName.isPresent()) {
-                throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
-            }
-            throw new TableOfflineException(tableName, false, null);
-        }
-
-        String prestoOffline = parameters.get(PRESTO_OFFLINE);
-        if (!isNullOrEmpty(prestoOffline)) {
-            if (partitionName.isPresent()) {
-                throw new PartitionOfflineException(tableName, partitionName.get(), true, prestoOffline);
-            }
-            throw new TableOfflineException(tableName, true, prestoOffline);
-        }
+        verifyOnline(tableName, partitionName, protectMode, parameters);
 
         // verify not read only
         if (protectMode.readOnly) {
@@ -401,12 +386,12 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(String user, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        String location = getDatabase(metastore, schemaName).getLocationUri();
-        if (isNullOrEmpty(location)) {
+        Optional<String> location = getDatabase(metastore, schemaName).getLocation();
+        if (!location.isPresent() || location.get().isEmpty()) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
 
-        Path databasePath = new Path(location);
+        Path databasePath = new Path(location.get());
         if (!isS3FileSystem(user, hdfsEnvironment, databasePath)) {
             if (!pathExists(user, hdfsEnvironment, databasePath)) {
                 throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
@@ -444,6 +429,18 @@ public final class HiveWriteUtils
         }
     }
 
+    public static boolean isViewFileSystem(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    {
+        try {
+            // Hadoop 1.x does not have the ViewFileSystem class
+            return hdfsEnvironment.getFileSystem(user, path)
+                    .getClass().getName().equals("org.apache.hadoop.fs.viewfs.ViewFileSystem");
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
+        }
+    }
+
     private static boolean isDirectory(String user, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
@@ -458,6 +455,11 @@ public final class HiveWriteUtils
     {
         // use a per-user temporary directory to avoid permission problems
         String temporaryPrefix = "/tmp/presto-" + user;
+
+        // use relative temporary directory on ViewFS
+        if (isViewFileSystem(user, hdfsEnvironment, targetPath)) {
+            temporaryPrefix = ".hive-staging";
+        }
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
@@ -500,13 +502,13 @@ public final class HiveWriteUtils
                 PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory();
                 return isWritablePrimitiveType(primitiveCategory);
             case MAP:
-                MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "typeInfo");
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
                 return isWritableType(mapTypeInfo.getMapKeyTypeInfo()) && isWritableType(mapTypeInfo.getMapValueTypeInfo());
             case LIST:
-                ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "typeInfo");
+                ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
                 return isWritableType(listTypeInfo.getListElementTypeInfo());
             case STRUCT:
-                StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "typeInfo");
+                StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveWriteUtils::isWritableType);
         }
         return false;
@@ -580,7 +582,7 @@ public final class HiveWriteUtils
             }
             // Unbounded VARCHAR is not supported by Hive.
             // Values for such columns must be stored as STRING in Hive
-            else if (varcharLength == VarcharType.MAX_LENGTH) {
+            else if (varcharLength == VarcharType.UNBOUNDED_LENGTH) {
                 return writableStringObjectInspector;
             }
         }

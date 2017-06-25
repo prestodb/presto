@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -64,8 +66,6 @@ public final class SymbolAliases
 
     public SymbolReference get(String alias)
     {
-        alias = toKey(alias);
-        SymbolReference result = map.get(alias);
         /*
          * It's still kind of an open question if the right combination of anyTree() and
          * a sufficiently complex and/or ambiguous plan might make throwing here a
@@ -77,8 +77,14 @@ public final class SymbolAliases
          * correctly written test. Having this throw makes it a lot easier to track down
          * missing aliases in incorrect plans.
          */
-        checkState(result != null, format("missing expression for alias %s", alias));
-        return result;
+        return getOptional(alias).orElseThrow(() -> new IllegalStateException(format("missing expression for alias %s", alias)));
+    }
+
+    public Optional<SymbolReference> getOptional(String alias)
+    {
+        alias = toKey(alias);
+        SymbolReference result = map.get(alias);
+        return Optional.ofNullable(result);
     }
 
     private static String toKey(String alias)
@@ -170,6 +176,14 @@ public final class SymbolAliases
         return new SymbolAliases(getUpdatedAssignments(assignments));
     }
 
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(map)
+                .toString();
+    }
+
     public static class Builder
     {
         Map<String, SymbolReference> bindings;
@@ -197,7 +211,6 @@ public final class SymbolAliases
             }
 
             checkState(!bindings.containsKey(alias), "Alias '%s' already bound to expression '%s'. Tried to rebind to '%s'", alias, bindings.get(alias), symbolReference);
-            checkState(!bindings.values().contains(symbolReference), "Expression '%s' is already bound in %s. Tried to rebind as '%s'.", symbolReference, bindings, alias);
             bindings.put(alias, symbolReference);
             return this;
         }

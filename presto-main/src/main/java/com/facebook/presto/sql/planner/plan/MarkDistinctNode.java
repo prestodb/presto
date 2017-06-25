@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -89,8 +90,14 @@ public class MarkDistinctNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitMarkDistinct(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerSymbol, distinctSymbols, hashSymbol);
     }
 }

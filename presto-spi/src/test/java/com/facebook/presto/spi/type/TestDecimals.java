@@ -102,9 +102,9 @@ public class TestDecimals
         assertParseResultIncludeLeadingZerosInPrecision("000.1", 1L, 4, 1);
         assertParseResultIncludeLeadingZerosInPrecision("+000.1", 1L, 4, 1);
         assertParseResultIncludeLeadingZerosInPrecision("-000.1", -1L, 4, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("000000000000000000", encodeUnscaledValue("0"), 18, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("+000000000000000000", encodeUnscaledValue("0"), 18, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("-000000000000000000", encodeUnscaledValue("0"), 18, 0);
+        assertParseResultIncludeLeadingZerosInPrecision("000000000000000000", 0L, 18, 0);
+        assertParseResultIncludeLeadingZerosInPrecision("+000000000000000000", 0L, 18, 0);
+        assertParseResultIncludeLeadingZerosInPrecision("-000000000000000000", 0L, 18, 0);
         assertParseResultIncludeLeadingZerosInPrecision("000000000000000000.123", encodeUnscaledValue("123"), 21, 3);
         assertParseResultIncludeLeadingZerosInPrecision("+000000000000000000.123", encodeUnscaledValue("123"), 21, 3);
         assertParseResultIncludeLeadingZerosInPrecision("-000000000000000000.123", encodeUnscaledValue("-123"), 21, 3);

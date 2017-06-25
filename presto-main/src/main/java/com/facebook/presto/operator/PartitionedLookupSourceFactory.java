@@ -20,44 +20,45 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.concurrent.MoreFutures;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
 import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceFactory
         implements LookupSourceFactory
 {
     private final List<Type> types;
+    private final List<Type> outputTypes;
     private final Map<Symbol, Integer> layout;
     private final List<Type> hashChannelTypes;
     private final Supplier<LookupSource>[] partitions;
     private final boolean outer;
-    private final CompletableFuture<?> destroyed = new CompletableFuture<>();
+    private final SettableFuture<?> destroyed = SettableFuture.create();
 
     @GuardedBy("this")
     private int partitionsSet;
 
     @GuardedBy("this")
-    private Supplier<LookupSource> lookupSourceSupplier;
+    private TrackingLookupSourceSupplier lookupSourceSupplier;
 
     @GuardedBy("this")
     private final List<SettableFuture<LookupSource>> lookupSourceFutures = new ArrayList<>();
 
-    public PartitionedLookupSourceFactory(List<Type> types, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
+    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
         this.layout = ImmutableMap.copyOf(layout);
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
@@ -74,6 +75,12 @@ public final class PartitionedLookupSourceFactory
     }
 
     @Override
+    public List<Type> getOutputTypes()
+    {
+        return outputTypes;
+    }
+
+    @Override
     public Map<Symbol, Integer> getLayout()
     {
         return layout;
@@ -83,7 +90,7 @@ public final class PartitionedLookupSourceFactory
     public synchronized ListenableFuture<LookupSource> createLookupSource()
     {
         if (lookupSourceSupplier != null) {
-            return Futures.immediateFuture(lookupSourceSupplier.get());
+            return Futures.immediateFuture(lookupSourceSupplier.getLookupSource());
         }
 
         SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
@@ -95,7 +102,7 @@ public final class PartitionedLookupSourceFactory
     {
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
 
-        Supplier<LookupSource> lookupSourceSupplier = null;
+        TrackingLookupSourceSupplier lookupSourceSupplier = null;
         List<SettableFuture<LookupSource>> lookupSourceFutures = null;
         synchronized (this) {
             if (destroyed.isDone()) {
@@ -115,7 +122,7 @@ public final class PartitionedLookupSourceFactory
                     this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitionLookupSource);
                 }
                 else {
-                    this.lookupSourceSupplier = partitionLookupSource;
+                    this.lookupSourceSupplier = TrackingLookupSourceSupplier.nonTracking(partitionLookupSource);
                 }
 
                 // store lookup source supplier and futures into local variables so they can be used outside of the lock
@@ -126,19 +133,30 @@ public final class PartitionedLookupSourceFactory
 
         if (lookupSourceSupplier != null) {
             for (SettableFuture<LookupSource> lookupSourceFuture : lookupSourceFutures) {
-                lookupSourceFuture.set(lookupSourceSupplier.get());
+                lookupSourceFuture.set(lookupSourceSupplier.getLookupSource());
             }
         }
     }
 
     @Override
-    public void destroy()
+    public OuterPositionIterator getOuterPositionIterator()
     {
-        destroyed.complete(null);
+        TrackingLookupSourceSupplier lookupSourceSupplier;
+        synchronized (this) {
+            checkState(this.lookupSourceSupplier != null, "lookup source not ready yet");
+            lookupSourceSupplier = this.lookupSourceSupplier;
+        }
+        return lookupSourceSupplier.getOuterPositionIterator();
     }
 
-    public CompletableFuture<?> isDestroyed()
+    @Override
+    public void destroy()
     {
-        return MoreFutures.unmodifiableFuture(destroyed);
+        destroyed.set(null);
+    }
+
+    public ListenableFuture<?> isDestroyed()
+    {
+        return nonCancellationPropagating(destroyed);
     }
 }

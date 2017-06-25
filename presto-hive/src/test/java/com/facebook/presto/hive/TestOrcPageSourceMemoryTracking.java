@@ -16,34 +16,35 @@ package com.facebook.presto.hive;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.FilterFunctions;
-import com.facebook.presto.operator.GenericCursorProcessor;
-import com.facebook.presto.operator.GenericPageProcessor;
-import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.airlift.stats.Distribution;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -57,7 +58,6 @@ import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
 import org.apache.hadoop.hive.ql.io.orc.WriterImpl;
-import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.apache.hadoop.hive.serde2.SerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
@@ -71,6 +71,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -78,6 +79,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -91,8 +93,11 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Predicates.not;
@@ -100,6 +105,7 @@ import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.toList;
@@ -121,9 +127,9 @@ public class TestOrcPageSourceMemoryTracking
     private static final String ORC_RECORD_WRITER = OrcOutputFormat.class.getName() + "$OrcRecordWriter";
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
     private static final Configuration CONFIGURATION = new Configuration();
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
     private static final int NUM_ROWS = 50000;
     private static final int STRIPE_ROWS = 20000;
+    private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(createTestMetadataManager());
 
     private final Random random = new Random();
     private final List<TestColumn> testColumns = ImmutableList.<TestColumn>builder()
@@ -133,6 +139,12 @@ public class TestOrcPageSourceMemoryTracking
 
     private File tempFile;
     private TestPreparer testPreparer;
+
+    @DataProvider(name = "rowCount")
+    public static Object[][] rowCount()
+    {
+        return new Object[][] { { 50_000 }, { 10_000 }, { 5_000 } };
+    }
 
     @BeforeClass
     public void setUp()
@@ -157,7 +169,8 @@ public class TestOrcPageSourceMemoryTracking
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
 
-        ConnectorPageSource pageSource = testPreparer.newPageSource();
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        ConnectorPageSource pageSource = testPreparer.newPageSource(stats);
 
         assertEquals(pageSource.getSystemMemoryUsage(), 0);
 
@@ -223,6 +236,64 @@ public class TestOrcPageSourceMemoryTracking
         assertTrue(pageSource.isFinished());
         assertEquals(pageSource.getSystemMemoryUsage(), 0);
         pageSource.close();
+        assertEquals((int) stats.getLoadedBlockBytes().getAllTime().getCount(), 50);
+    }
+
+    @Test(dataProvider = "rowCount")
+    public void testMaxReadBytes(int rowCount)
+            throws Exception
+    {
+        int maxReadBytes = 1_000;
+        HiveClientConfig config = new HiveClientConfig();
+        config.setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE));
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config).getSessionProperties());
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+
+        // Build a table where every row gets larger, so we can test that the "batchSize" reduces
+        int numColumns = 5;
+        int step = 250;
+        ImmutableList.Builder<TestColumn> columnBuilder = ImmutableList.<TestColumn>builder()
+                .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true));
+        GrowingTestColumn[] dataColumns = new GrowingTestColumn[numColumns];
+        for (int i = 0; i < numColumns; i++) {
+            dataColumns[i] = new GrowingTestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false, step * (i + 1));
+            columnBuilder.add(dataColumns[i]);
+        }
+        List<TestColumn> testColumns = columnBuilder.build();
+        File tempFile = File.createTempFile("presto_test_orc_page_source_max_read_bytes", "orc");
+        tempFile.delete();
+
+        TestPreparer testPreparer = new TestPreparer(tempFile.getAbsolutePath(), testColumns, rowCount, rowCount);
+        ConnectorPageSource pageSource = testPreparer.newPageSource(stats, session);
+
+        try {
+            int positionCount = 0;
+            while (true) {
+                Page page = pageSource.getNextPage();
+                if (pageSource.isFinished()) {
+                    break;
+                }
+                assertNotNull(page);
+                page.assureLoaded();
+                positionCount += page.getPositionCount();
+                // assert upper bound is tight
+                // ignore the first MAX_BATCH_SIZE rows given the sizes are set when loading the blocks
+                if (positionCount > MAX_BATCH_SIZE) {
+                    // either the block is bounded by maxReadBytes or we just load one single large block
+                    // an error margin MAX_BATCH_SIZE / step is needed given the block sizes are increasing
+                    assertTrue(page.getSizeInBytes() < maxReadBytes * (MAX_BATCH_SIZE / step) || 1 == page.getPositionCount());
+                }
+            }
+
+            // verify the stats are correctly recorded
+            Distribution distribution = stats.getMaxCombinedBytesPerRow().getAllTime();
+            assertEquals((int) distribution.getCount(), 1);
+            assertEquals((int) distribution.getMax(), Arrays.stream(dataColumns).mapToInt(GrowingTestColumn::getMaxSize).sum());
+            pageSource.close();
+        }
+        finally {
+            tempFile.delete();
+        }
     }
 
     @Test
@@ -300,37 +371,16 @@ public class TestOrcPageSourceMemoryTracking
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
 
-        for (int i = 0; i < 52; i++) {
+        for (int i = 0; i < 50; i++) {
             assertFalse(operator.isFinished());
-            operator.getOutput();
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 550000L, 639999L);
+            assertNotNull(operator.getOutput());
+            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 90_000L, 499_999L);
         }
 
-        for (int i = 52; i < 65; i++) {
-            assertFalse(operator.isFinished());
-            operator.getOutput();
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 450000L, 539999L);
-        }
-
-        // Page source is over, but data still exist in buffer of ScanFilterProjectOperator
-        assertFalse(operator.isFinished());
+        // done... in the current implementation finish is not set until output returns a null page
         assertNull(operator.getOutput());
-        assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 100000L, 109999L);
-        assertFalse(operator.isFinished());
-        Page lastPage = operator.getOutput();
-        assertNotNull(lastPage);
-
-        // No data is left
         assertTrue(operator.isFinished());
-        // an empty page builder of two variable width block builders is left in ScanFilterAndProjectOperator
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()));
-        for (int i = 0; i < lastPage.getPositionCount(); i++) {
-            pageBuilder.declarePosition();
-            createUnboundedVarcharType().appendTo(lastPage.getBlock(0), i, pageBuilder.getBlockBuilder(0));
-            createUnboundedVarcharType().appendTo(lastPage.getBlock(1), i, pageBuilder.getBlockBuilder(1));
-        }
-        pageBuilder.reset();
-        assertEquals(driverContext.getSystemMemoryUsage(), pageBuilder.getRetainedSizeInBytes());
+        assertEquals(driverContext.getSystemMemoryUsage(), 0);
     }
 
     private class TestPreparer
@@ -343,6 +393,12 @@ public class TestOrcPageSourceMemoryTracking
         private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
         public TestPreparer(String tempFilePath)
+                throws Exception
+        {
+            this(tempFilePath, testColumns, NUM_ROWS, STRIPE_ROWS);
+        }
+
+        public TestPreparer(String tempFilePath, List<TestColumn> testColumns, int numRows, int stripeRows)
                 throws Exception
         {
             OrcSerde serde = new OrcSerde();
@@ -380,21 +436,32 @@ public class TestOrcPageSourceMemoryTracking
             columns = columnsBuilder.build();
             types = typesBuilder.build();
 
-            fileSplit = createTestFile(tempFilePath, new OrcOutputFormat(), serde, null, testColumns, NUM_ROWS);
+            fileSplit = createTestFile(tempFilePath, new OrcOutputFormat(), serde, null, testColumns, numRows, stripeRows);
         }
 
         public ConnectorPageSource newPageSource()
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT);
+            return newPageSource(new FileFormatDataSourceStats(), SESSION);
+        }
+
+        public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats)
+        {
+            return newPageSource(stats, SESSION);
+        }
+
+        public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
+        {
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, stats);
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
                     "test",
                     new Configuration(),
-                    SESSION,
+                    session,
                     fileSplit.getPath(),
                     OptionalInt.empty(),
                     fileSplit.getStart(),
+                    fileSplit.getLength(),
                     fileSplit.getLength(),
                     schema,
                     TupleDomain.all(),
@@ -424,18 +491,19 @@ public class TestOrcPageSourceMemoryTracking
         public SourceOperator newScanFilterAndProjectOperator(DriverContext driverContext)
         {
             ConnectorPageSource pageSource = newPageSource();
-            ImmutableList.Builder<ProjectionFunction> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             for (int i = 0; i < types.size(); i++) {
-                projectionsBuilder.add(singleColumn(types.get(i), i));
+                projectionsBuilder.add(field(i, types.get(i)));
             }
-            ImmutableList<ProjectionFunction> projections = projectionsBuilder.build();
+            Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(Optional.empty(), projectionsBuilder.build(), "key");
+            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(Optional.empty(), projectionsBuilder.build());
             SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
-                    () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, projections),
-                    () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projections),
+                    cursorProcessor,
+                    pageProcessor,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     types
             );
@@ -447,7 +515,7 @@ public class TestOrcPageSourceMemoryTracking
         private DriverContext newDriverContext()
         {
             return createTaskContext(executor, testSessionBuilder().build())
-                    .addPipelineContext(true, true)
+                    .addPipelineContext(0, true, true)
                     .addDriverContext();
         }
     }
@@ -457,20 +525,19 @@ public class TestOrcPageSourceMemoryTracking
             @SuppressWarnings("deprecation") SerDe serDe,
             String compressionCodec,
             List<TestColumn> testColumns,
-            int numRows)
+            int numRows,
+            int stripeRows)
             throws Exception
     {
         // filter out partition keys, which are not written to the file
         testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
-
-        JobConf jobConf = new JobConf();
-        ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
         tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
         serDe.initialize(CONFIGURATION, tableProperties);
 
+        JobConf jobConf = new JobConf();
         if (compressionCodec != null) {
             CompressionCodec codec = new CompressionCodecFactory(CONFIGURATION).getCodecByName(compressionCodec);
             jobConf.set(COMPRESS_CODEC, codec.getClass().getName());
@@ -499,7 +566,7 @@ public class TestOrcPageSourceMemoryTracking
 
                 Writable record = serDe.serialize(row, objectInspector);
                 recordWriter.write(record);
-                if (rowNumber % STRIPE_ROWS == STRIPE_ROWS - 1) {
+                if (rowNumber % stripeRows == stripeRows - 1) {
                     flushStripe(recordWriter);
                 }
             }
@@ -563,7 +630,7 @@ public class TestOrcPageSourceMemoryTracking
         }
     }
 
-    public static final class TestColumn
+    public static class TestColumn
     {
         private final String name;
         private final ObjectInspector objectInspector;
@@ -612,6 +679,43 @@ public class TestOrcPageSourceMemoryTracking
             sb.append(", partitionKey=").append(partitionKey);
             sb.append('}');
             return sb.toString();
+        }
+    }
+
+    public static final class GrowingTestColumn
+            extends TestColumn
+    {
+        private final Supplier<String> writeValue;
+        private int counter;
+        private int step;
+        private int maxSize;
+
+        public GrowingTestColumn(String name, ObjectInspector objectInspector, Supplier<String> writeValue, boolean partitionKey, int step)
+        {
+            super(name, objectInspector, writeValue, partitionKey);
+            this.writeValue = writeValue;
+            this.counter = step;
+            this.step = step;
+        }
+
+        @Override
+        public Object getWriteValue()
+        {
+            StringBuilder builder = new StringBuilder();
+            String source = writeValue.get();
+            for (int i = 0; i < counter / step; i++) {
+                builder.append(source);
+            }
+            counter++;
+            if (builder.length() > maxSize) {
+                maxSize = builder.length();
+            }
+            return builder.toString();
+        }
+
+        public int getMaxSize()
+        {
+            return maxSize;
         }
     }
 }

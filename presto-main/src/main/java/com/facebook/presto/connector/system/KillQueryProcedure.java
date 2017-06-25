@@ -22,12 +22,16 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public class KillQueryProcedure
 {
+    private static final MethodHandle KILL_QUERY = methodHandle(KillQueryProcedure.class, "killQuery", String.class);
+
     private final QueryManager queryManager;
 
     @Inject
@@ -47,7 +51,7 @@ public class KillQueryProcedure
         return new Procedure(
                 "runtime",
                 "kill_query",
-                ImmutableList.of(new Argument("query_id", createUnboundedVarcharType())),
-                methodHandle(getClass(), "killQuery", String.class).bindTo(this));
+                ImmutableList.of(new Argument("query_id", VARCHAR)),
+                KILL_QUERY.bindTo(this));
     }
 }

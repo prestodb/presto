@@ -28,7 +28,6 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -176,11 +175,6 @@ public class HiveColumnHandle
                 .add("columnType", columnType)
                 .add("comment", comment)
                 .toString();
-    }
-
-    public static HiveColumnHandle toHiveColumnHandle(ColumnHandle columnHandle)
-    {
-        return checkType(columnHandle, HiveColumnHandle.class, "columnHandle");
     }
 
     public static HiveColumnHandle updateRowIdHandle(String connectorId)

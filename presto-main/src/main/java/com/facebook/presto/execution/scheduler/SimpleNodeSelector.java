@@ -25,12 +25,12 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.scheduler.NodeScheduler.calculateLowWatermark;
@@ -158,7 +158,7 @@ public class SimpleNodeSelector
             }
         }
 
-        CompletableFuture<?> blocked;
+        ListenableFuture<?> blocked;
         if (splitWaitingForAnyNode) {
             blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
         }

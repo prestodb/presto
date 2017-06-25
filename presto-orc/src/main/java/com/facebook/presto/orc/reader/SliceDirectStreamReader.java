@@ -16,16 +16,17 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.ByteArrayStream;
-import com.facebook.presto.orc.stream.LongStream;
-import com.facebook.presto.orc.stream.StreamSource;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.ByteArrayInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,18 +38,21 @@ import java.util.List;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SliceDirectStreamReader
         implements StreamReader
 {
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+    private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     private final StreamDescriptor streamDescriptor;
 
@@ -56,21 +60,21 @@ public class SliceDirectStreamReader
     private int nextBatchSize;
 
     @Nonnull
-    private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanStream presentStream;
+    private BooleanInputStream presentStream;
     private boolean[] isNullVector = new boolean[0];
 
     @Nonnull
-    private StreamSource<LongStream> lengthStreamSource = missingStreamSource(LongStream.class);
+    private InputStreamSource<LongInputStream> lengthStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
-    private LongStream lengthStream;
+    private LongInputStream lengthStream;
     private int[] lengthVector = new int[0];
 
     @Nonnull
-    private StreamSource<ByteArrayStream> dataByteSource = missingStreamSource(ByteArrayStream.class);
+    private InputStreamSource<ByteArrayInputStream> dataByteSource = missingStreamSource(ByteArrayInputStream.class);
     @Nullable
-    private ByteArrayStream dataStream;
+    private ByteArrayInputStream dataStream;
 
     private boolean rowGroupOpen;
 
@@ -102,12 +106,12 @@ public class SliceDirectStreamReader
             }
             if (readOffset > 0) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException("Value is not null but length stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
                 }
                 long dataSkipSize = lengthStream.sum(readOffset);
                 if (dataSkipSize > 0) {
                     if (dataStream == null) {
-                        throw new OrcCorruptionException("Value is not null but data stream is not present");
+                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                     }
                     dataStream.skip(dataSkipSize);
                 }
@@ -122,7 +126,7 @@ public class SliceDirectStreamReader
         }
         if (presentStream == null) {
             if (lengthStream == null) {
-                throw new OrcCorruptionException("Value is not null but length stream is not present");
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
             }
             Arrays.fill(isNullVector, false);
             lengthStream.nextIntVector(nextBatchSize, lengthVector);
@@ -131,25 +135,28 @@ public class SliceDirectStreamReader
             int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
             if (nullValues != nextBatchSize) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException("Value is not null but length stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
                 }
                 lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
             }
         }
 
-        int totalLength = 0;
+        long totalLength = 0;
         for (int i = 0; i < nextBatchSize; i++) {
             if (!isNullVector[i]) {
                 totalLength += lengthVector[i];
             }
         }
+        if (totalLength > ONE_GIGABYTE) {
+            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Column values too large to process in Presto. %s column values larger than 1GB", nextBatchSize);
+        }
 
         byte[] data = EMPTY_BYTE_ARRAY;
         if (totalLength > 0) {
             if (dataStream == null) {
-                throw new OrcCorruptionException("Value is not null but data stream is not present");
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            data = dataStream.next(totalLength);
+            data = dataStream.next(toIntExact(totalLength));
         }
 
         Slice[] sliceVector = new Slice[nextBatchSize];
@@ -187,12 +194,12 @@ public class SliceDirectStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanStream.class);
-        lengthStreamSource = missingStreamSource(LongStream.class);
-        dataByteSource = missingStreamSource(ByteArrayStream.class);
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        lengthStreamSource = missingStreamSource(LongInputStream.class);
+        dataByteSource = missingStreamSource(ByteArrayInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -207,12 +214,12 @@ public class SliceDirectStreamReader
     }
 
     @Override
-    public void startRowGroup(StreamSources dataStreamSources)
+    public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        lengthStreamSource = dataStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class);
-        dataByteSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, ByteArrayStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+        lengthStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
+        dataByteSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, ByteArrayInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

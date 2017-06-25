@@ -17,6 +17,7 @@ import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
@@ -24,28 +25,28 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterators;
 
-import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
+import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class InMemoryHashAggregationBuilder
         implements HashAggregationBuilder
@@ -67,7 +68,8 @@ public class InMemoryHashAggregationBuilder
             List<Integer> groupByChannels,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
-            DataSize maxPartialMemory)
+            DataSize maxPartialMemory,
+            JoinCompiler joinCompiler)
     {
         this(accumulatorFactories,
                 step,
@@ -77,7 +79,8 @@ public class InMemoryHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 maxPartialMemory,
-                Optional.empty());
+                Optional.empty(),
+                joinCompiler);
     }
 
     public InMemoryHashAggregationBuilder(
@@ -89,9 +92,10 @@ public class InMemoryHashAggregationBuilder
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             DataSize maxPartialMemory,
-            Optional<Integer> overwriteIntermediateChannelOffset)
+            Optional<Integer> overwriteIntermediateChannelOffset,
+            JoinCompiler joinCompiler)
     {
-        this.groupByHash = createGroupByHash(operatorContext.getSession(), groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups);
+        this.groupByHash = createGroupByHash(operatorContext.getSession(), groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups, joinCompiler);
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.toBytes();
@@ -143,6 +147,7 @@ public class InMemoryHashAggregationBuilder
             operatorContext.setMemoryReservation(memorySize);
         }
     }
+
     @Override
     public boolean isFull()
     {
@@ -150,9 +155,25 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public CompletableFuture<?> isBlocked()
+    public void recordHashCollisions(HashCollisionsCounter hashCollisionsCounter)
     {
-        return completedFuture(null);
+        hashCollisionsCounter.recordHashCollision(groupByHash.getHashCollisions(), groupByHash.getExpectedHashCollisions());
+    }
+
+    public long getHashCollisions()
+    {
+        return groupByHash.getHashCollisions();
+    }
+
+    public double getExpectedHashCollisions()
+    {
+        return groupByHash.getExpectedHashCollisions();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
     }
 
     public long getSizeInMemory()
@@ -265,9 +286,8 @@ public class InMemoryHashAggregationBuilder
             groupIds.set(i, i);
         }
 
-        List<Integer> wrappedGroupIds = asList(groupIds, groupByHash.getGroupCount());
-        wrappedGroupIds.sort(((leftGroupId, rightGroupId) ->
-                Long.compare(groupByHash.getRawHash(leftGroupId), groupByHash.getRawHash(rightGroupId))));
+        groupIds.sort(0, groupByHash.getGroupCount(), (leftGroupId, rightGroupId) ->
+                Long.compare(groupByHash.getRawHash(leftGroupId), groupByHash.getRawHash(rightGroupId)));
 
         return new AbstractIntIterator() {
             private final int totalPositions = groupByHash.getGroupCount();
@@ -283,31 +303,6 @@ public class InMemoryHashAggregationBuilder
             public int nextInt()
             {
                 return groupIds.get(position++);
-            }
-        };
-    }
-
-    private static List<Integer> asList(IntBigArray groupIds, int size)
-    {
-        return new AbstractList<Integer>() {
-            @Override
-            public Integer get(int index)
-            {
-                return groupIds.get(index);
-            }
-
-            @Override
-            public int size()
-            {
-                return size;
-            }
-
-            @Override
-            public Integer set(int index, Integer element)
-            {
-                int oldValue = groupIds.get(index);
-                groupIds.set(index, element);
-                return oldValue;
             }
         };
     }

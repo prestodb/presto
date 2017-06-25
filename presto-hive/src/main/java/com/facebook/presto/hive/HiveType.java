@@ -37,7 +37,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Locale;
 
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -163,13 +162,13 @@ public final class HiveType
             case PRIMITIVE:
                 return getPrimitiveType((PrimitiveTypeInfo) typeInfo) != null;
             case MAP:
-                MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "typeInfo");
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
                 return isSupportedType(mapTypeInfo.getMapKeyTypeInfo()) && isSupportedType(mapTypeInfo.getMapValueTypeInfo());
             case LIST:
-                ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "typeInfo");
+                ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
                 return isSupportedType(listTypeInfo.getListElementTypeInfo());
             case STRUCT:
-                StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "typeInfo");
+                StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 return structTypeInfo.getAllStructFieldTypeInfos().stream()
                         .allMatch(HiveType::isSupportedType);
         }
@@ -219,20 +218,20 @@ public final class HiveType
                 }
                 return primitiveType.getTypeSignature();
             case MAP:
-                MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "fieldInspector");
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
                 TypeSignature keyType = getTypeSignature(mapTypeInfo.getMapKeyTypeInfo());
                 TypeSignature valueType = getTypeSignature(mapTypeInfo.getMapValueTypeInfo());
                 return new TypeSignature(
                         StandardTypes.MAP,
                         ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
             case LIST:
-                ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "fieldInspector");
+                ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
                 TypeSignature elementType = getTypeSignature(listTypeInfo.getListElementTypeInfo());
                 return new TypeSignature(
                         StandardTypes.ARRAY,
                         ImmutableList.of(TypeSignatureParameter.of(elementType)));
             case STRUCT:
-                StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "fieldInspector");
+                StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 List<TypeInfo> structFieldTypeInfos = structTypeInfo.getAllStructFieldTypeInfos();
                 List<String> structFieldNames = structTypeInfo.getAllStructFieldNames();
                 if (structFieldTypeInfos.size() != structFieldNames.size()) {

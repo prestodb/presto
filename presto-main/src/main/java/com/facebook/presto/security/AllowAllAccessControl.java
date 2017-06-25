@@ -15,17 +15,30 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.Set;
 
 public class AllowAllAccessControl
         implements AccessControl
 {
     @Override
     public void checkCanSetUser(Principal principal, String userName)
+    {
+    }
+
+    @Override
+    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    {
+        return catalogs;
+    }
+
+    @Override
+    public void checkCanAccessCatalog(Identity identity, String catalogName)
     {
     }
 
@@ -45,6 +58,17 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowSchemas(TransactionId transactionId, Identity identity, String catalogName)
+    {
+    }
+
+    @Override
+    public Set<String> filterSchemas(TransactionId transactionId, Identity identity, String catalogName, Set<String> schemaNames)
+    {
+        return schemaNames;
+    }
+
+    @Override
     public void checkCanCreateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
     }
@@ -60,7 +84,23 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
+    {
+    }
+
+    @Override
+    public Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    {
+        return tableNames;
+    }
+
+    @Override
     public void checkCanAddColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
     }
 
@@ -110,12 +150,12 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String grantee, boolean withGrantOption)
     {
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String revokee, boolean grantOptionFor)
     {
     }
 

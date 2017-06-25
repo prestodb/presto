@@ -35,6 +35,14 @@ public class ClassLoaderSafeConnectorPageSink
     }
 
     @Override
+    public long getSystemMemoryUsage()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSystemMemoryUsage();
+        }
+    }
+
+    @Override
     public CompletableFuture<?> appendPage(Page page)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

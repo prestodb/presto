@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.metadata.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +33,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
@@ -48,76 +62,88 @@ public final class TestingOrcPredicate
     {
     }
 
-    public static OrcPredicate createOrcPredicate(ObjectInspector objectInspector, Iterable<?> values)
+    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values, boolean noFileStats)
     {
         List<Object> expectedValues = newArrayList(values);
-        if (!(objectInspector instanceof PrimitiveObjectInspector)) {
-            return new BasicOrcPredicate<>(expectedValues, Object.class);
+        if (BOOLEAN.equals(type)) {
+            return new BooleanOrcPredicate(expectedValues, noFileStats);
+        }
+        if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
+            return new LongOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : ((Number) value).longValue())
+                            .collect(toList()),
+                    noFileStats);
+        }
+        if (TIMESTAMP.equals(type)) {
+            return new LongOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
+                            .collect(toList()),
+                    noFileStats);
+        }
+        if (DATE.equals(type)) {
+            return new DateOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
+                            .collect(toList()),
+                    noFileStats);
+        }
+        if (REAL.equals(type) || DOUBLE.equals(type)) {
+            return new DoubleOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : ((Number) value).doubleValue())
+                            .collect(toList()),
+                    noFileStats);
+        }
+        if (type instanceof VarbinaryType) {
+            // binary does not have stats
+            return new BasicOrcPredicate<>(expectedValues, Object.class, noFileStats);
+        }
+        if (type instanceof VarcharType) {
+            return new StringOrcPredicate(expectedValues, noFileStats);
+        }
+        if (type instanceof CharType) {
+            return new CharOrcPredicate(expectedValues, noFileStats);
+        }
+        if (type instanceof DecimalType) {
+            return new DecimalOrcPredicate(expectedValues, noFileStats);
         }
 
-        PrimitiveObjectInspector primitiveObjectInspector = (PrimitiveObjectInspector) objectInspector;
-        PrimitiveCategory primitiveCategory = primitiveObjectInspector.getPrimitiveCategory();
-
-        switch (primitiveCategory) {
-            case BOOLEAN:
-                return new BooleanOrcPredicate(expectedValues);
-            case BYTE:
-            case SHORT:
-            case INT:
-            case LONG:
-                return new LongOrcPredicate(
-                        expectedValues.stream()
-                                .map(value -> value == null ? null : ((Number) value).longValue())
-                                .collect(toList()));
-            case TIMESTAMP:
-                return new LongOrcPredicate(
-                        expectedValues.stream()
-                                .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
-                                .collect(toList()));
-            case DATE:
-                return new DateOrcPredicate(
-                        expectedValues.stream()
-                                .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
-                                .collect(toList()));
-            case FLOAT:
-            case DOUBLE:
-                return new DoubleOrcPredicate(
-                        expectedValues.stream()
-                                .map(value -> value == null ? null : ((Number) value).doubleValue())
-                                .collect(toList()));
-            case BINARY:
-                // binary does not have stats
-                return new BasicOrcPredicate<>(expectedValues, Object.class);
-            case STRING:
-                return new StringOrcPredicate(expectedValues);
-            case CHAR:
-                return new CharOrcPredicate(expectedValues);
-            case DECIMAL:
-                return new DecimalOrcPredicate(expectedValues);
-            default:
-                throw new IllegalArgumentException("Unsupported types " + primitiveCategory);
+        String baseType = type.getTypeSignature().getBase();
+        if (ARRAY.equals(baseType) || MAP.equals(baseType) || ROW.equals(baseType)) {
+            return new BasicOrcPredicate<>(expectedValues, Object.class, noFileStats);
         }
+        throw new IllegalArgumentException("Unsupported type " + type);
     }
 
     public static class BasicOrcPredicate<T>
             implements OrcPredicate
     {
         private final List<T> expectedValues;
+        private final boolean noFileStats;
 
-        public BasicOrcPredicate(Iterable<?> expectedValues, Class<T> type)
+        public BasicOrcPredicate(Iterable<?> expectedValues, Class<T> type, boolean noFileStats)
         {
             List<T> values = new ArrayList<>();
             for (Object expectedValue : expectedValues) {
                 values.add(type.cast(expectedValue));
             }
             this.expectedValues = Collections.unmodifiableList(values);
+            this.noFileStats = noFileStats;
         }
 
         @Override
         public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
         {
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(0);
-            assertTrue(columnStatistics.hasNumberOfValues());
+
+            // todo enable file stats when DWRF team verifies that the stats are correct
+            // assertTrue(columnStatistics.hasNumberOfValues());
+            if (noFileStats && numberOfRows == expectedValues.size()) {
+                assertNull(columnStatistics);
+                return true;
+            }
 
             if (numberOfRows == expectedValues.size()) {
                 // whole file
@@ -167,9 +193,9 @@ public final class TestingOrcPredicate
     public static class BooleanOrcPredicate
             extends BasicOrcPredicate<Boolean>
     {
-        public BooleanOrcPredicate(Iterable<?> expectedValues)
+        public BooleanOrcPredicate(Iterable<?> expectedValues, boolean noFileStats)
         {
-            super(expectedValues, Boolean.class);
+            super(expectedValues, Boolean.class, noFileStats);
         }
 
         @Override
@@ -198,9 +224,9 @@ public final class TestingOrcPredicate
     public static class DoubleOrcPredicate
             extends BasicOrcPredicate<Double>
     {
-        public DoubleOrcPredicate(Iterable<?> expectedValues)
+        public DoubleOrcPredicate(Iterable<?> expectedValues, boolean noFileStats)
         {
-            super(expectedValues, Double.class);
+            super(expectedValues, Double.class, noFileStats);
         }
 
         @Override
@@ -235,18 +261,18 @@ public final class TestingOrcPredicate
     private static class DecimalOrcPredicate
             extends BasicOrcPredicate<SqlDecimal>
     {
-        public DecimalOrcPredicate(Iterable<?> expectedValues)
+        public DecimalOrcPredicate(Iterable<?> expectedValues, boolean noFileStats)
         {
-            super(expectedValues, SqlDecimal.class);
+            super(expectedValues, SqlDecimal.class, noFileStats);
         }
     }
 
     public static class LongOrcPredicate
             extends BasicOrcPredicate<Long>
     {
-        public LongOrcPredicate(Iterable<?> expectedValues)
+        public LongOrcPredicate(Iterable<?> expectedValues, boolean noFileStats)
         {
-            super(expectedValues, Long.class);
+            super(expectedValues, Long.class, noFileStats);
         }
 
         @Override
@@ -282,9 +308,9 @@ public final class TestingOrcPredicate
     public static class StringOrcPredicate
             extends BasicOrcPredicate<String>
     {
-        public StringOrcPredicate(Iterable<?> expectedValues)
+        public StringOrcPredicate(Iterable<?> expectedValues, boolean noFileStats)
         {
-            super(expectedValues, String.class);
+            super(expectedValues, String.class, noFileStats);
         }
 
         @Override
@@ -327,9 +353,9 @@ public final class TestingOrcPredicate
     public static class CharOrcPredicate
             extends BasicOrcPredicate<String>
     {
-        public CharOrcPredicate(Iterable<?> expectedValues)
+        public CharOrcPredicate(Iterable<?> expectedValues, boolean noFileStats)
         {
-            super(expectedValues, String.class);
+            super(expectedValues, String.class, noFileStats);
         }
 
         @Override
@@ -372,9 +398,9 @@ public final class TestingOrcPredicate
     public static class DateOrcPredicate
             extends BasicOrcPredicate<Long>
     {
-        public DateOrcPredicate(Iterable<?> expectedValues)
+        public DateOrcPredicate(Iterable<?> expectedValues, boolean noFileStats)
         {
-            super(expectedValues, Long.class);
+            super(expectedValues, Long.class, noFileStats);
         }
 
         @Override

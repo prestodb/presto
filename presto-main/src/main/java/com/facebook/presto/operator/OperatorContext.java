@@ -25,6 +25,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
 
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.Optional;
@@ -38,6 +40,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -83,6 +86,7 @@ public class OperatorContext
 
     private final AtomicLong memoryReservation = new AtomicLong();
     private final OperatorSystemMemoryContext systemMemoryContext;
+    private final SpillContext spillContext;
 
     private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
@@ -95,6 +99,7 @@ public class OperatorContext
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
         this.systemMemoryContext = new OperatorSystemMemoryContext(this.driverContext);
+        this.spillContext = new OperatorSpillContext(this.driverContext);
         this.executor = requireNonNull(executor, "executor is null");
         SettableFuture<Object> future = SettableFuture.create();
         future.set(null);
@@ -266,6 +271,11 @@ public class OperatorContext
         systemMemoryContext.close();
     }
 
+    public SpillContext getSpillContext()
+    {
+        return spillContext;
+    }
+
     public void moreMemoryAvailable()
     {
         memoryFuture.get().set(null);
@@ -350,22 +360,34 @@ public class OperatorContext
         return outputPositions;
     }
 
+    @Override
+    public String toString()
+    {
+        return format("%s-%s", operatorType, planNodeId);
+    }
+
     public OperatorStats getOperatorStats()
     {
         Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
         OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
 
+        long inputPositionsCount = inputPositions.getTotalCount();
+
         return new OperatorStats(
+                driverContext.getPipelineContext().getPipelineId(),
                 operatorId,
                 planNodeId,
                 operatorType,
+
+                1,
 
                 addInputCalls.get(),
                 new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(inputDataSize.getTotalCount()),
-                inputPositions.getTotalCount(),
+                inputPositionsCount,
+                (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputCalls.get(),
                 new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -481,6 +503,41 @@ public class OperatorContext
             return toStringHelper(this)
                     .add("usedBytes", reservedBytes)
                     .add("closed", closed)
+                    .toString();
+        }
+    }
+
+    @ThreadSafe
+    private class OperatorSpillContext
+            implements SpillContext
+    {
+        private final DriverContext driverContext;
+
+        private long reservedBytes;
+
+        public OperatorSpillContext(DriverContext driverContext)
+        {
+            this.driverContext = driverContext;
+        }
+
+        @Override
+        public void updateBytes(long bytes)
+        {
+            if (bytes > 0) {
+                driverContext.reserveSpill(bytes);
+            }
+            else {
+                checkArgument(reservedBytes + bytes >= 0, "tried to free %s spilled bytes from %s bytes reserved", -bytes, reservedBytes);
+                driverContext.freeSpill(-bytes);
+            }
+            reservedBytes += bytes;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("usedBytes", reservedBytes)
                     .toString();
         }
     }

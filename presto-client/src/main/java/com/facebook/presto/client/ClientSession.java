@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 
@@ -36,7 +37,7 @@ public class ClientSession
     private final String clientInfo;
     private final String catalog;
     private final String schema;
-    private final String timeZoneId;
+    private final TimeZoneKey timeZone;
     private final Locale locale;
     private final Map<String, String> properties;
     private final Map<String, String> preparedStatements;
@@ -53,7 +54,7 @@ public class ClientSession
                 session.getClientInfo(),
                 catalog,
                 schema,
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 session.getProperties(),
                 session.getPreparedStatements(),
@@ -71,7 +72,7 @@ public class ClientSession
                 session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 properties,
                 session.getPreparedStatements(),
@@ -89,7 +90,7 @@ public class ClientSession
                 session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 session.getProperties(),
                 preparedStatements,
@@ -107,7 +108,7 @@ public class ClientSession
                 session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 session.getProperties(),
                 session.getPreparedStatements(),
@@ -125,7 +126,7 @@ public class ClientSession
                 session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 session.getProperties(),
                 session.getPreparedStatements(),
@@ -173,7 +174,7 @@ public class ClientSession
         this.catalog = catalog;
         this.schema = schema;
         this.locale = locale;
-        this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
+        this.timeZone = TimeZoneKey.getTimeZoneKey(timeZoneId);
         this.transactionId = transactionId;
         this.debug = debug;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
@@ -220,9 +221,9 @@ public class ClientSession
         return schema;
     }
 
-    public String getTimeZoneId()
+    public TimeZoneKey getTimeZone()
     {
-        return timeZoneId;
+        return timeZone;
     }
 
     public Locale getLocale()
@@ -264,7 +265,7 @@ public class ClientSession
                 .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
                 .add("schema", schema)
-                .add("timeZone", timeZoneId)
+                .add("timeZone", timeZone)
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)

@@ -24,7 +24,6 @@ import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.SliceState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorState;
@@ -33,7 +32,6 @@ import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -46,11 +44,11 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMinMaxAggregationFunction
@@ -185,9 +183,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -204,9 +200,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -222,9 +216,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -241,9 +233,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -259,9 +249,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -278,9 +266,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -297,9 +283,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -316,9 +300,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -334,9 +316,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -352,9 +332,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 }

@@ -65,4 +65,10 @@ public class JoinUsing
                 .addValue(columns)
                 .toString();
     }
+
+    @Override
+    public List<Node> getNodes()
+    {
+        return ImmutableList.of();
+    }
 }

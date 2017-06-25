@@ -62,6 +62,12 @@ public class Execute
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return parameters;
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(name, parameters);

@@ -52,6 +52,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+// run single threaded to avoid creating multiple query runners at once
 @Test(singleThreaded = true)
 public class TestMemoryManager
 {
@@ -123,6 +124,7 @@ public class TestMemoryManager
             while (!queryDone) {
                 for (QueryInfo info : queryRunner.getCoordinator().getQueryManager().getAllQueryInfo()) {
                     if (info.getState().isDone()) {
+                        assertNotNull(info.getErrorCode());
                         assertEquals(info.getErrorCode().getCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode().getCode());
                         queryDone = true;
                         break;

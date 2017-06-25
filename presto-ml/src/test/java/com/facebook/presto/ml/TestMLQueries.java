@@ -31,7 +31,7 @@ public class TestMLQueries
 {
     public TestMLQueries()
     {
-        super(createLocalQueryRunner());
+        super(TestMLQueries::createLocalQueryRunner);
     }
 
     @Test

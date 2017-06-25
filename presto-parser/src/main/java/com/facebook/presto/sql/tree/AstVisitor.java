@@ -142,6 +142,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitShowStats(ShowStats node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitShowPartitions(ShowPartitions node, C context)
     {
         return visitStatement(node, context);
@@ -215,6 +220,11 @@ public abstract class AstVisitor<R, C>
     protected R visitQueryBody(QueryBody node, C context)
     {
         return visitRelation(node, context);
+    }
+
+    protected R visitOrderBy(OrderBy node, C context)
+    {
+        return visitNode(node, context);
     }
 
     protected R visitQuerySpecification(QuerySpecification node, C context)
@@ -302,7 +312,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitQualifiedNameReference(QualifiedNameReference node, C context)
+    protected R visitIdentifier(Identifier node, C context)
     {
         return visitExpression(node, context);
     }
@@ -413,6 +423,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitUnnest(Unnest node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitLateral(Lateral node, C context)
     {
         return visitRelation(node, context);
     }
@@ -542,6 +557,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitDropColumn(DropColumn node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitAddColumn(AddColumn node, C context)
     {
         return visitStatement(node, context);
@@ -583,6 +603,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitRevoke(Revoke node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitShowGrants(ShowGrants node, C context)
     {
         return visitStatement(node, context);
     }
@@ -658,6 +683,16 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitBindExpression(BindExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitGroupingOperation(GroupingOperation node, C context)
     {
         return visitExpression(node, context);
     }

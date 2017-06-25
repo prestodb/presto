@@ -55,7 +55,7 @@ public final class Cube
     public List<Set<Expression>> enumerateGroupingSets()
     {
         return ImmutableList.copyOf(Sets.powerSet(columns.stream()
-                .map(QualifiedNameReference::new)
+                .map(DereferenceExpression::from)
                 .collect(toSet())));
     }
 
@@ -63,6 +63,12 @@ public final class Cube
     protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitCube(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

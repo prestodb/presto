@@ -24,9 +24,9 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 
+import javax.inject.Inject;
 import javax.management.Attribute;
 import javax.management.JMException;
 import javax.management.MBeanServer;
@@ -39,7 +39,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -65,7 +64,7 @@ public class JmxRecordSetProvider
         List<Object> row = new ArrayList<>();
 
         for (ColumnHandle column : columns) {
-            JmxColumnHandle jmxColumn = checkType(column, JmxColumnHandle.class, "column");
+            JmxColumnHandle jmxColumn = (JmxColumnHandle) column;
             if (jmxColumn.getColumnName().equals(JmxMetadata.NODE_COLUMN_NAME)) {
                 row.add(nodeId);
             }
@@ -151,7 +150,7 @@ public class JmxRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        JmxTableHandle tableHandle = checkType(split, JmxSplit.class, "split").getTableHandle();
+        JmxTableHandle tableHandle = ((JmxSplit) split).getTableHandle();
 
         requireNonNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
@@ -189,7 +188,7 @@ public class JmxRecordSetProvider
     private static Set<String> getColumnNames(List<? extends ColumnHandle> columnHandles)
     {
         return columnHandles.stream()
-                .map(column -> checkType(column, JmxColumnHandle.class, "column"))
+                .map(column -> (JmxColumnHandle) column)
                 .map(JmxColumnHandle::getColumnName)
                 .collect(Collectors.toSet());
     }
@@ -197,7 +196,7 @@ public class JmxRecordSetProvider
     private static List<Type> getColumnTypes(List<? extends ColumnHandle> columnHandles)
     {
         return columnHandles.stream()
-                .map(column -> checkType(column, JmxColumnHandle.class, "column"))
+                .map(column -> (JmxColumnHandle) column)
                 .map(JmxColumnHandle::getColumnType)
                 .collect(Collectors.toList());
     }

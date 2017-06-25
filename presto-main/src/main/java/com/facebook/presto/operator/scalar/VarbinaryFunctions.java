@@ -26,6 +26,7 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
 import java.util.Base64;
+import java.util.zip.CRC32;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
@@ -86,8 +87,9 @@ public final class VarbinaryFunctions
 
     @Description("decode URL safe base64 encoded binary data")
     @ScalarFunction("from_base64url")
+    @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice fromBase64UrlVarchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice fromBase64UrlVarchar(@SqlType("varchar(x)") Slice slice)
     {
         try {
             return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
@@ -120,8 +122,9 @@ public final class VarbinaryFunctions
 
     @Description("decode hex encoded binary data")
     @ScalarFunction("from_hex")
+    @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice fromHexVarchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice fromHexVarchar(@SqlType("varchar(x)") Slice slice)
     {
         if (slice.length() % 2 != 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid input length " + slice.length());
@@ -141,6 +144,37 @@ public final class VarbinaryFunctions
     {
         Slice slice = Slices.allocate(Long.BYTES);
         slice.setLong(0, Long.reverseBytes(value));
+        return slice;
+    }
+
+    @Description("decode bigint value from a 64-bit 2's complement big endian varbinary")
+    @ScalarFunction("from_big_endian_64")
+    @SqlType(StandardTypes.BIGINT)
+    public static long fromBigEndian64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        if (slice.length() != Long.BYTES) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "expected 8-byte input, but got instead: " + slice.length());
+        }
+        return Long.reverseBytes(slice.getLong(0));
+    }
+
+    @Description("encode value as a big endian varbinary according to IEEE 754 single-precision floating-point format")
+    @ScalarFunction("to_ieee754_32")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toIEEE754Binary32(@SqlType(StandardTypes.REAL) long value)
+    {
+        Slice slice = Slices.allocate(Float.BYTES);
+        slice.setInt(0, Integer.reverseBytes((int) value));
+        return slice;
+    }
+
+    @Description("encode value as a big endian varbinary according to IEEE 754 double-precision floating-point format")
+    @ScalarFunction("to_ieee754_64")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toIEEE754Binary64(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        Slice slice = Slices.allocate(Double.BYTES);
+        slice.setLong(0, Long.reverseBytes(Double.doubleToLongBits(value)));
         return slice;
     }
 
@@ -192,10 +226,12 @@ public final class VarbinaryFunctions
 
     @Description("compute xxhash64 hash")
     @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long xxhash64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice xxhash64(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return XxHash64.hash(slice);
+        Slice hash = Slices.allocate(Long.BYTES);
+        hash.setLong(0, Long.reverseBytes(XxHash64.hash(slice)));
+        return hash;
     }
 
     @Description("decode hex encoded binary data")
@@ -204,5 +240,15 @@ public final class VarbinaryFunctions
     public static Slice fromHexVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return fromHexVarchar(slice);
+    }
+
+    @Description("compute CRC-32")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long crc32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        CRC32 crc32 = new CRC32();
+        crc32.update(slice.toByteBuffer());
+        return crc32.getValue();
     }
 }

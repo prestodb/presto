@@ -15,20 +15,25 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.TryExpression;
 
 import java.util.List;
 
@@ -77,6 +82,16 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitTryExpression(TryExpression actual, Expression expected)
+    {
+        if (!(expected instanceof TryExpression)) {
+            return false;
+        }
+
+        return process(actual.getInnerExpression(), ((TryExpression) expected).getInnerExpression());
+    }
+
+    @Override
     protected Boolean visitCast(Cast actual, Expression expectedExpression)
     {
         if (!(expectedExpression instanceof Cast)) {
@@ -90,6 +105,30 @@ final class ExpressionVerifier
         }
 
         return process(actual.getExpression(), expected.getExpression());
+    }
+
+    @Override
+    protected Boolean visitIsNullPredicate(IsNullPredicate actual, Expression expectedExpression)
+    {
+        if (!(expectedExpression instanceof IsNullPredicate)) {
+            return false;
+        }
+
+        IsNullPredicate expected = (IsNullPredicate) expectedExpression;
+
+        return process(actual.getValue(), expected.getValue());
+    }
+
+    @Override
+    protected Boolean visitIsNotNullPredicate(IsNotNullPredicate actual, Expression expectedExpression)
+    {
+        if (!(expectedExpression instanceof IsNotNullPredicate)) {
+            return false;
+        }
+
+        IsNotNullPredicate expected = (IsNotNullPredicate) expectedExpression;
+
+        return process(actual.getValue(), expected.getValue());
     }
 
     @Override
@@ -152,13 +191,21 @@ final class ExpressionVerifier
 
     protected Boolean visitGenericLiteral(GenericLiteral actual, Expression expected)
     {
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        if (expected instanceof GenericLiteral) {
+            return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        }
+
+        return false;
     }
 
     @Override
     protected Boolean visitLongLiteral(LongLiteral actual, Expression expected)
     {
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        if (expected instanceof LongLiteral) {
+            return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        }
+
+        return false;
     }
 
     @Override
@@ -174,7 +221,10 @@ final class ExpressionVerifier
     @Override
     protected Boolean visitBooleanLiteral(BooleanLiteral actual, Expression expected)
     {
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        if (expected instanceof BooleanLiteral) {
+            return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        }
+        return false;
     }
 
     private static String getValueFromLiteral(Expression expression)
@@ -219,6 +269,17 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitBetweenPredicate(BetweenPredicate actual, Expression expectedExpression)
+    {
+        if (expectedExpression instanceof BetweenPredicate) {
+            BetweenPredicate expected = (BetweenPredicate) expectedExpression;
+            return process(actual.getValue(), expected.getValue()) && process(actual.getMin(), expected.getMin()) && process(actual.getMax(), expected.getMax());
+        }
+
+        return false;
+    }
+
+    @Override
     protected Boolean visitNotExpression(NotExpression actual, Expression expected)
     {
         if (expected instanceof NotExpression) {
@@ -234,5 +295,23 @@ final class ExpressionVerifier
             return false;
         }
         return symbolAliases.get(((SymbolReference) expected).getName()).equals(actual);
+    }
+
+    @Override
+    protected Boolean visitCoalesceExpression(CoalesceExpression actual, Expression expected)
+    {
+        if (!(expected instanceof CoalesceExpression)) {
+            return false;
+        }
+
+        CoalesceExpression expectedCoalesce = (CoalesceExpression) expected;
+        if (actual.getOperands().size() == expectedCoalesce.getOperands().size()) {
+            boolean verified = true;
+            for (int i = 0; i < actual.getOperands().size(); i++) {
+                verified &= process(actual.getOperands().get(i), expectedCoalesce.getOperands().get(i));
+            }
+            return verified;
+        }
+        return false;
     }
 }

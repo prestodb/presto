@@ -16,7 +16,6 @@ package com.facebook.presto.orc.checkpoint;
 import com.facebook.presto.orc.StreamId;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
@@ -59,7 +58,7 @@ public final class Checkpoints
     public static Map<StreamId, StreamCheckpoint> getStreamCheckpoints(
             Set<Integer> columns,
             List<OrcType> columnTypes,
-            CompressionKind compressionKind,
+            boolean compressed,
             int rowGroupId,
             List<ColumnEncoding> columnEncodings,
             Map<StreamId, Stream> streams,
@@ -83,41 +82,41 @@ public final class Checkpoints
             ColumnPositionsList columnPositionsList = new ColumnPositionsList(column, columnType, positionsList);
             switch (columnType) {
                 case BOOLEAN:
-                    checkpoints.putAll(getBooleanColumnCheckpoints(column, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getBooleanColumnCheckpoints(column, compressed, availableStreams, columnPositionsList));
                     break;
                 case BYTE:
-                    checkpoints.putAll(getByteColumnCheckpoints(column, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getByteColumnCheckpoints(column, compressed, availableStreams, columnPositionsList));
                     break;
                 case SHORT:
                 case INT:
                 case LONG:
                 case DATE:
-                    checkpoints.putAll(getLongColumnCheckpoints(column, columnEncoding, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getLongColumnCheckpoints(column, columnEncoding, compressed, availableStreams, columnPositionsList));
                     break;
                 case FLOAT:
-                    checkpoints.putAll(getFloatColumnCheckpoints(column, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getFloatColumnCheckpoints(column, compressed, availableStreams, columnPositionsList));
                     break;
                 case DOUBLE:
-                    checkpoints.putAll(getDoubleColumnCheckpoints(column, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getDoubleColumnCheckpoints(column, compressed, availableStreams, columnPositionsList));
                     break;
                 case TIMESTAMP:
-                    checkpoints.putAll(getTimestampColumnCheckpoints(column, columnEncoding, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getTimestampColumnCheckpoints(column, columnEncoding, compressed, availableStreams, columnPositionsList));
                     break;
                 case BINARY:
                 case STRING:
                 case VARCHAR:
                 case CHAR:
-                    checkpoints.putAll(getSliceColumnCheckpoints(column, columnEncoding, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getSliceColumnCheckpoints(column, columnEncoding, compressed, availableStreams, columnPositionsList));
                     break;
                 case LIST:
                 case MAP:
-                    checkpoints.putAll(getListOrMapColumnCheckpoints(column, columnEncoding, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getListOrMapColumnCheckpoints(column, columnEncoding, compressed, availableStreams, columnPositionsList));
                     break;
                 case STRUCT:
-                    checkpoints.putAll(getStructColumnCheckpoints(column, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getStructColumnCheckpoints(column, compressed, availableStreams, columnPositionsList));
                     break;
                 case DECIMAL:
-                    checkpoints.putAll(getDecimalColumnCheckpoints(column, columnEncoding, compressionKind, availableStreams, columnPositionsList));
+                    checkpoints.putAll(getDecimalColumnCheckpoints(column, columnEncoding, compressed, availableStreams, columnPositionsList));
                     break;
                 case UNION:
                     throw new IllegalArgumentException("Unsupported column type " + columnType);
@@ -168,18 +167,18 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getBooleanColumnCheckpoints(
             int column,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(DATA)) {
-            checkpoints.put(new StreamId(column, DATA), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, DATA), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         return checkpoints.build();
@@ -187,18 +186,18 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getByteColumnCheckpoints(
             int column,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(DATA)) {
-            checkpoints.put(new StreamId(column, DATA), new ByteStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, DATA), new ByteStreamCheckpoint(compressed, positionsList));
         }
 
         return checkpoints.build();
@@ -207,22 +206,22 @@ public final class Checkpoints
     private static Map<StreamId, StreamCheckpoint> getLongColumnCheckpoints(
             int column,
             ColumnEncodingKind encoding,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(IN_DICTIONARY)) {
-            checkpoints.put(new StreamId(column, IN_DICTIONARY), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, IN_DICTIONARY), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(DATA)) {
-            checkpoints.put(new StreamId(column, DATA), createLongStreamCheckpoint(encoding, compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, DATA), createLongStreamCheckpoint(encoding, compressed, positionsList));
         }
 
         return checkpoints.build();
@@ -230,18 +229,18 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getFloatColumnCheckpoints(
             int column,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(DATA)) {
-            checkpoints.put(new StreamId(column, DATA), new FloatStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, DATA), new FloatStreamCheckpoint(compressed, positionsList));
         }
 
         return checkpoints.build();
@@ -249,18 +248,18 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getDoubleColumnCheckpoints(
             int column,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(DATA)) {
-            checkpoints.put(new StreamId(column, DATA), new DoubleStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, DATA), new DoubleStreamCheckpoint(compressed, positionsList));
         }
 
         return checkpoints.build();
@@ -269,22 +268,22 @@ public final class Checkpoints
     private static Map<StreamId, StreamCheckpoint> getTimestampColumnCheckpoints(
             int column,
             ColumnEncodingKind encoding,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(DATA)) {
-            checkpoints.put(new StreamId(column, DATA), createLongStreamCheckpoint(encoding, compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, DATA), createLongStreamCheckpoint(encoding, compressed, positionsList));
         }
 
         if (availableStreams.contains(SECONDARY)) {
-            checkpoints.put(new StreamId(column, SECONDARY), createLongStreamCheckpoint(encoding, compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, SECONDARY), createLongStreamCheckpoint(encoding, compressed, positionsList));
         }
 
         return checkpoints.build();
@@ -293,43 +292,43 @@ public final class Checkpoints
     private static Map<StreamId, StreamCheckpoint> getSliceColumnCheckpoints(
             int column,
             ColumnEncodingKind encoding,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (encoding == DIRECT || encoding == DIRECT_V2) {
             if (availableStreams.contains(DATA)) {
-                checkpoints.put(new StreamId(column, DATA), new ByteArrayStreamCheckpoint(compressionKind, positionsList));
+                checkpoints.put(new StreamId(column, DATA), new ByteArrayStreamCheckpoint(compressed, positionsList));
             }
 
             if (availableStreams.contains(LENGTH)) {
-                checkpoints.put(new StreamId(column, LENGTH), createLongStreamCheckpoint(encoding, compressionKind, positionsList));
+                checkpoints.put(new StreamId(column, LENGTH), createLongStreamCheckpoint(encoding, compressed, positionsList));
             }
         }
         else if (encoding == DICTIONARY || encoding == DICTIONARY_V2) {
             // DWRF has rules inconsistent with the ORC style
             if (availableStreams.contains(IN_DICTIONARY)) {
                 if (availableStreams.contains(ROW_GROUP_DICTIONARY)) {
-                    checkpoints.put(new StreamId(column, ROW_GROUP_DICTIONARY), new ByteArrayStreamCheckpoint(compressionKind, positionsList));
+                    checkpoints.put(new StreamId(column, ROW_GROUP_DICTIONARY), new ByteArrayStreamCheckpoint(compressed, positionsList));
                 }
 
-                checkpoints.put(new StreamId(column, ROW_GROUP_DICTIONARY_LENGTH), new RowGroupDictionaryLengthStreamCheckpoint(compressionKind, positionsList));
+                checkpoints.put(new StreamId(column, ROW_GROUP_DICTIONARY_LENGTH), new RowGroupDictionaryLengthStreamCheckpoint(compressed, positionsList));
 
                 if (availableStreams.contains(DATA)) {
-                    checkpoints.put(new StreamId(column, DATA), createLongStreamCheckpoint(encoding, compressionKind, positionsList));
+                    checkpoints.put(new StreamId(column, DATA), createLongStreamCheckpoint(encoding, compressed, positionsList));
                 }
 
-                checkpoints.put(new StreamId(column, IN_DICTIONARY), new BooleanStreamCheckpoint(compressionKind, positionsList));
+                checkpoints.put(new StreamId(column, IN_DICTIONARY), new BooleanStreamCheckpoint(compressed, positionsList));
             }
             else {
                 if (availableStreams.contains(DATA)) {
-                    checkpoints.put(new StreamId(column, DATA), createLongStreamCheckpoint(encoding, compressionKind, positionsList));
+                    checkpoints.put(new StreamId(column, DATA), createLongStreamCheckpoint(encoding, compressed, positionsList));
                 }
             }
         }
@@ -343,18 +342,18 @@ public final class Checkpoints
     private static Map<StreamId, StreamCheckpoint> getListOrMapColumnCheckpoints(
             int column,
             ColumnEncodingKind encoding,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(LENGTH)) {
-            checkpoints.put(new StreamId(column, LENGTH), createLongStreamCheckpoint(encoding, compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, LENGTH), createLongStreamCheckpoint(encoding, compressed, positionsList));
         }
 
         return checkpoints.build();
@@ -362,14 +361,14 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getStructColumnCheckpoints(
             int column,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         return checkpoints.build();
@@ -378,39 +377,39 @@ public final class Checkpoints
     private static Map<StreamId, StreamCheckpoint> getDecimalColumnCheckpoints(
             int column,
             ColumnEncodingKind encoding,
-            CompressionKind compressionKind,
+            boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
     {
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
 
         if (availableStreams.contains(PRESENT)) {
-            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(DATA)) {
-            checkpoints.put(new StreamId(column, DATA), new DecimalStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, DATA), new DecimalStreamCheckpoint(compressed, positionsList));
         }
 
         if (availableStreams.contains(SECONDARY)) {
-            checkpoints.put(new StreamId(column, SECONDARY), createLongStreamCheckpoint(encoding, compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, SECONDARY), createLongStreamCheckpoint(encoding, compressed, positionsList));
         }
 
         return checkpoints.build();
     }
 
-    private static StreamCheckpoint createLongStreamCheckpoint(ColumnEncodingKind encoding, CompressionKind compressionKind, ColumnPositionsList positionsList)
+    private static StreamCheckpoint createLongStreamCheckpoint(ColumnEncodingKind encoding, boolean compressed, ColumnPositionsList positionsList)
     {
         if (encoding == DIRECT_V2 || encoding == DICTIONARY_V2) {
-            return new LongStreamV2Checkpoint(compressionKind, positionsList);
+            return new LongStreamV2Checkpoint(compressed, positionsList);
         }
 
         if (encoding == DIRECT || encoding == DICTIONARY) {
-            return new LongStreamV1Checkpoint(compressionKind, positionsList);
+            return new LongStreamV1Checkpoint(compressed, positionsList);
         }
 
         if (encoding == DWRF_DIRECT) {
-            return new LongStreamDwrfCheckpoint(compressionKind, positionsList);
+            return new LongStreamDwrfCheckpoint(compressed, positionsList);
         }
 
         throw new IllegalArgumentException("Unsupported encoding for long stream: " + encoding);

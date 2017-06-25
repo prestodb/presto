@@ -118,7 +118,7 @@ public class MongoPageSink
         }
 
         if (type.equals(OBJECT_ID)) {
-            return new ObjectId(block.getSlice(position, 0, block.getLength(position)).getBytes());
+            return new ObjectId(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
         }
         if (type.equals(BooleanType.BOOLEAN)) {
             return type.getBoolean(block, position);

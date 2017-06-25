@@ -19,9 +19,10 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.LocationFactory;
@@ -31,11 +32,12 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.QueryPerformanceFetcherProvider;
 import com.facebook.presto.execution.SqlTaskManager;
-import com.facebook.presto.execution.TaskExecutor;
+import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
@@ -72,9 +74,12 @@ import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.ForExchange;
+import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
@@ -82,8 +87,13 @@ import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spiller.BinarySpillerFactory;
+import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
+import com.facebook.presto.spiller.GenericSpillerFactory;
+import com.facebook.presto.spiller.LocalSpillManager;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSinkProvider;
 import com.facebook.presto.split.PageSourceManager;
@@ -94,7 +104,10 @@ import com.facebook.presto.sql.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
+import com.facebook.presto.sql.gen.JoinProbeCompiler;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.CompilerConfig;
@@ -109,6 +122,7 @@ import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -117,13 +131,17 @@ import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.node.NodeInfo;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.PauseMeter;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -143,6 +161,7 @@ import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -179,6 +198,12 @@ public class ServerMainModule
                 throw new UnsupportedOperationException();
             }));
         }
+
+        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
+        configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
+            config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
+            config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
+        });
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
 
@@ -267,8 +292,18 @@ public class ServerMainModule
         binder.bind(AsyncHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AsyncHttpExecutionMBean.class).withGeneratedName();
         binder.bind(JoinFilterFunctionCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(JoinFilterFunctionCompiler.class).withGeneratedName();
+        binder.bind(JoinCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(JoinCompiler.class).withGeneratedName();
+        binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
+        binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
+        binder.bind(JoinProbeCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(JoinProbeCompiler.class).withGeneratedName();
+        binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
+        jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
@@ -280,6 +315,7 @@ public class ServerMainModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                     config.setMaxConnectionsPerServer(250);
+                    config.setMaxContentLength(new DataSize(32, MEGABYTE));
                 });
 
         configBinder(binder).bindConfig(ExchangeClientConfig.class);
@@ -311,6 +347,9 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+
+        // statistics calculator
+        binder.bind(CostCalculator.class).to(CoefficientBasedCostCalculator.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
@@ -397,15 +436,15 @@ public class ServerMainModule
         binder.bind(FinalizerService.class).in(Scopes.SINGLETON);
 
         // Spiller
-        binder.bind(SpillerFactory.class).to(BinarySpillerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(SpillerFactory.class).to(GenericSpillerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(SingleStreamSpillerFactory.class).to(FileSingleStreamSpillerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(SpillerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
-    }
+        binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(NodeSpillConfig.class);
 
-    @Provides
-    @Singleton
-    public static ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig)
-    {
-        return new ServerInfo(nodeVersion, nodeInfo.getEnvironment(), serverConfig.isCoordinator());
+        // cleanup
+        binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -482,7 +521,41 @@ public class ServerMainModule
                 {
                     return ImmutableSet.of();
                 }
+
+                @Override
+                public State getState(HostAddress hostAddress)
+                {
+                    // failure detector is not available on workers
+                    return State.UNKNOWN;
+                }
             });
+        }
+    }
+
+    public static class ExecutorCleanup
+    {
+        private final List<ExecutorService> executors;
+
+        @Inject
+        public ExecutorCleanup(
+                @ForExchange ScheduledExecutorService exchangeExecutor,
+                @ForAsyncHttp ExecutorService httpResponseExecutor,
+                @ForAsyncHttp ScheduledExecutorService httpTimeoutExecutor,
+                @ForTransactionManager ExecutorService transactionFinishingExecutor,
+                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor)
+        {
+            executors = ImmutableList.of(
+                    exchangeExecutor,
+                    httpResponseExecutor,
+                    httpTimeoutExecutor,
+                    transactionFinishingExecutor,
+                    transactionIdleExecutor);
+        }
+
+        @PreDestroy
+        public void shutdown()
+        {
+            executors.forEach(ExecutorService::shutdownNow);
         }
     }
 }

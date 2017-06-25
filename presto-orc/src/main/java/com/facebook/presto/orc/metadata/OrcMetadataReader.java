@@ -13,11 +13,22 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import com.facebook.presto.hive.protobuf.CodedInputStream;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.DateStatistics;
+import com.facebook.presto.orc.metadata.statistics.DecimalStatistics;
+import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
+import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
+import com.facebook.presto.orc.metadata.statistics.StringStatistics;
+import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+import com.facebook.presto.orc.proto.OrcProto;
+import com.facebook.presto.orc.proto.OrcProto.RowIndexEntry;
+import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,8 +36,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndexEntry;
+import io.airlift.units.DataSize;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,6 +51,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.Character.MIN_SURROGATE;
 import static java.lang.Math.toIntExact;
 
@@ -49,6 +60,8 @@ public class OrcMetadataReader
 {
     private static final Slice MAX_BYTE = Slices.wrappedBuffer(new byte[] { (byte) 0xFF });
     private static final Logger log = Logger.get(OrcMetadataReader.class);
+
+    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     @Override
     public PostScript readPostScript(byte[] data, int offset, int length)
@@ -79,6 +92,7 @@ public class OrcMetadataReader
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Metadata metadata = OrcProto.Metadata.parseFrom(input);
         return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
     }
@@ -98,6 +112,7 @@ public class OrcMetadataReader
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Footer footer = OrcProto.Footer.parseFrom(input);
         return new Footer(
                 footer.getNumberOfRows(),

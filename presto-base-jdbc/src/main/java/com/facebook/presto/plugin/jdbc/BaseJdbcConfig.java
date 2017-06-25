@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 
 import javax.validation.constraints.NotNull;
 
@@ -54,6 +55,7 @@ public class BaseJdbcConfig
     }
 
     @Config("connection-password")
+    @ConfigSecuritySensitive
     public BaseJdbcConfig setConnectionPassword(String connectionPassword)
     {
         this.connectionPassword = connectionPassword;

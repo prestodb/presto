@@ -41,9 +41,8 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -62,8 +61,8 @@ public class SystemPageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
-        SystemTransactionHandle systemTransaction = checkType(transactionHandle, SystemTransactionHandle.class, "transaction");
-        SystemSplit systemSplit = checkType(split, SystemSplit.class, "split");
+        SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transactionHandle;
+        SystemSplit systemSplit = (SystemSplit) split;
         SchemaTableName tableName = systemSplit.getTableHandle().getSchemaTableName();
         SystemTable systemTable = tables.get(tableName);
 
@@ -80,7 +79,7 @@ public class SystemPageSourceProvider
 
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            String columnName = checkType(column, SystemColumnHandle.class, "column").getColumnName();
+            String columnName = ((SystemColumnHandle) column).getColumnName();
 
             Integer index = columnsByName.get(columnName);
             if (index == null) {
@@ -93,7 +92,7 @@ public class SystemPageSourceProvider
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
         ImmutableMap.Builder<Integer, Domain> newConstraints = ImmutableMap.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
-            String columnName = checkType(entry.getKey(), SystemColumnHandle.class, "column").getColumnName();
+            String columnName = ((SystemColumnHandle) entry.getKey()).getColumnName();
             newConstraints.put(columnsByName.get(columnName), entry.getValue());
         }
         TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());

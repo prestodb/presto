@@ -17,9 +17,12 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+
+import java.nio.file.Paths;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -30,7 +33,7 @@ public class TestLocalBinarySpilledQueries
 {
     public TestLocalBinarySpilledQueries()
     {
-        super(createLocalQueryRunner());
+        super(TestLocalBinarySpilledQueries::createLocalQueryRunner);
     }
 
     private static LocalQueryRunner createLocalQueryRunner()
@@ -42,7 +45,11 @@ public class TestLocalBinarySpilledQueries
                 .setSystemProperty(SystemSessionProperties.OPERATOR_MEMORY_LIMIT_BEFORE_SPILL, "1B") //spill constantly
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
+        FeaturesConfig featuresConfig = new FeaturesConfig();
+        featuresConfig.setSpillerSpillPaths(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
+        featuresConfig.setOptimizeMixedDistinctAggregations(true);
+        featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, featuresConfig);
 
         // add the tpch catalog
         // local queries run directly against the generator

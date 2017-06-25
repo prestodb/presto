@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -55,7 +56,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -226,20 +227,19 @@ public class ImplementIntersectAndExceptAsUnion
         }
         private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> aggregationOutputs)
         {
-            ImmutableMap.Builder<Symbol, Signature> signatures = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, FunctionCall> aggregations = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
 
             for (int i = 0; i < markers.size(); i++) {
                 Symbol output = aggregationOutputs.get(i);
-                aggregations.put(output, new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())));
-                signatures.put(output, COUNT_AGGREGATION);
+                aggregations.put(output, new Aggregation(
+                        new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())),
+                        COUNT_AGGREGATION,
+                        Optional.empty()));
             }
 
             return new AggregationNode(idAllocator.getNextId(),
                     sourceNode,
                     aggregations.build(),
-                    signatures.build(),
-                    ImmutableMap.of(),
                     ImmutableList.of(originalColumns),
                     Step.SINGLE,
                     Optional.empty(),

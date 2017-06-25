@@ -22,10 +22,13 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -37,8 +40,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -47,6 +50,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
 import static com.facebook.presto.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
@@ -54,18 +58,18 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.allAsList;
-import static io.airlift.concurrent.MoreFutures.failedFuture;
-import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
@@ -131,9 +135,9 @@ public class TransactionManager
 
     private synchronized void cleanUpExpiredTransactions()
     {
-        Iterator<Map.Entry<TransactionId, TransactionMetadata>> iterator = transactions.entrySet().iterator();
+        Iterator<Entry<TransactionId, TransactionMetadata>> iterator = transactions.entrySet().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<TransactionId, TransactionMetadata> entry = iterator.next();
+            Entry<TransactionId, TransactionMetadata> entry = iterator.next();
             if (entry.getValue().isExpired(idleTimeout)) {
                 iterator.remove();
                 log.info("Removing expired transaction: %s", entry.getKey());
@@ -244,13 +248,13 @@ public class TransactionManager
         return Optional.ofNullable(transactions.get(transactionId));
     }
 
-    private CompletableFuture<TransactionMetadata> removeTransactionMetadataAsFuture(TransactionId transactionId)
+    private ListenableFuture<TransactionMetadata> removeTransactionMetadataAsFuture(TransactionId transactionId)
     {
         TransactionMetadata transactionMetadata = transactions.remove(transactionId);
         if (transactionMetadata == null) {
-            return failedFuture(unknownTransactionError(transactionId));
+            return immediateFailedFuture(unknownTransactionError(transactionId));
         }
-        return completedFuture(transactionMetadata);
+        return immediateFuture(transactionMetadata);
     }
 
     private static PrestoException unknownTransactionError(TransactionId transactionId)
@@ -258,16 +262,14 @@ public class TransactionManager
         return new PrestoException(UNKNOWN_TRANSACTION, format("Unknown transaction ID: %s. Possibly expired? Commands ignored until end of transaction block", transactionId));
     }
 
-    public CompletableFuture<?> asyncCommit(TransactionId transactionId)
+    public ListenableFuture<?> asyncCommit(TransactionId transactionId)
     {
-        return unmodifiableFuture(removeTransactionMetadataAsFuture(transactionId)
-                .thenCompose(metadata -> metadata.asyncCommit()));
+        return nonCancellationPropagating(Futures.transformAsync(removeTransactionMetadataAsFuture(transactionId), TransactionMetadata::asyncCommit));
     }
 
-    public CompletableFuture<?> asyncAbort(TransactionId transactionId)
+    public ListenableFuture<?> asyncAbort(TransactionId transactionId)
     {
-        return unmodifiableFuture(removeTransactionMetadataAsFuture(transactionId)
-                .thenCompose(metadata -> metadata.asyncAbort()));
+        return nonCancellationPropagating(Futures.transformAsync(removeTransactionMetadataAsFuture(transactionId), TransactionMetadata::asyncAbort));
     }
 
     public void fail(TransactionId transactionId)
@@ -289,7 +291,7 @@ public class TransactionManager
         private final Map<ConnectorId, ConnectorTransactionMetadata> connectorIdToMetadata = new ConcurrentHashMap<>();
         @GuardedBy("this")
         private final AtomicReference<ConnectorId> writtenConnectorId = new AtomicReference<>();
-        private final Executor finishingExecutor;
+        private final ListeningExecutorService finishingExecutor;
         private final AtomicReference<Boolean> completedSuccessfully = new AtomicReference<>();
         private final AtomicReference<Long> idleStartTime = new AtomicReference<>();
 
@@ -313,7 +315,7 @@ public class TransactionManager
             this.readOnly = readOnly;
             this.autoCommitContext = autoCommitContext;
             this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
-            this.finishingExecutor = requireNonNull(finishingExecutor, "finishingExecutor is null");
+            this.finishingExecutor = listeningDecorator(ExecutorServiceAdapter.from(requireNonNull(finishingExecutor, "finishingExecutor is null")));
         }
 
         public void setActive()
@@ -441,72 +443,65 @@ public class TransactionManager
             }
         }
 
-        public synchronized CompletableFuture<?> asyncCommit()
+        public synchronized ListenableFuture<?> asyncCommit()
         {
             if (!completedSuccessfully.compareAndSet(null, true)) {
                 if (completedSuccessfully.get()) {
                     // Already done
-                    return completedFuture(null);
+                    return immediateFuture(null);
                 }
                 // Transaction already aborted
-                return failedFuture(new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
+                return immediateFailedFuture(new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
             }
 
             ConnectorId writeConnectorId = this.writtenConnectorId.get();
             if (writeConnectorId == null) {
-                List<CompletableFuture<?>> futures = connectorIdToMetadata.values().stream()
-                        .map(transactionMetadata -> runAsync(transactionMetadata::commit, finishingExecutor))
-                        .collect(toList());
-                return unmodifiableFuture(allAsList(futures)
-                        .whenComplete((value, throwable) -> {
-                            if (throwable != null) {
-                                abortInternal();
-                                log.error(throwable, "Read-only connector should not throw exception on commit");
-                            }
-                        }));
+                ListenableFuture<?> future = Futures.allAsList(connectorIdToMetadata.values().stream()
+                        .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
+                        .collect(toList()));
+                addExceptionCallback(future, throwable ->  {
+                    abortInternal();
+                    log.error(throwable, "Read-only connector should not throw exception on commit");
+                });
+                return nonCancellationPropagating(future);
             }
 
-            Supplier<CompletableFuture<?>> commitReadOnlyConnectors = () -> allAsList(connectorIdToMetadata.entrySet().stream()
-                    .filter(entry -> !entry.getKey().equals(writeConnectorId))
-                    .map(Map.Entry::getValue)
-                    .map(transactionMetadata -> runAsync(transactionMetadata::commit, finishingExecutor))
-                    .collect(toList()))
-                    .whenComplete((value, throwable) -> {
-                        if (throwable != null) {
-                            log.error(throwable, "Read-only connector should not throw exception on commit");
-                        }
-                    });
+            Supplier<ListenableFuture<?>> commitReadOnlyConnectors = () -> {
+                ListenableFuture<? extends List<?>> future = Futures.allAsList(connectorIdToMetadata.entrySet().stream()
+                        .filter(entry -> !entry.getKey().equals(writeConnectorId))
+                        .map(Entry::getValue)
+                        .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
+                        .collect(toList()));
+                addExceptionCallback(future, throwable -> log.error(throwable, "Read-only connector should not throw exception on commit"));
+                return future;
+            };
 
             ConnectorTransactionMetadata writeConnector = connectorIdToMetadata.get(writeConnectorId);
-            return unmodifiableFuture(runAsync(writeConnector::commit, finishingExecutor)
-                    .thenCompose(aVoid -> commitReadOnlyConnectors.get())
-                    .whenComplete((value, throwable) -> {
-                        if (throwable != null) {
-                            abortInternal();
-                        }
-                    }));
+            ListenableFuture<?> commitFuture = finishingExecutor.submit(writeConnector::commit);
+            ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get());
+            addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
+            return nonCancellationPropagating(readOnlyCommitFuture);
         }
 
-        public synchronized CompletableFuture<?> asyncAbort()
+        public synchronized ListenableFuture<?> asyncAbort()
         {
             if (!completedSuccessfully.compareAndSet(null, false)) {
                 if (completedSuccessfully.get()) {
                     // Should not happen normally
-                    return failedFuture(new IllegalStateException("Current transaction already committed"));
+                    return immediateFailedFuture(new IllegalStateException("Current transaction already committed"));
                 }
                 // Already done
-                return completedFuture(null);
+                return immediateFuture(null);
             }
             return abortInternal();
         }
 
-        private synchronized CompletableFuture<?> abortInternal()
+        private synchronized ListenableFuture<?> abortInternal()
         {
             // the callbacks in statement performed on another thread so are safe
-            CompletableFuture<List<Void>> futures = allAsList(connectorIdToMetadata.values().stream()
-                    .map(connection -> runAsync(() -> safeAbort(connection), finishingExecutor))
-                    .collect(toList()));
-            return unmodifiableFuture(futures);
+            return nonCancellationPropagating(Futures.allAsList(connectorIdToMetadata.values().stream()
+                    .map(connection -> finishingExecutor.submit(() -> safeAbort(connection)))
+                    .collect(toList())));
         }
 
         private static void safeAbort(ConnectorTransactionMetadata connection)

@@ -31,7 +31,8 @@ INTEGER
 -------
 
     A 32-bit signed two's complement integer with a minimum value of
-    ``-2^31`` and a maximum value of ``2^31 - 1``.
+    ``-2^31`` and a maximum value of ``2^31 - 1``.  The name INT is
+    also available for this type.
 
 BIGINT
 ------
@@ -55,7 +56,7 @@ DECIMAL
 -------
 
     A fixed precision decimal number. Precision up to 38 digits is supported
-    but performance is best up to 17 digits.
+    but performance is best up to 18 digits.
 
     DECIMAL type takes two literal parameters:
 

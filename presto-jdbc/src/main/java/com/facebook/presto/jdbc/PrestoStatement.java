@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.StatementClient;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
 import java.sql.Connection;
@@ -22,6 +24,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -168,7 +171,12 @@ public class PrestoStatement
     public void cancel()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("cancel");
+        // TODO: handle non-query statements
+        checkOpen();
+        ResultSet resultSet = currentResult.get();
+        if (resultSet != null) {
+            resultSet.close();
+        }
     }
 
     @Override
@@ -194,6 +202,15 @@ public class PrestoStatement
         // ignore: positioned modifications not supported
     }
 
+    private Map<String, String> getStatementSessionProperties()
+    {
+        ImmutableMap.Builder<String, String> sessionProperties = ImmutableMap.builder();
+        if (queryTimeoutSeconds.get() > 0) {
+            sessionProperties.put("query_max_run_time", queryTimeoutSeconds.get() + "s");
+        }
+        return sessionProperties.build();
+    }
+
     @Override
     public boolean execute(String sql)
             throws SQLException
@@ -204,7 +221,7 @@ public class PrestoStatement
         StatementClient client = null;
         ResultSet resultSet = null;
         try {
-            client = connection().startQuery(sql);
+            client = connection().startQuery(sql, getStatementSessionProperties());
             if (client.isFailed()) {
                 throw resultsException(client.finalResults());
             }
@@ -227,6 +244,9 @@ public class PrestoStatement
             currentUpdateCount.set((updateCount != null) ? updateCount : 0);
 
             return false;
+        }
+        catch (ClientException e) {
+            throw new SQLException(e.getMessage(), e);
         }
         catch (RuntimeException e) {
             throw new SQLException("Error executing query", e);

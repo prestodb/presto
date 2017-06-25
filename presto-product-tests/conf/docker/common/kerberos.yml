@@ -7,8 +7,14 @@ services:
     image: 'teradatalabs/cdh5-hive-kerberized:${DOCKER_IMAGES_VERSION}'
 
   presto-master:
+    domainname: docker.cluster
+    hostname: presto-master
     image: 'teradatalabs/cdh5-hive-kerberized:${DOCKER_IMAGES_VERSION}'
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode-kerberized run
+    networks:
+      default:
+        aliases:
+         - presto-master.docker.cluster
 
   application-runner:
     image: 'teradatalabs/cdh5-hive-kerberized:${DOCKER_IMAGES_VERSION}'

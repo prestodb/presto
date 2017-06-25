@@ -38,11 +38,6 @@ public final class ColumnData
         return slice;
     }
 
-    public Slice getSlice(int position)
-    {
-        return slice.slice(getOffset(position), getLength(position));
-    }
-
     public int getOffset(int position)
     {
         return offset[position];

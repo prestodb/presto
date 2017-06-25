@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
@@ -28,7 +29,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 // faster versions of org.apache.hadoop.io.WritableUtils methods adapted for Slice
@@ -166,18 +166,69 @@ public final class RcFileDecoderUtils
         return -1;
     }
 
-    public static <A, B extends A> B checkType(A value, Class<B> target, String name)
+    public static void writeLengthPrefixedString(SliceOutput out, Slice slice)
     {
-        if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
+        writeVInt(out, slice.length());
+        out.writeBytes(slice);
+    }
+
+    public static void writeVInt(SliceOutput out, int value)
+    {
+        if (value >= -112 && value <= 127) {
+            out.writeByte(value);
+            return;
         }
-        checkArgument(
-                target.isInstance(value),
-                "%s must be of type %s, not %s",
-                name,
-                target.getName(),
-                value.getClass().getName());
-        return target.cast(value);
+
+        int length = -112;
+        if (value < 0) {
+            value ^= -1; // take one's complement'
+            length = -120;
+        }
+
+        int tmp = value;
+        while (tmp != 0) {
+            tmp = tmp >> 8;
+            length--;
+        }
+
+        out.writeByte(length);
+
+        length = (length < -120) ? -(length + 120) : -(length + 112);
+
+        for (int idx = length; idx != 0; idx--) {
+            int shiftBits = (idx - 1) * 8;
+            out.writeByte((value >> shiftBits) & 0xFF);
+        }
+    }
+
+    public static void writeVLong(SliceOutput out, long value)
+    {
+        if (value >= -112 && value <= 127) {
+            out.writeByte((byte) value);
+            return;
+        }
+
+        int length = -112;
+        if (value < 0) {
+            value ^= -1; // take one's complement'
+            length = -120;
+        }
+
+        long tmp = value;
+        while (tmp != 0) {
+            tmp = tmp >> 8;
+            length--;
+        }
+
+        out.writeByte(length);
+
+        length = (length < -120) ? -(length + 120) : -(length + 112);
+
+        for (int idx = length; idx != 0; idx--) {
+            int shiftBits = (idx - 1) * 8;
+            long mask = 0xFFL << shiftBits;
+            out.writeByte((byte) ((value & mask) >> shiftBits));
+        }
     }
 
     public static int calculateTruncationLength(Type type, Slice slice, int offset, int length)
@@ -187,7 +238,12 @@ public final class RcFileDecoderUtils
             return calculateTruncationLength(((VarcharType) type).getLength(), slice, offset, length);
         }
         if (type instanceof CharType) {
-            return calculateTruncationLength(((CharType) type).getLength(), slice, offset, length);
+            int truncationLength = calculateTruncationLength(((CharType) type).getLength(), slice, offset, length);
+            // At run-time char(x) is represented without trailing spaces
+            while (truncationLength > 0 && slice.getByte(offset + truncationLength - 1) == ' ') {
+                truncationLength--;
+            }
+            return truncationLength;
         }
         return length;
     }

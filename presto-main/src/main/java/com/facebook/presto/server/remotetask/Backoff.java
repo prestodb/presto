@@ -24,19 +24,24 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
-class Backoff
+public class Backoff
 {
+    private final long minFailureIntervalNanos;
     private final long maxFailureIntervalNanos;
     private final Ticker ticker;
     private final long[] backoffDelayIntervalsNanos;
+    private final long createTime;
 
     private long lastSuccessTime;
+    private long firstRequestAfterSuccessTime;
     private long lastFailureTime;
     private long failureCount;
 
-    public Backoff(Duration maxFailureInterval)
+    public Backoff(Duration minFailureInterval, Duration maxFailureInterval)
     {
-        this(maxFailureInterval,
+        this(minFailureInterval,
+                maxFailureInterval,
+                Ticker.systemTicker(),
                 new Duration(0, MILLISECONDS),
                 new Duration(50, MILLISECONDS),
                 new Duration(100, MILLISECONDS),
@@ -44,18 +49,16 @@ class Backoff
                 new Duration(500, MILLISECONDS));
     }
 
-    public Backoff(Duration maxFailureInterval, Duration... backoffDelayIntervals)
+    public Backoff(Duration minFailureInterval, Duration maxFailureInterval, Ticker ticker, Duration... backoffDelayIntervals)
     {
-        this(maxFailureInterval, Ticker.systemTicker(), backoffDelayIntervals);
-    }
-
-    public Backoff(Duration maxFailureInterval, Ticker ticker, Duration... backoffDelayIntervals)
-    {
+        requireNonNull(minFailureInterval, "minFailureInterval is null");
         requireNonNull(maxFailureInterval, "maxFailureInterval is null");
         requireNonNull(ticker, "ticker is null");
         requireNonNull(backoffDelayIntervals, "backoffDelayIntervals is null");
         checkArgument(backoffDelayIntervals.length > 0, "backoffDelayIntervals must contain at least one entry");
+        checkArgument(maxFailureInterval.compareTo(minFailureInterval) >= 0, "maxFailureInterval is less than minFailureInterval");
 
+        this.minFailureIntervalNanos = minFailureInterval.roundTo(NANOSECONDS);
         this.maxFailureIntervalNanos = maxFailureInterval.roundTo(NANOSECONDS);
         this.ticker = ticker;
         this.backoffDelayIntervalsNanos = new long[backoffDelayIntervals.length];
@@ -64,6 +67,8 @@ class Backoff
         }
 
         this.lastSuccessTime = this.ticker.read();
+        this.firstRequestAfterSuccessTime = Long.MIN_VALUE;
+        this.createTime = this.ticker.read();
     }
 
     public synchronized long getFailureCount()
@@ -76,6 +81,13 @@ class Backoff
         long lastSuccessfulRequest = this.lastSuccessTime;
         long value = ticker.read() - lastSuccessfulRequest;
         return new Duration(value, NANOSECONDS).convertToMostSuccinctTimeUnit();
+    }
+
+    public synchronized void startRequest()
+    {
+        if (firstRequestAfterSuccessTime < lastSuccessTime) {
+            firstRequestAfterSuccessTime = ticker.read();
+        }
     }
 
     public synchronized void success()
@@ -97,8 +109,23 @@ class Backoff
 
         failureCount++;
 
-        long timeSinceLastSuccess = now - lastSuccessfulRequest;
-        return timeSinceLastSuccess >= maxFailureIntervalNanos;
+        long failureInterval;
+        if (lastSuccessfulRequest - createTime > maxFailureIntervalNanos) {
+            failureInterval = maxFailureIntervalNanos;
+        }
+        else {
+            failureInterval = Math.max(lastSuccessfulRequest - createTime, minFailureIntervalNanos);
+        }
+        long failureDuration;
+        if (firstRequestAfterSuccessTime < lastSuccessTime) {
+            // If user didn't call startRequest(), use the time of the last success
+            failureDuration = now - lastSuccessfulRequest;
+        }
+        else {
+            // Otherwise only count the time since the first request that started failing
+            failureDuration = now - firstRequestAfterSuccessTime;
+        }
+        return failureDuration >= failureInterval;
     }
 
     public synchronized long getBackoffDelayNanos()

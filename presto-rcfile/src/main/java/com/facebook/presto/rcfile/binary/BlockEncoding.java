@@ -14,11 +14,14 @@
 package com.facebook.presto.rcfile.binary;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
@@ -31,6 +34,33 @@ public abstract class BlockEncoding
     {
         this.type = type;
     }
+
+    private final DynamicSliceOutput buffer = new DynamicSliceOutput(0);
+
+    @Override
+    public final void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                encodeValue(block, position, output);
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public final void encodeValueInto(Block block, int position, SliceOutput output)
+    {
+        buffer.reset();
+        encodeValue(block, position, buffer);
+
+        // structural types nested in structural types are length prefixed
+        Slice slice = buffer.slice();
+        output.writeInt(Integer.reverseBytes(slice.length()));
+        output.writeBytes(slice);
+    }
+
+    protected abstract void encodeValue(Block block, int position, SliceOutput output);
 
     @Override
     public final Block decodeColumn(ColumnData columnData)

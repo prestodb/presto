@@ -4,14 +4,14 @@
  length | bigint | varchar(x) | scalar | true | count of code points of the given string |
  lower | varchar(x)| varchar(x)| scalar | true | converts the string to lower case |
  ltrim | varchar(x)| varchar(x)| scalar | true | removes whitespace from the beginning of a string |
- replace | varchar | varchar(x), varchar(y) | scalar | true | greedily removes occurrences of a pattern in a string |
- replace | varchar | varchar(x), varchar(y), varchar | scalar | true | greedily replaces occurrences of a pattern with a string |
+ replace | varchar(x) | varchar(x), varchar(y) | scalar | true | greedily removes occurrences of a pattern in a string |
+ replace | varchar(u) | varchar(x), varchar(y), varchar(z) | scalar | true | greedily replaces occurrences of a pattern with a string |
  reverse | varchar(x) | varchar(x) | scalar | true | reverse all code points in a given string |
  rtrim | varchar(x) | varchar(x) | scalar | true | removes whitespace from the end of a string |
- split | array(varchar(x)) | varchar(x), varchar | scalar | true | |
- split | array(varchar(x)) | varchar(x), varchar, bigint | scalar | true | |
- split_part | varchar(x) | varchar(x), varchar, bigint | scalar | true | splits a string by a delimiter and returns the specified field (counting from one) |
- strpos | bigint | varchar, varchar | scalar | true | returns index of first occurrence of a substring (or 0 if not found) |
+ split | array(varchar(x)) | varchar(x), varchar(y) | scalar | true | |
+ split | array(varchar(x)) | varchar(x), varchar(y), bigint | scalar | true | |
+ split_part | varchar(x) | varchar(x), varchar(y), bigint | scalar | true | splits a string by a delimiter and returns the specified field (counting from one) |
+ strpos | bigint | varchar(x), varchar(y) | scalar | true | returns index of first occurrence of a substring (or 0 if not found) |
  substr | varchar(x) | varchar(x), bigint | scalar | true | suffix starting at given index |
  substr | varchar(x) | varchar(x), bigint, bigint | scalar | true | substring of given length starting at an index |
  trim | varchar(x) | varchar(x) | scalar | true | removes whitespace from the beginning and end of a string |

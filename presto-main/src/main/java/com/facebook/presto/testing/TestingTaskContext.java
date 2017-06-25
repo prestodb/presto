@@ -21,11 +21,11 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spiller.SpillSpaceTracker;
 import io.airlift.units.DataSize;
 
 import java.util.concurrent.Executor;
 
-import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -35,24 +35,23 @@ public final class TestingTaskContext
 
     public static TaskContext createTaskContext(Executor executor, Session session)
     {
-        return createTaskContext(
-                checkNotSameThreadExecutor(executor, "executor is null"),
-                session,
-                new DataSize(256, MEGABYTE));
+        return createTaskContext(executor, session, new DataSize(256, MEGABYTE));
     }
 
     public static TaskContext createTaskContext(Executor executor, Session session, DataSize maxMemory)
     {
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
-        QueryContext queryContext = new QueryContext(new QueryId("test_query"), maxMemory, memoryPool, systemMemoryPool, executor);
+
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        QueryContext queryContext = new QueryContext(new QueryId("test_query"), maxMemory, memoryPool, systemMemoryPool, executor, new DataSize(1, GIGABYTE), spillSpaceTracker);
         return createTaskContext(queryContext, executor, session);
     }
 
     public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session)
     {
         return queryContext.addTaskContext(
-                new TaskStateMachine(new TaskId("query", 0, 0), checkNotSameThreadExecutor(executor, "executor is null")),
+                new TaskStateMachine(new TaskId("query", 0, 0), executor),
                 session,
                 true,
                 true);

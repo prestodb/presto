@@ -23,18 +23,18 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PRIVILEGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class GrantTask
         implements DataDefinitionTask<Grant>
@@ -46,7 +46,7 @@ public class GrantTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Grant statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Grant statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
@@ -68,11 +68,11 @@ public class GrantTask
 
         // verify current identity has permissions to grant permissions
         for (Privilege privilege : privileges) {
-            accessControl.checkCanGrantTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), privilege, tableName);
+            accessControl.checkCanGrantTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), privilege, tableName, statement.getGrantee(), statement.isWithGrantOption());
         }
 
         metadata.grantTablePrivileges(session, tableName, privileges, statement.getGrantee(), statement.isWithGrantOption());
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 
     private static Privilege parsePrivilege(Grant statement, String privilegeString)

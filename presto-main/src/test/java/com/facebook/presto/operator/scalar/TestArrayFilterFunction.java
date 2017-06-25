@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -58,6 +57,15 @@ public class TestArrayFilterFunction
         assertFunction("filter(ARRAY [CAST (NULL AS INTEGER)], x -> x IS NULL)", new ArrayType(INTEGER), singletonList(null));
         assertFunction("filter(ARRAY [NULL, NULL, NULL], x -> x IS NULL)", new ArrayType(UNKNOWN), asList(null, null, null));
         assertFunction("filter(ARRAY [NULL, NULL, NULL], x -> x IS NOT NULL)", new ArrayType(UNKNOWN), ImmutableList.of());
+
+        assertFunction("filter(ARRAY [25, 26, NULL], x -> x % 2 = 1 OR x IS NULL)", new ArrayType(INTEGER), asList(25, null));
+        assertFunction("filter(ARRAY [25.6, 37.3, NULL], x -> x < 30.0 OR x IS NULL)", new ArrayType(DOUBLE), asList(25.6, null));
+        assertFunction("filter(ARRAY [true, false, NULL], x -> not x OR x IS NULL)", new ArrayType(BOOLEAN), asList(false, null));
+        assertFunction("filter(ARRAY ['abc', 'def', NULL], x -> substr(x, 1, 1) = 'a' OR x IS NULL)", new ArrayType(createVarcharType(3)), asList("abc", null));
+        assertFunction(
+                "filter(ARRAY [ARRAY ['abc', null, '123'], NULL], x -> x[2] IS NULL OR x IS NULL)",
+                new ArrayType(new ArrayType(createVarcharType(3))),
+                asList(asList("abc", null, "123"), null));
     }
 
     @Test

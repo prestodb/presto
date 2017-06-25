@@ -66,6 +66,12 @@ public class With
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return queries;
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

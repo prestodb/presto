@@ -15,15 +15,16 @@ package com.facebook.presto.hive.authentication;
 
 import com.facebook.presto.hive.ForHdfs;
 import com.facebook.presto.hive.ForHiveMetastore;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.google.inject.Binder;
-import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
+import javax.inject.Inject;
+
 import static com.google.inject.Scopes.SINGLETON;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public final class AuthenticationModules
 {
@@ -47,16 +48,16 @@ public final class AuthenticationModules
                 binder.bind(HiveMetastoreAuthentication.class)
                         .to(KerberosHiveMetastoreAuthentication.class)
                         .in(SINGLETON);
+                configBinder(binder).bindConfig(MetastoreKerberosConfig.class);
             }
 
-            @Inject
             @Provides
             @Singleton
             @ForHiveMetastore
-            HadoopAuthentication createHadoopAuthentication(HiveClientConfig hiveClientConfig)
+            HadoopAuthentication createHadoopAuthentication(MetastoreKerberosConfig config)
             {
-                String principal = hiveClientConfig.getHiveMetastoreClientPrincipal();
-                String keytabLocation = hiveClientConfig.getHiveMetastoreClientKeytab();
+                String principal = config.getHiveMetastoreClientPrincipal();
+                String keytabLocation = config.getHiveMetastoreClientKeytab();
                 return createCachingKerberosHadoopAuthentication(principal, keytabLocation);
             }
         };
@@ -91,16 +92,17 @@ public final class AuthenticationModules
                 binder.bind(HdfsAuthentication.class)
                         .to(DirectHdfsAuthentication.class)
                         .in(SINGLETON);
+                configBinder(binder).bindConfig(HdfsKerberosConfig.class);
             }
 
             @Inject
             @Provides
             @Singleton
             @ForHdfs
-            HadoopAuthentication createHadoopAuthentication(HiveClientConfig hiveClientConfig)
+            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config)
             {
-                String principal = hiveClientConfig.getHdfsPrestoPrincipal();
-                String keytabLocation = hiveClientConfig.getHdfsPrestoKeytab();
+                String principal = config.getHdfsPrestoPrincipal();
+                String keytabLocation = config.getHdfsPrestoKeytab();
                 return createCachingKerberosHadoopAuthentication(principal, keytabLocation);
             }
         };
@@ -116,16 +118,17 @@ public final class AuthenticationModules
                 binder.bind(HdfsAuthentication.class)
                         .to(ImpersonatingHdfsAuthentication.class)
                         .in(SINGLETON);
+                configBinder(binder).bindConfig(HdfsKerberosConfig.class);
             }
 
             @Inject
             @Provides
             @Singleton
             @ForHdfs
-            HadoopAuthentication createHadoopAuthentication(HiveClientConfig hiveClientConfig)
+            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config)
             {
-                String principal = hiveClientConfig.getHdfsPrestoPrincipal();
-                String keytabLocation = hiveClientConfig.getHdfsPrestoKeytab();
+                String principal = config.getHdfsPrestoPrincipal();
+                String keytabLocation = config.getHdfsPrestoKeytab();
                 return createCachingKerberosHadoopAuthentication(principal, keytabLocation);
             }
         };

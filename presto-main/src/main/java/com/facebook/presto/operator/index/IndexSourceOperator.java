@@ -23,8 +23,8 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SplitOperatorInfo;
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -137,15 +136,14 @@ public class IndexSourceOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkType(split.getConnectorSplit(), IndexSplit.class, "connectorSplit");
         checkState(source == null, "Index source split already set");
 
         IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();
 
         // Normalize the incoming RecordSet to something that can be consumed by the index
         RecordSet normalizedRecordSet = probeKeyNormalizer.apply(indexSplit.getKeyRecordSet());
-        RecordSet result = index.lookup(normalizedRecordSet);
-        source = new PageSourceOperator(new RecordPageSource(result), result.getColumnTypes(), operatorContext);
+        ConnectorPageSource result = index.lookup(normalizedRecordSet);
+        source = new PageSourceOperator(result, types, operatorContext);
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {

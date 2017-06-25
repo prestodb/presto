@@ -32,6 +32,10 @@ String Functions
 
     Returns the Unicode code point ``n`` as a single character string.
 
+.. function:: codepoint(string) -> integer
+
+    Returns the Unicode code point of the only character of ``string``.
+
 .. function:: concat(string1, ..., stringN) -> varchar
 
     Returns the concatenation of ``string1``, ``string2``, ``...``, ``stringN``.
@@ -41,6 +45,12 @@ String Functions
 .. function:: length(string) -> bigint
 
     Returns the length of ``string`` in characters.
+
+.. function:: levenshtein_distance(string1, string2) -> bigint
+
+    Returns the Levenshtein edit distance of ``string1`` and ``string2``,
+    i.e. the minimum number of single-character edits (insertions,
+    deletions or substitutions) needed to change ``string1`` into ``string2``.
 
 .. function:: lower(string) -> varchar
 

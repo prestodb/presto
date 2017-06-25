@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.spi.type;
 
-import java.util.Iterator;
+import com.facebook.presto.spi.function.OperatorType;
+
+import java.lang.invoke.MethodHandle;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,24 +37,12 @@ public interface TypeManager
      */
     List<Type> getTypes();
 
-    Optional<Type> getCommonSuperType(Type firstType, Type secondType);
+    /**
+     * Gets all registered parametric types.
+     */
+    Collection<ParametricType> getParametricTypes();
 
-    default Optional<Type> getCommonSuperType(List<? extends Type> types)
-    {
-        if (types.isEmpty()) {
-            throw new IllegalArgumentException("types is empty");
-        }
-        Iterator<? extends Type> typeIterator = types.iterator();
-        Type result = typeIterator.next();
-        while (typeIterator.hasNext()) {
-            Optional<Type> commonSupperType = getCommonSuperType(result, typeIterator.next());
-            if (!commonSupperType.isPresent()) {
-                return Optional.empty();
-            }
-            result = commonSupperType.get();
-        }
-        return Optional.of(result);
-    }
+    Optional<Type> getCommonSuperType(Type firstType, Type secondType);
 
     default boolean canCoerce(Type actualType, Type expectedType)
     {
@@ -62,4 +53,6 @@ public interface TypeManager
     boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
 
     Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase);
+
+    MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes);
 }

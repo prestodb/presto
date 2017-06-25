@@ -26,6 +26,10 @@ General Aggregate Functions
 
     Returns the average (arithmetic mean) of all input values.
 
+.. function:: avg(time interval type) -> time interval type
+
+    Returns the average interval length of all input values.
+
 .. function:: bool_and(boolean) -> boolean
 
     Returns ``TRUE`` if every input value is ``TRUE``, otherwise ``FALSE``.
@@ -97,13 +101,16 @@ General Aggregate Functions
 
     Returns the sum of all input values.
 
-.. function:: bitwise_and_agg(x) -> [same as input]
+Bitwise Aggregate Functions
+---------------------------
 
-    Returns the bitwise "and" of all input values. The binary representation of integers is two's complement.
+.. function:: bitwise_and_agg(x) -> bigint
 
-.. function:: bitwise_or_agg(x) -> [same as input]
+    Returns the bitwise AND of all input values in 2's complement representation.
 
-    Returns the bitwise "or" of all input values. The binary representation of integers is two's complement.
+.. function:: bitwise_or_agg(x) -> bigint
+
+    Returns the bitwise OR of all input values in 2's complement representation.
 
 Map Aggregate Functions
 -----------------------
@@ -225,6 +232,15 @@ Statistical Aggregate Functions
 
     Returns the sample covariance of input values.
 
+.. function:: kurtosis(x) -> double
+
+    Returns the excess kurtosis of all input values. Unbiased estimate using
+    the following expression:
+
+    .. code-block:: none
+
+        kurtosis(x) = n(n+1)/((n-1)(n-2)(n-3))sum[(x_i-mean)^4]/stddev(x)^4-3(n-1)^2/((n-2)(n-3))
+
 .. function:: regr_intercept(y, x) -> double
 
     Returns linear regression intercept of input values. ``y`` is the dependent
@@ -234,6 +250,10 @@ Statistical Aggregate Functions
 
     Returns linear regression slope of input values. ``y`` is the dependent
     value. ``x`` is the independent value.
+
+.. function:: skewness(x) -> double
+
+    Returns the skewness of all input values.
 
 .. function:: stddev(x) -> double
 

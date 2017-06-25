@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.FileNotFoundException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -50,10 +51,11 @@ class HiveSplitSource
         return queue.size();
     }
 
-    CompletableFuture<?> addToQueue(Iterable<? extends ConnectorSplit> splits)
+    CompletableFuture<?> addToQueue(Iterator<? extends ConnectorSplit> splits)
     {
         CompletableFuture<?> lastResult = CompletableFuture.completedFuture(null);
-        for (ConnectorSplit split : splits) {
+        while (splits.hasNext()) {
+            ConnectorSplit split = splits.next();
             lastResult = addToQueue(split);
         }
         return lastResult;

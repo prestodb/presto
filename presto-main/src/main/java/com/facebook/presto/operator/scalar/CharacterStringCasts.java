@@ -18,15 +18,24 @@ import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.LiteralParameter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
+import io.airlift.slice.Slices;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.facebook.presto.spi.type.Chars.padSpaces;
-import static com.facebook.presto.spi.type.Chars.trimSpaces;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
-import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.SliceUtf8.setCodePointAt;
+import static java.lang.Math.toIntExact;
+import static java.util.Collections.nCopies;
 
 public final class CharacterStringCasts
 {
@@ -81,24 +90,74 @@ public final class CharacterStringCasts
     @ScalarOperator(OperatorType.SATURATED_FLOOR_CAST)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
-    // This function returns Char(y) value that is smaller than original Varchar(x) value. However, it is not necessarily the largest
-    // Char(y) value that is smaller than the original Varchar(x) value. This is fine though for usage in TupleDomainTranslator.
-    public static Slice varcharToCharSaturatedFloorCast(@LiteralParameter("y") Long y, @SqlType("varchar(x)") Slice slice)
+    public static Slice varcharToCharSaturatedFloorCast(@LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
     {
-        Slice trimmedSlice = trimSpaces(slice);
-        int trimmedTextLength = countCodePoints(trimmedSlice);
-        int numberOfTrailingSpaces = slice.length() - trimmedSlice.length();
+        List<Integer> codePoints = new ArrayList<>(toCodePoints(slice));
 
         // if Varchar(x) value length (including spaces) is greater than y, we can just truncate it
-        if (trimmedTextLength + numberOfTrailingSpaces >= y) {
-            return truncateToLength(trimmedSlice, y.intValue());
-        }
-        if (trimmedTextLength == 0) {
-            return EMPTY_SLICE;
+        if (codePoints.size() >= y) {
+            // char(y) slice representation doesn't contain trailing spaces
+            codePoints = trimTrailing(codePoints, ' ');
+            List<Integer> codePointsTruncated = codePoints.stream()
+                    .limit(y)
+                    .collect(toImmutableList());
+            return codePointsToSliceUtf8(codePointsTruncated);
         }
 
-        // if Varchar(x) value length (including spaces) is smaller than y, we truncate all spaces
-        // and also remove one additional trailing character to get smaller Char(y) value
-        return trimmedSlice.slice(0, offsetOfCodePoint(trimmedSlice, trimmedTextLength - 1));
+        /*
+         * Value length is smaller than same-represented char(y) value because input varchar has length lower than y.
+         * We decrement last character in input (in fact, we decrement last non-zero character) and pad the value with
+         * max code point up to y characters.
+         */
+        codePoints = trimTrailing(codePoints, '\0');
+
+        if (codePoints.isEmpty()) {
+            // No non-zero characters in input and input is shorter than y. Input value is smaller than any char(4) casted back to varchar, so we return the smallest char(4) possible
+            return codePointsToSliceUtf8(nCopies(toIntExact(y), (int) '\0'));
+        }
+
+        codePoints = new ArrayList<>(codePoints);
+        codePoints.set(codePoints.size() - 1, codePoints.get(codePoints.size() - 1) - 1);
+        codePoints.addAll(nCopies(toIntExact(y) - codePoints.size(), Character.MAX_CODE_POINT));
+
+        verify(codePoints.get(codePoints.size() - 1) != ' '); // no trailing spaces to trim
+
+        return codePointsToSliceUtf8(codePoints);
+    }
+
+    private static List<Integer> trimTrailing(List<Integer> codePoints, int codePointToTrim)
+    {
+        int endIndex = codePoints.size();
+        while (endIndex > 0 && codePoints.get(endIndex - 1) == codePointToTrim) {
+            endIndex--;
+        }
+        return ImmutableList.copyOf(codePoints.subList(0, endIndex));
+    }
+
+    private static List<Integer> toCodePoints(Slice slice)
+    {
+        ImmutableList.Builder<Integer> codePoints = ImmutableList.builder();
+        for (int offset = 0; offset < slice.length(); ) {
+            int codePoint = getCodePointAt(slice, offset);
+            offset += lengthOfCodePoint(slice, offset);
+            codePoints.add(codePoint);
+        }
+        return codePoints.build();
+    }
+
+    private static Slice codePointsToSliceUtf8(List<Integer> codePoints)
+    {
+        int length = codePoints.stream()
+                .mapToInt(SliceUtf8::lengthOfCodePoint)
+                .sum();
+
+        Slice result = Slices.wrappedBuffer(new byte[length]);
+        int offset = 0;
+        for (int codePoint : codePoints) {
+            setCodePointAt(codePoint, result, offset);
+            offset += lengthOfCodePoint(codePoint);
+        }
+
+        return result;
     }
 }

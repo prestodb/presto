@@ -14,9 +14,11 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Collection;
@@ -29,19 +31,22 @@ import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class AggregationMatcher
         implements Matcher
 {
     private final Map<Symbol, Symbol> masks;
-    private final List<List<Symbol>> groupingSets;
+    private final List<List<String>> groupingSets;
     private final Optional<Symbol> groupId;
+    private final Step step;
 
-    public AggregationMatcher(List<List<Symbol>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId)
+    public AggregationMatcher(List<List<String>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
     {
         this.masks = masks;
         this.groupingSets = groupingSets;
         this.groupId = groupId;
+        this.step = step;
     }
 
     @Override
@@ -51,7 +56,7 @@ public class AggregationMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         AggregationNode aggregationNode = (AggregationNode) node;
@@ -67,7 +72,7 @@ public class AggregationMatcher
         List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
                 .entrySet()
                 .stream()
-                .filter(entry -> entry.getValue().isDistinct())
+                .filter(entry -> entry.getValue().getCall().isDistinct())
                 .map(entry -> entry.getKey())
                 .collect(Collectors.toList());
 
@@ -82,26 +87,33 @@ public class AggregationMatcher
         }
 
         for (int i = 0; i < groupingSets.size(); i++) {
-            if (!matches(groupingSets.get(i), aggregationNode.getGroupingSets().get(i))) {
+            if (!matches(groupingSets.get(i), aggregationNode.getGroupingSets().get(i), symbolAliases)) {
                 return NO_MATCH;
             }
+        }
+
+        if (step != aggregationNode.getStep()) {
+            return NO_MATCH;
         }
 
         return match();
     }
 
-    static <T> boolean matches(Collection<T> expected, Collection<T> actual)
+    static boolean matches(Collection<String> expectedAliases, Collection<Symbol> actualSymbols, SymbolAliases symbolAliases)
     {
-        if (expected.size() != actual.size()) {
+        if (expectedAliases.size() != actualSymbols.size()) {
             return false;
         }
 
-        for (T symbol : expected) {
-            if (!actual.contains(symbol)) {
+        List<Symbol> expectedSymbols = expectedAliases
+                .stream()
+                .map(alias -> new Symbol(symbolAliases.get(alias).getName()))
+                .collect(toImmutableList());
+        for (Symbol symbol : expectedSymbols) {
+            if (!actualSymbols.contains(symbol)) {
                 return false;
             }
         }
-
         return true;
     }
 
@@ -112,6 +124,7 @@ public class AggregationMatcher
                 .add("groupingSets", groupingSets)
                 .add("masks", masks)
                 .add("groudId", groupId)
+                .add("step", step)
                 .toString();
     }
 }

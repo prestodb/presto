@@ -16,10 +16,10 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.DoubleHistogramStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -55,7 +55,7 @@ public final class DoubleHistogramAggregation
     }
 
     @InputFunction
-    public static void add(State state, @SqlType(BIGINT) long buckets, @SqlType(DOUBLE) double value, @SqlType(DOUBLE) double weight)
+    public static void add(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType(DOUBLE) double value, @SqlType(DOUBLE) double weight)
     {
         NumericHistogram histogram = state.get();
         if (histogram == null) {
@@ -68,13 +68,13 @@ public final class DoubleHistogramAggregation
     }
 
     @InputFunction
-    public static void add(State state, @SqlType(BIGINT) long buckets, @SqlType(DOUBLE) double value)
+    public static void add(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType(DOUBLE) double value)
     {
         add(state, buckets, value, 1);
     }
 
     @CombineFunction
-    public static void merge(State state, State other)
+    public static void merge(@AggregationState State state, State other)
     {
         NumericHistogram input = other.get();
         NumericHistogram previous = state.get();
@@ -88,14 +88,14 @@ public final class DoubleHistogramAggregation
     }
 
     @OutputFunction("map(double,double)")
-    public static void output(State state, BlockBuilder out)
+    public static void output(@AggregationState State state, BlockBuilder out)
     {
         if (state.get() == null) {
             out.appendNull();
         }
         else {
             Map<Double, Double> value = state.get().getBuckets();
-            BlockBuilder blockBuilder = DoubleType.DOUBLE.createBlockBuilder(new BlockBuilderStatus(), value.size() * 2);
+            BlockBuilder blockBuilder = DoubleType.DOUBLE.createBlockBuilder(null, value.size() * 2);
             for (Map.Entry<Double, Double> entry : value.entrySet()) {
                 DoubleType.DOUBLE.writeDouble(blockBuilder, entry.getKey());
                 DoubleType.DOUBLE.writeDouble(blockBuilder, entry.getValue());

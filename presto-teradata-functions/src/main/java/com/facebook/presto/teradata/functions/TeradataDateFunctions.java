@@ -37,7 +37,7 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeys;
 import static com.facebook.presto.teradata.functions.dateformat.DateFormatParser.createDateTimeFormatter;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -92,8 +92,8 @@ public final class TeradataDateFunctions
             return (long) castToDate.invokeExact(session, millis);
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
+            throwIfInstanceOf(t, Error.class);
+            throwIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }

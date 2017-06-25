@@ -26,7 +26,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.mongodb.TypeUtils.checkType;
 import static com.facebook.presto.spi.HostAddress.fromParts;
 import static java.util.stream.Collectors.toList;
 
@@ -46,7 +45,7 @@ public class MongoSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        MongoTableLayoutHandle tableLayout = checkType(layout, MongoTableLayoutHandle.class, "layout");
+        MongoTableLayoutHandle tableLayout = (MongoTableLayoutHandle) layout;
         MongoTableHandle tableHandle = tableLayout.getTable();
 
         MongoSplit split = new MongoSplit(

@@ -14,15 +14,20 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -31,25 +36,25 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class PlanMatchingVisitor
-        extends PlanVisitor<PlanMatchPattern, MatchResult>
+        extends PlanVisitor<MatchResult, PlanMatchPattern>
 {
     private final Metadata metadata;
     private final Session session;
+    private final Map<PlanNodeId, PlanNodeCost> planCost;
+    private final Lookup lookup;
 
-    PlanMatchingVisitor(Session session, Metadata metadata)
+    PlanMatchingVisitor(Session session, Metadata metadata, Map<PlanNodeId, PlanNodeCost> planCost, Lookup lookup)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.planCost = requireNonNull(planCost, "planCost is null");
+        this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
     @Override
     public MatchResult visitExchange(ExchangeNode node, PlanMatchPattern pattern)
     {
-        checkState(node.getType() == ExchangeNode.Type.GATHER, "Only GATHER is supported");
         List<List<Symbol>> allInputs = node.getInputs();
-        checkState(allInputs.size() == 1, "Multiple lists of inputs are not supported yet");
-
-        List<Symbol> inputs = allInputs.get(0);
         List<Symbol> outputs = node.getOutputSymbols();
 
         MatchResult result = super.visitExchange(node, pattern);
@@ -58,12 +63,16 @@ final class PlanMatchingVisitor
             return result;
         }
 
-        Assignments.Builder assignments = Assignments.builder();
-        for (int i = 0; i < inputs.size(); ++i) {
-            assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
+        SymbolAliases newAliases = result.getAliases();
+        for (List<Symbol> inputs : allInputs) {
+            Assignments.Builder assignments = Assignments.builder();
+            for (int i = 0; i < inputs.size(); ++i) {
+                assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
+            }
+            newAliases = newAliases.updateAssignments(assignments.build());
         }
 
-        return match(result.getAliases().updateAssignments(assignments.build()));
+        return match(newAliases);
     }
 
     @Override
@@ -76,6 +85,16 @@ final class PlanMatchingVisitor
         }
 
         return match(result.getAliases().replaceAssignments(node.getAssignments()));
+    }
+
+    @Override
+    public MatchResult visitGroupReference(GroupReference node, PlanMatchPattern pattern)
+    {
+        MatchResult match = lookup.resolve(node).accept(this, pattern);
+        if (match.isMatch()) {
+            return match;
+        }
+        return visitPlan(node, pattern);
     }
 
     @Override
@@ -104,7 +123,7 @@ final class PlanMatchingVisitor
 
             // Try upMatching this node with the the aliases gathered from the source nodes.
             SymbolAliases allSourceAliases = sourcesMatch.getAliases();
-            MatchResult matchResult = pattern.detailMatches(node, session, metadata, allSourceAliases);
+            MatchResult matchResult = pattern.detailMatches(node, planCost.get(node.getId()), session, metadata, allSourceAliases);
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on node %s", node));
                 result = match(allSourceAliases.withNewAliases(matchResult.getAliases()));
@@ -129,7 +148,7 @@ final class PlanMatchingVisitor
                  * 2) Collect the aliases from the source nodes so we can add them to
                  *    SymbolAliases. They'll be needed further up.
                  */
-            MatchResult matchResult = pattern.detailMatches(node, session, metadata, new SymbolAliases());
+            MatchResult matchResult = pattern.detailMatches(node, planCost.get(node.getId()), session, metadata, new SymbolAliases());
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on leaf node %s", node));
                 result = matchResult;

@@ -24,14 +24,16 @@ public class ResolvedField
 {
     private final Scope scope;
     private final Field field;
-    private final int fieldIndex;
+    private final int hierarchyFieldIndex;
+    private final int relationFieldIndex;
     private final boolean local;
 
-    public ResolvedField(Scope scope, Field field, int fieldIndex, boolean local)
+    public ResolvedField(Scope scope, Field field, int hierarchyFieldIndex, int relationFieldIndex, boolean local)
     {
         this.scope = requireNonNull(scope, "scope is null");
         this.field = requireNonNull(field, "field is null");
-        this.fieldIndex = fieldIndex;
+        this.hierarchyFieldIndex = hierarchyFieldIndex;
+        this.relationFieldIndex = relationFieldIndex;
         this.local = local;
     }
 
@@ -50,9 +52,14 @@ public class ResolvedField
         return local;
     }
 
-    public int getFieldIndex()
+    public int getHierarchyFieldIndex()
     {
-        return fieldIndex;
+        return hierarchyFieldIndex;
+    }
+
+    public int getRelationFieldIndex()
+    {
+        return relationFieldIndex;
     }
 
     public Field getField()

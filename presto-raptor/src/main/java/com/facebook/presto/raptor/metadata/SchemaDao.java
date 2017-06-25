@@ -41,8 +41,10 @@ public interface SchemaDao
             "  row_count BIGINT NOT NULL,\n" +
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
+            "  maintenance_blocked DATETIME,\n" +
             "  UNIQUE (schema_name, table_name),\n" +
             "  UNIQUE (distribution_id, table_id),\n" +
+            "  UNIQUE (maintenance_blocked, table_id),\n" +
             "  FOREIGN KEY (distribution_id) REFERENCES distributions (distribution_id)\n" +
             ")")
     void createTableTables();
@@ -88,9 +90,10 @@ public interface SchemaDao
             "  row_count BIGINT NOT NULL,\n" +
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
+            "  xxhash64 BIGINT NOT NULL,\n" +
             "  UNIQUE (shard_uuid),\n" +
             // include a covering index organized by table_id
-            "  UNIQUE (table_id, bucket_number, shard_id, shard_uuid, create_time, row_count, compressed_size, uncompressed_size),\n" +
+            "  UNIQUE (table_id, bucket_number, shard_id, shard_uuid, create_time, row_count, compressed_size, uncompressed_size, xxhash64),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createTableShards();

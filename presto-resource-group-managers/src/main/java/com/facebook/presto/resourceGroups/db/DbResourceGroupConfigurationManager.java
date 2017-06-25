@@ -23,6 +23,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -82,7 +83,7 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
-    protected Optional<Duration> getCpuQuotaPeriodMillis()
+    protected Optional<Duration> getCpuQuotaPeriod()
     {
         return cpuQuotaPeriod.get();
     }
@@ -133,7 +134,8 @@ public class DbResourceGroupConfigurationManager
         return (!globalProperties.isEmpty()) ? globalProperties.get(0).getCpuQuotaPeriod() : Optional.empty();
     }
 
-    private synchronized void load()
+    @VisibleForTesting
+    public synchronized void load()
     {
         Map.Entry<ManagerSpec, Map<ResourceGroupIdTemplate, ResourceGroupSpec>> specsFromDb = buildSpecsFromDb();
         ManagerSpec managerSpec = specsFromDb.getKey();
@@ -225,7 +227,10 @@ public class DbResourceGroupConfigurationManager
         List<ResourceGroupSpec> rootGroups = rootGroupIds.stream().map(resourceGroupSpecMap::get).collect(Collectors.toList());
 
         List<SelectorSpec> selectors = dao.getSelectors().stream().map(selectorRecord ->
-                new SelectorSpec(selectorRecord.getUserRegex(), selectorRecord.getSourceRegex(),
+                new SelectorSpec(
+                        selectorRecord.getUserRegex(),
+                        selectorRecord.getSourceRegex(),
+                        Optional.empty(),
                         resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
         ).collect(Collectors.toList());
         ManagerSpec managerSpec = new ManagerSpec(rootGroups, selectors, getCpuQuotaPeriodFromDb());

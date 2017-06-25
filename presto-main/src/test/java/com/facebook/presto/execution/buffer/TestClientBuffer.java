@@ -15,25 +15,36 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.execution.buffer.ClientBuffer.PageReference;
+import com.facebook.presto.execution.buffer.ClientBuffer.PagesSupplier;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -42,8 +53,10 @@ import static org.testng.Assert.fail;
 
 public class TestClientBuffer
 {
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+
     private static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
-    private static final DataSize PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
+    private static final DataSize BUFFERED_PAGE_SIZE = new DataSize(PAGES_SERDE.serialize(createPage(42)).getRetainedSizeInBytes(), BYTE);
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
@@ -51,7 +64,7 @@ public class TestClientBuffer
     private static final String INVALID_SEQUENCE_ID = "Invalid sequence id";
 
     @Test
-    public void testSimplePartitioned()
+    public void testSimplePushBuffer()
             throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
@@ -106,6 +119,71 @@ public class TestClientBuffer
     }
 
     @Test
+    public void testSimplePullBuffer()
+            throws Exception
+    {
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+
+        // create a page supplier with 3 initial pages
+        TestingPagesSupplier supplier = new TestingPagesSupplier();
+        for (int i = 0; i < 3; i++) {
+            supplier.addPage(createPage(i));
+        }
+        assertEquals(supplier.getBufferedPages(), 3);
+
+        // get the pages elements from the buffer
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        // 3 pages are moved to the client buffer, but not acknowledged yet
+        assertEquals(supplier.getBufferedPages(), 0);
+        assertBufferInfo(buffer, 3, 0);
+
+        // acknowledge first three pages in the buffer
+        ListenableFuture<BufferResult> pendingRead = buffer.getPages(3, sizeOfPages(1));
+        // pages now acknowledged
+        assertEquals(supplier.getBufferedPages(), 0);
+        assertBufferInfo(buffer, 0, 3);
+        assertFalse(pendingRead.isDone());
+
+        // add 3 more pages
+        for (int i = 3; i < 6; i++) {
+            supplier.addPage(createPage(i));
+        }
+        assertEquals(supplier.getBufferedPages(), 3);
+
+        // notify the buffer that there is more data, and verify previous read completed
+        buffer.loadPagesIfNecessary(supplier);
+        assertBufferResultEquals(TYPES, getFuture(pendingRead, NO_WAIT), bufferResult(3, createPage(3)));
+        // 1 page wad moved to the client buffer, but not acknowledged yet
+        assertEquals(supplier.getBufferedPages(), 2);
+        assertBufferInfo(buffer, 1, 3);
+
+        // set no more pages
+        supplier.setNoMorePages();
+        // state should not change
+        assertEquals(supplier.getBufferedPages(), 2);
+        assertBufferInfo(buffer, 1, 3);
+
+        // remove a page
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
+        assertBufferInfo(buffer, 1, 4);
+        assertEquals(supplier.getBufferedPages(), 1);
+
+        // remove last pages from, should not be finished
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 5, sizeOfPages(30), NO_WAIT), bufferResult(5, createPage(5)));
+        assertBufferInfo(buffer, 1, 5);
+        assertEquals(supplier.getBufferedPages(), 0);
+
+        // acknowledge all pages from the buffer, should return a finished buffer result
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 6, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
+        assertBufferInfo(buffer, 0, 6);
+        assertEquals(supplier.getBufferedPages(), 0);
+
+        // buffer is not destroyed until explicitly destroyed
+        buffer.destroy();
+        assertBufferDestroyed(buffer, 6);
+    }
+
+    @Test
     public void testDuplicateRequests()
             throws Exception
     {
@@ -135,6 +213,7 @@ public class TestClientBuffer
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 0, 3);
     }
+
     @Test
     public void testAddAfterNoMorePages()
             throws Exception
@@ -187,7 +266,7 @@ public class TestClientBuffer
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -217,7 +296,7 @@ public class TestClientBuffer
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -308,11 +387,17 @@ public class TestClientBuffer
 
     private static BufferResult getBufferResult(ClientBuffer buffer, long sequenceId, DataSize maxSize, Duration maxWait)
     {
-        CompletableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize);
+        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize);
         return getFuture(future, maxWait);
     }
 
-    private static BufferResult getFuture(CompletableFuture<BufferResult> future, Duration maxWait)
+    private static BufferResult getBufferResult(ClientBuffer buffer, PagesSupplier supplier, long sequenceId, DataSize maxSize, Duration maxWait)
+    {
+        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize, Optional.of(supplier));
+        return getFuture(future, maxWait);
+    }
+
+    private static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
     {
         return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
     }
@@ -320,9 +405,9 @@ public class TestClientBuffer
     private static AtomicBoolean addPage(ClientBuffer buffer, Page page)
     {
         AtomicBoolean dereferenced = new AtomicBoolean(true);
-        PageReference pageReference = new PageReference(page, 1, () -> dereferenced.set(false));
-        buffer.enqueuePages(ImmutableList.of(pageReference));
-        pageReference.dereferencePage();
+        SerializedPageReference serializedPageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> dereferenced.set(false));
+        buffer.enqueuePages(ImmutableList.of(serializedPageReference));
+        serializedPageReference.dereferencePage();
         return dereferenced;
     }
 
@@ -359,11 +444,11 @@ public class TestClientBuffer
 
     private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
     {
-        assertEquals(actual.getPages().size(), expected.getPages().size());
+        assertEquals(actual.getSerializedPages().size(), expected.getSerializedPages().size());
         assertEquals(actual.getToken(), expected.getToken());
-        for (int i = 0; i < actual.getPages().size(); i++) {
-            Page actualPage = actual.getPages().get(i);
-            Page expectedPage = expected.getPages().get(i);
+        for (int i = 0; i < actual.getSerializedPages().size(); i++) {
+            Page actualPage = PAGES_SERDE.deserialize(actual.getSerializedPages().get(i));
+            Page expectedPage = PAGES_SERDE.deserialize(expected.getSerializedPages().get(i));
             assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
             PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
@@ -379,7 +464,14 @@ public class TestClientBuffer
     private static BufferResult bufferResult(long token, List<Page> pages)
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
-        return new BufferResult(TASK_INSTANCE_ID, token, token + pages.size(), false, pages);
+        return new BufferResult(
+                TASK_INSTANCE_ID,
+                token,
+                token + pages.size(),
+                false,
+                pages.stream()
+                        .map(PAGES_SERDE::serialize)
+                        .collect(Collectors.toList()));
     }
 
     private static Page createPage(int i)
@@ -389,6 +481,65 @@ public class TestClientBuffer
 
     private static DataSize sizeOfPages(int count)
     {
-        return new DataSize(PAGE_SIZE.toBytes() * count, BYTE);
+        return new DataSize(BUFFERED_PAGE_SIZE.toBytes() * count, BYTE);
+    }
+
+    @ThreadSafe
+    private static class TestingPagesSupplier
+            implements PagesSupplier
+    {
+        @GuardedBy("this")
+        private final Deque<SerializedPageReference> buffer = new ArrayDeque<>();
+
+        @GuardedBy("this")
+        private boolean noMorePages;
+
+        @Override
+        public synchronized boolean mayHaveMorePages()
+        {
+            return !noMorePages || !buffer.isEmpty();
+        }
+
+        public synchronized void setNoMorePages()
+        {
+            this.noMorePages = true;
+        }
+
+        public synchronized int getBufferedPages()
+        {
+            return buffer.size();
+        }
+
+        public synchronized void addPage(Page page)
+        {
+            requireNonNull(page, "page is null");
+            checkState(!noMorePages);
+            buffer.add(new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> { }));
+        }
+
+        @Override
+        public synchronized List<SerializedPageReference> getPages(DataSize maxSize)
+        {
+            long maxBytes = maxSize.toBytes();
+            List<SerializedPageReference> pages = new ArrayList<>();
+            long bytesRemoved = 0;
+
+            while (true) {
+                SerializedPageReference page = buffer.peek();
+                if (page == null) {
+                    break;
+                }
+                bytesRemoved += page.getRetainedSizeInBytes();
+                // break (and don't add) if this page would exceed the limit
+                if (!pages.isEmpty() && bytesRemoved > maxBytes) {
+                    break;
+                }
+                // this should not happen since we have a lock
+                checkState(buffer.poll() == page, "Buffer corrupted");
+                pages.add(page);
+            }
+
+            return ImmutableList.copyOf(pages);
+        }
     }
 }

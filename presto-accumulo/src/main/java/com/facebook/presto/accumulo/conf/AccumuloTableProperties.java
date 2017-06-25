@@ -56,7 +56,7 @@ public final class AccumuloTableProperties
     public static final String ROW_ID = "row_id";
     public static final String SERIALIZER = "serializer";
     public static final String SCAN_AUTHS = "scan_auths";
-    private static final Splitter COLON_SPLITTER = Splitter.on(':').omitEmptyStrings().trimResults();
+    private static final Splitter COLON_SPLITTER = Splitter.on(':').trimResults();
     private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
     private static final Splitter PIPE_SPLITTER = Splitter.on('|').omitEmptyStrings().trimResults();
 

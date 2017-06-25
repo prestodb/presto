@@ -14,8 +14,10 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
+import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
 import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
@@ -33,17 +35,12 @@ import javax.inject.Singleton;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newFixedThreadPool;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class CassandraClientModule
         implements Module
@@ -67,26 +64,9 @@ public class CassandraClientModule
         binder.bind(CassandraConnectorRecordSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraPartitionManager.class).in(Scopes.SINGLETON);
 
-        binder.bind(CassandraThriftConnectionFactory.class).in(Scopes.SINGLETON);
-
         configBinder(binder).bindConfig(CassandraClientConfig.class);
 
-        binder.bind(CassandraThriftConnectionFactory.class).in(Scopes.SINGLETON);
-
-        binder.bind(CachingCassandraSchemaProvider.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(CachingCassandraSchemaProvider.class).as(generatedNameOf(CachingCassandraSchemaProvider.class, connectorId));
-
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
-    }
-
-    @ForCassandra
-    @Singleton
-    @Provides
-    public static ExecutorService createCachingCassandraSchemaExecutor(CassandraConnectorId clientId, CassandraClientConfig cassandraClientConfig)
-    {
-        return newFixedThreadPool(
-                cassandraClientConfig.getMaxSchemaRefreshThreads(),
-                daemonThreadsNamed("cassandra-" + clientId + "-%s"));
     }
 
     @Singleton
@@ -99,11 +79,12 @@ public class CassandraClientModule
         requireNonNull(config, "config is null");
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
 
-        Cluster.Builder clusterBuilder = Cluster.builder();
+        Cluster.Builder clusterBuilder = Cluster.builder()
+                .withProtocolVersion(ProtocolVersion.V3);
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
-
+        contactPoints.forEach(clusterBuilder::addContactPoint);
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
@@ -155,13 +136,17 @@ public class CassandraClientModule
         options.setConsistencyLevel(config.getConsistencyLevel());
         clusterBuilder.withQueryOptions(options);
 
-        return new CassandraSession(
+        if (config.getSpeculativeExecutionLimit() > 1) {
+            clusterBuilder.withSpeculativeExecutionPolicy(new ConstantSpeculativeExecutionPolicy(
+                    config.getSpeculativeExecutionDelay().toMillis(), // delay before a new execution is launched
+                    config.getSpeculativeExecutionLimit()    // maximum number of executions
+            ));
+        }
+
+        return new NativeCassandraSession(
                 connectorId.toString(),
-                contactPoints,
-                clusterBuilder,
-                config.getFetchSizeForPartitionKeySelect(),
-                config.getLimitForPartitionKeySelect(),
                 extraColumnMetadataCodec,
-                config.getNoHostAvailableRetryCount());
+                new ReopeningCluster(clusterBuilder::build),
+                config.getNoHostAvailableRetryTimeout());
     }
 }

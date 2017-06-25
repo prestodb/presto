@@ -15,6 +15,7 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -32,23 +33,36 @@ public class TestResourceGroupIntegration
     {
         try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));
+            getResourceGroupManager(queryRunner).setConfigurationManager("file", ImmutableMap.of(
+                    "resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));
 
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-            long startTime = System.nanoTime();
-            while (true) {
-                SECONDS.sleep(1);
-                ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(new ResourceGroupId("global"));
-                if (global.getSoftMemoryLimit().toBytes() > 0) {
-                    break;
-                }
-                assertLessThan(nanosSince(startTime).roundTo(SECONDS), 60L);
-            }
+            waitForGlobalResourceGroup(queryRunner);
         }
     }
 
     private String getResourceFilePath(String fileName)
     {
         return this.getClass().getClassLoader().getResource(fileName).getPath();
+    }
+
+    public static void waitForGlobalResourceGroup(DistributedQueryRunner queryRunner)
+            throws InterruptedException
+    {
+        long startTime = System.nanoTime();
+        while (true) {
+            SECONDS.sleep(1);
+            ResourceGroupInfo global = getResourceGroupManager(queryRunner).getResourceGroupInfo(new ResourceGroupId("global"));
+            if (global.getSoftMemoryLimit().toBytes() > 0) {
+                break;
+            }
+            assertLessThan(nanosSince(startTime).roundTo(SECONDS), 60L);
+        }
+    }
+
+    private static InternalResourceGroupManager getResourceGroupManager(DistributedQueryRunner queryRunner)
+    {
+        return queryRunner.getCoordinator().getResourceGroupManager()
+                .orElseThrow(() -> new IllegalArgumentException("no resource group manager"));
     }
 }

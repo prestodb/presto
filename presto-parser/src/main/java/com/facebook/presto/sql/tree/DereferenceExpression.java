@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -51,6 +53,12 @@ public class DereferenceExpression
         return visitor.visitDereferenceExpression(this, context);
     }
 
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(base);
+    }
+
     public Expression getBase()
     {
         return base;
@@ -71,12 +79,26 @@ public class DereferenceExpression
         return parts == null ? null : QualifiedName.of(parts);
     }
 
+    public static Expression from(QualifiedName name)
+    {
+        Expression result = null;
+
+        for (String part : name.getParts()) {
+            if (result == null) {
+                result = new Identifier(part);
+            }
+            else {
+                result = new DereferenceExpression(result, part);
+            }
+        }
+
+        return result;
+    }
+
     private static List<String> tryParseParts(Expression base, String fieldName)
     {
-        if (base instanceof QualifiedNameReference) {
-            List<String> newList = new ArrayList<>(((QualifiedNameReference) base).getName().getParts());
-            newList.add(fieldName);
-            return newList;
+        if (base instanceof Identifier) {
+            return ImmutableList.of(((Identifier) base).getName(), fieldName);
         }
         else if (base instanceof DereferenceExpression) {
             QualifiedName baseQualifiedName = getQualifiedName((DereferenceExpression) base);

@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import parquet.column.ColumnDescriptor;
@@ -35,45 +34,36 @@ public class ParquetBinaryColumnReader
         super(descriptor);
     }
 
-    public BlockBuilder createBlockBuilder(Type type)
-    {
-        return type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
-    }
-
     @Override
-    public void readValues(BlockBuilder blockBuilder, int valueNumber, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        for (int i = 0; i < valueNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                Binary binary = valuesReader.readBytes();
-                Slice value;
-                if (binary.length() == 0) {
-                    value = EMPTY_SLICE;
-                }
-                else {
-                    value = wrappedBuffer(binary.getBytes());
-                }
-                if (isVarcharType(type)) {
-                    value = truncateToLength(value, type);
-                }
-                if (isCharType(type)) {
-                    value = trimSpacesAndTruncateToLength(value, type);
-                }
-                type.writeSlice(blockBuilder, value);
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            Binary binary = valuesReader.readBytes();
+            Slice value;
+            if (binary.length() == 0) {
+                value = EMPTY_SLICE;
             }
             else {
-                blockBuilder.appendNull();
+                value = wrappedBuffer(binary.getBytes());
             }
+            if (isVarcharType(type)) {
+                value = truncateToLength(value, type);
+            }
+            if (isCharType(type)) {
+                value = trimSpacesAndTruncateToLength(value, type);
+            }
+            type.writeSlice(blockBuilder, value);
+        }
+        else {
+            blockBuilder.appendNull();
         }
     }
 
     @Override
-    public void skipValues(int offsetNumber)
+    protected void skipValue()
     {
-        for (int i = 0; i < offsetNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                valuesReader.readBytes();
-            }
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            valuesReader.readBytes();
         }
     }
 }

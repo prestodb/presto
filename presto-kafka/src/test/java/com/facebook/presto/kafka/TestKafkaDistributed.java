@@ -19,11 +19,8 @@ import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static com.facebook.presto.kafka.KafkaQueryRunner.createKafkaQueryRunner;
 import static com.facebook.presto.kafka.util.EmbeddedKafka.createEmbeddedKafka;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 @Test
 public class TestKafkaDistributed
@@ -40,14 +37,13 @@ public class TestKafkaDistributed
     public TestKafkaDistributed(EmbeddedKafka embeddedKafka)
             throws Exception
     {
-        super(createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
+        super(() -> createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
         this.embeddedKafka = embeddedKafka;
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
-            throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedKafka);
+        embeddedKafka.close();
     }
 }

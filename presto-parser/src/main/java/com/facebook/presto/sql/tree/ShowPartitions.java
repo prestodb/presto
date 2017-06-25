@@ -76,6 +76,15 @@ public class ShowPartitions
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        where.ifPresent(nodes::add);
+        nodes.addAll(orderBy);
+        return nodes.build();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(table, where, orderBy, limit);

@@ -16,10 +16,10 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -37,6 +37,7 @@ import static com.facebook.presto.operator.aggregation.MultimapAggregationFuncti
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkState;
 
 public class TestMultimapAggAggregation
@@ -87,7 +88,7 @@ public class TestMultimapAggAggregation
     public void testDoubleMapMultimap()
             throws Exception
     {
-        Type mapType = new MapType(VARCHAR, BIGINT);
+        Type mapType = mapType(VARCHAR, BIGINT);
         List<Double> expectedKeys = ImmutableList.of(1.0, 2.0, 3.0);
         List<Map<String, Long>> expectedValues = ImmutableList.of(ImmutableMap.of("a", 1L), ImmutableMap.of("b", 2L, "c", 3L, "d", 4L), ImmutableMap.of("a", 1L));
 
@@ -117,7 +118,7 @@ public class TestMultimapAggAggregation
     {
         checkState(expectedKeys.size() == expectedValues.size(), "expectedKeys and expectedValues should have equal size");
 
-        MapType mapType = new MapType(keyType, new ArrayType(valueType));
+        MapType mapType = mapType(keyType, new ArrayType(valueType));
         Signature signature = new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
 

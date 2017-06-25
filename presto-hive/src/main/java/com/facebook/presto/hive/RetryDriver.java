@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -149,8 +150,9 @@ public class RetryDriver
                 log.debug("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
 
                 int delayInMs = (int) Math.min(minSleepTime.toMillis() * Math.pow(scaleFactor, attempt - 1), maxSleepTime.toMillis());
+                int jitter = ThreadLocalRandom.current().nextInt(Math.max(1, (int) (delayInMs * 0.1)));
                 try {
-                    TimeUnit.MILLISECONDS.sleep(delayInMs);
+                    TimeUnit.MILLISECONDS.sleep(delayInMs + jitter);
                 }
                 catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();

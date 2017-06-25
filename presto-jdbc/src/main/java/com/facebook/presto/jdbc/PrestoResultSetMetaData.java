@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.google.common.collect.ImmutableList;
 
 import java.math.BigDecimal;
+import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -226,6 +227,8 @@ public class PrestoResultSetMetaData
                 return Blob.class.getName();
             case Types.CLOB:
                 return Clob.class.getName();
+            case Types.ARRAY:
+                return Array.class.getName();
         }
         return String.class.getName();
     }

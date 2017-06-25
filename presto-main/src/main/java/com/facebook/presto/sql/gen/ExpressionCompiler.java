@@ -17,7 +17,9 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.CompilationException;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageFilter;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Throwables;
@@ -26,11 +28,13 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -40,25 +44,17 @@ import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
 import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ExpressionCompiler
 {
     private final Metadata metadata;
 
-    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, Class<? extends PageProcessor>>()
-            {
-                @Override
-                public Class<? extends PageProcessor> load(CacheKey key)
-                        throws Exception
-                {
-                    return compile(key.getFilter(), key.getProjections(), new PageProcessorCompiler(metadata), PageProcessor.class);
-                }
-            });
-
-    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
+    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends CursorProcessor>>()
             {
                 @Override
@@ -78,10 +74,17 @@ public class ExpressionCompiler
     @Managed
     public long getCacheSize()
     {
-        return pageProcessors.size();
+        return cursorProcessors.size();
     }
 
-    public Supplier<CursorProcessor> compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
+    @Managed
+    @Nested
+    public CacheStatsMBean getCursorCacheStats()
+    {
+        return new CacheStatsMBean(cursorProcessors);
+    }
+
+    public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
     {
         Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
         return () -> {
@@ -94,24 +97,28 @@ public class ExpressionCompiler
         };
     }
 
-    public Supplier<PageProcessor> compilePageProcessor(RowExpression filter, List<RowExpression> projections)
+    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
     {
-        Class<? extends PageProcessor> pageProcessor = pageProcessors.getUnchecked(new CacheKey(filter, projections, null));
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata);
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(pageFunctionCompiler::compileFilter);
+        List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
+                .map(pageFunctionCompiler::compileProjection)
+                .collect(toImmutableList());
+
         return () -> {
-            try {
-                return pageProcessor.newInstance();
-            }
-            catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
+            Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
+            List<PageProjection> pageProjections = pageProjectionSuppliers.stream()
+                    .map(Supplier::get)
+                    .collect(toImmutableList());
+            return new PageProcessor(filterFunction, pageProjections);
         };
     }
 
-    private <T> Class<? extends T> compile(RowExpression filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
+    private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)
     {
         // create filter and project page iterator class
         try {
-            return compileProcessor(filter, projections, bodyCompiler, superType);
+            return compileProcessor(filter.orElse(constant(true, BOOLEAN)), projections, bodyCompiler, superType);
         }
         catch (CompilationException e) {
             throw new PrestoException(COMPILER_ERROR, e.getCause());
@@ -121,7 +128,7 @@ public class ExpressionCompiler
     private <T> Class<? extends T> compileProcessor(
             RowExpression filter,
             List<RowExpression> projections,
-            BodyCompiler<T> bodyCompiler,
+            BodyCompiler bodyCompiler,
             Class<? extends T> superType)
     {
         ClassDefinition classDefinition = new ClassDefinition(
@@ -158,18 +165,18 @@ public class ExpressionCompiler
 
     private static final class CacheKey
     {
-        private final RowExpression filter;
+        private final Optional<RowExpression> filter;
         private final List<RowExpression> projections;
         private final Object uniqueKey;
 
-        private CacheKey(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
+        private CacheKey(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
         {
             this.filter = filter;
             this.uniqueKey = uniqueKey;
             this.projections = ImmutableList.copyOf(projections);
         }
 
-        private RowExpression getFilter()
+        private Optional<RowExpression> getFilter()
         {
             return filter;
         }

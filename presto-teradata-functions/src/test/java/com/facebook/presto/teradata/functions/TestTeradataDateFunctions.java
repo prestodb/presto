@@ -51,7 +51,6 @@ public class TestTeradataDateFunctions
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         functionAssertions.addFunctions(extractFunctions(new TeradataFunctionsPlugin().getFunctions()));
     }

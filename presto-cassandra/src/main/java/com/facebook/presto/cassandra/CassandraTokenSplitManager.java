@@ -13,129 +13,131 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.Host;
+import com.datastax.driver.core.TokenRange;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
-import org.apache.cassandra.dht.IPartitioner;
-import org.apache.cassandra.dht.Range;
-import org.apache.cassandra.dht.Token;
-import org.apache.cassandra.exceptions.ConfigurationException;
-import org.apache.cassandra.thrift.CfSplit;
-import org.apache.cassandra.thrift.TokenRange;
-import org.apache.cassandra.utils.FBUtilities;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_METADATA_ERROR;
+import static com.facebook.presto.cassandra.TokenRing.createForPartitioner;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
+import static java.lang.Math.round;
+import static java.lang.StrictMath.toIntExact;
+import static java.util.Collections.shuffle;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
-import static org.apache.cassandra.dht.Token.TokenFactory;
+import static java.util.stream.Collectors.toList;
 
 public class CassandraTokenSplitManager
 {
-    private final CassandraThriftClient cassandraThriftClient;
-    private final ExecutorService executor;
+    private final CassandraSession session;
     private final int splitSize;
-    private final IPartitioner partitioner;
 
     @Inject
-    public CassandraTokenSplitManager(CassandraThriftConnectionFactory connectionFactory, @ForCassandra ExecutorService executor, CassandraClientConfig config)
+    public CassandraTokenSplitManager(CassandraSession session, CassandraClientConfig config)
     {
-        this.cassandraThriftClient = new CassandraThriftClient(requireNonNull(connectionFactory, "connectionFactory is null"));
-        this.executor = requireNonNull(executor, "executor is null");
-        this.splitSize = config.getSplitSize();
-        try {
-            this.partitioner = FBUtilities.newPartitioner(config.getPartitioner());
-        }
-        catch (ConfigurationException e) {
-            throw new RuntimeException(e);
-        }
+        this(session, config.getSplitSize());
     }
 
-    public List<TokenSplit> getSplits(String keyspace, String columnFamily)
-            throws IOException
+    public CassandraTokenSplitManager(CassandraSession session, int splitSize)
     {
-        List<TokenRange> masterRangeNodes = cassandraThriftClient.getRangeMap(keyspace);
+        this.session = requireNonNull(session, "session is null");
+        this.splitSize = splitSize;
+    }
 
-        // canonical ranges, split into pieces, fetching the splits in parallel
+    public List<TokenSplit> getSplits(String keyspace, String table)
+    {
+        Set<TokenRange> tokenRanges = session.getTokenRanges();
+
+        if (tokenRanges.isEmpty()) {
+            throw new PrestoException(CASSANDRA_METADATA_ERROR, "The cluster metadata is not available. " +
+                    "Please make sure that the Cassandra cluster is up and running, " +
+                    "and that the contact points are specified correctly.");
+        }
+
+        if (tokenRanges.stream().anyMatch(TokenRange::isWrappedAround)) {
+            tokenRanges = unwrap(tokenRanges);
+        }
+
+        Optional<TokenRing> tokenRing = createForPartitioner(session.getPartitioner());
+        long totalPartitionsCount = getTotalPartitionsCount(keyspace, table);
+
         List<TokenSplit> splits = new ArrayList<>();
-        List<Future<List<TokenSplit>>> splitFutures = new ArrayList<>();
-        for (TokenRange range : masterRangeNodes) {
-            // for each range, pick a live owner and ask it to compute bite-sized splits
-            splitFutures.add(executor.submit(new SplitCallable<>(range, keyspace, columnFamily, splitSize, cassandraThriftClient, partitioner)));
-        }
-
-        // wait until we have all the results back
-        for (Future<List<TokenSplit>> futureInputSplits : splitFutures) {
-            try {
-                splits.addAll(futureInputSplits.get());
+        for (TokenRange tokenRange : tokenRanges) {
+            if (tokenRange.isEmpty()) {
+                continue;
             }
-            catch (Exception e) {
-                throw new IOException("Could not get input splits", e);
+            checkState(!tokenRange.isWrappedAround(), "all token ranges must be unwrapped at this step");
+
+            List<String> endpoints = getEndpoints(keyspace, tokenRange);
+            checkState(!endpoints.isEmpty(), "endpoints is empty for token range: %s", tokenRange);
+
+            if (!tokenRing.isPresent()) {
+                checkState(!tokenRange.isWrappedAround(), "all token ranges must be unwrapped at this step");
+                splits.add(createSplit(tokenRange, endpoints));
+                continue;
+            }
+
+            double tokenRangeRingFraction = tokenRing.get().getRingFraction(tokenRange.getStart().toString(), tokenRange.getEnd().toString());
+            long partitionsCountEstimate = round(totalPartitionsCount * tokenRangeRingFraction);
+            checkState(partitionsCountEstimate >= 0, "unexpected partitions count estimate: %d", partitionsCountEstimate);
+            int subSplitCount = max(toIntExact(partitionsCountEstimate / splitSize), 1);
+            List<TokenRange> subRanges = tokenRange.splitEvenly(subSplitCount);
+
+            for (TokenRange subRange : subRanges) {
+                if (subRange.isEmpty()) {
+                    continue;
+                }
+                checkState(!subRange.isWrappedAround(), "all token ranges must be unwrapped at this step");
+                splits.add(createSplit(subRange, endpoints));
             }
         }
-
-        checkState(!splits.isEmpty(), "No splits created");
-        //noinspection SharedThreadLocalRandom
-        Collections.shuffle(splits, ThreadLocalRandom.current());
-        return splits;
+        shuffle(splits, ThreadLocalRandom.current());
+        return unmodifiableList(splits);
     }
 
-    /**
-     * Gets a token range and splits it up according to the suggested
-     * size into input splits that Hadoop can use.
-     */
-    private class SplitCallable<T extends Token>
-            implements Callable<List<TokenSplit>>
+    private Set<TokenRange> unwrap(Set<TokenRange> tokenRanges)
     {
-        private final TokenRange range;
-        private final String keyspace;
-        private final String columnFamily;
-        private final int splitSize;
-        private final CassandraThriftClient client;
-        private final IPartitioner partitioner;
-
-        public SplitCallable(TokenRange range, String keyspace, String columnFamily, int splitSize, CassandraThriftClient client, IPartitioner partitioner)
-        {
-            checkArgument(range.rpc_endpoints.size() == range.endpoints.size(), "rpc_endpoints size must match endpoints size");
-            this.range = range;
-            this.keyspace = keyspace;
-            this.columnFamily = columnFamily;
-            this.splitSize = splitSize;
-            this.client = client;
-            this.partitioner = partitioner;
+        ImmutableSet.Builder<TokenRange> result = ImmutableSet.builder();
+        for (TokenRange range : tokenRanges) {
+            result.addAll(range.unwrap());
         }
+        return result.build();
+    }
 
-        @Override
-        public List<TokenSplit> call()
-                throws Exception
-        {
-            ArrayList<TokenSplit> splits = new ArrayList<>();
-            List<CfSplit> subSplits = client.getSubSplits(keyspace, columnFamily, range, splitSize);
+    private long getTotalPartitionsCount(String keyspace, String table)
+    {
+        List<SizeEstimate> estimates = session.getSizeEstimates(keyspace, table);
+        return estimates.stream()
+                .mapToLong(SizeEstimate::getPartitionsCount)
+                .sum();
+    }
 
-            // turn the sub-ranges into InputSplits
-            List<String> endpoints = range.endpoints;
-            TokenFactory factory = partitioner.getTokenFactory();
-            for (CfSplit subSplit : subSplits) {
-                Token left = factory.fromString(subSplit.getStart_token());
-                Token right = factory.fromString(subSplit.getEnd_token());
-                Range<Token> range = new Range<>(left, right, partitioner);
-                List<Range<Token>> ranges = range.isWrapAround() ? range.unwrap() : ImmutableList.of(range);
-                for (Range<Token> subRange : ranges) {
-                    TokenSplit split = new TokenSplit(factory.toString(subRange.left), factory.toString(subRange.right), endpoints);
+    private List<String> getEndpoints(String keyspace, TokenRange tokenRange)
+    {
+        Set<Host> endpoints = session.getReplicas(keyspace, tokenRange);
+        return unmodifiableList(endpoints.stream()
+                .map(Host::toString)
+                .collect(toList()));
+    }
 
-                    splits.add(split);
-                }
-            }
-            return splits;
-        }
+    private static TokenSplit createSplit(TokenRange range, List<String> endpoints)
+    {
+        checkArgument(!range.isEmpty(), "tokenRange must not be empty");
+        String startToken = range.getStart().toString();
+        String endToken = range.getEnd().toString();
+        return new TokenSplit(startToken, endToken, endpoints);
     }
 
     public static class TokenSplit

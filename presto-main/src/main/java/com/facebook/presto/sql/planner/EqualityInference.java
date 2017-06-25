@@ -62,12 +62,12 @@ public class EqualityInference
             // Current cost heuristic:
             // 1) Prefer fewer input symbols
             // 2) Prefer smaller expression trees
-            // 3) Ordering.arbitrary() - creates a stable consistent ordering (extremely useful for unit testing)
+            // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
             // TODO: be more precise in determining the cost of an expression
             return ComparisonChain.start()
-                    .compare(DependencyExtractor.extractAll(expression1).size(), DependencyExtractor.extractAll(expression2).size())
+                    .compare(SymbolsExtractor.extractAll(expression1).size(), SymbolsExtractor.extractAll(expression2).size())
                     .compare(SubExpressionExtractor.extract(expression1).size(), SubExpressionExtractor.extract(expression2).size())
-                    .compare(expression1, expression2, Ordering.arbitrary())
+                    .compare(expression1.toString(), expression2.toString())
                     .result();
         }
     });
@@ -244,7 +244,7 @@ public class EqualityInference
 
     private static Predicate<Expression> symbolToExpressionPredicate(final Predicate<Symbol> symbolScope)
     {
-        return expression -> Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
+        return expression -> Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
     }
 
     /**
@@ -375,7 +375,7 @@ public class EqualityInference
             // Map every expression to the set of equivalent expressions
             Map<Expression, Set<Expression>> map = new HashMap<>();
             for (Set<Expression> expressions : equivalentClasses) {
-                expressions.stream().forEach(expression -> map.put(expression, expressions));
+                expressions.forEach(expression -> map.put(expression, expressions));
             }
 
             // For every non-derived expression, extract the sub-expressions and see if they can be rewritten as other expressions. If so,

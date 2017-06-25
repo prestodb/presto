@@ -20,6 +20,7 @@ databases:
     prepare_statement: USE ${databases.hive.schema}
     table_manager_type: hive
     warehouse_directory_path: /user/hive/warehouse
+    path: /user/hive/warehouse
 
   presto:
     host: localhost
@@ -28,7 +29,15 @@ databases:
     jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
     jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
     jdbc_user: hdfs
-    jdbc_password: na
+    jdbc_password: "***empty***"
+    jdbc_pooling: false
+
+  presto_tpcds:
+    host: localhost
+    jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
+    jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/tpcds
+    jdbc_user: hdfs
+    jdbc_password: "***empty***"
     jdbc_pooling: false
 
   alice@presto:
@@ -38,7 +47,7 @@ databases:
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: alice
-    jdbc_password: na
+    jdbc_password: "***empty***"
     jdbc_pooling: false
     https_keystore_path: ${databases.presto.https_keystore_path}
     https_keystore_password: ${databases.presto.https_keystore_password}
@@ -50,7 +59,7 @@ databases:
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: bob
-    jdbc_password: na
+    jdbc_password: "***empty***"
     jdbc_pooling: false
     https_keystore_path: ${databases.presto.https_keystore_path}
     https_keystore_password: ${databases.presto.https_keystore_password}
@@ -71,9 +80,29 @@ databases:
     jdbc_pooling: true
     table_manager_type: jdbc
 
+  cassandra:
+    host: cassandra
+    port: 9042
+    default_schema: test
+    skip_create_schema: false
+    table_manager_type: cassandra
+
+  sqlserver:
+    jdbc_driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    jdbc_url: jdbc:sqlserver://sqlserver
+    jdbc_user: sa
+    jdbc_password: SQLServerPass1
+    jdbc_pooling: true
+    table_manager_type: jdbc
+
 tests:
   hdfs:
     path: /product-test
   assert:
     float_tolerance: 0.000001
 
+ldap:
+   admin:
+       dn: cn=admin,dc=presto,dc=testldap,dc=com
+       password: admin
+   url: ldap://ldapserver

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
@@ -21,22 +20,19 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -58,11 +54,10 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
@@ -71,6 +66,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.Boolean.TRUE;
@@ -95,17 +92,10 @@ public class BenchmarkArrayFilter
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE * NUM_TYPES)
-    public Object benchmark(BenchmarkData data)
+    public List<Page> benchmark(BenchmarkData data)
             throws Throwable
     {
-        int position = 0;
-        List<Page> pages = new ArrayList<>();
-        while (position < data.getPage().getPositionCount()) {
-            position = data.getPageProcessor().process(SESSION, data.getPage(), position, data.getPage().getPositionCount(), data.getPageBuilder());
-            pages.add(data.getPageBuilder().build());
-            data.getPageBuilder().reset();
-        }
-        return pages;
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -115,7 +105,6 @@ public class BenchmarkArrayFilter
         @Param({"filter", "exact_filter"})
         private String name = "filter";
 
-        private PageBuilder pageBuilder;
         private Page page;
         private PageProcessor pageProcessor;
 
@@ -133,17 +122,16 @@ public class BenchmarkArrayFilter
                 Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)"));
                 Signature greaterThan = new Signature("$operator$" + GREATER_THAN.name(), FunctionKind.SCALAR, BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
                 projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(
-                        new InputReferenceExpression(0, arrayType),
+                        field(0, arrayType),
                         new LambdaDefinitionExpression(
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("x"),
-                                new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), new ConstantExpression(0L, BIGINT)))))));
+                                new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BOOLEAN), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(Collectors.toList()));
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }
 
@@ -173,11 +161,6 @@ public class BenchmarkArrayFilter
         public Page getPage()
         {
             return page;
-        }
-
-        public PageBuilder getPageBuilder()
-        {
-            return pageBuilder;
         }
     }
 

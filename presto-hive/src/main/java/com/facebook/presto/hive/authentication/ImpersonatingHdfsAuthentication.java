@@ -14,8 +14,9 @@
 package com.facebook.presto.hive.authentication;
 
 import com.facebook.presto.hive.ForHdfs;
-import com.google.inject.Inject;
 import org.apache.hadoop.security.UserGroupInformation;
+
+import javax.inject.Inject;
 
 import static com.facebook.presto.hive.authentication.UserGroupInformationUtils.executeActionInDoAs;
 import static java.util.Objects.requireNonNull;

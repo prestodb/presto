@@ -239,9 +239,7 @@ public class TestRcFileReaderManual
                 new SliceRcFileDataSource(data),
                 new BinaryRcFileEncoding(),
                 ImmutableMap.of(0, SMALLINT),
-                codecName -> {
-                    throw new UnsupportedOperationException();
-                },
+                new BogusRcFileCodecFactory(),
                 offset,
                 length,
                 new DataSize(1, MEGABYTE));
@@ -330,6 +328,22 @@ public class TestRcFileReaderManual
         @Override
         public void close()
         {
+        }
+    }
+
+    private static class BogusRcFileCodecFactory
+            implements RcFileCodecFactory
+    {
+        @Override
+        public RcFileCompressor createCompressor(String codecName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RcFileDecompressor createDecompressor(String codecName)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

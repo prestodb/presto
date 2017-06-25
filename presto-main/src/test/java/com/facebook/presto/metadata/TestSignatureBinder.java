@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.type.FunctionType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,9 +36,11 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -50,7 +55,11 @@ import static org.testng.Assert.fail;
 
 public class TestSignatureBinder
 {
-    private final TypeRegistry typeRegistry = new TypeRegistry();
+    private final TypeManager typeRegistry = new TypeRegistry();
+    {
+        // associate typeRegistry with a function registry
+        new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+    }
 
     @Test
     public void testBindLiteralForDecimal()
@@ -524,7 +533,7 @@ public class TestSignatureBinder
     }
 
     @Test
-    public void testBindToUnparametrizedVarchar()
+    public void testBindToUnparametrizedVarcharIsImpossible()
             throws Exception
     {
         Signature function = functionSignature()
@@ -997,9 +1006,12 @@ public class TestSignatureBinder
                 .build();
 
         assertThat(simple)
+                .boundTo("integer")
+                .fails();
+        assertThat(simple)
                 .boundTo("function(integer,integer)")
                 .succeeds();
-        // TODO: This should eventually be supported
+        // TODO: Support coercion of return type of lambda
         assertThat(simple)
                 .boundTo("function(integer,smallint)")
                 .withCoercion()
@@ -1014,6 +1026,9 @@ public class TestSignatureBinder
                 .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T,U)"), parseTypeSignature("function(U,V)"))
                 .typeVariableConstraints(typeVariable("T"), typeVariable("U"), typeVariable("V"))
                 .build();
+        assertThat(applyTwice)
+                .boundTo("integer", "integer", "integer")
+                .fails();
         assertThat(applyTwice)
                 .boundTo("integer", "function(integer,varchar)", "function(varchar,double)")
                 .produces(BoundVariables.builder()
@@ -1071,6 +1086,26 @@ public class TestSignatureBinder
         assertThat(varargApply)
                 .boundTo("integer", "function(integer, integer)", "function(integer, double)", "function(double, double)")
                 .fails();
+
+        Signature loop = functionSignature()
+                .returnType(parseTypeSignature("T"))
+                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T, T)"))
+                .typeVariableConstraints(typeVariable("T"))
+                .build();
+        assertThat(loop)
+                .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
+                .fails();
+        assertThat(loop)
+                .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
+                .withCoercion()
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
+        // TODO: Support coercion of return type of lambda
+        assertThat(loop)
+                .withCoercion()
+                .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeSignature()))
+                .fails();
     }
 
     @Test
@@ -1079,7 +1114,7 @@ public class TestSignatureBinder
     {
         BoundVariables boundVariables = BoundVariables.builder()
                 .setTypeVariable("T1", DOUBLE)
-                .setTypeVariable("T2", BigintType.BIGINT)
+                .setTypeVariable("T2", BIGINT)
                 .setTypeVariable("T3", DecimalType.createDecimalType(5, 3))
                 .setLongVariable("p", 1L)
                 .setLongVariable("s", 2L)
@@ -1162,12 +1197,6 @@ public class TestSignatureBinder
         public BindSignatureAssertion withCoercion()
         {
             allowCoercion = true;
-            return this;
-        }
-
-        public BindSignatureAssertion boundTo(String... arguments)
-        {
-            this.argumentTypes = fromTypes(types(arguments));
             return this;
         }
 

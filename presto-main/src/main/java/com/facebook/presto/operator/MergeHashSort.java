@@ -11,14 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Iterators;
 
+import java.io.Closeable;
 import java.util.Iterator;
 import java.util.List;
 
@@ -27,23 +29,29 @@ import static java.util.stream.Collectors.toList;
 
 /**
  * This class performs merge of previously hash sorted pages streams.
- *
+ * <p>
  * Positions are compared using their hash value. It is possible
  * that two distinct values to have same hash value, thus returned
  * stream of Pages can have interleaved positions with same hash value.
  */
 public class MergeHashSort
+        implements Closeable
 {
-    private MergeHashSort()
+    private final AggregatedMemoryContext memoryContext;
+
+    public MergeHashSort(AggregatedMemoryContext memoryContext)
     {
+        this.memoryContext = memoryContext;
     }
 
     /**
      * Rows with same hash value are guaranteed to be in the same result page.
      */
-    public static Iterator<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<Iterator<Page>> channels)
+    public Iterator<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<Iterator<Page>> channels)
     {
-        List<Iterator<PagePosition>> channelIterators = channels.stream().map(SingleChannelPagePositions::new).collect(toList());
+        List<Iterator<PagePosition>> channelIterators = channels.stream()
+                .map(channel -> new SingleChannelPagePositions(channel, memoryContext.newLocalMemoryContext()))
+                .collect(toList());
 
         int[] hashChannels = new int[keyTypes.size()];
         for (int i = 0; i < keyTypes.size(); i++) {
@@ -56,7 +64,8 @@ public class MergeHashSort
                 allTypes,
                 Iterators.mergeSorted(
                         channelIterators,
-                        (PagePosition left, PagePosition right) -> comparePages(hashGenerator, left, right)));
+                        (PagePosition left, PagePosition right) -> comparePages(hashGenerator, left, right)),
+                memoryContext.newLocalMemoryContext());
     }
 
     private static int comparePages(HashGenerator hashGenerator, PagePosition left, PagePosition right)
@@ -77,7 +86,13 @@ public class MergeHashSort
         return Long.compare(leftHash, rightHash);
     }
 
-    public static class PagePosition
+    @Override
+    public void close()
+    {
+        memoryContext.close();
+    }
+
+    static class PagePosition
     {
         private final Page page;
         private final int position;
@@ -104,7 +119,8 @@ public class MergeHashSort
         }
     }
 
-    public interface PagePositions extends Iterator<PagePosition>
+    public interface PagePositions
+            extends Iterator<PagePosition>
     {
     }
 
@@ -112,11 +128,13 @@ public class MergeHashSort
             implements PagePositions
     {
         private final Iterator<Page> channel;
+        private final LocalMemoryContext memoryContext;
         private PagePosition current;
 
-        public SingleChannelPagePositions(Iterator<Page> channel)
+        public SingleChannelPagePositions(Iterator<Page> channel, LocalMemoryContext memoryContext)
         {
             this.channel = requireNonNull(channel, "channel is null");
+            this.memoryContext = memoryContext;
         }
 
         @Override
@@ -130,6 +148,7 @@ public class MergeHashSort
         {
             if (current == null || current.getPosition() + 1 >= current.getPage().getPositionCount()) {
                 current = new PagePosition(channel.next(), 0);
+                memoryContext.setBytes(current.getPage().getRetainedSizeInBytes());
             }
             else {
                 current = new PagePosition(current.getPage(), current.getPosition() + 1);
@@ -148,14 +167,16 @@ public class MergeHashSort
         private final Iterator<PagePosition> pagePositions;
         private final HashGenerator hashGenerator;
         private final PageBuilder builder;
+        private final LocalMemoryContext memoryContext;
         private PagePosition currentPage = null;
 
-        public PageRewriteIterator(HashGenerator hashGenerator, List<Type> allTypes, Iterator<PagePosition> pagePositions)
+        public PageRewriteIterator(HashGenerator hashGenerator, List<Type> allTypes, Iterator<PagePosition> pagePositions, LocalMemoryContext memoryContext)
         {
             this.hashGenerator = hashGenerator;
             this.allTypes = allTypes;
             this.pagePositions = pagePositions;
             this.builder = new PageBuilder(allTypes);
+            this.memoryContext = memoryContext;
         }
 
         @Override
@@ -183,8 +204,8 @@ public class MergeHashSort
                         type.appendTo(currentPage.getPage().getBlock(column), currentPage.getPosition(), builder.getBlockBuilder(column));
                     }
                     previousPage = currentPage;
+                    memoryContext.setBytes(builder.getRetainedSizeInBytes());
                 }
-
                 if (pagePositions.hasNext()) {
                     currentPage = pagePositions.next();
                 }

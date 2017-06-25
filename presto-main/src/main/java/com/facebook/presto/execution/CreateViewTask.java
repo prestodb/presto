@@ -26,20 +26,20 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class CreateViewTask
         implements DataDefinitionTask<CreateView>
@@ -71,7 +71,7 @@ public class CreateViewTask
     }
 
     @Override
-    public CompletableFuture<?> execute(CreateView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(CreateView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
@@ -91,7 +91,7 @@ public class CreateViewTask
 
         metadata.createView(session, name, data, statement.isReplace());
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 
     private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters)

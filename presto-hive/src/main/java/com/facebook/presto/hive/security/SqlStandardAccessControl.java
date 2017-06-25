@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -106,6 +107,17 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
+    {
+    }
+
+    @Override
+    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> schemaNames)
+    {
+        return schemaNames;
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!isDatabaseOwner(transaction, identity, tableName.getSchemaName())) {
@@ -130,10 +142,29 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+    }
+
+    @Override
+    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
+    {
+        return tableNames;
+    }
+
+    @Override
     public void checkCanAddColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyAddColumn(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanDropColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+            denyDropColumn(tableName.toString());
         }
     }
 
@@ -225,7 +256,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
         if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             return;
@@ -238,7 +269,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
         if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             return;

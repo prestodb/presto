@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.plugin.jdbc.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -76,7 +75,7 @@ public class JdbcMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        JdbcTableHandle tableHandle = checkType(table, JdbcTableHandle.class, "table");
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new JdbcTableLayoutHandle(tableHandle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
@@ -90,7 +89,7 @@ public class JdbcMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        JdbcTableHandle handle = checkType(table, JdbcTableHandle.class, "tableHandle");
+        JdbcTableHandle handle = (JdbcTableHandle) table;
 
         ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(handle)) {
@@ -108,7 +107,7 @@ public class JdbcMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        JdbcTableHandle jdbcTableHandle = checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
+        JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(jdbcTableHandle)) {
@@ -146,8 +145,7 @@ public class JdbcMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
-        return checkType(columnHandle, JdbcColumnHandle.class, "columnHandle").getColumnMetadata();
+        return ((JdbcColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
@@ -156,7 +154,7 @@ public class JdbcMetadata
         if (!allowDropTable) {
             throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
         }
-        JdbcTableHandle handle = checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         jdbcClient.dropTable(handle);
     }
 
@@ -171,7 +169,7 @@ public class JdbcMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-        JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
+        JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
         jdbcClient.commitCreateTable(handle);
         clearRollback();
         return Optional.empty();
@@ -195,14 +193,13 @@ public class JdbcMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
         return jdbcClient.beginInsertTable(getTableMetadata(session, tableHandle));
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
-        JdbcOutputTableHandle jdbcInsertHandle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
+        JdbcOutputTableHandle jdbcInsertHandle = (JdbcOutputTableHandle) tableHandle;
         jdbcClient.finishInsertTable(jdbcInsertHandle);
         return Optional.empty();
     }

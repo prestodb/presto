@@ -26,7 +26,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,12 +47,10 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
-import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -142,9 +139,9 @@ public class HiveSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
-        HiveTableLayoutHandle layout = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
+        HiveTableLayoutHandle layout = (HiveTableLayoutHandle) layoutHandle;
 
-        List<HivePartition> partitions = Lists.transform(layout.getPartitions().get(), partition -> checkType(partition, HivePartition.class, "partition"));
+        List<HivePartition> partitions = layout.getPartitions().get();
 
         HivePartition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
@@ -157,7 +154,7 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
-        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(checkType(transaction, HiveTransactionHandle.class, "transaction"));
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply((HiveTransactionHandle) transaction);
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
@@ -207,12 +204,11 @@ public class HiveSplitManager
             ImmutableMap.Builder<String, Partition> partitionBuilder = ImmutableMap.builder();
             for (Map.Entry<String, Optional<Partition>> entry : batch.entrySet()) {
                 if (!entry.getValue().isPresent()) {
-                    throw new PrestoException(HIVE_METASTORE_ERROR, "Partition metadata not available");
+                    throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
                 }
                 partitionBuilder.put(entry.getKey(), entry.getValue().get());
             }
             Map<String, Partition> partitions = partitionBuilder.build();
-            Verify.verify(partitions.size() == partitionBatch.size());
             if (partitionBatch.size() != partitions.size()) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
             }
@@ -267,15 +263,25 @@ public class HiveSplitManager
                     }
                 }
 
-                Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
-                checkCondition(
-                        partitionBucketProperty.equals(bucketProperty),
-                        HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH,
-                        "Hive table (%s) bucketing property (%s) does not match partition (%s) bucketing property (%s)",
-                        hivePartition.getTableName(),
-                        bucketProperty,
-                        hivePartition.getPartitionId(),
-                        partitionBucketProperty);
+                if (bucketProperty.isPresent()) {
+                    Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
+                    if (!partitionBucketProperty.isPresent()) {
+                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                "Hive table (%s) is bucketed but partition (%s) is not bucketed",
+                                hivePartition.getTableName(),
+                                hivePartition.getPartitionId()));
+                    }
+                    if (!bucketProperty.equals(partitionBucketProperty)) {
+                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                "Hive table (%s) bucketing (columns=%s, buckets=%s) does not match partition (%s) bucketing (columns=%s, buckets=%s)",
+                                hivePartition.getTableName(),
+                                bucketProperty.get().getBucketedBy(),
+                                bucketProperty.get().getBucketCount(),
+                                hivePartition.getPartitionId(),
+                                partitionBucketProperty.get().getBucketedBy(),
+                                partitionBucketProperty.get().getBucketCount()));
+                    }
+                }
 
                 results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), columnCoercions.build()));
             }

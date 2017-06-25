@@ -14,15 +14,17 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.Assertions;
+import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -37,6 +39,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_VIEW;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
@@ -46,20 +49,25 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
-import static org.testng.Assert.assertEquals;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunner queryRunner)
+    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier)
     {
-        super(queryRunner);
+        super(supplier);
     }
 
     protected boolean supportsViews()
@@ -119,53 +127,52 @@ public abstract class AbstractTestDistributedQueries
     public void testCreateTable()
     {
         assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
-        assertTrue(queryRunner.tableExists(getSession(), "test_create"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create"));
         assertTableColumnNames("test_create", "a", "b", "c");
 
         assertUpdate("DROP TABLE test_create");
-        assertFalse(queryRunner.tableExists(getSession(), "test_create"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
 
         assertUpdate("CREATE TABLE test_create_table_if_not_exists (a bigint, b varchar, c double)");
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
         assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
 
         assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_if_not_exists (d bigint, e varchar)");
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
         assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
 
         assertUpdate("DROP TABLE test_create_table_if_not_exists");
-        assertFalse(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
 
         // Test CREATE TABLE LIKE
         assertUpdate("CREATE TABLE test_create_original (a bigint, b double, c varchar)");
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_original"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_original"));
         assertTableColumnNames("test_create_original", "a", "b", "c");
 
         assertUpdate("CREATE TABLE test_create_like (LIKE test_create_original, d boolean, e varchar)");
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_like"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_like"));
         assertTableColumnNames("test_create_like", "a", "b", "c", "d", "e");
 
         assertUpdate("DROP TABLE test_create_original");
-        assertFalse(queryRunner.tableExists(getSession(), "test_create_original"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_original"));
 
         assertUpdate("DROP TABLE test_create_like");
-        assertFalse(queryRunner.tableExists(getSession(), "test_create_like"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_like"));
     }
 
     @Test
     public void testCreateTableAsSelect()
     {
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
-        MaterializedResult materializedRows = computeActual("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT orderkey, discount FROM lineitem");
-        assertEquals(materializedRows.getRowCount(), 0);
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT orderkey, discount FROM lineitem", 0);
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
         assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
-        assertFalse(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
 
         assertCreateTableAsSelect(
                 "test_select",
@@ -285,8 +292,11 @@ public abstract class AbstractTestDistributedQueries
     private void assertExplainAnalyze(@Language("SQL") String query)
     {
         String value = getOnlyElement(computeActual(query).getOnlyColumnAsSet());
+
+        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
+
         // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
+        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
     }
 
     protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
@@ -305,7 +315,7 @@ public abstract class AbstractTestDistributedQueries
         assertQuery(session, "SELECT * FROM " + table, expectedQuery);
         assertUpdate(session, "DROP TABLE " + table);
 
-        assertFalse(queryRunner.tableExists(session, table));
+        assertFalse(getQueryRunner().tableExists(session, table));
     }
 
     @Test
@@ -324,8 +334,8 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("DROP TABLE test_rename");
 
-        assertFalse(queryRunner.tableExists(getSession(), "test_rename"));
-        assertFalse(queryRunner.tableExists(getSession(), "test_rename_new"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
     }
 
     @Test
@@ -342,7 +352,18 @@ public abstract class AbstractTestDistributedQueries
         assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
 
         assertUpdate("DROP TABLE test_rename_column");
-        assertFalse(queryRunner.tableExists(getSession(), "test_rename_column"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_column"));
+    }
+
+    @Test
+    public void testDropColumn()
+    {
+        assertUpdate("CREATE TABLE test_drop_column AS SELECT 123 x, 111 a", 1);
+
+        assertUpdate("ALTER TABLE test_drop_column DROP COLUMN x");
+        assertQueryFails("SELECT x FROM test_drop_column", ".* Column 'x' cannot be resolved");
+
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN a", "Cannot drop the only column in a table");
     }
 
     @Test
@@ -379,9 +400,9 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE test_add_column");
         assertUpdate("DROP TABLE test_add_column_a");
         assertUpdate("DROP TABLE test_add_column_ab");
-        assertFalse(queryRunner.tableExists(getSession(), "test_add_column"));
-        assertFalse(queryRunner.tableExists(getSession(), "test_add_column_a"));
-        assertFalse(queryRunner.tableExists(getSession(), "test_add_column_ab"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column_a"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column_ab"));
     }
 
     @Test
@@ -476,6 +497,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
         assertUpdate("DELETE FROM test_delete WHERE rand() < 0", 0);
+        assertUpdate("DELETE FROM test_delete WHERE orderkey < 0", 0);
         assertUpdate("DROP TABLE test_delete");
 
         // delete with a predicate that optimizes to false
@@ -555,9 +577,9 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDropTableIfExists()
     {
-        assertFalse(queryRunner.tableExists(getSession(), "test_drop_if_exists"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
         assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
-        assertFalse(queryRunner.tableExists(getSession(), "test_drop_if_exists"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
     }
 
     @Test
@@ -710,6 +732,51 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testQueryLoggingCount()
+            throws Exception
+    {
+        QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
+        executeExclusively(() -> {
+            assertUntilTimeout(
+                    () -> assertEquals(
+                            queryManager.getAllQueryInfo()
+                                    .stream()
+                                    .filter(info -> !info.isFinalQueryInfo())
+                                    .collect(toList()),
+                            ImmutableList.of()),
+                    new Duration(1, MINUTES));
+
+            long beforeQueryCount = queryManager.getStats().getCompletedQueries().getTotalCount();
+            assertUpdate("CREATE TABLE test_query_logging_count AS SELECT 1 foo_1, 2 foo_2_4", 1);
+            assertQuery("SELECT foo_1, foo_2_4 FROM test_query_logging_count", "SELECT 1, 2");
+            assertUpdate("DROP TABLE test_query_logging_count");
+            assertQueryFails("SELECT * FROM test_query_logging_count", ".*Table .* does not exist");
+
+            // TODO: Figure out a better way of synchronization
+            assertUntilTimeout(
+                    () -> assertEquals(queryManager.getStats().getCompletedQueries().getTotalCount() - beforeQueryCount, 4),
+                    new Duration(1, MINUTES));
+        });
+    }
+
+    private static void assertUntilTimeout(Runnable assertion, Duration timeout)
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertion.run();
+                return;
+            }
+            catch (AssertionError e) {
+                if (nanosSince(start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            sleepUninterruptibly(50, MILLISECONDS);
+        }
+    }
+
+    @Test
     public void testLargeQuerySuccess()
     {
         assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
@@ -720,22 +787,6 @@ public abstract class AbstractTestDistributedQueries
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
-    }
-
-    @Test
-    public void testTableSampleSystem()
-    {
-        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
-
-        boolean sampleSizeFound = false;
-        for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
-            if (sampleSize > 0 && sampleSize < total) {
-                sampleSizeFound = true;
-                break;
-            }
-        }
-        assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
     }
 
     @Test
@@ -772,6 +823,7 @@ public abstract class AbstractTestDistributedQueries
         assertAccessDenied("DROP TABLE orders", "Cannot drop table .*.orders.*", privilege("orders", DROP_TABLE));
         assertAccessDenied("ALTER TABLE orders RENAME TO foo", "Cannot rename table .*.orders.* to .*.foo.*", privilege("orders", RENAME_TABLE));
         assertAccessDenied("ALTER TABLE orders ADD COLUMN foo bigint", "Cannot add a column to table .*.orders.*", privilege("orders", ADD_COLUMN));
+        assertAccessDenied("ALTER TABLE orders DROP COLUMN foo", "Cannot drop a column from table .*.orders.*", privilege("orders", DROP_COLUMN));
         assertAccessDenied("ALTER TABLE orders RENAME COLUMN orderkey TO foo", "Cannot rename a column in table .*.orders.*", privilege("orders", RENAME_COLUMN));
         assertAccessDenied("CREATE VIEW foo as SELECT * FROM orders", "Cannot create view .*.foo.*", privilege("foo", CREATE_VIEW));
         // todo add DROP VIEW test... not all connectors have view support

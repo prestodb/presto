@@ -21,13 +21,22 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.IntArrayBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
@@ -38,19 +47,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 public class HivePageSink
         implements ConnectorPageSink
 {
+    private static final Logger log = Logger.get(HivePageSink.class);
+
+    private static final int MAX_PAGE_POSITIONS = 4096;
+
     private final HiveWriterFactory writerFactory;
 
     private final int[] dataColumnInputIndex; // ordinal of columns (not counting sample weight column)
@@ -63,11 +81,16 @@ public class HivePageSink
     private final HdfsEnvironment hdfsEnvironment;
 
     private final int maxOpenWriters;
+    private final ListeningExecutorService writeVerificationExecutor;
+
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     private final List<HiveWriter> writers = new ArrayList<>();
+    private final List<WriterPositions> writerPositions = new ArrayList<>();
 
     private final ConnectorSession session;
+
+    private long systemMemoryUsage;
 
     public HivePageSink(
             HiveWriterFactory writerFactory,
@@ -77,6 +100,7 @@ public class HivePageSink
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
             int maxOpenWriters,
+            ListeningExecutorService writeVerificationExecutor,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ConnectorSession session)
     {
@@ -88,6 +112,7 @@ public class HivePageSink
 
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.maxOpenWriters = maxOpenWriters;
+        this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         requireNonNull(bucketProperty, "bucketProperty is null");
@@ -137,23 +162,48 @@ public class HivePageSink
     }
 
     @Override
+    public long getSystemMemoryUsage()
+    {
+        return systemMemoryUsage;
+    }
+
+    @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
         // Must be wrapped in doAs entirely
         // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
-        Collection<Slice> result = hdfsEnvironment.doAs(session.getUser(), this::doFinish);
-        return completedFuture(result);
+        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(session.getUser(), this::doFinish);
+        return MoreFutures.toCompletableFuture(result);
     }
 
-    private ImmutableList<Slice> doFinish()
+    private ListenableFuture<Collection<Slice>> doFinish()
     {
         ImmutableList.Builder<Slice> partitionUpdates = ImmutableList.builder();
+        List<Callable<Object>> verificationTasks = new ArrayList<>();
         for (HiveWriter writer : writers) {
             writer.commit();
             PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
             partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
+            writer.getVerificationTask()
+                    .map(Executors::callable)
+                    .ifPresent(verificationTasks::add);
         }
-        return partitionUpdates.build();
+        List<Slice> result = partitionUpdates.build();
+
+        if (verificationTasks.isEmpty()) {
+            return Futures.immediateFuture(result);
+        }
+
+        try {
+            List<ListenableFuture<?>> futures = writeVerificationExecutor.invokeAll(verificationTasks).stream()
+                    .map(future -> (ListenableFuture<?>) future)
+                    .collect(toList());
+            return Futures.transform(Futures.allAsList(futures), input -> result);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -166,35 +216,85 @@ public class HivePageSink
 
     private void doAbort()
     {
+        Optional<Exception> rollbackException = Optional.empty();
         for (HiveWriter writer : writers) {
-            writer.rollback();
+            // writers can contain nulls if an exception is thrown when doAppend expends the writer list
+            if (writer != null) {
+                try {
+                    writer.rollback();
+                }
+                catch (Exception e) {
+                    log.warn("exception '%s' while rollback on %s", e, writer);
+                    rollbackException = Optional.of(e);
+                }
+            }
+        }
+        if (rollbackException.isPresent()) {
+            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.get());
         }
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        if (page.getPositionCount() == 0) {
-            return NOT_BLOCKED;
-        }
-
-        // Must be wrapped in doAs entirely
-        // Implicit FileSystem initializations are possible in HiveRecordWriter#addRow or #createWriter
-        return hdfsEnvironment.doAs(session.getUser(), () -> doAppend(page));
-    }
-
-    private CompletableFuture<?> doAppend(Page page)
-    {
-        int[] writerIndexes = getWriterIndexes(page);
-
-        Block[] dataBlocks = getDataBlocks(page);
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            int writerIndex = writerIndexes[position];
-            HiveWriter writer = writers.get(writerIndex);
-            writer.addRow(dataBlocks, position);
+        if (page.getPositionCount() > 0) {
+            // Must be wrapped in doAs entirely
+            // Implicit FileSystem initializations are possible in HiveRecordWriter#addRow or #createWriter
+            hdfsEnvironment.doAs(session.getUser(), () -> doAppend(page));
         }
 
         return NOT_BLOCKED;
+    }
+
+    private void doAppend(Page page)
+    {
+        while (page.getPositionCount() > MAX_PAGE_POSITIONS) {
+            Page chunk = page.getRegion(0, MAX_PAGE_POSITIONS);
+            page = page.getRegion(MAX_PAGE_POSITIONS, page.getPositionCount() - MAX_PAGE_POSITIONS);
+            writePage(chunk);
+        }
+
+        writePage(page);
+    }
+
+    private void writePage(Page page)
+    {
+        int[] writerIndexes = getWriterIndexes(page);
+
+        // record which positions are used by which writer
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            int writerIndex = writerIndexes[position];
+            writerPositions.get(writerIndex).add(position);
+        }
+
+        // invoke the writers
+        Page dataPage = getDataPage(page);
+        IntSet writersUsed = new IntArraySet(writerIndexes);
+        for (IntIterator iterator = writersUsed.iterator(); iterator.hasNext(); ) {
+            int writerIndex = iterator.nextInt();
+            WriterPositions currentWriterPositions = writerPositions.get(writerIndex);
+            if (currentWriterPositions.isEmpty()) {
+                continue;
+            }
+
+            // If write is partitioned across multiple writers, filter page using dictionary blocks
+            Page pageForWriter = dataPage;
+            if (currentWriterPositions.size() != dataPage.getPositionCount()) {
+                Block[] blocks = new Block[dataPage.getChannelCount()];
+                for (int channel = 0; channel < dataPage.getChannelCount(); channel++) {
+                    blocks[channel] = new DictionaryBlock(currentWriterPositions.size(), dataPage.getBlock(channel), currentWriterPositions.getPositionsArray());
+                }
+                pageForWriter = new Page(currentWriterPositions.size(), blocks);
+            }
+
+            HiveWriter writer = writers.get(writerIndex);
+
+            long currentMemory = writer.getSystemMemoryUsage();
+            writer.append(pageForWriter);
+            systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
+
+            currentWriterPositions.clear();
+        }
     }
 
     private int[] getWriterIndexes(Page page)
@@ -209,6 +309,9 @@ public class HivePageSink
         // expand writers list to new size
         while (writers.size() <= pagePartitioner.getMaxIndex()) {
             writers.add(null);
+            WriterPositions newWriterPositions = new WriterPositions();
+            systemMemoryUsage += sizeOf(newWriterPositions.getPositionsArray());
+            writerPositions.add(newWriterPositions);
         }
 
         // create missing writers
@@ -223,24 +326,22 @@ public class HivePageSink
                 bucketNumber = OptionalInt.of(bucketBlock.getInt(position, 0));
             }
             HiveWriter writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
-
             writers.set(writerIndex, writer);
         }
-
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
         verify(!writers.contains(null));
 
         return writerIndexes;
     }
 
-    private Block[] getDataBlocks(Page page)
+    private Page getDataPage(Page page)
     {
         Block[] blocks = new Block[dataColumnInputIndex.length];
         for (int i = 0; i < dataColumnInputIndex.length; i++) {
             int dataColumn = dataColumnInputIndex[i];
             blocks[i] = page.getBlock(dataColumn);
         }
-        return blocks;
+        return new Page(page.getPositionCount(), blocks);
     }
 
     private Block buildBucketBlock(Page page)
@@ -309,6 +410,47 @@ public class HivePageSink
         public int getMaxIndex()
         {
             return pageIndexer.getMaxIndex();
+        }
+    }
+
+    private static final class WriterPositions
+    {
+        private final int[] positions = new int[MAX_PAGE_POSITIONS];
+        private int size;
+
+        public boolean isEmpty()
+        {
+            return size == 0;
+        }
+
+        public int size()
+        {
+            return size;
+        }
+
+        public int[] getPositionsArray()
+        {
+            return positions;
+        }
+
+        public void add(int position)
+        {
+            checkArgument(size < positions.length, "Too many page positions");
+            positions[size] = position;
+            size++;
+        }
+
+        public void clear()
+        {
+            size = 0;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("size", size)
+                    .toString();
         }
     }
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -28,13 +29,15 @@ import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -58,6 +61,7 @@ public class WindowOperator
         private final int expectedPositions;
         private final List<Type> types;
         private boolean closed;
+        private final PagesIndex.Factory pagesIndexFactory;
 
         public WindowOperatorFactory(
                 int operatorId,
@@ -70,7 +74,8 @@ public class WindowOperator
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrder,
                 int preSortedChannelPrefix,
-                int expectedPositions)
+                int expectedPositions,
+                PagesIndex.Factory pagesIndexFactory)
         {
             requireNonNull(sourceTypes, "sourceTypes is null");
             requireNonNull(planNodeId, "planNodeId is null");
@@ -81,10 +86,12 @@ public class WindowOperator
             checkArgument(partitionChannels.containsAll(preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
             requireNonNull(sortChannels, "sortChannels is null");
             requireNonNull(sortOrder, "sortOrder is null");
+            requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
             checkArgument(sortChannels.size() == sortOrder.size(), "Must have same number of sort channels as sort orders");
             checkArgument(preSortedChannelPrefix <= sortChannels.size(), "Cannot have more pre-sorted channels than specified sorted channels");
             checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
 
+            this.pagesIndexFactory = pagesIndexFactory;
             this.operatorId = operatorId;
             this.planNodeId = planNodeId;
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
@@ -126,7 +133,8 @@ public class WindowOperator
                     sortChannels,
                     sortOrder,
                     preSortedChannelPrefix,
-                    expectedPositions);
+                    expectedPositions,
+                    pagesIndexFactory);
         }
 
         @Override
@@ -139,17 +147,18 @@ public class WindowOperator
         public OperatorFactory duplicate()
         {
             return new WindowOperatorFactory(
-                operatorId,
-                planNodeId,
-                sourceTypes,
-                outputChannels,
-                windowFunctionDefinitions,
-                partitionChannels,
-                preGroupedChannels,
-                sortChannels,
-                sortOrder,
-                preSortedChannelPrefix,
-                expectedPositions);
+                    operatorId,
+                    planNodeId,
+                    sourceTypes,
+                    outputChannels,
+                    windowFunctionDefinitions,
+                    partitionChannels,
+                    preGroupedChannels,
+                    sortChannels,
+                    sortOrder,
+                    preSortedChannelPrefix,
+                    expectedPositions,
+                    pagesIndexFactory);
         }
     }
 
@@ -179,6 +188,9 @@ public class WindowOperator
 
     private final PageBuilder pageBuilder;
 
+    private final WindowInfo.DriverWindowInfoBuilder windowInfo;
+    private AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
+
     private State state = State.NEEDS_INPUT;
 
     private WindowPartition partition;
@@ -195,7 +207,8 @@ public class WindowOperator
             List<Integer> sortChannels,
             List<SortOrder> sortOrder,
             int preSortedChannelPrefix,
-            int expectedPositions)
+            int expectedPositions,
+            PagesIndex.Factory pagesIndexFactory)
     {
         requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(outputChannels, "outputChannels is null");
@@ -205,6 +218,7 @@ public class WindowOperator
         checkArgument(partitionChannels.containsAll(preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
         requireNonNull(sortChannels, "sortChannels is null");
         requireNonNull(sortOrder, "sortOrder is null");
+        requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         checkArgument(sortChannels.size() == sortOrder.size(), "Must have same number of sort channels as sort orders");
         checkArgument(preSortedChannelPrefix <= sortChannels.size(), "Cannot have more pre-sorted channels than specified sorted channels");
         checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
@@ -222,7 +236,7 @@ public class WindowOperator
                         .map(WindowFunctionDefinition::getType))
                 .collect(toImmutableList());
 
-        this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);
+        this.pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
         this.preGroupedChannels = Ints.toArray(preGroupedChannels);
         this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preGroupedChannels, Optional.empty());
         List<Integer> unGroupedPartitionChannels = partitionChannels.stream()
@@ -247,6 +261,14 @@ public class WindowOperator
             this.orderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
             this.ordering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
         }
+
+        windowInfo = new WindowInfo.DriverWindowInfoBuilder();
+        operatorContext.setInfoSupplier(this::getWindowInfo);
+    }
+
+    private OperatorInfo getWindowInfo()
+    {
+        return new WindowInfo(driverWindowInfo.get().map(ImmutableList::of).orElse(ImmutableList.of()));
     }
 
     @Override
@@ -269,7 +291,7 @@ public class WindowOperator
         }
         if (state == State.NEEDS_INPUT) {
             // Since was waiting for more input, prepare what we have for output since we will not be getting any more input
-            sortPagesIndexIfNecessary();
+            finishPagesIndex();
         }
         state = State.FINISHING;
     }
@@ -314,7 +336,7 @@ public class WindowOperator
 
         // If we have unused input or are finishing, then we have buffered a full group
         if (pendingInput != null || state == State.FINISHING) {
-            sortPagesIndexIfNecessary();
+            finishPagesIndex();
             return true;
         }
         else {
@@ -411,6 +433,7 @@ public class WindowOperator
 
                 int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
                 partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy);
+                windowInfo.addPartition(partition);
             }
 
             partition.processNextRow(pageBuilder);
@@ -433,24 +456,19 @@ public class WindowOperator
         }
     }
 
+    private void finishPagesIndex()
+    {
+        sortPagesIndexIfNecessary();
+        windowInfo.addIndex(pagesIndex);
+    }
+
     // Assumes input grouped on relevant pagesHashStrategy columns
     private static int findGroupEnd(Page page, PagesHashStrategy pagesHashStrategy, int startPosition)
     {
         checkArgument(page.getPositionCount() > 0, "Must have at least one position");
         checkPositionIndex(startPosition, page.getPositionCount(), "startPosition out of bounds");
 
-        // Short circuit if the whole page has the same value
-        if (pagesHashStrategy.rowEqualsRow(startPosition, page, page.getPositionCount() - 1, page)) {
-            return page.getPositionCount();
-        }
-
-        // TODO: do position binary search
-        int endPosition = startPosition + 1;
-        while (endPosition < page.getPositionCount() &&
-                pagesHashStrategy.rowEqualsRow(endPosition - 1, page, endPosition, page)) {
-            endPosition++;
-        }
-        return endPosition;
+        return findEndPosition(startPosition, page.getPositionCount(), (firstPosition, secondPosition) -> pagesHashStrategy.rowEqualsRow(firstPosition, page, secondPosition, page));
     }
 
     // Assumes input grouped on relevant pagesHashStrategy columns
@@ -459,17 +477,70 @@ public class WindowOperator
         checkArgument(pagesIndex.getPositionCount() > 0, "Must have at least one position");
         checkPositionIndex(startPosition, pagesIndex.getPositionCount(), "startPosition out of bounds");
 
-        // Short circuit if the whole page has the same value
-        if (pagesIndex.positionEqualsPosition(pagesHashStrategy, startPosition, pagesIndex.getPositionCount() - 1)) {
-            return pagesIndex.getPositionCount();
+        return findEndPosition(startPosition, pagesIndex.getPositionCount(), (firstPosition, secondPosition) -> pagesIndex.positionEqualsPosition(pagesHashStrategy, firstPosition, secondPosition));
+    }
+
+    /**
+     * @param startPosition - inclusive
+     * @param endPosition - exclusive
+     * @param comparator - returns true if positions given as parameters are equal
+     * @return the end of the group position exclusive (the position the very next group starts)
+     */
+    @VisibleForTesting
+    static int findEndPosition(int startPosition, int endPosition, BiPredicate<Integer, Integer> comparator)
+    {
+        checkArgument(startPosition >= 0, "startPosition must be greater or equal than zero: %s", startPosition);
+        checkArgument(endPosition > 0, "endPosition must be greater than zero: %s", endPosition);
+        checkArgument(startPosition < endPosition, "startPosition must be less than endPosition: %s < %s", startPosition, endPosition);
+
+        int left = startPosition;
+        int right = endPosition - 1;
+        for (int i = 0; i < endPosition - startPosition; i++) {
+            int distance = right - left;
+
+            if (distance == 0) {
+                return right + 1;
+            }
+
+            if (distance == 1) {
+                if (comparator.test(left, right)) {
+                    return right + 1;
+                }
+                return right;
+            }
+
+            int mid = left + distance / 2;
+            if (comparator.test(left, mid)) {
+                // explore to the right
+                left = mid;
+            }
+            else {
+                // explore to the left
+                right = mid;
+            }
         }
 
-        // TODO: do position binary search
-        int endPosition = startPosition + 1;
-        while ((endPosition < pagesIndex.getPositionCount()) &&
-                pagesIndex.positionEqualsPosition(pagesHashStrategy, endPosition - 1, endPosition)) {
-            endPosition++;
+        // hasn't managed to find a solution after N iteration. Probably the input is not sorted. Lets verify it.
+        for (int first = startPosition; first < endPosition; first++) {
+            boolean previousPairsWereEqual = true;
+            for (int second = first + 1; second < endPosition; second++) {
+                if (!comparator.test(first, second)) {
+                    previousPairsWereEqual = false;
+                }
+                else if (!previousPairsWereEqual) {
+                    throw new IllegalArgumentException("The input is not sorted");
+                }
+            }
         }
-        return endPosition;
+
+        // the input is sorted, but the algorithm has still failed
+        throw new IllegalArgumentException("failed to find a group ending");
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        driverWindowInfo.set(Optional.of(windowInfo.build()));
     }
 }

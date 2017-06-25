@@ -24,6 +24,6 @@ public class TestJdbcIntegrationSmokeTest
     public TestJdbcIntegrationSmokeTest()
             throws Exception
     {
-        super(createJdbcQueryRunner(ORDERS));
+        super(() -> createJdbcQueryRunner(ORDERS));
     }
 }

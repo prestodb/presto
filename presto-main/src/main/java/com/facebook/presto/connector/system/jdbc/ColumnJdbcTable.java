@@ -14,10 +14,9 @@
 package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.system.GlobalSystemTransactionHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -27,11 +26,11 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.type.ArrayType;
 
 import javax.inject.Inject;
 
@@ -41,9 +40,11 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 
+import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.filter;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.stringFilter;
-import static com.facebook.presto.connector.system.jdbc.FilterUtil.toSession;
+import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
+import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -61,7 +62,6 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
@@ -97,11 +97,13 @@ public class ColumnJdbcTable
             .build();
 
     private final Metadata metadata;
+    private final AccessControl accessControl;
 
     @Inject
-    public ColumnJdbcTable(Metadata metadata)
+    public ColumnJdbcTable(Metadata metadata, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata);
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -113,23 +115,22 @@ public class ColumnJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        GlobalSystemTransactionHandle transaction = checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transaction");
-        Session session = toSession(transaction.getTransactionId(), connectorSession);
+        Session session = toSession(transactionHandle, connectorSession);
         Optional<String> catalogFilter = stringFilter(constraint, 0);
         Optional<String> schemaFilter = stringFilter(constraint, 1);
         Optional<String> tableFilter = stringFilter(constraint, 2);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : filter(metadata.getCatalogNames(session).keySet(), catalogFilter)) {
+        for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
             QualifiedTablePrefix prefix = FilterUtil.tablePrefix(catalog, schemaFilter, tableFilter);
-            for (Entry<QualifiedObjectName, List<ColumnMetadata>> entry : metadata.listTableColumns(session, prefix).entrySet()) {
-                addColumnRows(table, entry.getKey(), entry.getValue());
+            for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
+                addColumnRows(table, catalog, entry.getKey(), entry.getValue());
             }
         }
         return table.build().cursor();
     }
 
-    private static void addColumnRows(Builder builder, QualifiedObjectName tableName, List<ColumnMetadata> columns)
+    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
         int ordinalPosition = 1;
         for (ColumnMetadata column : columns) {
@@ -137,9 +138,9 @@ public class ColumnJdbcTable
                 continue;
             }
             builder.addRow(
-                    tableName.getCatalogName(),
+                    catalog,
                     tableName.getSchemaName(),
-                    tableName.getObjectName(),
+                    tableName.getTableName(),
                     column.getName(),
                     jdbcDataType(column.getType()),
                     column.getType().getDisplayName(),
@@ -165,7 +166,7 @@ public class ColumnJdbcTable
         }
     }
 
-    private static int jdbcDataType(Type type)
+    static int jdbcDataType(Type type)
     {
         if (type.equals(BOOLEAN)) {
             return Types.BOOLEAN;
@@ -221,7 +222,7 @@ public class ColumnJdbcTable
         return Types.JAVA_OBJECT;
     }
 
-    private static Integer columnSize(Type type)
+    static Integer columnSize(Type type)
     {
         if (type.equals(BIGINT)) {
             return 19;  // 2**63-1
@@ -294,7 +295,7 @@ public class ColumnJdbcTable
         return null;
     }
 
-    private static Integer numPrecRadix(Type type)
+    static Integer numPrecRadix(Type type)
     {
         if (type.equals(BIGINT) ||
                 type.equals(INTEGER) ||

@@ -17,12 +17,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -35,6 +36,13 @@ public class TypeSignature
     private final String base;
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
+
+    private static final Map<String, String> BASE_NAME_ALIAS_TO_CANONICAL =
+            new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
+
+    static {
+        BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
+    }
 
     public TypeSignature(String base, TypeSignatureParameter... parameters)
     {
@@ -97,8 +105,11 @@ public class TypeSignature
     public static TypeSignature parseTypeSignature(String signature, Set<String> literalCalculationParameters)
     {
         if (!signature.contains("<") && !signature.contains("(")) {
+            if (signature.equalsIgnoreCase(StandardTypes.VARCHAR)) {
+                return VarcharType.createUnboundedVarcharType().getTypeSignature();
+            }
             checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
-            return new TypeSignature(signature, new ArrayList<>());
+            return new TypeSignature(canonicalizeBaseName(signature), new ArrayList<>());
         }
         if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "(")) {
             return parseRowTypeSignature(signature, literalCalculationParameters);
@@ -123,7 +134,7 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
+                    baseName = canonicalizeBaseName(signature.substring(0, i));
                     checkArgument(!literalCalculationParameters.contains(baseName), "Bad type signature: '%s'", signature);
                     parameterStart = i + 1;
                 }
@@ -169,7 +180,7 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
+                    baseName = canonicalizeBaseName(signature.substring(0, i));
                     parameterStart = i + 1;
                     inFieldName = true;
                 }
@@ -177,7 +188,7 @@ public class TypeSignature
             }
             else if (c == ' ') {
                 if (bracketCount == 1 && inFieldName) {
-                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
+                    checkArgument(parameterStart >= 0 && parameterStart < i, "Bad type signature: '%s'", signature);
                     fieldNames.add(signature.substring(parameterStart, i));
                     parameterStart = i + 1;
                     inFieldName = false;
@@ -221,7 +232,7 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
+                    baseName = canonicalizeBaseName(signature.substring(0, i));
                     parameterStart = i + 1;
                 }
                 bracketCount++;
@@ -255,7 +266,7 @@ public class TypeSignature
                     if (baseName == null) {
                         verify(parameters.isEmpty(), "Expected no parameters");
                         verify(parameterStart == -1, "Expected parameter start to be -1");
-                        baseName = signature.substring(0, i);
+                        baseName = canonicalizeBaseName(signature.substring(0, i));
                     }
                     parameterStart = i + 1;
                 }
@@ -329,7 +340,7 @@ public class TypeSignature
         else if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
                 (parameters.size() == 1) &&
                 parameters.get(0).isLongLiteral() &&
-                parameters.get(0).getLongLiteral() == VarcharType.MAX_LENGTH) {
+                parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
             return base;
         }
         else {
@@ -383,6 +394,15 @@ public class TypeSignature
         return name.chars().noneMatch(c -> c == '<' || c == '>' || c == ',');
     }
 
+    private static String canonicalizeBaseName(String baseName)
+    {
+        String canonicalBaseName = BASE_NAME_ALIAS_TO_CANONICAL.get(baseName);
+        if (canonicalBaseName == null) {
+            return baseName;
+        }
+        return canonicalBaseName;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -395,32 +415,13 @@ public class TypeSignature
 
         TypeSignature other = (TypeSignature) o;
 
-        // TODO remove this hack together with hack from toString()
-        if (magicVarcharEquals(other, this)) {
-            return true;
-        }
-
         return Objects.equals(this.base.toLowerCase(Locale.ENGLISH), other.base.toLowerCase(Locale.ENGLISH)) &&
                 Objects.equals(this.parameters, other.parameters);
-    }
-
-    private static boolean magicVarcharEquals(TypeSignature first, TypeSignature second)
-    {
-        // treat varchar and varchar(MAX_LONG) as equivalent
-        // should replaced with hack in parser as soon as we change declarations of all functions taking varchar parameters to use parameterization
-        return first.getBase().equals(StandardTypes.VARCHAR)
-                && second.getBase().equals(StandardTypes.VARCHAR)
-                && ((first.getParameters().isEmpty() && second.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH))))
-                || (second.getParameters().isEmpty() && first.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH)))));
     }
 
     @Override
     public int hashCode()
     {
-        // TODO remove this hack together with hack from toString()
-        if (getBase().equals(StandardTypes.VARCHAR) && parameters.isEmpty()) {
-            return VarcharType.createUnboundedVarcharType().getTypeSignature().hashCode();
-        }
         return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
     }
 }

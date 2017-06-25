@@ -14,7 +14,7 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
@@ -28,9 +28,9 @@ public interface StreamReader
 
     void prepareNextRead(int batchSize);
 
-    void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException;
 
-    void startRowGroup(StreamSources dataStreamSources)
+    void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException;
 }

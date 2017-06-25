@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
@@ -62,6 +63,7 @@ public class TopNRowNumberOperator
         private final List<Type> sortTypes;
         private final boolean generateRowNumber;
         private boolean closed;
+        private final JoinCompiler joinCompiler;
 
         public TopNRowNumberOperatorFactory(
                 int operatorId,
@@ -75,7 +77,8 @@ public class TopNRowNumberOperator
                 int maxRowCountPerPartition,
                 boolean partial,
                 Optional<Integer> hashChannel,
-                int expectedPositions)
+                int expectedPositions,
+                JoinCompiler joinCompiler)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -92,6 +95,7 @@ public class TopNRowNumberOperator
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
             this.generateRowNumber = !partial || !partitionChannels.isEmpty();
             this.expectedPositions = expectedPositions;
+            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
 
             this.types = toTypes(sourceTypes, outputChannels, generateRowNumber);
             ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
@@ -124,7 +128,8 @@ public class TopNRowNumberOperator
                     maxRowCountPerPartition,
                     generateRowNumber,
                     hashChannel,
-                    expectedPositions);
+                    expectedPositions,
+                    joinCompiler);
         }
 
         @Override
@@ -136,7 +141,7 @@ public class TopNRowNumberOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TopNRowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, sortChannels, sortOrder, maxRowCountPerPartition, partial, hashChannel, expectedPositions);
+            return new TopNRowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, sortChannels, sortOrder, maxRowCountPerPartition, partial, hashChannel, expectedPositions, joinCompiler);
         }
     }
 
@@ -170,7 +175,8 @@ public class TopNRowNumberOperator
             int maxRowCountPerPartition,
             boolean generateRowNumber,
             Optional<Integer> hashChannel,
-            int expectedPositions)
+            int expectedPositions,
+            JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
@@ -190,7 +196,7 @@ public class TopNRowNumberOperator
             this.groupByHash = Optional.empty();
         }
         else {
-            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions, joinCompiler));
         }
         this.flushingPartition = Optional.empty();
         this.pageBuilder = new PageBuilder(types);

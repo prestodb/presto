@@ -46,11 +46,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteArrayDataOutput;
-import io.airlift.json.JsonCodec;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.util.BooleanMapper;
 import org.skife.jdbi.v2.util.LongMapper;
+import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -77,7 +77,6 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.io.ByteStreams.newDataOutput;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
@@ -90,8 +89,6 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestRaptorMetadata
 {
-    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
-    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
     private static final SchemaTableName DEFAULT_TEST_LINEITEMS = new SchemaTableName("test", "lineitems");
     private static final ConnectorSession SESSION = new TestingConnectorSession(
@@ -117,7 +114,7 @@ public class TestRaptorMetadata
         NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         shardManager = createShardManager(dbi, nodeSupplier, systemTicker());
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -142,6 +139,66 @@ public class TestRaptorMetadata
 
         assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
         assertNotNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey_renamed"));
+    }
+
+    @Test
+    public void testDropColumn()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                .column("orderkey", BIGINT)
+                .column("price", BIGINT)));
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+
+        ColumnHandle lastColumn = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
+        metadata.dropColumn(SESSION, raptorTableHandle, lastColumn);
+        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
+    }
+
+    @Test
+    public void testDropColumnDisallowed()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        Map<String, Object> properties = ImmutableMap.of(
+                BUCKET_COUNT_PROPERTY, 16,
+                BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey"),
+                ORDERING_PROPERTY, ImmutableList.of("totalprice"),
+                TEMPORAL_COLUMN_PROPERTY, "orderdate");
+        ConnectorTableMetadata ordersTable = buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                .column("orderkey", BIGINT)
+                .column("totalprice", DOUBLE)
+                .column("orderdate", DATE)
+                .column("highestid", BIGINT));
+        metadata.createTable(SESSION, ordersTable);
+
+        ConnectorTableHandle ordersTableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(ordersTableHandle, RaptorTableHandle.class);
+        RaptorTableHandle ordersRaptorTableHandle = (RaptorTableHandle) ordersTableHandle;
+        assertEquals(ordersRaptorTableHandle.getTableId(), 1);
+
+        assertInstanceOf(ordersRaptorTableHandle, RaptorTableHandle.class);
+
+        // disallow dropping bucket, sort, temporal and highest-id columns
+        ColumnHandle bucketColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderkey");
+        assertThrows("Cannot drop bucket columns", () ->
+                metadata.dropColumn(SESSION, ordersTableHandle, bucketColumn));
+
+        ColumnHandle sortColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("totalprice");
+        assertThrows("Cannot drop sort columns", () ->
+                metadata.dropColumn(SESSION, ordersTableHandle, sortColumn));
+
+        ColumnHandle temporalColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderdate");
+        assertThrows("Cannot drop the temporal column", () ->
+                metadata.dropColumn(SESSION, ordersTableHandle, temporalColumn));
+
+        ColumnHandle highestColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("highestid");
+        assertThrows("Cannot drop the column which has the largest column ID in the table", () ->
+                metadata.dropColumn(SESSION, ordersTableHandle, highestColumn));
     }
 
     @Test
@@ -838,6 +895,17 @@ public class TestRaptorMetadata
         assertEquals(actual.size(), expected.size());
         for (int i = 0; i < actual.size(); i++) {
             assertTableColumnEqual(actual.get(i), expected.get(i));
+        }
+    }
+
+    private static void assertThrows(String message, ThrowingRunnable runnable)
+    {
+        try {
+            runnable.run();
+            fail("expected exception");
+        }
+        catch (Throwable t) {
+            assertEquals(t.getMessage(), message);
         }
     }
 }

@@ -30,7 +30,6 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -83,6 +82,7 @@ class ContinuousTaskStatusFetcher
             Executor executor,
             HttpClient httpClient,
             Duration minErrorDuration,
+            Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats)
     {
@@ -98,7 +98,7 @@ class ContinuousTaskStatusFetcher
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
-        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), minErrorDuration, errorScheduledExecutor, "getting task status");
+        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), minErrorDuration, maxErrorDuration, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
     }
 
@@ -248,11 +248,6 @@ class ContinuousTaskStatusFetcher
     public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
         taskStatus.addStateChangeListener(stateChangeListener);
-    }
-
-    public CompletableFuture<TaskStatus> getStateChange(TaskStatus taskStatus)
-    {
-        return this.taskStatus.getStateChange(taskStatus);
     }
 
     private void updateStats(long currentRequestStartNanos)

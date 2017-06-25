@@ -25,9 +25,11 @@ import com.facebook.presto.spi.security.Privilege;
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
@@ -40,6 +42,7 @@ public class LegacyAccessControl
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
     private final boolean allowAddColumn;
+    private final boolean allowDropColumn;
     private final boolean allowRenameColumn;
 
     @Inject
@@ -53,6 +56,7 @@ public class LegacyAccessControl
         allowDropTable = securityConfig.getAllowDropTable();
         allowRenameTable = securityConfig.getAllowRenameTable();
         allowAddColumn = securityConfig.getAllowAddColumn();
+        allowDropColumn = securityConfig.getAllowDropColumn();
         allowRenameColumn = securityConfig.getAllowRenameColumn();
     }
 
@@ -69,6 +73,17 @@ public class LegacyAccessControl
     @Override
     public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
     {
+    }
+
+    @Override
+    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
+    {
+    }
+
+    @Override
+    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> schemaNames)
+    {
+        return schemaNames;
     }
 
     @Override
@@ -103,10 +118,29 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+    }
+
+    @Override
+    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
+    {
+        return tableNames;
+    }
+
+    @Override
     public void checkCanAddColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!allowAddColumn) {
             denyAddColumn(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        if (!allowDropColumn) {
+            denyDropColumn(tableName.toString());
         }
     }
 
@@ -164,12 +198,12 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
     }
 }

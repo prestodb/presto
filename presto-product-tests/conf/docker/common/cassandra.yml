@@ -3,8 +3,9 @@ services:
 
   cassandra:
     hostname: cassandra
-    image: 'cassandra:2.1.15'
+    image: 'cassandra:3.9'
     ports:
       - '9042:9042'
-      - '9160:9160'
-
+    environment:
+        - HEAP_NEWSIZE=128M
+        - MAX_HEAP_SIZE=512M

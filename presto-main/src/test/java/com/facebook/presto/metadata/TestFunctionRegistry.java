@@ -45,7 +45,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;

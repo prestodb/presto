@@ -52,6 +52,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Implementation of {@link AccumuloRowSerializer} that uses Accumulo lexicoders to serialize the values of the Presto columns.
@@ -192,7 +194,7 @@ public class LexicoderRowSerializer
     @Override
     public Date getDate(String name)
     {
-        return new Date(decode(BIGINT, getFieldValue(name)));
+        return new Date(DAYS.toMillis(decode(BIGINT, getFieldValue(name))));
     }
 
     @Override
@@ -340,7 +342,7 @@ public class LexicoderRowSerializer
             toEncode = ((Integer) value).longValue();
         }
         else if (type.equals(DATE) && value instanceof Date) {
-            toEncode = ((Date) value).getTime();
+            toEncode = MILLISECONDS.toDays(((Date) value).getTime());
         }
         else if (type.equals(INTEGER) && value instanceof Integer) {
             toEncode = ((Integer) value).longValue();

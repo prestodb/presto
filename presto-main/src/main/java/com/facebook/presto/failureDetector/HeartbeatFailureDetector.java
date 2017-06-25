@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.failureDetector;
 
+import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.server.InternalCommunicationConfig;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.util.Failures;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -31,12 +36,15 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Managed;
 
+import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -52,9 +60,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.facebook.presto.failureDetector.FailureDetector.State.ALIVE;
+import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
+import static com.facebook.presto.failureDetector.FailureDetector.State.UNKNOWN;
+import static com.facebook.presto.failureDetector.FailureDetector.State.UNRESPONSIVE;
+import static com.facebook.presto.spi.HostAddress.fromUri;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.Request.Builder.prepareHead;
 import static java.util.Objects.requireNonNull;
@@ -79,6 +92,7 @@ public class HeartbeatFailureDetector
     private final boolean isEnabled;
     private final Duration warmupInterval;
     private final Duration gcGraceInterval;
+    private final boolean httpsRequired;
 
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -86,25 +100,28 @@ public class HeartbeatFailureDetector
     public HeartbeatFailureDetector(
             @ServiceType("presto") ServiceSelector selector,
             @ForFailureDetector HttpClient httpClient,
-            FailureDetectorConfig config,
-            NodeInfo nodeInfo)
+            FailureDetectorConfig failureDetectorConfig,
+            NodeInfo nodeInfo,
+            InternalCommunicationConfig internalCommunicationConfig)
     {
         requireNonNull(selector, "selector is null");
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(nodeInfo, "nodeInfo is null");
-        requireNonNull(config, "config is null");
-        checkArgument(config.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
+        requireNonNull(failureDetectorConfig, "config is null");
+        checkArgument(failureDetectorConfig.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
 
         this.selector = selector;
         this.httpClient = httpClient;
         this.nodeInfo = nodeInfo;
 
-        this.failureRatioThreshold = config.getFailureRatioThreshold();
-        this.heartbeat = config.getHeartbeatInterval();
-        this.warmupInterval = config.getWarmupInterval();
-        this.gcGraceInterval = config.getExpirationGraceInterval();
+        this.failureRatioThreshold = failureDetectorConfig.getFailureRatioThreshold();
+        this.heartbeat = failureDetectorConfig.getHeartbeatInterval();
+        this.warmupInterval = failureDetectorConfig.getWarmupInterval();
+        this.gcGraceInterval = failureDetectorConfig.getExpirationGraceInterval();
 
-        this.isEnabled = config.isEnabled();
+        this.isEnabled = failureDetectorConfig.isEnabled();
+
+        this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
     }
 
     @PostConstruct
@@ -141,6 +158,31 @@ public class HeartbeatFailureDetector
                 .filter(MonitoringTask::isFailed)
                 .map(MonitoringTask::getService)
                 .collect(toImmutableSet());
+    }
+
+    @Override
+    public State getState(HostAddress hostAddress)
+    {
+        for (MonitoringTask task : tasks.values()) {
+            if (hostAddress.equals(fromUri(task.uri))) {
+                if (!task.isFailed()) {
+                    return ALIVE;
+                }
+
+                Exception lastFailureException = task.getStats().getLastFailureException();
+                if (lastFailureException instanceof ConnectException) {
+                    return GONE;
+                }
+                if (lastFailureException instanceof SocketTimeoutException) {
+                    // TODO: distinguish between process unresponsiveness (e.g GC pause) and host reboot
+                    return UNRESPONSIVE;
+                }
+
+                return UNKNOWN;
+            }
+        }
+
+        return UNKNOWN;
     }
 
     @Managed(description = "Number of failed services")
@@ -217,18 +259,16 @@ public class HeartbeatFailureDetector
         }
     }
 
-    private static URI getHttpUri(ServiceDescriptor service)
+    private URI getHttpUri(ServiceDescriptor descriptor)
     {
-        try {
-            String uri = service.getProperties().get("http");
-            if (uri != null) {
-                return new URI(uri);
+        String url = descriptor.getProperties().get(httpsRequired ? "https" : "http");
+        if (url != null) {
+            try {
+                return new URI(url);
+            }
+            catch (URISyntaxException ignored) {
             }
         }
-        catch (URISyntaxException e) {
-            // ignore, not a valid http uri
-        }
-
         return null;
     }
 
@@ -361,6 +401,7 @@ public class HeartbeatFailureDetector
         private final DecayCounter recentSuccesses = new DecayCounter(ExponentialDecay.oneMinute());
         private final AtomicReference<DateTime> lastRequestTime = new AtomicReference<>();
         private final AtomicReference<DateTime> lastResponseTime = new AtomicReference<>();
+        private final AtomicReference<Exception> lastFailureException = new AtomicReference<>();
 
         @GuardedBy("this")
         private final Map<Class<? extends Throwable>, DecayCounter> failureCountByType = new HashMap<>();
@@ -386,6 +427,7 @@ public class HeartbeatFailureDetector
         {
             recentFailures.add(1);
             lastResponseTime.set(new DateTime());
+            lastFailureException.set(exception);
 
             Throwable cause = exception;
             while (cause.getClass() == RuntimeException.class && cause.getCause() != null) {
@@ -448,6 +490,23 @@ public class HeartbeatFailureDetector
         public DateTime getLastResponseTime()
         {
             return lastResponseTime.get();
+        }
+
+        @JsonIgnore
+        public Exception getLastFailureException()
+        {
+            return lastFailureException.get();
+        }
+
+        @Nullable
+        @JsonProperty
+        public FailureInfo getLastFailureInfo()
+        {
+            Exception lastFailureException = getLastFailureException();
+            if (lastFailureException == null) {
+                return null;
+            }
+            return Failures.toFailure(lastFailureException).toFailureInfo();
         }
 
         @JsonProperty

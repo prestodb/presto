@@ -14,9 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveType;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
 import java.util.List;
 import java.util.Map;
@@ -31,6 +28,10 @@ public interface ExtendedHiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
+    Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
+
+    Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames);
+
     Optional<List<String>> getAllTables(String databaseName);
 
     Optional<List<String>> getAllViews(String databaseName);
@@ -41,7 +42,7 @@ public interface ExtendedHiveMetastore
 
     void renameDatabase(String databaseName, String newDatabaseName);
 
-    void createTable(Table table, PrincipalPrivilegeSet principalPrivilegeSet);
+    void createTable(Table table, PrincipalPrivileges principalPrivileges);
 
     void dropTable(String databaseName, String tableName, boolean deleteData);
 
@@ -50,13 +51,15 @@ public interface ExtendedHiveMetastore
      * alter one field of a table object previously acquired from getTable is
      * probably not what you want.
      */
-    void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivilegeSet principalPrivilegeSet);
+    void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
 
     void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName);
 
     void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
 
     void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName);
+
+    void dropColumn(String databaseName, String tableName, String columnName);
 
     Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
 
@@ -83,7 +86,7 @@ public interface ExtendedHiveMetastore
 
     Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName);
 
-    void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet);
+    void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges);
 
-    void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet);
+    void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges);
 }

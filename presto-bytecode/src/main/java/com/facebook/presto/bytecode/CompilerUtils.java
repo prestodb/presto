@@ -55,9 +55,9 @@ public final class CompilerUtils
 
     public static ParameterizedType makeClassName(String baseName)
     {
-        String className = "com.facebook.presto.$gen." + baseName + "_" + CLASS_ID.incrementAndGet();
+        String className = baseName + "_" + CLASS_ID.incrementAndGet();
         String javaClassName = toJavaIdentifierString(className);
-        return ParameterizedType.typeFromJavaClassName(javaClassName);
+        return ParameterizedType.typeFromJavaClassName("com.facebook.presto.$gen." + javaClassName);
     }
 
     public static String toJavaIdentifierString(String className)
@@ -69,6 +69,7 @@ public final class CompilerUtils
 
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
     {
+        log.debug("Defining class: %s", classDefinition.getName());
         Class<?> clazz = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next();
         return clazz.asSubclass(superType);
     }
@@ -98,7 +99,7 @@ public final class CompilerUtils
             try {
                 classDefinition.visit(ADD_FAKE_LINE_NUMBER ? new AddFakeLineNumberClassVisitor(cw) : cw);
             }
-            catch (IndexOutOfBoundsException e) {
+            catch (IndexOutOfBoundsException | NegativeArraySizeException e) {
                 Printer printer = new Textifier();
                 StringWriter stringWriter = new StringWriter();
                 TraceClassVisitor tcv = new TraceClassVisitor(null, printer, new PrintWriter(stringWriter));

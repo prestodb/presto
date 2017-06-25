@@ -13,12 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
-import com.facebook.presto.hive.metastore.ThriftHiveMetastore;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -36,12 +31,14 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import io.airlift.event.client.EventClient;
 
 import javax.inject.Singleton;
 
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -54,15 +51,13 @@ public class HiveClientModule
         implements Module
 {
     private final String connectorId;
-    private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeManager nodeManager;
 
-    public HiveClientModule(String connectorId, ExtendedHiveMetastore metastore, TypeManager typeManager, PageIndexerFactory pageIndexerFactory, NodeManager nodeManager)
+    public HiveClientModule(String connectorId, TypeManager typeManager, PageIndexerFactory pageIndexerFactory, NodeManager nodeManager)
     {
         this.connectorId = connectorId;
-        this.metastore = metastore;
         this.typeManager = typeManager;
         this.pageIndexerFactory = pageIndexerFactory;
         this.nodeManager = nodeManager;
@@ -80,25 +75,13 @@ public class HiveClientModule
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(DirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveClientConfig.class);
+        configBinder(binder).bindConfig(HiveS3Config.class);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
 
-        if (metastore != null) {
-            binder.bind(ExtendedHiveMetastore.class).toInstance(metastore);
-        }
-        else {
-            binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
-            binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(BridgingHiveMetastore.class).in(Scopes.SINGLETON);
-            binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(HiveMetastore.class)
-                    .as(generatedNameOf(ThriftHiveMetastore.class, connectorId));
-            newExporter(binder).export(ExtendedHiveMetastore.class)
-                    .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
-        }
-
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
+        newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class, connectorId));
 
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
@@ -108,12 +91,11 @@ public class HiveClientModule
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(PageIndexerFactory.class).toInstance(pageIndexerFactory);
 
-        Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = Multibinder.newSetBinder(binder, HiveRecordCursorProvider.class);
+        Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = newSetBinder(binder, HiveRecordCursorProvider.class);
         recordCursorProviderBinder.addBinding().to(ParquetRecordCursorProvider.class).in(Scopes.SINGLETON);
-        recordCursorProviderBinder.addBinding().to(ColumnarTextHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
-        recordCursorProviderBinder.addBinding().to(ColumnarBinaryHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
 
+        newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(TableParameterCodec.class).in(Scopes.SINGLETON);
@@ -126,11 +108,17 @@ public class HiveClientModule
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
 
-        Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = Multibinder.newSetBinder(binder, HivePageSourceFactory.class);
+        binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FileFormatDataSourceStats.class).as(generatedNameOf(FileFormatDataSourceStats.class, connectorId));
+
+        Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(DwrfPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(ParquetPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
+
+        Multibinder<HiveFileWriterFactory> fileWriterFactoryBinder = newSetBinder(binder, HiveFileWriterFactory.class);
+        fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());
         newExporter(binder).export(PrestoS3FileSystemStats.class).as(generatedNameOf(PrestoS3FileSystem.class, connectorId));

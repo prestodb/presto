@@ -33,7 +33,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -46,6 +48,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.statistics.TableStatistics.EMPTY_STATISTICS;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
@@ -126,6 +129,14 @@ public interface ConnectorMetadata
     Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
 
     /**
+     * Get statistics for table for given filtering constraint.
+     */
+    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    {
+        return EMPTY_STATISTICS;
+    }
+
+    /**
      * Creates a schema.
      */
     default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
@@ -194,6 +205,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop the specified column
+     */
+    default void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns");
+    }
+
+    /**
      * Get the physical layout for a new table.
      */
     default Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
@@ -246,6 +265,17 @@ public interface ConnectorMetadata
     {
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginCreateTable() is implemented without finishCreateTable()");
     }
+
+    /**
+     * Start a SELECT/UPDATE/INSERT/DELETE query. This notification is triggered after the planning phase completes.
+     */
+    default void beginQuery(ConnectorSession session) {}
+
+    /**
+     * Cleanup after a SELECT/UPDATE/INSERT/DELETE query. This is the very last notification after the query finishes, whether it succeeds or fails.
+     * An exception thrown in this method will not affect the result of the query.
+     */
+    default void cleanupQuery(ConnectorSession session) {}
 
     /**
      * Begin insert query
@@ -363,6 +393,14 @@ public interface ConnectorMetadata
     default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes");
+    }
+
+    /**
+     * List the table privileges granted to the specified grantee for the tables that have the specified prefix
+     */
+    default List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return emptyList();
     }
 
     /**

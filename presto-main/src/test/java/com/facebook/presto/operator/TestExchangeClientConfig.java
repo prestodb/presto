@@ -36,6 +36,7 @@ public class TestExchangeClientConfig
                 .setMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setConcurrentRequestMultiplier(3)
                 .setMinErrorDuration(new Duration(1, TimeUnit.MINUTES))
+                .setMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
                 .setClientThreads(25));
     }
@@ -47,6 +48,7 @@ public class TestExchangeClientConfig
                 .put("exchange.max-buffer-size", "1GB")
                 .put("exchange.concurrent-request-multiplier", "13")
                 .put("exchange.min-error-duration", "13s")
+                .put("exchange.max-error-duration", "33s")
                 .put("exchange.max-response-size", "1MB")
                 .put("exchange.client-threads", "2")
                 .build();
@@ -55,6 +57,7 @@ public class TestExchangeClientConfig
                 .setMaxBufferSize(new DataSize(1, Unit.GIGABYTE))
                 .setConcurrentRequestMultiplier(13)
                 .setMinErrorDuration(new Duration(13, TimeUnit.SECONDS))
+                .setMaxErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxResponseSize(new DataSize(1, Unit.MEGABYTE))
                 .setClientThreads(2);
 

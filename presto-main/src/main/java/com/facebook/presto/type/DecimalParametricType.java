@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeParameter;
 
 import java.util.List;
@@ -34,7 +34,7 @@ public class DecimalParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         switch (parameters.size()) {
             case 0:

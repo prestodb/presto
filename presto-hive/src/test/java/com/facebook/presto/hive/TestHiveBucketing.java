@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -49,8 +48,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
-import static com.facebook.presto.hive.util.Types.checkType;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
@@ -65,8 +64,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHiveBucketing
 {
-    private static final TypeRegistry typeRegistry = new TypeRegistry();
-
     @Test
     public void testHashingBooleanLong()
             throws Exception
@@ -219,7 +216,7 @@ public class TestHiveBucketing
         ImmutableList.Builder<Block> blockListBuilder = ImmutableList.builder();
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
             Object javaValue = javaValues.get(i);
-            Type type = hiveTypes.get(i).getType(typeRegistry);
+            Type type = hiveTypes.get(i).getType(TYPE_MANAGER);
 
             BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function
@@ -254,7 +251,7 @@ public class TestHiveBucketing
         }
 
         ObjectInspector udfInspector = udf.initialize(objectInspectors);
-        IntObjectInspector inspector = checkType(udfInspector, IntObjectInspector.class, "udfInspector");
+        IntObjectInspector inspector = (IntObjectInspector) udfInspector;
 
         Object result = udf.evaluate(deferredObjects);
         HiveKey hiveKey = new HiveKey();

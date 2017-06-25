@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.List;
+
 public abstract class JoinCriteria
 {
     // Force subclasses to have a proper equals and hashcode implementation
@@ -24,4 +26,6 @@ public abstract class JoinCriteria
 
     @Override
     public abstract String toString();
+
+    public abstract List<Node> getNodes();
 }

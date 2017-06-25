@@ -23,7 +23,6 @@ import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Strings.padEnd;
 import static java.util.Optional.empty;
-import static java.util.Optional.of;
 
 public class DataType<T>
 {
@@ -39,7 +38,7 @@ public class DataType<T>
 
     public static DataType<String> varcharDataType(int size, String properties)
     {
-        return varcharDataType(of(size), properties);
+        return varcharDataType(Optional.of(size), properties);
     }
 
     public static DataType<String> varcharDataType()

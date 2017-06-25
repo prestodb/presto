@@ -71,6 +71,11 @@ public final class WindowPartition
         updatePeerGroup();
     }
 
+    public int getPartitionStart()
+    {
+        return partitionStart;
+    }
+
     public int getPartitionEnd()
     {
         return partitionEnd;
@@ -104,8 +109,8 @@ public final class WindowPartition
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
-                    range.start,
-                    range.end);
+                    range.getStart(),
+                    range.getEnd());
             channel++;
         }
 
@@ -149,6 +154,11 @@ public final class WindowPartition
         int rowPosition = currentPosition - partitionStart;
         int endPosition = partitionEnd - partitionStart - 1;
 
+        // handle empty frame
+        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
+            return new Range(-1, -1);
+        }
+
         int frameStart;
         int frameEnd;
 
@@ -184,12 +194,6 @@ public final class WindowPartition
         }
         else {
             frameEnd = rowPosition;
-        }
-
-        // handle empty frame
-        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
-            frameStart = -1;
-            frameEnd = -1;
         }
 
         return new Range(frameStart, frameEnd);

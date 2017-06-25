@@ -14,21 +14,41 @@
 package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.RcFileCorruptionException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import io.airlift.slice.SliceOutput;
 
 public class ListEncoding
         extends BlockEncoding
 {
-    private final Slice nullSequence = Slices.utf8Slice("\\N");
-    private final TextColumnEncoding elementReader;
+    private final TextColumnEncoding elementEncoding;
 
-    public ListEncoding(Type type, Slice nullSequence, byte[] separators, Byte escapeByte, TextColumnEncoding elementReader)
+    public ListEncoding(Type type, Slice nullSequence, byte[] separators, Byte escapeByte, TextColumnEncoding elementEncoding)
     {
         super(type, nullSequence, separators, escapeByte);
-        this.elementReader = elementReader;
+        this.elementEncoding = elementEncoding;
+    }
+
+    @Override
+    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+            throws RcFileCorruptionException
+    {
+        byte separator = getSeparator(depth);
+
+        Block list = block.getObject(position, Block.class);
+        for (int elementIndex = 0; elementIndex < list.getPositionCount(); elementIndex++) {
+            if (elementIndex > 0) {
+                output.writeByte(separator);
+            }
+            if (list.isNull(elementIndex)) {
+                output.writeBytes(nullSequence);
+            }
+            else {
+                elementEncoding.encodeValueInto(depth + 1, list, elementIndex, output);
+            }
+        }
     }
 
     @Override
@@ -65,7 +85,7 @@ public class ListEncoding
             blockBuilder.appendNull();
         }
         else {
-            elementReader.decodeValueInto(depth + 1, blockBuilder, slice, offset, length);
+            elementEncoding.decodeValueInto(depth + 1, blockBuilder, slice, offset, length);
         }
     }
 }

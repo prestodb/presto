@@ -23,13 +23,12 @@ import com.facebook.presto.operator.aggregation.state.ArrayAggregationStateFacto
 import com.facebook.presto.operator.aggregation.state.ArrayAggregationStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -42,8 +41,8 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ArrayAggregationFunction
         extends SqlAggregationFunction
@@ -119,7 +118,7 @@ public class ArrayAggregationFunction
     {
         BlockBuilder blockBuilder = state.getBlockBuilder();
         if (blockBuilder == null) {
-            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 4);
+            blockBuilder = type.createBlockBuilder(null, 4);
             state.setBlockBuilder(blockBuilder);
         }
         long startSize = blockBuilder.getRetainedSizeInBytes();

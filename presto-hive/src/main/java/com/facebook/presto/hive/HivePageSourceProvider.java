@@ -42,7 +42,6 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.extractRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -79,10 +78,10 @@ public class HivePageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         List<HiveColumnHandle> hiveColumns = columns.stream()
-                .map(HiveColumnHandle::toHiveColumnHandle)
+                .map(HiveColumnHandle.class::cast)
                 .collect(toList());
 
-        HiveSplit hiveSplit = checkType(split, HiveSplit.class, "split");
+        HiveSplit hiveSplit = (HiveSplit) split;
         Path path = new Path(hiveSplit.getPath());
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
@@ -95,6 +94,7 @@ public class HivePageSourceProvider
                 hiveSplit.getBucketNumber(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
+                hiveSplit.getFileSize(),
                 hiveSplit.getSchema(),
                 hiveSplit.getEffectivePredicate(),
                 hiveColumns,
@@ -118,6 +118,7 @@ public class HivePageSourceProvider
             OptionalInt bucketNumber,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> hiveColumns,
@@ -136,6 +137,7 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
                     extractRegularColumnHandles(regularColumnMappings, true),
                     effectivePredicate,
@@ -162,6 +164,7 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
                     extractRegularColumnHandles(regularColumnMappings, doCoercion),
                     effectivePredicate,

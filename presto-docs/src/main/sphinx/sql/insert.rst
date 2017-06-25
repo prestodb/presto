@@ -42,10 +42,10 @@ Insert a single row into the ``nation`` table with the specified column list::
     INSERT INTO nation (nationkey, name, regionkey, comment)
     VALUES (26, 'POLAND', 3, 'no comment');
 
-Insert a row without specifying the ``comment`` column. 
+Insert a row without specifying the ``comment`` column.
 That column will be ``null``::
 
-    INSERT INTO nation (nationkey, name, regionkey) 
+    INSERT INTO nation (nationkey, name, regionkey)
     VALUES (26, 'POLAND', 3);
 
 See Also

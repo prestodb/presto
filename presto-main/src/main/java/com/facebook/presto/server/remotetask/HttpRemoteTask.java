@@ -63,7 +63,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
@@ -80,17 +79,17 @@ import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.failWith;
 import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError;
 import static com.facebook.presto.util.Failures.toFailure;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -163,6 +162,7 @@ public final class HttpRemoteTask
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorScheduledExecutor,
             Duration minErrorDuration,
+            Duration maxErrorDuration,
             Duration taskStatusRefreshMaxWait,
             Duration taskInfoUpdateInterval,
             boolean summarizeTaskInfo,
@@ -198,7 +198,7 @@ public final class HttpRemoteTask
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-            this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor, "updating task");
+            this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.stats = stats;
 
@@ -226,6 +226,7 @@ public final class HttpRemoteTask
                     executor,
                     httpClient,
                     minErrorDuration,
+                    maxErrorDuration,
                     errorScheduledExecutor,
                     stats);
 
@@ -236,6 +237,7 @@ public final class HttpRemoteTask
                     taskInfoUpdateInterval,
                     taskInfoCodec,
                     minErrorDuration,
+                    maxErrorDuration,
                     summarizeTaskInfo,
                     executor,
                     updateScheduledExecutor,
@@ -386,7 +388,7 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized CompletableFuture<?> whenSplitQueueHasSpace(int threshold)
+    public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
     {
         if (whenSplitQueueHasSpaceThreshold.isPresent()) {
             checkArgument(threshold == whenSplitQueueHasSpaceThreshold.getAsInt(), "Multiple split queue space notification thresholds not supported");
@@ -396,7 +398,7 @@ public final class HttpRemoteTask
             updateSplitQueueSpace();
         }
         if (splitQueueHasSpace) {
-            return completedFuture(null);
+            return immediateFuture(null);
         }
         return whenSplitQueueHasSpace.createNewListener();
     }
@@ -539,7 +541,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "cancel");
+            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cancel");
         }
     }
 
@@ -570,7 +572,7 @@ public final class HttpRemoteTask
                 .setUri(uriBuilder.build())
                 .build();
 
-        scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "cleanup");
+        scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cleanup");
     }
 
     @Override
@@ -595,7 +597,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "abort");
+            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "abort");
         }
     }
 
@@ -616,27 +618,30 @@ public final class HttpRemoteTask
             @Override
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
-                updateTaskInfo(result.getValue());
+                try {
+                    updateTaskInfo(result.getValue());
+                }
+                finally {
+                    if (!getTaskInfo().getTaskStatus().getState().isDone()) {
+                        cleanUpLocally();
+                    }
+                }
             }
 
             @Override
             public void onFailure(Throwable t)
             {
                 if (t instanceof RejectedExecutionException) {
-                    // client has been shutdown
+                    // TODO: we should only give up retrying when the client has been shutdown
+                    logError(t, "Unable to %s task at %s. Got RejectedExecutionException.", action, request.getUri());
+                    cleanUpLocally();
                     return;
                 }
 
                 // record failure
                 if (cleanupBackoff.failure()) {
-                    logError(t, "Unable to %s task at %s", action, request.getUri());
-                    // Update the taskInfo with the new taskStatus.
-                    // This is required because the query state machine depends on TaskInfo (instead of task status)
-                    // to transition its own state.
-                    // Also, since this TaskInfo is updated in the client the "finalInfo" flag will not be set,
-                    // indicating that the stats are stale.
-                    // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
-                    updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
+                    logError(t, "Unable to %s task at %s. Back off depleted.", action, request.getUri());
+                    cleanUpLocally();
                     return;
                 }
 
@@ -648,6 +653,27 @@ public final class HttpRemoteTask
                 else {
                     errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
                 }
+            }
+
+            private void cleanUpLocally()
+            {
+                // Update the taskInfo with the new taskStatus.
+
+                // Generally, we send a cleanup request to the worker, and update the TaskInfo on
+                // the coordinator based on what we fetched from the worker. If we somehow cannot
+                // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
+                // likely will not say the task is done however many times we try. In this case,
+                // we have to set the local query info directly so that we stop trying to fetch
+                // updated TaskInfo from the worker. This way, the task on the worker eventually
+                // expires due to lack of activity.
+
+                // This is required because the query state machine depends on TaskInfo (instead of task status)
+                // to transition its own state.
+                // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
+
+                // Since this TaskInfo is updated in the client the "complete" flag will not be set,
+                // indicating that the stats may not reflect the final stats on the worker.
+                updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
             }
         }, executor);
     }

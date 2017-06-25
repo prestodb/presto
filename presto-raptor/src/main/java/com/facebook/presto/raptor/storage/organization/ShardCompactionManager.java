@@ -25,7 +25,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -33,6 +32,7 @@ import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -167,7 +167,7 @@ public class ShardCompactionManager
 
         for (Entry<Long, List<ShardMetadata>> entry : Multimaps.asMap(tableShards).entrySet()) {
             long tableId = entry.getKey();
-            if (!metadataDao.isCompactionEnabled(tableId)) {
+            if (!metadataDao.isCompactionEligible(tableId)) {
                 continue;
             }
             List<ShardMetadata> shards = entry.getValue();

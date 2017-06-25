@@ -248,20 +248,6 @@ public final class RealOperators
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.BIGINT)
-    public static long saturatedFloorCastToBigint(@SqlType(StandardTypes.REAL) long value)
-    {
-        return saturatedFloorCastToLong(value, Long.MIN_VALUE, MIN_LONG_AS_FLOAT, Long.MAX_VALUE, MAX_LONG_PLUS_ONE_AS_FLOAT);
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.INTEGER)
-    public static long saturatedFloorCastToInteger(@SqlType(StandardTypes.REAL) long value)
-    {
-        return saturatedFloorCastToLong(value, Integer.MIN_VALUE, MIN_INTEGER_AS_FLOAT, Integer.MAX_VALUE, MAX_INTEGER_PLUS_ONE_AS_FLOAT);
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
     @SqlType(StandardTypes.SMALLINT)
     public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.REAL) long value)
     {

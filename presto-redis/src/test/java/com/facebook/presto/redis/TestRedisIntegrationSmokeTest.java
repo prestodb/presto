@@ -18,11 +18,8 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static com.facebook.presto.redis.RedisQueryRunner.createRedisQueryRunner;
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.tpch.TpchTable.ORDERS;
 
 @Test
@@ -40,14 +37,13 @@ public class TestRedisIntegrationSmokeTest
     public TestRedisIntegrationSmokeTest(EmbeddedRedis embeddedRedis)
             throws Exception
     {
-        super(createRedisQueryRunner(embeddedRedis, "string", ORDERS));
+        super(() -> createRedisQueryRunner(embeddedRedis, "string", ORDERS));
         this.embeddedRedis = embeddedRedis;
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
-            throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedRedis);
+        embeddedRedis.close();
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.server.JavaVersion;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.Sets;
 import org.joda.time.DateTime;
@@ -45,6 +46,12 @@ public class TestTimeZoneUtils
             if (zoneId.toLowerCase(ENGLISH).startsWith("etc/") || zoneId.toLowerCase(ENGLISH).startsWith("gmt")) {
                 continue;
             }
+            // Known bug in Joda(https://github.com/JodaOrg/joda-time/issues/427)
+            // We will skip this timezone in test
+            if (JavaVersion.current().getMajor() == 8 && JavaVersion.current().getUpdate().orElse(0) < 121 && zoneId.equals("Asia/Rangoon")) {
+                continue;
+            }
+
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
 

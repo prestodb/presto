@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.162-SNAPSHOT</version>
+        <version>0.181-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-orc</artifactId>
@@ -47,6 +47,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>aircompressor</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
         </dependency>
@@ -54,11 +59,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.iq80.snappy</groupId>
-            <artifactId>snappy</artifactId>
         </dependency>
 
         <dependency>
@@ -112,19 +112,13 @@
 
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-cdh4</artifactId>
+            <artifactId>hadoop-apache2</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.hive</groupId>
             <artifactId>hive-dwrf</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf-shims</artifactId>
             <scope>test</scope>
         </dependency>
 

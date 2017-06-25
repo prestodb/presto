@@ -14,13 +14,13 @@
 package com.facebook.presto.tests.jdbc;
 
 import com.facebook.presto.jdbc.PrestoConnection;
-import com.facebook.presto.tests.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import com.teradata.tempto.BeforeTestWithContext;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
 import com.teradata.tempto.Requires;
 import com.teradata.tempto.configuration.Configuration;
+import com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import com.teradata.tempto.query.QueryResult;
 import io.airlift.log.Logger;
 import org.testng.annotations.Test;

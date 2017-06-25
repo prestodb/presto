@@ -31,9 +31,16 @@ public abstract class AbstractVariableWidthType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
+        int maxBlockSizeInBytes;
+        if (blockBuilderStatus == null) {
+            maxBlockSizeInBytes = BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
+        }
+        else {
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxBlockSizeInBytes();
+        }
         return new VariableWidthBlockBuilder(
                 blockBuilderStatus,
-                expectedBytesPerEntry == 0 ? expectedEntries : Math.min(expectedEntries, blockBuilderStatus.getMaxBlockSizeInBytes() / expectedBytesPerEntry),
+                expectedBytesPerEntry == 0 ? expectedEntries : Math.min(expectedEntries, maxBlockSizeInBytes / expectedBytesPerEntry),
                 expectedBytesPerEntry);
     }
 

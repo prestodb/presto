@@ -63,6 +63,12 @@ public final class SimpleGroupBy
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return columns;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

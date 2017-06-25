@@ -37,8 +37,14 @@ public class UnionNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitUnion(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new UnionNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols());
     }
 }

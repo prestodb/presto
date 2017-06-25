@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -51,6 +52,7 @@ import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
@@ -59,6 +61,7 @@ import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
@@ -78,11 +81,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.SortedMap;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
+import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
+import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -94,8 +102,8 @@ import static com.facebook.presto.sql.QueryUtil.ascending;
 import static com.facebook.presto.sql.QueryUtil.caseWhen;
 import static com.facebook.presto.sql.QueryUtil.equal;
 import static com.facebook.presto.sql.QueryUtil.functionCall;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.logicalAnd;
-import static com.facebook.presto.sql.QueryUtil.nameReference;
 import static com.facebook.presto.sql.QueryUtil.ordering;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectAll;
@@ -115,9 +123,8 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -136,7 +143,7 @@ final class ShowQueriesRewrite
             List<Expression> parameters,
             AccessControl accessControl)
     {
-        return (Statement) new Visitor(metadata, parser, session, parameters).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, parameters, accessControl, queryExplainer).process(node, null);
     }
 
     private static class Visitor
@@ -146,13 +153,18 @@ final class ShowQueriesRewrite
         private final Session session;
         private final SqlParser sqlParser;
         List<Expression> parameters;
+        private final AccessControl accessControl;
+        private Optional<QueryExplainer> queryExplainer;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl, Optional<QueryExplainer> queryExplainer)
+
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
+            this.accessControl = requireNonNull(accessControl, "accessControl is null");
+            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         }
 
         @Override
@@ -162,6 +174,7 @@ final class ShowQueriesRewrite
             return new Explain(
                     node.getLocation().get(),
                     node.isAnalyze(),
+                    node.isVerbose(),
                     statement,
                     node.getOptions());
         }
@@ -171,15 +184,17 @@ final class ShowQueriesRewrite
         {
             CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
 
+            accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), schema);
+
             if (!metadata.schemaExists(session, schema)) {
                 throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName());
             }
 
-            Expression predicate = equal(nameReference("table_schema"), new StringLiteral(schema.getSchemaName()));
+            Expression predicate = equal(identifier("table_schema"), new StringLiteral(schema.getSchemaName()));
 
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
-                Expression likePredicate = new LikePredicate(nameReference("table_name"), new StringLiteral(likePattern.get()), null);
+                Expression likePredicate = new LikePredicate(identifier("table_name"), new StringLiteral(likePattern.get()), null);
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
@@ -191,43 +206,93 @@ final class ShowQueriesRewrite
         }
 
         @Override
+        protected Node visitShowGrants(ShowGrants showGrants, Void context)
+        {
+            String catalogName = session.getCatalog().orElse(null);
+            Optional<Expression> predicate = Optional.empty();
+
+            Optional<QualifiedName> tableName = showGrants.getTableName();
+            if (tableName.isPresent()) {
+                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
+
+                if (!metadata.getView(session, qualifiedTableName).isPresent() &&
+                        !metadata.getTableHandle(session, qualifiedTableName).isPresent()) {
+                    throw new SemanticException(MISSING_TABLE, showGrants, "Table '%s' does not exist", tableName);
+                }
+
+                catalogName = qualifiedTableName.getCatalogName();
+
+                accessControl.checkCanShowTablesMetadata(
+                        session.getRequiredTransactionId(),
+                        session.getIdentity(),
+                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
+
+                predicate = Optional.of(equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName())));
+            }
+
+            if (catalogName == null) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, showGrants, "Catalog must be specified when session catalog is not set");
+            }
+
+            Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
+            for (String schema : allowedSchemas) {
+                accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(catalogName, schema));
+            }
+
+            return simpleQuery(
+                    selectList(
+                            aliasedName("grantee", "Grantee"),
+                            aliasedName("table_catalog", "Catalog"),
+                            aliasedName("table_schema", "Schema"),
+                            aliasedName("table_name", "Table"),
+                            aliasedName("privilege_type", "Privilege"),
+                            aliasedName("is_grantable", "Grantable")),
+                    from(catalogName, TABLE_TABLE_PRIVILEGES),
+                    predicate,
+                    Optional.of(ordering(ascending("grantee"), ascending("table_name"))));
+        }
+
+        @Override
         protected Node visitShowSchemas(ShowSchemas node, Void context)
         {
             if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
+            String catalog = node.getCatalog().orElseGet(() -> session.getCatalog().get());
+            accessControl.checkCanShowSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(nameReference("schema_name"), new StringLiteral(likePattern.get()), null));
+                predicate = Optional.of(new LikePredicate(identifier("schema_name"), new StringLiteral(likePattern.get()), null));
             }
 
             return simpleQuery(
                     selectList(aliasedName("schema_name", "Schema")),
-                    from(node.getCatalog().orElseGet(() -> session.getCatalog().get()), TABLE_SCHEMATA),
+                    from(catalog, TABLE_SCHEMATA),
                     predicate,
-                    ordering(ascending("schema_name")));
+                    Optional.of(ordering(ascending("schema_name"))));
         }
 
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = metadata.getCatalogNames(session).keySet().stream()
+            List<Expression> rows = listCatalogs(session, metadata, accessControl).keySet().stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toList());
 
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(nameReference("Catalog"), new StringLiteral(likePattern.get()), null));
+                predicate = Optional.of(new LikePredicate(identifier("Catalog"), new StringLiteral(likePattern.get()), null));
             }
 
             return simpleQuery(
                     selectList(new AllColumns()),
                     aliased(new Values(rows), "catalogs", ImmutableList.of("Catalog")),
                     predicate,
-                    ordering(ascending("Catalog")));
+                    Optional.of(ordering(ascending("Catalog"))));
         }
 
         @Override
@@ -248,8 +313,8 @@ final class ShowQueriesRewrite
                             aliasedNullToEmpty("comment", "Comment")),
                     from(tableName.getCatalogName(), TABLE_COLUMNS),
                     logicalAnd(
-                            equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                            equal(nameReference("table_name"), new StringLiteral(tableName.getObjectName()))),
+                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
+                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
                     ordering(ascending("ordinal_position")));
         }
 
@@ -328,8 +393,8 @@ final class ShowQueriesRewrite
             selectList.add(unaliasedName("partition_number"));
             for (ColumnHandle columnHandle : partitionColumns) {
                 ColumnMetadata column = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
-                Expression key = equal(nameReference("partition_key"), new StringLiteral(column.getName()));
-                Expression value = caseWhen(key, nameReference("partition_value"));
+                Expression key = equal(identifier("partition_key"), new StringLiteral(column.getName()));
+                Expression value = caseWhen(key, identifier("partition_value"));
                 value = new Cast(value, column.getType().getTypeSignature().toString());
                 Expression function = functionCall("max", value);
                 selectList.add(new SingleColumn(function, column.getName()));
@@ -340,11 +405,11 @@ final class ShowQueriesRewrite
                     selectAll(selectList.build()),
                     from(table.getCatalogName(), TABLE_INTERNAL_PARTITIONS),
                     Optional.of(logicalAnd(
-                            equal(nameReference("table_schema"), new StringLiteral(table.getSchemaName())),
-                            equal(nameReference("table_name"), new StringLiteral(table.getObjectName())))),
-                    Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(nameReference("partition_number")))))),
+                            equal(identifier("table_schema"), new StringLiteral(table.getSchemaName())),
+                            equal(identifier("table_name"), new StringLiteral(table.getObjectName())))),
+                    Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(identifier("partition_number")))))),
                     Optional.empty(),
-                    ImmutableList.of(),
+                    Optional.empty(),
                     Optional.empty());
 
             return simpleQuery(
@@ -353,10 +418,10 @@ final class ShowQueriesRewrite
                     showPartitions.getWhere(),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableList.<SortItem>builder()
+                    Optional.of(new OrderBy(ImmutableList.<SortItem>builder()
                             .addAll(showPartitions.getOrderBy())
                             .add(ascending("partition_number"))
-                            .build(),
+                            .build())),
                     showPartitions.getLimit());
         }
 
@@ -421,7 +486,12 @@ final class ShowQueriesRewrite
                     sqlProperties.put(propertyName, sqlExpression);
                 }
 
-                CreateTable createTable = new CreateTable(QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()), columns, false, sqlProperties);
+                CreateTable createTable = new CreateTable(
+                        QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
+                        columns,
+                        false,
+                        sqlProperties,
+                        connectorTableMetadata.getComment());
                 return singleValueQuery("Create Table", formatSql(createTable, Optional.of(parameters)).trim());
             }
 
@@ -478,10 +548,12 @@ final class ShowQueriesRewrite
         }
 
         @Override
+
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session, metadata.getCatalogNames(session));
+            SortedMap<String, ConnectorId> catalogNames = listCatalogs(session, metadata, accessControl);
+            List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session, catalogNames);
             for (SessionPropertyValue sessionProperty : sessionProperties) {
                 if (sessionProperty.isHidden()) {
                     continue;
@@ -513,14 +585,14 @@ final class ShowQueriesRewrite
                             new Values(rows.build()),
                             "session",
                             ImmutableList.of("name", "value", "default", "type", "description", "include")),
-                    nameReference("include"));
+                    identifier("include"));
         }
 
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
                 Statement statement = sqlParser.createStatement(view);
-                return checkType(statement, Query.class, "parsed view");
+                return (Query) statement;
             }
             catch (ParsingException e) {
                 throw new SemanticException(VIEW_PARSE_ERROR, node, "Failed parsing stored view '%s': %s", name, e.getMessage());

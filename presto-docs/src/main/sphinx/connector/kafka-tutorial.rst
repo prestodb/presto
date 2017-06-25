@@ -192,8 +192,8 @@ actual table shape. The raw data is available through the ``_message`` and
 in JSON format, the :doc:`/functions/json` built into Presto can be used
 to slice the data.
 
-Step 5: Add a topic decription file
------------------------------------
+Step 5: Add a topic description file
+------------------------------------
 
 The Kafka connector supports topic description files to turn raw data into
 table format. These files are located in the ``etc/kafka`` folder in the

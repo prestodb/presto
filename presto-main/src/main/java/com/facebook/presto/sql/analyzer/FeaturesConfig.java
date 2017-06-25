@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
 
@@ -26,38 +28,35 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "resource-group-manager",
         "experimental-syntax-enabled",
-        "analyzer.experimental-syntax-enabled"
+        "analyzer.experimental-syntax-enabled",
+        "optimizer.processing-optimization"
 })
 public class FeaturesConfig
 {
-    public static class ProcessingOptimization
-    {
-        public static final String DISABLED = "disabled";
-        public static final String COLUMNAR = "columnar";
-        public static final String COLUMNAR_DICTIONARY = "columnar_dictionary";
-
-        public static final List<String> AVAILABLE_OPTIONS = ImmutableList.of(DISABLED, COLUMNAR, COLUMNAR_DICTIONARY);
-    }
-
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
-    private boolean reorderJoins;
+    private boolean fastInequalityJoins = true;
+    private boolean reorderJoins = true;
     private boolean redistributeWrites = true;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
-    private boolean optimizerReorderWindows = true;
+    private boolean enableIntermediateAggregations = false;
     private boolean pushTableWriteThroughUnion = true;
+    private boolean exchangeCompressionEnabled = false;
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
+    private boolean legacyMapSubscript;
+    private boolean newMapBlock = true;
     private boolean optimizeMixedDistinctAggregations;
 
-    private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
 
@@ -66,8 +65,13 @@ public class FeaturesConfig
     private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
     private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
-    private Path spillerSpillPath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills");
+    private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
+    private double spillMaxUsedSpaceThreshold = 0.9;
+    private boolean iterativeOptimizerEnabled = true;
+    private boolean pushAggregationThroughJoin = true;
+
+    private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
     public boolean isResourceGroupsEnabled()
     {
@@ -122,6 +126,30 @@ public class FeaturesConfig
         return legacyOrderBy;
     }
 
+    @Config("deprecated.legacy-map-subscript")
+    public FeaturesConfig setLegacyMapSubscript(boolean value)
+    {
+        this.legacyMapSubscript = value;
+        return this;
+    }
+
+    public boolean isLegacyMapSubscript()
+    {
+        return legacyMapSubscript;
+    }
+
+    @Config("deprecated.new-map-block")
+    public FeaturesConfig setNewMapBlock(boolean value)
+    {
+        this.newMapBlock = value;
+        return this;
+    }
+
+    public boolean isNewMapBlock()
+    {
+        return newMapBlock;
+    }
+
     @Config("distributed-joins-enabled")
     public FeaturesConfig setDistributedJoinsEnabled(boolean distributedJoinsEnabled)
     {
@@ -140,6 +168,19 @@ public class FeaturesConfig
     {
         this.colocatedJoinsEnabled = colocatedJoinsEnabled;
         return this;
+    }
+
+    @Config("fast-inequality-joins")
+    @ConfigDescription("Use faster handling of inequality joins if it is possible")
+    public FeaturesConfig setFastInequalityJoins(boolean fastInequalityJoins)
+    {
+        this.fastInequalityJoins = fastInequalityJoins;
+        return this;
+    }
+
+    public boolean isFastInequalityJoins()
+    {
+        return fastInequalityJoins;
     }
 
     public boolean isJoinReorderingEnabled()
@@ -203,18 +244,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isReorderWindows()
-    {
-        return optimizerReorderWindows;
-    }
-
-    @Config("optimizer.reorder-windows")
-    public FeaturesConfig setReorderWindows(boolean reorderWindows)
-    {
-        this.optimizerReorderWindows = reorderWindows;
-        return this;
-    }
-
     public boolean isPushTableWriteThroughUnion()
     {
         return pushTableWriteThroughUnion;
@@ -224,21 +253,6 @@ public class FeaturesConfig
     public FeaturesConfig setPushTableWriteThroughUnion(boolean pushTableWriteThroughUnion)
     {
         this.pushTableWriteThroughUnion = pushTableWriteThroughUnion;
-        return this;
-    }
-
-    public String getProcessingOptimization()
-    {
-        return processingOptimization;
-    }
-
-    @Config("optimizer.processing-optimization")
-    public FeaturesConfig setProcessingOptimization(String processingOptimization)
-    {
-        if (!ProcessingOptimization.AVAILABLE_OPTIONS.contains(processingOptimization)) {
-            throw new IllegalStateException(String.format("Value %s is not valid for processingOptimization.", processingOptimization));
-        }
-        this.processingOptimization = processingOptimization;
         return this;
     }
 
@@ -304,6 +318,30 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isIterativeOptimizerEnabled()
+    {
+        return iterativeOptimizerEnabled;
+    }
+
+    @Config("experimental.iterative-optimizer-enabled")
+    public FeaturesConfig setIterativeOptimizerEnabled(boolean value)
+    {
+        this.iterativeOptimizerEnabled = value;
+        return this;
+    }
+
+    public Duration getIterativeOptimizerTimeout()
+    {
+        return iterativeOptimizerTimeout;
+    }
+
+    @Config("experimental.iterative-optimizer-timeout")
+    public FeaturesConfig setIterativeOptimizerTimeout(Duration timeout)
+    {
+        this.iterativeOptimizerTimeout = timeout;
+        return this;
+    }
+
     public DataSize getOperatorMemoryLimitBeforeSpill()
     {
         return operatorMemoryLimitBeforeSpill;
@@ -316,15 +354,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public Path getSpillerSpillPath()
+    public List<Path> getSpillerSpillPaths()
     {
-        return spillerSpillPath;
+        return spillerSpillPaths;
     }
 
     @Config("experimental.spiller-spill-path")
-    public FeaturesConfig setSpillerSpillPath(String spillPath)
+    public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {
-        this.spillerSpillPath = Paths.get(spillPath);
+        List<String> spillPathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(spillPaths));
+        this.spillerSpillPaths = spillPathsSplit.stream().map(path -> Paths.get(path)).collect(toImmutableList());
         return this;
     }
 
@@ -340,6 +379,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public double getSpillMaxUsedSpaceThreshold()
+    {
+        return spillMaxUsedSpaceThreshold;
+    }
+
+    @Config("experimental.spiller-max-used-space-threshold")
+    public FeaturesConfig setSpillMaxUsedSpaceThreshold(double spillMaxUsedSpaceThreshold)
+    {
+        this.spillMaxUsedSpaceThreshold = spillMaxUsedSpaceThreshold;
+        return this;
+    }
+
     public boolean isOptimizeMixedDistinctAggregations()
     {
         return optimizeMixedDistinctAggregations;
@@ -349,6 +400,42 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMixedDistinctAggregations(boolean value)
     {
         this.optimizeMixedDistinctAggregations = value;
+        return this;
+    }
+
+    public boolean isExchangeCompressionEnabled()
+    {
+        return exchangeCompressionEnabled;
+    }
+
+    @Config("exchange.compression-enabled")
+    public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
+    {
+        this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        return this;
+    }
+
+    public boolean isEnableIntermediateAggregations()
+    {
+        return enableIntermediateAggregations;
+    }
+
+    @Config("optimizer.enable-intermediate-aggregations")
+    public FeaturesConfig setEnableIntermediateAggregations(boolean enableIntermediateAggregations)
+    {
+        this.enableIntermediateAggregations = enableIntermediateAggregations;
+        return this;
+    }
+
+    public boolean isPushAggregationThroughJoin()
+    {
+        return pushAggregationThroughJoin;
+    }
+
+    @Config("optimizer.push-aggregation-through-join")
+    public FeaturesConfig setPushAggregationThroughJoin(boolean value)
+    {
+        this.pushAggregationThroughJoin = value;
         return this;
     }
 }

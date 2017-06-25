@@ -17,6 +17,12 @@ import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
+import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
+import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.google.common.collect.ImmutableList;
@@ -34,6 +40,7 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
@@ -73,12 +80,17 @@ public class DwrfMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
+
+        // todo enable file stats when DWRF team verifies that the stats are correct
+        // List<ColumnStatistics> fileStats = toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false);
+        List<ColumnStatistics> fileStats = ImmutableList.of();
+
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
+                fileStats,
                 toUserMetadata(footer.getMetadataList()));
     }
 
@@ -349,6 +361,8 @@ public class DwrfMetadataReader
                 return ZLIB;
             case SNAPPY:
                 return SNAPPY;
+            case ZSTD:
+                return ZSTD;
             default:
                 throw new IllegalArgumentException(compression + " compression not implemented yet");
         }

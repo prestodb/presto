@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
-import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
@@ -51,6 +50,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.cli.Completion.commandCompleter;
 import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
+import static com.facebook.presto.cli.QueryPreprocessor.preprocessQuery;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
 import static com.facebook.presto.client.ClientSession.withPreparedStatements;
@@ -59,6 +59,7 @@ import static com.facebook.presto.client.ClientSession.withTransactionId;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -92,7 +93,6 @@ public class Console
     public void run()
     {
         ClientSession session = clientOptions.toClientSession();
-        KerberosConfig kerberosConfig = clientOptions.toKerberosConfig();
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
         boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
 
@@ -123,17 +123,23 @@ public class Console
         AtomicBoolean exiting = new AtomicBoolean();
         interruptThreadOnExit(Thread.currentThread(), exiting);
 
-        try (QueryRunner queryRunner = QueryRunner.create(
+        try (QueryRunner queryRunner = new QueryRunner(
                 session,
                 Optional.ofNullable(clientOptions.socksProxy),
+                Optional.ofNullable(clientOptions.httpProxy),
                 Optional.ofNullable(clientOptions.keystorePath),
                 Optional.ofNullable(clientOptions.keystorePassword),
                 Optional.ofNullable(clientOptions.truststorePath),
                 Optional.ofNullable(clientOptions.truststorePassword),
+                Optional.ofNullable(clientOptions.user),
+                clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
                 Optional.ofNullable(clientOptions.krb5Principal),
                 Optional.ofNullable(clientOptions.krb5RemoteServiceName),
-                clientOptions.authenticationEnabled,
-                kerberosConfig)) {
+                Optional.ofNullable(clientOptions.krb5ConfigPath),
+                Optional.ofNullable(clientOptions.krb5KeytabPath),
+                Optional.ofNullable(clientOptions.krb5CredentialCachePath),
+                !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
+                clientOptions.authenticationEnabled)) {
             if (hasQuery) {
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
@@ -141,6 +147,25 @@ public class Console
                 runConsole(queryRunner, session, exiting);
             }
         }
+    }
+
+    private String getPassword()
+    {
+        checkState(clientOptions.user != null, "Username must be specified along with password");
+        String defaultPassword = System.getenv("PRESTO_PASSWORD");
+        if (defaultPassword != null) {
+            return defaultPassword;
+        }
+
+        java.io.Console console = System.console();
+        if (console == null) {
+            throw new RuntimeException("No console from which to read password");
+        }
+        char[] password = console.readPassword("Password: ");
+        if (password != null) {
+            return new String(password);
+        }
+        return "";
     }
 
     private static void runConsole(QueryRunner queryRunner, ClientSession session, AtomicBoolean exiting)
@@ -292,7 +317,22 @@ public class Console
 
     private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
     {
-        try (Query query = queryRunner.startQuery(sql)) {
+        String finalSql;
+        try {
+            finalSql = preprocessQuery(
+                    Optional.ofNullable(queryRunner.getSession().getCatalog()),
+                    Optional.ofNullable(queryRunner.getSession().getSchema()),
+                    sql);
+        }
+        catch (QueryPreprocessorException e) {
+            System.err.println(e.getMessage());
+            if (queryRunner.getSession().isDebug()) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        try (Query query = queryRunner.startQuery(finalSql)) {
             query.renderOutput(System.out, outputFormat, interactive);
 
             ClientSession session = queryRunner.getSession();

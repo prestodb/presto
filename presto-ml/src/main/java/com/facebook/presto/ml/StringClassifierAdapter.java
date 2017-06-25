@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.ml.ModelUtils.serialize;
-import static com.facebook.presto.ml.Types.checkType;
 import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -90,7 +89,7 @@ public class StringClassifierAdapter
             builder.put(key, value);
         }
 
-        return new StringClassifierAdapter(checkType(classifier, Classifier.class, "classifier"), builder.build());
+        return new StringClassifierAdapter((Classifier) classifier, builder.build());
     }
 
     @Override

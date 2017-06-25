@@ -15,13 +15,12 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
@@ -79,9 +78,9 @@ public class TestExpressionUtils
         assertEquals(normalize(expression), normalized);
     }
 
-    private static QualifiedNameReference name(String name)
+    private static Identifier name(String name)
     {
-        return new QualifiedNameReference(QualifiedName.of(name));
+        return new Identifier(name);
     }
 
     private LogicalBinaryExpression and(Expression left, Expression right)

@@ -31,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 public class IndexBuildDriverFactoryProvider
 {
+    private final int pipelineId;
     private final int outputOperatorId;
     private final PlanNodeId planNodeId;
     private final boolean inputDriver;
@@ -38,13 +39,14 @@ public class IndexBuildDriverFactoryProvider
     private final List<Type> outputTypes;
     private final Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory;
 
-    public IndexBuildDriverFactoryProvider(int outputOperatorId, PlanNodeId planNodeId, boolean inputDriver, List<OperatorFactory> coreOperatorFactories, Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory)
+    public IndexBuildDriverFactoryProvider(int pipelineId, int outputOperatorId, PlanNodeId planNodeId, boolean inputDriver, List<OperatorFactory> coreOperatorFactories, Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory)
     {
         requireNonNull(planNodeId, "planNodeId is null");
         requireNonNull(coreOperatorFactories, "coreOperatorFactories is null");
         checkArgument(!coreOperatorFactories.isEmpty(), "coreOperatorFactories is empty");
         requireNonNull(dynamicTupleFilterFactory, "dynamicTupleFilterFactory is null");
 
+        this.pipelineId = pipelineId;
         this.outputOperatorId = outputOperatorId;
         this.planNodeId = planNodeId;
         this.inputDriver = inputDriver;
@@ -53,15 +55,21 @@ public class IndexBuildDriverFactoryProvider
         this.dynamicTupleFilterFactory = dynamicTupleFilterFactory;
     }
 
+    public int getPipelineId()
+    {
+        return pipelineId;
+    }
+
     public List<Type> getOutputTypes()
     {
         return outputTypes;
     }
 
-    public DriverFactory createSnapshot(IndexSnapshotBuilder indexSnapshotBuilder)
+    public DriverFactory createSnapshot(int pipelineId, IndexSnapshotBuilder indexSnapshotBuilder)
     {
         checkArgument(indexSnapshotBuilder.getOutputTypes().equals(outputTypes));
         return new DriverFactory(
+                pipelineId,
                 inputDriver,
                 false,
                 ImmutableList.<OperatorFactory>builder()
@@ -83,6 +91,6 @@ public class IndexBuildDriverFactoryProvider
 
         operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer));
 
-        return new DriverFactory(inputDriver, false, operatorFactories.build(), OptionalInt.empty());
+        return new DriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty());
     }
 }

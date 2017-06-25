@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.getTables;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
@@ -29,31 +31,13 @@ public class TestHiveDistributedQueries
     public TestHiveDistributedQueries()
             throws Exception
     {
-        super(createQueryRunner(getTables()));
+        super(() -> createQueryRunner(getTables()));
     }
 
     @Override
     public void testDelete()
     {
         // Hive connector currently does not support row-by-row delete
-    }
-
-    @Override
-    public void testAddColumn()
-    {
-        // Hive connector currently does not support schema change
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-        // Hive connector currently does not support schema change
-    }
-
-    @Override
-    public void testRenameTable()
-    {
-        // Hive connector currently does not support table rename
     }
 
     @Test
@@ -78,5 +62,66 @@ public class TestHiveDistributedQueries
                 .build();
 
         assertEquals(actual, expected);
+    }
+
+    /**
+     * Tests correctness of comparison of char(x) and varchar pushed down to a table scan as a TupleDomain
+     */
+    @Test
+    public void testPredicatePushDownToTableScan()
+            throws Exception
+    {
+        // Test not specific to Hive, but needs a connector supporting table creation
+
+        assertUpdate("CREATE TABLE test_table_with_char (a char(20))");
+        try {
+            assertUpdate("INSERT INTO test_table_with_char (a) VALUES" +
+                    "(cast('aaa' as char(20)))," +
+                    "(cast('bbb' as char(20)))," +
+                    "(cast('bbc' as char(20)))," +
+                    "(cast('bbd' as char(20)))", 4);
+
+            assertQuery(
+                    "SELECT a, a <= 'bbc' FROM test_table_with_char",
+                    "VALUES (cast('aaa' as char(20)), true), " +
+                            "(cast('bbb' as char(20)), true), " +
+                            "(cast('bbc' as char(20)), false), " +
+                            "(cast('bbd' as char(20)), false)");
+
+            assertQuery(
+                    "SELECT a FROM test_table_with_char WHERE a <= 'bbc'",
+                    "VALUES cast('aaa' as char(20)), " +
+                            "cast('bbb' as char(20))");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_table_with_char");
+        }
+    }
+
+    @Test
+    public void testRcTextCharDecoding()
+            throws Exception
+    {
+        testRcTextCharDecoding(false);
+        testRcTextCharDecoding(true);
+    }
+
+    private void testRcTextCharDecoding(boolean rcFileOptimizedWriterEnabled)
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().get();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, RCFILE_OPTIMIZED_WRITER_ENABLED, Boolean.toString(rcFileOptimizedWriterEnabled))
+                .build();
+
+        assertUpdate(session, "CREATE TABLE test_table_with_char_rc WITH (format = 'RCTEXT') AS SELECT CAST('khaki' AS CHAR(7)) char_column", 1);
+        try {
+            assertQuery(session,
+                    "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki  '",
+                    "VALUES (CAST('khaki' AS CHAR(7)))");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_table_with_char_rc");
+        }
     }
 }

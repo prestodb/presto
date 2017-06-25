@@ -13,30 +13,21 @@
  */
 package com.facebook.presto.execution.resourceGroups.db;
 
-import com.facebook.presto.execution.resourceGroups.ResourceGroupInfo;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import java.util.concurrent.TimeUnit;
-
-import static com.facebook.presto.execution.resourceGroups.db.TestQueues.getSimpleQueryRunner;
+import static com.facebook.presto.execution.resourceGroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
 
 public class TestResourceGroupIntegration
 {
-    @Test(timeOut = 60_000)
+    @Test
     public void testMemoryFraction()
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = getSimpleQueryRunner()) {
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-            while (true) {
-                TimeUnit.SECONDS.sleep(1);
-                ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(new ResourceGroupId("global"));
-                if (global.getSoftMemoryLimit().toBytes() > 0) {
-                    break;
-                }
-            }
+            waitForGlobalResourceGroup(queryRunner);
         }
     }
 }

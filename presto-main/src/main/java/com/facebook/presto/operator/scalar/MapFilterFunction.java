@@ -11,9 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.ForLoop;
+import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -23,25 +31,47 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.gen.CallSiteBinder;
+import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
+import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.STATIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
+import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
+import static com.facebook.presto.bytecode.instruction.VariableInstruction.incrementVariable;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.Reflection.methodHandle;
-import static java.lang.Boolean.TRUE;
 
 public final class MapFilterFunction
         extends SqlScalarFunction
 {
     public static final MapFilterFunction MAP_FILTER_FUNCTION = new MapFilterFunction();
-
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapFilterFunction.class, "filter", Type.class, Type.class, Block.class, MethodHandle.class);
 
     private MapFilterFunction()
     {
@@ -78,32 +108,96 @@ public final class MapFilterFunction
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
+        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(valueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(false, false),
-                METHOD_HANDLE.bindTo(keyType).bindTo(valueType),
+                ImmutableList.of(false, false),
+                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
+                generateFilter(keyType, valueType, mapType),
                 isDeterministic());
     }
 
-    public static Block filter(Type keyType, Type valueType, Block block, MethodHandle function)
+    private static MethodHandle generateFilter(Type keyType, Type valueType, Type mapType)
     {
-        int positionCount = block.getPositionCount();
-        BlockBuilder resultBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), positionCount);
-        for (int position = 0; position < positionCount; position += 2) {
-            Object key = readNativeValue(keyType, block, position);
-            Object value = readNativeValue(valueType, block, position + 1);
-            Boolean keep;
-            try {
-                keep = (Boolean) function.invoke(key, value);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
-            if (TRUE.equals(keep)) {
-                keyType.appendTo(block, position, resultBuilder);
-                valueType.appendTo(block, position + 1, resultBuilder);
-            }
+        CallSiteBinder binder = new CallSiteBinder();
+        Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
+        Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
+
+        ClassDefinition definition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName("MapFilter"),
+                type(Object.class));
+        definition.declareDefaultConstructor(a(PRIVATE));
+
+        Parameter block = arg("block", Block.class);
+        Parameter function = arg("function", BinaryFunctionInterface.class);
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC, STATIC),
+                "filter",
+                type(Block.class),
+                ImmutableList.of(block, function));
+
+        BytecodeBlock body = method.getBody();
+        Scope scope = method.getScope();
+        Variable positionCount = scope.declareVariable(int.class, "positionCount");
+        Variable position = scope.declareVariable(int.class, "position");
+        Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder");
+        Variable keyElement = scope.declareVariable(keyJavaType, "keyElement");
+        Variable valueElement = scope.declareVariable(valueJavaType, "valueElement");
+        Variable keep = scope.declareVariable(Boolean.class, "keep");
+
+        // invoke block.getPositionCount()
+        body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
+
+        // create the interleaved block builder
+        body.append(blockBuilder.set(newInstance(
+                InterleavedBlockBuilder.class,
+                constantType(binder, mapType).invoke("getTypeParameters", List.class),
+                newInstance(BlockBuilderStatus.class),
+                positionCount)));
+
+        SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
+        BytecodeNode loadKeyElement;
+        if (!keyType.equals(UNKNOWN)) {
+            // key element must be non-null
+            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(block, position).cast(keyJavaType)));
         }
-        return resultBuilder.build();
+        else {
+            loadKeyElement = new BytecodeBlock().append(keyElement.set(constantNull(keyJavaType)));
+        }
+
+        SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
+        BytecodeNode loadValueElement;
+        if (!valueType.equals(UNKNOWN)) {
+            loadValueElement = new IfStatement()
+                    .condition(block.invoke("isNull", boolean.class, add(position, constantInt(1))))
+                    .ifTrue(valueElement.set(constantNull(valueJavaType)))
+                    .ifFalse(valueElement.set(valueSqlType.getValue(block, add(position, constantInt(1))).cast(valueJavaType)));
+        }
+        else {
+            loadValueElement = new BytecodeBlock().append(valueElement.set(constantNull(valueJavaType)));
+        }
+
+        body.append(new ForLoop()
+                .initialize(position.set(constantInt(0)))
+                .condition(lessThan(position, positionCount))
+                .update(incrementVariable(position, (byte) 2))
+                .body(new BytecodeBlock()
+                        .append(loadKeyElement)
+                        .append(loadValueElement)
+                        .append(keep.set(function.invoke("apply", Object.class, keyElement.cast(Object.class), valueElement.cast(Object.class)).cast(Boolean.class)))
+                        .append(new IfStatement("if (keep != null && keep) ...")
+                                .condition(and(notEqual(keep, constantNull(Boolean.class)), keep.cast(boolean.class)))
+                                .ifTrue(new BytecodeBlock()
+                                        .append(keySqlType.invoke("appendTo", void.class, block, position, blockBuilder))
+                                        .append(valueSqlType.invoke("appendTo", void.class, block, add(position, constantInt(1)), blockBuilder))))));
+
+        body.append(blockBuilder.invoke("build", Block.class).ret());
+
+        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapFilterFunction.class.getClassLoader());
+        return methodHandle(generatedClass, "filter", Block.class, BinaryFunctionInterface.class);
     }
 }

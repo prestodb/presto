@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -31,7 +30,6 @@ public class IndexLookupSource
 {
     private final IndexLoader indexLoader;
     private IndexedData indexedData;
-    private FilterFunction filterFunction;
 
     public IndexLookupSource(IndexLoader indexLoader)
     {
@@ -86,6 +84,12 @@ public class IndexLookupSource
         checkState(nextPosition != UNLOADED_INDEX_KEY);
         // INVARIANT: currentPosition is -1 or a valid currentPosition greater than or equal to zero
         return nextPosition;
+    }
+
+    @Override
+    public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    {
+        return true;
     }
 
     @Override

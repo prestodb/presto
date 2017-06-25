@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.planner.iterative.GroupReference;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -23,19 +28,30 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
+import static java.util.Objects.requireNonNull;
+
 public class ExpressionExtractor
 {
     public static List<Expression> extractExpressions(PlanNode plan)
     {
+        return extractExpressions(plan, noLookup());
+    }
+
+    public static List<Expression> extractExpressions(PlanNode plan, Lookup lookup)
+    {
+        requireNonNull(plan, "plan is null");
+        requireNonNull(lookup, "lookup is null");
+
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        plan.accept(new Visitor(true), expressionsBuilder);
+        plan.accept(new Visitor(true, lookup), expressionsBuilder);
         return expressionsBuilder.build();
     }
 
     public static List<Expression> extractExpressionsNonRecursive(PlanNode plan)
     {
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        plan.accept(new Visitor(false), expressionsBuilder);
+        plan.accept(new Visitor(false, noLookup()), expressionsBuilder);
         return expressionsBuilder.build();
     }
 
@@ -47,10 +63,12 @@ public class ExpressionExtractor
             extends SimplePlanVisitor<ImmutableList.Builder<Expression>>
     {
         private final boolean recursive;
+        private final Lookup lookup;
 
-        public Visitor(boolean recursive)
+        Visitor(boolean recursive, Lookup lookup)
         {
             this.recursive = recursive;
+            this.lookup = requireNonNull(lookup, "lookup is null");
         }
 
         @Override
@@ -60,6 +78,20 @@ public class ExpressionExtractor
                 return super.visitPlan(node, context);
             }
             return null;
+        }
+
+        @Override
+        public Void visitGroupReference(GroupReference node, ImmutableList.Builder<Expression> context)
+        {
+            return lookup.resolve(node).accept(this, context);
+        }
+
+        @Override
+        public Void visitAggregation(AggregationNode node, ImmutableList.Builder<Expression> context)
+        {
+            node.getAggregations().values()
+                    .forEach(aggregation -> context.add(aggregation.getCall()));
+            return super.visitAggregation(node, context);
         }
 
         @Override
@@ -86,10 +118,24 @@ public class ExpressionExtractor
         }
 
         @Override
+        public Void visitJoin(JoinNode node, ImmutableList.Builder<Expression> context)
+        {
+            node.getFilter().ifPresent(context::add);
+            return super.visitJoin(node, context);
+        }
+
+        @Override
         public Void visitValues(ValuesNode node, ImmutableList.Builder<Expression> context)
         {
             node.getRows().forEach(context::addAll);
             return super.visitValues(node, context);
+        }
+
+        @Override
+        public Void visitApply(ApplyNode node, ImmutableList.Builder<Expression> context)
+        {
+            context.addAll(node.getSubqueryAssignments().getExpressions());
+            return super.visitApply(node, context);
         }
     }
 }

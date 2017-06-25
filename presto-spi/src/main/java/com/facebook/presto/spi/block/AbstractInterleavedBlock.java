@@ -137,13 +137,13 @@ public abstract class AbstractInterleavedBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
-        return getBlock(blockIndex).getLength(positionInBlock);
+        return getBlock(blockIndex).getSliceLength(positionInBlock);
     }
 
     @Override
@@ -250,6 +250,22 @@ public abstract class AbstractInterleavedBlock
     {
         validateRange(position, length);
         return sliceRange(position, length, true);
+    }
+
+    @Override
+    public long getRegionSizeInBytes(int position, int length)
+    {
+        if (position == 0 && length == getPositionCount()) {
+            // Calculation of getRegionSizeInBytes is expensive in this class.
+            // On the other hand, getSizeInBytes result is cached or pre-computed.
+            return getSizeInBytes();
+        }
+        validateRange(position, length);
+        long result = 0;
+        for (int blockIndex = 0; blockIndex < getBlockCount(); blockIndex++) {
+            result += getBlock(blockIndex).getRegionSizeInBytes(position / columns, length / columns);
+        }
+        return result;
     }
 
     protected void validateRange(int position, int length)

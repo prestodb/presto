@@ -11,12 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -125,8 +129,8 @@ public class TestSetFlatteningOptimizer
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new PruneUnreferencedOutputs(),
-                new PruneIdentityProjections(),
+                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer());
-        assertPlanWithOptimizers(sql, pattern, optimizers);
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 }

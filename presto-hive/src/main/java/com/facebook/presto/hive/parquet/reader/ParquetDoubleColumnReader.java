@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
 
@@ -26,31 +25,22 @@ public class ParquetDoubleColumnReader
         super(descriptor);
     }
 
-    public BlockBuilder createBlockBuilder(Type type)
-    {
-        return type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
-    }
-
     @Override
-    public void readValues(BlockBuilder blockBuilder, int valueNumber, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        for (int i = 0; i < valueNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                type.writeDouble(blockBuilder, valuesReader.readDouble());
-            }
-            else {
-                blockBuilder.appendNull();
-            }
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            type.writeDouble(blockBuilder, valuesReader.readDouble());
+        }
+        else {
+            blockBuilder.appendNull();
         }
     }
 
     @Override
-    public void skipValues(int offsetNumber)
+    protected void skipValue()
     {
-        for (int i = 0; i < offsetNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                valuesReader.readDouble();
-            }
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            valuesReader.readDouble();
         }
     }
 }

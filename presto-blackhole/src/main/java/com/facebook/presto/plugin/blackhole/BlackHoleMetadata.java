@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ColumnHandle;
@@ -51,7 +50,6 @@ import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
-import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.text.MessageFormat.format;
 import static java.util.stream.Collectors.toList;
@@ -80,7 +78,7 @@ public class BlackHoleMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        BlackHoleTableHandle blackHoleTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
+        BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
         return blackHoleTableHandle.toTableMetadata();
     }
 
@@ -98,7 +96,7 @@ public class BlackHoleMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        BlackHoleTableHandle blackHoleTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
+        BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
         return blackHoleTableHandle.getColumnHandles().stream()
                 .collect(toMap(BlackHoleColumnHandle::getName, column -> column));
     }
@@ -106,7 +104,7 @@ public class BlackHoleMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        BlackHoleColumnHandle blackHoleColumnHandle = checkType(columnHandle, BlackHoleColumnHandle.class, "columnHandle");
+        BlackHoleColumnHandle blackHoleColumnHandle = (BlackHoleColumnHandle) columnHandle;
         return blackHoleColumnHandle.toColumnMetadata();
     }
 
@@ -121,14 +119,14 @@ public class BlackHoleMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        BlackHoleTableHandle blackHoleTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
+        BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
         tables.remove(blackHoleTableHandle.getTableName());
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        BlackHoleTableHandle oldTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
+        BlackHoleTableHandle oldTableHandle = (BlackHoleTableHandle) tableHandle;
         BlackHoleTableHandle newTableHandle = new BlackHoleTableHandle(
                 oldTableHandle.getSchemaName(),
                 newTableName.getTableName(),
@@ -208,7 +206,7 @@ public class BlackHoleMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-        BlackHoleOutputTableHandle blackHoleOutputTableHandle = checkType(tableHandle, BlackHoleOutputTableHandle.class, "tableHandle");
+        BlackHoleOutputTableHandle blackHoleOutputTableHandle = (BlackHoleOutputTableHandle) tableHandle;
         BlackHoleTableHandle table = blackHoleOutputTableHandle.getTable();
         tables.put(table.getTableName(), table);
         return Optional.empty();
@@ -217,7 +215,7 @@ public class BlackHoleMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        BlackHoleTableHandle handle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
+        BlackHoleTableHandle handle = (BlackHoleTableHandle) tableHandle;
         return new BlackHoleInsertTableHandle(handle.getPageProcessingDelay());
     }
 
@@ -234,7 +232,7 @@ public class BlackHoleMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        BlackHoleTableHandle blackHoleHandle = checkType(handle, BlackHoleTableHandle.class, "handle");
+        BlackHoleTableHandle blackHoleHandle = (BlackHoleTableHandle) handle;
         BlackHoleTableLayoutHandle layoutHandle = new BlackHoleTableLayoutHandle(
                 blackHoleHandle.getSplitCount(),
                 blackHoleHandle.getPagesPerSplit(),

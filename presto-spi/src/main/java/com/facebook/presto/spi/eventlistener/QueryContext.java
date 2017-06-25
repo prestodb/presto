@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,6 +32,8 @@ public class QueryContext
     private final Optional<String> catalog;
     private final Optional<String> schema;
 
+    private final Optional<String> resourceGroupName;
+
     private final Map<String, String> sessionProperties;
 
     private final String serverAddress;
@@ -48,6 +49,7 @@ public class QueryContext
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
+            Optional<String> resourceGroupName,
             Map<String, String> sessionProperties,
             String serverAddress,
             String serverVersion,
@@ -61,6 +63,7 @@ public class QueryContext
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.resourceGroupName = requireNonNull(resourceGroupName, "resourceGroupName is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
         this.serverVersion = requireNonNull(serverVersion, "serverVersion is null");
@@ -113,6 +116,12 @@ public class QueryContext
     public Optional<String> getSchema()
     {
         return schema;
+    }
+
+    @JsonProperty
+    public Optional<String> getResourceGroupName()
+    {
+        return resourceGroupName;
     }
 
     @JsonProperty

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -35,6 +36,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestTimeWithTimeZone
 {
@@ -52,6 +54,13 @@ public class TestTimeWithTimeZone
                 .build();
 
         functionAssertions = new FunctionAssertions(session);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        closeAllRuntimeException(functionAssertions);
+        functionAssertions = null;
     }
 
     private void assertFunction(String projection, Type expectedType, Object expected)

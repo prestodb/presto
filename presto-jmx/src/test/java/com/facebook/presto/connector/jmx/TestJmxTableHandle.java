@@ -27,10 +27,10 @@ import static org.testng.Assert.assertEquals;
 public class TestJmxTableHandle
 {
     public static final List<JmxColumnHandle> COLUMNS = ImmutableList.<JmxColumnHandle>builder()
-            .add(new JmxColumnHandle("connectorId", "id", BIGINT))
-            .add(new JmxColumnHandle("connectorId", "name", createUnboundedVarcharType()))
+            .add(new JmxColumnHandle("id", BIGINT))
+            .add(new JmxColumnHandle("name", createUnboundedVarcharType()))
             .build();
-    public static final JmxTableHandle TABLE = new JmxTableHandle("connectorId", "objectName", COLUMNS);
+    public static final JmxTableHandle TABLE = new JmxTableHandle("objectName", COLUMNS, true);
 
     @Test
     public void testJsonRoundTrip()
@@ -45,10 +45,24 @@ public class TestJmxTableHandle
     {
         List<JmxColumnHandle> singleColumn = ImmutableList.of(COLUMNS.get(0));
         EquivalenceTester.equivalenceTester()
-                .addEquivalentGroup(new JmxTableHandle("connector", "name", COLUMNS), new JmxTableHandle("connector", "name", COLUMNS))
-                .addEquivalentGroup(new JmxTableHandle("connectorX", "name", COLUMNS), new JmxTableHandle("connectorX", "name", COLUMNS))
-                .addEquivalentGroup(new JmxTableHandle("connector", "nameX", COLUMNS), new JmxTableHandle("connector", "nameX", COLUMNS))
-                .addEquivalentGroup(new JmxTableHandle("connector", "name", singleColumn), new JmxTableHandle("connector", "name", singleColumn))
+                .addEquivalentGroup(
+                        new JmxTableHandle("name", COLUMNS, true),
+                        new JmxTableHandle("name", COLUMNS, true))
+                .addEquivalentGroup(
+                        new JmxTableHandle("name", COLUMNS, false),
+                        new JmxTableHandle("name", COLUMNS, false))
+                .addEquivalentGroup(
+                        new JmxTableHandle("nameX", COLUMNS, true),
+                        new JmxTableHandle("nameX", COLUMNS, true))
+                .addEquivalentGroup(
+                        new JmxTableHandle("nameX", COLUMNS, false),
+                        new JmxTableHandle("nameX", COLUMNS, false))
+                .addEquivalentGroup(
+                        new JmxTableHandle("name", singleColumn, true),
+                        new JmxTableHandle("name", singleColumn, true))
+                .addEquivalentGroup(
+                        new JmxTableHandle("name", singleColumn, false),
+                        new JmxTableHandle("name", singleColumn, false))
                 .check();
     }
 }

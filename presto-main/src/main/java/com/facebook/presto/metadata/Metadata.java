@@ -25,7 +25,9 @@ import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -72,6 +74,11 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
+
+    /**
+     * Return statistics for specified table for given filtering contraint.
+     */
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -133,6 +140,11 @@ public interface Metadata
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
 
     /**
+     * Drop the specified column.
+     */
+    void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
@@ -172,6 +184,17 @@ public interface Metadata
     Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
+
+    /**
+     * Start a SELECT/UPDATE/INSERT/DELETE query
+     */
+    void beginQuery(Session session, Set<ConnectorId> connectors);
+
+    /**
+     * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
+     * An exception thrown in this method will not affect the result of the query.
+     */
+    void cleanupQuery(Session session);
 
     /**
      * Begin insert query
@@ -261,6 +284,11 @@ public interface Metadata
      * Revokes the specified privilege on the specified table from the specified user
      */
     void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption);
+
+    /**
+     * Gets the privileges for the specified table available to the given grantee
+     */
+    List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
     FunctionRegistry getFunctionRegistry();
 

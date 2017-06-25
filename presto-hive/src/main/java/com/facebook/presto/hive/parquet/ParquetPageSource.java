@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import parquet.column.ColumnDescriptor;
 import parquet.schema.MessageType;
 
@@ -42,6 +42,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptor;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getFieldIndex;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -51,7 +53,6 @@ public class ParquetPageSource
         implements ConnectorPageSource
 {
     private static final int MAX_VECTOR_LENGTH = 1024;
-    private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
 
     private final ParquetReader parquetReader;
     private final ParquetDataSource dataSource;
@@ -70,6 +71,8 @@ public class ParquetPageSource
     private long readTimeNanos;
     private final boolean useParquetColumnNames;
 
+    private final AggregatedMemoryContext systemMemoryContext;
+
     public ParquetPageSource(
             ParquetReader parquetReader,
             ParquetDataSource dataSource,
@@ -80,7 +83,8 @@ public class ParquetPageSource
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
-            boolean useParquetColumnNames)
+            boolean useParquetColumnNames,
+            AggregatedMemoryContext systemMemoryContext)
     {
         checkArgument(totalBytes >= 0, "totalBytes is negative");
         requireNonNull(splitSchema, "splitSchema is null");
@@ -118,6 +122,7 @@ public class ParquetPageSource
         }
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -147,7 +152,7 @@ public class ParquetPageSource
     @Override
     public long getSystemMemoryUsage()
     {
-        return GUESSED_MEMORY_USAGE;
+        return systemMemoryContext.getBytes();
     }
 
     @Override
@@ -186,10 +191,17 @@ public class ParquetPageSource
                         continue;
                     }
 
+                    String fieldName = fileSchema.getFields().get(fieldIndex).getName();
                     List<String> path = new ArrayList<>();
-                    path.add(fileSchema.getFields().get(fieldIndex).getName());
+                    path.add(fieldName);
                     if (ROW.equals(type.getTypeSignature().getBase())) {
                         blocks[fieldId] = parquetReader.readStruct(type, path);
+                    }
+                    else if (MAP.equals(type.getTypeSignature().getBase())) {
+                        blocks[fieldId] = parquetReader.readMap(type, path);
+                    }
+                    else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+                        blocks[fieldId] = parquetReader.readArray(type, path);
                     }
                     else {
                         Optional<RichColumnDescriptor> descriptor = getDescriptor(fileSchema, requestedSchema, path);

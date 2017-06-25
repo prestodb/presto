@@ -39,12 +39,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.aliased;
-import static com.facebook.presto.sql.QueryUtil.nameReference;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.values;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 final class DescribeOutputRewrite
@@ -107,13 +106,13 @@ final class DescribeOutputRewrite
             }
             return simpleQuery(
                     selectList(
-                            nameReference("Column Name"),
-                            nameReference("Catalog"),
-                            nameReference("Schema"),
-                            nameReference("Table"),
-                            nameReference("Type"),
-                            nameReference("Type Size"),
-                            nameReference("Aliased")),
+                            identifier("Column Name"),
+                            identifier("Catalog"),
+                            identifier("Schema"),
+                            identifier("Table"),
+                            identifier("Type"),
+                            identifier("Type Size"),
+                            identifier("Aliased")),
                     aliased(
                             values(rows),
                             "Statement Output",
@@ -121,7 +120,7 @@ final class DescribeOutputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    emptyList(),
+                    Optional.empty(),
                     limit);
         }
 

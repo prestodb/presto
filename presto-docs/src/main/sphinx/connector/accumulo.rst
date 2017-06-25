@@ -480,20 +480,22 @@ Note that session properties are prefixed with the catalog name::
 
     SET SESSION accumulo.column_filter_optimizations_enabled = false;
 
-======================================== ============= =======================================================================================================
-Property Name                            Default Value Description
-======================================== ============= =======================================================================================================
-``optimize_locality_enabled``            ``true``      Set to true to enable data locality for non-indexed scans
-``optimize_split_ranges_enabled``        ``true``      Set to true to split non-indexed queries by tablet splits. Should generally be true.
-``optimize_index_enabled``               ``true``      Set to true to enable usage of the secondary index on query
-``index_rows_per_split``                 ``10000``     The number of Accumulo row IDs that are packed into a single Presto split
-``index_threshold``                      ``0.2``       The ratio between number of rows to be scanned based on the index over the total number of rows.
-                                                       If the ratio is below this threshold, the index will be used.
-``index_lowest_cardinality_threshold``   ``0.01``      The threshold where the column with the lowest cardinality will be used instead of computing an
-                                                       intersection of ranges in the index. Secondary index must be enabled.
-``index_metrics_enabled``                ``true``      Set to true to enable usage of the metrics table to optimize usage of the index
-``scan_username``                        (config)      User to impersonate when scanning the tables. This property trumps the ``scan_auths`` table property.
-======================================== ============= =======================================================================================================
+============================================= ============= =======================================================================================================
+Property Name                                 Default Value Description
+============================================= ============= =======================================================================================================
+``optimize_locality_enabled``                 ``true``      Set to true to enable data locality for non-indexed scans
+``optimize_split_ranges_enabled``             ``true``      Set to true to split non-indexed queries by tablet splits. Should generally be true.
+``optimize_index_enabled``                    ``true``      Set to true to enable usage of the secondary index on query
+``index_rows_per_split``                      ``10000``     The number of Accumulo row IDs that are packed into a single Presto split
+``index_threshold``                           ``0.2``       The ratio between number of rows to be scanned based on the index over the total number of rows
+                                                            If the ratio is below this threshold, the index will be used.
+``index_lowest_cardinality_threshold``        ``0.01``      The threshold where the column with the lowest cardinality will be used instead of computing an
+                                                            intersection of ranges in the index. Secondary index must be enabled
+``index_metrics_enabled``                     ``true``      Set to true to enable usage of the metrics table to optimize usage of the index
+``scan_username``                             (config)      User to impersonate when scanning the tables. This property trumps the ``scan_auths`` table property
+``index_short_circuit_cardinality_fetch``     ``true``      Short circuit the retrieval of index metrics once any column is less than the lowest cardinality threshold
+``index_cardinality_cache_polling_duration``  ``10ms``      Sets the cardinality cache polling duration for short circuit retrieval of index metrics
+============================================= ============= =======================================================================================================
 
 Adding Columns
 --------------

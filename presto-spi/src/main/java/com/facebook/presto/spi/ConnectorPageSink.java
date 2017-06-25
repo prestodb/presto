@@ -23,6 +23,17 @@ public interface ConnectorPageSink
     CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
     /**
+     * Get the total memory that needs to be reserved in the system memory pool.
+     * This memory should include any buffers, etc. that are used for reading data.
+     *
+     * @return the system memory used so far in table read
+     */
+    default long getSystemMemoryUsage()
+    {
+        return 0;
+    }
+
+    /**
      * Returns a future that will be completed when the page sink can accept
      * more pages.  If the page sink can accept more pages immediately,
      * this method should return {@code NOT_BLOCKED}.

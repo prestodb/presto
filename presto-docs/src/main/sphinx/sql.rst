@@ -34,6 +34,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/show-create-table
     sql/show-create-view
     sql/show-functions
+    sql/show-grants
     sql/show-partitions
     sql/show-schemas
     sql/show-session

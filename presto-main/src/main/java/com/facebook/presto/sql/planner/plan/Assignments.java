@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Predicate;
@@ -33,10 +33,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collector;
-import java.util.stream.StreamSupport;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class Assignments
@@ -44,6 +43,11 @@ public class Assignments
     public static Builder builder()
     {
         return new Builder();
+    }
+
+    public static Assignments identity(Symbol... symbols)
+    {
+        return identity(asList(symbols));
     }
 
     public static Assignments identity(Iterable<Symbol> symbols)
@@ -74,18 +78,16 @@ public class Assignments
     }
 
     private final Map<Symbol, Expression> assignments;
-    private final List<Symbol> outputs;
 
     @JsonCreator
     public Assignments(@JsonProperty("assignments") Map<Symbol, Expression> assignments)
     {
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        this.outputs = ImmutableList.copyOf(assignments.keySet());
     }
 
     public List<Symbol> getOutputs()
     {
-        return outputs;
+        return ImmutableList.copyOf(assignments.keySet());
     }
 
     @JsonProperty("assignments")
@@ -116,6 +118,13 @@ public class Assignments
         return assignments.entrySet().stream()
                 .filter(entry -> predicate.apply(entry.getKey()))
                 .collect(toAssignments());
+    }
+
+    public boolean isIdentity(Symbol output)
+    {
+        Expression expression = assignments.get(output);
+
+        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
     }
 
     private Collector<Entry<Symbol, Expression>, Builder, Assignments> toAssignments()
@@ -155,6 +164,32 @@ public class Assignments
         return assignments.size();
     }
 
+    public boolean isEmpty()
+    {
+        return size() == 0;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Assignments that = (Assignments) o;
+
+        return assignments.equals(that.assignments);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return assignments.hashCode();
+    }
+
     public static class Builder
     {
         private final Map<Symbol, Expression> assignments = new LinkedHashMap<>();
@@ -187,10 +222,23 @@ public class Assignments
             return this;
         }
 
+        public Builder put(Entry<Symbol, Expression> assignment)
+        {
+            put(assignment.getKey(), assignment.getValue());
+            return this;
+        }
+
         public Builder putIdentities(Iterable<Symbol> symbols)
         {
-            assignments.putAll(StreamSupport.stream(symbols.spliterator(), false)
-                    .collect(toImmutableMap(Function.identity(), Symbol::toSymbolReference)));
+            for (Symbol symbol : symbols) {
+                putIdentity(symbol);
+            }
+            return this;
+        }
+
+        public Builder putIdentity(Symbol symbol)
+        {
+            put(symbol, symbol.toSymbolReference());
             return this;
         }
 

@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
@@ -27,13 +28,13 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
-import com.facebook.presto.spiller.SpillerFactoryWithStats;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -47,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
@@ -66,7 +66,8 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -92,6 +93,7 @@ public class TestHashAggregationOperator
     private ExecutorService executor;
     private DriverContext driverContext;
     private SpillerFactory spillerFactory = new DummySpillerFactory();
+    private JoinCompiler joinCompiler = new JoinCompiler();
 
     @BeforeMethod
     public void setUp()
@@ -99,7 +101,7 @@ public class TestHashAggregationOperator
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -151,6 +153,7 @@ public class TestHashAggregationOperator
                 hashChannels,
                 ImmutableList.of(),
                 Step.SINGLE,
+                false,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
                         LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty()),
@@ -164,7 +167,8 @@ public class TestHashAggregationOperator
                 memoryLimitBeforeSpill > 0,
                 succinctBytes(memoryLimitBeforeSpill),
                 succinctBytes(memoryLimitForMergeWithMemory),
-                spillerFactory);
+                spillerFactory,
+                joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
@@ -207,6 +211,7 @@ public class TestHashAggregationOperator
                 groupByChannels,
                 globalAggregationGroupIds,
                 Step.SINGLE,
+                true,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                         LONG_SUM.bind(ImmutableList.of(4), Optional.empty()),
                         LONG_AVERAGE.bind(ImmutableList.of(4), Optional.empty()),
@@ -216,7 +221,12 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 groupIdChannel,
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                false,
+                new DataSize(0, MEGABYTE),
+                new DataSize(0, MEGABYTE),
+                spillerFactory,
+                joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row(null, 42L, 0L, null, null, null, 0L, 0L)
@@ -242,7 +252,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -259,7 +269,8 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -280,7 +291,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, MEGABYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -290,6 +301,7 @@ public class TestHashAggregationOperator
                 hashChannels,
                 ImmutableList.of(),
                 Step.SINGLE,
+                false,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
@@ -298,7 +310,8 @@ public class TestHashAggregationOperator
                 memoryLimitBeforeSpill > 0,
                 succinctBytes(memoryLimitBeforeSpill),
                 succinctBytes(memoryLimitForMergeWithMemory),
-                spillerFactory);
+                spillerFactory,
+                joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -319,7 +332,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(3, MEGABYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -333,7 +346,8 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -364,7 +378,8 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                joinCompiler);
 
         assertEquals(toPages(operatorFactory, driverContext, input).size(), 2);
     }
@@ -389,6 +404,7 @@ public class TestHashAggregationOperator
                 hashChannels,
                 ImmutableList.of(),
                 Step.PARTIAL,
+                false,
                 ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
@@ -397,10 +413,11 @@ public class TestHashAggregationOperator
                 memoryLimitBeforeSpill > 0,
                 succinctBytes(memoryLimitBeforeSpill),
                 succinctBytes(memoryLimitForMergeWithMemory),
-                spillerFactory);
+                spillerFactory,
+                joinCompiler);
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(4, Unit.KILOBYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
@@ -472,6 +489,7 @@ public class TestHashAggregationOperator
                 hashChannels,
                 ImmutableList.of(),
                 Step.SINGLE,
+                false,
                 ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
@@ -480,10 +498,11 @@ public class TestHashAggregationOperator
                 true,
                 new DataSize(smallPagesSpillThresholdSize, Unit.BYTE),
                 succinctBytes(Integer.MAX_VALUE),
-                spillerFactory);
+                spillerFactory,
+                joinCompiler);
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, Unit.KILOBYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT);
@@ -510,7 +529,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -520,6 +539,7 @@ public class TestHashAggregationOperator
                 hashChannels,
                 ImmutableList.of(),
                 Step.SINGLE,
+                false,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
                         LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty()),
@@ -531,26 +551,27 @@ public class TestHashAggregationOperator
                 true,
                 succinctBytes(8),
                 succinctBytes(Integer.MAX_VALUE),
-                new FailingSpillerFactory());
+                new FailingSpillerFactory(),
+                joinCompiler);
 
         toPages(operatorFactory, driverContext, input);
     }
 
     private static class DummySpillerFactory
-            extends SpillerFactoryWithStats
+            implements SpillerFactory
     {
         @Override
-        public Spiller create(List<Type> types)
+        public Spiller create(List<Type> types, SpillContext spillContext, AggregatedMemoryContext memoryContext)
         {
             return new Spiller()
             {
                 private final List<Iterator<Page>> spills = new ArrayList<>();
 
                 @Override
-                public CompletableFuture<?> spill(Iterator<Page> pageIterator)
+                public ListenableFuture<?> spill(Iterator<Page> pageIterator)
                 {
                     spills.add(pageIterator);
-                    return CompletableFuture.completedFuture(null);
+                    return immediateFuture(null);
                 }
 
                 @Override
@@ -568,18 +589,16 @@ public class TestHashAggregationOperator
     }
 
     private static class FailingSpillerFactory
-            extends SpillerFactoryWithStats
+            implements SpillerFactory
     {
         @Override
-        public Spiller create(List<Type> types)
+        public Spiller create(List<Type> types, SpillContext spillContext, AggregatedMemoryContext memoryContext)
         {
             return new Spiller() {
                 @Override
-                public CompletableFuture<?> spill(Iterator<Page> pageIterator)
+                public ListenableFuture<?> spill(Iterator<Page> pageIterator)
                 {
-                    SettableFuture<Object> future = SettableFuture.create();
-                    future.setException(new IOException("Failed to spill"));
-                    return toCompletableFuture(future);
+                    return immediateFailedFuture(new IOException("Failed to spill"));
                 }
 
                 @Override

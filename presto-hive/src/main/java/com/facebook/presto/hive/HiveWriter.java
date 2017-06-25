@@ -13,45 +13,67 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class HiveWriter
 {
-    private final HiveRecordWriter hiveRecordWriter;
+    private final HiveFileWriter fileWriter;
     private final Optional<String> partitionName;
     private final boolean isNew;
     private final String fileName;
     private final String writePath;
     private final String targetPath;
+    private final Consumer<HiveWriter> onCommit;
 
-    public HiveWriter(HiveRecordWriter hiveRecordWriter, Optional<String> partitionName, boolean isNew, String fileName, String writePath, String targetPath)
+    private long rowCount = 0;
+
+    public HiveWriter(HiveFileWriter fileWriter, Optional<String> partitionName, boolean isNew, String fileName, String writePath, String targetPath, Consumer<HiveWriter> onCommit)
     {
-        this.hiveRecordWriter = hiveRecordWriter;
+        this.fileWriter = fileWriter;
         this.partitionName = partitionName;
         this.isNew = isNew;
         this.fileName = fileName;
         this.writePath = writePath;
         this.targetPath = targetPath;
+        this.onCommit = onCommit;
     }
 
-    public void addRow(Block[] columns, int position)
+    public long getSystemMemoryUsage()
     {
-        hiveRecordWriter.addRow(columns, position);
+        return fileWriter.getSystemMemoryUsage();
+    }
+
+    public long getRowCount()
+    {
+        return rowCount;
+    }
+
+    public void append(Page dataPage)
+    {
+        fileWriter.appendRows(dataPage);
+        rowCount += dataPage.getPositionCount();
     }
 
     public void commit()
     {
-        hiveRecordWriter.commit();
+        fileWriter.commit();
+        onCommit.accept(this);
+    }
+
+    public Optional<Runnable> getVerificationTask()
+    {
+        return fileWriter.getVerificationTask();
     }
 
     public void rollback()
     {
-        hiveRecordWriter.rollback();
+        fileWriter.rollback();
     }
 
     public PartitionUpdate getPartitionUpdate()
@@ -68,7 +90,8 @@ public class HiveWriter
     public String toString()
     {
         return toStringHelper(this)
-                .add("hiveRecordWriter", hiveRecordWriter)
+                .add("fileWriter", fileWriter)
+                .add("filePath", writePath + "/" + fileName)
                 .toString();
     }
 }

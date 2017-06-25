@@ -42,6 +42,12 @@ public class CachingOrcDataSource
     }
 
     @Override
+    public OrcDataSourceId getId()
+    {
+        return dataSource.getId();
+    }
+
+    @Override
     public long getReadBytes()
     {
         return dataSource.getReadBytes();
@@ -117,6 +123,12 @@ public class CachingOrcDataSource
             throws IOException
     {
         dataSource.close();
+    }
+
+    @Override
+    public String toString()
+    {
+        return dataSource.toString();
     }
 
     public interface RegionFinder

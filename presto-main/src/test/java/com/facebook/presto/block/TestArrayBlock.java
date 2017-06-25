@@ -25,6 +25,8 @@ import java.util.Random;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestArrayBlock
         extends AbstractTestBlock
@@ -103,6 +105,30 @@ public class TestArrayBlock
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(2, 3, 4, 9, 13, 14));
     }
 
+    @Test
+    public void testLazyBlockBuilderInitialization()
+            throws Exception
+    {
+        long[][] expectedValues = new long[ARRAY_SIZES.length][];
+        Random rand = new Random(47);
+        for (int i = 0; i < ARRAY_SIZES.length; i++) {
+            expectedValues[i] = rand.longs(ARRAY_SIZES[i]).toArray();
+        }
+        BlockBuilder emptyBlockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 0, 0);
+
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100);
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+
+        writeValues(expectedValues, blockBuilder);
+        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
+        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+
+        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+    }
+
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)
     {
         BlockBuilder blockBuilder = new ArrayBlockBuilder(new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100), new BlockBuilderStatus(), 100);
@@ -133,6 +159,11 @@ public class TestArrayBlock
     private static BlockBuilder createBlockBuilderWithValues(long[][] expectedValues)
     {
         BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100);
+        return writeValues(expectedValues, blockBuilder);
+    }
+
+    private static BlockBuilder writeValues(long[][] expectedValues, BlockBuilder blockBuilder)
+    {
         for (long[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();

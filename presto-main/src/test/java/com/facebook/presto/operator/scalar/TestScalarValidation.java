@@ -19,7 +19,9 @@ import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -283,6 +285,98 @@ public class TestScalarValidation
         {
             return 0;
         }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter to only contain A-Z and 0-9 \\(starting with A-Z\\), but got bad on method .*")
+    public void testNonUpperCaseTypeParameters()
+    {
+        extractScalars(TypeParameterWithNonUpperCaseAnnotation.class);
+    }
+
+    public static final class TypeParameterWithNonUpperCaseAnnotation
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        @TypeParameter("bad")
+        public static long bad(@TypeParameter("array(bad)") Type type, @SqlType(StandardTypes.BIGINT) long value)
+        {
+            return value;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter to only contain A-Z and 0-9 \\(starting with A-Z\\), but got 1E on method .*")
+    public void testLeadingNumericTypeParameters()
+    {
+        extractScalars(TypeParameterWithLeadingNumbers.class);
+    }
+
+    public static final class TypeParameterWithLeadingNumbers
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        @TypeParameter("1E")
+        public static long bad(@TypeParameter("array(1E)") Type type, @SqlType(StandardTypes.BIGINT) long value)
+        {
+            return value;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter not to take parameters, but got E on method .*")
+    public void testNonPrimitiveTypeParameters()
+    {
+        extractScalars(TypeParameterWithNonPrimitiveAnnotation.class);
+    }
+
+    public static final class TypeParameterWithNonPrimitiveAnnotation
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        @TypeParameter("E")
+        public static long bad(@TypeParameter("E(VARCHAR)") Type type, @SqlType(StandardTypes.BIGINT) long value)
+        {
+            return value;
+        }
+    }
+
+    @Test
+    public void testValidTypeParameters()
+    {
+        extractScalars(ValidTypeParameter.class);
+    }
+
+    public static final class ValidTypeParameter
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long good1(
+                @TypeParameter("ROW(ARRAY(BIGINT),MAP(INTEGER,DECIMAL),SMALLINT,CHAR,BOOLEAN,DATE,TIMESTAMP,VARCHAR)") Type type,
+                @SqlType(StandardTypes.BIGINT) long value)
+        {
+            return value;
+        }
+
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        @TypeParameter("E12")
+        @TypeParameter("F34")
+        public static long good2(
+                @TypeParameter("ROW(ARRAY(E12),JSON,TIME,VARBINARY,ROW(ROW(F34)))") Type type,
+                @SqlType(StandardTypes.BIGINT) long value)
+        {
+            return value;
+        }
+    }
+
+    @Test
+    public void testValidTypeParametersForConstructors()
+    {
+        extractScalars(ConstructorWithValidTypeParameters.class);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter not to take parameters, but got K on method .*")
+    public void testInvalidTypeParametersForConstructors()
+    {
+        extractScalars(ConstructorWithInvalidTypeParameters.class);
     }
 
     private static void extractParametricScalar(Class<?> clazz)

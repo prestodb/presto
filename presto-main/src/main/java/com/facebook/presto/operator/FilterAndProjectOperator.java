@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.getProcessingOptimization;
+import static com.facebook.presto.operator.project.PageProcessorOutput.EMPTY_PAGE_PROCESSOR_OUTPUT;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -32,21 +33,18 @@ public class FilterAndProjectOperator
 {
     private final OperatorContext operatorContext;
     private final List<Type> types;
+    private final LocalMemoryContext outputMemoryContext;
 
-    private final PageBuilder pageBuilder;
     private final PageProcessor processor;
-    private final String processingOptimization;
-    private Page currentPage;
-    private int currentPosition;
+    private PageProcessorOutput currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
     private boolean finishing;
 
     public FilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types, PageProcessor processor)
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.outputMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.processingOptimization = getProcessingOptimization(operatorContext.getSession());
-        this.pageBuilder = new PageBuilder(getTypes());
     }
 
     @Override
@@ -70,13 +68,18 @@ public class FilterAndProjectOperator
     @Override
     public final boolean isFinished()
     {
-        return finishing && pageBuilder.isEmpty() && currentPage == null;
+        boolean finished = finishing && !currentOutput.hasNext();
+        if (finished) {
+            currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
+            outputMemoryContext.setBytes(0);
+        }
+        return finished;
     }
 
     @Override
     public final boolean needsInput()
     {
-        return !finishing && !pageBuilder.isFull() && currentPage == null;
+        return !finishing && !currentOutput.hasNext();
     }
 
     @Override
@@ -84,49 +87,19 @@ public class FilterAndProjectOperator
     {
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
-        checkState(!pageBuilder.isFull(), "Page buffer is full");
+        checkState(!currentOutput.hasNext(), "Page buffer is full");
 
-        currentPage = page;
-        currentPosition = 0;
+        currentOutput = processor.process(operatorContext.getSession().toConnectorSession(), page);
+        outputMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
     }
 
     @Override
     public final Page getOutput()
     {
-        if (!pageBuilder.isFull() && currentPage != null) {
-            switch (processingOptimization) {
-                case FeaturesConfig.ProcessingOptimization.COLUMNAR: {
-                    Page page = processor.processColumnar(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
-                    currentPage = null;
-                    currentPosition = 0;
-                    return page;
-                }
-                case FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY: {
-                    Page page = processor.processColumnarDictionary(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
-                    currentPage = null;
-                    currentPosition = 0;
-                    return page;
-                }
-                case FeaturesConfig.ProcessingOptimization.DISABLED: {
-                    currentPosition = processor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
-                    if (currentPosition == currentPage.getPositionCount()) {
-                        currentPage = null;
-                        currentPosition = 0;
-                    }
-                    break;
-                }
-                default:
-                    throw new IllegalStateException();
-            }
-        }
-
-        if (!finishing && !pageBuilder.isFull() || pageBuilder.isEmpty()) {
+        if (!currentOutput.hasNext()) {
             return null;
         }
-
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-        return page;
+        return currentOutput.next();
     }
 
     public static class FilterAndProjectOperatorFactory
@@ -142,8 +115,8 @@ public class FilterAndProjectOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.processor = processor;
-            this.types = types;
+            this.processor = requireNonNull(processor, "processor is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override

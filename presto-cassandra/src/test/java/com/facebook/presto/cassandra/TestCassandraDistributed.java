@@ -15,13 +15,11 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 //Integrations tests fail when parallel, due to a bug or configuration error in the embedded
 //cassandra instance. This problem results in either a hang in Thrift calls or broken sockets.
@@ -32,13 +30,19 @@ public class TestCassandraDistributed
     public TestCassandraDistributed()
             throws Exception
     {
-        super(createCassandraQueryRunner(TpchTable.getTables()));
+        super(CassandraQueryRunner::createCassandraQueryRunner);
     }
 
     @Override
     protected boolean supportsViews()
     {
         return false;
+    }
+
+    @Override
+    public void testJoinWithLessThanOnDatesInJoinClause()
+    {
+        // Cassandra does not support DATE
     }
 
     @Override
@@ -69,6 +73,12 @@ public class TestCassandraDistributed
     public void testRenameColumn()
     {
         // Cassandra does not support renaming columns
+    }
+
+    @Override
+    public void testDropColumn()
+    {
+        // Cassandra does not support dropping columns
     }
 
     @Override

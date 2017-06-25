@@ -28,9 +28,9 @@ public class TestResourceGroupIdTemplate
     {
         ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.${USER}.${SOURCE}");
         ResourceGroupId expected = new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("test"), "u"), "s");
-        assertEquals(template.expandTemplate(new SelectionContext(true, "u", Optional.of("s"), 1)), expected);
+        assertEquals(template.expandTemplate(new SelectionContext(true, "u", Optional.of("s"), 1, Optional.empty())), expected);
         template = new ResourceGroupIdTemplate("test.${USER}");
-        assertEquals(template.expandTemplate(new SelectionContext(true, "alice.smith", Optional.empty(), 1)), new ResourceGroupId(new ResourceGroupId("test"), "alice.smith"));
+        assertEquals(template.expandTemplate(new SelectionContext(true, "alice.smith", Optional.empty(), 1, Optional.empty())), new ResourceGroupId(new ResourceGroupId("test"), "alice.smith"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.tpch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class TpchNodePartitioningProvider
@@ -67,13 +66,13 @@ public class TpchNodePartitioningProvider
     @Override
     public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> checkType(value, TpchSplit.class, "value").getPartNumber();
+        return value -> ((TpchSplit) value).getPartNumber();
     }
 
     @Override
     public BucketFunction getBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
     {
-        long totalRows = checkType(partitioningHandle, TpchPartitioningHandle.class, "functionHandle").getTotalRows();
+        long totalRows = ((TpchPartitioningHandle) partitioningHandle).getTotalRows();
         long rowsPerBucket = totalRows / bucketCount;
         checkArgument(partitionChannelTypes.equals(ImmutableList.of(BIGINT)), "Expected one BIGINT parameter");
         return new TpchBucketFunction(bucketCount, rowsPerBucket);

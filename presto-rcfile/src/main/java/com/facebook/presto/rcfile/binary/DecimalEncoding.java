@@ -14,19 +14,23 @@
 package com.facebook.presto.rcfile.binary;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
+import com.facebook.presto.rcfile.RcFileCorruptionException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import java.math.BigInteger;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
-import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
+import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.google.common.base.Preconditions.checkState;
@@ -35,13 +39,39 @@ import static java.lang.Math.toIntExact;
 public class DecimalEncoding
         implements BinaryColumnEncoding
 {
+    private static final int BITS_IN_BYTE = 8;
+    private static final int BYTES_IN_LONG_DECIMAL = 16;
+
     private final DecimalType type;
-    private final byte[] resultBytes = new byte[16];
+    private final byte[] resultBytes = new byte[BYTES_IN_LONG_DECIMAL];
     private final Slice resultSlice = Slices.wrappedBuffer(resultBytes);
 
     public DecimalEncoding(Type type)
     {
         this.type = (DecimalType) type;
+    }
+
+    @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+            throws RcFileCorruptionException
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                encodeValueInto(block, position, output);
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(Block block, int position, SliceOutput output)
+    {
+        if (isShortDecimal(type)) {
+            writeLong(output, type.getLong(block, position));
+        }
+        else {
+            writeSlice(output, block, position);
+        }
     }
 
     @Override
@@ -129,7 +159,7 @@ public class DecimalEncoding
 
     private Slice parseSlice(Slice slice, int offset)
     {
-        // first vint is scale, which is ignored
+        // first vint is scale
         int scale = toIntExact(readVInt(slice, offset));
         offset += decodeVIntSize(slice, offset);
 
@@ -137,7 +167,7 @@ public class DecimalEncoding
         int length = toIntExact(readVInt(slice, offset));
         offset += decodeVIntSize(slice, offset);
 
-        checkState(length <= 16);
+        checkState(length <= BYTES_IN_LONG_DECIMAL);
 
         // reset the results buffer
         if (slice.getByte(offset) >= 0) {
@@ -149,11 +179,58 @@ public class DecimalEncoding
             resultSlice.setLong(8, 0xFFFF_FFFF_FFFF_FFFFL);
         }
 
-        resultSlice.setBytes(16 - length, slice, offset, length);
+        resultSlice.setBytes(BYTES_IN_LONG_DECIMAL - length, slice, offset, length);
 
+        // todo get rid of BigInteger
+        BigInteger decimal = new BigInteger(resultBytes);
         if (scale != type.getScale()) {
-            return encodeUnscaledValue(rescale(new BigInteger(resultBytes), scale, type.getScale()));
+            decimal = Decimals.rescale(decimal, scale, type.getScale());
         }
-        return resultSlice;
+
+        return Decimals.encodeUnscaledValue(decimal);
+    }
+
+    private void writeLong(SliceOutput output, long value)
+    {
+        // first vint is scale
+        writeVInt(output, type.getScale());
+
+        // second vint is length
+        int length = getWriteByteCount(value);
+        writeVInt(output, length);
+
+        // write value (big endian)
+        for (int i = length - 1; i >= 0; i--) {
+            output.writeByte((int) (value >> (i * 8)));
+        }
+    }
+
+    private static int getWriteByteCount(long value)
+    {
+        // if the value is negative flip the bits, so we can always count leading zero bytes
+        if (value < 0) {
+            value = ~value;
+        }
+
+        // count number of leading zero bytes
+        return (Long.SIZE - Long.numberOfLeadingZeros(value)) / BITS_IN_BYTE + 1;
+    }
+
+    private void writeSlice(SliceOutput output, Block block, int position)
+    {
+        // first vint is scale
+        writeVInt(output, type.getScale());
+
+        // second vint is length
+        // todo get rid of BigInteger
+        BigInteger decimal = Decimals.decodeUnscaledValue(block.getSlice(position, 0, BYTES_IN_LONG_DECIMAL));
+        byte[] decimalBytes = decimal.toByteArray();
+        writeVInt(output, decimalBytes.length);
+
+        // write value (big endian)
+        // NOTE: long decimals are stored in a slice in big endian encoding
+        for (byte decimalByte : decimalBytes) {
+            output.write(decimalByte);
+        }
     }
 }

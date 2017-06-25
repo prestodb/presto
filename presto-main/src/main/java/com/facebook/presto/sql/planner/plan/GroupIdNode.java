@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import javax.annotation.concurrent.Immutable;
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
@@ -59,7 +61,7 @@ public class GroupIdNode
     {
         super(id);
         this.source = requireNonNull(source);
-        this.groupingSets = ImmutableList.copyOf(requireNonNull(groupingSets));
+        this.groupingSets = listOfListsCopy(requireNonNull(groupingSets, "groupingSets is null"));
         this.groupingSetMappings = ImmutableMap.copyOf(requireNonNull(groupingSetMappings));
         this.argumentMappings = ImmutableMap.copyOf(requireNonNull(argumentMappings));
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
@@ -116,7 +118,7 @@ public class GroupIdNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitGroupId(this, context);
     }
@@ -141,5 +143,11 @@ public class GroupIdNode
             intersection.retainAll(groupingSets.get(i));
         }
         return ImmutableSet.copyOf(intersection);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new GroupIdNode(getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingSetMappings, argumentMappings, groupIdSymbol);
     }
 }

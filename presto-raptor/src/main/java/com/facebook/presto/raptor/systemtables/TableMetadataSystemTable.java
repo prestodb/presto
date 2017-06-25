@@ -51,7 +51,6 @@ import java.util.TreeMap;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_CORRUPT_METADATA;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -226,6 +225,6 @@ public class TableMetadataSystemTable
         if ((value == null) || value.isNull()) {
             return null;
         }
-        return checkType(value.getValue(), Slice.class, "value").toStringUtf8();
+        return ((Slice) value.getValue()).toStringUtf8();
     }
 }

@@ -60,7 +60,8 @@ public class TestVerifyOnlyOneOutputNode
                                                 ),
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
-                                ), new Symbol("a")
+                                ), new Symbol("a"),
+                                false
                         ),
                         ImmutableList.of(), ImmutableList.of()
                 );

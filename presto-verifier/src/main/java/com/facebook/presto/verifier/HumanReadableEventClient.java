@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier;
 
-import com.facebook.presto.util.Types;
 import io.airlift.event.client.AbstractEventClient;
 import io.airlift.stats.QuantileDigest;
 import io.airlift.units.Duration;
@@ -62,7 +61,7 @@ public class HumanReadableEventClient
     public <T> void postEvent(T event)
             throws IOException
     {
-        VerifierQueryEvent queryEvent = Types.checkType(event, VerifierQueryEvent.class, "event");
+        VerifierQueryEvent queryEvent = (VerifierQueryEvent) event;
 
         Optional<Double> cpuRatio = getCpuRatio(queryEvent);
         if (cpuRatio.isPresent()) {

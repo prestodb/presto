@@ -19,7 +19,6 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -36,12 +35,7 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-
-        int sizeInBytes = 0;
-        for (Slice expectedValue : expectedValues) {
-            sizeInBytes += expectedValue.length();
-        }
-        assertEquals(dictionaryBlock.getSizeInBytes(), sizeInBytes + (100 * SIZE_OF_INT));
+        assertEquals(dictionaryBlock.getSizeInBytes(), dictionaryBlock.getDictionary().getSizeInBytes() + (100 * SIZE_OF_INT));
     }
 
     @Test
@@ -60,6 +54,7 @@ public class TestDictionaryBlock
             throws Exception
     {
         Slice[] expectedValues = createExpectedValues(10);
+        Slice firstExpectedValue = expectedValues[0];
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
 
         List<Integer> positionsToCopy = Ints.asList(0, 10, 20, 30, 40);
@@ -67,7 +62,8 @@ public class TestDictionaryBlock
 
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 1);
         assertEquals(copiedBlock.getPositionCount(), positionsToCopy.size());
-        assertBlock(copiedBlock.getDictionary(), Arrays.copyOfRange(expectedValues, 0, 1));
+        assertBlock(copiedBlock.getDictionary(), new Slice[] {firstExpectedValue});
+        assertBlock(copiedBlock, new Slice[] {firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue});
     }
 
     @Test
@@ -83,7 +79,7 @@ public class TestDictionaryBlock
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 2);
         assertEquals(copiedBlock.getPositionCount(), positionsToCopy.size());
 
-        assertBlock(copiedBlock.getDictionary(), new Slice[] { expectedValues[0], expectedValues[5] });
+        assertBlock(copiedBlock.getDictionary(), new Slice[] {expectedValues[0], expectedValues[5]});
         assertDictionaryIds(copiedBlock, 0, 1, 0, 1, 0);
     }
 
@@ -100,7 +96,7 @@ public class TestDictionaryBlock
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 1);
         assertEquals(copiedBlock.getPositionCount(), positionsToCopy.size());
 
-        assertBlock(copiedBlock.getDictionary(), new Slice[] { expectedValues[2] });
+        assertBlock(copiedBlock.getDictionary(), new Slice[] {expectedValues[2]});
         assertDictionaryIds(copiedBlock, 0, 0, 0);
     }
 
@@ -130,7 +126,7 @@ public class TestDictionaryBlock
         assertNotEquals(dictionaryBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
 
         assertEquals(compactBlock.getDictionary().getPositionCount(), (expectedValues.length / 2) + 1);
-        assertBlock(compactBlock.getDictionary(), new Slice[] { expectedValues[0], expectedValues[1], expectedValues[3] });
+        assertBlock(compactBlock.getDictionary(), new Slice[] {expectedValues[0], expectedValues[1], expectedValues[3]});
         assertDictionaryIds(compactBlock, 0, 1, 1, 2, 2, 0, 1, 1, 2, 2);
         assertEquals(compactBlock.isCompact(), true);
 
@@ -168,7 +164,7 @@ public class TestDictionaryBlock
             }
             ids[i] = index;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
     }
 
     private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount)
@@ -179,7 +175,7 @@ public class TestDictionaryBlock
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
     }
 
     private static void assertDictionaryIds(DictionaryBlock dictionaryBlock, int... expected)

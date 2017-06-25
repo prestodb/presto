@@ -41,6 +41,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
@@ -82,14 +83,17 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
@@ -99,6 +103,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.http.HttpStatus.SC_BAD_REQUEST;
 import static org.apache.http.HttpStatus.SC_FORBIDDEN;
 import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
@@ -137,7 +142,9 @@ public class PrestoS3FileSystem
     public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
     public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
     public static final String S3_KMS_KEY_ID = "presto.s3.kms-key-id";
+    public static final String S3_SSE_KMS_KEY_ID = "presto.s3.sse.kms-key-id";
     public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
+    public static final String S3_SSE_TYPE = "presto.s3.sse.type";
     public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
     public static final String S3_USER_AGENT_PREFIX = "presto.s3.user-agent-prefix";
     public static final String S3_USER_AGENT_SUFFIX = "presto";
@@ -159,6 +166,8 @@ public class PrestoS3FileSystem
     private boolean useInstanceCredentials;
     private boolean pinS3ClientToCurrentRegion;
     private boolean sseEnabled;
+    private PrestoS3SseType sseType;
+    private String sseKmsKeyId;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -172,7 +181,7 @@ public class PrestoS3FileSystem
         this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
         this.workingDirectory = new Path(PATH_SEPARATOR).makeQualified(this.uri, new Path(PATH_SEPARATOR));
 
-        HiveClientConfig defaults = new HiveClientConfig();
+        HiveS3Config defaults = new HiveS3Config();
         this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
         this.maxAttempts = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries()) + 1;
         this.maxBackoffTime = Duration.valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
@@ -187,6 +196,8 @@ public class PrestoS3FileSystem
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
+        this.sseType = PrestoS3SseType.valueOf(conf.get(S3_SSE_TYPE, defaults.getS3SseType().name()));
+        this.sseKmsKeyId = conf.get(S3_SSE_KMS_KEY_ID, defaults.getS3SseKmsKeyId());
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
 
         ClientConfiguration configuration = new ClientConfiguration()
@@ -307,7 +318,7 @@ public class PrestoS3FileSystem
         }
 
         return new FileStatus(
-                getObjectSize(metadata),
+                getObjectSize(path, metadata),
                 false,
                 1,
                 BLOCK_SIZE.toBytes(),
@@ -315,9 +326,14 @@ public class PrestoS3FileSystem
                 qualifiedPath(path));
     }
 
-    private static long getObjectSize(ObjectMetadata metadata)
+    private static long getObjectSize(Path path, ObjectMetadata metadata)
+            throws IOException
     {
-        String length = metadata.getUserMetadata().get(UNENCRYPTED_CONTENT_LENGTH);
+        Map<String, String> userMetadata = metadata.getUserMetadata();
+        String length = userMetadata.get(UNENCRYPTED_CONTENT_LENGTH);
+        if (userMetadata.containsKey(SERVER_SIDE_ENCRYPTION) && length == null) {
+            throw new IOException(format("%s header is not set on an encrypted object: %s", UNENCRYPTED_CONTENT_LENGTH, path));
+        }
         return (length != null) ? Long.parseLong(length) : metadata.getContentLength();
     }
 
@@ -349,7 +365,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile, sseEnabled),
+                new PrestoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile, sseEnabled, sseType, sseKmsKeyId),
                 statistics);
     }
 
@@ -551,6 +567,7 @@ public class PrestoS3FileSystem
                                     case SC_NOT_FOUND:
                                         return null;
                                     case SC_FORBIDDEN:
+                                    case SC_BAD_REQUEST:
                                         throw new UnrecoverableS3OperationException(path, e);
                                 }
                             }
@@ -563,7 +580,7 @@ public class PrestoS3FileSystem
             throw Throwables.propagate(e);
         }
         catch (Exception e) {
-            Throwables.propagateIfInstanceOf(e, IOException.class);
+            throwIfInstanceOf(e, IOException.class);
             throw Throwables.propagate(e);
         }
     }
@@ -814,7 +831,7 @@ public class PrestoS3FileSystem
                 throw Throwables.propagate(e);
             }
             catch (Exception e) {
-                Throwables.propagateIfInstanceOf(e, IOException.class);
+                throwIfInstanceOf(e, IOException.class);
                 throw Throwables.propagate(e);
             }
         }
@@ -889,6 +906,7 @@ public class PrestoS3FileSystem
                                             return new ByteArrayInputStream(new byte[0]);
                                         case SC_FORBIDDEN:
                                         case SC_NOT_FOUND:
+                                        case SC_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
@@ -901,7 +919,7 @@ public class PrestoS3FileSystem
                 throw Throwables.propagate(e);
             }
             catch (Exception e) {
-                Throwables.propagateIfInstanceOf(e, IOException.class);
+                throwIfInstanceOf(e, IOException.class);
                 throw Throwables.propagate(e);
             }
         }
@@ -934,10 +952,12 @@ public class PrestoS3FileSystem
         private final String key;
         private final File tempFile;
         private final boolean sseEnabled;
+        private final PrestoS3SseType sseType;
+        private final String sseKmsKeyId;
 
         private boolean closed;
 
-        public PrestoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key, File tempFile, boolean sseEnabled)
+        public PrestoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key, File tempFile, boolean sseEnabled, PrestoS3SseType sseType, String sseKmsKeyId)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -949,6 +969,8 @@ public class PrestoS3FileSystem
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
             this.sseEnabled = sseEnabled;
+            this.sseType = requireNonNull(sseType, "sseType is null");
+            this.sseKmsKeyId = sseKmsKeyId;
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -984,10 +1006,23 @@ public class PrestoS3FileSystem
 
                 PutObjectRequest request = new PutObjectRequest(host, key, tempFile);
                 if (sseEnabled) {
-                    ObjectMetadata metadata = new ObjectMetadata();
-                    metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
-                    request.setMetadata(metadata);
+                    switch (sseType) {
+                        case KMS:
+                            if (sseKmsKeyId != null) {
+                                request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(sseKmsKeyId));
+                            }
+                            else {
+                                request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams());
+                            }
+                            break;
+                        case S3:
+                            ObjectMetadata metadata = new ObjectMetadata();
+                            metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
+                            request.setMetadata(metadata);
+                            break;
+                    }
                 }
+
                 Upload upload = transferManager.upload(request);
 
                 if (log.isDebugEnabled()) {

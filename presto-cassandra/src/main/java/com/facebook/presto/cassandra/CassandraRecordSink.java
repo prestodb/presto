@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.PreparedStatement;
+import com.datastax.driver.core.querybuilder.Insert;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -20,17 +22,26 @@ import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
-import javax.inject.Inject;
-
+import java.nio.ByteBuffer;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
+import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -39,38 +50,41 @@ public class CassandraRecordSink
 {
     private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
 
-    private final int fieldCount;
     private final CassandraSession cassandraSession;
-    private final String insertQuery;
+    private final PreparedStatement insert;
     private final List<Object> values;
-    private final String schemaName;
     private final List<Type> columnTypes;
+    private final boolean generateUUID;
+
     private int field = -1;
 
-    @Inject
-    public CassandraRecordSink(CassandraOutputTableHandle handle, CassandraSession cassandraSession)
+    public CassandraRecordSink(
+            CassandraSession cassandraSession,
+            String schemaName,
+            String tableName,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            boolean generateUUID)
     {
-        this.fieldCount = requireNonNull(handle, "handle is null").getColumnNames().size();
-        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(columnNames, "columnNames is null");
+        this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+        this.generateUUID = generateUUID;
 
-        schemaName = handle.getSchemaName();
-        StringBuilder queryBuilder = new StringBuilder(String.format("INSERT INTO \"%s\".\"%s\"(", schemaName, handle.getTableName()));
-        queryBuilder.append("id");
-
-        for (String columnName : handle.getColumnNames()) {
-            queryBuilder.append(",").append(columnName);
+        Insert insert = insertInto(schemaName, tableName);
+        if (generateUUID) {
+            insert.value("id", bindMarker());
         }
-        queryBuilder.append(") VALUES (?");
-
-        for (int i = 0; i < handle.getColumnNames().size(); i++) {
-            queryBuilder.append(",?");
+        for (int i = 0; i < columnNames.size(); i++) {
+            String columnName = columnNames.get(i);
+            checkArgument(columnName != null, "columnName is null at position: %d", i);
+            insert.value(columnName, bindMarker());
         }
-        queryBuilder.append(")");
+        this.insert = cassandraSession.prepare(insert);
 
-        insertQuery = queryBuilder.toString();
-        values = new ArrayList<>();
-
-        columnTypes = handle.getColumnTypes();
+        values = new ArrayList<>(columnTypes.size() + 1);
     }
 
     @Override
@@ -80,16 +94,18 @@ public class CassandraRecordSink
 
         field = 0;
         values.clear();
-        values.add(UUID.randomUUID());
+        if (generateUUID) {
+            values.add(UUID.randomUUID());
+        }
     }
 
     @Override
     public void finishRecord()
     {
         checkState(field != -1, "not in record");
-        checkState(field == fieldCount, "not all fields set");
+        checkState(field == columnTypes.size(), "not all fields set");
         field = -1;
-        cassandraSession.execute(schemaName, insertQuery, values.toArray());
+        cassandraSession.execute(insert.bind(values.toArray()));
     }
 
     @Override
@@ -107,14 +123,24 @@ public class CassandraRecordSink
     @Override
     public void appendLong(long value)
     {
-        if (DATE.equals(columnTypes.get(field))) {
+        Type columnType = columnTypes.get(field);
+        if (DATE.equals(columnType)) {
             append(DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value)));
         }
-        else if (INTEGER.equals(columnTypes.get(field))) {
+        else if (INTEGER.equals(columnType)) {
             append(((Number) value).intValue());
         }
-        else {
+        else if (REAL.equals(columnType)) {
+            append(intBitsToFloat((int) value));
+        }
+        else if (TIMESTAMP.equals(columnType)) {
+            append(new Timestamp(value));
+        }
+        else if (BIGINT.equals(columnType)) {
             append(value);
+        }
+        else {
+            throw new UnsupportedOperationException("Type is not supported: " + columnType);
         }
     }
 
@@ -127,7 +153,16 @@ public class CassandraRecordSink
     @Override
     public void appendString(byte[] value)
     {
-        append(new String(value, UTF_8));
+        Type columnType = columnTypes.get(field);
+        if (VARBINARY.equals(columnType)) {
+            append(ByteBuffer.wrap(value));
+        }
+        else if (isVarcharType(columnType)) {
+            append(new String(value, UTF_8));
+        }
+        else {
+            throw new UnsupportedOperationException("Type is not supported: " + columnType);
+        }
     }
 
     @Override
@@ -156,7 +191,7 @@ public class CassandraRecordSink
     private void append(Object value)
     {
         checkState(field != -1, "not in record");
-        checkState(field < fieldCount, "all fields already set");
+        checkState(field < columnTypes.size(), "all fields already set");
         values.add(value);
         field++;
     }

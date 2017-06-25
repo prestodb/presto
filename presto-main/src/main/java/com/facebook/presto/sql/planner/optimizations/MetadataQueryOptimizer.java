@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -42,7 +43,6 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -100,8 +100,8 @@ public class MetadataQueryOptimizer
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
-            for (FunctionCall call : node.getAggregations().values()) {
-                if (!ALLOWED_FUNCTIONS.contains(call.getName().toString()) && !call.isDistinct()) {
+            for (Aggregation aggregation : node.getAggregations().values()) {
+                if (!ALLOWED_FUNCTIONS.contains(aggregation.getCall().getName().toString()) && !aggregation.getCall().isDistinct()) {
                     return context.defaultRewrite(node);
                 }
             }

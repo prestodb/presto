@@ -48,6 +48,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -62,6 +63,7 @@ public class HttpRemoteTaskFactory
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration minErrorDuration;
+    private final Duration maxErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoUpdateInterval;
     private final ExecutorService coreExecutor;
@@ -86,7 +88,9 @@ public class HttpRemoteTaskFactory
         this.taskStatusCodec = taskStatusCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
+        checkArgument(config.getRemoteTaskMaxErrorDuration().compareTo(config.getRemoteTaskMinErrorDuration()) >= 0, "max error duration is less than min error duration");
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
+        this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
         this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
@@ -135,6 +139,7 @@ public class HttpRemoteTaskFactory
                 updateScheduledExecutor,
                 errorScheduledExecutor,
                 minErrorDuration,
+                maxErrorDuration,
                 taskStatusRefreshMaxWait,
                 taskInfoUpdateInterval,
                 summarizeTaskInfo,

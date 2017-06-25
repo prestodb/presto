@@ -29,10 +29,9 @@ import java.sql.Statement;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.tpch.TpchTable.ORDERS;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -51,8 +50,14 @@ public class TestMySqlIntegrationSmokeTest
     public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
             throws Exception
     {
-        super(createMySqlQueryRunner(mysqlServer, ORDERS));
+        super(() -> createMySqlQueryRunner(mysqlServer, ORDERS));
         this.mysqlServer = mysqlServer;
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+    {
+        mysqlServer.close();
     }
 
     @Override
@@ -63,7 +68,7 @@ public class TestMySqlIntegrationSmokeTest
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
 
         // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(255)", "", "")
@@ -75,12 +80,6 @@ public class TestMySqlIntegrationSmokeTest
                 .row("comment", "varchar(255)", "", "")
                 .build();
         assertEquals(actualColumns, expectedColumns);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        closeAllRuntimeException(mysqlServer);
     }
 
     @Test
@@ -102,15 +101,15 @@ public class TestMySqlIntegrationSmokeTest
                 .setSchema("test_database")
                 .build();
 
-        assertFalse(queryRunner.tableExists(session, "test_table"));
+        assertFalse(getQueryRunner().tableExists(session, "test_table"));
 
         assertUpdate(session, "CREATE TABLE test_table AS SELECT 123 x", 1);
-        assertTrue(queryRunner.tableExists(session, "test_table"));
+        assertTrue(getQueryRunner().tableExists(session, "test_table"));
 
         assertQuery(session, "SELECT * FROM test_table", "SELECT 123");
 
         assertUpdate(session, "DROP TABLE test_table");
-        assertFalse(queryRunner.tableExists(session, "test_table"));
+        assertFalse(getQueryRunner().tableExists(session, "test_table"));
     }
 
     @Test

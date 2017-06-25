@@ -18,12 +18,14 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Collections.emptyMap;
 
 public class ConnectorTableMetadata
 {
     private final SchemaTableName table;
+    private final Optional<String> comment;
     private final List<ColumnMetadata> columns;
     private final Map<String, Object> properties;
 
@@ -34,16 +36,25 @@ public class ConnectorTableMetadata
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties)
     {
+        this(table, columns, properties, Optional.empty());
+    }
+
+    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment)
+    {
         if (table == null) {
             throw new NullPointerException("table is null or empty");
         }
         if (columns == null) {
             throw new NullPointerException("columns is null");
         }
+        if (comment == null) {
+            throw new NullPointerException("comment is null");
+        }
 
         this.table = table;
         this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
         this.properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
+        this.comment = comment;
     }
 
     public SchemaTableName getTable()
@@ -61,6 +72,11 @@ public class ConnectorTableMetadata
         return properties;
     }
 
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     @Override
     public String toString()
     {
@@ -68,6 +84,7 @@ public class ConnectorTableMetadata
         sb.append("table=").append(table);
         sb.append(", columns=").append(columns);
         sb.append(", properties=").append(properties);
+        comment.ifPresent(value -> sb.append(", comment='").append(value).append("'"));
         sb.append('}');
         return sb.toString();
     }

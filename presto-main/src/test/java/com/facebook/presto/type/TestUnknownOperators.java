@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -28,7 +29,8 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 public class TestUnknownOperators
         extends AbstractTestFunctions
 {
-    private TestUnknownOperators()
+    @BeforeClass
+    public void setUp()
     {
         registerScalar(getClass());
     }

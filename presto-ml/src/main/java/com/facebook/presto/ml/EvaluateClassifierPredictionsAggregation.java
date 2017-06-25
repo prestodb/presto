@@ -15,6 +15,7 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.LiteralParameters;
@@ -39,14 +40,14 @@ public final class EvaluateClassifierPredictionsAggregation
     private EvaluateClassifierPredictionsAggregation() {}
 
     @InputFunction
-    public static void input(EvaluateClassifierPredictionsState state, @SqlType(StandardTypes.BIGINT) long truth, @SqlType(StandardTypes.BIGINT) long prediction)
+    public static void input(@AggregationState EvaluateClassifierPredictionsState state, @SqlType(StandardTypes.BIGINT) long truth, @SqlType(StandardTypes.BIGINT) long prediction)
     {
         input(state, Slices.utf8Slice(String.valueOf(truth)), Slices.utf8Slice(String.valueOf(prediction)));
     }
 
     @InputFunction
     @LiteralParameters({"x", "y"})
-    public static void input(EvaluateClassifierPredictionsState state, @SqlType("varchar(x)") Slice truth, @SqlType("varchar(y)") Slice prediction)
+    public static void input(@AggregationState EvaluateClassifierPredictionsState state, @SqlType("varchar(x)") Slice truth, @SqlType("varchar(y)") Slice prediction)
     {
         if (truth.equals(prediction)) {
             String key = truth.toStringUtf8();
@@ -70,7 +71,7 @@ public final class EvaluateClassifierPredictionsAggregation
     }
 
     @CombineFunction
-    public static void combine(EvaluateClassifierPredictionsState state, EvaluateClassifierPredictionsState scratchState)
+    public static void combine(@AggregationState EvaluateClassifierPredictionsState state, @AggregationState EvaluateClassifierPredictionsState scratchState)
     {
         int size = 0;
         size += mergeMaps(state.getTruePositives(), scratchState.getTruePositives());
@@ -93,7 +94,7 @@ public final class EvaluateClassifierPredictionsAggregation
     }
 
     @OutputFunction(StandardTypes.VARCHAR)
-    public static void output(EvaluateClassifierPredictionsState state, BlockBuilder out)
+    public static void output(@AggregationState EvaluateClassifierPredictionsState state, BlockBuilder out)
     {
         StringBuilder sb = new StringBuilder();
         long correct = state.getTruePositives()

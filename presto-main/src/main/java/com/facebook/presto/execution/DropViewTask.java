@@ -22,14 +22,14 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropViewTask
         implements DataDefinitionTask<DropView>
@@ -41,7 +41,7 @@ public class DropViewTask
     }
 
     @Override
-    public CompletableFuture<?> execute(DropView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(DropView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
@@ -51,13 +51,13 @@ public class DropViewTask
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);
             }
-            return completedFuture(null);
+            return immediateFuture(null);
         }
 
         accessControl.checkCanDropView(session.getRequiredTransactionId(), session.getIdentity(), name);
 
         metadata.dropView(session, name);
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 }

@@ -15,20 +15,23 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 
 public class TypedKeyValueHeap
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedKeyValueHeap.class).instanceSize();
+
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in keyBlockBuilder is unreferenced, do compact
 
@@ -49,8 +52,8 @@ public class TypedKeyValueHeap
         this.valueType = valueType;
         this.capacity = capacity;
         this.heapIndex = new int[capacity];
-        this.keyBlockBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), capacity);
-        this.valueBlockBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), capacity);
+        this.keyBlockBuilder = keyType.createBlockBuilder(null, capacity);
+        this.valueBlockBuilder = valueType.createBlockBuilder(null, capacity);
     }
 
     public static Type getSerializedType(Type keyType, Type valueType)
@@ -65,7 +68,7 @@ public class TypedKeyValueHeap
 
     public long getEstimatedSize()
     {
-        return keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + capacity * Integer.BYTES;
+        return INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + sizeOf(heapIndex);
     }
 
     public boolean isEmpty()
@@ -206,8 +209,8 @@ public class TypedKeyValueHeap
         if (keyBlockBuilder.getSizeInBytes() < COMPACT_THRESHOLD_BYTES || keyBlockBuilder.getPositionCount() / positionCount < COMPACT_THRESHOLD_RATIO) {
             return;
         }
-        BlockBuilder newHeapKeyBlockBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), keyBlockBuilder.getPositionCount());
-        BlockBuilder newHeapValueBlockBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), valueBlockBuilder.getPositionCount());
+        BlockBuilder newHeapKeyBlockBuilder = keyType.createBlockBuilder(null, keyBlockBuilder.getPositionCount());
+        BlockBuilder newHeapValueBlockBuilder = valueType.createBlockBuilder(null, valueBlockBuilder.getPositionCount());
         for (int i = 0; i < positionCount; i++) {
             keyType.appendTo(keyBlockBuilder, heapIndex[i], newHeapKeyBlockBuilder);
             valueType.appendTo(valueBlockBuilder, heapIndex[i], newHeapValueBlockBuilder);

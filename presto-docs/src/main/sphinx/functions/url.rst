@@ -55,7 +55,7 @@ Encoding Functions
     URL query parameter names and values:
 
     * Alphanumeric characters are not encoded.
-    * The characters characters ``.``, ``-``, ``*`` and ``_`` are not encoded.
+    * The characters ``.``, ``-``, ``*`` and ``_`` are not encoded.
     * The ASCII space character is encoded as ``+``.
     * All other characters are converted to UTF-8 and the bytes are encoded
       as the string ``%XX`` where ``XX`` is the uppercase hexadecimal

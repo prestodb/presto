@@ -21,6 +21,8 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestShortArrayBlock
         extends AbstractTestBlock
@@ -42,6 +44,26 @@ public class TestShortArrayBlock
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
     }
 
+    @Test
+    public void testLazyBlockBuilderInitialization()
+            throws Exception
+    {
+        Slice[] expectedValues = createTestValue(100);
+        BlockBuilder emptyBlockBuilder = new ShortArrayBlockBuilder(new BlockBuilderStatus(), 0);
+
+        BlockBuilder blockBuilder = new ShortArrayBlockBuilder(new BlockBuilderStatus(), expectedValues.length);
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+
+        writeValues(expectedValues, blockBuilder);
+        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
+        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+
+        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+    }
+
     private void assertFixedWithValues(Slice[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
@@ -52,6 +74,12 @@ public class TestShortArrayBlock
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
         ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(new BlockBuilderStatus(), expectedValues.length);
+        writeValues(expectedValues, blockBuilder);
+        return blockBuilder;
+    }
+
+    private static void writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
@@ -60,7 +88,6 @@ public class TestShortArrayBlock
                 blockBuilder.writeShort(expectedValue.getShort(0)).closeEntry();
             }
         }
-        return blockBuilder;
     }
 
     private static Slice[] createTestValue(int positionCount)

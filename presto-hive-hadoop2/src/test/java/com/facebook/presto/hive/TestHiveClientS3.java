@@ -17,7 +17,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-@Test
+@Test(groups = "hive-s3")
 public class TestHiveClientS3
         extends AbstractTestHiveClientS3
 {

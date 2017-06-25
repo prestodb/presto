@@ -16,7 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.inject.Inject;
+
+import javax.inject.Inject;
 
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;

@@ -20,9 +20,12 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -102,6 +105,13 @@ public class Table
         return partitionColumns;
     }
 
+    public Optional<Column> getColumn(String name)
+    {
+        return Stream.concat(partitionColumns.stream(), dataColumns.stream())
+                .filter(column -> column.getName().equals(name))
+                .findFirst();
+    }
+
     @JsonProperty
     public Storage getStorage()
     {
@@ -152,9 +162,9 @@ public class Table
         private String tableName;
         private String owner;
         private String tableType;
-        private List<Column> dataColumns;
-        private List<Column> partitionColumns;
-        private Map<String, String> parameters;
+        private List<Column> dataColumns = new ArrayList<>();
+        private List<Column> partitionColumns = new ArrayList<>();
+        private Map<String, String> parameters = new LinkedHashMap<>();
         private Optional<String> viewOriginalText = Optional.empty();
         private Optional<String> viewExpandedText = Optional.empty();
 
@@ -170,9 +180,9 @@ public class Table
             owner = table.owner;
             tableType = table.tableType;
             storageBuilder = Storage.builder(table.getStorage());
-            dataColumns = table.dataColumns;
-            partitionColumns = table.partitionColumns;
-            parameters = table.parameters;
+            dataColumns = new ArrayList<>(table.dataColumns);
+            partitionColumns = new ArrayList<>(table.partitionColumns);
+            parameters = new LinkedHashMap<>(table.parameters);
             viewOriginalText = table.viewOriginalText;
             viewExpandedText = table.viewExpandedText;
         }
@@ -208,19 +218,25 @@ public class Table
 
         public Builder setDataColumns(List<Column> dataColumns)
         {
-            this.dataColumns = dataColumns;
+            this.dataColumns = new ArrayList<>(dataColumns);
+            return this;
+        }
+
+        public Builder addDataColumn(Column dataColumn)
+        {
+            this.dataColumns.add(dataColumn);
             return this;
         }
 
         public Builder setPartitionColumns(List<Column> partitionColumns)
         {
-            this.partitionColumns = partitionColumns;
+            this.partitionColumns = new ArrayList<>(partitionColumns);
             return this;
         }
 
         public Builder setParameters(Map<String, String> parameters)
         {
-            this.parameters = parameters;
+            this.parameters = new LinkedHashMap<>(parameters);
             return this;
         }
 

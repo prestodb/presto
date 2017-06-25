@@ -25,10 +25,12 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.succinctNanos;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -54,12 +56,14 @@ public class QueryStats
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int runningDrivers;
+    private final int blockedDrivers;
     private final int completedDrivers;
 
     private final double cumulativeMemory;
     private final DataSize totalMemoryReservation;
     private final DataSize peakMemoryReservation;
 
+    private final boolean scheduled;
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
     private final Duration totalUserTime;
@@ -93,6 +97,7 @@ public class QueryStats
         this.finishingTime = null;
         this.totalTasks = 0;
         this.runningTasks = 0;
+        this.blockedDrivers = 0;
         this.completedTasks = 0;
         this.totalDrivers = 0;
         this.queuedDrivers = 0;
@@ -101,6 +106,7 @@ public class QueryStats
         this.cumulativeMemory = 0.0;
         this.totalMemoryReservation = null;
         this.peakMemoryReservation = null;
+        this.scheduled = false;
         this.totalScheduledTime = null;
         this.totalCpuTime = null;
         this.totalUserTime = null;
@@ -137,12 +143,14 @@ public class QueryStats
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
 
+            @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalUserTime") Duration totalUserTime,
@@ -186,12 +194,15 @@ public class QueryStats
         this.queuedDrivers = queuedDrivers;
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
+        checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
+        this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
         this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
+        this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
@@ -320,6 +331,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public int getBlockedDrivers()
+    {
+        return blockedDrivers;
+    }
+
+    @JsonProperty
     public int getCompletedDrivers()
     {
         return completedDrivers;
@@ -341,6 +358,12 @@ public class QueryStats
     public DataSize getPeakMemoryReservation()
     {
         return peakMemoryReservation;
+    }
+
+    @JsonProperty
+    public boolean isScheduled()
+    {
+        return scheduled;
     }
 
     @JsonProperty
@@ -419,5 +442,14 @@ public class QueryStats
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    @JsonProperty
+    public OptionalDouble getProgressPercentage()
+    {
+        if (!scheduled || totalDrivers == 0) {
+             return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
     }
 }

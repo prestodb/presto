@@ -18,7 +18,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
+import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertFalse;
 
@@ -57,9 +57,30 @@ public class TestExpressionVerifier
         assertTrue(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)")));
     }
 
+    @Test
+    public void testBetween()
+            throws Exception
+    {
+        SymbolAliases symbolAliases = SymbolAliases.builder()
+                .put("X", new SymbolReference("orderkey"))
+                .put("Y", new SymbolReference("custkey"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+        // Complete match
+        assertTrue(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        // Different value
+        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("Y BETWEEN 1 AND 2")));
+        assertFalse(verifier.process(expression("custkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        // Different min or max
+        assertFalse(verifier.process(expression("orderkey BETWEEN 2 AND 4"), expression("X BETWEEN 1 AND 2")));
+        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN '1' AND '2'")));
+        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 4 AND 7")));
+    }
+
     private Expression expression(String sql)
     {
-        return rewriteQualifiedNamesToSymbolReferences(parser.createExpression(sql));
+        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql));
     }
 
     private static void assertThrows(Runnable runnable)

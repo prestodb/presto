@@ -67,6 +67,11 @@ public class IndexSourceNode
         checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
         checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup symbols");
         checkArgument(outputSymbols.containsAll(lookupSymbols), "Lookup symbols need to be part of the output symbols");
+        Set<ColumnHandle> assignedColumnHandles = ImmutableSet.copyOf(assignments.values());
+        effectiveTupleDomain.getDomains().ifPresent(handleToDomain ->
+                checkArgument(
+                        assignedColumnHandles.containsAll(handleToDomain.keySet()),
+                        "Tuple domain handles must have assigned symbols"));
     }
 
     @JsonProperty
@@ -119,8 +124,15 @@ public class IndexSourceNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitIndexSource(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.isEmpty(), "newChildren is not empty");
+        return this;
     }
 }

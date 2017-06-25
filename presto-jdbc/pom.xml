@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.162-SNAPSHOT</version>
+        <version>0.181-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -20,6 +20,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-client</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.validation</groupId>
+                    <artifactId>validation-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -28,39 +34,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>http-client</artifactId>
-            <exclusions>
-                <!-- configuration is not used -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>configuration</artifactId>
-                </exclusion>
-                <!-- trace-token is not used -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>trace-token</artifactId>
-                </exclusion>
-                <!-- guice is not used -->
-                <exclusion>
-                    <groupId>com.google.inject</groupId>
-                    <artifactId>guice</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.inject.extensions</groupId>
-                    <artifactId>guice-multibindings</artifactId>
-                </exclusion>
-                <!-- jmxutils is not used -->
-                <exclusion>
-                    <groupId>org.weakref</groupId>
-                    <artifactId>jmxutils</artifactId>
-                </exclusion>
-                <!-- TODO: remove when fixed in airlift -->
-                <exclusion>
-                    <groupId>org.eclipse.jetty</groupId>
-                    <artifactId>jetty-servlet</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
         </dependency>
 
         <dependency>
@@ -72,10 +47,6 @@
             <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
             <exclusions>
-                <exclusion>
-                    <groupId>javax.inject</groupId>
-                    <artifactId>javax.inject</artifactId>
-                </exclusion>
                 <exclusion>
                     <groupId>com.google.inject</groupId>
                     <artifactId>guice</artifactId>
@@ -95,11 +66,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>annotations</artifactId>
         </dependency>
 
         <!-- for testing -->
@@ -142,6 +108,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -199,12 +171,12 @@
                                     <shadedPattern>${shadeBase}.joda.time</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>org.eclipse.jetty</pattern>
-                                    <shadedPattern>${shadeBase}.jetty</shadedPattern>
+                                    <pattern>okhttp3</pattern>
+                                    <shadedPattern>${shadeBase}.okhttp3</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>org.HdrHistogram</pattern>
-                                    <shadedPattern>${shadeBase}.HdrHistogram</shadedPattern>
+                                    <pattern>okio</pattern>
+                                    <shadedPattern>${shadeBase}.okio</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
@@ -212,12 +184,8 @@
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/maven/**</exclude>
-                                        <exclude>META-INF/*.xml</exclude>
-                                        <exclude>META-INF/services/org.eclipse.**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
                                         <exclude>LICENSE</exclude>
-                                        <exclude>*.css</exclude>
-                                        <exclude>*.html</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
@@ -226,10 +194,11 @@
                                         <exclude>**</exclude>
                                     </excludes>
                                 </filter>
+                                <!-- TODO: fix in okhttp: https://github.com/square/okhttp/pull/3421 -->
                                 <filter>
-                                    <artifact>javax.validation:validation-api</artifact>
+                                    <artifact>com.squareup.okhttp3:okhttp</artifact>
                                     <excludes>
-                                        <exclude>**</exclude>
+                                        <exclude>publicsuffixes.gz</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

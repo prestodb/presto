@@ -40,7 +40,7 @@ public class TestAccumuloDistributedQueries
     public TestAccumuloDistributedQueries()
             throws Exception
     {
-        super(createAccumuloQueryRunner(ImmutableMap.of()));
+        super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
     }
 
     @Override
@@ -50,22 +50,27 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    public void testDropColumn()
+    {
+        // Dropping columns are not supported by the connector
+    }
+
+    @Override
     public void testCreateTableAsSelect()
     {
         // This test is overridden due to Function "UUID" not found errors
         // Some test cases from the base class are removed
 
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
-        MaterializedResult materializedRows = computeActual("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT UUID() AS uuid, orderkey, discount FROM lineitem");
-        assertEquals(materializedRows.getRowCount(), 0);
-        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT UUID() AS uuid, orderkey, discount FROM lineitem", 0);
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
         assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
-        assertFalse(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
 
         this.assertCreateTableAsSelect(
                 "test_group",
@@ -344,6 +349,22 @@ public class TestAccumuloDistributedQueries
         }
         finally {
             assertUpdate("DROP TABLE test_select_null_value");
+        }
+    }
+
+    @Test
+    public void testCreateTableEmptyColumns()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_create_table_empty_columns WITH (column_mapping = 'a:a:a,b::b,c:c:,d::', index_columns='a,b,c,d') AS SELECT 1 id, 2 a, 3 b, 4 c, 5 d", 1);
+            assertQuery("SELECT * FROM test_create_table_empty_columns", "SELECT 1, 2, 3, 4, 5");
+            assertQuery("SELECT * FROM test_create_table_empty_columns WHERE a = 2", "SELECT 1, 2, 3, 4, 5");
+            assertQuery("SELECT * FROM test_create_table_empty_columns WHERE b = 3", "SELECT 1, 2, 3, 4, 5");
+            assertQuery("SELECT * FROM test_create_table_empty_columns WHERE c = 4", "SELECT 1, 2, 3, 4, 5");
+            assertQuery("SELECT * FROM test_create_table_empty_columns WHERE d = 5", "SELECT 1, 2, 3, 4, 5");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_create_table_empty_columns");
         }
     }
 

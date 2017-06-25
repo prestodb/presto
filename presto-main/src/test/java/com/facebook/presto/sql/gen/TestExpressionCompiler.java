@@ -76,13 +76,15 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
@@ -139,7 +141,7 @@ public class TestExpressionCompiler
     };
 
     private static final Logger log = Logger.get(TestExpressionCompiler.class);
-    private static final boolean PARALLEL = true;
+    private static final boolean PARALLEL = false;
 
     private long start;
     private ListeningExecutorService executor;
@@ -154,7 +156,7 @@ public class TestExpressionCompiler
             executor = listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%s")));
         }
         else {
-            executor = listeningDecorator(sameThreadExecutor());
+            executor = newDirectExecutorService();
         }
         functionAssertions = new FunctionAssertions();
     }
@@ -166,6 +168,8 @@ public class TestExpressionCompiler
             executor.shutdownNow();
             executor = null;
         }
+        closeAllRuntimeException(functionAssertions);
+        functionAssertions = null;
     }
 
     @BeforeMethod
@@ -1110,13 +1114,13 @@ public class TestExpressionCompiler
         assertExecute("bound_double in (12.34, " + doubleValues + ")", BOOLEAN, true);
         assertExecute("bound_double in (" + doubleValues + ")", BOOLEAN, false);
 
-        String stringValues = range(2000, 7000).asLongStream()
+        String stringValues = range(2000, 7000)
                 .mapToObj(i -> format("'%s'", i))
                 .collect(joining(", "));
         assertExecute("bound_string in ('hello', " + stringValues + ")", BOOLEAN, true);
         assertExecute("bound_string in (" + stringValues + ")", BOOLEAN, false);
 
-        String timestampValues = range(0, 2_000).asLongStream()
+        String timestampValues = range(0, 2_000)
                 .mapToObj(i -> format("TIMESTAMP '1970-01-01 01:01:0%s.%s+01:00'", i / 1000, i % 1000))
                 .collect(joining(", "));
         assertExecute("bound_timestamp_with_timezone in (" + timestampValues + ")", BOOLEAN, true);
@@ -1183,10 +1187,10 @@ public class TestExpressionCompiler
                         BOOLEAN,
                         value == null || pattern == null ? null : JoniRegexpFunctions.regexpLike(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
                 assertExecute(generateExpression("regexp_replace(%s, %s)", value, pattern),
-                        VARCHAR,
+                        value == null ? VARCHAR : createVarcharType(value.length()),
                         value == null || pattern == null ? null : JoniRegexpFunctions.regexpReplace(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
                 assertExecute(generateExpression("regexp_extract(%s, %s)", value, pattern),
-                        VARCHAR,
+                        value == null ? VARCHAR : createVarcharType(value.length()),
                         value == null || pattern == null ? null : JoniRegexpFunctions.regexpExtract(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
             }
         }
@@ -1204,14 +1208,14 @@ public class TestExpressionCompiler
                         JSON,
                         value == null || pattern == null ? null : JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s)", value, pattern),
-                        VARCHAR,
+                        value == null ? createUnboundedVarcharType() : createVarcharType(value.length()),
                         value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(utf8Slice(value), new JsonPath(pattern)));
 
                 assertExecute(generateExpression("json_extract(%s, %s || '')", value, pattern),
                         JSON,
                         value == null || pattern == null ? null : JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s || '')", value, pattern),
-                        VARCHAR,
+                        value == null ? createUnboundedVarcharType() : createVarcharType(value.length()),
                         value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(utf8Slice(value), new JsonPath(pattern)));
             }
         }

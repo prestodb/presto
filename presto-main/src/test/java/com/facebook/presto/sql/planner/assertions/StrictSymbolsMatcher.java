@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -25,6 +24,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class StrictSymbolsMatcher
@@ -44,7 +44,7 @@ public class StrictSymbolsMatcher
         return expectedAliases.stream()
                 .map(symbolAliases::get)
                 .map(Symbol::from)
-                .collect(ImmutableCollectors.toImmutableSet());
+                .collect(toImmutableSet());
     }
 
     public static Function<PlanNode, Set<Symbol>> actualOutputs()

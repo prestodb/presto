@@ -13,22 +13,23 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
 public interface HiveMetastore
 {
-    String DEFAULT_DATABASE_NAME = "default";
-
     void createDatabase(Database database);
 
     void dropDatabase(String databaseName);
@@ -69,6 +70,10 @@ public interface HiveMetastore
     List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
 
     Optional<Table> getTable(String databaseName, String tableName);
+
+    Optional<Set<ColumnStatisticsObj>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
+
+    Optional<Map<String, Set<ColumnStatisticsObj>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames);
 
     Set<String> getRoles(String user);
 

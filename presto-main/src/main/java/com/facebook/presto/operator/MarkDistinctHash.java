@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,13 +32,13 @@ public class MarkDistinctHash
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel)
+    public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel, JoinCompiler joinCompiler)
     {
-        this(session, types, channels, hashChannel, 10_000);
+        this(session, types, channels, hashChannel, 10_000, joinCompiler);
     }
-    public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues)
+    public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues, JoinCompiler joinCompiler)
     {
-        this.groupByHash = createGroupByHash(session, types, channels, hashChannel, expectedDistinctValues);
+        this.groupByHash = createGroupByHash(session, types, channels, hashChannel, expectedDistinctValues, joinCompiler);
     }
 
     public long getEstimatedSize()

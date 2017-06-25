@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME;
 
 final class PrestoSystemRequirements
@@ -87,7 +87,7 @@ final class PrestoSystemRequirements
         }
 
         JavaVersion version = JavaVersion.parse(javaVersion);
-        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 60) {
+        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 92) {
             return;
         }
 
@@ -95,7 +95,7 @@ final class PrestoSystemRequirements
             return;
         }
 
-        failRequirement("Presto requires Java 8u60+ (found %s)", javaVersion);
+        failRequirement("Presto requires Java 8u92+ (found %s)", javaVersion);
     }
 
     private static void verifyUsingG1Gc()

@@ -61,9 +61,85 @@ public class TestCharacterStringCasts
     @Test
     public void testVarcharToCharSaturatedFloorCast()
     {
-        assertEquals(varcharToCharSaturatedFloorCast(10L, utf8Slice("1234567890")), utf8Slice("1234567890"));
-        assertEquals(varcharToCharSaturatedFloorCast(10L, utf8Slice("123456789")), utf8Slice("12345678"));
-        assertEquals(varcharToCharSaturatedFloorCast(10L, utf8Slice("12345678901")), utf8Slice("1234567890"));
-        assertEquals(varcharToCharSaturatedFloorCast(10L, utf8Slice("")), utf8Slice(""));
+        String nonBmpCharacter = new String(Character.toChars(0x1F50D));
+        String nonBmpCharacterMinusOne = new String(Character.toChars(0x1F50C));
+        String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
+        String codePointBeforeSpace = new String(Character.toChars(' ' - 1));
+
+        // Truncation
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("12345")),
+                utf8Slice("1234"));
+
+        // Size fits, preserved
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("1234")),
+                utf8Slice("1234"));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("123" + nonBmpCharacter)),
+                utf8Slice("123" + nonBmpCharacter));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("12" + nonBmpCharacter + "3")),
+                utf8Slice("12" + nonBmpCharacter + "3"));
+
+        // Size fits, preserved except char(4) representation has trailing spaces removed
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("123 ")),
+                utf8Slice("123"));
+
+        // Too short, casted back would be padded with ' ' and thus made greater (VarcharOperators.lessThan), so last character needs decrementing
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("123")),
+                utf8Slice("122" + maxCodePoint));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("12 ")),
+                utf8Slice("12" + codePointBeforeSpace + maxCodePoint));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("1  ")),
+                utf8Slice("1 " + codePointBeforeSpace + maxCodePoint));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice(" ")),
+                utf8Slice(codePointBeforeSpace + maxCodePoint + maxCodePoint + maxCodePoint));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("12" + nonBmpCharacter)),
+                utf8Slice("12" + nonBmpCharacterMinusOne + maxCodePoint));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("1" + nonBmpCharacter + "3")),
+                utf8Slice("1" + nonBmpCharacter + "2" + maxCodePoint));
+
+        // Too short, casted back would be padded with ' ' and thus made greater (VarcharOperators.lessThan), previous to last needs decrementing since last is \0
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("12\0")),
+                utf8Slice("11" + maxCodePoint + maxCodePoint));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("1\0")),
+                utf8Slice("0" + maxCodePoint + maxCodePoint + maxCodePoint));
+
+        // Smaller than any char(4) casted back to varchar, so the result is lowest char(4) possible
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("\0")),
+                utf8Slice("\0\0\0\0"));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("\0\0")),
+                utf8Slice("\0\0\0\0"));
+        assertEquals(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("")),
+                utf8Slice("\0\0\0\0"));
     }
 }

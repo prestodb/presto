@@ -58,8 +58,8 @@ import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.in;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * Computes the effective predicate at the top of the specified PlanNode
@@ -67,7 +67,7 @@ import static com.google.common.base.Predicates.in;
  * Note: non-deterministic predicates can not be pulled up (so they will be ignored)
  */
 public class EffectivePredicateExtractor
-        extends PlanVisitor<Void, Expression>
+        extends PlanVisitor<Expression, Void>
 {
     public static Expression extract(PlanNode node, Map<Symbol, Type> symbolTypes)
     {
@@ -81,6 +81,7 @@ public class EffectivePredicateExtractor
             entry -> {
                 SymbolReference reference = entry.getKey().toSymbolReference();
                 Expression expression = entry.getValue();
+                // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
                 return new ComparisonExpression(ComparisonExpressionType.EQUAL, reference, expression);
             };
@@ -223,48 +224,46 @@ public class EffectivePredicateExtractor
         Expression leftPredicate = node.getLeft().accept(this, context);
         Expression rightPredicate = node.getRight().accept(this, context);
 
-        List<Expression> joinConjuncts = new ArrayList<>();
-        for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-            joinConjuncts.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
-                    clause.getLeft().toSymbolReference(),
-                    clause.getRight().toSymbolReference()));
-        }
+        List<Expression> joinConjuncts = node.getCriteria().stream()
+                .map(JoinNode.EquiJoinClause::toExpression)
+                .collect(toImmutableList());
 
         switch (node.getType()) {
             case INNER:
                 return combineConjuncts(ImmutableList.<Expression>builder()
-                        .add(leftPredicate)
-                        .add(rightPredicate)
-                        .addAll(joinConjuncts)
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
+                        .addAll(pullExpressionsThroughSymbols(joinConjuncts, node.getOutputSymbols()))
                         .build());
             case LEFT:
                 return combineConjuncts(ImmutableList.<Expression>builder()
-                        .add(leftPredicate)
-                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getRight().getOutputSymbols()::contains))
-                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getRight().getOutputSymbols()::contains))
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                         .build());
             case RIGHT:
                 return combineConjuncts(ImmutableList.<Expression>builder()
-                        .add(rightPredicate)
-                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getLeft().getOutputSymbols()::contains))
-                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getLeft().getOutputSymbols()::contains))
+                        .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
                         .build());
             case FULL:
                 return combineConjuncts(ImmutableList.<Expression>builder()
-                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getLeft().getOutputSymbols()::contains))
-                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getRight().getOutputSymbols()::contains))
-                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
                         .build());
             default:
                 throw new UnsupportedOperationException("Unknown join type: " + node.getType());
         }
     }
 
-    private static Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, Predicate<Symbol>... nullSymbolScopes)
+    private static Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, Collection<Symbol> outputSymbols, Predicate<Symbol>... nullSymbolScopes)
     {
         // Conjuncts without any symbol dependencies cannot be applied to the effective predicate (e.g. FALSE literal)
         return conjuncts.stream()
-                .map(expression -> DependencyExtractor.extractAll(expression).isEmpty() ? TRUE_LITERAL : expression)
+                .map(expression -> pullExpressionThroughSymbols(expression, outputSymbols))
+                .map(expression -> SymbolsExtractor.extractAll(expression).isEmpty() ? TRUE_LITERAL : expression)
                 .map(expressionOrNullSymbols(nullSymbolScopes))
                 .collect(toImmutableList());
     }
@@ -305,6 +304,13 @@ public class EffectivePredicateExtractor
         }
 
         return combineConjuncts(potentialOutputConjuncts);
+    }
+
+    private static List<Expression> pullExpressionsThroughSymbols(List<Expression> expressions, Collection<Symbol> symbols)
+    {
+        return expressions.stream()
+                .map(expression -> pullExpressionThroughSymbols(expression, symbols))
+                .collect(toImmutableList());
     }
 
     private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)

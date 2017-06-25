@@ -18,6 +18,7 @@ import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.verifier.Validator.ChangedRow.Changed;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -35,7 +36,6 @@ import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -252,7 +252,10 @@ public class Validator
         for (String prequeryString : query.getPreQueries()) {
             QueryResult queryResult = executor.apply(prequeryString);
             preQueryResults.add(queryResult);
-            if (queryResult.getState() != State.SUCCESS) {
+            if (queryResult.getState() == State.TIMEOUT) {
+                return queryResult;
+            }
+            else if (queryResult.getState() != State.SUCCESS) {
                 return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.of());
             }
         }
@@ -713,16 +716,33 @@ public class Validator
         return x instanceof Byte || x instanceof Short || x instanceof Integer || x instanceof Long;
     }
 
-    private static int precisionCompare(double a, double b, int precision)
+    //adapted from http://floating-point-gui.de/errors/comparison/
+    private static boolean isClose(double a, double b, double epsilon)
     {
+        double absA = Math.abs(a);
+        double absB = Math.abs(b);
+        double diff = Math.abs(a - b);
+
         if (!isFinite(a) || !isFinite(b)) {
-            return Double.compare(a, b);
+            return Double.compare(a, b) == 0;
         }
 
-        MathContext context = new MathContext(precision);
-        BigDecimal x = new BigDecimal(a).round(context);
-        BigDecimal y = new BigDecimal(b).round(context);
-        return x.compareTo(y);
+        // a or b is zero or both are extremely close to it
+        // relative error is less meaningful here
+        if (a == 0 || b == 0 || diff < Float.MIN_NORMAL) {
+            return diff < (epsilon * Float.MIN_NORMAL);
+        }
+        else {
+            // use relative error
+            return diff / Math.min((absA + absB), Float.MAX_VALUE) < epsilon;
+        }
+    }
+
+    @VisibleForTesting
+    static int precisionCompare(double a, double b, int precision)
+    {
+        //we don't care whether a is smaller than b or not when they are not close since we will fail verification anyway
+        return isClose(a, b, Math.pow(10, -1 * (precision - 1))) ? 0 : -1;
     }
 
     public static class ChangedRow

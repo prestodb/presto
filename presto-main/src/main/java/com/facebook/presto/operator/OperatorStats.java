@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -33,9 +34,12 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @Immutable
 public class OperatorStats
 {
+    private final int pipelineId;
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final String operatorType;
+
+    private final long totalDrivers;
 
     private final long addInputCalls;
     private final Duration addInputWall;
@@ -43,6 +47,7 @@ public class OperatorStats
     private final Duration addInputUser;
     private final DataSize inputDataSize;
     private final long inputPositions;
+    private final double sumSquaredInputPositions;
 
     private final long getOutputCalls;
     private final Duration getOutputWall;
@@ -66,9 +71,12 @@ public class OperatorStats
 
     @JsonCreator
     public OperatorStats(
+            @JsonProperty("pipelineId") int pipelineId,
             @JsonProperty("operatorId") int operatorId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("operatorType") String operatorType,
+
+            @JsonProperty("totalDrivers") long totalDrivers,
 
             @JsonProperty("addInputCalls") long addInputCalls,
             @JsonProperty("addInputWall") Duration addInputWall,
@@ -76,6 +84,7 @@ public class OperatorStats
             @JsonProperty("addInputUser") Duration addInputUser,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
+            @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
 
             @JsonProperty("getOutputCalls") long getOutputCalls,
             @JsonProperty("getOutputWall") Duration getOutputWall,
@@ -97,10 +106,14 @@ public class OperatorStats
 
             @JsonProperty("info") OperatorInfo info)
     {
+        this.pipelineId = pipelineId;
+
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
+
+        this.totalDrivers = totalDrivers;
 
         this.addInputCalls = addInputCalls;
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
@@ -109,6 +122,7 @@ public class OperatorStats
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
+        this.sumSquaredInputPositions = sumSquaredInputPositions;
 
         this.getOutputCalls = getOutputCalls;
         this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
@@ -133,6 +147,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public int getPipelineId()
+    {
+        return pipelineId;
+    }
+
+    @JsonProperty
     public int getOperatorId()
     {
         return operatorId;
@@ -148,6 +168,12 @@ public class OperatorStats
     public String getOperatorType()
     {
         return operatorType;
+    }
+
+    @JsonProperty
+    public long getTotalDrivers()
+    {
+        return totalDrivers;
     }
 
     @JsonProperty
@@ -184,6 +210,12 @@ public class OperatorStats
     public long getInputPositions()
     {
         return inputPositions;
+    }
+
+    @JsonProperty
+    public double getSumSquaredInputPositions()
+    {
+        return sumSquaredInputPositions;
     }
 
     @JsonProperty
@@ -284,12 +316,15 @@ public class OperatorStats
 
     public OperatorStats add(Iterable<OperatorStats> operators)
     {
+        long totalDrivers = this.totalDrivers;
+
         long addInputCalls = this.addInputCalls;
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
         long addInputUser = this.addInputUser.roundTo(NANOSECONDS);
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
+        double sumSquaredInputPositions = this.sumSquaredInputPositions;
 
         long getOutputCalls = this.getOutputCalls;
         long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
@@ -313,12 +348,15 @@ public class OperatorStats
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
 
+            totalDrivers += operator.totalDrivers;
+
             addInputCalls += operator.getAddInputCalls();
             addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
             addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
             addInputUser += operator.getAddInputUser().roundTo(NANOSECONDS);
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
+            sumSquaredInputPositions += operator.getSumSquaredInputPositions();
 
             getOutputCalls += operator.getGetOutputCalls();
             getOutputWall += operator.getGetOutputWall().roundTo(NANOSECONDS);
@@ -347,9 +385,12 @@ public class OperatorStats
         }
 
         return new OperatorStats(
+                pipelineId,
                 operatorId,
                 planNodeId,
                 operatorType,
+
+                totalDrivers,
 
                 addInputCalls,
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -357,6 +398,7 @@ public class OperatorStats
                 new Duration(addInputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(inputDataSize),
                 inputPositions,
+                sumSquaredInputPositions,
 
                 getOutputCalls,
                 new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -398,15 +440,18 @@ public class OperatorStats
     public OperatorStats summarize()
     {
         return new OperatorStats(
+                pipelineId,
                 operatorId,
                 planNodeId,
                 operatorType,
+                totalDrivers,
                 addInputCalls,
                 addInputWall,
                 addInputCpu,
                 addInputUser,
                 inputDataSize,
                 inputPositions,
+                sumSquaredInputPositions,
                 getOutputCalls,
                 getOutputWall,
                 getOutputCpu,

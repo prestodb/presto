@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static java.lang.String.format;
@@ -70,15 +71,22 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return value.getSizeInBytes();
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + value.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(value, value.getRetainedSizeInBytes());
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -102,6 +110,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public long getRegionSizeInBytes(int position, int length)
+    {
+        return value.getSizeInBytes();
+    }
+
+    @Override
     public Block copyRegion(int positionOffset, int length)
     {
         checkPositionIndexes(positionOffset, length);
@@ -109,9 +123,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
-        return value.getLength(0);
+        return value.getSliceLength(0);
     }
 
     @Override
@@ -171,7 +185,7 @@ public class RunLengthEncodedBlock
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
-        value.writePositionTo(position, blockBuilder);
+        value.writePositionTo(0, blockBuilder);
     }
 
     @Override

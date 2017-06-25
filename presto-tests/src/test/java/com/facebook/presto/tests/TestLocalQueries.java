@@ -17,12 +17,18 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.REORDER_JOINS;
+import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestLocalQueries
@@ -30,7 +36,7 @@ public class TestLocalQueries
 {
     public TestLocalQueries()
     {
-        super(createLocalQueryRunner());
+        super(TestLocalQueries::createLocalQueryRunner);
     }
 
     public static LocalQueryRunner createLocalQueryRunner()
@@ -38,7 +44,7 @@ public class TestLocalQueries
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
-                .setSystemProperty(REORDER_JOINS, "true")
+                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
                 .build();
 
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
@@ -57,5 +63,19 @@ public class TestLocalQueries
         sessionPropertyManager.addConnectorSessionProperties(new ConnectorId(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
 
         return localQueryRunner;
+    }
+
+    @Test
+    public void testShowColumnStats()
+            throws Exception
+    {
+        // FIXME Add tests for more complex scenario with more stats
+        MaterializedResult result = computeActual("SHOW STATS FOR nation");
+
+        MaterializedResult expectedStatistics = resultBuilder(getSession(), VARCHAR, DOUBLE)
+                .row(null, 25.0)
+                .build();
+
+        assertEquals(result, expectedStatistics);
     }
 }

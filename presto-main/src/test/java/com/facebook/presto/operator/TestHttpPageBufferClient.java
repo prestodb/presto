@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
@@ -44,8 +44,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
@@ -61,7 +63,7 @@ public class TestHttpPageBufferClient
 {
     private ScheduledExecutorService executor;
 
-    private static final BlockEncodingManager blockEncodingManager = new BlockEncodingManager(new TypeRegistry());
+    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     @BeforeClass
     public void setUp()
@@ -95,11 +97,10 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 expectedMaxSize,
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -180,11 +181,10 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -220,11 +220,10 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -288,11 +287,10 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -342,11 +340,11 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
                 executor,
-                Stopwatch.createUnstarted(ticker));
+                ticker);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -383,7 +381,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportTimeoutException.class);
-        assertContains(callback.getFailure().getMessage(), WORKER_NODE_ERROR + " (http://localhost:8080/0 - requests failed for 61.00s)");
+        assertContains(callback.getFailure().getMessage(), WORKER_NODE_ERROR + " (http://localhost:8080/0 - 3 failures, time since last success 61.00s)");
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
     }
 
@@ -393,7 +391,7 @@ public class TestHttpPageBufferClient
     {
         assertEquals(new PageTooLargeException().getErrorCode(), PAGE_TOO_LARGE.toErrorCode());
         assertEquals(new PageTransportErrorException("").getErrorCode(), PAGE_TRANSPORT_ERROR.toErrorCode());
-        assertEquals(new PageTransportTimeoutException("", null).getErrorCode(), PAGE_TRANSPORT_TIMEOUT.toErrorCode());
+        assertEquals(new PageTransportTimeoutException(HostAddress.fromParts("127.0.0.1", 8080), "", null).getErrorCode(), PAGE_TRANSPORT_TIMEOUT.toErrorCode());
     }
 
     private static void assertStatus(
@@ -425,7 +423,7 @@ public class TestHttpPageBufferClient
             implements ClientCallback
     {
         private final CyclicBarrier done;
-        private final List<Page> pages = Collections.synchronizedList(new ArrayList<>());
+        private final List<SerializedPage> pages = Collections.synchronizedList(new ArrayList<>());
         private final AtomicInteger completedRequests = new AtomicInteger();
         private final AtomicInteger finishedBuffers = new AtomicInteger();
         private final AtomicInteger failedBuffers = new AtomicInteger();
@@ -438,7 +436,9 @@ public class TestHttpPageBufferClient
 
         public List<Page> getPages()
         {
-            return pages;
+            return pages.stream()
+                    .map(PAGES_SERDE::deserialize)
+                    .collect(Collectors.toList());
         }
 
         private int getCompletedRequests()
@@ -462,7 +462,7 @@ public class TestHttpPageBufferClient
         }
 
         @Override
-        public boolean addPages(HttpPageBufferClient client, List<Page> pages)
+        public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
         {
             this.pages.addAll(pages);
             return true;

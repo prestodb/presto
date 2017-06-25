@@ -14,17 +14,16 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.SequencePageBuilder;
-import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.index.PageRecordSet;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.split.PageSourceProvider;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -32,21 +31,25 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestScanFilterAndProjectOperator
 {
     private final ExecutorService executor;
+    private final ExpressionCompiler expressionCompiler = new ExpressionCompiler(createTestMetadataManager());
 
     public TestScanFilterAndProjectOperator()
     {
@@ -60,19 +63,17 @@ public class TestScanFilterAndProjectOperator
         final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
+        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
+        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
+
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                new PageSourceProvider() {
-                    @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
-                    {
-                        return new FixedPageSource(ImmutableList.of(input));
-                    }
-                },
-                () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
-                () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
+                (session, split, columns) -> new FixedPageSource(ImmutableList.of(input)),
+                cursorProcessor,
+                pageProcessor,
                 ImmutableList.of(),
                 ImmutableList.of(VARCHAR));
 
@@ -94,19 +95,17 @@ public class TestScanFilterAndProjectOperator
         final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
+        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
+        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
+
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                new PageSourceProvider() {
-                    @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
-                    {
-                        return new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input));
-                    }
-                },
-                () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
-                () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
+                (session, split, columns) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                cursorProcessor,
+                pageProcessor,
                 ImmutableList.of(),
                 ImmutableList.of(VARCHAR));
 
@@ -121,7 +120,7 @@ public class TestScanFilterAndProjectOperator
         assertEquals(actual, expected);
     }
 
-    public static List<Page> toPages(Operator operator)
+    private static List<Page> toPages(Operator operator)
     {
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
 
@@ -146,7 +145,7 @@ public class TestScanFilterAndProjectOperator
     private DriverContext newDriverContext()
     {
         return createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 }

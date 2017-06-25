@@ -178,6 +178,13 @@ public interface MetadataDao
             @Bind("columnId") long columnId,
             @Bind("target") String target);
 
+    @SqlUpdate("DELETE FROM columns\n" +
+            " WHERE table_id = :tableId\n" +
+            "  AND column_id = :columnId")
+    void dropColumn(
+            @Bind("tableId") long tableId,
+            @Bind("columnId") long column);
+
     @SqlUpdate("INSERT INTO views (schema_name, table_name, data)\n" +
             "VALUES (:schemaName, :tableName, :data)")
     void insertView(
@@ -213,8 +220,10 @@ public interface MetadataDao
             @Bind("tableId") long tableId,
             @Bind("columnId") long columnId);
 
-    @SqlQuery("SELECT compaction_enabled FROM tables WHERE table_id = :tableId")
-    boolean isCompactionEnabled(@Bind("tableId") long tableId);
+    @SqlQuery("SELECT compaction_enabled AND maintenance_blocked IS NULL\n" +
+            "FROM tables\n" +
+            "WHERE table_id = :tableId")
+    boolean isCompactionEligible(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT table_id FROM tables WHERE table_id = :tableId FOR UPDATE")
     Long getLockedTableId(@Bind("tableId") long tableId);
@@ -276,9 +285,29 @@ public interface MetadataDao
     @SqlQuery("SELECT table_id\n" +
             "FROM tables\n" +
             "WHERE organization_enabled\n" +
+            "  AND maintenance_blocked IS NULL\n" +
             "  AND table_id IN\n" +
             "       (SELECT table_id\n" +
             "        FROM columns\n" +
             "        WHERE sort_ordinal_position IS NOT NULL)")
     Set<Long> getOrganizationEligibleTables();
+
+    @SqlUpdate("UPDATE tables SET maintenance_blocked = CURRENT_TIMESTAMP\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND maintenance_blocked IS NULL")
+    void blockMaintenance(@Bind("tableId") long tableId);
+
+    @SqlUpdate("UPDATE tables SET maintenance_blocked = NULL\n" +
+            "WHERE table_id = :tableId")
+    void unblockMaintenance(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT maintenance_blocked IS NOT NULL\n" +
+            "FROM tables\n" +
+            "WHERE table_id = :tableId\n" +
+            "FOR UPDATE")
+    boolean isMaintenanceBlockedLocked(@Bind("tableId") long tableId);
+
+    @SqlUpdate("UPDATE tables SET maintenance_blocked = NULL\n" +
+            "WHERE maintenance_blocked IS NOT NULL")
+    void unblockAllMaintenance();
 }

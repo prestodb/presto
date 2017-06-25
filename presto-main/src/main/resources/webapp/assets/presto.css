@@ -16,12 +16,20 @@
 /** ======================== **/
 
 body {
-  padding-top: 20px;
-  padding-bottom: 20px;
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+h2 {
+    color: #fff;
 }
 
 h3 {
-    color: #fff;
+    color: #dadada;
+}
+
+h1 small, h2 small, h3 small, h4 small, h5 small, h6 small {
+    color: #888;
 }
 
 pre {
@@ -29,7 +37,6 @@ pre {
     padding: 5px;
     color: #999;
     background-color: #2C2F38;
-    border: 1px #404040 solid;
     border: none;
 }
 
@@ -37,18 +44,68 @@ pre {
 /** ================== **/
 
 .container {
-    min-width:960px;
+    min-width: 960px;
     width: auto !important;
-    max-width:1200px;
+    max-width: 1200px;
+}
+
+.modal-lg {
+    min-width: 960px;
+    width: auto !important;
+    max-width: 1200px;
+}
+
+.modal-content {
+    border: 1px solid #333;
+    background-color: rgba(0, 0, 0, 0.85);
+    padding-bottom: 20px;
+}
+
+.modal-header {
+    padding: 0;
+    margin-bottom: 5px;
+}
+
+.modal-header .close {
+    text-shadow: none;
+    color: #fff;
+    font-size: 36px;
+    opacity: 0.5;
+    margin-right: -8px;
+}
+
+.navbar-btn {
+    border-bottom: none;
+    margin: 0;
 }
 
 /* To make the table striping less stark */
 .table-striped > tbody > tr:nth-of-type(odd) {
-  background-color: #353944;
+    background-color: #353944;
+}
+
+.table > tbody > tr {
+    border-top: 1px solid #4A4A4A;
 }
 
 .table > tbody > tr > td {
-    border-top-color: #4A4A4A;
+    border: none;
+}
+
+.table > tbody > tr:first-child {
+    border-top: none;
+}
+
+/* Allow some exceptions */
+.table > tbody > .tr-noborder {
+    border-top: none;
+}
+
+.btn-warning {
+    background-color: #655a4b;
+    border-color: #8c7253;
+    padding-top: 7px;
+    padding-bottom: 7px;
 }
 
 /** Convenience classes */
@@ -62,12 +119,35 @@ pre {
     color: #fff;
 }
 
+.italic-uppercase {
+    text-transform: uppercase;
+    font-style: italic;
+}
+
+.uppercase {
+    text-transform: uppercase;
+}
+
+.h2-hr {
+    margin: 0;
+    border-top: 2px solid #fff;
+}
+
+.h3-hr {
+    margin: 0;
+    border-top-color: #dedede;
+}
+
+.wrap-text {
+    word-break: break-all;
+}
+
 /** Navbar **/
 /** ====== **/
 
 .navbar {
-  padding: 0 5px 0px 5px;
-  border-bottom: 1px solid #1EDCFF;
+    padding: 0 5px 0 5px;
+    border-bottom: 1px solid #1EDCFF;
 }
 
 .navbar-brand {
@@ -79,7 +159,7 @@ pre {
 }
 
 .navbar img {
-    width:40px;
+    width: 40px;
     height: auto;
     padding-top: 17px;
 }
@@ -90,7 +170,6 @@ pre {
     padding: 15px;
     position: relative;
     color: #666;
-    text-transform: uppercase;
     font-size: 11px;
 }
 
@@ -99,11 +178,72 @@ pre {
     font-size: 16px;
 }
 
+#page-subtitle {
+    color: #8c8c8c;
+    padding-left: 3px;
+    text-transform: none;
+}
+
+.query-id {
+    margin-bottom: 0;
+}
+
+.nav-disabled {
+    pointer-events: none;
+    cursor: not-allowed;
+    background-color: #336171;
+    opacity: 1;
+    font-weight: 500;
+    border-color: #137698;
+}
+
+.query-links {
+    float: right;
+    margin-top: 20px;
+}
+
+.progress-large {
+    margin: 0;
+    background-color: #808286;
+    height: 36px;
+    width: 100%;
+}
+
+.progress-large .progress-bar {
+    font-size: 18px;
+    line-height: 30px;
+}
+
 /** Common elements **/
 /** ====== **/
 
+.copy-button {
+    padding: 0 0 0 4px;
+}
+
 .copy-button:hover {
     color: #fff;
+}
+
+.status-light {
+    border-radius: 50%;
+    text-shadow: 0 0 3px #c3b300;
+    color: #c3b300;
+    font-size: 16px;
+}
+
+.status-light-red {
+    color: #ff0100;
+    text-shadow: 0 0 3px #ff0100;
+}
+
+.status-light-green {
+    color: #1cff00;
+    text-shadow: 0 0 3px #1cff00;
+}
+
+.status-light:before {
+    content: '\25CF';
 }
 
 /** ===================== **/
@@ -130,17 +270,17 @@ pre {
     color: #fff;
     border-bottom: 1px #424242 solid;
     border-left: 1px #424242 solid;
-    margin: 0 0 0 0px;
+    margin: 0;
     font-size: 72px;
     height: 81px;
     display: flex;
     align-items: center;
     padding-left: 0;
-    padding-top:15px;
+    padding-top: 15px;
 }
 
 .stat-text {
-    padding:0 5px 0 5px;
+    padding: 0 5px 0 5px;
     z-index: 9999;
 }
 
@@ -161,19 +301,16 @@ pre {
 .sparkline {
     height: 80px;
     width: 100%;
-    margin:0;
+    margin: 0;
 }
 
 .sparkline-tooltip {
-    color: pink;
-    background-color: #fff;
     position: absolute;
-    left: 0px;
-    top: 0px;
+    left: 0;
+    top: 0;
     visibility: hidden;
-    background: rgb(0, 0, 0) transparent;
-    background-color: rgba(0,0,0,0.6);
-    filter:progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000);
+    background-color: rgba(0, 0, 0, 0.6);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000);
     -ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000)";
     color: white;
     font: 20px arial, san serif;
@@ -300,13 +437,13 @@ pre {
 
 .toolbar-row .input-group-btn .active {
     background-color: #277F98;
-    border:  1px #529eb5 solid;
+    border: 1px #529eb5 solid;
 }
 
 .style-radio {
     color: #ebe6ff;
     background-color: #2e264e;
-    border:  1px #5d4f94 solid;
+    border: 1px #5d4f94 solid;
     font-weight: 500;
 }
 
@@ -321,7 +458,7 @@ pre {
 .toolbar-row .input-group .form-control {
     margin-top: 2px;
     margin-bottom: -2px;
-    width:98%;
+    width: 98%;
 }
 
 .toolbar-row .dropdown-menu li a {
@@ -359,25 +496,9 @@ pre {
     font-size: 15px;
 }
 
-.query-links {
-    float: right;
-    margin-top: 20px;
-}
-
-.progress-large {
-    margin: 0;
-    background-color: #808286;
-    height: 36px;
-    width: 100%;
-}
-
-.progress-large .progress-bar {
-    font-size: 18px;
-    line-height: 30px;
-}
-
 #query-detail pre {
-    border: 1px #fff solid;
+    margin-top: 5px;
+    border: 1px #3a3a3a solid;
 }
 
 /** Summary Section **/
@@ -401,17 +522,18 @@ pre {
     font-size: 23px;
 }
 
-.stack-trace {
+#stack-trace {
     font-size: 10px;
     line-height: 14px;
     word-wrap: normal;
     overflow-y: hidden;
+    max-width: 1000px;
 }
 
 /** Stage List **/
 /** =========== **/
 
-#stage-list{
+#stage-list {
     margin-top: 5px;
     text-align: right;
 }
@@ -509,4 +631,118 @@ pre {
 
 .expanded-chart {
     display: inline-table;
+}
+
+/** ===================== **/
+/** Common Graph Elements **/
+/** ===================== **/
+
+.graph-container {
+    padding: 15px;
+    background-color: #1b1b1b;
+}
+
+.graph-container svg {
+    display: block;
+    margin: 0 auto;
+}
+
+.graph-container .label {
+    font-size: 15px;
+    color: #fff;
+    font-weight: normal;
+    line-height: 18px;
+}
+
+/** ============== **/
+/** Live Plan Page **/
+/** ============== **/
+
+.graph-container table {
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.graph-container .highlight-row {
+    text-align: center;
+    padding: 5px;
+    margin: 5px 0 5px 0;
+    color: #2f2f2f;
+    background-color: #fff;
+}
+
+.graph-container .header-row {
+    font-weight: bold;
+    padding-bottom: 5px;
+}
+
+.graph-container hr {
+    margin-top:10px;
+    margin-bottom: 10px;
+}
+
+.clusters rect {
+    fill: #e0e0e0;
+}
+
+.node .stage-stats rect {
+    stroke: #999;
+    stroke-width: 1px;
+}
+
+.node rect {
+    fill: #404040;
+}
+
+text {
+    font-size: 15px;
+}
+
+.edgePath path {
+    stroke: #fff;
+    stroke-width: 3px;
+    fill: transparent;
+}
+
+g .cluster:hover {
+    cursor: pointer;
+}
+
+/** ============== **/
+/** Stage Page **/
+/** ============== **/
+
+#operator-detail-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.operator-statistic {
+    margin-top: 10px;
+}
+
+.operator-statistic-title {
+    margin-top: 25px;
+}
+
+g .operator-stats:hover {
+    cursor: pointer;
+}
+
+.stage-dropdown {
+    margin-top: 20px;
+    text-align: right;
+}
+
+.edge-class {
+    stroke-width: 5px;
+    fill: #fff;
 }

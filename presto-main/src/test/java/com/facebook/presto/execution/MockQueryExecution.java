@@ -18,10 +18,15 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -34,7 +39,10 @@ import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class MockQueryExecution
         implements QueryExecution
@@ -43,26 +51,30 @@ public class MockQueryExecution
     private final long memoryUsage;
     private final Duration cpuUsage;
     private final Session session;
+    private final QueryId queryId;
     private QueryState state = QUEUED;
     private Throwable failureCause;
+    private Optional<ResourceGroupId> resourceGroupId;
 
     public MockQueryExecution(long memoryUsage)
     {
-        this(memoryUsage, 1);
+        this(memoryUsage, "query_id", 1);
     }
 
-    public MockQueryExecution(long memoryUsage, int priority)
+    public MockQueryExecution(long memoryUsage, String queryId, int priority)
     {
-        this(memoryUsage, new Duration(0, MILLISECONDS), priority);
+        this(memoryUsage, queryId, priority, new Duration(0, MILLISECONDS));
     }
 
-    public MockQueryExecution(long memoryUsage, Duration cpuUsage, int priority)
+    public MockQueryExecution(long memoryUsage, String queryId, int priority, Duration cpuUsage)
     {
         this.memoryUsage = memoryUsage;
         this.cpuUsage = cpuUsage;
         this.session = testSessionBuilder()
                 .setSystemProperty(QUERY_PRIORITY, String.valueOf(priority))
                 .build();
+        this.resourceGroupId = Optional.empty();
+        this.queryId = new QueryId(queryId);
     }
 
     public void complete()
@@ -74,7 +86,7 @@ public class MockQueryExecution
     @Override
     public QueryId getQueryId()
     {
-        throw new UnsupportedOperationException();
+        return queryId;
     }
 
     @Override
@@ -89,7 +101,50 @@ public class MockQueryExecution
                 URI.create("http://test"),
                 ImmutableList.of(),
                 "SELECT 1",
-                new QueryStats(),
+                new QueryStats(
+                        new DateTime(1),
+                        new DateTime(2),
+                        new DateTime(3),
+                        new DateTime(4),
+                        new Duration(6, NANOSECONDS),
+                        new Duration(5, NANOSECONDS),
+                        new Duration(7, NANOSECONDS),
+                        new Duration(8, NANOSECONDS),
+
+                        new Duration(100, NANOSECONDS),
+                        new Duration(200, NANOSECONDS),
+
+                        9,
+                        10,
+                        11,
+
+                        12,
+                        13,
+                        15,
+                        30,
+                        16,
+
+                        17.0,
+                        new DataSize(18, BYTE),
+                        new DataSize(19, BYTE),
+
+                        true,
+                        new Duration(20, NANOSECONDS),
+                        new Duration(21, NANOSECONDS),
+                        new Duration(22, NANOSECONDS),
+                        new Duration(23, NANOSECONDS),
+                        false,
+                        ImmutableSet.of(),
+
+                        new DataSize(24, BYTE),
+                        25,
+
+                        new DataSize(26, BYTE),
+                        27,
+
+                        new DataSize(28, BYTE),
+                        29,
+                        ImmutableList.of()),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(),
@@ -102,13 +157,20 @@ public class MockQueryExecution
                 null,
                 ImmutableSet.of(),
                 Optional.empty(),
-                state.isDone());
+                state.isDone(),
+                Optional.empty());
     }
 
     @Override
     public QueryState getState()
     {
         return state;
+    }
+
+    @Override
+    public Plan getQueryPlan()
+    {
+        throw new UnsupportedOperationException();
     }
 
     public Throwable getFailureCause()
@@ -151,6 +213,18 @@ public class MockQueryExecution
     public Session getSession()
     {
         return session;
+    }
+
+    @Override
+    public Optional<ResourceGroupId> getResourceGroup()
+    {
+        return this.resourceGroupId;
+    }
+
+    @Override
+    public void setResourceGroup(ResourceGroupId resourceGroupId)
+    {
+        this.resourceGroupId = Optional.of(requireNonNull(resourceGroupId, "resourceGroupId is null"));
     }
 
     @Override
@@ -201,6 +275,12 @@ public class MockQueryExecution
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<QueryType> getQueryType()
+    {
+        return Optional.empty();
     }
 
     private void fireStateChange()

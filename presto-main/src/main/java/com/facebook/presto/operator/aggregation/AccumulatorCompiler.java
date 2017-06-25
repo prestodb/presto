@@ -25,13 +25,16 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.Binding;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerOperations;
 import com.google.common.collect.ImmutableList;
@@ -52,15 +55,19 @@ import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
 import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 
 public class AccumulatorCompiler
 {
@@ -123,6 +130,7 @@ public class AccumulatorCompiler
 
         // Generate methods
         generateAddInput(definition, stateField, inputChannelsField, maskChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder, grouped);
+        generateAddInputWindowIndex(definition, stateField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder);
         generateGetEstimatedSize(definition, stateField);
         generateGetIntermediateType(definition, callSiteBinder, stateSerializer.getSerializedType());
         generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
@@ -233,6 +241,136 @@ public class AccumulatorCompiler
 
         body.append(block);
         body.ret();
+    }
+
+    private static void generateAddInputWindowIndex(
+            ClassDefinition definition,
+            FieldDefinition stateField,
+            List<ParameterMetadata> parameterMetadatas,
+            MethodHandle inputFunction,
+            CallSiteBinder callSiteBinder)
+    {
+        // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
+
+        Parameter index = arg("index", WindowIndex.class);
+        Parameter channels = arg("channels", type(List.class, Integer.class));
+        Parameter startPosition = arg("startPosition", int.class);
+        Parameter endPosition = arg("endPosition", int.class);
+
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channels, startPosition, endPosition));
+        Scope scope = method.getScope();
+
+        Variable position = scope.declareVariable(int.class, "position");
+
+        Binding binding = callSiteBinder.bind(inputFunction);
+        BytecodeExpression invokeInputFunction = invokeDynamic(
+                BOOTSTRAP_METHOD,
+                ImmutableList.of(binding.getBindingId()),
+                "input",
+                binding.getType(),
+                getInvokeFunctionOnWindowIndexParameters(
+                        scope,
+                        inputFunction.type().parameterArray(),
+                        parameterMetadatas,
+                        stateField,
+                        index,
+                        channels,
+                        position));
+
+        method.getBody()
+                .append(new ForLoop()
+                        .initialize(position.set(startPosition))
+                        .condition(BytecodeExpressions.lessThanOrEqual(position, endPosition))
+                        .update(position.increment())
+                        .body(new IfStatement()
+                                .condition(anyParametersAreNull(parameterMetadatas, index, channels, position))
+                                .ifFalse(invokeInputFunction)))
+                .ret();
+    }
+
+    private static BytecodeExpression anyParametersAreNull(
+            List<ParameterMetadata> parameterMetadatas,
+            Variable index,
+            Variable channels,
+            Variable position)
+    {
+        int inputChannel = 0;
+
+        BytecodeExpression isNull = constantFalse();
+        for (ParameterMetadata parameterMetadata : parameterMetadatas) {
+            switch (parameterMetadata.getParameterType()) {
+                case BLOCK_INPUT_CHANNEL:
+                case INPUT_CHANNEL:
+                    BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
+                    isNull = BytecodeExpressions.or(isNull, index.invoke("isNull", boolean.class, getChannel, position));
+                    inputChannel++;
+                    break;
+                case NULLABLE_BLOCK_INPUT_CHANNEL:
+                    inputChannel++;
+                    break;
+            }
+        }
+
+        return isNull;
+    }
+
+    private static List<BytecodeExpression> getInvokeFunctionOnWindowIndexParameters(
+            Scope scope,
+            Class<?>[] parameterTypes,
+            List<ParameterMetadata> parameterMetadatas,
+            FieldDefinition stateField,
+            Variable index,
+            Variable channels,
+            Variable position)
+    {
+        int inputChannel = 0;
+        List<BytecodeExpression> expressions = new ArrayList<>();
+        for (int i = 0; i < parameterTypes.length; i++) {
+            ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
+            Class<?> parameterType = parameterTypes[i];
+            BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
+            switch (parameterMetadata.getParameterType()) {
+                case STATE:
+                    expressions.add(scope.getThis().getField(stateField));
+                    break;
+                case BLOCK_INDEX:
+                    expressions.add(constantInt(0)); // index.getSingleValueBlock(channel, position) generates always a page with only one position
+                    break;
+                case BLOCK_INPUT_CHANNEL:
+                case NULLABLE_BLOCK_INPUT_CHANNEL:
+                    expressions.add(index.invoke(
+                            "getSingleValueBlock",
+                            Block.class,
+                            getChannel,
+                            position));
+                    inputChannel++;
+                    break;
+                case INPUT_CHANNEL:
+                    if (parameterType == long.class) {
+                        expressions.add(index.invoke("getLong", long.class, getChannel, position));
+                    }
+                    else if (parameterType == double.class) {
+                        expressions.add(index.invoke("getDouble", double.class, getChannel, position));
+                    }
+                    else if (parameterType == boolean.class) {
+                        expressions.add(index.invoke("getBoolean", boolean.class, getChannel, position));
+                    }
+                    else if (parameterType == Slice.class) {
+                        expressions.add(index.invoke("getSlice", Slice.class, getChannel, position));
+                    }
+                    else if (parameterType == Block.class) {
+                        expressions.add(index.invoke("getObject", Block.class, getChannel, position));
+                    }
+                    else {
+                        throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));
+                    }
+
+                    inputChannel++;
+                    break;
+            }
+        }
+
+        return expressions;
     }
 
     private static BytecodeBlock generateInputForLoop(

@@ -49,7 +49,6 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getOneSplitPerBucketThreshold;
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -95,7 +94,7 @@ public class RaptorSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        RaptorTableLayoutHandle handle = checkType(layout, RaptorTableLayoutHandle.class, "layout");
+        RaptorTableLayoutHandle handle = (RaptorTableLayoutHandle) layout;
         RaptorTableHandle table = handle.getTable();
         TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(handle.getConstraint());
         long tableId = table.getTableId();
@@ -122,7 +121,7 @@ public class RaptorSplitManager
     @SuppressWarnings("unchecked")
     private static TupleDomain<RaptorColumnHandle> toRaptorTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tupleDomain.transform(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"));
+        return tupleDomain.transform(handle -> (RaptorColumnHandle) handle);
     }
 
     private static <T> T selectRandom(Iterable<T> elements)

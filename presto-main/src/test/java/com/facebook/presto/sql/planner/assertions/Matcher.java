@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
@@ -25,7 +26,7 @@ public interface Matcher
      * should be limited to tests that validate the type of the node or
      * attributes of that type.
      * <p>
-     * Matchers that can be applied to nodes of any typeshould return true from
+     * Matchers that can be applied to nodes of any type should return true from
      * shapeMatches and do the rest of their work in detailMatches.
      *
      * @param node The node to apply the matching tests to
@@ -62,10 +63,11 @@ public interface Matcher
      * node if shapeMatches didn't return true for the same node.
      *
      * @param node The node to apply the matching tests to
+     * @param planNodeCost The computed cost of plan node
      * @param session The session information for the query
      * @param metadata The metadata for the query
      * @param symbolAliases The SymbolAliases containing aliases from the nodes sources
      * @return a MatchResult with information about the success of the match
      */
-    MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
+    MatchResult detailMatches(PlanNode node, PlanNodeCost planNodeCost, Session session, Metadata metadata, SymbolAliases symbolAliases);
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage.organization;
 
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.SequencePageBuilder;
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.OrcStorageManager;
@@ -55,6 +56,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -63,13 +65,12 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestShardCompactor
 {
     private static final int MAX_SHARD_ROWS = 1000;
-    private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter();
+    private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
     private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
     private OrcStorageManager storageManager;

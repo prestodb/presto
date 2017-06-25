@@ -50,8 +50,8 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -365,13 +365,13 @@ public class TestEqualityInference
 
     private static Predicate<Expression> matchesSymbolScope(final Predicate<Symbol> symbolScope)
     {
-        return expression -> Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
+        return expression -> Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
     }
 
     private static Predicate<Expression> matchesStraddlingScope(final Predicate<Symbol> symbolScope)
     {
         return expression -> {
-            Set<Symbol> symbols = DependencyExtractor.extractUnique(expression);
+            Set<Symbol> symbols = SymbolsExtractor.extractUnique(expression);
             return Iterables.any(symbols, symbolScope) && Iterables.any(symbols, not(symbolScope));
         };
     }

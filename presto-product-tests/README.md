@@ -40,8 +40,12 @@ broken.
 * Install Docker for Mac: https://docs.docker.com/docker-for-mac/
 
 * Add entries in `/etc/hosts` for all services running in docker containers:
-`hadoop-master`, `mysql`, `postgres`, `presto-master`.
+`hadoop-master`, `mysql`, `postgres`, `cassandra`, `presto-master`.
 They should point to your external IP address (shown by `ifconfig` on your Mac (not inside docker)).
+
+* The default memory setting of 2GB might not be sufficient for some profiles like `singlenode-ldap`.
+You may need 4-8 GB or even more to run certain tests. You can increase Docker memory by going to
+Docker Preferences -> Advanced -> Memory.
 
 ### OS X using Docker Toolbox (macOS 10.8 "Mountain Lion" or newer) [NOT RECOMMENDED]
 
@@ -135,16 +139,17 @@ groups run the following command:
 presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
 ```
 
-where [profile](#profile) is one of either:
+where profile is one of either:
+#### Profiles
 - **multinode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. For multinode the default configuration is
  1 coordinator and 1 worker.
-- **[singlenode](#singlenode)** - pseudo-distributed Hadoop installation running on a
+- **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.
 - **singlenode-hdfs-impersonation** - HDFS impersonation enabled on top of the
- environment in [singlenode](#singlenode) profile. Presto impersonates the user
+ environment in singlenode profile. Presto impersonates the user
  who is running the query when accessing HDFS.
 - **singlenode-kerberos-hdfs-impersonation** - pseudo-distributed kerberized
  Hadoop installation running on a single Docker container and a single node
@@ -155,6 +160,16 @@ where [profile](#profile) is one of either:
  installation running on a single Docker container and a single node
  installation of kerberized Presto also running on a single Docker container.
  This profile runs Kerberos without impersonation.
+- **singlenode-ldap** - Three single node Docker containers, one running an
+ OpenLDAP server, one running with SSL/TLS certificates installed on top of a
+ single node Presto installation, and one with a pseudo-distributed Hadoop
+ installation.
+- **singlenode-sqlserver** - pseudo-distributed Hadoop installation running on
+ a single Docker container, a single node installation of Presto
+ also running on a single Docker container and one running SQL Server server.
+ While running tests on ``singlenode-sqlserver`` make sure to exclude
+ `mysql_connector` and `postgresql_connector` tests i.e.
+ `-x mysql_connector, postgresql_connector`.
 
 Please keep in mind that if you run tests on Hive of version not greater than 1.0.1, you should exclude test from `post_hive_1_0_1` group by passing the following flag to tempto: `-x post_hive_1_0_1`.
 First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
@@ -206,6 +221,8 @@ groups.
 | Authorization         | ``authorization``         | ``singlenode-kerberos-hdfs-impersonation``                                       |
 | HDFS impersonation    | ``hdfs_impersonation``    | ``singlenode-hdfs-impersonation``, ``singlenode-kerberos-hdfs-impersonation``    |
 | No HDFS impersonation | ``hdfs_no_impersonation`` | ``singlenode``, ``singlenode-kerberos-hdfs-no_impersonation``                    |
+| LDAP                  | ``ldap``                  | ``singlenode-ldap``                                                              |
+| SQL Server            | ``sqlserver``             | ``singlenode-sqlserver``                                                         |
 
 Below is a list of commands that explain how to run these profile specific tests
 and also the entire test suite:
@@ -227,12 +244,26 @@ and also the entire test suite:
     ```
     presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_no_impersonation
     ```
+* Run **LDAP** tests:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap
+    ```
+* Run **SQL Server** tests:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh singlenode-sqlserver -g sqlserver
+    ```
+
 * Run the **entire test suite** excluding all profile specific tests, where &lt;profile> can
 be any one of the available profiles:
 
     ```
     presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
     ```
+
+Note: SQL Server product-tests use `microsoft/mssql-server-linux` docker container.
+By running SQL Server product tests you accept the license [ACCEPT_EULA](https://go.microsoft.com/fwlink/?LinkId=746388)
 
 ### Running from IntelliJ
 
@@ -280,6 +311,7 @@ setup outlined below:
     presto-product-tests/conf/docker/singlenode/compose.sh up -d hadoop-master
     presto-product-tests/conf/docker/singlenode/compose.sh up -d mysql
     presto-product-tests/conf/docker/singlenode/compose.sh up -d postgres
+    presto-product-tests/conf/docker/singlenode/compose.sh up -d cassandra
     ```
     
     Tip: To display container logs run:
@@ -288,7 +320,7 @@ setup outlined below:
     presto-product-tests/conf/docker/singlenode/compose.sh logs
     ```
     
-3. Add an IP-to-host mapping for the `hadoop-master`, `mysql` and `postgres` hosts in `/etc/hosts`.
+3. Add an IP-to-host mapping for the `hadoop-master`, `mysql`, `postgres` and `cassandra` hosts in `/etc/hosts`.
 The format of `/etc/hosts` entries is `<ip> <host>`:
 
     - On GNU/Linux add the following mapping: `<container ip> hadoop-master`.
@@ -297,29 +329,31 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
         ```
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
         ```
+    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres` and `cassandra` hostnames respectively).
+    To check IPs for those containers run:
 
-    Similarly add mappings for MySQL and Postgres containers (`mysql` and `postgres` hostnames respectively). To check IPs for those containers run:
-
-        ```
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+    ```
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q cassandra) | grep -i IPAddress
+    ```
 
     Alternatively you can use below script to obtain hosts ip mapping
 
-        ```
-        presto-product-tests/bin/hosts.sh singlenode
-        ```
+    ```
+    presto-product-tests/bin/hosts.sh singlenode
+    ```
 
     Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
 
     - On OS X:
         - Docker for Mac:
-        Add the following mapping to `/etc/hosts`: `<IP-of-your-Mac> hadoop-master mysql postgres`.
+        Add the following mapping to `/etc/hosts`: `<IP-of-your-Mac> hadoop-master mysql postgres cassandra`.
 
         - Docker Toolbox:
-        Add the following mapping to `/etc/hosts`: `<docker machine ip> hadoop-master mysql postgres`.
+        Add the following mapping to `/etc/hosts`: `<docker machine ip> hadoop-master mysql postgres cassandra`.
         Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
-        the `hadoop-master`, `mysql` and `postgres` hostnames. To obtain the IP of the Linux VM run:
+        the `hadoop-master`, `mysql`, `postgres` and `cassandra` hostnames. To obtain the IP of the Linux VM run:
 
             ```
             docker-machine ip <machine>
@@ -399,7 +433,7 @@ running the debugger.
 
 Use the `docker-compose` (probably using a [wrapper](#use-the-docker-compose-wrappers))
 and `docker` utilities to control and troubleshoot containers.
-In the following examples ``<profile>`` is [profile](#profile).
+In the following examples ``<profile>`` is [profiles](#profiles).
 
 1. Use the following command to view output from running containers:
 

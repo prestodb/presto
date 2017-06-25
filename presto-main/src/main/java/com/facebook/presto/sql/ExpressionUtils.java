@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +43,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -198,6 +198,11 @@ public final class ExpressionUtils
         return conjuncts.isEmpty() ? emptyDefault : and(conjuncts);
     }
 
+    public static Expression combineDisjuncts(Expression... expressions)
+    {
+        return combineDisjuncts(Arrays.asList(expressions));
+    }
+
     public static Expression combineDisjuncts(Collection<Expression> expressions)
     {
         return combineDisjunctsWithDefault(expressions, FALSE_LITERAL);
@@ -245,7 +250,7 @@ public final class ExpressionUtils
             resultDisjunct.add(expression);
 
             for (Predicate<Symbol> nullSymbolScope : nullSymbolScopes) {
-                List<Symbol> symbols = DependencyExtractor.extractUnique(expression).stream()
+                List<Symbol> symbols = SymbolsExtractor.extractUnique(expression).stream()
                         .filter(nullSymbolScope)
                         .collect(toImmutableList());
 
@@ -302,13 +307,13 @@ public final class ExpressionUtils
         return expression;
     }
 
-    public static Expression rewriteQualifiedNamesToSymbolReferences(Expression expression)
+    public static Expression rewriteIdentifiersToSymbolReferences(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>() {
             @Override
-            public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return new SymbolReference(node.getName().toString());
+                return new SymbolReference(node.getName());
             }
 
             @Override

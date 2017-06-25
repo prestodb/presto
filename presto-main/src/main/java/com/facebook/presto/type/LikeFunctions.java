@@ -25,9 +25,11 @@ import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
 import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
@@ -55,8 +57,9 @@ public final class LikeFunctions
 
     // TODO: this should not be callable from SQL
     @ScalarFunction(value = "like", hidden = true)
+    @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean like(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
+    public static boolean like(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
     {
         // Joni can infinite loop with UTF8Encoding when invalid UTF-8 is encountered.
         // NonStrictUTF8Encoding must be used to avoid this issue.
@@ -67,7 +70,7 @@ public final class LikeFunctions
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex castVarcharToLikePattern(@SqlType("varchar") Slice pattern)
+    public static Regex castVarcharToLikePattern(@SqlType("varchar(x)") Slice pattern)
     {
         return likePattern(pattern);
     }
@@ -93,6 +96,63 @@ public final class LikeFunctions
         return likePattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
     }
 
+    public static boolean isLikePattern(Slice pattern, Slice escape)
+    {
+        String stringPattern = pattern.toStringUtf8();
+        if (escape == null) {
+            return stringPattern.contains("%") || stringPattern.contains("_");
+        }
+
+        String stringEscape = escape.toStringUtf8();
+        checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+
+        char escapeChar = stringEscape.charAt(0);
+        boolean escaped = false;
+        boolean isLikePattern = false;
+        for (int currentChar : stringPattern.codePoints().toArray()) {
+            if (!escaped && (currentChar == escapeChar)) {
+                escaped = true;
+            }
+            else if (escaped) {
+                checkEscape(currentChar == '%' || currentChar == '_' || currentChar == escapeChar);
+                escaped = false;
+            }
+            else if ((currentChar == '%') || (currentChar == '_')) {
+                isLikePattern = true;
+            }
+        }
+        checkEscape(!escaped);
+        return isLikePattern;
+    }
+
+    public static Slice unescapeLiteralLikePattern(Slice pattern, Slice escape)
+    {
+        if (escape == null) {
+            return pattern;
+        }
+
+        String stringEscape = escape.toStringUtf8();
+        char escapeChar = stringEscape.charAt(0);
+        String stringPattern = pattern.toStringUtf8();
+        StringBuilder unescapedPattern = new StringBuilder(stringPattern.length());
+        boolean escaped = false;
+        for (int currentChar : stringPattern.codePoints().toArray()) {
+            if (!escaped && (currentChar == escapeChar)) {
+                escaped = true;
+            }
+            else {
+                unescapedPattern.append(Character.toChars(currentChar));
+                escaped = false;
+            }
+        }
+        return Slices.utf8Slice(unescapedPattern.toString());
+    }
+
+    private static void checkEscape(boolean condition)
+    {
+        checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
+    }
+
     private static boolean regexMatches(Regex regex, byte[] bytes)
     {
         return regex.matcher(bytes).match(0, bytes.length, Option.NONE) != -1;
@@ -106,6 +166,7 @@ public final class LikeFunctions
         regex.append('^');
         boolean escaped = false;
         for (char currentChar : patternString.toCharArray()) {
+            checkEscape(!escaped || currentChar == '%' || currentChar == '_' || currentChar == escapeChar);
             if (shouldEscape && !escaped && (currentChar == escapeChar)) {
                 escaped = true;
             }
@@ -135,6 +196,7 @@ public final class LikeFunctions
                 }
             }
         }
+        checkEscape(!escaped);
         regex.append('$');
 
         byte[] bytes = regex.toString().getBytes(UTF_8);
@@ -152,6 +214,6 @@ public final class LikeFunctions
         if (escapeString.length() == 1) {
             return escapeString.charAt(0);
         }
-        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Escape must be empty or a single character");
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
     }
 }

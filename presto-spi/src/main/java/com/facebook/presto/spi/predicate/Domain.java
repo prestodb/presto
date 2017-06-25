@@ -81,6 +81,17 @@ public final class Domain
         return new Domain(ValueSet.of(type, value), false);
     }
 
+    public static Domain multipleValues(Type type, List<Object> values)
+    {
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("values cannot be empty");
+        }
+        if (values.size() == 1) {
+            return singleValue(type, values.get(0));
+        }
+        return new Domain(ValueSet.of(type, values.get(0), values.subList(1, values.size()).toArray()), false);
+    }
+
     public Type getType()
     {
         return values.getType();

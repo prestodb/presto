@@ -19,12 +19,12 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
@@ -89,6 +90,11 @@ public class WindowNode
         return ImmutableList.copyOf(concat(source.getOutputSymbols(), windowFunctions.keySet()));
     }
 
+    public Set<Symbol> getCreatedSymbols()
+    {
+        return ImmutableSet.copyOf(windowFunctions.keySet());
+    }
+
     @JsonProperty
     public PlanNode getSource()
     {
@@ -126,7 +132,7 @@ public class WindowNode
     {
         return windowFunctions.values().stream()
                 .map(WindowNode.Function::getFrame)
-                .collect(ImmutableCollectors.toImmutableList());
+                .collect(toImmutableList());
     }
 
     @JsonProperty
@@ -148,9 +154,15 @@ public class WindowNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitWindow(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashSymbol, prePartitionedInputs, preSortedOrderPrefix);
     }
 
     @Immutable

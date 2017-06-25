@@ -28,6 +28,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -37,7 +38,6 @@ import io.airlift.slice.Slice;
 
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -56,8 +56,8 @@ import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.min;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -100,7 +100,7 @@ public class ExpressionEquivalence
         Expression expressionWithInputReferences = new SymbolToInputRewriter(symbolInput).rewrite(expression);
 
         // determine the type of every expression
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
                 session,
                 metadata,
                 sqlParser,
@@ -113,7 +113,7 @@ public class ExpressionEquivalence
     }
 
     private static class CanonicalizationVisitor
-            implements RowExpressionVisitor<Void, RowExpression>
+            implements RowExpressionVisitor<RowExpression, Void>
     {
         @Override
         public RowExpression visitCall(CallExpression call, Void context)

@@ -29,6 +29,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.stats.CounterStat;
 
 import javax.annotation.PreDestroy;
@@ -45,17 +47,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.MoreFutures.firstCompletedFuture;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class NodeScheduler
 {
@@ -286,7 +287,7 @@ public class NodeScheduler
             }
         }
 
-        CompletableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
         return new SplitPlacementResult(blocked, ImmutableMultimap.copyOf(assignments));
     }
 
@@ -295,35 +296,49 @@ public class NodeScheduler
         return (int) Math.ceil(maxPendingSplitsPerTask / 2.0);
     }
 
-    public static CompletableFuture<?> toWhenHasSplitQueueSpaceFuture(Set<Node> blockedNodes, List<RemoteTask> existingTasks, int spaceThreshold)
+    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(Set<Node> blockedNodes, List<RemoteTask> existingTasks, int spaceThreshold)
     {
         if (blockedNodes.isEmpty()) {
-            return completedFuture(null);
+            return immediateFuture(null);
         }
         Map<String, RemoteTask> nodeToTaskMap = new HashMap<>();
         for (RemoteTask task : existingTasks) {
             nodeToTaskMap.put(task.getNodeId(), task);
         }
-        List<CompletableFuture<?>> blockedFutures = blockedNodes.stream()
+        List<ListenableFuture<?>> blockedFutures = blockedNodes.stream()
                 .map(Node::getNodeIdentifier)
                 .map(nodeToTaskMap::get)
                 .filter(Objects::nonNull)
                 .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
                 .collect(toImmutableList());
         if (blockedFutures.isEmpty()) {
-            return completedFuture(null);
+            return immediateFuture(null);
         }
-        return firstCompletedFuture(blockedFutures, true);
+        return getFirstCompleteAndCancelOthers(blockedFutures);
     }
 
-    public static CompletableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
+    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
     {
         if (existingTasks.isEmpty()) {
-            return completedFuture(null);
+            return immediateFuture(null);
         }
-        List<CompletableFuture<?>> stateChangeFutures = existingTasks.stream()
+        List<ListenableFuture<?>> stateChangeFutures = existingTasks.stream()
                 .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
                 .collect(toImmutableList());
-        return firstCompletedFuture(stateChangeFutures, true);
+        return getFirstCompleteAndCancelOthers(stateChangeFutures);
+    }
+
+    private static ListenableFuture<?> getFirstCompleteAndCancelOthers(List<ListenableFuture<?>> blockedFutures)
+    {
+        // wait for the first task to unblock and then cancel all futures to free up resources
+        ListenableFuture<?> result = whenAnyComplete(blockedFutures);
+        result.addListener(
+                () -> {
+                    for (ListenableFuture<?> blockedFuture : blockedFutures) {
+                        blockedFuture.cancel(true);
+                    }
+                },
+                MoreExecutors.directExecutor());
+        return result;
     }
 }

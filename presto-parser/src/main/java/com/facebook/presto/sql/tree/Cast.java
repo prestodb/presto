@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -68,6 +71,7 @@ public final class Cast
         this.safe = safe;
         this.typeOnly = typeOnly;
     }
+
     public Expression getExpression()
     {
         return expression;
@@ -92,6 +96,12 @@ public final class Cast
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitCast(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(expression);
     }
 
     @Override

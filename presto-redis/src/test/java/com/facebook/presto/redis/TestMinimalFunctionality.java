@@ -38,8 +38,8 @@ import java.util.UUID;
 import static com.facebook.presto.redis.util.RedisTestUtils.createEmptyTableDescription;
 import static com.facebook.presto.redis.util.RedisTestUtils.installRedisPlugin;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)

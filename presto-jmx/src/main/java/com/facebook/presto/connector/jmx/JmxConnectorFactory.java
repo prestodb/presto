@@ -22,7 +22,6 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
-import com.google.inject.name.Names;
 import io.airlift.bootstrap.Bootstrap;
 
 import javax.management.MBeanServer;
@@ -63,7 +62,6 @@ public class JmxConnectorFactory
                         configBinder(binder).bindConfig(JmxConnectorConfig.class);
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(mbeanServer));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(String.class).annotatedWith(Names.named(JmxConnector.CONNECTOR_ID_PARAMETER)).toInstance(connectorId);
                         binder.bind(JmxConnector.class).in(Scopes.SINGLETON);
                         binder.bind(JmxHistoricalData.class).in(Scopes.SINGLETON);
                         binder.bind(JmxMetadata.class).in(Scopes.SINGLETON);

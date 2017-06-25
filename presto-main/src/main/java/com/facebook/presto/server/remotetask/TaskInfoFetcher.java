@@ -84,6 +84,7 @@ public class TaskInfoFetcher
             Duration updateInterval,
             JsonCodec<TaskInfo> taskInfoCodec,
             Duration minErrorDuration,
+            Duration maxErrorDuration,
             boolean summarizeTaskInfo,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
@@ -101,7 +102,7 @@ public class TaskInfoFetcher
 
         this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
-        this.errorTracker = new RequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), minErrorDuration, errorScheduledExecutor, "getting info for task");
+        this.errorTracker = new RequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), minErrorDuration, maxErrorDuration, errorScheduledExecutor, "getting info for task");
 
         this.summarizeTaskInfo = summarizeTaskInfo;
 

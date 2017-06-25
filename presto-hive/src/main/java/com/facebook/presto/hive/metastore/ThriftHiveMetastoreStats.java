@@ -23,6 +23,8 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats getAllTables = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getAllViews = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getTable = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getTableColumnStatistics = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getPartitionColumnStatistics = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionNames = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionNamesPs = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartition = new HiveMetastoreApiStats();
@@ -38,6 +40,7 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats alterPartition = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats loadRoles = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPrivilegeSet = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats listPrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats grantTablePrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats revokeTablePrivileges = new HiveMetastoreApiStats();
 
@@ -74,6 +77,16 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getGetTable()
     {
         return getTable;
+    }
+
+    public HiveMetastoreApiStats getGetTableColumnStatistics()
+    {
+        return getTableColumnStatistics;
+    }
+
+    public HiveMetastoreApiStats getGetPartitionColumnStatistics()
+    {
+        return getPartitionColumnStatistics;
     }
 
     @Managed
@@ -193,5 +206,12 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getGetPrivilegeSet()
     {
         return getPrivilegeSet;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getListPrivileges()
+    {
+        return listPrivileges;
     }
 }

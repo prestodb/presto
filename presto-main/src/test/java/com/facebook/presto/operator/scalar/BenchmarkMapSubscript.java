@@ -16,9 +16,8 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -26,14 +25,11 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -56,14 +52,17 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 
@@ -80,17 +79,10 @@ public class BenchmarkMapSubscript
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public Object mapSubscript(BenchmarkData data)
+    public List<Page> mapSubscript(BenchmarkData data)
             throws Throwable
     {
-        int position = 0;
-        List<Page> pages = new ArrayList<>();
-        while (position < data.getPage().getPositionCount()) {
-            position = data.getPageProcessor().process(SESSION, data.getPage(), position, data.getPage().getPositionCount(), data.getPageBuilder());
-            pages.add(data.getPageBuilder().build());
-            data.getPageBuilder().reset();
-        }
-        return pages;
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -103,7 +95,6 @@ public class BenchmarkMapSubscript
         @Param({"1", "13"})
         private int mapSize = 13;
 
-        private PageBuilder pageBuilder;
         private Page page;
         private PageProcessor pageProcessor;
 
@@ -131,15 +122,15 @@ public class BenchmarkMapSubscript
             Block valueBlock;
             switch (name) {
                 case "fix-width":
-                    mapType = new MapType(createUnboundedVarcharType(), DOUBLE);
+                    mapType = mapType(createUnboundedVarcharType(), DOUBLE);
                     valueBlock = createFixWidthValueBlock(POSITIONS, mapSize);
                     break;
                 case "var-width":
-                    mapType = new MapType(createUnboundedVarcharType(), createUnboundedVarcharType());
+                    mapType = mapType(createUnboundedVarcharType(), createUnboundedVarcharType());
                     valueBlock = createVarWidthValueBlock(POSITIONS, mapSize);
                     break;
                 case "dictionary":
-                    mapType = new MapType(createUnboundedVarcharType(), createUnboundedVarcharType());
+                    mapType = mapType(createUnboundedVarcharType(), createUnboundedVarcharType());
                     valueBlock = createDictionaryValueBlock(POSITIONS, mapSize);
                     break;
                 default:
@@ -161,12 +152,11 @@ public class BenchmarkMapSubscript
                 projectionsBuilder.add(new CallExpression(
                         signature,
                         mapType.getValueType(),
-                        ImmutableList.of(new InputReferenceExpression(0, mapType), new ConstantExpression(utf8Slice(keys.get(i)), createUnboundedVarcharType()))));
+                        ImmutableList.of(field(0, mapType), constant(utf8Slice(keys.get(i)), createUnboundedVarcharType()))));
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(Collectors.toList()));
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(block);
         }
 
@@ -178,11 +168,6 @@ public class BenchmarkMapSubscript
         public Page getPage()
         {
             return page;
-        }
-
-        public PageBuilder getPageBuilder()
-        {
-            return pageBuilder;
         }
 
         private static Block createMapBlock(int positionCount, Block keyBlock, Block valueBlock)
@@ -203,7 +188,7 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = i % keys.size();
             }
-            return new DictionaryBlock(positionCount * keys.size(), keyDictionaryBlock, keyIds);
+            return new DictionaryBlock(keyDictionaryBlock, keyIds);
         }
 
         private static Block createFixWidthValueBlock(int positionCount, int mapSize)
@@ -242,7 +227,7 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = ThreadLocalRandom.current().nextInt(0, dictionarySize);
             }
-            return new DictionaryBlock(positionCount * mapSize, dictionaryBlock, keyIds);
+            return new DictionaryBlock(dictionaryBlock, keyIds);
         }
 
         private static String randomString(int length)

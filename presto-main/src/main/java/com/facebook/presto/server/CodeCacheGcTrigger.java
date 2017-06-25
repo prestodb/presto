@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.server;
 
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.PostConstruct;
+import javax.inject.Inject;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;

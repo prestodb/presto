@@ -26,6 +26,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 
@@ -35,7 +36,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
@@ -191,7 +191,7 @@ public class TopologyAwareNodeSelector
             }
         }
 
-        CompletableFuture<?> blocked;
+        ListenableFuture<?> blocked;
         int maxPendingForWildcardNetworkAffinity = calculateMaxPendingSplits(0, networkLocationSegmentNames.size());
         if (splitWaitingForAnyNode) {
             blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingForWildcardNetworkAffinity));

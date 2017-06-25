@@ -35,6 +35,9 @@ public class ShardRecoveryStats
     private final DistributionStat shardRecoveryTimeInMilliSeconds = new DistributionStat();
     private final DistributionStat shardRecoveryBytesPerSecond = new DistributionStat();
 
+    private final CounterStat corruptLocalFile = new CounterStat();
+    private final CounterStat corruptRecoveredFile = new CounterStat();
+
     public void incrementBackgroundShardRecovery()
     {
         backgroundShardRecovery.update(1);
@@ -65,6 +68,16 @@ public class ShardRecoveryStats
         shardRecoveryBytesPerSecond.add(Math.round(rate.toBytes()));
         shardRecoveryShardSizeBytes.add(size.toBytes());
         shardRecoveryTimeInMilliSeconds.add(duration.toMillis());
+    }
+
+    public void incrementCorruptLocalFile()
+    {
+        corruptLocalFile.update(1);
+    }
+
+    public void incrementCorruptRecoveredFile()
+    {
+        corruptRecoveredFile.update(1);
     }
 
     @Managed
@@ -121,5 +134,19 @@ public class ShardRecoveryStats
     public DistributionStat getShardRecoveryShardSizeBytes()
     {
         return shardRecoveryShardSizeBytes;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCorruptLocalFile()
+    {
+        return corruptLocalFile;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCorruptRecoveredFile()
+    {
+        return corruptRecoveredFile;
     }
 }

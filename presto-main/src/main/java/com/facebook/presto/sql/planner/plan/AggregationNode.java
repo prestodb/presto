@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -30,6 +33,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -38,14 +43,22 @@ public class AggregationNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final Map<Symbol, FunctionCall> aggregations;
-    // Map from function symbol, to the mask symbol
-    private final Map<Symbol, Symbol> masks;
+    private final Map<Symbol, Aggregation> aggregations;
     private final List<List<Symbol>> groupingSets;
-    private final Map<Symbol, Signature> functions;
     private final Step step;
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
+    private final List<Symbol> outputs;
+
+    public boolean hasEmptyGroupingSet()
+    {
+        return groupingSets.stream().anyMatch(List::isEmpty);
+    }
+
+    public boolean hasNonEmptyGroupingSet()
+    {
+        return groupingSets.stream().anyMatch(symbols -> !symbols.isEmpty());
+    }
 
     public enum Step
     {
@@ -95,11 +108,10 @@ public class AggregationNode
     }
 
     @JsonCreator
-    public AggregationNode(@JsonProperty("id") PlanNodeId id,
+    public AggregationNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
-            @JsonProperty("functions") Map<Symbol, Signature> functions,
-            @JsonProperty("masks") Map<Symbol, Symbol> masks,
+            @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
@@ -109,17 +121,19 @@ public class AggregationNode
 
         this.source = source;
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
-        this.functions = ImmutableMap.copyOf(requireNonNull(functions, "functions is null"));
-        this.masks = ImmutableMap.copyOf(requireNonNull(masks, "masks is null"));
-        for (Symbol mask : masks.keySet()) {
-            checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
-        }
         requireNonNull(groupingSets, "groupingSets is null");
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
-        this.groupingSets = ImmutableList.copyOf(groupingSets);
+        this.groupingSets = listOfListsCopy(groupingSets);
         this.step = step;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
+
+        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        outputs.addAll(getGroupingKeys());
+        hashSymbol.ifPresent(outputs::add);
+        outputs.addAll(aggregations.keySet());
+
+        this.outputs = outputs.build();
     }
 
     @Override
@@ -131,31 +145,13 @@ public class AggregationNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-
-        symbols.addAll(getGroupingKeys());
-        hashSymbol.ifPresent(symbols::add);
-        symbols.addAll(aggregations.keySet());
-
-        return symbols.build();
+        return outputs;
     }
 
-    @JsonProperty("aggregations")
-    public Map<Symbol, FunctionCall> getAggregations()
+    @JsonProperty
+    public Map<Symbol, Aggregation> getAggregations()
     {
         return aggregations;
-    }
-
-    @JsonProperty("functions")
-    public Map<Symbol, Signature> getFunctions()
-    {
-        return functions;
-    }
-
-    @JsonProperty("masks")
-    public Map<Symbol, Symbol> getMasks()
-    {
-        return masks;
     }
 
     public List<Symbol> getGroupingKeys()
@@ -173,6 +169,19 @@ public class AggregationNode
     public List<List<Symbol>> getGroupingSets()
     {
         return groupingSets;
+    }
+
+    /**
+     * @return whether this node should produce default output in case of no input pages.
+     * For example for query:
+     *
+     * SELECT count(*) FROM nation WHERE nationkey < 0
+     *
+     * A default output of "0" is expected to be produced by FINAL aggregation operator.
+     */
+    public boolean hasDefaultOutput()
+    {
+        return hasEmptyGroupingSet() && (step.isOutputPartial() || step.equals(SINGLE));
     }
 
     @JsonProperty("source")
@@ -200,8 +209,57 @@ public class AggregationNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitAggregation(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, step, hashSymbol, groupIdSymbol);
+    }
+
+    public boolean isDecomposable(FunctionRegistry functionRegistry)
+    {
+        return getAggregations().entrySet().stream()
+                .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
+                .allMatch(InternalAggregationFunction::isDecomposable);
+    }
+
+    public static class Aggregation
+    {
+        private final FunctionCall call;
+        private final Signature signature;
+        private final Optional<Symbol> mask;
+
+        @JsonCreator
+        public Aggregation(
+                @JsonProperty("call") FunctionCall call,
+                @JsonProperty("signature") Signature signature,
+                @JsonProperty("mask") Optional<Symbol> mask)
+        {
+            this.call = call;
+            this.signature = signature;
+            this.mask = mask;
+        }
+
+        @JsonProperty
+        public FunctionCall getCall()
+        {
+            return call;
+        }
+
+        @JsonProperty
+        public Signature getSignature()
+        {
+            return signature;
+        }
+
+        @JsonProperty
+        public Optional<Symbol> getMask()
+        {
+            return mask;
+        }
     }
 }

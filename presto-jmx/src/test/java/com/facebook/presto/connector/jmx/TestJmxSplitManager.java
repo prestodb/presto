@@ -82,8 +82,8 @@ public class TestJmxSplitManager
                                 }
                             });
 
-    private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", createUnboundedVarcharType());
-    private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle), true);
+    private final JmxColumnHandle columnHandle = new JmxColumnHandle("node", createUnboundedVarcharType());
+    private final JmxTableHandle tableHandle = new JmxTableHandle("objectName", ImmutableList.of(columnHandle), true);
 
     private final JmxSplitManager splitManager = jmxConnector.getSplitManager();
     private final JmxMetadata metadata = jmxConnector.getMetadata(new ConnectorTransactionHandle() {});

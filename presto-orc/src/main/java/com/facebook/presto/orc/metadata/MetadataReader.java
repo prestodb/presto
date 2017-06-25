@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
+import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 
 import java.io.IOException;
 import java.io.InputStream;

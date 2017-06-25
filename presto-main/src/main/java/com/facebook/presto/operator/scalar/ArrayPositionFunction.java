@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
@@ -23,13 +22,12 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.util.Failures.internalError;
 
 @Description("Returns the position of the first occurrence of the given value in array (or 0 if not found)")
 @ScalarFunction("array_position")
@@ -54,9 +52,7 @@ public final class ArrayPositionFunction
                     }
                 }
                 catch (Throwable t) {
-                    Throwables.propagateIfInstanceOf(t, Error.class);
-                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                    throw internalError(t);
                 }
             }
         }
@@ -80,9 +76,7 @@ public final class ArrayPositionFunction
                     }
                 }
                 catch (Throwable t) {
-                    Throwables.propagateIfInstanceOf(t, Error.class);
-                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                    throw internalError(t);
                 }
             }
         }
@@ -106,9 +100,7 @@ public final class ArrayPositionFunction
                     }
                 }
                 catch (Throwable t) {
-                    Throwables.propagateIfInstanceOf(t, Error.class);
-                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                    throw internalError(t);
                 }
             }
         }
@@ -132,9 +124,7 @@ public final class ArrayPositionFunction
                     }
                 }
                 catch (Throwable t) {
-                    Throwables.propagateIfInstanceOf(t, Error.class);
-                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                    throw internalError(t);
                 }
             }
         }
@@ -158,9 +148,7 @@ public final class ArrayPositionFunction
                     }
                 }
                 catch (Throwable t) {
-                    Throwables.propagateIfInstanceOf(t, Error.class);
-                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                    throw internalError(t);
                 }
             }
         }

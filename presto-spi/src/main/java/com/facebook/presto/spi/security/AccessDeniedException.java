@@ -38,6 +38,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal, userName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCatalogAccess(String catalogName)
+    {
+        denyCatalogAccess(catalogName, null);
+    }
+
+    public static void denyCatalogAccess(String catalogName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot access catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateSchema(String schemaName)
     {
         denyCreateSchema(schemaName, null);
@@ -66,6 +76,16 @@ public class AccessDeniedException
     public static void denyRenameSchema(String schemaName, String newSchemaName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyShowSchemas()
+    {
+        denyShowSchemas(null);
+    }
+
+    public static void denyShowSchemas(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show schemas%s", formatExtraInfo(extraInfo)));
     }
 
     public static void denyCreateTable(String tableName)
@@ -98,6 +118,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename table from %s to %s%s", tableName, newTableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowTablesMetadata(String schemaName)
+    {
+        denyShowTablesMetadata(schemaName, null);
+    }
+
+    public static void denyShowTablesMetadata(String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show metadata of tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyAddColumn(String tableName)
     {
         denyAddColumn(tableName, null);
@@ -106,6 +136,16 @@ public class AccessDeniedException
     public static void denyAddColumn(String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot add a column to table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropColumn(String tableName)
+    {
+        denyDropColumn(tableName, null);
+    }
+
+    public static void denyDropColumn(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop a column from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyRenameColumn(String tableName)

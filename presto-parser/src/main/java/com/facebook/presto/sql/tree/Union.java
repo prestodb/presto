@@ -57,6 +57,12 @@ public class Union
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return relations;
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

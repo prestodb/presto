@@ -15,10 +15,12 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.Constraint;
 import com.google.common.base.Splitter;
 import com.google.common.escape.Escaper;
 import com.google.common.net.UrlEscapers;
@@ -48,8 +50,9 @@ public final class UrlFunctions
     @SqlNullable
     @Description("extract protocol from url")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlExtractProtocol(@SqlType(StandardTypes.VARCHAR) Slice url)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice urlExtractProtocol(@SqlType("varchar(x)") Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getScheme());
@@ -58,8 +61,9 @@ public final class UrlFunctions
     @SqlNullable
     @Description("extract host from url")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlExtractHost(@SqlType(StandardTypes.VARCHAR) Slice url)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice urlExtractHost(@SqlType("varchar(x)") Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getHost());
@@ -68,8 +72,9 @@ public final class UrlFunctions
     @SqlNullable
     @Description("extract port from url")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static Long urlExtractPort(@SqlType(StandardTypes.VARCHAR) Slice url)
+    public static Long urlExtractPort(@SqlType("varchar(x)") Slice url)
     {
         URI uri = parseUrl(url);
         if ((uri == null) || (uri.getPort() < 0)) {
@@ -81,8 +86,9 @@ public final class UrlFunctions
     @SqlNullable
     @Description("extract part from url")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlExtractPath(@SqlType(StandardTypes.VARCHAR) Slice url)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice urlExtractPath(@SqlType("varchar(x)") Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getPath());
@@ -91,8 +97,9 @@ public final class UrlFunctions
     @SqlNullable
     @Description("extract query from url")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlExtractQuery(@SqlType(StandardTypes.VARCHAR) Slice url)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice urlExtractQuery(@SqlType("varchar(x)") Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getQuery());
@@ -101,8 +108,9 @@ public final class UrlFunctions
     @SqlNullable
     @Description("extract fragment from url")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlExtractFragment(@SqlType(StandardTypes.VARCHAR) Slice url)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice urlExtractFragment(@SqlType("varchar(x)") Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getFragment());
@@ -111,8 +119,9 @@ public final class UrlFunctions
     @SqlNullable
     @Description("extract query parameter from url")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlExtractParameter(@SqlType(StandardTypes.VARCHAR) Slice url, @SqlType(StandardTypes.VARCHAR) Slice parameterName)
+    @LiteralParameters({"x", "y"})
+    @SqlType("varchar(x)")
+    public static Slice urlExtractParameter(@SqlType("varchar(x)") Slice url, @SqlType("varchar(y)") Slice parameterName)
     {
         URI uri = parseUrl(url);
         if ((uri == null) || (uri.getQuery() == null)) {
@@ -140,8 +149,10 @@ public final class UrlFunctions
 
     @Description("escape a string for use in URL query parameter names and values")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlEncode(@SqlType(StandardTypes.VARCHAR) Slice value)
+    @LiteralParameters({"x", "y"})
+    @Constraint(variable = "y", expression = "min(2147483647, x * 12)")
+    @SqlType("varchar(y)")
+    public static Slice urlEncode(@SqlType("varchar(x)") Slice value)
     {
         Escaper escaper = UrlEscapers.urlFormParameterEscaper();
         return slice(escaper.escape(value.toStringUtf8()));
@@ -149,8 +160,9 @@ public final class UrlFunctions
 
     @Description("unescape a URL-encoded string")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlDecode(@SqlType(StandardTypes.VARCHAR) Slice value)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice urlDecode(@SqlType("varchar(x)") Slice value)
     {
         try {
             return slice(URLDecoder.decode(value.toStringUtf8(), UTF_8.name()));

@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -45,14 +46,16 @@ public class TestTopNRowNumberOperator
 {
     private ExecutorService executor;
     private DriverContext driverContext;
+    private JoinCompiler joinCompiler;
 
     @BeforeMethod
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
+        joinCompiler = new JoinCompiler();
     }
 
     @AfterMethod
@@ -100,7 +103,8 @@ public class TestTopNRowNumberOperator
                 3,
                 false,
                 Optional.empty(),
-                10);
+                10,
+                joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L, 1L)
@@ -148,7 +152,8 @@ public class TestTopNRowNumberOperator
                 3,
                 false,
                 Optional.empty(),
-                10);
+                10,
+                joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.1, 3L, 1L)

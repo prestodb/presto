@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -35,9 +34,9 @@ public class BufferResult
     private final long token;
     private final long nextToken;
     private final boolean bufferComplete;
-    private final List<Page> pages;
+    private final List<SerializedPage> serializedPages;
 
-    public BufferResult(String taskInstanceId, long token, long nextToken, boolean bufferComplete, List<Page> pages)
+    public BufferResult(String taskInstanceId, long token, long nextToken, boolean bufferComplete, List<SerializedPage> serializedPages)
     {
         checkArgument(!isNullOrEmpty(taskInstanceId), "taskInstanceId is null");
 
@@ -45,7 +44,7 @@ public class BufferResult
         this.token = token;
         this.nextToken = nextToken;
         this.bufferComplete = bufferComplete;
-        this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
+        this.serializedPages = ImmutableList.copyOf(requireNonNull(serializedPages, "serializedPages is null"));
     }
 
     public long getToken()
@@ -63,19 +62,19 @@ public class BufferResult
         return bufferComplete;
     }
 
-    public List<Page> getPages()
+    public List<SerializedPage> getSerializedPages()
     {
-        return pages;
+        return serializedPages;
     }
 
     public int size()
     {
-        return pages.size();
+        return serializedPages.size();
     }
 
     public boolean isEmpty()
     {
-        return pages.isEmpty();
+        return serializedPages.isEmpty();
     }
 
     public String getTaskInstanceId()
@@ -97,13 +96,13 @@ public class BufferResult
                 Objects.equals(nextToken, that.nextToken) &&
                 Objects.equals(taskInstanceId, that.taskInstanceId) &&
                 Objects.equals(bufferComplete, that.bufferComplete) &&
-                Objects.equals(pages, that.pages);
+                Objects.equals(serializedPages, that.serializedPages);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(token, nextToken, taskInstanceId, bufferComplete, pages);
+        return Objects.hash(token, nextToken, taskInstanceId, bufferComplete, serializedPages);
     }
 
     @Override
@@ -114,7 +113,7 @@ public class BufferResult
                 .add("nextToken", nextToken)
                 .add("taskInstanceId", taskInstanceId)
                 .add("bufferComplete", bufferComplete)
-                .add("pages", pages)
+                .add("serializedPages", serializedPages)
                 .toString();
     }
 }

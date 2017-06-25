@@ -26,10 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -63,11 +63,16 @@ public class RelationType
     }
 
     /**
-     * Gets the index of the specified field or -1 if not found.
+     * Gets the index of the specified field.
+     *
+     * @throws IllegalArgumentException when field is not found
      */
     public int indexOf(Field field)
     {
-        return requireNonNull(fieldIndexes.get(field));
+        requireNonNull(field, "field cannot be null");
+        Integer index = fieldIndexes.get(field);
+        checkArgument(index != null, "Field %s not found", field);
+        return index;
     }
 
     /**

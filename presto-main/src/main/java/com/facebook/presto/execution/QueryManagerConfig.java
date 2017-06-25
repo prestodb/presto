@@ -19,6 +19,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -40,11 +41,13 @@ public class QueryManagerConfig
     private int initialHashPartitions = 100;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
+    private int maxQueryLength = 1_000_000;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
 
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
+    private Duration remoteTaskMaxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
     private String queryExecutionPolicy = "all-at-once";
@@ -159,6 +162,20 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Min(0)
+    @Max(1_000_000_000)
+    public int getMaxQueryLength()
+    {
+        return maxQueryLength;
+    }
+
+    @Config("query.max-length")
+    public QueryManagerConfig setMaxQueryLength(int maxQueryLength)
+    {
+        this.maxQueryLength = maxQueryLength;
+        return this;
+    }
+
     @MinDuration("5s")
     @NotNull
     public Duration getClientTimeout()
@@ -197,6 +214,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setRemoteTaskMinErrorDuration(Duration remoteTaskMinErrorDuration)
     {
         this.remoteTaskMinErrorDuration = remoteTaskMinErrorDuration;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1s")
+    public Duration getRemoteTaskMaxErrorDuration()
+    {
+        return remoteTaskMaxErrorDuration;
+    }
+
+    @Config("query.remote-task.max-error-duration")
+    public QueryManagerConfig setRemoteTaskMaxErrorDuration(Duration remoteTaskMaxErrorDuration)
+    {
+        this.remoteTaskMaxErrorDuration = remoteTaskMaxErrorDuration;
         return this;
     }
 

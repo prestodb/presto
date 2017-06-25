@@ -20,7 +20,10 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
 
+import java.util.OptionalDouble;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -158,6 +161,15 @@ public class StatementStats
     public StageStats getRootStage()
     {
         return rootStage;
+    }
+
+    @JsonProperty
+    public OptionalDouble getProgressPercentage()
+    {
+        if (!scheduled || totalSplits == 0) {
+            return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(min(100, (completedSplits * 100.0) / totalSplits));
     }
 
     @Override

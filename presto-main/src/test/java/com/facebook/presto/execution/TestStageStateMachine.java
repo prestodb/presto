@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -312,7 +313,7 @@ public class TestStageStateMachine
 
     private StageStateMachine createStageStateMachine()
     {
-        return new StageStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, executor);
+        return new StageStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, executor, new SplitSchedulerStats());
     }
 
     private static PlanFragment createValuesPlan()

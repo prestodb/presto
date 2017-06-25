@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
@@ -19,7 +18,6 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
@@ -42,7 +40,9 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.util.Failures.checkCondition;
 
 public class VarArgsToMapAdapterGenerator
 {
@@ -61,6 +61,7 @@ public class VarArgsToMapAdapterGenerator
      */
     public static MethodHandle generateVarArgsToMapAdapter(Class<?> returnType, List<Class<?>> javaTypes, List<String> names, Function<Map<String, Object>, Object> function)
     {
+        checkCondition(javaTypes.size() <= 254, NOT_SUPPORTED, "Too many arguments for vararg function");
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), makeClassName("VarArgsToMapAdapter"), type(Object.class));
@@ -72,12 +73,14 @@ public class VarArgsToMapAdapterGenerator
         }
         ImmutableList<Parameter> parameterList = parameterListBuilder.build();
 
-        MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "varArgsToMap", ParameterizedType.type(returnType), parameterList);
+        MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "varArgsToMap", type(returnType), parameterList);
         BytecodeBlock body = methodDefinition.getBody();
 
         // ImmutableMap.Builder can not be used here because it doesn't allow nulls.
-        Variable map = methodDefinition.getScope().declareVariable(HashMap.class, "map");
-        body.append(map.set(invokeStatic(Maps.class, "newHashMapWithExpectedSize", HashMap.class, constantInt(javaTypes.size()))));
+        Variable map = methodDefinition.getScope().declareVariable(
+                "map",
+                methodDefinition.getBody(),
+                invokeStatic(Maps.class, "newHashMapWithExpectedSize", HashMap.class, constantInt(javaTypes.size())));
         for (int i = 0; i < javaTypes.size(); i++) {
             body.append(map.invoke("put", Object.class, constantString(names.get(i)).cast(Object.class), parameterList.get(i).cast(Object.class)));
         }

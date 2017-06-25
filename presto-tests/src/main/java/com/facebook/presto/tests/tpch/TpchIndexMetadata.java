@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.tests.tpch.TpchIndexProvider.handleToNames;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static java.util.Objects.requireNonNull;
@@ -56,7 +55,7 @@ public class TpchIndexMetadata
             Set<ColumnHandle> outputColumns,
             TupleDomain<ColumnHandle> tupleDomain)
     {
-        TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
+        TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
 
         // Keep the fixed values that don't overlap with the indexableColumns
         // Note: technically we could more efficiently utilize the overlapped columns, but this way is simpler for now

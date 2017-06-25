@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,6 +40,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
@@ -49,6 +48,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
@@ -61,12 +61,12 @@ public class TestRaptorIntegrationSmokeTest
     public TestRaptorIntegrationSmokeTest()
             throws Exception
     {
-        this(createRaptorQueryRunner(ImmutableMap.of(), true, false));
+        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false));
     }
 
-    protected TestRaptorIntegrationSmokeTest(QueryRunner queryRunner)
+    protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
-        super(queryRunner);
+        super(supplier);
     }
 
     @Test
@@ -86,6 +86,30 @@ public class TestRaptorIntegrationSmokeTest
         assertQuery("SELECT c[1] FROM map_test", "SELECT 'hi'");
         assertQuery("SELECT c[3] FROM map_test", "SELECT NULL");
         assertUpdate("DROP TABLE map_test");
+    }
+
+    @Test
+    public void testCreateTableViewAlreadyExists()
+            throws Exception
+    {
+        assertUpdate("CREATE VIEW view_already_exists AS SELECT 1 a");
+        assertQueryFails("CREATE TABLE view_already_exists(a integer)", "View already exists: tpch.view_already_exists");
+        assertQueryFails("CREATE TABLE View_Already_Exists(a integer)", "View already exists: tpch.view_already_exists");
+        assertQueryFails("CREATE TABLE view_already_exists AS SELECT 1 a", "View already exists: tpch.view_already_exists");
+        assertQueryFails("CREATE TABLE View_Already_Exists AS SELECT 1 a", "View already exists: tpch.view_already_exists");
+        assertUpdate("DROP VIEW view_already_exists");
+    }
+
+    @Test
+    public void testCreateViewTableAlreadyExists()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE table_already_exists (id integer)");
+        assertQueryFails("CREATE VIEW table_already_exists AS SELECT 1 a", "Table already exists: tpch.table_already_exists");
+        assertQueryFails("CREATE VIEW Table_Already_Exists AS SELECT 1 a", "Table already exists: tpch.table_already_exists");
+        assertQueryFails("CREATE OR REPLACE VIEW table_already_exists AS SELECT 1 a", "Table already exists: tpch.table_already_exists");
+        assertQueryFails("CREATE OR REPLACE VIEW Table_Already_Exists AS SELECT 1 a", "Table already exists: tpch.table_already_exists");
+        assertUpdate("DROP TABLE table_already_exists");
     }
 
     @Test
@@ -489,7 +513,7 @@ public class TestRaptorIntegrationSmokeTest
                         .build());
         Map<String, MaterializedRow> map = actualResults.getMaterializedRows().stream()
                 .filter(row -> ((String) row.getField(1)).startsWith("system_tables_test"))
-                .collect(ImmutableCollectors.toImmutableMap(row -> ((String) row.getField(1))));
+                .collect(toImmutableMap(row -> ((String) row.getField(1)), identity()));
         assertEquals(map.size(), 6);
         assertEquals(
                 map.get("system_tables_test0").getFields(),

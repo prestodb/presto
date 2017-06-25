@@ -47,6 +47,10 @@
         <property name="format" value="^([^i]|i[^m]|im[^p]|imp[^o]|impo[^r]|impor[^t]|import[^ ]).*Math\.toIntExact" />
         <property name="message" value="Math.toIntExact should only be used with static imports" />
     </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="^import static .*\.of;$" />
+        <property name="message" value="Methods named &quot;of&quot; should never be statically imported" />
+    </module>
     <module name="RegexpMultiline">
         <property name="format" value="^[ \t]*import com.google.common.base.MoreObjects;$" />
         <property name="message" value="com.google.common.base.MoreObjects should only be used with static imports" />
@@ -154,11 +158,18 @@
                 STAR, STAR_ASSIGN, TYPE_EXTENSION_AND" />
         </module>
 
+        <module name="IllegalToken">
+            <property name="tokens" value="LITERAL_ASSERT" />
+        </module>
+
         <module name="IllegalImport">
             <property name="illegalPkgs" value="
                 com.facebook.presto.hadoop.shaded,
                 com.facebook.presto.hadoop.$internal,
                 com.facebook.presto.hive.$internal,
+                com.facebook.hive.orc.$internal,
+                com.datastax.driver.$internal,
+                org.apache.cassandra.$internal,
                 org.weakref.jmx.internal,
                 jersey.repackaged,
                 jdk.nashorn.internal,

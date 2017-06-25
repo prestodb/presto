@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -83,9 +84,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -129,35 +130,9 @@ public class UnaliasSymbolReferences
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-
-            ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                Symbol symbol = entry.getKey();
-                Symbol canonical = canonicalize(symbol);
-                FunctionCall canonicalCall = (FunctionCall) canonicalize(entry.getValue());
-                functionCalls.put(canonical, canonicalCall);
-                functionInfos.put(canonical, node.getFunctions().get(symbol));
-            }
-            for (Map.Entry<Symbol, Symbol> entry : node.getMasks().entrySet()) {
-                masks.put(canonicalize(entry.getKey()), canonicalize(entry.getValue()));
-            }
-
-            List<List<Symbol>> groupingSets = node.getGroupingSets().stream()
-                    .map(this::canonicalizeAndDistinct)
-                    .collect(toImmutableList());
-
-            return new AggregationNode(
-                    node.getId(),
-                    source,
-                    functionCalls.build(),
-                    functionInfos.build(),
-                    masks.build(),
-                    groupingSets,
-                    node.getStep(),
-                    canonicalize(node.getHashSymbol()),
-                    canonicalize(node.getGroupIdSymbol()));
+            //TODO: use mapper in other methods
+            SymbolMapper mapper = new SymbolMapper(mapping);
+            return mapper.map(node, source);
         }
 
         @Override
@@ -195,7 +170,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new ExplainAnalyzeNode(node.getId(), source, canonicalize(node.getOutputSymbol()));
+            return new ExplainAnalyzeNode(node.getId(), source, canonicalize(node.getOutputSymbol()), node.isVerbose());
         }
 
         @Override
@@ -302,7 +277,7 @@ public class UnaliasSymbolReferences
                     node.getPartitioningScheme().getPartitioning().translate(this::canonicalize),
                     outputs.build(),
                     canonicalize(node.getPartitioningScheme().getHashColumn()),
-                    node.getPartitioningScheme().isReplicateNulls(),
+                    node.getPartitioningScheme().isReplicateNullsAndAny(),
                     node.getPartitioningScheme().getBucketToPartition());
 
             return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs);
@@ -369,7 +344,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
         {
-            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalize(node.getHashSymbol()));
+            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctSymbols()), canonicalize(node.getHashSymbol()));
         }
 
         @Override
@@ -466,19 +441,22 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getInput());
+            PlanNode subquery = context.rewrite(node.getSubquery());
+            List<Symbol> canonicalCorrelation = canonicalizeAndDistinct(node.getCorrelation());
+
+            return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType());
+        }
+
+        @Override
         public PlanNode visitTopN(TopNNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Symbol symbol : node.getOrderBy()) {
-                Symbol canonical = canonicalize(symbol);
-                symbols.add(canonical);
-                orderings.put(canonical, node.getOrderings().get(symbol));
-            }
-
-            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial());
+            SymbolMapper mapper = new SymbolMapper(mapping);
+            return mapper.map(node, source, node.getId());
         }
 
         @Override
@@ -514,10 +492,11 @@ public class UnaliasSymbolReferences
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
                         .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
+                        .filter(clause -> node.getOutputSymbols().contains(clause.getLeft()))
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol);
+            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol, node.getDistributionType());
         }
 
         @Override
@@ -526,7 +505,16 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
             PlanNode filteringSource = context.rewrite(node.getFilteringSource());
 
-            return new SemiJoinNode(node.getId(), source, filteringSource, canonicalize(node.getSourceJoinSymbol()), canonicalize(node.getFilteringSourceJoinSymbol()), canonicalize(node.getSemiJoinOutput()), canonicalize(node.getSourceHashSymbol()), canonicalize(node.getFilteringSourceHashSymbol()));
+            return new SemiJoinNode(
+                    node.getId(),
+                    source,
+                    filteringSource,
+                    canonicalize(node.getSourceJoinSymbol()),
+                    canonicalize(node.getFilteringSourceJoinSymbol()),
+                    canonicalize(node.getSemiJoinOutput()),
+                    canonicalize(node.getSourceHashSymbol()),
+                    canonicalize(node.getFilteringSourceHashSymbol()),
+                    node.getDistributionType());
         }
 
         @Override
@@ -749,7 +737,7 @@ public class UnaliasSymbolReferences
                     scheme.getPartitioning().translate(this::canonicalize),
                     outputs.build(),
                     canonicalize(scheme.getHashColumn()),
-                    scheme.isReplicateNulls(),
+                    scheme.isReplicateNullsAndAny(),
                     scheme.getBucketToPartition());
         }
     }

@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.ToIntFunction;
 
-import static com.facebook.presto.hive.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class HiveNodePartitioningProvider
@@ -57,7 +56,7 @@ public class HiveNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
-        HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         List<HiveType> hiveTypes = handle.getHiveTypes();
         return new HiveBucketFunction(bucketCount, hiveTypes);
     }
@@ -65,7 +64,7 @@ public class HiveNodePartitioningProvider
     @Override
     public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
 
         List<Node> nodes = shuffle(nodeManager.getRequiredWorkerNodes());
 
@@ -83,7 +82,7 @@ public class HiveNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> checkType(value, HiveSplit.class, "value").getBucketNumber().getAsInt();
+        return value -> ((HiveSplit) value).getBucketNumber().getAsInt();
     }
 
     private static <T> List<T> shuffle(Collection<T> items)

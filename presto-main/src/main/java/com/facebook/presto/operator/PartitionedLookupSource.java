@@ -21,16 +21,16 @@ import com.facebook.presto.spi.type.Type;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.numberOfTrailingZeros;
 import static java.lang.Math.toIntExact;
 
@@ -38,16 +38,40 @@ import static java.lang.Math.toIntExact;
 public class PartitionedLookupSource
         implements LookupSource
 {
-    public static Supplier<LookupSource> createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer)
+    public static TrackingLookupSourceSupplier createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer)
     {
-        Optional<OuterPositionTracker> outerPositionTracker = Optional.ofNullable(outer ? new OuterPositionTracker(partitions) : null);
+        if (outer) {
+            OuterPositionTracker.Factory outerPositionTrackerFactory = new OuterPositionTracker.Factory(partitions);
 
-        return () -> new PartitionedLookupSource(
-                partitions.stream()
-                        .map(Supplier::get)
-                        .collect(toImmutableList()),
-                hashChannelTypes,
-                outerPositionTracker);
+            return new TrackingLookupSourceSupplier()
+            {
+                @Override
+                public LookupSource getLookupSource()
+                {
+                    return new PartitionedLookupSource(
+                            partitions.stream()
+                                    .map(Supplier::get)
+                                    .collect(toImmutableList()),
+                            hashChannelTypes,
+                            Optional.of(outerPositionTrackerFactory.create()));
+                }
+
+                @Override
+                public OuterPositionIterator getOuterPositionIterator()
+                {
+                    return outerPositionTrackerFactory.getOuterPositionIterator();
+                }
+            };
+        }
+        else {
+            return TrackingLookupSourceSupplier.nonTracking(
+                    () -> new PartitionedLookupSource(
+                            partitions.stream()
+                                    .map(Supplier::get)
+                                    .collect(toImmutableList()),
+                            hashChannelTypes,
+                            Optional.empty()));
+        }
     }
 
     private final LookupSource[] lookupSources;
@@ -71,7 +95,6 @@ public class PartitionedLookupSource
 
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;
-
         this.outerPositionTracker = outerPositionTracker.orElse(null);
     }
 
@@ -125,6 +148,15 @@ public class PartitionedLookupSource
     }
 
     @Override
+    public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    {
+        int partition = decodePartition(currentJoinPosition);
+        long joinPosition = decodeJoinPosition(currentJoinPosition);
+        LookupSource lookupSource = lookupSources[partition];
+        return lookupSource.isJoinPositionEligible(joinPosition, probePosition, allProbeChannelsPage);
+    }
+
+    @Override
     public void appendTo(long partitionedJoinPosition, PageBuilder pageBuilder, int outputChannelOffset)
     {
         int partition = decodePartition(partitionedJoinPosition);
@@ -136,10 +168,11 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public OuterPositionIterator getOuterPositionIterator()
+    public void close()
     {
-        checkState(outerPositionTracker != null, "This is not an outer lookup source");
-        return outerPositionTracker.getOuterPositionIterator();
+        if (outerPositionTracker != null) {
+            outerPositionTracker.commit();
+        }
     }
 
     private int decodePartition(long partitionedJoinPosition)
@@ -154,7 +187,7 @@ public class PartitionedLookupSource
 
     private long encodePartitionedJoinPosition(int partition, int joinPosition)
     {
-        return (joinPosition << shiftSize) | (partition);
+        return (((long) joinPosition) << shiftSize) | (partition);
     }
 
     private static class PartitionedLookupOuterPositionIterator
@@ -194,41 +227,86 @@ public class PartitionedLookupSource
         }
     }
 
-    @ThreadSafe
+    /**
+     * Each LookupSource has it's own copy of OuterPositionTracker instance.
+     * Each of those OuterPositionTracker must be committed after last write
+     * and before first read.
+     *
+     * All instances share visitedPositions array, but it is safe because each thread
+     * starts with visitedPositions filled with false values and marks only some positions
+     * to true. Since we don't care what will be the order of those writes to
+     * visitedPositions, writes can be without synchronization.
+     *
+     * Memory visibility between last writes in commit() and first read in
+     * getVisitedPositions() is guaranteed by accessing AtomicLong referenceCount
+     * variables in those two methods.
+     */
     private static class OuterPositionTracker
     {
-        private final List<Supplier<LookupSource>> lookupSourceSuppliers;
-
-        @GuardedBy("this")
-        private final boolean[][] visitedPositions;
-
-        @GuardedBy("this")
-        private boolean finished;
-
-        public OuterPositionTracker(List<Supplier<LookupSource>> lookupSourceSuppliers)
+        public static class Factory
         {
-            this.lookupSourceSuppliers = lookupSourceSuppliers;
-            visitedPositions = new boolean[lookupSourceSuppliers.size()][];
-            for (int source = 0; source < lookupSourceSuppliers.size(); source++) {
-                try (LookupSource lookupSource = lookupSourceSuppliers.get(source).get()) {
-                    visitedPositions[source] = new boolean[lookupSource.getJoinPositionCount()];
-                }
+            private final LookupSource[] lookupSources;
+            private final boolean[][] visitedPositions;
+            private final AtomicBoolean finished = new AtomicBoolean();
+            private final AtomicLong referenceCount = new AtomicLong();
+
+            public Factory(List<Supplier<LookupSource>> partitions)
+            {
+                this.lookupSources = partitions.stream()
+                        .map(Supplier::get)
+                        .toArray(LookupSource[]::new);
+
+                visitedPositions = Arrays.stream(this.lookupSources)
+                        .map(LookupSource::getJoinPositionCount)
+                        .map(boolean[]::new)
+                        .toArray(boolean[][]::new);
+            }
+
+            public OuterPositionTracker create()
+            {
+                return new OuterPositionTracker(visitedPositions, finished, referenceCount);
+            }
+
+            public OuterPositionIterator getOuterPositionIterator()
+            {
+                // touching atomic values ensures memory visibility between commit and getVisitedPositions
+                verify(referenceCount.get() == 0);
+                finished.set(true);
+                return new PartitionedLookupOuterPositionIterator(lookupSources, visitedPositions);
             }
         }
 
-        public synchronized void positionVisited(int partition, int position)
+        private final boolean[][] visitedPositions; // shared across multiple operators/drivers
+        private final AtomicBoolean finished; // shared across multiple operators/drivers
+        private final AtomicLong referenceCount; // shared across multiple operators/drivers
+        private boolean written; // unique per each operator/driver
+
+        private OuterPositionTracker(boolean[][] visitedPositions, AtomicBoolean finished, AtomicLong referenceCount)
         {
-            verify(!finished);
+            this.visitedPositions = visitedPositions;
+            this.finished = finished;
+            this.referenceCount = referenceCount;
+        }
+
+        /**
+         * No synchronization here, because it would be very expensive. Check comment above.
+         */
+        public void positionVisited(int partition, int position)
+        {
+            if (!written) {
+                written = true;
+                verify(!finished.get());
+                referenceCount.incrementAndGet();
+            }
             visitedPositions[partition][position] = true;
         }
 
-        public synchronized OuterPositionIterator getOuterPositionIterator()
+        public void commit()
         {
-            finished = true;
-            LookupSource[] lookupSources = lookupSourceSuppliers.stream()
-                    .map(Supplier::get)
-                    .toArray(LookupSource[]::new);
-            return new PartitionedLookupOuterPositionIterator(lookupSources, visitedPositions);
+            if (written) {
+                // touching atomic values ensures memory visibility between commit and getVisitedPositions
+                referenceCount.decrementAndGet();
+            }
         }
     }
 }

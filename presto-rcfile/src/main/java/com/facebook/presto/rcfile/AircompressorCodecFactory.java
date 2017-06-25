@@ -36,6 +36,21 @@ public class AircompressorCodecFactory
     }
 
     @Override
+    public RcFileCompressor createCompressor(String codecName)
+    {
+        if (SNAPPY_CODEC_NAME.equals(codecName)) {
+            return new AircompressorCompressor(new SnappyCodec());
+        }
+        if (LZO_CODEC_NAME.equals(codecName) || LZO_CODEC_NAME_DEPRECATED.equals(codecName)) {
+            return new AircompressorCompressor(new LzoCodec());
+        }
+        if (LZ4_CODEC_NAME.equals(codecName)) {
+            return new AircompressorCompressor(new Lz4Codec());
+        }
+        return delegate.createCompressor(codecName);
+    }
+
+    @Override
     public RcFileDecompressor createDecompressor(String codecName)
     {
         if (SNAPPY_CODEC_NAME.equals(codecName)) {
