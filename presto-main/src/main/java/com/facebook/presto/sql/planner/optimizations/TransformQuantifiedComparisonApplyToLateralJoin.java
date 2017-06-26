@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -172,7 +173,8 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     context.rewrite(node.getInput()),
                     subqueryPlan,
                     node.getCorrelation(),
-                    LateralJoinNode.Type.INNER);
+                    JoinType.INNER,
+                    Optional.empty());
 
             Expression valueComparedToSubquery = rewriteUsingBounds(quantifiedComparison, minValue, maxValue, countAllValue, countNonNullValue);
 

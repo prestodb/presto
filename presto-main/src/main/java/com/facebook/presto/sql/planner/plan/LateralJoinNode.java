@@ -36,12 +36,6 @@ import static java.util.Objects.requireNonNull;
 public class LateralJoinNode
         extends PlanNode
 {
-    public enum Type
-    {
-        INNER,
-        LEFT
-    }
-
     private final PlanNode input;
     private final PlanNode subquery;
 
@@ -49,7 +43,7 @@ public class LateralJoinNode
      * Correlation symbols, returned from input (outer plan) used in subquery (inner plan)
      */
     private final List<Symbol> correlation;
-    private final Type type;
+    private final JoinType type;
 
     @JsonCreator
     public LateralJoinNode(
@@ -57,7 +51,7 @@ public class LateralJoinNode
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
             @JsonProperty("correlation") List<Symbol> correlation,
-            @JsonProperty("type") Type type)
+            @JsonProperty("type") JoinType type)
     {
         super(id);
         requireNonNull(input, "input is null");
@@ -91,7 +85,7 @@ public class LateralJoinNode
     }
 
     @JsonProperty("type")
-    public Type getType()
+    public JoinType getType()
     {
         return type;
     }
