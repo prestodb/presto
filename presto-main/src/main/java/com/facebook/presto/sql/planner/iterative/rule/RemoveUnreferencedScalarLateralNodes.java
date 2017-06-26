@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
@@ -44,6 +45,10 @@ public class RemoveUnreferencedScalarLateralNodes
         LateralJoinNode lateralJoinNode = (LateralJoinNode) node;
         PlanNode input = lateralJoinNode.getInput();
         PlanNode subquery = lateralJoinNode.getSubquery();
+
+        if (lateralJoinNode.getType() != JoinType.INNER) {
+            return Optional.empty();
+        }
 
         if (isUnreferencedScalar(input, lookup)) {
             return Optional.of(subquery);

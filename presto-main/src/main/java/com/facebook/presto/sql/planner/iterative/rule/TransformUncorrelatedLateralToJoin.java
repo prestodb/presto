@@ -44,6 +44,10 @@ public class TransformUncorrelatedLateralToJoin
     {
         LateralJoinNode lateralJoinNode = (LateralJoinNode) node;
 
+        if (lateralJoinNode.getType() != JoinType.INNER) {
+            return Optional.empty();
+        }
+
         if (!lateralJoinNode.getCorrelation().isEmpty()) {
             return Optional.empty();
         }
