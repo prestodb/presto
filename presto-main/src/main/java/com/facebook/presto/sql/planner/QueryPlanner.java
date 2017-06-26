@@ -60,8 +60,8 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SortItem.NullOrdering;
 import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -81,8 +81,8 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -649,7 +649,8 @@ class QueryPlanner
         }
 
         for (FunctionCall windowFunction : windowFunctions) {
-            Window window = windowFunction.getWindow().get();
+            WindowSpecification windowSpecification = analysis.getWindowSpecification(windowFunction);
+            checkArgument(!windowSpecification.getExistingName().isPresent(), "Window specification must not have a name for window function '%s'", windowFunction);
 
             // Extract frame
             WindowFrame.Type frameType = WindowFrame.Type.RANGE;
@@ -658,8 +659,8 @@ class QueryPlanner
             Expression frameStart = null;
             Expression frameEnd = null;
 
-            if (window.getFrame().isPresent()) {
-                WindowFrame frame = window.getFrame().get();
+            if (windowSpecification.getFrame().isPresent()) {
+                WindowFrame frame = windowSpecification.getFrame().get();
                 frameType = frame.getType();
 
                 frameStartType = frame.getStart().getType();
@@ -674,8 +675,8 @@ class QueryPlanner
             // Pre-project inputs
             ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
                     .addAll(windowFunction.getArguments())
-                    .addAll(window.getPartitionBy())
-                    .addAll(Iterables.transform(getSortItemsFromOrderBy(window.getOrderBy()), SortItem::getSortKey));
+                    .addAll(windowSpecification.getPartitionBy())
+                    .addAll(Iterables.transform(windowSpecification.getOrderBy(), SortItem::getSortKey));
 
             if (frameStart != null) {
                 inputs.add(frameStart);
@@ -688,13 +689,13 @@ class QueryPlanner
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
             ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
-            for (Expression expression : window.getPartitionBy()) {
+            for (Expression expression : windowSpecification.getPartitionBy()) {
                 partitionBySymbols.add(subPlan.translate(expression));
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
             Map<Symbol, SortOrder> orderings = new LinkedHashMap<>();
-            for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
+            for (SortItem item : windowSpecification.getOrderBy()) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
                 orderings.put(symbol, toSortOrder(item));
             }

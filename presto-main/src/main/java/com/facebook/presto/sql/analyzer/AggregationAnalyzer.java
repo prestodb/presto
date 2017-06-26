@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -68,7 +69,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.FreeLambdaReferenceExtractor.hasFreeReferencesToLambdaArgument;
@@ -83,6 +83,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING;
+import static com.facebook.presto.sql.analyzer.Windows.resolveWindowSpecification;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -386,7 +387,9 @@ class AggregationAnalyzer
         @Override
         public Boolean visitWindow(Window node, Void context)
         {
-            for (Expression expression : node.getPartitionBy()) {
+            WindowSpecification windowSpecification = resolveWindowSpecification(node, sourceScope::getWindowSpecification);
+
+            for (Expression expression : windowSpecification.getPartitionBy()) {
                 if (!process(expression, context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
                             expression,
@@ -395,7 +398,7 @@ class AggregationAnalyzer
                 }
             }
 
-            for (SortItem sortItem : getSortItemsFromOrderBy(node.getOrderBy())) {
+            for (SortItem sortItem : windowSpecification.getOrderBy()) {
                 Expression expression = sortItem.getSortKey();
                 if (!process(expression, context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
@@ -405,8 +408,8 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getFrame().isPresent()) {
-                process(node.getFrame().get(), context);
+            if (windowSpecification.getFrame().isPresent()) {
+                process(windowSpecification.getFrame().get(), context);
             }
 
             return true;

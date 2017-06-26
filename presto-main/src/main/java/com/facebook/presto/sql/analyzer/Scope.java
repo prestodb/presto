@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableMap;
 
@@ -42,6 +43,7 @@ public class Scope
     private final RelationId relationId;
     private final RelationType relation;
     private final Map<String, WithQuery> namedQueries;
+    private final Map<Identifier, WindowSpecification> windowSpecifications;
 
     public static Scope create()
     {
@@ -58,13 +60,15 @@ public class Scope
             boolean queryBoundary,
             RelationId relationId,
             RelationType relation,
-            Map<String, WithQuery> namedQueries)
+            Map<String, WithQuery> namedQueries,
+            Map<Identifier, WindowSpecification> windowSpecifications)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.relationId = requireNonNull(relationId, "relationId is null");
         this.queryBoundary = queryBoundary;
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
+        this.windowSpecifications = ImmutableMap.copyOf(windowSpecifications);
     }
 
     public Optional<Scope> getOuterQueryParent()
@@ -194,6 +198,15 @@ public class Scope
         return Optional.empty();
     }
 
+    public Optional<WindowSpecification> getWindowSpecification(Identifier name)
+    {
+        if (windowSpecifications.containsKey(name)) {
+            return Optional.of(windowSpecifications.get(name));
+        }
+
+        return Optional.empty();
+    }
+
     @Override
     public String toString()
     {
@@ -207,6 +220,7 @@ public class Scope
         private RelationId relationId = RelationId.anonymous();
         private RelationType relationType = new RelationType();
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
+        private final Map<Identifier, WindowSpecification> windowSpecifications = new HashMap<>();
         private Optional<Scope> parent = Optional.empty();
         private boolean queryBoundary;
 
@@ -244,9 +258,21 @@ public class Scope
             return namedQueries.containsKey(name);
         }
 
+        public Builder withWindowSpecification(Identifier name, WindowSpecification windowSpecification)
+        {
+            checkArgument(!containsWindowSpecification(name), "WindowSpecification '%s' is already added", name);
+            windowSpecifications.put(name, windowSpecification);
+            return this;
+        }
+
+        public boolean containsWindowSpecification(Identifier name)
+        {
+            return windowSpecifications.containsKey(name);
+        }
+
         public Scope build()
         {
-            return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
+            return new Scope(parent, queryBoundary, relationId, relationType, namedQueries, windowSpecifications);
         }
     }
 }

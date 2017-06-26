@@ -29,17 +29,24 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowInline;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.collect.ListMultimap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -98,7 +105,7 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            checkWindowFunctions(node.getWindowFunctions());
+            checkWindowFunctions(node.getWindowFunctions(), node.getSpecification());
 
             return null;
         }
@@ -140,11 +147,33 @@ public final class TypeValidator
             return null;
         }
 
-        private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions)
+        private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions, WindowNode.Specification specification)
         {
+            // Inheritance of the following WindowSpecification components is done by the analyzer. As this information
+            // is not propagated back to the tree nodes a temporary WindowSpecification reflecting the resolved
+            // inheritance is constructed per function.
+            List<Expression> partitionBy = specification.getPartitionBy().stream().map(Symbol::toSymbolReference).collect(toImmutableList());
+            List<SortItem> orderBy = specification.getOrderBy().stream().map(
+                    symbol -> new SortItem(
+                            symbol.toSymbolReference(),
+                            specification.getOrderings().get(symbol).isAscending() ? SortItem.Ordering.ASCENDING : SortItem.Ordering.DESCENDING,
+                            specification.getOrderings().get(symbol).isNullsFirst() ? SortItem.NullOrdering.FIRST : SortItem.NullOrdering.LAST
+                    )).collect(toImmutableList());
+
             for (Map.Entry<Symbol, WindowNode.Function> entry : functions.entrySet()) {
                 Signature signature = entry.getValue().getSignature();
-                FunctionCall call = entry.getValue().getFunctionCall();
+                WindowNode.Function function = entry.getValue();
+
+                WindowFrame frame = new WindowFrame(
+                        function.getFrame().getType(),
+                        new FrameBound(function.getFrame().getStartType()),
+                        Optional.of(new FrameBound(function.getFrame().getEndType())));
+
+                FunctionCall call = new FunctionCall(
+                        function.getFunctionCall().getName(),
+                        Optional.of(new WindowInline(new WindowSpecification(Optional.empty(), partitionBy, orderBy, Optional.of(frame)))),
+                        function.getFunctionCall().isDistinct(),
+                        function.getFunctionCall().getArguments());
 
                 checkSignature(entry.getKey(), signature);
                 checkCall(entry.getKey(), call);

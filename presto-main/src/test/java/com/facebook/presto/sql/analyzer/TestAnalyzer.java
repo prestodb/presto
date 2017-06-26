@@ -77,6 +77,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMET
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_SPECIFICATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
@@ -987,6 +988,30 @@ public class TestAnalyzer
 
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 'a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) GROUP BY b ORDER BY 1");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1");
+    }
+
+    @Test
+    public void testWindowReferences()
+            throws Exception
+    {
+        analyze("SELECT * FROM t1 WINDOW a AS ()");
+        analyze("SELECT * FROM t1 WINDOW a AS (PARTITION BY 1)");
+        analyze("SELECT * FROM t1 WINDOW a AS (PARTITION BY 1), b AS (ORDER BY 2 ASC NULLS LAST)");
+        analyze("SELECT a, row_number() OVER (ORDER BY b ASC NULLS FIRST) FROM t1");
+
+        analyze("SELECT sum(b) OVER w, avg(c) OVER w FROM t1 WINDOW w AS (PARTITION BY a ORDER BY b DESC)");
+        analyze("SELECT a, sum(a) OVER w FROM (VALUES (1), (2), (3)) AS t (a) WINDOW w AS (ORDER BY a)");
+        analyze("SELECT a, sum(a) OVER (w ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) FROM (VALUES (1), (2), (3)) AS t (a) WINDOW w AS (ORDER BY a)");
+
+        analyze("SELECT sum(b) OVER w1, avg(c) OVER (w2) FROM t1 WINDOW w1 AS (PARTITION BY a ORDER BY b ASC), w2 AS (PARTITION BY a ORDER BY b DESC)");
+
+        assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER w FROM t1 WINDOW w AS (ORDER BY a ASC), w AS (ORDER BY a ASC)");
+        assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER w2 FROM t1 WINDOW w2 AS (w1 ORDER BY a ASC)");
+        assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER (w PARTITION BY b) FROM t1 WINDOW w AS (ORDER BY a ASC)");
+        assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER (w ORDER BY a ASC) FROM t1 WINDOW w AS (ORDER BY a ASC)");
+        assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER (w) FROM t1 WINDOW w AS (ORDER BY a ASC ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)");
+        assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER w FROM t1 WINDOW w1 AS ()");
+        assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER (w) FROM t1 WINDOW w1 AS ()");
     }
 
     @Test

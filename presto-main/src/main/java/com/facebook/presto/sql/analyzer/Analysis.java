@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -87,6 +88,7 @@ public class Analysis
     private final Map<NodeRef<Node>, List<Expression>> outputExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, WindowSpecification> windowSpecifications = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final ListMultimap<NodeRef<Node>, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
@@ -362,6 +364,16 @@ public class Analysis
     public List<FunctionCall> getOrderByWindowFunctions(OrderBy query)
     {
         return orderByWindowFunctions.get(NodeRef.of(query));
+    }
+
+    public void setWindowSpecification(FunctionCall node, WindowSpecification windowSpecification)
+    {
+        windowSpecifications.put(NodeRef.of(node), windowSpecification);
+    }
+
+    public WindowSpecification getWindowSpecification(FunctionCall node)
+    {
+        return windowSpecifications.get(NodeRef.of(node));
     }
 
     public void addColumnReferences(Map<NodeRef<Expression>, FieldId> columnReferences)

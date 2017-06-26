@@ -5023,6 +5023,42 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowClauses()
+    {
+        String dataSource = "SELECT orderkey, orderdate, CAST(FLOOR(LOG10(totalprice)) AS BIGINT) mag, SUBSTR(orderpriority, 1, 1) pri FROM orders";
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, BIGINT)
+                .row(1L, 1L, 2L)
+                .row(2L, 1L, 1L)
+                .row(3L, 3L, 6L)
+                .row(4L, 1L, 5L)
+                .row(5L, 2L, 5L)
+                .build();
+
+        MaterializedResult actual = computeActual(
+                "SELECT orderkey\n" +
+                "  , row_number() OVER (w ORDER BY mag, orderkey)\n" +
+                "  , row_number() OVER (w ORDER BY pri, orderkey)\n" +
+                "FROM (" + dataSource + ") t\n" +
+                "WINDOW w AS (PARTITION BY orderdate)\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        assertEquals(actual, expected);
+
+        actual = computeActual(
+                "SELECT orderkey\n" +
+                "  , row_number() OVER w1\n" +
+                "  , row_number() OVER (w2)\n" +
+                "FROM (" + dataSource + ") t\n" +
+                "WINDOW\n" +
+                "    w1 AS (PARTITION BY orderdate ORDER BY mag, orderkey)\n" +
+                "  , w2 AS (PARTITION BY orderdate ORDER BY pri, orderkey)\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testWindowNoChannels()
     {
         MaterializedResult actual = computeActual("SELECT rank() OVER ()\n" +

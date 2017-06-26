@@ -25,6 +25,8 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowInline;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -114,7 +116,7 @@ public class TestMergeAdjacentWindows
     public void testDependentAdjacentWindowsIdenticalSpecifications()
             throws Exception
     {
-        Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
+        Optional<Window> windowA = Optional.of(new WindowInline(new WindowSpecification(Optional.empty(), ImmutableList.of(new SymbolReference("a")), ImmutableList.of(), Optional.empty())));
 
         tester().assertThat(new MergeAdjacentWindows())
                 .on(p ->
@@ -132,7 +134,7 @@ public class TestMergeAdjacentWindows
     public void testDependentAdjacentWindowsDistinctSpecifications()
             throws Exception
     {
-        Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
+        Optional<Window> windowA = Optional.of(new WindowInline(new WindowSpecification(Optional.empty(), ImmutableList.of(new SymbolReference("a")), ImmutableList.of(), Optional.empty())));
 
         tester().assertThat(new MergeAdjacentWindows())
                 .on(p ->
@@ -154,7 +156,7 @@ public class TestMergeAdjacentWindows
 
         ExpectedValueProvider<WindowNode.Specification> specificationA = specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
 
-        Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
+        Optional<Window> windowA = Optional.of(new WindowInline(new WindowSpecification(Optional.empty(), ImmutableList.of(new SymbolReference("a")), ImmutableList.of(), Optional.empty())));
 
         tester().assertThat(new MergeAdjacentWindows())
                 .on(p ->
