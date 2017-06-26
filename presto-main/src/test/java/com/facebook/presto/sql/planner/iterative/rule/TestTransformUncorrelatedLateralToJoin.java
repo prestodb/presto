@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -32,7 +32,7 @@ public class TestTransformUncorrelatedLateralToJoin
         tester()
                 .assertThat(new TransformUncorrelatedLateralToJoin())
                 .on(p -> p.lateral(emptyList(), p.values(), p.values()))
-                .matches(join(JoinNode.Type.INNER, emptyList(), values(), values()));
+                .matches(join(JoinType.INNER, emptyList(), values(), values()));
     }
 
     @Test

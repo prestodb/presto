@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -197,7 +198,7 @@ public class BeginTableWrite
                 PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
-            if (node instanceof JoinNode && (((JoinNode) node).getType() == JoinNode.Type.INNER) && isScalar(((JoinNode) node).getRight())) {
+            if (node instanceof JoinNode && (((JoinNode) node).getType() == JoinType.INNER) && isScalar(((JoinNode) node).getRight())) {
                 PlanNode source = rewriteDeleteTableScan(((JoinNode) node).getLeft(), handle);
                 return replaceChildren(node, ImmutableList.of(source, ((JoinNode) node).getRight()));
             }

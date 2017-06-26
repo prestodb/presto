@@ -18,7 +18,7 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +46,7 @@ public class TestPruneCrossJoinColumns
                         strictProject(
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         strictProject(
@@ -65,7 +65,7 @@ public class TestPruneCrossJoinColumns
                         strictProject(
                                 ImmutableMap.of("leftValue", PlanMatchPattern.expression("leftValue")),
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         values(ImmutableList.of("leftValue")),
@@ -94,7 +94,7 @@ public class TestPruneCrossJoinColumns
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.join(
-                        JoinNode.Type.INNER,
+                        JoinType.INNER,
                         p.values(leftValue),
                         p.values(rightValue),
                         ImmutableList.of(),

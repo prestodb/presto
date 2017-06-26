@@ -24,7 +24,7 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.MergeAdjacentWindows;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -377,7 +377,7 @@ public class TestMergeWindows
         assertUnitPlan(sql,
                 anyTree(
                         filter("SUM = AVG",
-                                join(JoinNode.Type.INNER, ImmutableList.of(),
+                                join(JoinType.INNER, ImmutableList.of(),
                                         any(
                                                 window(leftSpecification, ImmutableMap.of("SUM", functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
                                                         any(

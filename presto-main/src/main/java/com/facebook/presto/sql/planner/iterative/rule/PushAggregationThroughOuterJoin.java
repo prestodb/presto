@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -112,14 +113,14 @@ public class PushAggregationThroughOuterJoin
         }
         JoinNode join = (JoinNode) source;
         if (join.getFilter().isPresent()
-                || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
+                || !(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT)
                 || !groupsOnAllOuterTableColumns(aggregation, lookup.resolve(getOuterTable(join)))
                 || !isDistinct(lookup.resolve(getOuterTable(join)), lookup::resolve)) {
             return Optional.empty();
         }
 
         List<Symbol> groupingKeys = join.getCriteria().stream()
-                .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
+                .map(join.getType() == JoinType.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
                 .collect(toImmutableList());
         AggregationNode rewrittenAggregation = new AggregationNode(
                 node.getId(),
@@ -131,7 +132,7 @@ public class PushAggregationThroughOuterJoin
                 aggregation.getGroupIdSymbol());
 
         JoinNode rewrittenJoin;
-        if (join.getType() == JoinNode.Type.LEFT) {
+        if (join.getType() == JoinType.LEFT) {
             rewrittenJoin = new JoinNode(
                     join.getId(),
                     join.getType(),
@@ -169,9 +170,9 @@ public class PushAggregationThroughOuterJoin
 
     private static PlanNode getInnerTable(JoinNode join)
     {
-        checkState(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT, "expected LEFT or RIGHT JOIN");
+        checkState(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT, "expected LEFT or RIGHT JOIN");
         PlanNode innerNode;
-        if (join.getType().equals(JoinNode.Type.LEFT)) {
+        if (join.getType().equals(JoinType.LEFT)) {
             innerNode = join.getRight();
         }
         else {
@@ -182,9 +183,9 @@ public class PushAggregationThroughOuterJoin
 
     private static PlanNode getOuterTable(JoinNode join)
     {
-        checkState(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT, "expected LEFT or RIGHT JOIN");
+        checkState(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT, "expected LEFT or RIGHT JOIN");
         PlanNode outerNode;
-        if (join.getType().equals(JoinNode.Type.LEFT)) {
+        if (join.getType().equals(JoinType.LEFT)) {
             outerNode = join.getLeft();
         }
         else {
@@ -213,7 +214,7 @@ public class PushAggregationThroughOuterJoin
         // Do a cross join with the aggregation over null
         JoinNode crossJoin = new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 outerJoin,
                 aggregationOverNull,
                 ImmutableList.of(),

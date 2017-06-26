@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +46,7 @@ public class TestPruneJoinChildrenColumns
                 .on(p -> buildJoin(p, symbol -> symbol.getName().equals("leftValue")))
                 .matches(
                         join(
-                                JoinNode.Type.INNER,
+                                JoinType.INNER,
                                 ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
                                 Optional.of("leftValue > 5"),
                                 values("leftKey", "leftKeyHash", "leftValue"),
@@ -72,7 +73,7 @@ public class TestPruneJoinChildrenColumns
                     Symbol leftValue = p.symbol("leftValue");
                     Symbol rightValue = p.symbol("rightValue");
                     return p.join(
-                            JoinNode.Type.INNER,
+                            JoinType.INNER,
                             p.values(leftValue),
                             p.values(rightValue),
                             ImmutableList.of(),
@@ -94,7 +95,7 @@ public class TestPruneJoinChildrenColumns
         Symbol rightValue = p.symbol("rightValue");
         List<Symbol> outputs = ImmutableList.of(leftValue, rightValue);
         return p.join(
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 p.values(leftKey, leftKeyHash, leftValue),
                 p.values(rightKey, rightKeyHash, rightValue),
                 ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),

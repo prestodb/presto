@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -451,7 +452,7 @@ public class TestEffectivePredicateExtractor
                         lessThan(FE, bigintLiteral(100))));
 
         PlanNode node = new JoinNode(newId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 right,
                 criteria,
@@ -517,7 +518,7 @@ public class TestEffectivePredicateExtractor
                         equals(DE, EE),
                         lessThan(FE, bigintLiteral(100))));
         PlanNode node = new JoinNode(newId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 left,
                 right,
                 criteria,
@@ -577,7 +578,7 @@ public class TestEffectivePredicateExtractor
                         equals(GE, bigintLiteral(10))));
         FilterNode right = filter(rightScan, FALSE_LITERAL);
         PlanNode node = new JoinNode(newId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 left,
                 right,
                 criteria,
@@ -640,7 +641,7 @@ public class TestEffectivePredicateExtractor
                         equals(DE, EE),
                         lessThan(FE, bigintLiteral(100))));
         PlanNode node = new JoinNode(newId(),
-                JoinNode.Type.RIGHT,
+                JoinType.RIGHT,
                 left,
                 right,
                 criteria,
@@ -699,7 +700,7 @@ public class TestEffectivePredicateExtractor
                         equals(DE, EE),
                         lessThan(FE, bigintLiteral(100))));
         PlanNode node = new JoinNode(newId(),
-                JoinNode.Type.RIGHT,
+                JoinType.RIGHT,
                 left,
                 right,
                 criteria,

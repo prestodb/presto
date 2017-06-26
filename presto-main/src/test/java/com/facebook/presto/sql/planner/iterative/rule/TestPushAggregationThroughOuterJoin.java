@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -45,7 +46,7 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
-                                        JoinNode.Type.LEFT,
+                                        JoinType.LEFT,
                                         p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
                                         p.values(p.symbol("COL2")),
                                         ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
@@ -60,8 +61,8 @@ public class TestPushAggregationThroughOuterJoin
                         project(ImmutableMap.of(
                                 "COL1", expression("COL1"),
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)")),
-                                join(JoinNode.Type.INNER, ImmutableList.of(),
-                                        join(JoinNode.Type.LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
+                                join(JoinType.INNER, ImmutableList.of(),
+                                        join(JoinType.LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
                                                 values(ImmutableMap.of("COL1", 0)),
                                                 aggregation(
                                                         ImmutableList.of(ImmutableList.of("COL2")),
@@ -85,7 +86,7 @@ public class TestPushAggregationThroughOuterJoin
         tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
-                                JoinNode.Type.RIGHT,
+                                JoinType.RIGHT,
                                 p.values(p.symbol("COL2")),
                                 p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL2"), p.symbol("COL1"))),
@@ -99,8 +100,8 @@ public class TestPushAggregationThroughOuterJoin
                         project(ImmutableMap.of(
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)"),
                                 "COL1", expression("COL1")),
-                                join(JoinNode.Type.INNER, ImmutableList.of(),
-                                        join(JoinNode.Type.RIGHT, ImmutableList.of(equiJoinClause("COL2", "COL1")),
+                                join(JoinType.INNER, ImmutableList.of(),
+                                        join(JoinType.RIGHT, ImmutableList.of(equiJoinClause("COL2", "COL1")),
                                                 aggregation(
                                                         ImmutableList.of(ImmutableList.of("COL2")),
                                                         ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("COL2"))),
@@ -125,7 +126,7 @@ public class TestPushAggregationThroughOuterJoin
         tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
-                                JoinNode.Type.LEFT,
+                                JoinType.LEFT,
                                 p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"), expressions("11"))),
                                 p.values(new Symbol("COL2")),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
@@ -143,7 +144,7 @@ public class TestPushAggregationThroughOuterJoin
     {
         tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
-                        .source(p.join(JoinNode.Type.LEFT,
+                        .source(p.join(JoinType.LEFT,
                                 p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
                                 p.values(new Symbol("COL2"), new Symbol("COL3")),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),

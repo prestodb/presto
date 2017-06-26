@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -41,7 +42,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinType.INNER;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -97,7 +98,7 @@ public class TestEliminateCrossJoins
     {
         tester().assertThat(new EliminateCrossJoins())
                 .setSystemProperty(REORDER_JOINS, "true")
-                .on(crossJoinAndJoin(JoinNode.Type.LEFT))
+                .on(crossJoinAndJoin(JoinType.LEFT))
                 .doesNotFire();
     }
 
@@ -232,7 +233,7 @@ public class TestEliminateCrossJoins
         assertEquals(JoinGraph.buildFrom(plan).size(), 2);
     }
 
-    private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
+    private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinType secondJoinType)
     {
         return p -> {
             Symbol axSymbol = p.symbol("axSymbol");
@@ -277,7 +278,7 @@ public class TestEliminateCrossJoins
 
         return new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 right,
                 criteria.build(),

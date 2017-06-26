@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -246,7 +247,7 @@ public class TransformCorrelatedInPredicateToJoin
     {
         return new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 probeSide,
                 buildSide,
                 ImmutableList.of(),

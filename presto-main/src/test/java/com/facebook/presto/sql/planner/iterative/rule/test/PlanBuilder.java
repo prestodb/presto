@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -388,7 +389,7 @@ public class PlanBuilder
         }
     }
 
-    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
+    public JoinNode join(JoinType joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
     {
         return new JoinNode(idAllocator.getNextId(),
                 joinType,
@@ -407,7 +408,7 @@ public class PlanBuilder
     }
 
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,

@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -172,7 +173,7 @@ public class EliminateCrossJoins
 
             result = new JoinNode(
                     idAllocator.getNextId(),
-                    JoinNode.Type.INNER,
+                    JoinType.INNER,
                     result,
                     rightNode,
                     criteria.build(),

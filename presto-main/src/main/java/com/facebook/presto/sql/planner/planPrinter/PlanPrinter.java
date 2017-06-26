@@ -57,6 +57,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -483,7 +484,7 @@ public class PlanPrinter
             node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
             // Check if the node is actually a cross join node
-            if (node.getType() == JoinNode.Type.INNER && joinExpressions.isEmpty()) {
+            if (node.getType() == JoinType.INNER && joinExpressions.isEmpty()) {
                 print(indent, "- CrossJoin => [%s]", formatOutputs(node.getOutputSymbols()));
             }
             else {

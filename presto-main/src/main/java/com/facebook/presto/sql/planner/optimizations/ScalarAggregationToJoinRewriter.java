@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -109,7 +110,7 @@ public class ScalarAggregationToJoinRewriter
 
         JoinNode leftOuterJoin = new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 inputWithUniqueColumns,
                 scalarAggregationSource,
                 ImmutableList.of(),

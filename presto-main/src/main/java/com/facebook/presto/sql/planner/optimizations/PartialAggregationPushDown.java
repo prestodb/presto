@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -173,7 +174,7 @@ public class PartialAggregationPushDown
                 return context.defaultRewrite(node);
             }
 
-            if (child.getType() != JoinNode.Type.INNER || child.getFilter().isPresent()) {
+            if (child.getType() != JoinType.INNER || child.getFilter().isPresent()) {
                 // TODO: add support for filter function.
                 // All availableSymbols used in filter function could be added to pushedDownGroupingSet
                 return context.defaultRewrite(node);

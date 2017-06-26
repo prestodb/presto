@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -29,9 +30,9 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDistributedJoinEnabled;
 import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.planner.plan.JoinType.FULL;
+import static com.facebook.presto.sql.planner.plan.JoinType.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinType.RIGHT;
 import static java.util.Objects.requireNonNull;
 
 public class DetermineJoinDistributionType
@@ -112,7 +113,7 @@ public class DetermineJoinDistributionType
         private JoinNode.DistributionType getTargetJoinDistributionType(JoinNode node)
         {
             // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
-            JoinNode.Type type = node.getType();
+            JoinType type = node.getType();
             if (type == RIGHT || type == FULL || (isDistributedJoinEnabled(session) && !mustBroadcastJoin(node))) {
                 return JoinNode.DistributionType.PARTITIONED;
             }

@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -99,7 +100,7 @@ public class TransformCorrelatedNoAggregationSubqueryToJoin
 
             return new JoinNode(
                     idAllocator.getNextId(),
-                    JoinNode.Type.INNER,
+                    JoinType.INNER,
                     lateral.getInput(),
                     source.get().getNode(),
                     ImmutableList.of(),

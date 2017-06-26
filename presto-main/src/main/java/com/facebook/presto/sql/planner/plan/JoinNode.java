@@ -17,7 +17,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Join;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +30,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.SortExpressionExtractor.extractSortExpression;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinType.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -40,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class JoinNode
         extends PlanNode
 {
-    private final Type type;
+    private final JoinType type;
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
@@ -58,7 +57,7 @@ public class JoinNode
 
     @JsonCreator
     public JoinNode(@JsonProperty("id") PlanNodeId id,
-            @JsonProperty("type") Type type,
+            @JsonProperty("type") JoinType type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
@@ -106,47 +105,8 @@ public class JoinNode
         REPLICATED
     }
 
-    public enum Type
-    {
-        INNER("InnerJoin"),
-        LEFT("LeftJoin"),
-        RIGHT("RightJoin"),
-        FULL("FullJoin");
-
-        private final String joinLabel;
-
-        Type(String joinLabel)
-        {
-            this.joinLabel = joinLabel;
-        }
-
-        public String getJoinLabel()
-        {
-            return joinLabel;
-        }
-
-        public static Type typeConvert(Join.Type joinType)
-        {
-            // Omit SEMI join types because they must be inferred by the planner and not part of the SQL parse tree
-            switch (joinType) {
-                case CROSS:
-                case IMPLICIT:
-                case INNER:
-                    return Type.INNER;
-                case LEFT:
-                    return Type.LEFT;
-                case RIGHT:
-                    return Type.RIGHT;
-                case FULL:
-                    return Type.FULL;
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + joinType);
-            }
-        }
-    }
-
     @JsonProperty("type")
-    public Type getType()
+    public JoinType getType()
     {
         return type;
     }

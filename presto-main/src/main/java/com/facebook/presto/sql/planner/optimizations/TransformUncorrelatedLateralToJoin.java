@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -56,7 +57,7 @@ public class TransformUncorrelatedLateralToJoin
             if (rewrittenNode.getCorrelation().isEmpty()) {
                 return new JoinNode(
                         idAllocator.getNextId(),
-                        JoinNode.Type.INNER,
+                        JoinType.INNER,
                         rewrittenNode.getInput(),
                         rewrittenNode.getSubquery(),
                         ImmutableList.of(),
