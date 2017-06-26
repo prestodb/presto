@@ -788,7 +788,7 @@ public class PruneUnreferencedOutputs
                     .addAll(newCorrelation)
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
-            return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType());
+            return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType(), node.getFilter());
         }
     }
 }

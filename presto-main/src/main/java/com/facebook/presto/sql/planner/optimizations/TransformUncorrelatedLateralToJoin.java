@@ -54,7 +54,7 @@ public class TransformUncorrelatedLateralToJoin
         public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<PlanNode> context)
         {
             LateralJoinNode rewrittenNode = (LateralJoinNode) context.defaultRewrite(node, context.get());
-            if (rewrittenNode.getCorrelation().isEmpty()) {
+            if (rewrittenNode.getType() == JoinType.INNER && rewrittenNode.getCorrelation().isEmpty()) {
                 return new JoinNode(
                         idAllocator.getNextId(),
                         JoinType.INNER,

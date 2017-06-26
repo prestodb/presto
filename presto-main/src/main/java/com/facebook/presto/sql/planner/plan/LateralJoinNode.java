@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -44,6 +46,7 @@ public class LateralJoinNode
      */
     private final List<Symbol> correlation;
     private final JoinType type;
+    private final Optional<Expression> filter;
 
     @JsonCreator
     public LateralJoinNode(
@@ -51,9 +54,11 @@ public class LateralJoinNode
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
             @JsonProperty("correlation") List<Symbol> correlation,
-            @JsonProperty("type") JoinType type)
+            @JsonProperty("type") JoinType type,
+            @JsonProperty("filter") Optional<Expression> filter)
     {
         super(id);
+        this.filter = filter;
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "right is null");
         requireNonNull(correlation, "correlation is null");
@@ -90,6 +95,12 @@ public class LateralJoinNode
         return type;
     }
 
+    @JsonProperty("filter")
+    public Optional<Expression> getFilter()
+    {
+        return filter;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -110,7 +121,7 @@ public class LateralJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type);
+        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, filter);
     }
 
     @Override

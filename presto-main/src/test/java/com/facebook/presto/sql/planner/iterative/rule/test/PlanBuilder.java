@@ -235,7 +235,7 @@ public class PlanBuilder
 
     public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, JoinType.INNER);
+        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, JoinType.INNER, filter);
     }
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)

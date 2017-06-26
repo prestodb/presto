@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -103,7 +104,7 @@ public class TransformCorrelatedScalarAggregationToJoin
         public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<PlanNode> context)
         {
             LateralJoinNode rewrittenNode = (LateralJoinNode) context.defaultRewrite(node, context.get());
-            if (!rewrittenNode.getCorrelation().isEmpty()) {
+            if (rewrittenNode.getType() == JoinType.INNER && !rewrittenNode.getCorrelation().isEmpty()) {
                 Optional<AggregationNode> aggregation = searchFrom(rewrittenNode.getSubquery())
                         .where(AggregationNode.class::isInstance)
                         .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))

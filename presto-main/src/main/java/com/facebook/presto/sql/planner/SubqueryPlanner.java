@@ -251,7 +251,8 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         subqueryNode,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
-                        JoinType.INNER),
+                        JoinType.INNER,
+                        Optional.empty()),
                 analysis.getParameters());
     }
 

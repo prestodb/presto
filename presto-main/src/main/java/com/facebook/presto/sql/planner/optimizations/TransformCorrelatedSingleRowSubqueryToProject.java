@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.JoinType;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -78,7 +79,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         public PlanNode visitLateralJoin(LateralJoinNode lateral, RewriteContext<PlanNode> context)
         {
             LateralJoinNode rewrittenLateral = (LateralJoinNode) context.defaultRewrite(lateral, context.get());
-            if (rewrittenLateral.getCorrelation().isEmpty()) {
+            if (rewrittenLateral.getType() == JoinType.INNER && rewrittenLateral.getCorrelation().isEmpty()) {
                 return rewrittenLateral;
             }
 
