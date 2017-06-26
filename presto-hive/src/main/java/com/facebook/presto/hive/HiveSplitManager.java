@@ -205,7 +205,7 @@ public class HiveSplitManager
             ImmutableMap.Builder<String, Partition> partitionBuilder = ImmutableMap.builder();
             for (Map.Entry<String, Optional<Partition>> entry : batch.entrySet()) {
                 if (!entry.getValue().isPresent()) {
-                    throw new PrestoException(HIVE_METASTORE_ERROR, "Partition metadata not available");
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "Partition no longer exists: " + entry.getKey());
                 }
                 partitionBuilder.put(entry.getKey(), entry.getValue().get());
             }
