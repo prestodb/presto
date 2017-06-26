@@ -31,12 +31,14 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.Assignments.identity;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * Transforms:
@@ -104,7 +106,7 @@ public class PushProjectionThroughExchange
             Map<Symbol, SymbolReference> outputToInputMap = extractExchangeOutputToInput(exchange, i);
 
             Assignments.Builder projections = Assignments.builder();
-            ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
+            List<Symbol> inputs = new ArrayList<>();
 
             // Need to retain the partition keys for the exchange
             exchange.getPartitioningScheme().getPartitioning().getColumns().stream()
@@ -114,6 +116,12 @@ public class PushProjectionThroughExchange
                         projections.put(symbol, nameReference);
                         inputs.add(symbol);
                     });
+
+            if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
+                // Need to retain the hash symbol for the exchange
+                projections.put(exchange.getPartitioningScheme().getHashColumn().get(), exchange.getPartitioningScheme().getHashColumn().get().toSymbolReference());
+                inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
+            }
 
             if (exchange.getOrderingScheme().isPresent()) {
                 // need to retain ordering columns for the exchange
@@ -126,11 +134,6 @@ public class PushProjectionThroughExchange
                         });
             }
 
-            if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
-                // Need to retain the hash symbol for the exchange
-                projections.put(exchange.getPartitioningScheme().getHashColumn().get(), exchange.getPartitioningScheme().getHashColumn().get().toSymbolReference());
-                inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
-            }
             for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
                 Expression translatedExpression = translateExpression(projection.getValue(), outputToInputMap);
                 Type type = symbolAllocator.getTypes().get(projection.getKey());
@@ -139,27 +142,33 @@ public class PushProjectionThroughExchange
                 inputs.add(symbol);
             }
             newSourceBuilder.add(new ProjectNode(idAllocator.getNextId(), exchange.getSources().get(i), projections.build()));
-            inputsBuilder.add(inputs.build());
+
+            // Need to deduplicate inputs in case partitioning/hash/ordering columns overlap
+            ImmutableList<Symbol> deduplicatedInputs = deduplicateSymbols(inputs);
+            inputsBuilder.add(deduplicatedInputs);
         }
 
         // Construct the output symbols in the same order as the sources
-        ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
+        List<Symbol> outputs = new ArrayList<>();
         exchange.getPartitioningScheme().getPartitioning().getColumns()
-                .forEach(outputBuilder::add);
+                .forEach(outputs::add);
+
         if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
-            outputBuilder.add(exchange.getPartitioningScheme().getHashColumn().get());
+            outputs.add(exchange.getPartitioningScheme().getHashColumn().get());
         }
         if (exchange.getOrderingScheme().isPresent()) {
-            outputBuilder.addAll(exchange.getOrderingScheme().get().getOrderBy());
+            for (Symbol symbol : exchange.getOrderingScheme().get().getOrderBy()) {
+                outputs.add(symbol);
+            }
         }
         for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
-            outputBuilder.add(projection.getKey());
+            outputs.add(projection.getKey());
         }
 
         // outputBuilder contains all partition and hash symbols so simply swap the output layout
         PartitioningScheme partitioningScheme = new PartitioningScheme(
                 exchange.getPartitioningScheme().getPartitioning(),
-                outputBuilder.build(),
+                deduplicateSymbols(outputs),
                 exchange.getPartitioningScheme().getHashColumn(),
                 exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                 exchange.getPartitioningScheme().getBucketToPartition());
@@ -179,6 +188,12 @@ public class PushProjectionThroughExchange
         }
 
         return Optional.of(result);
+    }
+
+    private ImmutableList<Symbol> deduplicateSymbols(List<Symbol> symbols)
+    {
+        // use sequential mode to deduplicate the list because otherwise order isn't preserved
+        return symbols.stream().sequential().distinct().collect(toImmutableList());
     }
 
     private boolean isSymbolToSymbolProjection(ProjectNode project)

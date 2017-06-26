@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -20,6 +22,7 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -164,6 +167,55 @@ public class TestPushProjectionThroughExchange
                                                 .withAlias("a_times_5", expression("a * 5"))
                                                 .withAlias("b_times_5", expression("b * 5"))
                                                 .withAlias("h_times_5", expression("h * 5"))
+                                )
+                        ).withNumberOfOutputColumns(3)
+                                .withExactOutputs("a_times_5", "b_times_5", "h_times_5")
+                );
+    }
+
+    @Test
+    public void testOrderingColumnsArePreserved()
+    {
+        tester.assertThat(new PushProjectionThroughExchange())
+                .on(p -> {
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
+                    Symbol h = p.symbol("h", BIGINT);
+                    Symbol aTimes5 = p.symbol("a_times_5", BIGINT);
+                    Symbol bTimes5 = p.symbol("b_times_5", BIGINT);
+                    Symbol hTimes5 = p.symbol("h_times_5", BIGINT);
+                    Symbol sortSymbol = p.symbol("sortSymbol", BIGINT);
+                    OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(sortSymbol), ImmutableMap.of(sortSymbol, SortOrder.ASC_NULLS_FIRST));
+                    return p.project(
+                            Assignments.builder()
+                                    .put(aTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY, new SymbolReference("a"), new LongLiteral("5")))
+                                    .put(bTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY, new SymbolReference("b"), new LongLiteral("5")))
+                                    .put(hTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY, new SymbolReference("h"), new LongLiteral("5")))
+                                    .build(),
+                            p.exchange(e -> e
+                                    .addSource(
+                                            p.values(a, b, h, sortSymbol))
+                                    .addInputsSet(a, b, h, sortSymbol)
+                                    .fixedHashDistributionParitioningScheme(
+                                            ImmutableList.of(a, b, h, sortSymbol),
+                                            ImmutableList.of(b, sortSymbol),
+                                            h)
+                                    .orderingScheme(orderingScheme)));
+                })
+                .matches(
+                        project(
+                                exchange(
+                                        project(
+                                                values(
+                                                        ImmutableList.of("a", "b", "h", "sortSymbol")
+                                                )
+                                        ).withNumberOfOutputColumns(6)
+                                                .withAlias("b", expression("b"))
+                                                .withAlias("h", expression("h"))
+                                                .withAlias("a_times_5", expression("a * 5"))
+                                                .withAlias("b_times_5", expression("b * 5"))
+                                                .withAlias("h_times_5", expression("h * 5"))
+                                                .withAlias("sortSymbol", expression("sortSymbol"))
                                 )
                         ).withNumberOfOutputColumns(3)
                                 .withExactOutputs("a_times_5", "b_times_5", "h_times_5")

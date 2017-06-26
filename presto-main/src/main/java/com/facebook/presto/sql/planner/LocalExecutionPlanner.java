@@ -43,6 +43,7 @@ import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
+import com.facebook.presto.operator.MergeOperator.MergeOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
 import com.facebook.presto.operator.OperatorFactory;
@@ -55,6 +56,7 @@ import com.facebook.presto.operator.RowNumberOperator;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
+import com.facebook.presto.operator.SimpleMergeSortComparator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
@@ -179,6 +181,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
@@ -593,6 +596,44 @@ public class LocalExecutionPlanner
 
         @Override
         public PhysicalOperation visitRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
+        {
+            if (node.getOrderingScheme().isPresent()) {
+                return createMergeSource(node, context);
+            }
+            else {
+                return createRemoteSource(node, context);
+            }
+        }
+
+        private PhysicalOperation createMergeSource(RemoteSourceNode node, LocalExecutionPlanContext context)
+        {
+            checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
+            OrderingScheme orderingScheme = node.getOrderingScheme().get();
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            Map<Symbol, Integer> sourceLayout = makeLayoutFromOutputSymbols(node.getOutputSymbols());
+            List<Symbol> orderBySymbols = orderingScheme.getOrderBy();
+            List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, sourceLayout);
+            List<SortOrder> sortOrder = orderBySymbols.stream()
+                    .map(symbol -> orderingScheme.getOrderings().get(symbol))
+                    .collect(toImmutableList());
+
+            ImmutableList<Integer> outputChannels = IntStream.range(0, types.size()).boxed().collect(toImmutableList());
+
+            OperatorFactory operatorFactory = new MergeOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    exchangeClientSupplier,
+                    new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)),
+                    new SimpleMergeSortComparator.Factory(),
+                    types,
+                    outputChannels,
+                    sortChannels,
+                    sortOrder);
+
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
+        }
+
+        private PhysicalOperation createRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
 
@@ -1288,9 +1329,14 @@ public class LocalExecutionPlanner
 
         private ImmutableMap<Symbol, Integer> makeLayout(PlanNode node)
         {
+            return makeLayoutFromOutputSymbols(node.getOutputSymbols());
+        }
+
+        private ImmutableMap<Symbol, Integer> makeLayoutFromOutputSymbols(List<Symbol> outputSymbols)
+        {
             Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             int channel = 0;
-            for (Symbol symbol : node.getOutputSymbols()) {
+            for (Symbol symbol : outputSymbols) {
                 outputMappings.put(symbol, channel);
                 channel++;
             }
