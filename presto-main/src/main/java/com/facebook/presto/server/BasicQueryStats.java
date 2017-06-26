@@ -57,6 +57,12 @@ public class BasicQueryStats
 
     private final OptionalDouble progressPercentage;
 
+    private final Duration queuedTime;
+    private final DataSize rawInputDataSize;
+    private final DataSize processedInputDataSize;
+    private final long rawInputPositions;
+    private final long processedInputPositions;
+
     public BasicQueryStats(
             DateTime createTime,
             DateTime endTime,
@@ -72,7 +78,12 @@ public class BasicQueryStats
             Duration totalCpuTime,
             boolean fullyBlocked,
             Set<BlockedReason> blockedReasons,
-            OptionalDouble progressPercentage)
+            OptionalDouble progressPercentage,
+            Duration queuedTime,
+            DataSize rawInputDataSize,
+            DataSize processedInputDataSize,
+            long rawInputPositions,
+            long processedInputPositions)
     {
         this.createTime = createTime;
         this.endTime = endTime;
@@ -98,6 +109,12 @@ public class BasicQueryStats
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
+
+        this.queuedTime = queuedTime;
+        this.rawInputDataSize = rawInputDataSize;
+        this.processedInputDataSize = processedInputDataSize;
+        this.rawInputPositions = rawInputPositions;
+        this.processedInputPositions = processedInputPositions;
     }
 
     public BasicQueryStats(QueryStats queryStats)
@@ -116,7 +133,12 @@ public class BasicQueryStats
                 queryStats.getTotalCpuTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
-                queryStats.getProgressPercentage());
+                queryStats.getProgressPercentage(),
+                queryStats.getQueuedTime(),
+                queryStats.getRawInputDataSize(),
+                queryStats.getProcessedInputDataSize(),
+                queryStats.getRawInputPositions(),
+                queryStats.getProcessedInputPositions());
     }
 
     @JsonProperty
@@ -207,5 +229,35 @@ public class BasicQueryStats
     public OptionalDouble getProgressPercentage()
     {
         return progressPercentage;
+    }
+
+    @JsonProperty
+    public Duration getQueuedTime()
+    {
+        return queuedTime;
+    }
+
+    @JsonProperty
+    public DataSize getRawInputDataSize()
+    {
+        return rawInputDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getProcessedInputDataSize()
+    {
+        return processedInputDataSize;
+    }
+
+    @JsonProperty
+    public long getRawInputPositions()
+    {
+        return rawInputPositions;
+    }
+
+    @JsonProperty
+    public long getProcessedInputPositions()
+    {
+        return processedInputPositions;
     }
 }
