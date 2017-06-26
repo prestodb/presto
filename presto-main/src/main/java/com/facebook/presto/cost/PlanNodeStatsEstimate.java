@@ -16,7 +16,9 @@ package com.facebook.presto.cost;
 import java.util.Objects;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
+import static java.lang.Double.isNaN;
 
 public class PlanNodeStatsEstimate
 {
@@ -27,6 +29,8 @@ public class PlanNodeStatsEstimate
 
     private PlanNodeStatsEstimate(double outputRowCount, double outputSizeInBytes)
     {
+        checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
+        checkArgument(isNaN(outputSizeInBytes) || outputSizeInBytes >= 0, "outputSizeInBytes cannot be negative");
         this.outputRowCount = outputRowCount;
         this.outputSizeInBytes = outputSizeInBytes;
     }

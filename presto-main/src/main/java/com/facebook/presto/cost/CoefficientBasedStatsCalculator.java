@@ -189,7 +189,7 @@ public class CoefficientBasedStatsCalculator
         public PlanNodeStatsEstimate visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
             return PlanNodeStatsEstimate.builder()
-                    .setOutputRowCount(1.0)
+                    .setOutputRowCount(1)
                     .build();
         }
 
