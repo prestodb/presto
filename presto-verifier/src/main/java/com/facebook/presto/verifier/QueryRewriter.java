@@ -169,7 +169,8 @@ public class QueryRewriter
         return rewritePrefix.getSuffix() + UUID.randomUUID().toString().replace("-", "");
     }
 
-    private List<Column> getColumnsForTable(Connection connection, String catalog, String schema, String table) throws SQLException
+    private List<Column> getColumnsForTable(Connection connection, String catalog, String schema, String table)
+            throws SQLException
     {
         ResultSet columns = connection.getMetaData().getColumns(catalog, escapeLikeExpression(connection, schema), escapeLikeExpression(connection, table), null);
         ImmutableList.Builder<Column> columnBuilder = new ImmutableList.Builder<>();
