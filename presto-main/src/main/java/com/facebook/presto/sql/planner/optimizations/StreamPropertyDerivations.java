@@ -268,12 +268,19 @@ final class StreamPropertyDerivations
         public StreamProperties visitExchange(ExchangeNode node, List<StreamProperties> inputProperties)
         {
             if (node.getScope() == REMOTE) {
+                if (node.getOrderingScheme().isPresent()) {
+                    return StreamProperties.ordered();
+                }
                 return StreamProperties.fixedStreams();
             }
 
             switch (node.getType()) {
-                case GATHER:
+                case GATHER: {
+                    if (node.getOrderingScheme().isPresent()) {
+                        return StreamProperties.ordered();
+                    }
                     return StreamProperties.singleStream();
+                }
                 case REPARTITION:
                     if (node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION)) {
                         return new StreamProperties(FIXED, false, Optional.empty(), false);

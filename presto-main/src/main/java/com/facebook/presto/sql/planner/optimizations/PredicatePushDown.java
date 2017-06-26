@@ -180,7 +180,8 @@ public class PredicatePushDown
                         node.getScope(),
                         node.getPartitioningScheme(),
                         builder.build(),
-                        node.getInputs());
+                        node.getInputs(),
+                        node.getOrderingScheme());
             }
 
             return node;
