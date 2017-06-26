@@ -208,7 +208,7 @@ public class TestQueues
         try (DistributedQueryRunner queryRunner = TpchQueryRunner.createQueryRunner(ImmutableMap.of(), ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get()
-                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_query_type.json")));
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));
             assertResourceGroup(queryRunner, LONG_LASTING_QUERY, "global.select");
             assertResourceGroup(queryRunner, "SHOW TABLES", "global.describe");
             assertResourceGroup(queryRunner, "EXPLAIN " + LONG_LASTING_QUERY, "global.explain");
