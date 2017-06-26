@@ -15,6 +15,7 @@ package com.facebook.presto.kafka.util;
 
 import com.facebook.presto.kafka.KafkaPlugin;
 import com.facebook.presto.kafka.KafkaTopicDescription;
+import com.facebook.presto.kafka.KafkaTopicFieldGroup;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
@@ -91,5 +92,12 @@ public final class TestUtils
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
                 new KafkaTopicDescription(schemaTableName.getTableName(), schemaTableName.getSchemaName(), topicName, null, null));
+    }
+
+    public static Map.Entry<SchemaTableName, KafkaTopicDescription> createTopicDescription(String topicName, SchemaTableName schemaTableName, KafkaTopicFieldGroup key, KafkaTopicFieldGroup message)
+    {
+        return new AbstractMap.SimpleImmutableEntry<>(
+                schemaTableName,
+                new KafkaTopicDescription(schemaTableName.getTableName(), schemaTableName.getSchemaName(), topicName, key, message));
     }
 }

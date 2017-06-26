@@ -125,7 +125,8 @@ public class KafkaRecordSet
 
         private FieldValueProvider[] fieldValueProviders;
 
-        //cache values
+        // Cache values For each row of data, because the reading of each field may not be idempotent operations, such as RawValueProvider
+        // use ByteBuffer as an internal storage, and this storage will lead to non-repeatable
         private Boolean[] booleans;
         private Long[] longs;
         private Double[] doubles;
