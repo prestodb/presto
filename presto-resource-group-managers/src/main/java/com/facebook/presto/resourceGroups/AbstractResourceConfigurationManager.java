@@ -15,6 +15,7 @@ package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
@@ -83,14 +84,16 @@ public abstract class AbstractResourceConfigurationManager
     {
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
-            validateSelectors(managerSpec.getRootGroups(), spec.getGroup().getSegments());
-            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getGroup()));
+            validateSelectors(managerSpec.getRootGroups(), spec);
+            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getQueryType(), spec.getGroup()));
         }
         return selectors.build();
     }
 
-    private void validateSelectors(List<ResourceGroupSpec> groups, List<ResourceGroupNameTemplate> selectorGroups)
+    private void validateSelectors(List<ResourceGroupSpec> groups, SelectorSpec spec)
     {
+        spec.getQueryType().ifPresent(this::validateQueryType);
+        List<ResourceGroupNameTemplate> selectorGroups = spec.getGroup().getSegments();
         StringBuilder fullyQualifiedGroupName = new StringBuilder();
         while (!selectorGroups.isEmpty()) {
             ResourceGroupNameTemplate groupName = selectorGroups.get(0);
@@ -105,6 +108,16 @@ public abstract class AbstractResourceConfigurationManager
             fullyQualifiedGroupName.append(".");
             groups = match.get().getSubGroups();
             selectorGroups = selectorGroups.subList(1, selectorGroups.size());
+        }
+    }
+
+    private void validateQueryType(String queryType)
+    {
+        try {
+            QueryType.valueOf(queryType.toUpperCase());
+        }
+        catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(format("Selector specifies an invalid query type: %s", queryType));
         }
     }
 

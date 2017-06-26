@@ -27,12 +27,14 @@ public class StaticSelector
 {
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
+    private final Optional<String> queryType;
     private final ResourceGroupIdTemplate group;
 
-    public StaticSelector(Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, ResourceGroupIdTemplate group)
+    public StaticSelector(Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, Optional<String> queryType, ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
     }
 
@@ -45,6 +47,13 @@ public class StaticSelector
         if (sourceRegex.isPresent()) {
             String source = context.getSource().orElse("");
             if (!sourceRegex.get().matcher(source).matches()) {
+                return Optional.empty();
+            }
+        }
+
+        if (queryType.isPresent()) {
+            String contextQueryType = context.getQueryType().orElse("");
+            if (!queryType.get().equalsIgnoreCase(contextQueryType)) {
                 return Optional.empty();
             }
         }
