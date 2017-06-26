@@ -26,7 +26,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -210,7 +209,6 @@ public class HiveSplitManager
                 partitionBuilder.put(entry.getKey(), entry.getValue().get());
             }
             Map<String, Partition> partitions = partitionBuilder.build();
-            Verify.verify(partitions.size() == partitionBatch.size());
             if (partitionBatch.size() != partitions.size()) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
             }
