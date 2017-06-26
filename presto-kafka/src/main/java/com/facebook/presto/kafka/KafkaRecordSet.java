@@ -124,8 +124,22 @@ public class KafkaRecordSet
 
         private FieldValueProvider[] fieldValueProviders;
 
+        //cache values
+        private Boolean[] booleans;
+        private Long[] longs;
+        private Double[] doubles;
+        private Slice[] slices;
+        private Boolean[] nulls;
+
         KafkaRecordCursor()
         {
+            int size = columnHandles.size();
+
+            this.booleans = new Boolean[size];
+            this.longs = new Long[size];
+            this.doubles = new Double[size];
+            this.slices = new Slice[size];
+            this.nulls = new Boolean[size];
         }
 
         @Override
@@ -236,7 +250,33 @@ public class KafkaRecordSet
                 }
             }
 
+            //clear cache
+            clearCaches();
+
             return true; // Advanced successfully.
+        }
+
+        private void clearCaches()
+        {
+            //clear longs cache
+            for (int i = 0; i < this.longs.length; ++i) {
+                this.longs[i] = null;
+            }
+
+            //clear doubles cache
+            for (int i = 0; i < this.doubles.length; ++i) {
+                this.doubles[i] = null;
+            }
+
+            //clear slices cache
+            for (int i = 0; i < this.slices.length; ++i) {
+                this.slices[i] = null;
+            }
+
+            //clear nulls cache
+            for (int i = 0; i < this.nulls.length; ++i) {
+                this.nulls[i] = null;
+            }
         }
 
         @SuppressWarnings("SimplifiableConditionalExpression")
@@ -246,7 +286,11 @@ public class KafkaRecordSet
             checkArgument(field < columnHandles.size(), "Invalid field index");
 
             checkFieldType(field, boolean.class);
-            return isNull(field) ? false : fieldValueProviders[field].getBoolean();
+            if (booleans[field] == null) {
+                booleans[field] = isNull(field) ? false : fieldValueProviders[field].getBoolean();
+            }
+
+            return booleans[field];
         }
 
         @Override
@@ -255,7 +299,10 @@ public class KafkaRecordSet
             checkArgument(field < columnHandles.size(), "Invalid field index");
 
             checkFieldType(field, long.class);
-            return isNull(field) ? 0L : fieldValueProviders[field].getLong();
+            if (longs[field] == null) {
+                longs[field] = isNull(field) ? 0L : fieldValueProviders[field].getLong();
+            }
+            return longs[field];
         }
 
         @Override
@@ -264,7 +311,11 @@ public class KafkaRecordSet
             checkArgument(field < columnHandles.size(), "Invalid field index");
 
             checkFieldType(field, double.class);
-            return isNull(field) ? 0.0d : fieldValueProviders[field].getDouble();
+            if (doubles[field] == null) {
+                doubles[field] = isNull(field) ? 0.0d : fieldValueProviders[field].getDouble();
+            }
+
+            return doubles[field];
         }
 
         @Override
@@ -273,7 +324,10 @@ public class KafkaRecordSet
             checkArgument(field < columnHandles.size(), "Invalid field index");
 
             checkFieldType(field, Slice.class);
-            return isNull(field) ? Slices.EMPTY_SLICE : fieldValueProviders[field].getSlice();
+            if (slices[field] == null) {
+                slices[field] = isNull(field) ? Slices.EMPTY_SLICE : fieldValueProviders[field].getSlice();
+            }
+            return slices[field];
         }
 
         @Override
@@ -287,7 +341,11 @@ public class KafkaRecordSet
         {
             checkArgument(field < columnHandles.size(), "Invalid field index");
 
-            return fieldValueProviders[field] == null || fieldValueProviders[field].isNull();
+            if (nulls[field] == null) {
+                nulls[field] = fieldValueProviders[field] == null || fieldValueProviders[field].isNull();
+            }
+
+            return nulls[field];
         }
 
         private void checkFieldType(int field, Class<?> expected)
