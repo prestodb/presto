@@ -199,14 +199,28 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    public R visitWindow(Window node, C context)
+    protected R visitWindowName(WindowName node, C context)
+    {
+        return null;
+    }
+
+    @Override
+    protected R visitWindowInline(WindowInline node, C context)
+    {
+        process(node.getSpecification(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitWindowSpecification(WindowSpecification node, C context)
     {
         for (Expression expression : node.getPartitionBy()) {
             process(expression, context);
         }
 
-        if (node.getOrderBy().isPresent()) {
-            process(node.getOrderBy().get(), context);
+        for (SortItem sortItem : node.getOrderBy()) {
+            process(sortItem, context);
         }
 
         if (node.getFrame().isPresent()) {

@@ -40,6 +40,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -165,6 +166,7 @@ public final class QueryUtil
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty()));
     }
@@ -196,12 +198,18 @@ public final class QueryUtil
 
     public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<GroupBy> groupBy, Optional<Expression> having, Optional<OrderBy> orderBy, Optional<String> limit)
     {
+        return simpleQuery(select, from, where, groupBy, having, ImmutableList.of(), orderBy, limit);
+    }
+
+    public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<GroupBy> groupBy, Optional<Expression> having, List<WindowDefinition> window, Optional<OrderBy> orderBy, Optional<String> limit)
+    {
         return query(new QuerySpecification(
                 select,
                 Optional.of(from),
                 where,
                 groupBy,
                 having,
+                window,
                 orderBy,
                 limit));
     }

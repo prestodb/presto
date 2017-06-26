@@ -482,7 +482,27 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitWindowDefinition(WindowDefinition node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitWindow(Window node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitWindowName(WindowName node, C context)
+    {
+        return visitWindow(node, context);
+    }
+
+    protected R visitWindowInline(WindowInline node, C context)
+    {
+        return visitWindow(node, context);
+    }
+
+    protected R visitWindowSpecification(WindowSpecification node, C context)
     {
         return visitNode(node, context);
     }

@@ -76,8 +76,11 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowInline;
+import com.facebook.presto.sql.tree.WindowName;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -336,7 +339,8 @@ public final class ExpressionFormatter
         {
             StringBuilder builder = new StringBuilder();
 
-            String arguments = joinExpressions(node.getArguments());
+            String arguments = joinExpressions(node.getArguments(), parameters);
+
             if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
                 arguments = "*";
             }
@@ -352,7 +356,7 @@ public final class ExpressionFormatter
             }
 
             if (node.getWindow().isPresent()) {
-                builder.append(" OVER ").append(visitWindow(node.getWindow().get(), context));
+                builder.append(" OVER ").append(process(node.getWindow().get()));
             }
 
             return builder.toString();
@@ -444,7 +448,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitCoalesceExpression(CoalesceExpression node, Void context)
         {
-            return "COALESCE(" + joinExpressions(node.getOperands()) + ")";
+            return "COALESCE(" + joinExpressions(node.getOperands(), parameters) + ")";
         }
 
         @Override
@@ -566,7 +570,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitInListExpression(InListExpression node, Void context)
         {
-            return "(" + joinExpressions(node.getValues()) + ")";
+            return "(" + joinExpressions(node.getValues(), parameters) + ")";
         }
 
         private String visitFilter(Expression node, Void context)
@@ -575,59 +579,15 @@ public final class ExpressionFormatter
         }
 
         @Override
-        public String visitWindow(Window node, Void context)
+        public String visitWindowName(WindowName node, Void conext)
         {
-            List<String> parts = new ArrayList<>();
-
-            if (!node.getPartitionBy().isEmpty()) {
-                parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
-            }
-            if (node.getOrderBy().isPresent()) {
-                parts.add(formatOrderBy(node.getOrderBy().get(), parameters));
-            }
-            if (node.getFrame().isPresent()) {
-                parts.add(process(node.getFrame().get(), context));
-            }
-
-            return '(' + Joiner.on(' ').join(parts) + ')';
+            return process(node.getName());
         }
 
         @Override
-        public String visitWindowFrame(WindowFrame node, Void context)
+        public String visitWindowInline(WindowInline node, Void context)
         {
-            StringBuilder builder = new StringBuilder();
-
-            builder.append(node.getType().toString()).append(' ');
-
-            if (node.getEnd().isPresent()) {
-                builder.append("BETWEEN ")
-                        .append(process(node.getStart(), context))
-                        .append(" AND ")
-                        .append(process(node.getEnd().get(), context));
-            }
-            else {
-                builder.append(process(node.getStart(), context));
-            }
-
-            return builder.toString();
-        }
-
-        @Override
-        public String visitFrameBound(FrameBound node, Void context)
-        {
-            switch (node.getType()) {
-                case UNBOUNDED_PRECEDING:
-                    return "UNBOUNDED PRECEDING";
-                case PRECEDING:
-                    return process(node.getValue().get(), context) + " PRECEDING";
-                case CURRENT_ROW:
-                    return "CURRENT ROW";
-                case FOLLOWING:
-                    return process(node.getValue().get(), context) + " FOLLOWING";
-                case UNBOUNDED_FOLLOWING:
-                    return "UNBOUNDED FOLLOWING";
-            }
-            throw new IllegalArgumentException("unhandled type: " + node.getType());
+            return '(' + formatWindowSpecification(node.getSpecification(), parameters) + ')';
         }
 
         @Override
@@ -648,26 +608,26 @@ public final class ExpressionFormatter
 
         public String visitGroupingOperation(GroupingOperation node, Void context)
         {
-            return "GROUPING (" + joinExpressions(node.getGroupingColumns()) + ")";
+            return "GROUPING (" + joinExpressions(node.getGroupingColumns(), Optional.empty()) + ")";
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)
         {
             return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
         }
+    }
 
-        private String joinExpressions(List<Expression> expressions)
-        {
-            return Joiner.on(", ").join(expressions.stream()
-                    .map((e) -> process(e, null))
-                    .iterator());
-        }
+    private static String joinExpressions(List<Expression> expressions, Optional<List<Expression>> parameters)
+    {
+        return Joiner.on(", ").join(expressions.stream()
+                .map((e) -> formatExpression(e, parameters))
+                .iterator());
+    }
 
-        private static String formatIdentifier(String s)
-        {
-            // TODO: handle escaping properly
-            return '"' + s + '"';
-        }
+    private static String formatIdentifier(String s)
+    {
+        // TODO: handle escaping properly
+        return '"' + s + '"';
     }
 
     static String formatStringLiteral(String s)
@@ -718,6 +678,67 @@ public final class ExpressionFormatter
     static String formatGroupBy(List<GroupingElement> groupingElements)
     {
         return formatGroupBy(groupingElements, Optional.empty());
+    }
+
+    static String formatWindowDefinition(WindowDefinition windowDefinition, Optional<List<Expression>> parameters)
+    {
+        return formatIdentifier(windowDefinition.getName().getValue()) + " AS (" + formatWindowSpecification(windowDefinition.getSpecification(), parameters) + ")";
+    }
+
+    private static String formatWindowSpecification(WindowSpecification node, Optional<List<Expression>> parameters)
+    {
+        List<String> parts = new ArrayList<>();
+
+        if (node.getExistingName().isPresent()) {
+            parts.add(formatIdentifier(node.getExistingName().get().getValue()) + " ");
+        }
+        if (!node.getPartitionBy().isEmpty()) {
+            parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy(), parameters));
+        }
+        if (!node.getOrderBy().isEmpty()) {
+            parts.add("ORDER BY " + formatSortItems(node.getOrderBy(), parameters));
+        }
+        if (node.getFrame().isPresent()) {
+            parts.add(formatWindowFrame(node.getFrame().get(), parameters));
+        }
+
+        return Joiner.on(' ').join(parts);
+    }
+
+    private static String formatWindowFrame(WindowFrame node, Optional<List<Expression>> parameters)
+    {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append(node.getType().toString()).append(' ');
+
+        if (node.getEnd().isPresent()) {
+            builder.append("BETWEEN ")
+                    .append(formatFrameBound(node.getStart(), parameters))
+                    .append(" AND ")
+                    .append(formatFrameBound(node.getEnd().get(), parameters));
+        }
+        else {
+            builder.append(formatFrameBound(node.getStart(), parameters));
+        }
+
+        return builder.toString();
+    }
+
+    private static String formatFrameBound(FrameBound node, Optional<List<Expression>> parameters)
+    {
+        switch (node.getType()) {
+            case UNBOUNDED_PRECEDING:
+                return "UNBOUNDED PRECEDING";
+            case PRECEDING:
+                return formatExpression(node.getValue().get(), parameters) + " PRECEDING";
+            case CURRENT_ROW:
+                return "CURRENT ROW";
+            case FOLLOWING:
+                return formatExpression(node.getValue().get(), parameters) + " FOLLOWING";
+            case UNBOUNDED_FOLLOWING:
+                return "UNBOUNDED FOLLOWING";
+        }
+        throw new IllegalArgumentException("unhandled type: " + node.getType());
     }
 
     static String formatGroupBy(List<GroupingElement> groupingElements, Optional<List<Expression>> parameters)

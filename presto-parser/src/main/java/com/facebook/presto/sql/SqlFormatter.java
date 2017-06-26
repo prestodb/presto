@@ -108,6 +108,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
+import static com.facebook.presto.sql.ExpressionFormatter.formatWindowDefinition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -281,6 +282,12 @@ public final class SqlFormatter
             if (node.getHaving().isPresent()) {
                 append(indent, "HAVING " + formatExpression(node.getHaving().get(), parameters))
                         .append('\n');
+            }
+
+            if (!node.getWindow().isEmpty()) {
+                append(indent, "WINDOW " + node.getWindow().stream()
+                        .map(windowDefinition -> formatWindowDefinition(windowDefinition, parameters))
+                        .collect(joining(", "))).append('\n');
             }
 
             if (node.getOrderBy().isPresent()) {

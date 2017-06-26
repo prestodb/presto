@@ -153,6 +153,7 @@ querySpecification
       (WHERE where=booleanExpression)?
       (GROUP BY groupBy)?
       (HAVING having=booleanExpression)?
+      (WINDOW windowDefinition (',' windowDefinition)*)?
     ;
 
 groupBy
@@ -378,12 +379,20 @@ filter
     : FILTER '(' WHERE booleanExpression ')'
     ;
 
+windowDefinition
+    : identifier AS '(' windowSpecification ')'
+    ;
+
 over
-    : OVER '('
-        (PARTITION BY partition+=expression (',' partition+=expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)?
-        windowFrame?
-      ')'
+    : OVER identifier                   #windowName
+    | OVER '(' windowSpecification ')'  #windowInline
+    ;
+
+windowSpecification
+    : identifier?
+      (PARTITION BY partition+=expression (',' partition+=expression)*)?
+      (ORDER BY sortItem (',' sortItem)*)?
+      windowFrame?
     ;
 
 windowFrame
@@ -399,7 +408,6 @@ frameBound
     | CURRENT ROW                                   #currentRowBound
     | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame // expression should be unsignedLiteral
     ;
-
 
 explainOption
     : FORMAT value=(TEXT | GRAPHVIZ)                   #explainFormat
@@ -466,7 +474,7 @@ nonReserved
     | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TINYINT | TO | TRANSACTION | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | USE
     | VALIDATE | VERBOSE | VIEW
-    | WORK | WRITE
+    | WINDOW | WORK | WRITE
     | YEAR
     | ZONE
     ;
@@ -646,6 +654,7 @@ VERBOSE: 'VERBOSE';
 VIEW: 'VIEW';
 WHEN: 'WHEN';
 WHERE: 'WHERE';
+WINDOW: 'WINDOW';
 WITH: 'WITH';
 WORK: 'WORK';
 WRITE: 'WRITE';

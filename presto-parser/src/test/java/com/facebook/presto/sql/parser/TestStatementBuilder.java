@@ -136,6 +136,15 @@ public class TestStatementBuilder
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on not(a.id > b.id)");
 
+        printStatement("select row_number() over w from table1");
+        printStatement("select row_number() over (w) from table1");
+        printStatement("select row_number() over (w), rank() over x from table1");
+        printStatement("select row_number() over (w partition by foo order by baz desc nulls first rows current row) from table1");
+        printStatement("select * from table1 window a as ()");
+        printStatement("select * from table1 window a as (partition by 1)");
+        printStatement("select * from table1 window a as (b partition by foo order by baz asc nulls last range unbounded preceding)");
+        printStatement("select * from table1 window a as (partition by 1), b as (order by 2 asc nulls last)");
+
         printStatement("create table foo as (select * from abc)");
         printStatement("create table if not exists foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
