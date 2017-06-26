@@ -225,7 +225,10 @@ public class DbResourceGroupConfigurationManager
         List<ResourceGroupSpec> rootGroups = rootGroupIds.stream().map(resourceGroupSpecMap::get).collect(Collectors.toList());
 
         List<SelectorSpec> selectors = dao.getSelectors().stream().map(selectorRecord ->
-                new SelectorSpec(selectorRecord.getUserRegex(), selectorRecord.getSourceRegex(),
+                new SelectorSpec(
+                        selectorRecord.getUserRegex(),
+                        selectorRecord.getSourceRegex(),
+                        Optional.empty(),
                         resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
         ).collect(Collectors.toList());
         ManagerSpec managerSpec = new ManagerSpec(rootGroups, selectors, getCpuQuotaPeriodFromDb());

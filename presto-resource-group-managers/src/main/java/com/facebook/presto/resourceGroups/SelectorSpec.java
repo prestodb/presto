@@ -28,15 +28,18 @@ public class SelectorSpec
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
     private final ResourceGroupIdTemplate group;
+    private final Optional<String> queryType;
 
     @JsonCreator
     public SelectorSpec(
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("source") Optional<Pattern> sourceRegex,
+            @JsonProperty("queryType") Optional<String> queryType,
             @JsonProperty("group") ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
     }
 
@@ -55,6 +58,11 @@ public class SelectorSpec
         return group;
     }
 
+    public Optional<String> getQueryType()
+    {
+        return queryType;
+    }
+
     @Override
     public boolean equals(Object other)
     {
@@ -66,6 +74,7 @@ public class SelectorSpec
         }
         SelectorSpec that = (SelectorSpec) other;
         return (group.equals(that.group) &&
+                queryType.equals(that.queryType) &&
                 userRegex.map(Pattern::pattern).equals(that.userRegex.map(Pattern::pattern)) &&
                 userRegex.map(Pattern::flags).equals(that.userRegex.map(Pattern::flags)) &&
                 sourceRegex.map(Pattern::pattern).equals(that.sourceRegex.map(Pattern::pattern))) &&
@@ -76,6 +85,7 @@ public class SelectorSpec
     {
         return Objects.hash(
                 group,
+                queryType,
                 userRegex.map(Pattern::pattern),
                 userRegex.map(Pattern::flags),
                 sourceRegex.map(Pattern::pattern),
@@ -91,6 +101,7 @@ public class SelectorSpec
                 .add("userFlags", userRegex.map(Pattern::flags))
                 .add("sourceRegex", sourceRegex)
                 .add("sourceFlags", sourceRegex.map(Pattern::flags))
+                .add("queryType", queryType)
                 .toString();
     }
 }
