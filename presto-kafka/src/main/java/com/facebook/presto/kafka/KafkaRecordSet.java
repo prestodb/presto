@@ -261,10 +261,10 @@ public class KafkaRecordSet
         private void clearCaches()
         {
             //clear caches
-            Arrays.fill(this.longs,null);
-            Arrays.fill(this.doubles,null);
-            Arrays.fill(this.slices,null);
-            Arrays.fill(this.nulls,null);
+            Arrays.fill(this.longs, null);
+            Arrays.fill(this.doubles, null);
+            Arrays.fill(this.slices, null);
+            Arrays.fill(this.nulls, null);
         }
 
         @SuppressWarnings("SimplifiableConditionalExpression")

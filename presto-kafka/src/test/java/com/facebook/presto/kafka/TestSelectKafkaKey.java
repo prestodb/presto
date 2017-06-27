@@ -68,7 +68,7 @@ public class TestSelectKafkaKey
             int iMax = 100_000;
             for (long i = 0; i < iMax; i++) {
                 ImmutableList.Builder<KeyedMessage<Long, Object>> builder = ImmutableList.builder();
-                builder.add(new KeyedMessage<Long, Object>(topicName, i, ImmutableMap.of("id", i, "value", "value:"+i)));
+                builder.add(new KeyedMessage<Long, Object>(topicName, i, ImmutableMap.of("id", i, "value", "value:" + i)));
                 producer.send(builder.build());
             }
         }
@@ -89,7 +89,7 @@ public class TestSelectKafkaKey
 
         ImmutableList.Builder<KafkaTopicFieldDescription> keyFieldBuilder = ImmutableList.builder();
         keyFieldBuilder.add(new KafkaTopicFieldDescription("kafka_key", BigintType.BIGINT, null, null, "LONG", null, false));
-        KafkaTopicFieldGroup key = new KafkaTopicFieldGroup("raw",keyFieldBuilder.build());
+        KafkaTopicFieldGroup key = new KafkaTopicFieldGroup("raw", keyFieldBuilder.build());
 
         ImmutableList.Builder<KafkaTopicFieldDescription> messageFieldBuilder = ImmutableList.builder();
         messageFieldBuilder.add(new KafkaTopicFieldDescription("id", BigintType.BIGINT, "id", null, "LONG", null, false));
