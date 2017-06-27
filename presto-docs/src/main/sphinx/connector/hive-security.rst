@@ -37,9 +37,31 @@ Property Value                                     Description
                                                    queries based on the privileges defined in Hive metastore.
                                                    To alter these privileges, use the :doc:`/sql/grant` and
                                                    :doc:`/sql/revoke` commands.
+                                                   See :ref:`hive-sql-standard-based-authorization` for details.
 ================================================== ============================================================
 
 Ensure that authentication has been enabled when enabling authorization checks.
+
+.. _hive-sql-standard-based-authorization:
+
+SQL Standard Based Authorization
+--------------------------------
+
+When ``sql-standard`` security is enabled, Presto enforces the same SQL
+standard based authorization as Hive does.
+
+Since Presto's ``ROLE`` syntax support matches the SQL standard, and
+Hive does not exactly follow the SQL standard, there are the following
+limitations and differences:
+
+* ``CREATE ROLE role WITH ADMIN`` is not supported.
+* The ``admin`` role must be enabled to execute ``CREATE ROLE`` or ``DROP ROLE``.
+* ``GRANT role TO user GRANTED BY someone`` is not supported.
+* ``REVOKE role FROM user GRANTED BY someone`` is not supported.
+* By default, all a user's roles except ``admin`` are enabled in a new user session.
+* One particular role can be selected by executing ``SET ROLE role``.
+* ``SET ROLE ALL`` enables all of a user's roles except ``admin``.
+* The ``admin`` role must be enabled explicitly by executing ``SET ROLE admin``.
 
 Authentication
 ==============
