@@ -1217,6 +1217,38 @@ let QueryDetail = React.createClass({
                                                 { formatDataSizeBytes(query.queryStats.cumulativeMemory / 1000.0, "") + " seconds" }
                                             </td>
                                         </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Output Rows
+                                            </td>
+                                            <td className="info-text">
+                                                { formatCount(query.queryStats.outputPositions) }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Output Data
+                                            </td>
+                                            <td className="info-text">
+                                                { query.queryStats.outputDataSize }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Written Rows
+                                            </td>
+                                            <td className="info-text">
+                                                { formatCount(query.queryStats.writtenPositions) }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Written Data
+                                            </td>
+                                            <td className="info-text">
+                                                { query.queryStats.writtenDataSize }
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
