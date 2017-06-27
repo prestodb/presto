@@ -35,7 +35,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
- * Elements of {@code dates} array are date values for each row represented as the number of days passed since 1970-01-01.
+ * Elements of {@code dates} array are date values for each row represented as the number
+ * of days passed since 1970-01-01.
  * If row is null then value is ignored.
  */
 @ThriftStruct

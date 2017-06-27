@@ -126,7 +126,7 @@ public final class PrestoThriftRangeValueSet
     }
 
     /**
-     * LOWER UNBOUNDED is specified with an empty value and a ABOVE bound
+     * LOWER UNBOUNDED is specified with an empty value and an ABOVE bound
      * UPPER UNBOUNDED is specified with an empty value and a BELOW bound
      */
     @ThriftStruct
