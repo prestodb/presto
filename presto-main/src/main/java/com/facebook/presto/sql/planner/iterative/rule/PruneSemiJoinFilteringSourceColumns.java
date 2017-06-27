@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -35,7 +35,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 public class PruneSemiJoinFilteringSourceColumns
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.node(SemiJoinNode.class);
+    private static final Pattern PATTERN = Pattern.typeOf(SemiJoinNode.class);
 
     @Override
     public Pattern getPattern()
