@@ -549,8 +549,6 @@ public class LookupJoinOperator
         return probe == null && finished;
     }
 
-
-
     @Override
     public void close()
     {
