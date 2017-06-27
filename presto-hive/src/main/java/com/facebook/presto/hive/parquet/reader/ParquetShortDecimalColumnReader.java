@@ -59,7 +59,15 @@ public class ParquetShortDecimalColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+            if (columnDescriptor.getType().equals(INT32)) {
+                valuesReader.readInteger();
+            }
+            else if (columnDescriptor.getType().equals(INT64)) {
+                valuesReader.readLong();
+            }
+            else {
+                valuesReader.readBytes();
+            }
         }
     }
 }

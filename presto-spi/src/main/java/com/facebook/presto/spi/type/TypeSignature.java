@@ -20,8 +20,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -34,6 +36,13 @@ public class TypeSignature
     private final String base;
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
+
+    private static final Map<String, String> BASE_NAME_ALIAS_TO_CANONICAL =
+            new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
+
+    static {
+        BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
+    }
 
     public TypeSignature(String base, TypeSignatureParameter... parameters)
     {
@@ -100,7 +109,7 @@ public class TypeSignature
                 return VarcharType.createUnboundedVarcharType().getTypeSignature();
             }
             checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
-            return new TypeSignature(signature, new ArrayList<>());
+            return new TypeSignature(canonicalizeBaseName(signature), new ArrayList<>());
         }
         if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "(")) {
             return parseRowTypeSignature(signature, literalCalculationParameters);
@@ -125,7 +134,7 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
+                    baseName = canonicalizeBaseName(signature.substring(0, i));
                     checkArgument(!literalCalculationParameters.contains(baseName), "Bad type signature: '%s'", signature);
                     parameterStart = i + 1;
                 }
@@ -171,7 +180,7 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
+                    baseName = canonicalizeBaseName(signature.substring(0, i));
                     parameterStart = i + 1;
                     inFieldName = true;
                 }
@@ -223,7 +232,7 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
+                    baseName = canonicalizeBaseName(signature.substring(0, i));
                     parameterStart = i + 1;
                 }
                 bracketCount++;
@@ -257,7 +266,7 @@ public class TypeSignature
                     if (baseName == null) {
                         verify(parameters.isEmpty(), "Expected no parameters");
                         verify(parameterStart == -1, "Expected parameter start to be -1");
-                        baseName = signature.substring(0, i);
+                        baseName = canonicalizeBaseName(signature.substring(0, i));
                     }
                     parameterStart = i + 1;
                 }
@@ -383,6 +392,15 @@ public class TypeSignature
     private static boolean validateName(String name)
     {
         return name.chars().noneMatch(c -> c == '<' || c == '>' || c == ',');
+    }
+
+    private static String canonicalizeBaseName(String baseName)
+    {
+        String canonicalBaseName = BASE_NAME_ALIAS_TO_CANONICAL.get(baseName);
+        if (canonicalBaseName == null) {
+            return baseName;
+        }
+        return canonicalBaseName;
     }
 
     @Override

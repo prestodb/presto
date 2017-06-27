@@ -34,6 +34,8 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -43,7 +45,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -77,7 +81,7 @@ public class TestingMetadata
         if (!tables.containsKey(tableName)) {
             return null;
         }
-        return new InMemoryTableHandle(tableName);
+        return new TestingTableHandle(tableName);
     }
 
     @Override
@@ -108,7 +112,7 @@ public class TestingMetadata
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
         int index = 0;
         for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new InMemoryColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
+            builder.put(columnMetadata.getName(), new TestingColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
             index++;
         }
         return builder.build();
@@ -134,7 +138,7 @@ public class TestingMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);
-        int columnIndex = ((InMemoryColumnHandle) columnHandle).getOrdinalPosition();
+        int columnIndex = ((TestingColumnHandle) columnHandle).getOrdinalPosition();
         return tables.get(tableName).getColumns().get(columnIndex);
     }
 
@@ -279,41 +283,63 @@ public class TestingMetadata
     private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof InMemoryTableHandle, "tableHandle is not an instance of InMemoryTableHandle");
-        InMemoryTableHandle inMemoryTableHandle = (InMemoryTableHandle) tableHandle;
-        return inMemoryTableHandle.getTableName();
+        checkArgument(tableHandle instanceof TestingTableHandle, "tableHandle is not an instance of TestingTableHandle");
+        TestingTableHandle testingTableHandle = (TestingTableHandle) tableHandle;
+        return testingTableHandle.getTableName();
     }
 
-    public static class InMemoryTableHandle
+    public static class TestingTableHandle
             implements ConnectorTableHandle
     {
         private final SchemaTableName tableName;
 
-        public InMemoryTableHandle(SchemaTableName schemaTableName)
+        public TestingTableHandle()
         {
-            this.tableName = schemaTableName;
+            this(new SchemaTableName("test-schema", "test-table"));
         }
 
+        @JsonCreator
+        public TestingTableHandle(@JsonProperty("tableName") SchemaTableName schemaTableName)
+        {
+            this.tableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        }
+
+        @JsonProperty
         public SchemaTableName getTableName()
         {
             return tableName;
         }
     }
 
-    public static class InMemoryColumnHandle
+    public static class TestingColumnHandle
             implements ColumnHandle
     {
         private final String name;
-        private final int ordinalPosition;
-        private final Type type;
+        private final OptionalInt ordinalPosition;
+        private final Optional<Type> type;
 
-        public InMemoryColumnHandle(String name, int ordinalPosition, Type type)
+        public TestingColumnHandle(String name)
         {
-            this.name = name;
-            this.ordinalPosition = ordinalPosition;
-            this.type = type;
+            this(name, OptionalInt.empty(), Optional.empty());
         }
 
+        public TestingColumnHandle(String name, int ordinalPosition, Type type)
+        {
+            this(name, OptionalInt.of(ordinalPosition), Optional.of(type));
+        }
+
+        @JsonCreator
+        public TestingColumnHandle(
+                @JsonProperty("name") String name,
+                @JsonProperty("ordinalPosition") OptionalInt ordinalPosition,
+                @JsonProperty("type") Optional<Type> type)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.ordinalPosition = requireNonNull(ordinalPosition, "ordinalPosition is null");
+            this.type = requireNonNull(type, "type is null");
+        }
+
+        @JsonProperty
         public String getName()
         {
             return name;
@@ -321,12 +347,45 @@ public class TestingMetadata
 
         public int getOrdinalPosition()
         {
-            return ordinalPosition;
+            return ordinalPosition.orElseThrow(() -> new UnsupportedOperationException("Testing handle was created without ordinal position"));
         }
 
         public Type getType()
         {
+            return type.orElseThrow(() -> new UnsupportedOperationException("Testing handle was created without type"));
+        }
+
+        @JsonProperty("ordinalPosition")
+        public OptionalInt getJsonOrdinalPosition()
+        {
+            return ordinalPosition;
+        }
+
+        @JsonProperty("type")
+        public Optional<Type> getJsonType()
+        {
             return type;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestingColumnHandle that = (TestingColumnHandle) o;
+            return Objects.equals(name, that.name) &&
+                    Objects.equals(ordinalPosition, that.ordinalPosition) &&
+                    Objects.equals(type, that.type);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, ordinalPosition, type);
         }
     }
 }

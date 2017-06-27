@@ -17,7 +17,6 @@ import com.facebook.presto.accumulo.Types;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeUtils;
 import com.facebook.presto.spi.type.VarcharType;
@@ -556,13 +555,16 @@ public interface AccumuloRowSerializer
         Type keyType = mapType.getTypeParameters().get(0);
         Type valueType = mapType.getTypeParameters().get(1);
 
-        BlockBuilder builder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), map.size() * 2);
+        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = mapBlockBuilder.beginBlockEntry();
 
         for (Entry<?, ?> entry : map.entrySet()) {
             writeObject(builder, keyType, entry.getKey());
             writeObject(builder, valueType, entry.getValue());
         }
-        return builder.build();
+
+        mapBlockBuilder.closeEntry();
+        return (Block) mapType.getObject(mapBlockBuilder, 0);
     }
 
     /**

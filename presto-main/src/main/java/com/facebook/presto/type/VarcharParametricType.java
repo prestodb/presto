@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.spi.type.VarcharType;
 
@@ -35,7 +36,7 @@ public class VarcharParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         if (parameters.isEmpty()) {
             return createUnboundedVarcharType();

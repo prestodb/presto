@@ -57,27 +57,31 @@ public class RcFileFileWriterFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
+    private final FileFormatDataSourceStats stats;
 
     @Inject
     public RcFileFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            HiveClientConfig hiveClientConfig)
+            HiveClientConfig hiveClientConfig,
+            FileFormatDataSourceStats stats)
     {
-        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone());
+        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(), stats);
     }
 
     public RcFileFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            FileFormatDataSourceStats stats)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -132,7 +136,8 @@ public class RcFileFileWriterFactory
                         return new HdfsRcFileDataSource(
                                 path.toString(),
                                 fileSystem.open(path),
-                                fileSystem.getFileStatus(path).getLen());
+                                fileSystem.getFileStatus(path).getLen(),
+                                stats);
                     }
                     catch (IOException e) {
                         throw Throwables.propagate(e);

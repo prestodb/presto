@@ -34,6 +34,8 @@ import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
+// run single threaded to avoid creating multiple query runners at once
+@Test(singleThreaded = true)
 public class TestQueues
 {
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";

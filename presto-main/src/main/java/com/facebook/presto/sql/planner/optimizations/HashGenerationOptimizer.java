@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -112,7 +113,7 @@ public class HashGenerationOptimizer
     }
 
     private static class Rewriter
-            extends PlanVisitor<HashComputationSet, PlanWithProperties>
+            extends PlanVisitor<PlanWithProperties, HashComputationSet>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
@@ -147,6 +148,14 @@ public class HashGenerationOptimizer
         }
 
         @Override
+        public PlanWithProperties visitLateralJoin(LateralJoinNode node, HashComputationSet context)
+        {
+            // Lateral join node is not supported by execution, so do not rewrite it
+            // that way query will fail in sanity checkers
+            return new PlanWithProperties(node, ImmutableMap.of());
+        }
+
+        @Override
         public PlanWithProperties visitAggregation(AggregationNode node, HashComputationSet parentPreference)
         {
             Optional<HashComputation> groupByHash = Optional.empty();
@@ -165,8 +174,6 @@ public class HashGenerationOptimizer
                             idAllocator.getNextId(),
                             child.getNode(),
                             node.getAggregations(),
-                            node.getFunctions(),
-                            node.getMasks(),
                             node.getGroupingSets(),
                             node.getStep(),
                             hashSymbol,
@@ -204,7 +211,7 @@ public class HashGenerationOptimizer
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
             return new PlanWithProperties(
-                    new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.isPartial(), Optional.of(hashSymbol)),
+                    new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
                     child.getHashSymbols());
         }
 
@@ -488,7 +495,7 @@ public class HashGenerationOptimizer
                                     .collect(toImmutableList()))
                             .build(),
                     partitionSymbols.map(newHashSymbols::get),
-                    partitioningScheme.isReplicateNulls(),
+                    partitioningScheme.isReplicateNullsAndAny(),
                     partitioningScheme.getBucketToPartition());
 
             // add hash symbols to sources

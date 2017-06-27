@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -49,13 +50,17 @@ import java.util.Optional;
 public class ImplementBernoulliSampleAsFilter
         implements Rule
 {
+    private static final Pattern PATTERN = Pattern.node(SampleNode.class);
+
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
     {
-        if (!(node instanceof SampleNode)) {
-            return Optional.empty();
-        }
-
         SampleNode sample = (SampleNode) node;
 
         if (sample.getSampleType() != SampleNode.Type.BERNOULLI) {

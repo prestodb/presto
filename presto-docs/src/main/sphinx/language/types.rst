@@ -31,7 +31,8 @@ INTEGER
 -------
 
     A 32-bit signed two's complement integer with a minimum value of
-    ``-2^31`` and a maximum value of ``2^31 - 1``.
+    ``-2^31`` and a maximum value of ``2^31 - 1``.  The name INT is
+    also available for this type.
 
 BIGINT
 ------

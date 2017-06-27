@@ -62,9 +62,9 @@ public class ClusterStatsResource
         long runningDrivers = 0;
         double memoryReservation = 0;
 
-        double rowInputRate = 0;
-        double byteInputRate = 0;
-        double cpuTimeRate = 0;
+        long totalInputRows = queryManager.getStats().getConsumedInputRows().getTotalCount();
+        long totalInputBytes = queryManager.getStats().getConsumedInputBytes().getTotalCount();
+        long totalCpuTimeSecs = queryManager.getStats().getConsumedCpuTimeSecs().getTotalCount();
 
         for (QueryInfo query : queryManager.getAllQueryInfo()) {
             if (query.getState() == QueryState.QUEUED) {
@@ -80,18 +80,16 @@ public class ClusterStatsResource
             }
 
             if (!query.getState().isDone()) {
-                double totalExecutionTimeSeconds = query.getQueryStats().getElapsedTime().getValue(SECONDS);
-                if (totalExecutionTimeSeconds != 0) {
-                    byteInputRate += query.getQueryStats().getProcessedInputDataSize().toBytes() / totalExecutionTimeSeconds;
-                    rowInputRate += query.getQueryStats().getProcessedInputPositions() / totalExecutionTimeSeconds;
-                    cpuTimeRate += (query.getQueryStats().getTotalCpuTime().getValue(SECONDS)) / totalExecutionTimeSeconds;
-                }
+                totalInputBytes += query.getQueryStats().getRawInputDataSize().toBytes();
+                totalInputRows += query.getQueryStats().getRawInputPositions();
+                totalCpuTimeSecs += query.getQueryStats().getTotalCpuTime().getValue(SECONDS);
+
                 memoryReservation += query.getQueryStats().getTotalMemoryReservation().toBytes();
                 runningDrivers += query.getQueryStats().getRunningDrivers();
             }
         }
 
-        return new ClusterStats(runningQueries, blockedQueries, queuedQueries, activeNodes, runningDrivers, memoryReservation, rowInputRate, byteInputRate, cpuTimeRate);
+        return new ClusterStats(runningQueries, blockedQueries, queuedQueries, activeNodes, runningDrivers, memoryReservation, totalInputRows, totalInputBytes, totalCpuTimeSecs);
     }
 
     public static class ClusterStats
@@ -104,9 +102,9 @@ public class ClusterStatsResource
         private final long runningDrivers;
         private final double reservedMemory;
 
-        private final double rowInputRate;
-        private final double byteInputRate;
-        private final double cpuTimeRate;
+        private final long totalInputRows;
+        private final long totalInputBytes;
+        private final long totalCpuTimeSecs;
 
         @JsonCreator
         public ClusterStats(
@@ -116,9 +114,9 @@ public class ClusterStatsResource
                 @JsonProperty("activeWorkers") long activeWorkers,
                 @JsonProperty("runningDrivers") long runningDrivers,
                 @JsonProperty("reservedMemory") double reservedMemory,
-                @JsonProperty("rowInputRate") double rowInputRate,
-                @JsonProperty("byteInputRate") double byteInputRate,
-                @JsonProperty("cpuTimeRate") double cpuTimeRate)
+                @JsonProperty("totalInputRows") long totalInputRows,
+                @JsonProperty("totalInputBytes") long totalInputBytes,
+                @JsonProperty("totalCpuTimeSecs") long totalCpuTimeSecs)
         {
             this.runningQueries = runningQueries;
             this.blockedQueries = blockedQueries;
@@ -126,9 +124,9 @@ public class ClusterStatsResource
             this.activeWorkers = activeWorkers;
             this.runningDrivers = runningDrivers;
             this.reservedMemory = reservedMemory;
-            this.rowInputRate = rowInputRate;
-            this.byteInputRate = byteInputRate;
-            this.cpuTimeRate = cpuTimeRate;
+            this.totalInputRows = totalInputRows;
+            this.totalInputBytes = totalInputBytes;
+            this.totalCpuTimeSecs = totalCpuTimeSecs;
         }
 
         @JsonProperty
@@ -168,21 +166,21 @@ public class ClusterStatsResource
         }
 
         @JsonProperty
-        public double getRowInputRate()
+        public long getTotalInputRows()
         {
-            return rowInputRate;
+            return totalInputRows;
         }
 
         @JsonProperty
-        public double getByteInputRate()
+        public long getTotalInputBytes()
         {
-            return byteInputRate;
+            return totalInputBytes;
         }
 
         @JsonProperty
-        public double getCpuTimeRate()
+        public long getTotalCpuTimeSecs()
         {
-            return cpuTimeRate;
+            return totalCpuTimeSecs;
         }
     }
 }

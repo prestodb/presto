@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -62,8 +63,8 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -123,7 +124,7 @@ class PropertyDerivations
         verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
 
         // TODO: ideally this logic would be somehow moved to PlanSanityChecker
-        verify(node instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsReplicated) || output.isNullsReplicated(),
+        verify(node instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || output.isNullsAndAnyReplicated(),
                 "SemiJoinNode is the only node that can strip null replication");
 
         return output;
@@ -135,7 +136,7 @@ class PropertyDerivations
     }
 
     private static class Visitor
-            extends PlanVisitor<List<ActualProperties>, ActualProperties>
+            extends PlanVisitor<ActualProperties, List<ActualProperties>>
     {
         private final Metadata metadata;
         private final Session session;
@@ -186,7 +187,13 @@ class PropertyDerivations
         @Override
         public ActualProperties visitApply(ApplyNode node, List<ActualProperties> inputProperties)
         {
-            return inputProperties.get(0); // apply node input (outer query)
+            throw new IllegalArgumentException("Unexpected node: " + node.getClass().getName());
+        }
+
+        @Override
+        public ActualProperties visitLateralJoin(LateralJoinNode node, List<ActualProperties> inputProperties)
+        {
+            throw new IllegalArgumentException("Unexpected node: " + node.getClass().getName());
         }
 
         @Override
@@ -435,7 +442,7 @@ class PropertyDerivations
         @Override
         public ActualProperties visitExchange(ExchangeNode node, List<ActualProperties> inputProperties)
         {
-            checkArgument(node.getScope() != REMOTE || inputProperties.stream().noneMatch(ActualProperties::isNullsReplicated), "Null replicated inputs should not be remotely exchanged");
+            checkArgument(node.getScope() != REMOTE || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated), "Null-and-any replicated inputs should not be remotely exchanged");
 
             Set<Map.Entry<Symbol, NullableValue>> entries = null;
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
@@ -472,7 +479,7 @@ class PropertyDerivations
                             .global(partitionedOn(
                                     node.getPartitioningScheme().getPartitioning(),
                                     Optional.of(node.getPartitioningScheme().getPartitioning()))
-                                    .withReplicatedNulls(node.getPartitioningScheme().isReplicateNulls()))
+                                    .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
                             .constants(constants)
                             .build();
                 case REPLICATE:
@@ -519,8 +526,8 @@ class PropertyDerivations
             for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
                 Expression expression = assignment.getValue();
 
-                IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList() /* parameters already replaced */);
-                Type type = requireNonNull(expressionTypes.get(expression));
+                Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList() /* parameters already replaced */);
+                Type type = requireNonNull(expressionTypes.get(NodeRef.of(expression)));
                 ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                 // TODO:
                 // We want to use a symbol resolver that looks up in the constants from the input subplan

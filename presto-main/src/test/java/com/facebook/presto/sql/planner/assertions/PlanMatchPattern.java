@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
@@ -22,13 +23,16 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -45,12 +49,14 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -158,6 +164,29 @@ public final class PlanMatchPattern
         return result;
     }
 
+    public static PlanMatchPattern markDistinct(
+            String markerSymbol,
+            List<String> distinctSymbols,
+            PlanMatchPattern source)
+    {
+        return node(MarkDistinctNode.class, source).with(new MarkDistinctMatcher(
+                new SymbolAlias(markerSymbol),
+                toSymbolAliases(distinctSymbols),
+                Optional.empty()));
+    }
+
+    public static PlanMatchPattern markDistinct(
+            String markerSymbol,
+            List<String> distinctSymbols,
+            String hashSymbol,
+            PlanMatchPattern source)
+    {
+        return node(MarkDistinctNode.class, source).with(new MarkDistinctMatcher(
+                new SymbolAlias(markerSymbol),
+                toSymbolAliases(distinctSymbols),
+                Optional.of(new SymbolAlias(hashSymbol))));
+    }
+
     public static PlanMatchPattern window(
             ExpectedValueProvider<WindowNode.Specification> specification,
             List<ExpectedValueProvider<FunctionCall>> windowFunctions,
@@ -261,6 +290,12 @@ public final class PlanMatchPattern
         return node(UnionNode.class, sources);
     }
 
+    public static PlanMatchPattern assignUniqueId(String uniqueSymbolAlias, PlanMatchPattern source)
+    {
+        return node(AssignUniqueId.class, source)
+                .withAlias(uniqueSymbolAlias, new AssignUniqueIdMatcher());
+    }
+
     public static PlanMatchPattern intersect(PlanMatchPattern... sources)
     {
         return node(IntersectNode.class, sources);
@@ -296,17 +331,52 @@ public final class PlanMatchPattern
         return result;
     }
 
+    public static PlanMatchPattern lateral(List<String> correlationSymbolAliases, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    {
+        return node(LateralJoinNode.class, inputPattern, subqueryPattern)
+                .with(new CorrelationMatcher(correlationSymbolAliases));
+    }
+
     public static PlanMatchPattern groupingSet(List<List<String>> groups, String groupIdAlias, PlanMatchPattern source)
     {
         return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of(), groupIdAlias));
     }
 
-    public static PlanMatchPattern values(Map<String, Integer> values)
+    private static PlanMatchPattern values(
+            Map<String, Integer> aliasToIndex,
+            Optional<Integer> expectedOutputSymbolCount,
+            Optional<List<List<Expression>>> expectedRows
+    )
     {
-        PlanMatchPattern result = node(ValuesNode.class);
-        values.entrySet().forEach(
-                alias -> result.withAlias(alias.getKey(), new ValuesMatcher(alias.getValue())));
-        return result;
+        return node(ValuesNode.class).with(new ValuesMatcher(aliasToIndex, expectedOutputSymbolCount, expectedRows));
+    }
+
+    private static PlanMatchPattern values(List<String> aliases, Optional<List<List<Expression>>> expectedRows)
+    {
+        return values(
+                Maps.uniqueIndex(IntStream.range(0, aliases.size()).boxed().iterator(), aliases::get),
+                Optional.of(aliases.size()),
+                expectedRows);
+    }
+
+    public static PlanMatchPattern values(Map<String, Integer> aliasToIndex)
+    {
+        return values(aliasToIndex, Optional.empty(), Optional.empty());
+    }
+
+    public static PlanMatchPattern values(String ... aliases)
+    {
+        return values(ImmutableList.copyOf(aliases));
+    }
+
+    public static PlanMatchPattern values(List<String> aliases, List<List<Expression>> expectedRows)
+    {
+        return values(aliases, Optional.of(expectedRows));
+    }
+
+    public static PlanMatchPattern values(List<String> aliases)
+    {
+        return values(aliases, Optional.empty());
     }
 
     public static PlanMatchPattern limit(long limit, PlanMatchPattern source)
@@ -339,12 +409,12 @@ public final class PlanMatchPattern
         return states.build();
     }
 
-    MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    MatchResult detailMatches(PlanNode node, PlanNodeCost planNodeCost, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, session, metadata, symbolAliases);
+            MatchResult matchResult = matcher.detailMatches(node, planNodeCost, session, metadata, symbolAliases);
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
@@ -360,6 +430,11 @@ public final class PlanMatchPattern
         return this;
     }
 
+    public PlanMatchPattern withAlias(String alias)
+    {
+        return withAlias(Optional.of(alias), new AliasPresent(alias));
+    }
+
     public PlanMatchPattern withAlias(String alias, RvalueMatcher matcher)
     {
         return withAlias(Optional.of(alias), matcher);
@@ -367,7 +442,7 @@ public final class PlanMatchPattern
 
     public PlanMatchPattern withAlias(Optional<String> alias, RvalueMatcher matcher)
     {
-        matchers.add(new Alias(alias, matcher));
+        matchers.add(new AliasMatcher(alias, matcher));
         return this;
     }
 
@@ -382,6 +457,11 @@ public final class PlanMatchPattern
      * in the outputs. This is the case for symbols that are produced by a direct or indirect
      * source of the node you're applying this to.
      */
+    public PlanMatchPattern withExactOutputs(String... expectedAliases)
+    {
+        return withExactOutputs(ImmutableList.copyOf(expectedAliases));
+    }
+
     public PlanMatchPattern withExactOutputs(List<String> expectedAliases)
     {
         matchers.add(new StrictSymbolsMatcher(actualOutputs(), expectedAliases));
@@ -394,15 +474,31 @@ public final class PlanMatchPattern
      * the alias is *not* known when the Matcher is run, and so you need to match by what
      * is being assigned to it.
      */
+    public PlanMatchPattern withExactAssignedOutputs(RvalueMatcher... expectedAliases)
+    {
+        return withExactAssignedOutputs(ImmutableList.copyOf(expectedAliases));
+    }
+
     public PlanMatchPattern withExactAssignedOutputs(Collection<? extends RvalueMatcher> expectedAliases)
     {
         matchers.add(new StrictAssignedSymbolsMatcher(actualOutputs(), expectedAliases));
         return this;
     }
 
+    public PlanMatchPattern withExactAssignments(RvalueMatcher... expectedAliases)
+    {
+        return withExactAssignments(ImmutableList.copyOf(expectedAliases));
+    }
+
     public PlanMatchPattern withExactAssignments(Collection<? extends RvalueMatcher> expectedAliases)
     {
         matchers.add(new StrictAssignedSymbolsMatcher(actualAssignments(), expectedAliases));
+        return this;
+    }
+
+    public PlanMatchPattern withCost(PlanNodeCost cost)
+    {
+        matchers.add(new PlanCostMatcher(cost));
         return this;
     }
 
@@ -414,6 +510,11 @@ public final class PlanMatchPattern
     public static ExpressionMatcher expression(String expression)
     {
         return new ExpressionMatcher(expression);
+    }
+
+    public PlanMatchPattern withOutputs(String... aliases)
+    {
+        return withOutputs(ImmutableList.copyOf(aliases));
     }
 
     public PlanMatchPattern withOutputs(List<String> aliases)

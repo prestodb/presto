@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 
@@ -47,7 +48,7 @@ public final class GroupingSets
         super(location);
         requireNonNull(sets, "sets is null");
         checkArgument(!sets.isEmpty(), "grouping sets cannot be empty");
-        this.sets = ImmutableList.copyOf(sets.stream().map(ImmutableList::copyOf).collect(Collectors.toList()));
+        this.sets = sets.stream().map(ImmutableList::copyOf).collect(toImmutableList());
     }
 
     public List<List<QualifiedName>> getSets()

@@ -29,8 +29,8 @@ public interface H2ResourceGroupsDao
     void updateResourceGroupsGlobalProperties(@Bind("name") String name);
 
     @SqlUpdate("INSERT INTO resource_groups\n" +
-            "(resource_group_id, name, soft_memory_limit, max_queued, max_running, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, parent)\n" +
-            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :max_running, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :parent)")
+            "(resource_group_id, name, soft_memory_limit, max_queued, max_running, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, queued_time_limit, running_time_limit, parent)\n" +
+            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :max_running, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :queued_time_limit, :running_time_limit, :parent)")
     void insertResourceGroup(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String name,
@@ -42,6 +42,8 @@ public interface H2ResourceGroupsDao
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,
+            @Bind("queued_time_limit") String queuedTimeLimit,
+            @Bind("running_time_limit") String runningTimeLimit,
             @Bind("parent") Long parent
     );
 
@@ -56,6 +58,8 @@ public interface H2ResourceGroupsDao
             ", jmx_export = :jmx_export\n" +
             ", soft_cpu_limit = :soft_cpu_limit\n" +
             ", hard_cpu_limit = :hard_cpu_limit\n" +
+            ", queued_time_limit = :queued_time_limit\n" +
+            ", running_time_limit = :running_time_limit\n" +
             ", parent = :parent\n" +
             "WHERE resource_group_id = :resource_group_id")
     void updateResourceGroup(
@@ -69,6 +73,8 @@ public interface H2ResourceGroupsDao
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,
+            @Bind("queued_time_limit") String queuedTimeLimit,
+            @Bind("running_time_limit") String runningTimeLimit,
             @Bind("parent") Long parent);
 
     @SqlUpdate("DELETE FROM resource_groups WHERE resource_group_id = :resource_group_id")

@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
@@ -301,7 +302,7 @@ public class BackgroundHiveSplitLoader
                 TextInputFormat targetInputFormat = new TextInputFormat();
                 // get the configuration for the target path -- it may be a different hdfs instance
                 Configuration targetConfiguration = hdfsEnvironment.getConfiguration(targetPath);
-                JobConf targetJob = new JobConf(targetConfiguration);
+                JobConf targetJob = toJobConf(targetConfiguration);
                 targetJob.setInputFormat(TextInputFormat.class);
                 targetInputFormat.configure(targetJob);
                 FileInputFormat.setInputPaths(targetJob, targetPath);
@@ -317,7 +318,7 @@ public class BackgroundHiveSplitLoader
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
         if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
-            JobConf jobConf = new JobConf(configuration);
+            JobConf jobConf = toJobConf(configuration);
             FileInputFormat.setInputPaths(jobConf, path);
             InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
 

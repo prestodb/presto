@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -78,18 +80,12 @@ public class SymbolMapper
 
     private AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
     {
-        ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
-        for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Symbol symbol = entry.getKey();
-            Symbol canonical = map(symbol);
-            FunctionCall canonicalCall = (FunctionCall) map(entry.getValue());
-            functionCalls.put(canonical, canonicalCall);
-            functionInfos.put(canonical, node.getFunctions().get(symbol));
-        }
-        for (Map.Entry<Symbol, Symbol> entry : node.getMasks().entrySet()) {
-            masks.put(map(entry.getKey()), map(entry.getValue()));
+            Aggregation aggregation = entry.getValue();
+
+            aggregations.put(map(symbol), new Aggregation((FunctionCall) map(aggregation.getCall()), aggregation.getSignature(), aggregation.getMask().map(this::map)));
         }
 
         List<List<Symbol>> groupingSets = node.getGroupingSets().stream()
@@ -99,13 +95,34 @@ public class SymbolMapper
         return new AggregationNode(
                 newNodeId,
                 source,
-                functionCalls.build(),
-                functionInfos.build(),
-                masks.build(),
+                aggregations.build(),
                 groupingSets,
                 node.getStep(),
                 node.getHashSymbol().map(this::map),
                 node.getGroupIdSymbol().map(this::map));
+    }
+
+    public TopNNode map(TopNNode node, PlanNode source, PlanNodeId newNodeId)
+    {
+        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+        Set<Symbol> seenCanonicals = new HashSet<>(node.getOrderBy().size());
+        for (Symbol symbol : node.getOrderBy()) {
+            Symbol canonical = map(symbol);
+            if (seenCanonicals.add(canonical)) {
+                seenCanonicals.add(canonical);
+                symbols.add(canonical);
+                orderings.put(canonical, node.getOrderings().get(symbol));
+            }
+        }
+
+        return new TopNNode(
+                newNodeId,
+                source,
+                node.getCount(),
+                symbols.build(),
+                orderings.build(),
+                node.getStep());
     }
 
     private List<Symbol> mapAndDistinct(List<Symbol> outputs)

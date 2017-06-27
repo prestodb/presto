@@ -15,6 +15,8 @@ package com.facebook.presto.server.security;
 
 import io.airlift.configuration.Config;
 
+import javax.validation.constraints.NotNull;
+
 import java.io.File;
 
 public class KerberosConfig
@@ -23,6 +25,7 @@ public class KerberosConfig
     private String serviceName;
     private File keytab;
 
+    @NotNull
     public File getKerberosConfig()
     {
         return kerberosConfig;
@@ -35,6 +38,7 @@ public class KerberosConfig
         return this;
     }
 
+    @NotNull
     public String getServiceName()
     {
         return serviceName;

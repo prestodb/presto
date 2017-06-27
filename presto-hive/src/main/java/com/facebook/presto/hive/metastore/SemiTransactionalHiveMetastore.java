@@ -144,6 +144,65 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    public synchronized Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        checkReadable();
+        Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
+        if (tableAction == null) {
+            return delegate.getTableColumnStatistics(databaseName, tableName, columnNames);
+        }
+        switch (tableAction.getType()) {
+            case ADD:
+            case ALTER:
+            case INSERT_EXISTING:
+            case DROP:
+                return Optional.empty();
+            default:
+                throw new IllegalStateException("Unknown action type");
+        }
+    }
+
+    public synchronized Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        checkReadable();
+        Optional<Table> table = getTable(databaseName, tableName);
+        if (!table.isPresent()) {
+            return Optional.empty();
+        }
+        TableSource tableSource = getTableSource(databaseName, tableName);
+        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
+        ImmutableSet.Builder<String> partitionNamesToQuery = ImmutableSet.builder();
+        ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> resultBuilder = ImmutableMap.builder();
+        for (String partitionName : partitionNames) {
+            List<String> partitionValues = toPartitionValues(partitionName);
+            Action<PartitionAndMore> partitionAction = partitionActionsOfTable.get(partitionValues);
+            if (partitionAction == null) {
+                switch (tableSource) {
+                    case PRE_EXISTING_TABLE:
+                        partitionNamesToQuery.add(partitionName);
+                        break;
+                    case CREATED_IN_THIS_TRANSACTION:
+                        resultBuilder.put(partitionName, ImmutableMap.of());
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("unknown table source");
+                }
+            }
+            else {
+                resultBuilder.put(partitionName, ImmutableMap.of());
+            }
+        }
+
+        Optional<Map<String, Map<String, HiveColumnStatistics>>> delegateResult = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesToQuery.build(), columnNames);
+        if (delegateResult.isPresent()) {
+            resultBuilder.putAll(delegateResult.get());
+        }
+        else {
+            partitionNamesToQuery.build().forEach(partionName -> resultBuilder.put(partionName, ImmutableMap.of()));
+        }
+        return Optional.of(resultBuilder.build());
+    }
+
     /**
      * This method can only be called when the table is known to exist
      */
@@ -1562,6 +1621,11 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    private static Optional<String> getPrestoQueryId(Table table)
+    {
+        return Optional.ofNullable(table.getParameters().get(PRESTO_QUERY_ID_NAME));
+    }
+
     private static Optional<String> getPrestoQueryId(Partition partition)
     {
         return Optional.ofNullable(partition.getParameters().get(PRESTO_QUERY_ID_NAME));
@@ -1976,7 +2040,9 @@ public class SemiTransactionalHiveMetastore
 
         public CreateTableOperation(Table table, PrincipalPrivileges privileges)
         {
-            this.table = requireNonNull(table, "table is null");
+            requireNonNull(table, "table is null");
+            checkArgument(getPrestoQueryId(table).isPresent());
+            this.table = table;
             this.privileges = requireNonNull(privileges, "privileges is null");
         }
 
@@ -1987,8 +2053,28 @@ public class SemiTransactionalHiveMetastore
 
         public void run(ExtendedHiveMetastore metastore)
         {
-            metastore.createTable(table, privileges);
-            done = true;
+            try {
+                metastore.createTable(table, privileges);
+                done = true;
+            }
+            catch (RuntimeException e) {
+                try {
+                    Optional<Table> remoteTable = metastore.getTable(table.getDatabaseName(), table.getTableName());
+                    // getPrestoQueryId(partition) is guaranteed to be non-empty. It is asserted in the constructor.
+                    if (remoteTable.isPresent() && getPrestoQueryId(remoteTable.get()).equals(getPrestoQueryId(table))) {
+                        done = true;
+                    }
+                }
+                catch (RuntimeException ignored) {
+                    // When table could not be fetched from metastore, it is not known whether the table was added.
+                    // Deleting the table when aborting commit has the risk of deleting table not added in this transaction.
+                    // Not deleting the table may leave garbage behind. The former is much more dangerous than the latter.
+                    // Therefore, the table is not considered added.
+                }
+                if (!done) {
+                    throw e;
+                }
+            }
         }
 
         public void undo(ExtendedHiveMetastore metastore)

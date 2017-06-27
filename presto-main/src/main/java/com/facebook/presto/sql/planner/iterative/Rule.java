@@ -22,5 +22,15 @@ import java.util.Optional;
 
 public interface Rule
 {
+    /**
+     * Returns a pattern to which plan nodes this rule applies.
+     * Notice that rule may be still invoked for plan nodes which given pattern does not apply,
+     * then rule should return Optional.empty() in such case
+     */
+    default Pattern getPattern()
+    {
+        return Pattern.any();
+    }
+
     Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session);
 }

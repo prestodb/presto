@@ -21,7 +21,9 @@ import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.MergeAdjacentWindows;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FrameBound;
@@ -34,6 +36,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
@@ -93,6 +96,13 @@ public class TestMergeWindows
 
     public TestMergeWindows()
     {
+      this(ImmutableMap.of());
+    }
+
+    public TestMergeWindows(Map<String, String> sessionProperties)
+    {
+        super(sessionProperties);
+
         specificationA = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
@@ -166,13 +176,13 @@ public class TestMergeWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(specificationB,
+                        window(specificationA,
                                 ImmutableList.of(
-                                functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                window(specificationA,
-                                        ImmutableList.of(
                                         functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS)),
                                         functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                window(specificationB,
+                                        ImmutableList.of(
+                                                functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                         LINEITEM_TABLESCAN_DOQSS))));
     }
 
@@ -241,13 +251,12 @@ public class TestMergeWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(specificationD,
+                        window(specificationC,
                                 ImmutableList.of(
-                                functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                window(specificationC,
-                                        ImmutableList.of(
                                         functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(QUANTITY_ALIAS)),
                                         functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                window(specificationD,
+                                        ImmutableList.of(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                         LINEITEM_TABLESCAN_DOQSS))));
     }
 
@@ -394,10 +403,10 @@ public class TestMergeWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(specificationC, ImmutableList.of(
-                                functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                window(specificationA, ImmutableList.of(
-                                        functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                        window(specificationA, ImmutableList.of(
+                                functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                window(specificationC, ImmutableList.of(
+                                        functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                         LINEITEM_TABLESCAN_DOQS))));
     }
 
@@ -463,11 +472,11 @@ public class TestMergeWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(specificationC, ImmutableList.of(
-                                functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                window(specificationA, ImmutableList.of(
-                                        functionCall("sum", COMMON_FRAME, ImmutableList.of(EXTENDEDPRICE_ALIAS)),
-                                        functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                        window(specificationA, ImmutableList.of(
+                                functionCall("sum", COMMON_FRAME, ImmutableList.of(EXTENDEDPRICE_ALIAS)),
+                                functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                window(specificationC, ImmutableList.of(
+                                        functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                         LINEITEM_TABLESCAN_DEOQS))));
     }
 
@@ -476,12 +485,14 @@ public class TestMergeWindows
         LocalQueryRunner queryRunner = getQueryRunner();
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new MergeWindows(),
+                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(
+                        new RemoveRedundantIdentityProjections(),
+                        new SwapAdjacentWindowsBySpecifications(),
+                        new MergeAdjacentWindows())),
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
             return null;
         });
     }

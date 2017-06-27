@@ -264,6 +264,11 @@ public class TestAccessControlManager
                 }
 
                 @Override
+                public void checkCanAccessCatalog(Identity identity, String catalogName)
+                {
+                }
+
+                @Override
                 public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
                 {
                     throw new UnsupportedOperationException();
@@ -275,6 +280,12 @@ public class TestAccessControlManager
                     if (table.getCatalogName().equals("secured_catalog")) {
                         denySelectTable(table.toString());
                     }
+                }
+
+                @Override
+                public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+                {
+                    return catalogs;
                 }
             };
         }
@@ -386,13 +397,13 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
+        public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
+        public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
         {
             throw new UnsupportedOperationException();
         }

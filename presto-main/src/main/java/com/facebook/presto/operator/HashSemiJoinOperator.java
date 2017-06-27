@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -25,7 +24,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -176,9 +174,12 @@ public class HashSemiJoinOperator
         // update hashing strategy to use probe cursor
         for (int position = 0; position < page.getPositionCount(); position++) {
             if (probeJoinPage.getBlock(0).isNull(position)) {
-                throw new PrestoException(
-                        NOT_SUPPORTED,
-                        "NULL values are not allowed on the probe side of SemiJoin operator. See the query plan for details.");
+                if (channelSet.isEmpty()) {
+                    BOOLEAN.writeBoolean(blockBuilder, false);
+                }
+                else {
+                    blockBuilder.appendNull();
+                }
             }
             else {
                 boolean contains = channelSet.contains(position, probeJoinPage);

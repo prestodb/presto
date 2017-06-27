@@ -18,6 +18,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -47,6 +48,14 @@ public final class Reflection
         }
     }
 
+    /**
+     * Returns a MethodHandle corresponding to the specified method.
+     * <p>
+     * Warning: The way Oracle JVM implements producing MethodHandle for a method involves creating
+     * JNI global weak references. G1 processes such references serially. As a result, calling this
+     * method in a tight loop can create significant GC pressure and significantly increase
+     * application pause time.
+     */
     public static MethodHandle methodHandle(Class<?> clazz, String name, Class<?>... parameterTypes)
     {
         try {
@@ -57,22 +66,82 @@ public final class Reflection
         }
     }
 
-    public static MethodHandle methodHandle(Method method)
+    /**
+     * Returns a MethodHandle corresponding to the specified method.
+     * <p>
+     * Warning: The way Oracle JVM implements producing MethodHandle for a method involves creating
+     * JNI global weak references. G1 processes such references serially. As a result, calling this
+     * method in a tight loop can create significant GC pressure and significantly increase
+     * application pause time.
+     */
+    public static MethodHandle methodHandle(StandardErrorCode errorCode, Method method)
     {
         try {
             return MethodHandles.lookup().unreflect(method);
         }
         catch (IllegalAccessException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new PrestoException(errorCode, e);
         }
     }
 
+    /**
+     * Returns a MethodHandle corresponding to the specified method.
+     * <p>
+     * Warning: The way Oracle JVM implements producing MethodHandle for a method involves creating
+     * JNI global weak references. G1 processes such references serially. As a result, calling this
+     * method in a tight loop can create significant GC pressure and significantly increase
+     * application pause time.
+     */
+    public static MethodHandle methodHandle(Method method)
+    {
+        return methodHandle(GENERIC_INTERNAL_ERROR, method);
+    }
+
+    /**
+     * Returns a MethodHandle corresponding to the specified constructor.
+     * <p>
+     * Warning: The way Oracle JVM implements producing MethodHandle for a constructor involves
+     * creating JNI global weak references. G1 processes such references serially. As a result,
+     * calling this method in a tight loop can create significant GC pressure and significantly
+     * increase application pause time.
+     */
+    public static MethodHandle constructorMethodHandle(Class<?> clazz, Class<?>... parameterTypes)
+    {
+        return constructorMethodHandle(GENERIC_INTERNAL_ERROR, clazz, parameterTypes);
+    }
+
+    /**
+     * Returns a MethodHandle corresponding to the specified constructor.
+     * <p>
+     * Warning: The way Oracle JVM implements producing MethodHandle for a constructor involves
+     * creating JNI global weak references. G1 processes such references serially. As a result,
+     * calling this method in a tight loop can create significant GC pressure and significantly
+     * increase application pause time.
+     */
     public static MethodHandle constructorMethodHandle(StandardErrorCode errorCode, Class<?> clazz, Class<?>... parameterTypes)
     {
         try {
             return MethodHandles.lookup().unreflectConstructor(clazz.getConstructor(parameterTypes));
         }
         catch (IllegalAccessException | NoSuchMethodException e) {
+            throw new PrestoException(errorCode, e);
+        }
+    }
+
+    /**
+     * Returns a MethodHandle corresponding to the specified constructor.
+     * <p>
+     * Warning: The way Oracle JVM implements producing MethodHandle for a constructor involves
+     * creating JNI global weak references. G1 processes such references serially. As a result,
+     * calling this method in a tight loop can create significant GC pressure and significantly
+     * increase application pause time.
+     */
+    public static MethodHandle constructorMethodHandle(StandardErrorCode errorCode, Constructor constructor)
+    {
+        try {
+            return MethodHandles.lookup().unreflectConstructor(constructor);
+        }
+        catch (IllegalAccessException e) {
             throw new PrestoException(errorCode, e);
         }
     }

@@ -19,6 +19,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
@@ -30,20 +31,17 @@ import javax.validation.constraints.Size;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
-                "cassandra.no-host-available-retry-count"})
+                "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
+                "cassandra.schema-refresh-interval"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private Duration schemaCacheTtl = new Duration(1, TimeUnit.HOURS);
-    private Duration schemaRefreshInterval = new Duration(2, TimeUnit.MINUTES);
-    private int maxSchemaRefreshThreads = 1;
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
@@ -68,45 +66,6 @@ public class CassandraClientConfig
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
-
-    @Min(1)
-    public int getMaxSchemaRefreshThreads()
-    {
-        return maxSchemaRefreshThreads;
-    }
-
-    @Config("cassandra.max-schema-refresh-threads")
-    public CassandraClientConfig setMaxSchemaRefreshThreads(int maxSchemaRefreshThreads)
-    {
-        this.maxSchemaRefreshThreads = maxSchemaRefreshThreads;
-        return this;
-    }
-
-    @NotNull
-    public Duration getSchemaCacheTtl()
-    {
-        return schemaCacheTtl;
-    }
-
-    @Config("cassandra.schema-cache-ttl")
-    public CassandraClientConfig setSchemaCacheTtl(Duration schemaCacheTtl)
-    {
-        this.schemaCacheTtl = schemaCacheTtl;
-        return this;
-    }
-
-    @NotNull
-    public Duration getSchemaRefreshInterval()
-    {
-        return schemaRefreshInterval;
-    }
-
-    @Config("cassandra.schema-refresh-interval")
-    public CassandraClientConfig setSchemaRefreshInterval(Duration schemaRefreshInterval)
-    {
-        this.schemaRefreshInterval = schemaRefreshInterval;
-        return this;
-    }
 
     @NotNull
     @Size(min = 1)
@@ -224,6 +183,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.password")
+    @ConfigSecuritySensitive
     public CassandraClientConfig setPassword(String password)
     {
         this.password = password;

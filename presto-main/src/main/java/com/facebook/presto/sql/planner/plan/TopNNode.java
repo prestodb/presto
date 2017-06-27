@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -29,17 +28,24 @@ import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TopNNode
         extends PlanNode
 {
+    public enum Step {
+        SINGLE,
+        PARTIAL,
+        FINAL
+    }
+
     private final PlanNode source;
     private final long count;
     private final List<Symbol> orderBy;
     private final Map<Symbol, SortOrder> orderings;
-    private final boolean partial;
+    private final Step step;
 
     @JsonCreator
     public TopNNode(@JsonProperty("id") PlanNodeId id,
@@ -47,22 +53,22 @@ public class TopNNode
             @JsonProperty("count") long count,
             @JsonProperty("orderBy") List<Symbol> orderBy,
             @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
-            @JsonProperty("partial") boolean partial)
+            @JsonProperty("step") Step step)
     {
         super(id);
 
         requireNonNull(source, "source is null");
-        Preconditions.checkArgument(count >= 0, "count must be positive");
+        checkArgument(count >= 0, "count must be positive");
         checkCondition(count <= Integer.MAX_VALUE, NOT_SUPPORTED, "ORDER BY LIMIT > %s is not supported", Integer.MAX_VALUE);
         requireNonNull(orderBy, "orderBy is null");
-        Preconditions.checkArgument(!orderBy.isEmpty(), "orderBy is empty");
-        Preconditions.checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
+        checkArgument(!orderBy.isEmpty(), "orderBy is empty");
+        checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
 
         this.source = source;
         this.count = count;
         this.orderBy = ImmutableList.copyOf(orderBy);
         this.orderings = ImmutableMap.copyOf(orderings);
-        this.partial = partial;
+        this.step = requireNonNull(step, "step is null");
     }
 
     @Override
@@ -101,14 +107,14 @@ public class TopNNode
         return orderings;
     }
 
-    @JsonProperty("partial")
-    public boolean isPartial()
+    @JsonProperty("step")
+    public Step getStep()
     {
-        return partial;
+        return step;
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTopN(this, context);
     }
@@ -116,6 +122,6 @@ public class TopNNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNNode(getId(), Iterables.getOnlyElement(newChildren), count, orderBy, orderings, partial);
+        return new TopNNode(getId(), Iterables.getOnlyElement(newChildren), count, orderBy, orderings, step);
     }
 }

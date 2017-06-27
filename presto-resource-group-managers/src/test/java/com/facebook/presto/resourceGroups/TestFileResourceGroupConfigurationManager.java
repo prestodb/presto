@@ -69,6 +69,8 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getSchedulingPolicy(), WEIGHTED);
         assertEquals(global.getSchedulingWeight(), 0);
         assertEquals(global.getJmxExport(), true);
+        assertEquals(global.getQueuedTimeLimit(), new Duration(1, HOURS));
+        assertEquals(global.getRunningTimeLimit(), new Duration(1, HOURS));
 
         ResourceGroup sub = new TestingResourceGroup(new ResourceGroupId(new ResourceGroupId("global"), "sub"));
         manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), 1));
@@ -78,6 +80,8 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(sub.getSchedulingPolicy(), null);
         assertEquals(sub.getSchedulingWeight(), 5);
         assertEquals(sub.getJmxExport(), false);
+        assertEquals(global.getQueuedTimeLimit(), new Duration(1, HOURS));
+        assertEquals(global.getRunningTimeLimit(), new Duration(1, HOURS));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector refers to nonexistent group: a.b.c.X")

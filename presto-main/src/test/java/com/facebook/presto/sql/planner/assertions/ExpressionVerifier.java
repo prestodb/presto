@@ -25,6 +25,8 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
@@ -103,6 +105,30 @@ final class ExpressionVerifier
         }
 
         return process(actual.getExpression(), expected.getExpression());
+    }
+
+    @Override
+    protected Boolean visitIsNullPredicate(IsNullPredicate actual, Expression expectedExpression)
+    {
+        if (!(expectedExpression instanceof IsNullPredicate)) {
+            return false;
+        }
+
+        IsNullPredicate expected = (IsNullPredicate) expectedExpression;
+
+        return process(actual.getValue(), expected.getValue());
+    }
+
+    @Override
+    protected Boolean visitIsNotNullPredicate(IsNotNullPredicate actual, Expression expectedExpression)
+    {
+        if (!(expectedExpression instanceof IsNotNullPredicate)) {
+            return false;
+        }
+
+        IsNotNullPredicate expected = (IsNotNullPredicate) expectedExpression;
+
+        return process(actual.getValue(), expected.getValue());
     }
 
     @Override

@@ -66,6 +66,7 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
@@ -83,6 +84,7 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -123,6 +125,7 @@ import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
@@ -164,6 +167,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -679,6 +683,20 @@ class AstBuilder
     }
 
     @Override
+    public Node visitShowStats(SqlBaseParser.ShowStatsContext context)
+    {
+        return new ShowStats(Optional.of(getLocation(context)), new Table(getQualifiedName(context.qualifiedName())));
+    }
+
+    @Override
+    public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
+    {
+        QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
+        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty());
+        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
+    }
+
+    @Override
     public Node visitShowPartitions(SqlBaseParser.ShowPartitionsContext context)
     {
         return new ShowPartitions(
@@ -893,6 +911,12 @@ class AstBuilder
     public Node visitUnnest(SqlBaseParser.UnnestContext context)
     {
         return new Unnest(getLocation(context), visit(context.expression(), Expression.class), context.ORDINALITY() != null);
+    }
+
+    @Override
+    public Node visitLateral(SqlBaseParser.LateralContext context)
+    {
+        return new Lateral(getLocation(context), (Query) visit(context.query()));
     }
 
     @Override
@@ -1262,14 +1286,20 @@ class AstBuilder
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
         }
         if (name.toString().equalsIgnoreCase("$internal$bind")) {
-            check(context.expression().size() == 2, "The '$internal$bind' function must have exactly two arguments", context);
+            check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
             check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
 
+            int numValues = context.expression().size() - 1;
+            List<Expression> arguments = context.expression().stream()
+                    .map(this::visit)
+                    .map(Expression.class::cast)
+                    .collect(toImmutableList());
+
             return new BindExpression(
                     getLocation(context),
-                    (Expression) visit(context.expression(0)),
-                    (Expression) visit(context.expression(1)));
+                    arguments.subList(0, numValues),
+                    arguments.get(numValues));
         }
 
         return new FunctionCall(
@@ -1291,7 +1321,7 @@ class AstBuilder
 
         Expression body = (Expression) visit(context.expression());
 
-        return new LambdaExpression(arguments, body);
+        return new LambdaExpression(getLocation(context), arguments, body);
     }
 
     @Override
@@ -1375,6 +1405,16 @@ class AstBuilder
     public Node visitCurrentRowBound(SqlBaseParser.CurrentRowBoundContext context)
     {
         return new FrameBound(getLocation(context), FrameBound.Type.CURRENT_ROW);
+    }
+
+    @Override
+    public Node visitGroupingOperation(SqlBaseParser.GroupingOperationContext context)
+    {
+        List<QualifiedName> arguments = context.qualifiedName().stream()
+                .map(AstBuilder::getQualifiedName)
+                .collect(toList());
+
+        return new GroupingOperation(Optional.of(getLocation(context)), arguments);
     }
 
     // ************** literals **************

@@ -42,13 +42,11 @@ public class CassandraPartitionManager
 {
     private static final Logger log = Logger.get(CassandraPartitionManager.class);
 
-    private final CachingCassandraSchemaProvider schemaProvider;
     private final CassandraSession cassandraSession;
 
     @Inject
-    public CassandraPartitionManager(CachingCassandraSchemaProvider schemaProvider, CassandraSession cassandraSession)
+    public CassandraPartitionManager(CassandraSession cassandraSession)
     {
-        this.schemaProvider = requireNonNull(schemaProvider, "schemaProvider is null");
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
     }
 
@@ -56,7 +54,7 @@ public class CassandraPartitionManager
     {
         CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
 
-        CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
+        CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
         List<CassandraColumnHandle> partitionKeys = table.getPartitionKeyColumns();
 
         // fetch the partitions

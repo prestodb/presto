@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.RowType;
 import org.testng.annotations.Test;
 
 import java.util.List;

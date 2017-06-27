@@ -75,6 +75,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
@@ -193,7 +194,7 @@ public final class LiteralInterpreter
         }
 
         if (object instanceof Block) {
-            SliceOutput output = new DynamicSliceOutput(((Block) object).getSizeInBytes());
+            SliceOutput output = new DynamicSliceOutput(toIntExact(((Block) object).getSizeInBytes()));
             BlockSerdeUtil.writeBlock(output, (Block) object);
             object = output.slice();
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)

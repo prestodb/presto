@@ -31,11 +31,12 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +46,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -84,7 +86,7 @@ public class CreateTableTask
             return immediateFuture(null);
         }
 
-        List<ColumnMetadata> columns = new ArrayList<>();
+        LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
         for (TableElement element : statement.getElements()) {
@@ -94,7 +96,10 @@ public class CreateTableTask
                 if ((type == null) || type.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, column, "Unknown type for column '%s' ", column.getName());
                 }
-                columns.add(new ColumnMetadata(column.getName(), type, column.getComment().orElse(null), false));
+                if (columns.containsKey(column.getName().toLowerCase())) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
+                }
+                columns.put(column.getName().toLowerCase(), new ColumnMetadata(column.getName(), type, column.getComment().orElse(null), false));
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
@@ -121,7 +126,12 @@ public class CreateTableTask
 
                 likeTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
-                        .forEach(columns::add);
+                        .forEach(column -> {
+                            if (columns.containsKey(column.getName().toLowerCase())) {
+                                throw new SemanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
+                            }
+                            columns.put(column.getName().toLowerCase(), column);
+                        });
             }
             else {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid TableElement: " + element.getClass().getName());
@@ -143,7 +153,7 @@ public class CreateTableTask
 
         Map<String, Object> finalProperties = combineProperties(statement.getProperties().keySet(), properties, inheritedProperties);
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, finalProperties, statement.getComment());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
 
         metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
 

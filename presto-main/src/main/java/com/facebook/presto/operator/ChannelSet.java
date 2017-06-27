@@ -53,6 +53,11 @@ public class ChannelSet
         return hash.getGroupCount();
     }
 
+    public boolean isEmpty()
+    {
+        return size() == 0;
+    }
+
     public boolean containsNull()
     {
         return containsNull;

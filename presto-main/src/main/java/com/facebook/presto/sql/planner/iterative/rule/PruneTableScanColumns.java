@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -25,21 +26,27 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PruneTableScanColumns
         implements Rule
 {
+    private static final Pattern PATTERN = Pattern.node(ProjectNode.class);
+
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
     {
-        if (!(node instanceof ProjectNode)) {
-            return Optional.empty();
-        }
-
         ProjectNode parent = (ProjectNode) node;
 
         PlanNode source = lookup.resolve(parent.getSource());
@@ -49,12 +56,15 @@ public class PruneTableScanColumns
 
         TableScanNode child = (TableScanNode) source;
 
-        Optional<List<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
+        Optional<Set<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
         if (!dependencies.isPresent()) {
             return Optional.empty();
         }
 
-        List<Symbol> newOutputs = dependencies.get();
+        List<Symbol> newOutputs = child.getOutputSymbols().stream()
+                .filter(dependencies.get()::contains)
+                .collect(toImmutableList());
+
         return Optional.of(
                 new ProjectNode(
                         parent.getId(),

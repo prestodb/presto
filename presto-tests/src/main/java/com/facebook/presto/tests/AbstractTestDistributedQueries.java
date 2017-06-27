@@ -291,8 +291,11 @@ public abstract class AbstractTestDistributedQueries
     private void assertExplainAnalyze(@Language("SQL") String query)
     {
         String value = getOnlyElement(computeActual(query).getOnlyColumnAsSet());
+
+        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
+
         // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
+        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
     }
 
     protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
@@ -482,6 +485,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
         assertUpdate("DELETE FROM test_delete WHERE rand() < 0", 0);
+        assertUpdate("DELETE FROM test_delete WHERE orderkey < 0", 0);
         assertUpdate("DROP TABLE test_delete");
 
         // delete with a predicate that optimizes to false

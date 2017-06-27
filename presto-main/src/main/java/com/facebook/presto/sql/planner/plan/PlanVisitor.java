@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-public abstract class PlanVisitor<C, R>
+import com.facebook.presto.sql.planner.iterative.GroupReference;
+
+public abstract class PlanVisitor<R, C>
 {
     protected abstract R visitPlan(PlanNode node, C context);
 
@@ -183,6 +185,16 @@ public abstract class PlanVisitor<C, R>
     }
 
     public R visitAssignUniqueId(AssignUniqueId node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitGroupReference(GroupReference node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitLateralJoin(LateralJoinNode node, C context)
     {
         return visitPlan(node, context);
     }

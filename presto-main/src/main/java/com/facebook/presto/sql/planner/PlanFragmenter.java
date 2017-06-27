@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.NodePartitioning;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -55,6 +56,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -255,16 +257,44 @@ public class PlanFragmenter
 
         public FragmentProperties setDistribution(PartitioningHandle distribution)
         {
-            if (partitioningHandle.isPresent() && !partitioningHandle.get().equals(distribution) && !partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
-                checkState(partitioningHandle.get().isSingleNode(),
-                        "Cannot set distribution to %s. Already set to %s",
-                        distribution,
-                        partitioningHandle);
+            if (partitioningHandle.isPresent()) {
+                chooseDistribution(distribution);
                 return this;
             }
-            partitioningHandle = Optional.of(distribution);
 
+            partitioningHandle = Optional.of(distribution);
             return this;
+        }
+
+        private void chooseDistribution(PartitioningHandle distribution)
+        {
+            checkState(partitioningHandle.isPresent(), "No partitioning to choose from");
+
+            if (partitioningHandle.get().equals(distribution) ||
+                    partitioningHandle.get().isSingleNode() ||
+                    isCompatibleSystemPartitioning(distribution)) {
+                return;
+            }
+            if (partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
+                partitioningHandle = Optional.of(distribution);
+                return;
+            }
+            throw new IllegalStateException(format(
+                    "Cannot set distribution to %s. Already set to %s",
+                    distribution,
+                    partitioningHandle));
+        }
+
+        private boolean isCompatibleSystemPartitioning(PartitioningHandle distribution)
+        {
+            ConnectorPartitioningHandle currentHandle = partitioningHandle.get().getConnectorHandle();
+            ConnectorPartitioningHandle distributionHandle = distribution.getConnectorHandle();
+            if ((currentHandle instanceof SystemPartitioningHandle) &&
+                    (distributionHandle instanceof SystemPartitioningHandle)) {
+                return ((SystemPartitioningHandle) currentHandle).getPartitioning() ==
+                        ((SystemPartitioningHandle) distributionHandle).getPartitioning();
+            }
+            return false;
         }
 
         public FragmentProperties setCoordinatorOnlyDistribution()
@@ -333,7 +363,7 @@ public class PlanFragmenter
     }
 
     private static class SchedulingOrderVisitor
-            extends PlanVisitor<Consumer<PlanNodeId>, Void>
+            extends PlanVisitor<Void, Consumer<PlanNodeId>>
     {
         public List<PlanNodeId> getSchedulingOrder(PlanNode node)
         {

@@ -14,9 +14,13 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 
+import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static java.lang.String.format;
 
@@ -24,12 +28,23 @@ public final class PlanAssert
 {
     private PlanAssert() {}
 
-    public static void assertPlan(Session session, Metadata metadata, Plan actual, PlanMatchPattern pattern)
+    public static void assertPlan(Session session, Metadata metadata, CostCalculator costCalculator, Plan actual, PlanMatchPattern pattern)
     {
-        MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata), pattern);
+        assertPlan(session, metadata, costCalculator, actual, Lookup.noLookup(), pattern);
+    }
+
+    public static void assertPlan(Session session, Metadata metadata, CostCalculator costCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
+    {
+        MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, actual.getPlanNodeCosts(), lookup), pattern);
         if (!matches.isMatch()) {
-            String logicalPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, session);
-            throw new AssertionError(format("Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]", pattern, logicalPlan));
+            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, costCalculator, session);
+            PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
+            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, costCalculator, session);
+            throw new AssertionError(format(
+                    "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n] which resolves to [\n\n%s\n]",
+                    pattern,
+                    formattedPlan,
+                    resolvedFormattedPlan));
         }
     }
 }

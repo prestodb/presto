@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -28,6 +29,7 @@ import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -447,18 +449,7 @@ public class WindowOperator
         checkArgument(page.getPositionCount() > 0, "Must have at least one position");
         checkPositionIndex(startPosition, page.getPositionCount(), "startPosition out of bounds");
 
-        // Short circuit if the whole page has the same value
-        if (pagesHashStrategy.rowEqualsRow(startPosition, page, page.getPositionCount() - 1, page)) {
-            return page.getPositionCount();
-        }
-
-        // TODO: do position binary search
-        int endPosition = startPosition + 1;
-        while (endPosition < page.getPositionCount() &&
-                pagesHashStrategy.rowEqualsRow(endPosition - 1, page, endPosition, page)) {
-            endPosition++;
-        }
-        return endPosition;
+        return findEndPosition(startPosition, page.getPositionCount(), (firstPosition, secondPosition) -> pagesHashStrategy.rowEqualsRow(firstPosition, page, secondPosition, page));
     }
 
     // Assumes input grouped on relevant pagesHashStrategy columns
@@ -467,17 +458,63 @@ public class WindowOperator
         checkArgument(pagesIndex.getPositionCount() > 0, "Must have at least one position");
         checkPositionIndex(startPosition, pagesIndex.getPositionCount(), "startPosition out of bounds");
 
-        // Short circuit if the whole page has the same value
-        if (pagesIndex.positionEqualsPosition(pagesHashStrategy, startPosition, pagesIndex.getPositionCount() - 1)) {
-            return pagesIndex.getPositionCount();
+        return findEndPosition(startPosition, pagesIndex.getPositionCount(), (firstPosition, secondPosition) -> pagesIndex.positionEqualsPosition(pagesHashStrategy, firstPosition, secondPosition));
+    }
+
+    /**
+     * @param startPosition - inclusive
+     * @param endPosition - exclusive
+     * @param comparator - returns true if positions given as parameters are equal
+     * @return the end of the group position exclusive (the position the very next group starts)
+     */
+    @VisibleForTesting
+    static int findEndPosition(int startPosition, int endPosition, BiPredicate<Integer, Integer> comparator)
+    {
+        checkArgument(startPosition >= 0, "startPosition must be greater or equal than zero: %s", startPosition);
+        checkArgument(endPosition > 0, "endPosition must be greater than zero: %s", endPosition);
+        checkArgument(startPosition < endPosition, "startPosition must be less than endPosition: %s < %s", startPosition, endPosition);
+
+        int left = startPosition;
+        int right = endPosition - 1;
+        for (int i = 0; i < endPosition - startPosition; i++) {
+            int distance = right - left;
+
+            if (distance == 0) {
+                return right + 1;
+            }
+
+            if (distance == 1) {
+                if (comparator.test(left, right)) {
+                    return right + 1;
+                }
+                return right;
+            }
+
+            int mid = left + distance / 2;
+            if (comparator.test(left, mid)) {
+                // explore to the right
+                left = mid;
+            }
+            else {
+                // explore to the left
+                right = mid;
+            }
         }
 
-        // TODO: do position binary search
-        int endPosition = startPosition + 1;
-        while ((endPosition < pagesIndex.getPositionCount()) &&
-                pagesIndex.positionEqualsPosition(pagesHashStrategy, endPosition - 1, endPosition)) {
-            endPosition++;
+        // hasn't managed to find a solution after N iteration. Probably the input is not sorted. Lets verify it.
+        for (int first = startPosition; first < endPosition; first++) {
+            boolean previousPairsWereEqual = true;
+            for (int second = first + 1; second < endPosition; second++) {
+                if (!comparator.test(first, second)) {
+                    previousPairsWereEqual = false;
+                }
+                else if (!previousPairsWereEqual) {
+                    throw new IllegalArgumentException("The input is not sorted");
+                }
+            }
         }
-        return endPosition;
+
+        // the input is sorted, but the algorithm has still failed
+        throw new IllegalArgumentException("failed to find a group ending");
     }
 }

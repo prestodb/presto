@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.array.BlockBigArray;
+import com.facebook.presto.array.BooleanBigArray;
+import com.facebook.presto.array.ByteBigArray;
+import com.facebook.presto.array.DoubleBigArray;
+import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.array.ReferenceCountMap;
+import com.facebook.presto.array.SliceBigArray;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
@@ -26,16 +33,18 @@ import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.GroupedAccumulatorState;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
+import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Optional;
 
@@ -46,6 +55,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
 import static org.testng.Assert.assertEquals;
@@ -193,7 +203,7 @@ public class TestStateCompiler
     public void testComplexSerialization()
     {
         Type arrayType = new ArrayType(BIGINT);
-        Type mapType = new MapType(BIGINT, VARCHAR);
+        Type mapType = mapType(BIGINT, VARCHAR);
         Map<String, Type> fieldMap = ImmutableMap.of("Block", arrayType, "AnotherBlock", mapType);
         AccumulatorStateFactory<TestComplexState> factory = StateCompiler.generateStateFactory(TestComplexState.class, fieldMap, new DynamicClassLoader(TestComplexState.class.getClassLoader()));
         AccumulatorStateSerializer<TestComplexState> serializer = StateCompiler.generateStateSerializer(TestComplexState.class, fieldMap, new DynamicClassLoader(TestComplexState.class.getClassLoader()));
@@ -241,14 +251,68 @@ public class TestStateCompiler
         return slice.length() + SLICE_INSTANCE_SIZE;
     }
 
+    private long getComplexStateRetainedSize(TestComplexState state)
+    {
+        long retainedSize = ClassLayout.parseClass(state.getClass()).instanceSize();
+        // reflection is necessary because TestComplexState implementation is generated
+        Field[] fields = state.getClass().getDeclaredFields();
+        try {
+            for (Field field : fields) {
+                Class type = field.getType();
+                field.setAccessible(true);
+                if (type == BlockBigArray.class || type == BooleanBigArray.class || type == SliceBigArray.class ||
+                        type == ByteBigArray.class || type == DoubleBigArray.class || type == LongBigArray.class) {
+                    MethodHandle sizeOf = Reflection.methodHandle(type, "sizeOf", null);
+                    retainedSize += (long) sizeOf.invokeWithArguments(field.get(state));
+                }
+            }
+        }
+        catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+        return retainedSize;
+    }
+
+    private static long getBlockBigArrayReferenceCountMapOverhead(TestComplexState state)
+    {
+        long overhead = 0;
+        // reflection is necessary because TestComplexState implementation is generated
+        Field[] stateFields = state.getClass().getDeclaredFields();
+        try {
+            for (Field stateField : stateFields) {
+                if (stateField.getType() != BlockBigArray.class) {
+                    continue;
+                }
+                stateField.setAccessible(true);
+                Field[] blockBigArrayFields = stateField.getType().getDeclaredFields();
+                for (Field blockBigArrayField : blockBigArrayFields) {
+                    if (blockBigArrayField.getType() != ReferenceCountMap.class) {
+                        continue;
+                    }
+                    blockBigArrayField.setAccessible(true);
+                    MethodHandle sizeOf = Reflection.methodHandle(blockBigArrayField.getType(), "sizeOf", null);
+                    overhead += (long) sizeOf.invokeWithArguments(blockBigArrayField.get(stateField.get(state)));
+                }
+            }
+        }
+        catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+        return overhead;
+    }
+
     @Test
     public void testComplexStateEstimatedSize()
     {
-        Map<String, Type> fieldMap = ImmutableMap.of("Block", new ArrayType(BIGINT), "AnotherBlock", new MapType(BIGINT, VARCHAR));
+        Map<String, Type> fieldMap = ImmutableMap.of("Block", new ArrayType(BIGINT), "AnotherBlock", mapType(BIGINT, VARCHAR));
         AccumulatorStateFactory<TestComplexState> factory = StateCompiler.generateStateFactory(TestComplexState.class, fieldMap, new DynamicClassLoader(TestComplexState.class.getClassLoader()));
 
         TestComplexState groupedState = factory.createGroupedState();
-        assertEquals(groupedState.getEstimatedSize(), 76064);
+        long initialRetainedSize = getComplexStateRetainedSize(groupedState);
+        assertEquals(groupedState.getEstimatedSize(), initialRetainedSize);
+        // BlockBigArray has an internal map that can grow in size when getting more blocks
+        // need to handle the map overhead separately
+        initialRetainedSize -= getBlockBigArrayReferenceCountMapOverhead(groupedState);
         for (int i = 0; i < 1000; i++) {
             long retainedSize = 0;
             ((GroupedAccumulatorState) groupedState).setGroupId(i);
@@ -272,7 +336,7 @@ public class TestStateCompiler
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
-            assertEquals(groupedState.getEstimatedSize(), 76064 + retainedSize * (i + 1));
+            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * (i + 1) + getBlockBigArrayReferenceCountMapOverhead(groupedState));
         }
 
         for (int i = 0; i < 1000; i++) {
@@ -298,7 +362,7 @@ public class TestStateCompiler
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
-            assertEquals(groupedState.getEstimatedSize(), 76064 + retainedSize * 1000);
+            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * 1000 + getBlockBigArrayReferenceCountMapOverhead(groupedState));
         }
     }
 

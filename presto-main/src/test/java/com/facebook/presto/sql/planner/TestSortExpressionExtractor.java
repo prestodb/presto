@@ -13,28 +13,25 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.testng.AssertJUnit.assertEquals;
 
 public class TestSortExpressionExtractor
 {
-    private static final Map<Symbol, Integer> BUILD_LAYOUT = ImmutableMap.of(
-            new Symbol("b1"), 1,
-            new Symbol("b2"), 2);
+    private static final Set<Symbol> BUILD_SYMBOLS = ImmutableSet.of(new Symbol("b1"), new Symbol("b2"));
 
     @Test
     public void testGetSortExpression()
@@ -42,47 +39,60 @@ public class TestSortExpressionExtractor
         assertGetSortExpression(
                 new ComparisonExpression(
                         ComparisonExpressionType.GREATER_THAN,
-                        new FieldReference(11),
-                        new FieldReference(1)),
-                1);
+                        new SymbolReference("p1"),
+                        new SymbolReference("b1")),
+                "b1");
 
         assertGetSortExpression(
                 new ComparisonExpression(
                         ComparisonExpressionType.LESS_THAN_OR_EQUAL,
-                        new FieldReference(2),
-                        new FieldReference(11)),
-                2);
+                        new SymbolReference("b2"),
+                        new SymbolReference("p1")),
+                "b2");
 
         assertGetSortExpression(
                 new ComparisonExpression(
                         ComparisonExpressionType.GREATER_THAN,
-                        new FieldReference(2),
-                        new FieldReference(11)),
-                2);
+                        new SymbolReference("b2"),
+                        new SymbolReference("p1")),
+                "b2");
 
         assertGetSortExpression(
                 new ComparisonExpression(
                         ComparisonExpressionType.GREATER_THAN,
-                        new FieldReference(1),
-                        new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, new FieldReference(2), new FieldReference(11))));
+                        new SymbolReference("b2"),
+                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new SymbolReference("p1")))),
+                "b2");
 
         assertGetSortExpression(
                 new ComparisonExpression(
                         ComparisonExpressionType.GREATER_THAN,
-                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new FieldReference(1))),
-                        new FieldReference(11)));
+                        new SymbolReference("b2"),
+                        new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new SymbolReference("p1")))));
+
+        assertGetSortExpression(
+                new ComparisonExpression(
+                        ComparisonExpressionType.GREATER_THAN,
+                        new SymbolReference("b1"),
+                        new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, new SymbolReference("b2"), new SymbolReference("p1"))));
+
+        assertGetSortExpression(
+                new ComparisonExpression(
+                        ComparisonExpressionType.GREATER_THAN,
+                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new SymbolReference("b1"))),
+                        new SymbolReference("p1")));
     }
 
     private static void assertGetSortExpression(Expression expression)
     {
-        Optional<SortExpression> actual = SortExpressionExtractor.extractSortExpression(BUILD_LAYOUT, expression);
+        Optional<Expression> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
         assertEquals(Optional.empty(), actual);
     }
 
-    private static void assertGetSortExpression(Expression expression, int expectedChannel)
+    private static void assertGetSortExpression(Expression expression, String expectedSymbol)
     {
-        Optional<SortExpression> expected = Optional.of(new SortExpression(expectedChannel));
-        Optional<SortExpression> actual = SortExpressionExtractor.extractSortExpression(BUILD_LAYOUT, expression);
+        Optional<Expression> expected = Optional.of(new SymbolReference(expectedSymbol));
+        Optional<Expression> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
         assertEquals(expected, actual);
     }
 }

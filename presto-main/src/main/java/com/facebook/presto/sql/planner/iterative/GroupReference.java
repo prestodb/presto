@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -44,6 +45,12 @@ public class GroupReference
     public List<PlanNode> getSources()
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitGroupReference(this, context);
     }
 
     @Override

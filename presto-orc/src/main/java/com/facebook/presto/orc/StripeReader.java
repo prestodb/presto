@@ -167,7 +167,7 @@ public class StripeReader
                 // If the file does not have a row group dictionary, treat the stripe as a single row group. Otherwise,
                 // we must fail because the length of the row group dictionary is contained in the checkpoint stream.
                 if (hasRowGroupDictionary) {
-                    throw new OrcCorruptionException(e, "ORC file %s has corrupt checkpoints", orcDataSource);
+                    throw new OrcCorruptionException(e, orcDataSource.getId(), "Checkpoints are corrupt");
                 }
             }
         }
@@ -220,10 +220,9 @@ public class StripeReader
         Map<StreamId, FixedLengthSliceInput> streamsData = orcDataSource.readFully(diskRanges);
 
         // transform streams to OrcInputStream
-        String sourceName = orcDataSource.toString();
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
         for (Entry<StreamId, FixedLengthSliceInput> entry : streamsData.entrySet()) {
-            streamsBuilder.put(entry.getKey(), new OrcInputStream(sourceName, entry.getValue(), decompressor, systemMemoryUsage));
+            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), entry.getValue(), decompressor, systemMemoryUsage));
         }
         return streamsBuilder.build();
     }
@@ -327,7 +326,7 @@ public class StripeReader
         // read the footer
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
-        try (InputStream inputStream = new OrcInputStream(orcDataSource.toString(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage)) {
+        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage)) {
             return metadataReader.readStripeFooter(hiveWriterVersion, types, inputStream);
         }
     }

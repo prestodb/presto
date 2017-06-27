@@ -128,7 +128,7 @@ public class SliceDictionaryStreamReader
             }
             if (readOffset > 0) {
                 if (dataStream == null) {
-                    throw new OrcCorruptionException("Value is not null but data stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
                 if (inDictionaryStream != null) {
                     inDictionaryStream.skip(readOffset);
@@ -144,7 +144,7 @@ public class SliceDictionaryStreamReader
         int[] dataVector = new int[nextBatchSize];
         if (presentStream == null) {
             if (dataStream == null) {
-                throw new OrcCorruptionException("Value is not null but data stream is not present");
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
             Arrays.fill(isNullVector, false);
             dataStream.nextIntVector(nextBatchSize, dataVector);
@@ -153,7 +153,7 @@ public class SliceDictionaryStreamReader
             int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
             if (nullValues != nextBatchSize) {
                 if (dataStream == null) {
-                    throw new OrcCorruptionException("Value is not null but data stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
                 dataStream.nextIntVector(nextBatchSize, dataVector, isNullVector);
             }
@@ -184,7 +184,6 @@ public class SliceDictionaryStreamReader
             }
         }
 
-        // copy ids into a private array for this block since data vector is reused
         Block block = new DictionaryBlock(nextBatchSize, dictionaryBlock, dataVector);
 
         readOffset = 0;
@@ -215,7 +214,7 @@ public class SliceDictionaryStreamReader
                 // read the lengths
                 LongInputStream lengthStream = stripeDictionaryLengthStreamSource.openStream();
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException("Dictionary is not empty but dictionary length stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but dictionary length stream is not present");
                 }
                 lengthStream.nextIntVector(stripeDictionarySize, dictionaryLength);
 

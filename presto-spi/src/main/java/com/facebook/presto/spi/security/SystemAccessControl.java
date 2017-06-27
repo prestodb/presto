@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
@@ -57,6 +58,16 @@ public interface SystemAccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetSystemSessionProperty(Identity identity, String propertyName);
+
+    /**
+     * Check if identity is allowed to access the specified catalog
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanAccessCatalog(Identity identity, String catalogName)
+    {
+        denyCatalogAccess(catalogName);
+    }
 
     /**
      * Filter the list of catalogs to those visible to the identity.
@@ -281,21 +292,21 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to grant to any other user the specified privilege on the specified table.
+     * Check if identity is allowed to grant the specified privilege to the grantee on the specified table.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table)
+    default void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, String grantee, boolean withGrantOption)
     {
         denyGrantTablePrivilege(privilege.toString(), table.toString());
     }
 
     /**
-     * Check if identity is allowed to revoke the specified privilege on the specified table from any user.
+     * Check if identity is allowed to revoke the specified privilege on the specified table from the revokee.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table)
+    default void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, String revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), table.toString());
     }

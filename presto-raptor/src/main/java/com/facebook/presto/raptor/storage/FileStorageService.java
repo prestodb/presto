@@ -46,6 +46,7 @@ public class FileStorageService
 
     private final File baseStorageDir;
     private final File baseStagingDir;
+    private final File baseQuarantineDir;
 
     @Inject
     public FileStorageService(StorageManagerConfig config)
@@ -58,6 +59,7 @@ public class FileStorageService
         File baseDataDir = requireNonNull(dataDirectory, "dataDirectory is null");
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");
+        this.baseQuarantineDir = new File(baseDataDir, "quarantine");
     }
 
     @Override
@@ -68,6 +70,7 @@ public class FileStorageService
         deleteStagingFilesAsync();
         createParents(new File(baseStagingDir, "."));
         createParents(new File(baseStorageDir, "."));
+        createParents(new File(baseQuarantineDir, "."));
     }
 
     @Override
@@ -94,6 +97,13 @@ public class FileStorageService
     {
         String name = getFileSystemPath(new File("/"), shardUuid).getName();
         return new File(baseStagingDir, name);
+    }
+
+    @Override
+    public File getQuarantineFile(UUID shardUuid)
+    {
+        String name = getFileSystemPath(new File("/"), shardUuid).getName();
+        return new File(baseQuarantineDir, name);
     }
 
     @Override

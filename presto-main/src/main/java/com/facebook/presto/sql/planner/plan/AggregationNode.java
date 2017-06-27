@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -42,7 +43,7 @@ public class AggregationNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final Map<Symbol, Aggregation> assignments;
+    private final Map<Symbol, Aggregation> aggregations;
     private final List<List<Symbol>> groupingSets;
     private final Step step;
     private final Optional<Symbol> hashSymbol;
@@ -110,7 +111,7 @@ public class AggregationNode
     public AggregationNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("assignments") Map<Symbol, Aggregation> assignments,
+            @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
@@ -119,10 +120,10 @@ public class AggregationNode
         super(id);
 
         this.source = source;
-        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "aggregations is null"));
+        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
         requireNonNull(groupingSets, "groupingSets is null");
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
-        this.groupingSets = ImmutableList.copyOf(groupingSets);
+        this.groupingSets = listOfListsCopy(groupingSets);
         this.step = step;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
@@ -130,27 +131,9 @@ public class AggregationNode
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         outputs.addAll(getGroupingKeys());
         hashSymbol.ifPresent(outputs::add);
-        outputs.addAll(assignments.keySet());
+        outputs.addAll(aggregations.keySet());
 
         this.outputs = outputs.build();
-    }
-
-    /**
-     * @deprecated pass Assignments object instead
-     */
-    @Deprecated
-    public AggregationNode(
-            PlanNodeId id,
-            PlanNode source,
-            Map<Symbol, FunctionCall> assignments,
-            Map<Symbol, Signature> functions,
-            Map<Symbol, Symbol> masks,
-            List<List<Symbol>> groupingSets,
-            Step step,
-            Optional<Symbol> hashSymbol,
-            Optional<Symbol> groupIdSymbol)
-    {
-        this(id, source, makeAssignments(assignments, functions, masks), groupingSets, step, hashSymbol, groupIdSymbol);
     }
 
     @Override
@@ -166,56 +149,9 @@ public class AggregationNode
     }
 
     @JsonProperty
-    public Map<Symbol, Aggregation> getAssignments()
+    public Map<Symbol, Aggregation> getAggregations()
     {
-        return assignments;
-    }
-
-    /**
-     * @deprecated Use getAssignments
-     */
-    @Deprecated
-    public Map<Symbol, FunctionCall> getAggregations()
-    {
-        // use an ImmutableMap.Builder because the output has to preserve
-        // the iteration order of the original map.
-        ImmutableMap.Builder<Symbol, FunctionCall> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
-            builder.put(entry.getKey(), entry.getValue().getCall());
-        }
-        return builder.build();
-    }
-
-    /**
-     * @deprecated Use getAssignments
-     */
-    @Deprecated
-    public Map<Symbol, Signature> getFunctions()
-    {
-        // use an ImmutableMap.Builder because the output has to preserve
-        // the iteration order of the original map.
-        ImmutableMap.Builder<Symbol, Signature> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
-            builder.put(entry.getKey(), entry.getValue().getSignature());
-        }
-        return builder.build();
-    }
-
-    /**
-     * @deprecated Use getAssignments
-     */
-    @Deprecated
-    public Map<Symbol, Symbol> getMasks()
-    {
-        // use an ImmutableMap.Builder because the output has to preserve
-        // the iteration order of the original map.
-        ImmutableMap.Builder<Symbol, Symbol> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
-            entry.getValue()
-                    .getMask()
-                    .ifPresent(symbol -> builder.put(entry.getKey(), symbol));
-        }
-        return builder.build();
+        return aggregations;
     }
 
     public List<Symbol> getGroupingKeys()
@@ -273,7 +209,7 @@ public class AggregationNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitAggregation(this, context);
     }
@@ -281,32 +217,14 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), assignments, groupingSets, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, step, hashSymbol, groupIdSymbol);
     }
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)
     {
-        return getFunctions().values().stream()
-                .map(functionRegistry::getAggregateFunctionImplementation)
+        return getAggregations().entrySet().stream()
+                .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
                 .allMatch(InternalAggregationFunction::isDecomposable);
-    }
-
-    private static Map<Symbol, Aggregation> makeAssignments(
-            Map<Symbol, FunctionCall> aggregations,
-            Map<Symbol, Signature> functions,
-            Map<Symbol, Symbol> masks)
-    {
-        ImmutableMap.Builder<Symbol, Aggregation> builder = ImmutableMap.builder();
-
-        for (Map.Entry<Symbol, FunctionCall> entry : aggregations.entrySet()) {
-            Symbol output = entry.getKey();
-            builder.put(output, new Aggregation(
-                    entry.getValue(),
-                    functions.get(output),
-                    Optional.ofNullable(masks.get(output))));
-        }
-
-        return builder.build();
     }
 
     public static class Aggregation

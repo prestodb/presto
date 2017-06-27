@@ -35,6 +35,7 @@ import static java.lang.Math.toIntExact;
 
 public final class SequenceFunction
 {
+    private static final long MAX_RESULT_ENTRIES = 10_000;
     private static final Slice MONTH = Slices.utf8Slice("month");
 
     private SequenceFunction() {}
@@ -82,6 +83,7 @@ public final class SequenceFunction
                 "sequence end value should be greater than or equal to start value if step is greater than zero otherwise end should be less than start");
 
         int length = toIntExact(diffTimestamp(session, MONTH, start, end) / step + 1);
+        checkCondition(length <= MAX_RESULT_ENTRIES, INVALID_FUNCTION_ARGUMENT, "result of sequence function must not have more than 10000 entries");
 
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
 
@@ -101,6 +103,7 @@ public final class SequenceFunction
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
 
         int length = toIntExact((stop - start) / step + 1L);
+        checkCondition(length <= MAX_RESULT_ENTRIES, INVALID_FUNCTION_ARGUMENT, "result of sequence function must not have more than 10000 entries");
 
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), length);
         for (long i = 0, value = start; i < length; ++i, value += step) {

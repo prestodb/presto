@@ -20,7 +20,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
@@ -49,6 +51,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -59,6 +62,7 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -189,6 +193,8 @@ public class TestArrayOperators
         assertFunction("CAST(JSON '[1, null, 3]' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), asList(1L, null, 3L));
         assertFunction("CAST(JSON '[1, 2.0, 3]' AS ARRAY<DOUBLE>)", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0, 3.0));
         assertFunction("CAST(JSON '[1.0, 2.5, 3.0]' AS ARRAY<DOUBLE>)", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.5, 3.0));
+        assertFunction("CAST(JSON '[1, 2.5, 3]' AS ARRAY<REAL>)", new ArrayType(REAL), ImmutableList.of(1.0f, 2.5f, 3.0f));
+        assertFunction("CAST(JSON '[-1, null, -3]' AS ARRAY<REAL>)", new ArrayType(REAL), asList(-1.0f, null, -3.0f));
         assertFunction("CAST(JSON '[\"puppies\", \"kittens\"]' AS ARRAY<VARCHAR>)", new ArrayType(VARCHAR), ImmutableList.of("puppies", "kittens"));
         assertFunction("CAST(JSON '[true, false]' AS ARRAY<BOOLEAN>)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("CAST(JSON '[[1], [null]]' AS ARRAY<ARRAY<BIGINT>>)", new ArrayType(new ArrayType(BIGINT)), asList(asList(1L), asList((Long) null)));
@@ -933,6 +939,40 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testRepeat()
+            throws Exception
+    {
+        // concrete values
+        assertFunction("REPEAT(1, 5)", new ArrayType(INTEGER), ImmutableList.of(1, 1, 1, 1, 1));
+        assertFunction("REPEAT('varchar', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("varchar", "varchar", "varchar"));
+        assertFunction("REPEAT(true, 1)", new ArrayType(BOOLEAN), ImmutableList.of(true));
+        assertFunction("REPEAT(0.5, 4)", new ArrayType(DOUBLE), ImmutableList.of(0.5, 0.5, 0.5, 0.5));
+        assertFunction("REPEAT(array[1], 4)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1)));
+
+        // null values
+        assertFunction("REPEAT(null, 4)", new ArrayType(UNKNOWN), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as bigint), 4)", new ArrayType(BIGINT), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as double), 4)", new ArrayType(DOUBLE), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as varchar), 4)", new ArrayType(VARCHAR), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as boolean), 4)", new ArrayType(BOOLEAN), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as array(boolean)), 4)", new ArrayType(new ArrayType(BOOLEAN)), asList(null, null, null, null));
+
+        // 0 counts
+        assertFunction("REPEAT(cast(null as bigint), 0)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("REPEAT(1, 0)", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("REPEAT('varchar', 0)", new ArrayType(createVarcharType(7)), ImmutableList.of());
+        assertFunction("REPEAT(true, 0)", new ArrayType(BOOLEAN), ImmutableList.of());
+        assertFunction("REPEAT(0.5, 0)", new ArrayType(DOUBLE), ImmutableList.of());
+        assertFunction("REPEAT(array[1], 0)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of());
+
+        // illegal inputs
+        assertInvalidFunction("REPEAT(2, -1)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REPEAT(1, 1000000)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REPEAT('loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar', 9999)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REPEAT(array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], 9999)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
     public void testSequence()
             throws Exception
     {
@@ -958,6 +998,7 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction("SEQUENCE(2, -1, 1)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(-1, -10, 1)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(1, 1000000)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -977,6 +1018,7 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-04-14', interval '-1' day)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(date '2016-04-14', date '2016-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(date '2000-04-14', date '2030-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -1001,6 +1043,7 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction("SEQUENCE(date '2016-06-12', date '2016-04-12', interval '1' month)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(date '2000-04-12', date '3000-06-12', interval '1' month)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Override
@@ -1053,9 +1096,9 @@ public class TestArrayOperators
         assertFunction("flatten(ARRAY [NULL, ARRAY [ARRAY [5, 6], ARRAY [7, 8]]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(5, 6), ImmutableList.of(7, 8)));
 
         // MAP<BIGINT, BIGINT> Tests
-        assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(new MapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2), ImmutableMap.of(3, 3, 4, 4)));
-        assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], NULL])", new ArrayType(new MapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2)));
-        assertFunction("flatten(ARRAY [NULL, ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(new MapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
+        assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(mapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2), ImmutableMap.of(3, 3, 4, 4)));
+        assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], NULL])", new ArrayType(mapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2)));
+        assertFunction("flatten(ARRAY [NULL, ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(mapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
     }
 
     @Test
@@ -1065,7 +1108,7 @@ public class TestArrayOperators
         assertArrayHashOperator("ARRAY[true, false]", BOOLEAN, ImmutableList.of(true, false));
 
         // test with ARRAY[ MAP( ARRAY[1], ARRAY[2] ) ]
-        MapType mapType = new MapType(INTEGER, INTEGER);
+        MapType mapType = mapType(INTEGER, INTEGER);
         BlockBuilder mapBuilder = new InterleavedBlockBuilder(ImmutableList.of(INTEGER, INTEGER), new BlockBuilderStatus(), 2);
         INTEGER.writeLong(mapBuilder, 1);
         INTEGER.writeLong(mapBuilder, 2);

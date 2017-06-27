@@ -56,6 +56,7 @@ public class PartitionedOutputOperator
         private final List<Integer> partitionChannels;
         private final List<Optional<NullableValue>> partitionConstants;
         private final OutputBuffer outputBuffer;
+        private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel;
         private final DataSize maxMemory;
 
@@ -63,6 +64,7 @@ public class PartitionedOutputOperator
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
                 List<Optional<NullableValue>> partitionConstants,
+                boolean replicatesAnyRow,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 DataSize maxMemory)
@@ -70,6 +72,7 @@ public class PartitionedOutputOperator
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
+            this.replicatesAnyRow = replicatesAnyRow;
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
@@ -91,6 +94,7 @@ public class PartitionedOutputOperator
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
+                    replicatesAnyRow,
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
@@ -108,6 +112,7 @@ public class PartitionedOutputOperator
         private final PartitionFunction partitionFunction;
         private final List<Integer> partitionChannels;
         private final List<Optional<NullableValue>> partitionConstants;
+        private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel;
         private final OutputBuffer outputBuffer;
         private final PagesSerdeFactory serdeFactory;
@@ -121,6 +126,7 @@ public class PartitionedOutputOperator
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
                 List<Optional<NullableValue>> partitionConstants,
+                boolean replicatesAnyRow,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
@@ -133,6 +139,7 @@ public class PartitionedOutputOperator
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
+            this.replicatesAnyRow = replicatesAnyRow;
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
@@ -156,6 +163,7 @@ public class PartitionedOutputOperator
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
+                    replicatesAnyRow,
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
@@ -178,6 +186,7 @@ public class PartitionedOutputOperator
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
+                    replicatesAnyRow,
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
@@ -198,6 +207,7 @@ public class PartitionedOutputOperator
             PartitionFunction partitionFunction,
             List<Integer> partitionChannels,
             List<Optional<NullableValue>> partitionConstants,
+            boolean replicatesAnyRow,
             OptionalInt nullChannel,
             OutputBuffer outputBuffer,
             PagesSerdeFactory serdeFactory,
@@ -209,6 +219,7 @@ public class PartitionedOutputOperator
                 partitionFunction,
                 partitionChannels,
                 partitionConstants,
+                replicatesAnyRow,
                 nullChannel,
                 outputBuffer,
                 serdeFactory,
@@ -298,14 +309,17 @@ public class PartitionedOutputOperator
         private final List<Optional<Block>> partitionConstants;
         private final PagesSerde serde;
         private final List<PageBuilder> pageBuilders;
+        private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
         private final AtomicLong rowsAdded = new AtomicLong();
         private final AtomicLong pagesAdded = new AtomicLong();
+        private boolean hasAnyRowBeenReplicated;
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
                 List<Optional<NullableValue>> partitionConstants,
+                boolean replicatesAnyRow,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
@@ -317,6 +331,7 @@ public class PartitionedOutputOperator
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null").stream()
                     .map(constant -> constant.map(NullableValue::asBlock))
                     .collect(toImmutableList());
+            this.replicatesAnyRow = replicatesAnyRow;
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
@@ -351,26 +366,19 @@ public class PartitionedOutputOperator
 
             Page partitionFunctionArgs = getPartitionFunctionArguments(page);
             for (int position = 0; position < page.getPositionCount(); position++) {
-                if (nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position)) {
+                boolean shouldReplicate = (replicatesAnyRow && !hasAnyRowBeenReplicated) ||
+                        nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position);
+                if (shouldReplicate) {
                     for (PageBuilder pageBuilder : pageBuilders) {
-                        pageBuilder.declarePosition();
-
-                        for (int channel = 0; channel < sourceTypes.size(); channel++) {
-                            Type type = sourceTypes.get(channel);
-                            type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
-                        }
+                        appendRow(pageBuilder, page, position);
                     }
+                    hasAnyRowBeenReplicated = true;
                 }
                 else {
                     int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
 
                     PageBuilder pageBuilder = pageBuilders.get(partition);
-                    pageBuilder.declarePosition();
-
-                    for (int channel = 0; channel < sourceTypes.size(); channel++) {
-                        Type type = sourceTypes.get(channel);
-                        type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
-                    }
+                    appendRow(pageBuilder, page, position);
                 }
             }
             return flush(false);
@@ -389,6 +397,16 @@ public class PartitionedOutputOperator
                 }
             }
             return new Page(page.getPositionCount(), blocks);
+        }
+
+        private void appendRow(PageBuilder pageBuilder, Page page, int position)
+        {
+            pageBuilder.declarePosition();
+
+            for (int channel = 0; channel < sourceTypes.size(); channel++) {
+                Type type = sourceTypes.get(channel);
+                type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+            }
         }
 
         public ListenableFuture<?> flush(boolean force)

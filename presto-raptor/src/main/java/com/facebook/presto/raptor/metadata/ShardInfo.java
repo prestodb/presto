@@ -25,6 +25,7 @@ import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ShardInfo
@@ -36,6 +37,7 @@ public class ShardInfo
     private final long rowCount;
     private final long compressedSize;
     private final long uncompressedSize;
+    private final long xxhash64;
 
     @JsonCreator
     public ShardInfo(
@@ -45,7 +47,8 @@ public class ShardInfo
             @JsonProperty("columnStats") List<ColumnStats> columnStats,
             @JsonProperty("rowCount") long rowCount,
             @JsonProperty("compressedSize") long compressedSize,
-            @JsonProperty("uncompressedSize") long uncompressedSize)
+            @JsonProperty("uncompressedSize") long uncompressedSize,
+            @JsonProperty("xxhash64") long xxhash64)
     {
         this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
@@ -58,6 +61,8 @@ public class ShardInfo
         this.rowCount = rowCount;
         this.compressedSize = compressedSize;
         this.uncompressedSize = uncompressedSize;
+
+        this.xxhash64 = xxhash64;
     }
 
     @JsonProperty
@@ -102,6 +107,12 @@ public class ShardInfo
         return uncompressedSize;
     }
 
+    @JsonProperty
+    public long getXxhash64()
+    {
+        return xxhash64;
+    }
+
     @Override
     public String toString()
     {
@@ -113,6 +124,7 @@ public class ShardInfo
                 .add("rowCount", rowCount)
                 .add("compressedSize", compressedSize)
                 .add("uncompressedSize", uncompressedSize)
+                .add("xxhash64", format("%016x", xxhash64))
                 .omitNullValues()
                 .toString();
     }

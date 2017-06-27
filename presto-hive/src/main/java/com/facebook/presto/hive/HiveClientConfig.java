@@ -96,19 +96,14 @@ public class HiveClientConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
+    private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
-    private boolean rcfileOptimizedReaderEnabled = true;
-    private boolean rcfileOptimizedWriterEnabled;
+    private boolean rcfileOptimizedWriterEnabled = true;
+    private boolean rcfileWriterValidate;
 
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
-    private String hiveMetastoreServicePrincipal;
-    private String hiveMetastoreClientPrincipal;
-    private String hiveMetastoreClientKeytab;
-
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
     private boolean hdfsImpersonationEnabled;
-    private String hdfsPrestoPrincipal;
-    private String hdfsPrestoKeytab;
 
     private boolean skipDeletionForAlter;
 
@@ -656,6 +651,19 @@ public class HiveClientConfig
         return this;
     }
 
+    @NotNull
+    public DataSize getOrcMaxReadBlockSize()
+    {
+        return orcMaxReadBlockSize;
+    }
+
+    @Config("hive.orc.max-read-block-size")
+    public HiveClientConfig setOrcMaxReadBlockSize(DataSize orcMaxReadBlockSize)
+    {
+        this.orcMaxReadBlockSize = orcMaxReadBlockSize;
+        return this;
+    }
+
     public boolean isOrcBloomFiltersEnabled()
     {
         return orcBloomFiltersEnabled;
@@ -665,20 +673,6 @@ public class HiveClientConfig
     public HiveClientConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
     {
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isRcfileOptimizedReaderEnabled()
-    {
-        return rcfileOptimizedReaderEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.rcfile-optimized-reader.enabled")
-    public HiveClientConfig setRcfileOptimizedReaderEnabled(boolean rcfileOptimizedReaderEnabled)
-    {
-        this.rcfileOptimizedReaderEnabled = rcfileOptimizedReaderEnabled;
         return this;
     }
 
@@ -693,6 +687,19 @@ public class HiveClientConfig
     public HiveClientConfig setRcfileOptimizedWriterEnabled(boolean rcfileOptimizedWriterEnabled)
     {
         this.rcfileOptimizedWriterEnabled = rcfileOptimizedWriterEnabled;
+        return this;
+    }
+
+    public boolean isRcfileWriterValidate()
+    {
+        return rcfileWriterValidate;
+    }
+
+    @Config("hive.rcfile.writer.validate")
+    @ConfigDescription("Validate RCFile after write by re-reading the whole file")
+    public HiveClientConfig setRcfileWriterValidate(boolean rcfileWriterValidate)
+    {
+        this.rcfileWriterValidate = rcfileWriterValidate;
         return this;
     }
 
@@ -727,6 +734,7 @@ public class HiveClientConfig
         KERBEROS
     }
 
+    @NotNull
     public HiveMetastoreAuthenticationType getHiveMetastoreAuthenticationType()
     {
         return hiveMetastoreAuthenticationType;
@@ -740,51 +748,13 @@ public class HiveClientConfig
         return this;
     }
 
-    public String getHiveMetastoreServicePrincipal()
-    {
-        return hiveMetastoreServicePrincipal;
-    }
-
-    @Config("hive.metastore.service.principal")
-    @ConfigDescription("Hive Metastore service principal")
-    public HiveClientConfig setHiveMetastoreServicePrincipal(String hiveMetastoreServicePrincipal)
-    {
-        this.hiveMetastoreServicePrincipal = hiveMetastoreServicePrincipal;
-        return this;
-    }
-
-    public String getHiveMetastoreClientPrincipal()
-    {
-        return hiveMetastoreClientPrincipal;
-    }
-
-    @Config("hive.metastore.client.principal")
-    @ConfigDescription("Hive Metastore client principal")
-    public HiveClientConfig setHiveMetastoreClientPrincipal(String hiveMetastoreClientPrincipal)
-    {
-        this.hiveMetastoreClientPrincipal = hiveMetastoreClientPrincipal;
-        return this;
-    }
-
-    public String getHiveMetastoreClientKeytab()
-    {
-        return hiveMetastoreClientKeytab;
-    }
-
-    @Config("hive.metastore.client.keytab")
-    @ConfigDescription("Hive Metastore client keytab location")
-    public HiveClientConfig setHiveMetastoreClientKeytab(String hiveMetastoreClientKeytab)
-    {
-        this.hiveMetastoreClientKeytab = hiveMetastoreClientKeytab;
-        return this;
-    }
-
     public enum HdfsAuthenticationType
     {
         NONE,
         KERBEROS,
     }
 
+    @NotNull
     public HdfsAuthenticationType getHdfsAuthenticationType()
     {
         return hdfsAuthenticationType;
@@ -808,32 +778,6 @@ public class HiveClientConfig
     public HiveClientConfig setHdfsImpersonationEnabled(boolean hdfsImpersonationEnabled)
     {
         this.hdfsImpersonationEnabled = hdfsImpersonationEnabled;
-        return this;
-    }
-
-    public String getHdfsPrestoPrincipal()
-    {
-        return hdfsPrestoPrincipal;
-    }
-
-    @Config("hive.hdfs.presto.principal")
-    @ConfigDescription("Presto principal used to access HDFS")
-    public HiveClientConfig setHdfsPrestoPrincipal(String hdfsPrestoPrincipal)
-    {
-        this.hdfsPrestoPrincipal = hdfsPrestoPrincipal;
-        return this;
-    }
-
-    public String getHdfsPrestoKeytab()
-    {
-        return hdfsPrestoKeytab;
-    }
-
-    @Config("hive.hdfs.presto.keytab")
-    @ConfigDescription("Presto keytab used to access HDFS")
-    public HiveClientConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
-    {
-        this.hdfsPrestoKeytab = hdfsPrestoKeytab;
         return this;
     }
 

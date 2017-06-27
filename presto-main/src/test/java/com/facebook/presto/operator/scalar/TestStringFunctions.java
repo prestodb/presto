@@ -17,11 +17,11 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.LiteralParameter;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
 
@@ -375,7 +376,7 @@ public class TestStringFunctions
     @Test
     public void testSplitToMap()
     {
-        MapType expectedType = new MapType(VARCHAR, VARCHAR);
+        MapType expectedType = mapType(VARCHAR, VARCHAR);
 
         assertFunction("SPLIT_TO_MAP('', ',', '=')", expectedType, ImmutableMap.of());
         assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')", expectedType, ImmutableMap.of("a", "123", "b", ".4", "c", "", "", "d"));

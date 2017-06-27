@@ -24,6 +24,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -47,6 +48,8 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -152,9 +155,8 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, DE),
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
-                ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
-                ImmutableMap.of(C, fakeFunctionHandle("test", AGGREGATE), D, fakeFunctionHandle("test", AGGREGATE)),
-                ImmutableMap.of(),
+                ImmutableMap.of(C, new Aggregation(fakeFunction("test"), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
+                                D, new Aggregation(fakeFunction("test"), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
                 ImmutableList.of(ImmutableList.of(A, B, C)),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
@@ -178,8 +180,6 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new AggregationNode(
                 newId(),
                 filter(baseTableScan, FALSE_LITERAL),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.FINAL,
@@ -238,7 +238,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                1, ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST), true);
+                1, ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST), TopNNode.Step.PARTIAL);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

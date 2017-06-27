@@ -14,10 +14,14 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
@@ -27,14 +31,20 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class RuleTester
         implements Closeable
 {
+    public static final String CATALOG_ID = "local";
+    public static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_ID);
+
     private final Metadata metadata;
+    private final CostCalculator costCalculator;
     private final Session session;
     private final LocalQueryRunner queryRunner;
+    private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
 
     public RuleTester()
     {
         session = testSessionBuilder()
-                .setCatalog("local")
+                .setCatalog(CATALOG_ID)
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .build();
@@ -45,11 +55,14 @@ public class RuleTester
                 ImmutableMap.<String, String>of());
 
         this.metadata = queryRunner.getMetadata();
+        this.costCalculator = queryRunner.getCostCalculator();
+        this.transactionManager = queryRunner.getTransactionManager();
+        this.accessControl = queryRunner.getAccessControl();
     }
 
     public RuleAssert assertThat(Rule rule)
     {
-        return new RuleAssert(metadata, session, rule);
+        return new RuleAssert(metadata, costCalculator, session, rule, transactionManager, accessControl);
     }
 
     @Override

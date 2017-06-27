@@ -43,7 +43,7 @@ public class PlanNodeStatsSummarizer
 {
     private PlanNodeStatsSummarizer() {}
 
-    static Map<PlanNodeId, PlanNodeStats> aggregatePlanNodeStats(StageInfo stageInfo)
+    public static Map<PlanNodeId, PlanNodeStats> aggregatePlanNodeStats(StageInfo stageInfo)
     {
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
         List<PlanNodeStats> planNodeStats = stageInfo.getTasks().stream()

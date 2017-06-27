@@ -19,9 +19,10 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.LocationFactory;
@@ -121,6 +122,7 @@ import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -129,14 +131,17 @@ import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.node.NodeInfo;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.PauseMeter;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -193,6 +198,12 @@ public class ServerMainModule
                 throw new UnsupportedOperationException();
             }));
         }
+
+        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
+        configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
+            config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
+            config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
+        });
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
 
@@ -337,6 +348,9 @@ public class ServerMainModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
+        // statistics calculator
+        binder.bind(CostCalculator.class).to(CoefficientBasedCostCalculator.class).in(Scopes.SINGLETON);
+
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
@@ -428,13 +442,9 @@ public class ServerMainModule
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
-    }
 
-    @Provides
-    @Singleton
-    public static ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig)
-    {
-        return new ServerInfo(nodeVersion, nodeInfo.getEnvironment(), serverConfig.isCoordinator());
+        // cleanup
+        binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -519,6 +529,33 @@ public class ServerMainModule
                     return State.UNKNOWN;
                 }
             });
+        }
+    }
+
+    public static class ExecutorCleanup
+    {
+        private final List<ExecutorService> executors;
+
+        @Inject
+        public ExecutorCleanup(
+                @ForExchange ScheduledExecutorService exchangeExecutor,
+                @ForAsyncHttp ExecutorService httpResponseExecutor,
+                @ForAsyncHttp ScheduledExecutorService httpTimeoutExecutor,
+                @ForTransactionManager ExecutorService transactionFinishingExecutor,
+                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor)
+        {
+            executors = ImmutableList.of(
+                    exchangeExecutor,
+                    httpResponseExecutor,
+                    httpTimeoutExecutor,
+                    transactionFinishingExecutor,
+                    transactionIdleExecutor);
+        }
+
+        @PreDestroy
+        public void shutdown()
+        {
+            executors.forEach(ExecutorService::shutdownNow);
         }
     }
 }

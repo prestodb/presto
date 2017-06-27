@@ -18,20 +18,21 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.Node;
-import com.google.common.collect.ImmutableSet;
+import com.facebook.presto.sql.tree.SymbolReference;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Currently this class handles only simple expressions like:
  *
- * A.a < B.x.
+ * A.a < B.x
  *
  * It could be extended to handle any expressions like:
  *
@@ -49,9 +50,12 @@ public final class SortExpressionExtractor
 {
     private SortExpressionExtractor() {}
 
-    public static Optional<SortExpression> extractSortExpression(Map<Symbol, Integer> buildLayout, Expression filter)
+    public static Optional<Expression> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
     {
-        Set<Integer> buildFields = ImmutableSet.copyOf(buildLayout.values());
+        if (!DeterminismEvaluator.isDeterministic(filter)) {
+            return Optional.empty();
+        }
+
         if (filter instanceof ComparisonExpression) {
             ComparisonExpression comparison = (ComparisonExpression) filter;
             switch (comparison.getType()) {
@@ -59,14 +63,14 @@ public final class SortExpressionExtractor
                 case GREATER_THAN_OR_EQUAL:
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
-                    Optional<Integer> sortChannel = asBuildFieldReference(buildFields, comparison.getRight());
-                    boolean hasBuildReferencesOnOtherSide = hasBuildFieldReference(buildFields, comparison.getLeft());
+                    Optional<SymbolReference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.getRight());
+                    boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getLeft());
                     if (!sortChannel.isPresent()) {
-                        sortChannel = asBuildFieldReference(buildFields, comparison.getLeft());
-                        hasBuildReferencesOnOtherSide = hasBuildFieldReference(buildFields, comparison.getRight());
+                        sortChannel = asBuildSymbolReference(buildSymbols, comparison.getLeft());
+                        hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getRight());
                     }
                     if (sortChannel.isPresent() && !hasBuildReferencesOnOtherSide) {
-                        return Optional.of(new SortExpression(sortChannel.get()));
+                        return sortChannel.map(symbolReference -> (Expression) symbolReference);
                     }
                     return Optional.empty();
                 default:
@@ -77,30 +81,32 @@ public final class SortExpressionExtractor
         return Optional.empty();
     }
 
-    private static Optional<Integer> asBuildFieldReference(Set<Integer> buildLayout, Expression expression)
+    private static Optional<SymbolReference> asBuildSymbolReference(Set<Symbol> buildLayout, Expression expression)
     {
-        if (expression instanceof FieldReference) {
-            FieldReference field = (FieldReference) expression;
-            if (buildLayout.contains(field.getFieldIndex())) {
-                return Optional.of(field.getFieldIndex());
+        if (expression instanceof SymbolReference) {
+            SymbolReference symbolReference = (SymbolReference) expression;
+            if (buildLayout.contains(new Symbol(symbolReference.getName()))) {
+                return Optional.of(symbolReference);
             }
         }
         return Optional.empty();
     }
 
-    private static boolean hasBuildFieldReference(Set<Integer> buildLayout, Expression expression)
+    private static boolean hasBuildSymbolReference(Set<Symbol> buildSymbols, Expression expression)
     {
-        return new BuildFieldReferenceFinder(buildLayout).process(expression);
+        return new BuildSymbolReferenceFinder(buildSymbols).process(expression);
     }
 
-    private static class BuildFieldReferenceFinder
+    private static class BuildSymbolReferenceFinder
             extends AstVisitor<Boolean, Void>
     {
-        private final Set<Integer> buildLayout;
+        private final Set<String> buildSymbols;
 
-        public BuildFieldReferenceFinder(Set<Integer> buildLayout)
+        public BuildSymbolReferenceFinder(Set<Symbol> buildSymbols)
         {
-            this.buildLayout = ImmutableSet.copyOf(requireNonNull(buildLayout, "buildLayout is null"));
+            this.buildSymbols = requireNonNull(buildSymbols, "buildSymbols is null").stream()
+                    .map(Symbol::getName)
+                    .collect(toImmutableSet());
         }
 
         @Override
@@ -115,9 +121,9 @@ public final class SortExpressionExtractor
         }
 
         @Override
-        protected Boolean visitFieldReference(FieldReference fieldReference, Void context)
+        protected Boolean visitSymbolReference(SymbolReference symbolReference, Void context)
         {
-            return buildLayout.contains(fieldReference.getFieldIndex());
+            return buildSymbols.contains(symbolReference.getName());
         }
     }
 
@@ -159,6 +165,12 @@ public final class SortExpressionExtractor
             return toStringHelper(this)
                     .add("channel", channel)
                     .toString();
+        }
+
+        public static SortExpression fromExpression(Expression expression)
+        {
+            checkState(expression instanceof FieldReference, "Unsupported expression type [%s]", expression);
+            return new SortExpression(((FieldReference) expression).getFieldIndex());
         }
     }
 }

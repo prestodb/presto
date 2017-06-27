@@ -474,6 +474,10 @@ public class RaptorMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        if (viewExists(session, tableMetadata.getTable())) {
+            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());
+        }
+
         Optional<RaptorPartitioningHandle> partitioning = layout
                 .map(ConnectorNewTableLayout::getPartitioning)
                 .map(RaptorPartitioningHandle.class::cast);
@@ -692,7 +696,9 @@ public class RaptorMetadata
         List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
         long updateTime = session.getStartTime();
 
-        shardManager.commitShards(transactionId, tableId, columns, parseFragments(fragments), externalBatchId, updateTime);
+        Collection<ShardInfo> shards = parseFragments(fragments);
+        log.info("Committing insert into tableId %s (queryId: %s, shards: %s, columns: %s)", handle.getTableId(), session.getQueryId(), shards.size(), columns.size());
+        shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId, updateTime);
 
         clearRollback();
 
@@ -771,6 +777,10 @@ public class RaptorMetadata
     {
         String schemaName = viewName.getSchemaName();
         String tableName = viewName.getTableName();
+
+        if (getTableHandle(viewName) != null) {
+            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
+        }
 
         if (replace) {
             daoTransaction(dbi, MetadataDao.class, dao -> {

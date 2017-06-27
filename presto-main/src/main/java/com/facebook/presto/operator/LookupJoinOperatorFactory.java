@@ -19,17 +19,16 @@ import com.facebook.presto.operator.LookupSource.OuterPositionIterator;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -46,7 +45,8 @@ public class LookupJoinOperatorFactory
     private final LookupSourceFactory lookupSourceFactory;
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
-    private final ReferenceCount referenceCount;
+    private final ReferenceCount probeReferenceCount;
+    private final ReferenceCount lookupSourceFactoryUsersCount;
     private boolean closed;
 
     public LookupJoinOperatorFactory(int operatorId,
@@ -67,29 +67,29 @@ public class LookupJoinOperatorFactory
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
-        this.referenceCount = new ReferenceCount();
+        probeReferenceCount = new ReferenceCount();
+        lookupSourceFactoryUsersCount = new ReferenceCount();
+
+        // when all probe and build-outer operators finish, destroy the lookup source (freeing the memory)
+        lookupSourceFactoryUsersCount.getFreeFuture().addListener(lookupSourceFactory::destroy, directExecutor());
+
+        // Whole probe side is counted as 1 in lookupSourceFactoryUsersCount
+        probeReferenceCount.getFreeFuture().addListener(lookupSourceFactoryUsersCount::release, directExecutor());
 
         if (joinType == INNER || joinType == PROBE_OUTER) {
-            // when all join operators finish, destroy the lookup source (freeing the memory)
-            this.referenceCount.getFreeFuture().addListener(lookupSourceFactory::destroy, directExecutor());
             this.outerOperatorFactory = Optional.empty();
         }
         else {
-            // when all join operators finish, set the outer position future to start the outer operator
-            SettableFuture<OuterPositionIterator> outerPositionsFuture = SettableFuture.create();
-            this.referenceCount.getFreeFuture().addListener(() -> {
-                // lookup source may not be finished yet, so add a listener
-                Futures.addCallback(
-                        lookupSourceFactory.createLookupSource(),
-                        new OnSuccessFutureCallback<>(lookupSource -> outerPositionsFuture.set(lookupSource.getOuterPositionIterator())));
-            }, directExecutor());
+            // when all join operators finish (and lookup source is ready), set the outer position future to start the outer operator
+            ListenableFuture<LookupSource> lookupSourceAfterProbeFinished = transformAsync(probeReferenceCount.getFreeFuture(), ignored -> lookupSourceFactory.createLookupSource());
+            ListenableFuture<OuterPositionIterator> outerPositionsFuture = transform(lookupSourceAfterProbeFinished, lookupSource -> {
+                try (LookupSource ignore = lookupSource) {
+                    return lookupSource.getOuterPositionIterator();
+                }
+            });
 
-            // when output operator finishes, destroy the lookup source
-            Runnable onOperatorClose = () -> {
-                // lookup source may not be finished yet, so add a listener, to free the memory
-                lookupSourceFactory.createLookupSource().addListener(lookupSourceFactory::destroy, directExecutor());
-            };
-            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(operatorId, planNodeId, outerPositionsFuture, probeOutputTypes, buildOutputTypes, onOperatorClose));
+            lookupSourceFactoryUsersCount.retain();
+            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(operatorId, planNodeId, outerPositionsFuture, probeOutputTypes, buildOutputTypes, lookupSourceFactoryUsersCount));
         }
     }
 
@@ -105,10 +105,11 @@ public class LookupJoinOperatorFactory
         joinType = other.joinType;
         lookupSourceFactory = other.lookupSourceFactory;
         joinProbeFactory = other.joinProbeFactory;
-        referenceCount = other.referenceCount;
+        probeReferenceCount = other.probeReferenceCount;
+        lookupSourceFactoryUsersCount = other.lookupSourceFactoryUsersCount;
         outerOperatorFactory = other.outerOperatorFactory;
 
-        referenceCount.retain();
+        probeReferenceCount.retain();
     }
 
     public int getOperatorId()
@@ -133,14 +134,14 @@ public class LookupJoinOperatorFactory
 
         lookupSourceFactory.setTaskContext(driverContext.getPipelineContext().getTaskContext());
 
-        referenceCount.retain();
+        probeReferenceCount.retain();
         return new LookupJoinOperator(
                 operatorContext,
                 getTypes(),
                 joinType,
                 lookupSourceFactory.createLookupSource(),
                 joinProbeFactory,
-                referenceCount::release);
+                probeReferenceCount::release);
     }
 
     @Override
@@ -150,7 +151,7 @@ public class LookupJoinOperatorFactory
             return;
         }
         closed = true;
-        referenceCount.release();
+        probeReferenceCount.release();
     }
 
     @Override
@@ -163,28 +164,5 @@ public class LookupJoinOperatorFactory
     public Optional<OperatorFactory> createOuterOperatorFactory()
     {
         return outerOperatorFactory;
-    }
-
-    // We use a public class to avoid access problems with the isolated class loaders
-    public static class OnSuccessFutureCallback<T>
-            implements FutureCallback<T>
-    {
-        private final Consumer<T> onSuccess;
-
-        public OnSuccessFutureCallback(Consumer<T> onSuccess)
-        {
-            this.onSuccess = onSuccess;
-        }
-
-        @Override
-        public void onSuccess(T result)
-        {
-            onSuccess.accept(result);
-        }
-
-        @Override
-        public void onFailure(Throwable t)
-        {
-        }
     }
 }

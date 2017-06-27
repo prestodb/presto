@@ -25,6 +25,7 @@ import java.security.Principal;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
@@ -60,6 +61,12 @@ public class DenyAllAccessControl
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         return ImmutableSet.of();
+    }
+
+    @Override
+    public void checkCanAccessCatalog(Identity identity, String catalogName)
+    {
+        denyCatalogAccess(catalogName);
     }
 
     @Override
@@ -183,13 +190,13 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String grantee, boolean withGrantOption)
     {
         denyGrantTablePrivilege(privilege.name(), tableName.toString());
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.name(), tableName.toString());
     }

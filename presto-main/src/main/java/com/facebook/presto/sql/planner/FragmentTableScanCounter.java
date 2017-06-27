@@ -49,7 +49,7 @@ public final class FragmentTableScanCounter
     }
 
     private static class Visitor
-            extends PlanVisitor<Void, Integer>
+            extends PlanVisitor<Integer, Void>
     {
         @Override
         public Integer visitTableScan(TableScanNode node, Void context)

@@ -14,7 +14,10 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.ExistsPredicate;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +26,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -57,9 +59,6 @@ public class ApplyNode
      * - expression: input_symbol_X < ALL (subquery_symbol_Y)
      * - meaning: if input_symbol_X is smaller than all subquery values represented by subquery_symbol_Y
      * <p>
-     * Example 3:
-     * - expression: subquery_symbol_Y
-     * - meaning: subquery is scalar (might be enforced), therefore subquery_symbol_Y can be used directly in the rest of the plan
      */
     private final Assignments subqueryAssignments;
 
@@ -78,6 +77,9 @@ public class ApplyNode
         requireNonNull(correlation, "correlation is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
+        checkArgument(
+                subqueryAssignments.getExpressions().stream().allMatch(ApplyNode::isSupportedSubqueryExpression),
+                "Unexpected expression used for subquery expression");
 
         this.input = input;
         this.subquery = subquery;
@@ -85,13 +87,11 @@ public class ApplyNode
         this.correlation = ImmutableList.copyOf(correlation);
     }
 
-    /**
-     * @return true when subquery is scalar and it's output symbols are directly mapped to ApplyNode output symbols
-     */
-    public boolean isResolvedScalarSubquery()
+    private static boolean isSupportedSubqueryExpression(Expression expression)
     {
-        return isScalar(subquery) && subqueryAssignments.getExpressions().stream()
-                .allMatch(expression -> expression instanceof SymbolReference);
+        return expression instanceof InPredicate ||
+                expression instanceof ExistsPredicate ||
+                expression instanceof QuantifiedComparisonExpression;
     }
 
     @JsonProperty("input")
@@ -135,7 +135,7 @@ public class ApplyNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitApply(this, context);
     }

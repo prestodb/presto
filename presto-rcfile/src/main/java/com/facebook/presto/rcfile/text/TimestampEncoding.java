@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.joda.time.DateTimeZone;
@@ -28,8 +27,6 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
-
-import java.io.IOException;
 
 public class TimestampEncoding
         implements TextColumnEncoding
@@ -66,40 +63,30 @@ public class TimestampEncoding
     @Override
     public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
     {
-        try {
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                if (block.isNull(position)) {
-                    output.writeBytes(nullSequence);
-                }
-                else {
-                    long millis = type.getLong(block, position);
-                    buffer.setLength(0);
-                    dateTimeFormatter.printTo(buffer, millis);
-                    for (int index = 0; index < buffer.length(); index++) {
-                        output.writeByte(buffer.charAt(index));
-                    }
-                }
-                encodeOutput.closeEntry();
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                output.writeBytes(nullSequence);
             }
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+            else {
+                long millis = type.getLong(block, position);
+                buffer.setLength(0);
+                dateTimeFormatter.printTo(buffer, millis);
+                for (int index = 0; index < buffer.length(); index++) {
+                    output.writeByte(buffer.charAt(index));
+                }
+            }
+            encodeOutput.closeEntry();
         }
     }
 
     @Override
     public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
     {
-        try {
-            long millis = type.getLong(block, position);
-            buffer.setLength(0);
-            dateTimeFormatter.printTo(buffer, millis);
-            for (int index = 0; index < buffer.length(); index++) {
-                output.writeByte(buffer.charAt(index));
-            }
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+        long millis = type.getLong(block, position);
+        buffer.setLength(0);
+        dateTimeFormatter.printTo(buffer, millis);
+        for (int index = 0; index < buffer.length(); index++) {
+            output.writeByte(buffer.charAt(index));
         }
     }
 

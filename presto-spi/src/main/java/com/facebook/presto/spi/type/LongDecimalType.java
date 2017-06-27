@@ -44,10 +44,17 @@ final class LongDecimalType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
+        int maxBlockSizeInBytes;
+        if (blockBuilderStatus == null) {
+            maxBlockSizeInBytes = BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
+        }
+        else {
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxBlockSizeInBytes();
+        }
         return new FixedWidthBlockBuilder(
                 getFixedSize(),
                 blockBuilderStatus,
-                Math.min(expectedEntries, blockBuilderStatus.getMaxBlockSizeInBytes() / getFixedSize()));
+                Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
     }
 
     @Override

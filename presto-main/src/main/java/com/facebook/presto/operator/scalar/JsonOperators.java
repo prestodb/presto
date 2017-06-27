@@ -45,7 +45,10 @@ import static com.facebook.presto.spi.type.StandardTypes.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
+import static com.facebook.presto.spi.type.StandardTypes.REAL;
+import static com.facebook.presto.spi.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
+import static com.facebook.presto.spi.type.StandardTypes.TINYINT;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
@@ -53,6 +56,8 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -224,6 +229,46 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlNullable
+    @SqlType(REAL)
+    public static Long castToReal(@SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+            parser.nextToken();
+            Long result;
+            switch (parser.getCurrentToken()) {
+                case VALUE_NULL:
+                    result = null;
+                    break;
+                case VALUE_STRING:
+                    result = VarcharOperators.castToFloat(Slices.utf8Slice(parser.getText()));
+                    break;
+                case VALUE_NUMBER_FLOAT:
+                    result = (long) floatToRawIntBits(parser.getFloatValue());
+                    break;
+                case VALUE_NUMBER_INT:
+                    // An alternative is calling getLongValue and then BigintOperators.castToReal.
+                    // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
+                    result = (long) floatToRawIntBits(parser.getFloatValue());
+                    break;
+                case VALUE_TRUE:
+                    result = BooleanOperators.castToReal(true);
+                    break;
+                case VALUE_FALSE:
+                    result = BooleanOperators.castToReal(false);
+                    break;
+                default:
+                    throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), REAL));
+            }
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to REAL"); // check no trailing token
+            return result;
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), REAL));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
     @SqlType(BOOLEAN)
     public static Boolean castToBoolean(@SqlType(JSON) Slice json)
     {
@@ -280,19 +325,26 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
+    public static Slice castFromTinyInt(@SqlType(TINYINT) long value)
+            throws IOException
+    {
+        return internalCastFromLong(value, 4);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(JSON)
+    public static Slice castFromSmallInt(@SqlType(SMALLINT) long value)
+            throws IOException
+    {
+        return internalCastFromLong(value, 8);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(JSON)
     public static Slice castFromInteger(@SqlType(INTEGER) long value)
             throws IOException
     {
-        try {
-            SliceOutput output = new DynamicSliceOutput(20);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeNumber(value);
-            }
-            return output.slice();
-        }
-        catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
-        }
+        return internalCastFromLong(value, 12);
     }
 
     @ScalarOperator(CAST)
@@ -300,8 +352,13 @@ public final class JsonOperators
     public static Slice castFromBigint(@SqlType(BIGINT) long value)
             throws IOException
     {
+        return internalCastFromLong(value, 20);
+    }
+
+    private static Slice internalCastFromLong(long value, int estimatedSize)
+    {
         try {
-            SliceOutput output = new DynamicSliceOutput(20);
+            SliceOutput output = new DynamicSliceOutput(estimatedSize);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeNumber(value);
             }
@@ -321,6 +378,23 @@ public final class JsonOperators
             SliceOutput output = new DynamicSliceOutput(32);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeNumber(value);
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(JSON)
+    public static Slice castFromReal(@SqlType(REAL) long value)
+            throws IOException
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(32);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+                jsonGenerator.writeNumber(intBitsToFloat((int) value));
             }
             return output.slice();
         }

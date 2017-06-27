@@ -29,6 +29,7 @@ import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
@@ -146,11 +147,17 @@ public class JoinFilterFunctionCompiler
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter, leftBlocksSize, sessionField);
-        generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
+        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, preGeneratedExpressions, filter, leftBlocksSize, sessionField);
+
+        generateConstructor(classDefinition, sessionField, cachedInstanceBinder, preGeneratedExpressions);
     }
 
-    private static void generateConstructor(ClassDefinition classDefinition, FieldDefinition sessionField, CachedInstanceBinder cachedInstanceBinder)
+    private static void generateConstructor(
+            ClassDefinition classDefinition,
+            FieldDefinition sessionField,
+            CachedInstanceBinder cachedInstanceBinder,
+            PreGeneratedExpressions preGeneratedExpressions)
     {
         Parameter sessionParameter = arg("session", ConnectorSession.class);
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), sessionParameter);
@@ -164,13 +171,21 @@ public class JoinFilterFunctionCompiler
 
         body.append(thisVariable.setField(sessionField, sessionParameter));
         cachedInstanceBinder.generateInitializations(thisVariable, body);
+        for (CompiledLambda compiledLambda : preGeneratedExpressions.getCompiledLambdaMap().values()) {
+            compiledLambda.generateInitialization(thisVariable, body);
+        }
         body.ret();
     }
 
-    private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter, int leftBlocksSize, FieldDefinition sessionField)
+    private void generateFilterMethod(
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            PreGeneratedExpressions preGeneratedExpressions,
+            RowExpression filter,
+            int leftBlocksSize,
+            FieldDefinition sessionField)
     {
-        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
-
         // int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks
         Parameter leftPosition = arg("leftPosition", int.class);
         Parameter leftBlocks = arg("leftBlocks", Block[].class);
@@ -195,14 +210,14 @@ public class JoinFilterFunctionCompiler
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
-        BytecodeNode visitorBody = filter.accept(visitor, scope);
+        BytecodeNode visitorBody = compiler.compile(filter, scope);
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(visitorBody)
@@ -222,7 +237,7 @@ public class JoinFilterFunctionCompiler
     {
         Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(filter));
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
-        ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
+        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
         int counter = 0;
         for (RowExpression expression : lambdaAndTryExpressions) {
@@ -236,12 +251,12 @@ public class JoinFilterFunctionCompiler
                 Parameter rightPosition = arg("rightPosition", int.class);
                 Parameter rightBlocks = arg("rightBlocks", Block[].class);
 
-                BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
                         callSiteBinder,
                         cachedInstanceBinder,
                         fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
                         metadata.getFunctionRegistry(),
-                        new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build()));
+                        new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build()));
 
                 List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
                         .add(session)
@@ -252,7 +267,7 @@ public class JoinFilterFunctionCompiler
                         .build();
 
                 MethodDefinition tryMethod = defineTryMethod(
-                        innerExpressionVisitor,
+                        innerExpressionCompiler,
                         containerClassDefinition,
                         "try_" + counter,
                         inputParameters,
@@ -264,8 +279,8 @@ public class JoinFilterFunctionCompiler
             }
             else if (expression instanceof LambdaDefinitionExpression) {
                 LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
-                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
-                FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
+                CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                         lambdaExpression,
                         "lambda_" + counter,
                         containerClassDefinition,
@@ -273,7 +288,7 @@ public class JoinFilterFunctionCompiler
                         callSiteBinder,
                         cachedInstanceBinder,
                         metadata.getFunctionRegistry());
-                lambdaFieldMap.put(lambdaExpression, methodHandleField);
+                compiledLambdaMap.put(lambdaExpression, compiledLambda);
             }
             else {
                 throw new VerifyException(format("unexpected expression: %s", expression.toString()));
@@ -281,7 +296,7 @@ public class JoinFilterFunctionCompiler
             counter++;
         }
 
-        return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
+        return new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
@@ -303,7 +318,7 @@ public class JoinFilterFunctionCompiler
         }
     }
 
-    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(
+    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
             final CallSiteBinder callSiteBinder,
             final Variable leftPosition,
             final Variable leftBlocks,

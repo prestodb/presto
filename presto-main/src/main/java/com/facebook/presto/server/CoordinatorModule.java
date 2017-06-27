@@ -96,6 +96,7 @@ import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
@@ -106,6 +107,9 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
+
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -120,6 +124,7 @@ import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
@@ -149,6 +154,7 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(QueryResource.class);
         jaxrsBinder(binder).bind(StageResource.class);
         jaxrsBinder(binder).bind(QueryStateInfoResource.class);
+        jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
@@ -211,6 +217,7 @@ public class CoordinatorModule
         executionBinder.addBinding(Explain.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowCreate.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowColumns.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowStats.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowPartitions.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowFunctions.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowTables.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
@@ -250,6 +257,9 @@ public class CoordinatorModule
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
         executionPolicyBinder.addBinding("phased").to(PhasedExecutionPolicy.class);
+
+        // cleanup
+        binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
     }
 
     private static <T extends Statement> void bindDataDefinitionTask(
@@ -263,5 +273,22 @@ public class CoordinatorModule
 
         taskBinder.addBinding(statement).to(task).in(Scopes.SINGLETON);
         executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
+    }
+
+    public static class ExecutorCleanup
+    {
+        private final ExecutorService executor;
+
+        @Inject
+        public ExecutorCleanup(@ForQueryExecution ExecutorService executor)
+        {
+            this.executor = requireNonNull(executor, "executor is null");
+        }
+
+        @PreDestroy
+        public void shutdown()
+        {
+            executor.shutdownNow();
+        }
     }
 }

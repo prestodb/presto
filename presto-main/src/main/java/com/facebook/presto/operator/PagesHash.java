@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PageBuilder;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
@@ -32,6 +33,7 @@ import static java.util.Objects.requireNonNull;
 // This implementation assumes arrays used in the hash are always a power of 2
 public final class PagesHash
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesHash.class).instanceSize();
     private static final DataSize CACHE_SIZE = new DataSize(128, KILOBYTE);
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
@@ -51,7 +53,7 @@ public final class PagesHash
     public PagesHash(
             LongArrayList addresses,
             PagesHashStrategy pagesHashStrategy,
-            PositionLinks.Builder positionLinks)
+            PositionLinks.FactoryBuilder positionLinks)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
@@ -134,7 +136,7 @@ public final class PagesHash
 
     public long getInMemorySizeInBytes()
     {
-        return size;
+        return INSTANCE_SIZE + size;
     }
 
     public long getHashCollisions()
@@ -147,12 +149,12 @@ public final class PagesHash
         return expectedHashCollisions;
     }
 
-    public int getAddressIndex(int position, Page hashChannelsPage, Page allChannelsPage)
+    public int getAddressIndex(int position, Page hashChannelsPage)
     {
-        return getAddressIndex(position, hashChannelsPage, allChannelsPage, pagesHashStrategy.hashRow(position, hashChannelsPage));
+        return getAddressIndex(position, hashChannelsPage, pagesHashStrategy.hashRow(position, hashChannelsPage));
     }
 
-    public int getAddressIndex(int rightPosition, Page hashChannelsPage, Page allChannelsPage, long rawHash)
+    public int getAddressIndex(int rightPosition, Page hashChannelsPage, long rawHash)
     {
         int pos = getHashPosition(rawHash, mask);
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.rcfile;
 
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
@@ -52,7 +53,6 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static com.facebook.presto.hive.HiveSessionProperties.isRcfileOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
@@ -77,12 +77,14 @@ public class RcFilePageSourceFactory
 
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
+    private final FileFormatDataSourceStats stats;
 
     @Inject
-    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment)
+    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -97,10 +99,6 @@ public class RcFilePageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isRcfileOptimizedReaderEnabled(session)) {
-            return Optional.empty();
-        }
-
         RcFileEncoding rcFileEncoding;
         String deserializerClassName = getDeserializerClassName(schema);
         if (deserializerClassName.equals(LazyBinaryColumnarSerDe.class.getName())) {
@@ -135,7 +133,7 @@ public class RcFilePageSourceFactory
             }
 
             RcFileReader rcFileReader = new RcFileReader(
-                    new HdfsRcFileDataSource(path.toString(), inputStream, size),
+                    new HdfsRcFileDataSource(path.toString(), inputStream, size, stats),
                     rcFileEncoding,
                     readColumns.build(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),

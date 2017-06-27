@@ -104,7 +104,7 @@ public class AddLocalExchanges
     }
 
     private class Rewriter
-            extends PlanVisitor<StreamPreferredProperties, PlanWithProperties>
+            extends PlanVisitor<PlanWithProperties, StreamPreferredProperties>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
@@ -169,7 +169,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTopN(TopNNode node, StreamPreferredProperties parentPreferences)
         {
-            if (node.isPartial()) {
+            if (node.getStep().equals(TopNNode.Step.PARTIAL)) {
                 return planAndEnforceChildren(
                         node,
                         parentPreferences.withoutPreference().withDefaultParallelism(session),

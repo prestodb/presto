@@ -26,7 +26,12 @@ public final class MoreMaps
 
     public static <K, V> Map<K, V> mergeMaps(Map<K, V> map1, Map<K, V> map2, BinaryOperator<V> merger)
     {
-        return Stream.of(map1, map2)
+        return mergeMaps(Stream.of(map1, map2), merger);
+    }
+
+    public static <K, V> Map<K, V> mergeMaps(Stream<Map<K, V>> mapStream, BinaryOperator<V> merger)
+    {
+        return mapStream
                 .map(Map::entrySet)
                 .flatMap(Collection::stream)
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, merger));

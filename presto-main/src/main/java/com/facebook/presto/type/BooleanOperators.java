@@ -32,6 +32,7 @@ import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static java.lang.Float.floatToRawIntBits;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class BooleanOperators
@@ -97,6 +98,13 @@ public final class BooleanOperators
     public static double castToDouble(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.REAL)
+    public static long castToReal(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return value ? floatToRawIntBits(1.0f) : floatToRawIntBits(0.0f);
     }
 
     @ScalarOperator(CAST)

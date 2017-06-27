@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
+import com.facebook.presto.orc.metadata.ExceptionWrappingMetadataReader;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
@@ -52,9 +53,10 @@ public class OrcReader
     private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
 
     private final OrcDataSource orcDataSource;
-    private final MetadataReader metadataReader;
+    private final ExceptionWrappingMetadataReader metadataReader;
     private final DataSize maxMergeDistance;
     private final DataSize maxReadSize;
+    private final DataSize maxBlockSize;
     private final HiveWriterVersion hiveWriterVersion;
     private final int bufferSize;
     private final Footer footer;
@@ -62,14 +64,15 @@ public class OrcReader
     private Optional<OrcDecompressor> decompressor = Optional.empty();
 
     // This is based on the Apache Hive ORC code
-    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, DataSize maxMergeDistance, DataSize maxReadSize)
+    public OrcReader(OrcDataSource orcDataSource, MetadataReader delegate, DataSize maxMergeDistance, DataSize maxReadSize, DataSize maxBlockSize)
             throws IOException
     {
         orcDataSource = wrapWithCacheIfTiny(requireNonNull(orcDataSource, "orcDataSource is null"), maxMergeDistance);
         this.orcDataSource = orcDataSource;
-        this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
+        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), requireNonNull(delegate, "delegate is null"));
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxReadSize = requireNonNull(maxReadSize, "maxReadSize is null");
+        this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
 
         //
         // Read the file tail:
@@ -83,7 +86,7 @@ public class OrcReader
         // figure out the size of the file using the option or filesystem
         long size = orcDataSource.getSize();
         if (size <= 0) {
-            throw new OrcCorruptionException("Malformed ORC file %s. Invalid file size %s", orcDataSource, size);
+            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid file size %s", size);
         }
 
         // Read the tail of the file
@@ -110,13 +113,13 @@ public class OrcReader
             case UNCOMPRESSED:
                 break;
             case ZLIB:
-                decompressor = Optional.of(new OrcZlibDecompressor(bufferSize));
+                decompressor = Optional.of(new OrcZlibDecompressor(orcDataSource.getId(), bufferSize));
                 break;
             case SNAPPY:
-                decompressor = Optional.of(new OrcSnappyDecompressor(bufferSize));
+                decompressor = Optional.of(new OrcSnappyDecompressor(orcDataSource.getId(), bufferSize));
                 break;
             case ZSTD:
-                decompressor = Optional.of(new OrcZstdDecompressor(bufferSize));
+                decompressor = Optional.of(new OrcZstdDecompressor(orcDataSource.getId(), bufferSize));
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported compression type: " + postScript.getCompression());
@@ -148,13 +151,13 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), metadataSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
     }
@@ -212,6 +215,7 @@ public class OrcReader
                 metadataReader,
                 maxMergeDistance,
                 maxReadSize,
+                maxBlockSize,
                 footer.getUserMetadata(),
                 systemMemoryUsage);
     }
@@ -241,7 +245,7 @@ public class OrcReader
     {
         int magicLength = MAGIC.length();
         if (postScriptSize < magicLength + 1) {
-            throw new OrcCorruptionException("Malformed ORC file %s. Invalid postscript length %s", source, postScriptSize);
+            throw new OrcCorruptionException(source.getId(), "Invalid postscript length %s", postScriptSize);
         }
 
         if (!MAGIC.equals(Slices.wrappedBuffer(buffer, buffer.length - 1 - magicLength, magicLength))) {
@@ -251,7 +255,7 @@ public class OrcReader
 
             // if it isn't there, this isn't an ORC file
             if  (!MAGIC.equals(Slices.wrappedBuffer(headerMagic))) {
-                throw new OrcCorruptionException("Malformed ORC file %s. Invalid postscript.", source);
+                throw new OrcCorruptionException(source.getId(), "Invalid postscript");
             }
         }
     }

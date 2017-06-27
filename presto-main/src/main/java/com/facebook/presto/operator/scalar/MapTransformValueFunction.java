@@ -13,41 +13,71 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.ForLoop;
+import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.gen.CallSiteBinder;
+import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
+import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.STATIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
+import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
+import static com.facebook.presto.bytecode.instruction.VariableInstruction.incrementVariable;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class MapTransformValueFunction
         extends SqlScalarFunction
 {
     public static final MapTransformValueFunction MAP_TRANSFORM_VALUE_FUNCTION = new MapTransformValueFunction();
-
-    private static final MethodHandle METHOD_HANDLE = methodHandle(
-            MapTransformValueFunction.class,
-            "transform",
-            Type.class,
-            Type.class,
-            Type.class,
-            Block.class,
-            MethodHandle.class);
+    private static final MethodHandle STATE_FACTORY = methodHandle(MapTransformKeyFunction.class, "createState", MapType.class);
 
     private MapTransformValueFunction()
     {
@@ -85,31 +115,137 @@ public final class MapTransformValueFunction
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V1");
         Type transformedValueType = boundVariables.getTypeVariable("V2");
+        Type resultMapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(transformedValueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(false, false),
-                METHOD_HANDLE.bindTo(keyType).bindTo(valueType).bindTo(transformedValueType),
+                ImmutableList.of(false, false),
+                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
+                generateTransform(keyType, valueType, transformedValueType, resultMapType),
+                Optional.of(STATE_FACTORY.bindTo(resultMapType)),
                 isDeterministic());
     }
 
-    public static Block transform(Type keyType, Type valueType, Type transformedValueType, Block block, MethodHandle function)
+    @UsedByGeneratedCode
+    public static Object createState(MapType mapType)
     {
-        int positionCount = block.getPositionCount();
-        BlockBuilder resultBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, transformedValueType), new BlockBuilderStatus(), positionCount);
-        for (int position = 0; position < positionCount; position += 2) {
-            Object key = readNativeValue(keyType, block, position);
-            Object value = readNativeValue(valueType, block, position + 1);
-            Object transformedValue;
-            try {
-                transformedValue = function.invoke(key, value);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+        return new PageBuilder(ImmutableList.of(mapType));
+    }
 
-            keyType.appendTo(block, position, resultBuilder);
-            writeNativeValue(transformedValueType, resultBuilder, transformedValue);
+    private static MethodHandle generateTransform(Type keyType, Type valueType, Type transformedValueType, Type resultMapType)
+    {
+        CallSiteBinder binder = new CallSiteBinder();
+        Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
+        Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
+        Class<?> transformedValueJavaType = Primitives.wrap(transformedValueType.getJavaType());
+
+        ClassDefinition definition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName("MapTransformValue"),
+                type(Object.class));
+        definition.declareDefaultConstructor(a(PRIVATE));
+
+        // define transform method
+        Parameter state = arg("state", Object.class);
+        Parameter block = arg("block", Block.class);
+        Parameter function = arg("function", BinaryFunctionInterface.class);
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC, STATIC),
+                "transform",
+                type(Block.class),
+                ImmutableList.of(state, block, function));
+
+        BytecodeBlock body = method.getBody();
+        Scope scope = method.getScope();
+        Variable positionCount = scope.declareVariable(int.class, "positionCount");
+        Variable position = scope.declareVariable(int.class, "position");
+        Variable pageBuilder = scope.declareVariable(PageBuilder.class, "pageBuilder");
+        Variable mapBlockBuilder = scope.declareVariable(BlockBuilder.class, "mapBlockBuilder");
+        Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder");
+        Variable keyElement = scope.declareVariable(keyJavaType, "keyElement");
+        Variable valueElement = scope.declareVariable(valueJavaType, "valueElement");
+        Variable transformedValueElement = scope.declareVariable(transformedValueJavaType, "transformedValueElement");
+
+        // invoke block.getPositionCount()
+        body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
+
+        // prepare the single map block builder
+        body.append(pageBuilder.set(state.cast(PageBuilder.class)));
+        body.append(new IfStatement()
+                .condition(pageBuilder.invoke("isFull", boolean.class))
+                .ifTrue(pageBuilder.invoke("reset", void.class)));
+        body.append(mapBlockBuilder.set(pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(0))));
+        body.append(blockBuilder.set(mapBlockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
+
+        // throw null key exception block
+        BytecodeNode throwNullKeyException = new BytecodeBlock()
+                .append(newInstance(
+                        PrestoException.class,
+                        getStatic(INVALID_FUNCTION_ARGUMENT.getDeclaringClass(), "INVALID_FUNCTION_ARGUMENT").cast(ErrorCodeSupplier.class),
+                        constantString("map key cannot be null")))
+                .throwObject();
+
+        SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
+        BytecodeNode loadKeyElement;
+        if (!keyType.equals(UNKNOWN)) {
+            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(block, position).cast(keyJavaType)));
         }
-        return resultBuilder.build();
+        else {
+            // make sure invokeExact will not take uninitialized keys during compile time
+            // but if we reach this point during runtime, it is an exception
+            loadKeyElement = new BytecodeBlock()
+                    .append(keyElement.set(constantNull(keyJavaType)))
+                    .append(throwNullKeyException);
+        }
+
+        SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
+        BytecodeNode loadValueElement;
+        if (!valueType.equals(UNKNOWN)) {
+            loadValueElement = new IfStatement()
+                    .condition(block.invoke("isNull", boolean.class, add(position, constantInt(1))))
+                    .ifTrue(valueElement.set(constantNull(valueJavaType)))
+                    .ifFalse(valueElement.set(valueSqlType.getValue(block, add(position, constantInt(1))).cast(valueJavaType)));
+        }
+        else {
+            loadValueElement = new BytecodeBlock().append(valueElement.set(constantNull(valueJavaType)));
+        }
+
+        BytecodeNode writeTransformedValueElement;
+        if (!transformedValueType.equals(UNKNOWN)) {
+            writeTransformedValueElement = new IfStatement()
+                    .condition(equal(transformedValueElement, constantNull(transformedValueJavaType)))
+                    .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, transformedValueType).writeValue(blockBuilder, transformedValueElement.cast(transformedValueType.getJavaType())));
+        }
+        else {
+            writeTransformedValueElement = new BytecodeBlock().append(blockBuilder.invoke("appendNull", BlockBuilder.class).pop());
+        }
+
+        body.append(new ForLoop()
+                .initialize(position.set(constantInt(0)))
+                .condition(lessThan(position, positionCount))
+                .update(incrementVariable(position, (byte) 2))
+                .body(new BytecodeBlock()
+                        .append(loadKeyElement)
+                        .append(loadValueElement)
+                        .append(transformedValueElement.set(function.invoke("apply", Object.class, keyElement.cast(Object.class), valueElement.cast(Object.class)).cast(transformedValueJavaType)))
+                        .append(keySqlType.invoke("appendTo", void.class, block, position, blockBuilder))
+                        .append(writeTransformedValueElement)));
+
+        body.append(mapBlockBuilder
+                .invoke("closeEntry", BlockBuilder.class)
+                .pop());
+        body.append(constantType(binder, resultMapType)
+                .invoke(
+                        "getObject",
+                        Object.class,
+                        mapBlockBuilder.cast(Block.class),
+                        subtract(mapBlockBuilder.invoke("getPositionCount", int.class), constantInt(1)))
+                .ret());
+
+        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformValueFunction.class.getClassLoader());
+        return methodHandle(generatedClass, "transform", Object.class, Block.class, BinaryFunctionInterface.class);
     }
 }

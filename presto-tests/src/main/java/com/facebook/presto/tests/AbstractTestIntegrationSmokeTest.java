@@ -135,6 +135,20 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertTrue(expectedColumnsPossibilities.contains(actualColumns), String.format("%s not in %s", actualColumns, expectedColumnsPossibilities));
     }
 
+    @Test
+    public void testDuplicatedRowCreateTable()
+    {
+        assertQueryFails("CREATE TABLE test (a integer, a integer)",
+                "line 1:31: Column name 'a' specified more than once");
+        assertQueryFails("CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
+                "line 1:49: Column name 'orderkey' specified more than once");
+
+        assertQueryFails("CREATE TABLE test (a integer, A integer)",
+                "line 1:31: Column name 'A' specified more than once");
+        assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
+                "line 1:49: Column name 'orderkey' specified more than once");
+    }
+
     private MaterializedResult getExpectedTableDescription(boolean dateSupported, boolean parametrizedVarchar)
     {
         String orderDateType;

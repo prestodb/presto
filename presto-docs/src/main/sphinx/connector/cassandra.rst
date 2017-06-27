@@ -49,16 +49,6 @@ Property Name                                      Description
 ``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol
                                                    (defaults to ``9042``).
 
-``cassandra.max-schema-refresh-threads``           Maximum number of schema cache refresh threads. This property
-                                                   corresponds to the maximum number of parallel requests.
-
-``cassandra.schema-cache-ttl``                     Maximum time that information about a schema will be cached
-                                                   (defaults to ``1h``).
-
-``cassandra.schema-refresh-interval``              The schema information cache will be refreshed in the background
-                                                   when accessed if the cached data is at least this old
-                                                   (defaults to ``2m``).
-
 ``cassandra.consistency-level``                    Consistency levels in Cassandra refer to the level of consistency
                                                    to be used for both read and write operations.  More information
                                                    about consistency levels can be found in the
@@ -184,3 +174,59 @@ This table can be described in Presto::
 This table can then be queried in Presto::
 
     SELECT * FROM cassandra.mykeyspace.users;
+
+Data types
+----------
+
+The data types mappings are as follows:
+
+================  ======
+Cassandra         Presto
+================  ======
+ASCII             VARCHAR
+BIGINT            BIGINT
+BLOB              VARBINARY
+BOOLEAN           BOOLEAN
+DECIMAL           DOUBLE
+DOUBLE            DOUBLE
+FLOAT             DOUBLE
+INET              VARCHAR(45)
+INT               INTEGER
+LIST<?>           VARCHAR
+MAP<?, ?>         VARCHAR
+SET<?>            VARCHAR
+TEXT              VARCHAR
+TIMESTAMP         TIMESTAMP
+TIMEUUID          VARCHAR
+VARCHAR           VARCHAR
+VARIANT           VARCHAR
+================  ======
+
+Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
+mapped to VARCHAR. Additionally, blobs have the limitation that they cannot be empty.
+
+Types not mentioned in the table above are not supported (e.g. tuple or UDT).
+
+Partition keys can only be of the following types:
+| ASCII
+| TEXT
+| VARCHAR
+| BIGINT
+| BOOLEAN
+| DOUBLE
+| INET
+| INT
+| FLOAT
+| DECIMAL
+| TIMESTAMP
+| UUID
+| TIMEUUID
+
+Limitations
+-----------
+
+* Queries without filters containing the partition key result in fetching all partitions.
+  This causes a full scan of the entire data set, therefore it's much slower compared to a similar
+  query with a partition key as a filter.
+* ``IN`` list filters are only allowed on index (that is, partition key or clustering key) columns.
+* Range (``<`` or ``>`` and ``BETWEEN``) filters can be applied only to the partition keys.

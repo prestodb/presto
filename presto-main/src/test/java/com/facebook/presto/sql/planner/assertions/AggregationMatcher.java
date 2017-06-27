@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -55,7 +56,7 @@ public class AggregationMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         AggregationNode aggregationNode = (AggregationNode) node;
@@ -71,7 +72,7 @@ public class AggregationMatcher
         List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
                 .entrySet()
                 .stream()
-                .filter(entry -> entry.getValue().isDistinct())
+                .filter(entry -> entry.getValue().getCall().isDistinct())
                 .map(entry -> entry.getKey())
                 .collect(Collectors.toList());
 

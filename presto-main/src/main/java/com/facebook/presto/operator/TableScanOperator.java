@@ -20,6 +20,8 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.EmptySplit;
+import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
@@ -158,6 +160,10 @@ public class TableScanOperator
         }
 
         blocked.set(null);
+
+        if (split.getConnectorSplit() instanceof EmptySplit) {
+            source = new EmptySplitPageSource();
+        }
 
         return () -> {
             if (source instanceof UpdatablePageSource) {

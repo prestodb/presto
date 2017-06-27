@@ -18,8 +18,10 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -27,13 +29,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * Converts Single Distinct Aggregation into GroupBy
@@ -48,13 +53,17 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 public class SingleMarkDistinctToGroupBy
         implements Rule
 {
+    private static final Pattern PATTERN = Pattern.node(AggregationNode.class);
+
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
     {
-        if (!(node instanceof AggregationNode)) {
-            return Optional.empty();
-        }
-
         AggregationNode parent = (AggregationNode) node;
 
         PlanNode source = lookup.resolve(parent.getSource());
@@ -65,6 +74,7 @@ public class SingleMarkDistinctToGroupBy
         MarkDistinctNode child = (MarkDistinctNode) source;
 
         boolean hasFilters = parent.getAggregations().values().stream()
+                .map(Aggregation::getCall)
                 .map(FunctionCall::getFilter)
                 .anyMatch(Optional::isPresent);
 
@@ -75,12 +85,21 @@ public class SingleMarkDistinctToGroupBy
         // optimize if and only if
         // all aggregation functions have a single common distinct mask symbol
         // AND all aggregation functions have mask
-        Set<Symbol> masks = ImmutableSet.copyOf(parent.getMasks().values());
-        if (masks.size() != 1 || parent.getMasks().size() != parent.getAggregations().size()) {
+        Collection<Aggregation> aggregations = parent.getAggregations().values();
+
+        List<Symbol> masks = aggregations.stream()
+                .map(Aggregation::getMask)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
+
+        Set<Symbol> uniqueMasks = ImmutableSet.copyOf(masks);
+
+        if (uniqueMasks.size() != 1 || masks.size() != aggregations.size()) {
             return Optional.empty();
         }
 
-        Symbol mask = Iterables.getOnlyElement(masks);
+        Symbol mask = Iterables.getOnlyElement(uniqueMasks);
 
         if (!child.getMarkerSymbol().equals(mask)) {
             return Optional.empty();
@@ -98,7 +117,7 @@ public class SingleMarkDistinctToGroupBy
                                 child.getHashSymbol(),
                                 Optional.empty()),
                         // remove DISTINCT flag from function calls
-                        parent.getAssignments()
+                        parent.getAggregations()
                                 .entrySet().stream()
                                 .collect(Collectors.toMap(
                                         Map.Entry::getKey,

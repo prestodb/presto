@@ -193,7 +193,7 @@ public class TestCachingOrcDataSource
     public void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize maxReadSize)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader(), maxMergeDistance, maxReadSize);
+        OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader(), maxMergeDistance, maxReadSize, new DataSize(1, Unit.MEGABYTE));
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
@@ -253,6 +253,12 @@ public class TestCachingOrcDataSource
             implements OrcDataSource
     {
         public static final FakeOrcDataSource INSTANCE = new FakeOrcDataSource();
+
+        @Override
+        public OrcDataSourceId getId()
+        {
+            return new OrcDataSourceId("fake");
+        }
 
         @Override
         public long getReadBytes()

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.175-SNAPSHOT</version>
+        <version>0.180-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-benchmark-driver</artifactId>
@@ -70,6 +70,11 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
         </dependency>
 
         <!-- for testing -->

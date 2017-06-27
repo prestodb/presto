@@ -17,6 +17,7 @@ import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.operator.aggregation.MultiKeyValuePairs;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import static java.util.Objects.requireNonNull;
 
@@ -60,6 +61,7 @@ public class MultiKeyValuePairsStateFactory
             extends AbstractGroupedAccumulatorState
             implements MultiKeyValuePairsState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
         private final Type keyType;
         private final Type valueType;
         private final ObjectBigArray<MultiKeyValuePairs> pairs = new ObjectBigArray<>();
@@ -118,13 +120,14 @@ public class MultiKeyValuePairsStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return size + pairs.sizeOf();
+            return INSTANCE_SIZE + size + pairs.sizeOf();
         }
     }
 
     public static class SingleState
             implements MultiKeyValuePairsState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
         private final Type keyType;
         private final Type valueType;
         private MultiKeyValuePairs pair;
@@ -167,10 +170,11 @@ public class MultiKeyValuePairsStateFactory
         @Override
         public long getEstimatedSize()
         {
-            if (pair == null) {
-                return 0;
+            long estimatedSize = INSTANCE_SIZE;
+            if (pair != null) {
+                estimatedSize += pair.estimatedInMemorySize();
             }
-            return pair.estimatedInMemorySize();
+            return estimatedSize;
         }
     }
 }

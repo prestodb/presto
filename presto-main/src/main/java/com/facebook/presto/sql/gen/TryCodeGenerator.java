@@ -57,6 +57,7 @@ public class TryCodeGenerator
         implements BytecodeGenerator
 {
     private static final String EXCEPTION_HANDLER_NAME = "tryExpressionExceptionHandler";
+    private static final MethodHandle EXCEPTION_HANDLER = methodHandle(TryCodeGenerator.class, EXCEPTION_HANDLER_NAME, PrestoException.class);
 
     private final Map<CallExpression, MethodDefinition> tryMethodsMap;
 
@@ -86,7 +87,7 @@ public class TryCodeGenerator
     }
 
     public static MethodDefinition defineTryMethod(
-            BytecodeExpressionVisitor innerExpressionVisitor,
+            RowExpressionCompiler innerExpressionCompiler,
             ClassDefinition classDefinition,
             String methodName,
             List<Parameter> inputParameters,
@@ -98,10 +99,10 @@ public class TryCodeGenerator
         Scope calleeMethodScope = method.getScope();
 
         Variable wasNull = calleeMethodScope.declareVariable(boolean.class, "wasNull");
-        BytecodeNode innerExpression = innerRowExpression.accept(innerExpressionVisitor, calleeMethodScope);
+        BytecodeNode innerExpression = innerExpressionCompiler.compile(innerRowExpression, calleeMethodScope);
 
         MethodType exceptionHandlerType = methodType(returnType, PrestoException.class);
-        MethodHandle exceptionHandler = methodHandle(TryCodeGenerator.class, EXCEPTION_HANDLER_NAME, PrestoException.class).asType(exceptionHandlerType);
+        MethodHandle exceptionHandler = EXCEPTION_HANDLER.asType(exceptionHandlerType);
         Binding binding = callSiteBinder.bind(exceptionHandler);
 
         method.comment("Try projection: %s", innerRowExpression.toString());

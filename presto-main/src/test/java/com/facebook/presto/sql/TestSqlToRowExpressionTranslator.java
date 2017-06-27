@@ -22,8 +22,9 @@ import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -39,12 +40,12 @@ public class TestSqlToRowExpressionTranslator
         FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
         Expression expression = new LongLiteral("1");
-        IdentityLinkedHashMap<Expression, Type> types = new IdentityLinkedHashMap<>();
-        types.put(expression, BIGINT);
+        ImmutableMap.Builder<NodeRef<Expression>, Type> types = ImmutableMap.builder();
+        types.put(NodeRef.of(expression), BIGINT);
         for (int i = 0; i < 100; i++) {
             expression = new CoalesceExpression(expression);
-            types.put(expression, BIGINT);
+            types.put(NodeRef.of(expression), BIGINT);
         }
-        SqlToRowExpressionTranslator.translate(expression, SCALAR, types, functionRegistry, typeManager, TEST_SESSION, true);
+        SqlToRowExpressionTranslator.translate(expression, SCALAR, types.build(), functionRegistry, typeManager, TEST_SESSION, true);
     }
 }

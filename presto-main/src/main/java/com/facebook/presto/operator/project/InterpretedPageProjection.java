@@ -27,7 +27,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -65,8 +65,7 @@ public class InterpretedPageProjection
             Type type = inputTypes.get(parameter);
             parameterTypes.put(parameter, type);
         }
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, parameterTypes.build(), rewritten, emptyList());
-
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, parameterTypes.build(), rewritten, emptyList());
         this.evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
 
         blockBuilder = evaluator.getType().createBlockBuilder(new BlockBuilderStatus(), 1);

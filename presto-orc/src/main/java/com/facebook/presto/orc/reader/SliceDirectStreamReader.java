@@ -26,6 +26,7 @@ import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,12 +44,15 @@ import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SliceDirectStreamReader
         implements StreamReader
 {
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+    private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     private final StreamDescriptor streamDescriptor;
 
@@ -102,12 +106,12 @@ public class SliceDirectStreamReader
             }
             if (readOffset > 0) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException("Value is not null but length stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
                 }
                 long dataSkipSize = lengthStream.sum(readOffset);
                 if (dataSkipSize > 0) {
                     if (dataStream == null) {
-                        throw new OrcCorruptionException("Value is not null but data stream is not present");
+                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                     }
                     dataStream.skip(dataSkipSize);
                 }
@@ -122,7 +126,7 @@ public class SliceDirectStreamReader
         }
         if (presentStream == null) {
             if (lengthStream == null) {
-                throw new OrcCorruptionException("Value is not null but length stream is not present");
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
             }
             Arrays.fill(isNullVector, false);
             lengthStream.nextIntVector(nextBatchSize, lengthVector);
@@ -131,25 +135,28 @@ public class SliceDirectStreamReader
             int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
             if (nullValues != nextBatchSize) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException("Value is not null but length stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
                 }
                 lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
             }
         }
 
-        int totalLength = 0;
+        long totalLength = 0;
         for (int i = 0; i < nextBatchSize; i++) {
             if (!isNullVector[i]) {
                 totalLength += lengthVector[i];
             }
         }
+        if (totalLength > ONE_GIGABYTE) {
+            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Column values too large to process in Presto. %s column values larger than 1GB", nextBatchSize);
+        }
 
         byte[] data = EMPTY_BYTE_ARRAY;
         if (totalLength > 0) {
             if (dataStream == null) {
-                throw new OrcCorruptionException("Value is not null but data stream is not present");
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            data = dataStream.next(totalLength);
+            data = dataStream.next(toIntExact(totalLength));
         }
 
         Slice[] sliceVector = new Slice[nextBatchSize];

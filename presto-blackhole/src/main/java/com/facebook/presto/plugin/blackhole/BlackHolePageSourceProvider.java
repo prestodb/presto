@@ -145,7 +145,7 @@ public final class BlackHolePageSourceProvider
 
     private boolean isSupportedType(Type type)
     {
-        return ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARBINARY).contains(type)
+        return ImmutableSet.<Type>of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARBINARY).contains(type)
                 || isVarcharType(type) || isLongDecimal(type) || isShortDecimal(type);
     }
 }

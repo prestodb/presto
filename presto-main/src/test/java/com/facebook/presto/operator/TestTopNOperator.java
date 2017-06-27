@@ -185,16 +185,9 @@ public class TestTopNOperator
                 new DataSize(16, MEGABYTE));
 
         try (Operator operator = factory.createOperator(driverContext)) {
-            MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT).build();
-
-            // assertOperatorEquals assumes operators do not start in finished state
             assertEquals(operator.isFinished(), true);
             assertEquals(operator.needsInput(), false);
             assertEquals(operator.getOutput(), null);
-
-            List<Page> pages = OperatorAssertion.toPages(operator, input.iterator());
-            MaterializedResult actual = OperatorAssertion.toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
-            assertEquals(actual, expected);
         }
     }
 

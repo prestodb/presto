@@ -114,7 +114,7 @@ public class ExpressionCompiler
         };
     }
 
-    private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
+    private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)
     {
         // create filter and project page iterator class
         try {
@@ -128,7 +128,7 @@ public class ExpressionCompiler
     private <T> Class<? extends T> compileProcessor(
             RowExpression filter,
             List<RowExpression> projections,
-            BodyCompiler<T> bodyCompiler,
+            BodyCompiler bodyCompiler,
             Class<? extends T> superType)
     {
         ClassDefinition classDefinition = new ClassDefinition(

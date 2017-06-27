@@ -45,7 +45,7 @@ function run_in_application_runner_container() {
 function check_presto() {
   run_in_application_runner_container \
     java -jar "/docker/volumes/presto-cli/presto-cli-executable.jar" \
-    --server presto-master:8080 \
+    ${CLI_ARGUMENTS} \
     --execute "SHOW CATALOGS" | grep -i hive
 }
 
@@ -81,8 +81,11 @@ function stop_application_runner_containers() {
     echo "Container stopped: ${CONTAINER_NAME}"
   done
   echo "Removing dead application-runner containers"
-  docker ps -aq --no-trunc --filter status=dead --filter status=exited --filter name=common_application-runner \
-  | xargs docker rm -v || true
+  local CONTAINERS=`docker ps -aq --no-trunc --filter status=dead --filter status=exited --filter name=common_application-runner`
+  for CONTAINER in ${CONTAINERS};
+  do
+    docker rm -v "${CONTAINER}"
+  done
 }
 
 function stop_all_containers() {
@@ -177,6 +180,13 @@ shift 1
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
+elif [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
+   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
+fi
+
+CLI_ARGUMENTS="--server presto-master:8080"
+if [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
+    CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456"
 fi
 
 # check docker and docker compose installation

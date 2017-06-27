@@ -14,6 +14,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
@@ -28,6 +30,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -42,6 +45,7 @@ import java.util.OptionalLong;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.lang.String.format;
@@ -56,6 +60,7 @@ public abstract class AbstractTestQueryFramework
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
+    private CostCalculator costCalculator;
 
     protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
     {
@@ -69,6 +74,7 @@ public abstract class AbstractTestQueryFramework
         queryRunner = queryRunnerSupplier.get();
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
+        costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
     }
 
     @AfterClass(alwaysRun = true)
@@ -167,20 +173,19 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count));
     }
 
+    protected void assertQueryFailsEventually(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
+    {
+        QueryAssertions.assertQueryFailsEventually(queryRunner, getSession(), sql, expectedMessageRegExp, timeout);
+    }
+
     protected void assertQueryFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
-        assertQueryFails(getSession(), sql, expectedMessageRegExp);
+        QueryAssertions.assertQueryFails(queryRunner, getSession(), sql, expectedMessageRegExp);
     }
 
     protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
-        try {
-            queryRunner.execute(session, sql);
-            fail(format("Expected query to fail: %s", sql));
-        }
-        catch (RuntimeException ex) {
-            assertExceptionMessage(sql, ex, expectedMessageRegExp);
-        }
+        QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
     }
 
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
@@ -239,7 +244,7 @@ public abstract class AbstractTestQueryFramework
 
     private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
     {
-        if (!exception.getMessage().matches(regex)) {
+        if (!nullToEmpty(exception.getMessage()).matches(regex)) {
             fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
         }
     }
@@ -296,6 +301,7 @@ public abstract class AbstractTestQueryFramework
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,
+                costCalculator,
                 ImmutableMap.of());
     }
 

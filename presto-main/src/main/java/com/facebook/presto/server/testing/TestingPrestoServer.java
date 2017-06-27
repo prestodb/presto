@@ -15,6 +15,7 @@ package com.facebook.presto.server.testing;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
@@ -100,6 +101,7 @@ public class TestingPrestoServer
     private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private final CostCalculator costCalculator;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager> resourceGroupManager;
@@ -249,6 +251,7 @@ public class TestingPrestoServer
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
+        costCalculator = injector.getInstance(CostCalculator.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
@@ -344,6 +347,11 @@ public class TestingPrestoServer
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public CostCalculator getCostCalculator()
+    {
+        return costCalculator;
     }
 
     public TestingAccessControlManager getAccessControl()

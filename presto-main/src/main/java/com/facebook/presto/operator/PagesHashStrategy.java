@@ -93,5 +93,13 @@ public interface PagesHashStrategy
      */
     boolean isPositionNull(int blockIndex, int blockPosition);
 
-    int compare(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition);
+    /**
+     * Compares sort channel (if applicable) values at the specified positions.
+     */
+    int compareSortChannelPositions(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition);
+
+    /**
+     * Checks if sort channel is null at the specified position
+     */
+    boolean isSortChannelPositionNull(int blockIndex, int blockPosition);
 }

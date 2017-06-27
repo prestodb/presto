@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,10 +34,10 @@ public class InterleavedBlockBuilder
 
     private int positionCount;
     private int currentBlockIndex;
-    private int sizeInBytes;
-    private int startSize;
-    private int retainedSizeInBytes;
-    private int startRetainedSize;
+    private long sizeInBytes;
+    private long startSize;
+    private long retainedSizeInBytes;
+    private long startRetainedSize;
 
     public InterleavedBlockBuilder(List<Type> types, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -109,15 +110,22 @@ public class InterleavedBlockBuilder
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return sizeInBytes;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(blockBuilders, retainedSizeInBytes - INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     private void recordStartSizesIfNecessary(BlockBuilder blockBuilder)

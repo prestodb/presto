@@ -18,32 +18,28 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.net.HttpHeaders;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpStatus;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.Response;
-import io.airlift.http.client.testing.TestingHttpClient;
-import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.json.JsonCodec;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.net.URI;
+import java.io.IOException;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -51,28 +47,46 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestProgressMonitor
 {
-    private static final String SERVER_ADDRESS = "127.0.0.1:8080";
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
-    private static final String QUERY_ID = "20160128_214710_00012_rk68b";
-    private static final String INFO_URI = "http://" + SERVER_ADDRESS + "/query.html?" + QUERY_ID;
-    private static final String PARTIAL_CANCEL_URI = "http://" + SERVER_ADDRESS + "/v1/stage/" + QUERY_ID + ".%d";
-    private static final String NEXT_URI = "http://" + SERVER_ADDRESS + "/v1/statement/" + QUERY_ID + "/%d";
-    private static final List<Column> RESPONSE_COLUMNS = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint", ImmutableList.of())));
-    private static final List<String> RESPONSES = ImmutableList.of(
-            newQueryResults(null, 1, null, null, "QUEUED"),
-            newQueryResults(1, 2, RESPONSE_COLUMNS, null, "RUNNING"),
-            newQueryResults(1, 3, RESPONSE_COLUMNS, null, "RUNNING"),
-            newQueryResults(0, 4, RESPONSE_COLUMNS, ImmutableList.of(ImmutableList.of(253161)), "RUNNING"),
-            newQueryResults(null, null, RESPONSE_COLUMNS, null, "FINISHED"));
+    private MockWebServer server;
 
-    private static String newQueryResults(Integer partialCancelId, Integer nextUriId, List<Column> responseColumns, List<List<Object>> data, String state)
+    @BeforeMethod
+    public void setup()
+            throws IOException
     {
+        server = new MockWebServer();
+        server.start();
+    }
+
+    @AfterMethod
+    public void teardown()
+            throws IOException
+    {
+        server.close();
+    }
+
+    private List<String> createResults()
+    {
+        List<Column> columns = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint", ImmutableList.of())));
+        return ImmutableList.<String>builder()
+                .add(newQueryResults(null, 1, null, null, "QUEUED"))
+                .add(newQueryResults(1, 2, columns, null, "RUNNING"))
+                .add(newQueryResults(1, 3, columns, null, "RUNNING"))
+                .add(newQueryResults(0, 4, columns, ImmutableList.of(ImmutableList.of(253161)), "RUNNING"))
+                .add(newQueryResults(null, null, columns, null, "FINISHED"))
+                .build();
+    }
+
+    private String newQueryResults(Integer partialCancelId, Integer nextUriId, List<Column> responseColumns, List<List<Object>> data, String state)
+    {
+        String queryId = "20160128_214710_00012_rk68b";
+
         QueryResults queryResults = new QueryResults(
-                QUERY_ID,
-                URI.create(INFO_URI),
-                partialCancelId == null ? null : URI.create(format(PARTIAL_CANCEL_URI, partialCancelId)),
-                nextUriId == null ? null : URI.create(format(NEXT_URI, nextUriId)),
+                queryId,
+                server.url("/query.html?" + queryId).uri(),
+                partialCancelId == null ? null : server.url(format("/v1/stage/%s.%s", queryId, partialCancelId)).uri(),
+                nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
                 data,
                 new StatementStats(state, state.equals("QUEUED"), true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
@@ -87,6 +101,12 @@ public class TestProgressMonitor
     public void test()
             throws SQLException
     {
+        for (String result : createResults()) {
+            server.enqueue(new MockResponse()
+                    .addHeader(CONTENT_TYPE, "application/json")
+                    .setBody(result));
+        }
+
         try (Connection connection = createConnection()) {
             try (Statement statement = connection.createStatement()) {
                 PrestoStatement prestoStatement = statement.unwrap(PrestoStatement.class);
@@ -116,40 +136,15 @@ public class TestProgressMonitor
     private Connection createConnection()
             throws SQLException
     {
-        HttpClient client = new TestingHttpClient(new TestingHttpClientProcessor(RESPONSES));
-        QueryExecutor testQueryExecutor = QueryExecutor.create(client);
-        String uri = format("prestotest://%s", SERVER_ADDRESS);
-        return new PrestoConnection(new PrestoDriverUri(uri), "test", testQueryExecutor);
-    }
-
-    private static class TestingHttpClientProcessor
-            implements TestingHttpClient.Processor
-    {
-        private final Iterator<String> responses;
-
-        public TestingHttpClientProcessor(List<String> responses)
-        {
-            this.responses = ImmutableList.copyOf(requireNonNull(responses, "responses is null")).iterator();
-        }
-
-        @Override
-        public synchronized Response handle(Request request)
-                throws Exception
-        {
-            checkState(responses.hasNext(), "too many requests (ran out of test responses)");
-            Response response = new TestingResponse(
-                    HttpStatus.OK,
-                    ImmutableListMultimap.of(HttpHeaders.CONTENT_TYPE, "application/json"),
-                    responses.next().getBytes());
-            return response;
-        }
+        String url = format("jdbc:presto://%s", server.url("/").uri().getAuthority());
+        return DriverManager.getConnection(url, "test", null);
     }
 
     private static class RecordingProgressMonitor
             implements Consumer<QueryStats>
     {
         private final ImmutableList.Builder<QueryStats> builder = ImmutableList.builder();
-        private boolean finished = false;
+        private boolean finished;
 
         @Override
         public synchronized void accept(QueryStats queryStats)

@@ -80,12 +80,17 @@ public class DwrfMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
+
+        // todo enable file stats when DWRF team verifies that the stats are correct
+        // List<ColumnStatistics> fileStats = toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false);
+        List<ColumnStatistics> fileStats = ImmutableList.of();
+
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
+                fileStats,
                 toUserMetadata(footer.getMetadataList()));
     }
 

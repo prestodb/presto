@@ -67,7 +67,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * Note: non-deterministic predicates can not be pulled up (so they will be ignored)
  */
 public class EffectivePredicateExtractor
-        extends PlanVisitor<Void, Expression>
+        extends PlanVisitor<Expression, Void>
 {
     public static Expression extract(PlanNode node, Map<Symbol, Type> symbolTypes)
     {
@@ -81,6 +81,7 @@ public class EffectivePredicateExtractor
             entry -> {
                 SymbolReference reference = entry.getKey().toSymbolReference();
                 Expression expression = entry.getValue();
+                // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
                 return new ComparisonExpression(ComparisonExpressionType.EQUAL, reference, expression);
             };
@@ -223,12 +224,9 @@ public class EffectivePredicateExtractor
         Expression leftPredicate = node.getLeft().accept(this, context);
         Expression rightPredicate = node.getRight().accept(this, context);
 
-        List<Expression> joinConjuncts = new ArrayList<>();
-        for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-            joinConjuncts.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
-                    clause.getLeft().toSymbolReference(),
-                    clause.getRight().toSymbolReference()));
-        }
+        List<Expression> joinConjuncts = node.getCriteria().stream()
+                .map(JoinNode.EquiJoinClause::toExpression)
+                .collect(toImmutableList());
 
         switch (node.getType()) {
             case INNER:
@@ -265,7 +263,7 @@ public class EffectivePredicateExtractor
         // Conjuncts without any symbol dependencies cannot be applied to the effective predicate (e.g. FALSE literal)
         return conjuncts.stream()
                 .map(expression -> pullExpressionThroughSymbols(expression, outputSymbols))
-                .map(expression -> DependencyExtractor.extractAll(expression).isEmpty() ? TRUE_LITERAL : expression)
+                .map(expression -> SymbolsExtractor.extractAll(expression).isEmpty() ? TRUE_LITERAL : expression)
                 .map(expressionOrNullSymbols(nullSymbolScopes))
                 .collect(toImmutableList());
     }

@@ -13,18 +13,44 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.ClientException;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
+import okhttp3.OkHttpClient;
 
+import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Properties;
 
+import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
+import static com.facebook.presto.client.OkHttpUtil.basicAuth;
+import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
+import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
+import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
+import static com.facebook.presto.client.OkHttpUtil.setupSsl;
+import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_KEYTAB_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERICE_NAME;
+import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
+import static com.facebook.presto.jdbc.ConnectionProperties.PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -40,25 +66,29 @@ final class PrestoDriverUri
     private final HostAndPort address;
     private final URI uri;
 
+    private final Properties properties;
+
     private String catalog;
     private String schema;
 
     private final boolean useSecureConnection;
 
-    public PrestoDriverUri(String url)
+    public PrestoDriverUri(String url, Properties driverProperties)
             throws SQLException
     {
-        this(parseDriverUrl(url));
+        this(parseDriverUrl(url), driverProperties);
     }
 
-    private PrestoDriverUri(URI uri)
+    private PrestoDriverUri(URI uri, Properties driverProperties)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
-        this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        properties = mergeConnectionProperties(uri, driverProperties);
 
-        Map<String, String> params = parseParameters(uri.getQuery());
-        useSecureConnection = Boolean.parseBoolean(params.get("secure"));
+        validateConnectionProperties(properties);
+
+        useSecureConnection = SSL.getRequiredValue(properties);
 
         initCatalogAndSchema();
     }
@@ -83,7 +113,64 @@ final class PrestoDriverUri
         return buildHttpUri();
     }
 
+    public String getUser()
+            throws SQLException
+    {
+        return USER.getRequiredValue(properties);
+    }
+
+    public Properties getProperties()
+    {
+        return properties;
+    }
+
+    public void setupClient(OkHttpClient.Builder builder)
+            throws SQLException
+    {
+        try {
+            setupSocksProxy(builder, SOCKS_PROXY.getValue(properties));
+            setupHttpProxy(builder, HTTP_PROXY.getValue(properties));
+
+            // TODO: fix Tempto to allow empty passwords
+            String password = PASSWORD.getValue(properties).orElse("");
+            if (!password.isEmpty() && !password.equals("***empty***")) {
+                if (!useSecureConnection) {
+                    throw new SQLException("Authentication using username/password requires SSL to be enabled");
+                }
+                builder.addInterceptor(basicAuth(getUser(), password));
+            }
+
+            if (useSecureConnection) {
+                Optional<String> trustStorePath = SSL_TRUST_STORE_PATH.getValue(properties);
+                Optional<String> trustStorePassword = SSL_TRUST_STORE_PASSWORD.getValue(properties);
+                setupSsl(builder, Optional.empty(), Optional.empty(), trustStorePath, trustStorePassword);
+            }
+
+            if (KERBEROS_REMOTE_SERICE_NAME.getValue(properties).isPresent()) {
+                if (!useSecureConnection) {
+                    throw new SQLException("Authentication using Kerberos requires SSL to be enabled");
+                }
+                setupKerberos(
+                        builder,
+                        KERBEROS_REMOTE_SERICE_NAME.getRequiredValue(properties),
+                        KERBEROS_USE_CANONICAL_HOSTNAME.getRequiredValue(properties),
+                        KERBEROS_PRINCIPAL.getValue(properties),
+                        KERBEROS_CONFIG_PATH.getValue(properties),
+                        KERBEROS_KEYTAB_PATH.getValue(properties),
+                        Optional.ofNullable(KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties)
+                                .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))));
+            }
+        }
+        catch (ClientException e) {
+            throw new SQLException(e.getMessage(), e);
+        }
+        catch (RuntimeException e) {
+            throw new SQLException("Error setting up connection", e);
+        }
+    }
+
     private static Map<String, String> parseParameters(String query)
+            throws SQLException
     {
         Map<String, String> result = new HashMap<>();
 
@@ -91,7 +178,9 @@ final class PrestoDriverUri
             Iterable<String> queryArgs = QUERY_SPLITTER.split(query);
             for (String queryArg : queryArgs) {
                 List<String> parts = ARG_SPLITTER.splitToList(queryArg);
-                result.put(parts.get(0), parts.get(1));
+                if (result.put(parts.get(0), parts.get(1)) != null) {
+                    throw new SQLException(format("Connection property '%s' is in URL multiple times", parts.get(0)));
+                }
             }
         }
 
@@ -122,12 +211,13 @@ final class PrestoDriverUri
 
     private URI buildHttpUri()
     {
-        String scheme = (address.getPort() == 443 || useSecureConnection) ? "https" : "http";
-
-        return uriBuilder()
-                .scheme(scheme)
-                .host(address.getHostText()).port(address.getPort())
-                .build();
+        String scheme = useSecureConnection ? "https" : "http";
+        try {
+            return new URI(scheme, null, address.getHost(), address.getPort(), null, null, null);
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void initCatalogAndSchema()
@@ -164,6 +254,47 @@ final class PrestoDriverUri
                 throw new SQLException("Schema name is empty: " + uri);
             }
             schema = parts.get(1);
+        }
+    }
+
+    private static Properties mergeConnectionProperties(URI uri, Properties driverProperties)
+            throws SQLException
+    {
+        Map<String, String> defaults = ConnectionProperties.getDefaults();
+        Map<String, String> urlProperties = parseParameters(uri.getQuery());
+        Map<String, String> suppliedProperties = Maps.fromProperties(driverProperties);
+
+        for (String key : urlProperties.keySet()) {
+            if (suppliedProperties.containsKey(key)) {
+                throw new SQLException(format("Connection property '%s' is both in the URL and an argument", key));
+            }
+        }
+
+        Properties result = new Properties();
+        setProperties(result, defaults);
+        setProperties(result, urlProperties);
+        setProperties(result, suppliedProperties);
+        return result;
+    }
+
+    private static void setProperties(Properties properties, Map<String, String> values)
+    {
+        for (Entry<String, String> entry : values.entrySet()) {
+            properties.setProperty(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private static void validateConnectionProperties(Properties connectionProperties)
+            throws SQLException
+    {
+        for (String propertyName : connectionProperties.stringPropertyNames()) {
+            if (ConnectionProperties.forKey(propertyName) == null) {
+                throw new SQLException(format("Unrecognized connection property '%s'", propertyName));
+            }
+        }
+
+        for (ConnectionProperty<?> property : ConnectionProperties.allProperties()) {
+            property.validate(connectionProperties);
         }
     }
 }

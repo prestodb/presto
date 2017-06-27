@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -66,6 +67,7 @@ public class TestBasicQueryInfo
                                 16,
                                 17,
                                 18,
+                                34,
                                 19,
                                 20.0,
                                 DataSize.valueOf("21GB"),
@@ -122,6 +124,8 @@ public class TestBasicQueryInfo
 
         assertEquals(basicInfo.getQueryStats().isFullyBlocked(), true);
         assertEquals(basicInfo.getQueryStats().getBlockedReasons(), ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY));
+
+        assertEquals(basicInfo.getQueryStats().getProgressPercentage(), OptionalDouble.of(100));
 
         assertEquals(basicInfo.getErrorCode(), StandardErrorCode.ABANDONED_QUERY.toErrorCode());
         assertEquals(basicInfo.getErrorType(), StandardErrorCode.ABANDONED_QUERY.toErrorCode().getType());

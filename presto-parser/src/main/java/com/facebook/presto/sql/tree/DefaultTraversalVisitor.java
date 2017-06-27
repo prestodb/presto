@@ -182,6 +182,16 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitGroupingOperation(GroupingOperation node, C context)
+    {
+        for (Expression columnArgument : node.getGroupingColumns()) {
+            process(columnArgument, context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected R visitDereferenceExpression(DereferenceExpression node, C context)
     {
         process(node.getBase(), context);
@@ -282,7 +292,9 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitBindExpression(BindExpression node, C context)
     {
-        process(node.getValue(), context);
+        for (Expression value : node.getValues()) {
+            process(value, context);
+        }
         process(node.getFunction(), context);
 
         return null;
@@ -593,5 +605,13 @@ public abstract class DefaultTraversalVisitor<R, C>
         process(node.getSubquery(), context);
 
         return null;
+    }
+
+    @Override
+    protected R visitLateral(Lateral node, C context)
+    {
+        process(node.getQuery(), context);
+
+        return super.visitLateral(node, context);
     }
 }

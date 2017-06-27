@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -43,17 +42,18 @@ public final class MemorySplitManager
     {
         MemoryTableLayoutHandle layout = (MemoryTableLayoutHandle) layoutHandle;
 
-        List<HostAddress> hosts = layout.getTable().getHosts();
+        List<MemoryDataFragment> dataFragments = layout.getDataFragments();
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (HostAddress host : hosts) {
+        for (MemoryDataFragment dataFragment : dataFragments) {
             for (int i = 0; i < splitsPerNode; i++) {
                 splits.add(
                         new MemorySplit(
                                 layout.getTable(),
                                 i,
                                 splitsPerNode,
-                                ImmutableList.of(host)));
+                                dataFragment.getHostAddress(),
+                                dataFragment.getRows()));
             }
         }
         return new FixedSplitSource(splits.build());

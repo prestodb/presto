@@ -59,7 +59,7 @@ public class BenchmarkInequalityJoin
         private MemoryLocalQueryRunner queryRunner;
 
         @Param({"true", "false"})
-        private String fastInequalityJoin;
+        private String fastInequalityJoins;
 
         // number of buckets. The smaller number of buckets, the longer position links chain
         @Param({"100", "1000", "10000", "60000"})
@@ -78,7 +78,7 @@ public class BenchmarkInequalityJoin
         @Setup
         public void setUp()
         {
-            queryRunner = new MemoryLocalQueryRunner(ImmutableMap.of(SystemSessionProperties.FAST_INEQUALITY_JOIN, fastInequalityJoin));
+            queryRunner = new MemoryLocalQueryRunner(ImmutableMap.of(SystemSessionProperties.FAST_INEQUALITY_JOINS, fastInequalityJoins));
 
             // t1.val1 is in range [0, 1000)
             // t1.bucket is in [0, 1000)

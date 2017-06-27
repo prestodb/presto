@@ -145,6 +145,9 @@ public final class CharType
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
+        if (length > 0 && value.getByte(offset + length - 1) == ' ') {
+            throw new IllegalArgumentException("Slice representing Char should not have trailing spaces");
+        }
         blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
 

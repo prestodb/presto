@@ -15,6 +15,10 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
+import java.util.function.Function;
+
+import static com.google.common.base.Verify.verify;
+
 public interface Lookup
 {
     /**
@@ -25,4 +29,27 @@ public interface Lookup
      * argument as is.
      */
     PlanNode resolve(PlanNode node);
+
+    /**
+     * A Lookup implementation that does not perform lookup. It satisfies contract
+     * by rejecting {@link GroupReference}-s.
+     */
+    static Lookup noLookup()
+    {
+        return node -> {
+            verify(!(node instanceof GroupReference), "Unexpected GroupReference");
+            return node;
+        };
+    }
+
+    static Lookup from(Function<GroupReference, PlanNode> resolver)
+    {
+        return node -> {
+            if (node instanceof GroupReference) {
+                return resolver.apply((GroupReference) node);
+            }
+
+            return node;
+        };
+    }
 }

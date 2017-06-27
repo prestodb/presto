@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -250,7 +250,7 @@ public final class ExpressionUtils
             resultDisjunct.add(expression);
 
             for (Predicate<Symbol> nullSymbolScope : nullSymbolScopes) {
-                List<Symbol> symbols = DependencyExtractor.extractUnique(expression).stream()
+                List<Symbol> symbols = SymbolsExtractor.extractUnique(expression).stream()
                         .filter(nullSymbolScope)
                         .collect(toImmutableList());
 

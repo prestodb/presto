@@ -32,15 +32,18 @@ import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 import static com.datastax.driver.core.ProtocolVersion.V3;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 
 public final class EmbeddedCassandra
@@ -49,6 +52,8 @@ public final class EmbeddedCassandra
 
     private static final String HOST = "127.0.0.1";
     private static final int PORT = 9142;
+
+    private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
     private static CassandraSession session;
     private static boolean initialized;
@@ -76,6 +81,7 @@ public final class EmbeddedCassandra
                 .withClusterName("TestCluster")
                 .addContactPointsWithPorts(ImmutableList.of(
                         new InetSocketAddress(HOST, PORT)))
+                .withMaxSchemaAgreementWaitSeconds(30)
                 .build();
 
         CassandraSession session = new NativeCassandraSession(
@@ -148,7 +154,24 @@ public final class EmbeddedCassandra
         log.info("Cassandra version: %s", version);
     }
 
-    public static void flush(String keyspace, String table)
+    public static void refreshSizeEstimates(String keyspace, String table)
+            throws Exception
+    {
+        long deadline = System.nanoTime() + REFRESH_SIZE_ESTIMATES_TIMEOUT.roundTo(NANOSECONDS);
+        while (System.nanoTime() < deadline) {
+            flushTable(keyspace, table);
+            refreshSizeEstimates();
+            List<SizeEstimate> sizeEstimates = getSession().getSizeEstimates(keyspace, table);
+            if (!sizeEstimates.isEmpty()) {
+                log.info("Size estimates for the table %s.%s have been refreshed successfully: %s", keyspace, table, sizeEstimates);
+                return;
+            }
+            log.info("Size estimates haven't been refreshed as expected. Retrying ...");
+        }
+        throw new TimeoutException(format("Attempting to refresh size estimates for table %s.%s has timed out after %s", keyspace, table, REFRESH_SIZE_ESTIMATES_TIMEOUT));
+    }
+
+    private static void flushTable(String keyspace, String table)
             throws Exception
     {
         ManagementFactory
@@ -160,7 +183,7 @@ public final class EmbeddedCassandra
                         new String[] {"java.lang.String", "[Ljava.lang.String;"});
     }
 
-    public static void refreshSizeEstimates()
+    private static void refreshSizeEstimates()
             throws Exception
     {
         ManagementFactory

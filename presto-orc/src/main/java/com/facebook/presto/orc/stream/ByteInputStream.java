@@ -21,12 +21,11 @@ import com.facebook.presto.spi.type.Type;
 import java.io.IOException;
 import java.util.Arrays;
 
-import static com.facebook.presto.orc.stream.OrcStreamUtils.MIN_REPEAT_SIZE;
-import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
-
 public class ByteInputStream
         implements ValueInputStream<ByteStreamCheckpoint>
 {
+    private static final int MIN_REPEAT_SIZE = 3;
+
     private final OrcInputStream input;
     private final byte[] buffer = new byte[MIN_REPEAT_SIZE + 127];
     private int length;
@@ -47,7 +46,7 @@ public class ByteInputStream
 
         int control = input.read();
         if (control == -1) {
-            throw new OrcCorruptionException("Read past end of buffer RLE byte from %s", input);
+            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Read past end of buffer RLE byte");
         }
 
         offset = 0;
@@ -59,7 +58,7 @@ public class ByteInputStream
             // read the repeated value
             int value = input.read();
             if (value == -1) {
-                throw new OrcCorruptionException("Reading RLE byte got EOF");
+                throw new OrcCorruptionException(input.getOrcDataSourceId(), "Reading RLE byte got EOF");
             }
 
             // fill buffer with the value
@@ -70,7 +69,7 @@ public class ByteInputStream
             length = 0x100 - control;
 
             // read the literals into the buffer
-            readFully(input, buffer, 0, length);
+            input.readFully(buffer, 0, length);
         }
     }
 

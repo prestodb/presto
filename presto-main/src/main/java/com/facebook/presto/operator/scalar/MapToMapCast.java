@@ -20,7 +20,6 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
@@ -28,7 +27,6 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -56,6 +54,7 @@ public final class MapToMapCast
             @TypeParameter("FV") Type fromValueType,
             @TypeParameter("TK") Type toKeyType,
             @TypeParameter("TV") Type toValueType,
+            @TypeParameter("map(TK,TV)") Type toMapType,
             ConnectorSession session,
             @SqlType("map(FK,FV)") Block fromMap)
     {
@@ -94,7 +93,9 @@ public final class MapToMapCast
             }
         }
         Block keyBlock = keyBlockBuilder.build();
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(toKeyType, toValueType), new BlockBuilderStatus(), fromMap.getPositionCount());
+
+        BlockBuilder mapBlockBuilder = toMapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             if (!typedSet.contains(keyBlock, i / 2)) {
                 typedSet.add(keyBlock, i / 2);
@@ -120,6 +121,8 @@ public final class MapToMapCast
                 throw new PrestoException(StandardErrorCode.INVALID_CAST_ARGUMENT, "duplicate keys");
             }
         }
-        return blockBuilder.build();
+
+        mapBlockBuilder.closeEntry();
+        return (Block) toMapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }
 }

@@ -1147,6 +1147,78 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testPartitionPerScanLimit()
+            throws Exception
+    {
+        TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.DWRF);
+        testPartitionPerScanLimit(storageFormat.getSession(), storageFormat.getFormat());
+    }
+
+    public void testPartitionPerScanLimit(Session session, HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_partition_per_scan_limit";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  foo VARCHAR," +
+                "  part BIGINT" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'part' ]" +
+                ") ";
+
+        assertUpdate(session, createTable);
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("part"));
+
+        // insert 1200 partitions
+        for (int i = 0; i < 12; i++) {
+            int partStart = i * 100;
+            int partEnd = (i + 1) * 100 - 1;
+
+            @Language("SQL") String insertPartitions = "" +
+                    "INSERT INTO " + tableName + " " +
+                    "SELECT 'bar' foo, part " +
+                    "FROM UNNEST(SEQUENCE(" + partStart + ", " + partEnd + ")) AS TMP(part)";
+
+            assertUpdate(session, insertPartitions, 100);
+        }
+
+        // verify can query 1000 partitions
+        assertQuery(
+                session,
+                "SELECT count(foo) FROM " + tableName + " WHERE part < 1000",
+                "SELECT 1000");
+
+        // verify the rest 200 partitions are successfully inserted
+        assertQuery(
+                session,
+                "SELECT count(foo) FROM " + tableName + " WHERE part >= 1000 AND part < 1200",
+                "SELECT 200");
+
+        // verify cannot query more than 1000 partitions
+        assertQueryFails(
+                session,
+                "SELECT * from " + tableName + " WHERE part < 1001",
+                format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+
+        // verify cannot query all partitions
+        assertQueryFails(
+                session,
+                "SELECT * from " + tableName,
+                format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        assertFalse(getQueryRunner().tableExists(session, tableName));
+    }
+
+    @Test
     public void testInsertUnpartitionedTable()
             throws Exception
     {
@@ -1868,12 +1940,6 @@ public class TestHiveIntegrationSmokeTest
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
             formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
         }
-        formats.add(new TestingHiveStorageFormat(
-                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "rcfile_optimized_reader_enabled", "true").build(),
-                HiveStorageFormat.RCBINARY));
-        formats.add(new TestingHiveStorageFormat(
-                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "rcfile_optimized_reader_enabled", "true").build(),
-                HiveStorageFormat.RCTEXT));
         formats.add(new TestingHiveStorageFormat(
                 Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "parquet_optimized_reader_enabled", "true").build(),
                 HiveStorageFormat.PARQUET));

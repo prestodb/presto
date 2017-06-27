@@ -19,5 +19,5 @@ public interface ParametricType
 {
     String getName();
 
-    Type createType(List<TypeParameter> parameters);
+    Type createType(TypeManager typeManager, List<TypeParameter> parameters);
 }

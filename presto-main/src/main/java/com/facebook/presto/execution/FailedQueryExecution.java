@@ -19,6 +19,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.units.Duration;
 
@@ -64,6 +65,12 @@ public class FailedQueryExecution
     public QueryState getState()
     {
         return queryInfo.getState();
+    }
+
+    @Override
+    public Plan getQueryPlan()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

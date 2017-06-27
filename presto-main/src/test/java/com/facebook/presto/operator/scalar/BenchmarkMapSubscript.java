@@ -25,11 +25,11 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 
@@ -121,15 +122,15 @@ public class BenchmarkMapSubscript
             Block valueBlock;
             switch (name) {
                 case "fix-width":
-                    mapType = new MapType(createUnboundedVarcharType(), DOUBLE);
+                    mapType = mapType(createUnboundedVarcharType(), DOUBLE);
                     valueBlock = createFixWidthValueBlock(POSITIONS, mapSize);
                     break;
                 case "var-width":
-                    mapType = new MapType(createUnboundedVarcharType(), createUnboundedVarcharType());
+                    mapType = mapType(createUnboundedVarcharType(), createUnboundedVarcharType());
                     valueBlock = createVarWidthValueBlock(POSITIONS, mapSize);
                     break;
                 case "dictionary":
-                    mapType = new MapType(createUnboundedVarcharType(), createUnboundedVarcharType());
+                    mapType = mapType(createUnboundedVarcharType(), createUnboundedVarcharType());
                     valueBlock = createDictionaryValueBlock(POSITIONS, mapSize);
                     break;
                 default:
@@ -187,7 +188,7 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = i % keys.size();
             }
-            return new DictionaryBlock(positionCount * keys.size(), keyDictionaryBlock, keyIds);
+            return new DictionaryBlock(keyDictionaryBlock, keyIds);
         }
 
         private static Block createFixWidthValueBlock(int positionCount, int mapSize)
@@ -226,7 +227,7 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = ThreadLocalRandom.current().nextInt(0, dictionarySize);
             }
-            return new DictionaryBlock(positionCount * mapSize, dictionaryBlock, keyIds);
+            return new DictionaryBlock(dictionaryBlock, keyIds);
         }
 
         private static String randomString(int length)

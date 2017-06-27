@@ -16,11 +16,17 @@ env:
     - TEST_SPECIFIC_MODULES=presto-cassandra
     - TEST_SPECIFIC_MODULES=presto-hive
     - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-docs,!presto-server,!presto-server-rpm
-    - PRODUCT_TESTS=true
+    - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
+    - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
     - HIVE_TESTS=true
 
 sudo: required
 dist: trusty
+group: deprecated-2017Q2
+addons:
+  apt:
+    packages:
+      - oracle-java8-installer
 
 cache:
   directories:
@@ -40,7 +46,7 @@ install:
       ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
     fi
   - |
-    if [[ -v PRODUCT_TESTS ]]; then
+    if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT || -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
       ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
     fi
   - |
@@ -62,28 +68,33 @@ script:
       ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_OTHER_MODULES
     fi
   - |
-    if [[ -v PRODUCT_TESTS ]]; then
+    if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
         multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds
     fi
   - |
-    if [[ -v PRODUCT_TESTS ]]; then
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
         singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
     fi
   - |
-    if [[ -v PRODUCT_TESTS ]]; then
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        singlenode-ldap -g ldap_cli
+        singlenode-ldap -g ldap -x simba_jdbc
     fi
 # SQL server image sporadically hangs during the startup
 # TODO: Uncomment it once issue is fixed
 # https://github.com/Microsoft/mssql-docker/issues/76
 #  - |
-#    if [[ -v PRODUCT_TESTS ]]; then
+#    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
 #      presto-product-tests/bin/run_on_docker.sh \
 #        singlenode-sqlserver -g sqlserver
 #    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        multinode-tls -g smoke,cli,group-by,join,tls
+    fi
   - |
     if [[ -v HIVE_TESTS ]]; then
       presto-hive-hadoop2/bin/run_on_docker.sh

@@ -221,6 +221,7 @@ groups.
 | HDFS impersonation    | ``hdfs_impersonation``    | ``singlenode-hdfs-impersonation``, ``singlenode-kerberos-hdfs-impersonation``    |
 | No HDFS impersonation | ``hdfs_no_impersonation`` | ``singlenode``, ``singlenode-kerberos-hdfs-no_impersonation``                    |
 | LDAP                  | ``ldap``                  | ``singlenode-ldap``                                                              |
+| SQL Server            | ``sqlserver``             | ``singlenode-sqlserver``                                                         |
 
 Below is a list of commands that explain how to run these profile specific tests
 and also the entire test suite:
@@ -247,6 +248,12 @@ and also the entire test suite:
     ```
     presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap
     ```
+* Run **SQL Server** tests:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh singlenode-sqlserver -g sqlserver
+    ```
+
 * Run the **entire test suite** excluding all profile specific tests, where &lt;profile> can
 be any one of the available profiles:
 
@@ -255,7 +262,7 @@ be any one of the available profiles:
     ```
 
 Note: SQL Server product-tests use `microsoft/mssql-server-linux` docker container.
-By running SQL Server product tests you accept the license [ACCEPT_EULA](go.microsoft.com/fwlink/?LinkId=746388)
+By running SQL Server product tests you accept the license [ACCEPT_EULA](https://go.microsoft.com/fwlink/?LinkId=746388)
 
 ### Running from IntelliJ
 
@@ -321,19 +328,20 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
         ```
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
         ```
+    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres` and `cassandra` hostnames respectively).
+    To check IPs for those containers run:
 
-    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres` and `cassandra` hostnames respectively). To check IPs for those containers run:
-
-        ```
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q cassandra) | grep -i IPAddress
+    ```
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q cassandra) | grep -i IPAddress
+    ```
 
     Alternatively you can use below script to obtain hosts ip mapping
 
-        ```
-        presto-product-tests/bin/hosts.sh singlenode
-        ```
+    ```
+    presto-product-tests/bin/hosts.sh singlenode
+    ```
 
     Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
 

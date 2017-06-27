@@ -14,6 +14,8 @@
 package com.facebook.presto.orc;
 
 import com.facebook.hive.orc.OrcConf;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.MetadataReader;
@@ -32,6 +34,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -131,6 +134,10 @@ public class OrcTester
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Asia/Katmandu");
 
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    static {
+        // associate TYPE_MANAGER with a function registry
+        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    }
 
     public enum Format
     {
@@ -219,7 +226,7 @@ public class OrcTester
         orcTester.listTestsEnabled = true;
         orcTester.nullTestsEnabled = true;
         orcTester.skipBatchTestsEnabled = true;
-        orcTester.formats = ImmutableSet.of(ORC_12);
+        orcTester.formats = ImmutableSet.of(ORC_12, DWRF);
         orcTester.compressions = ImmutableSet.of(ZLIB);
         return orcTester;
     }
@@ -411,14 +418,14 @@ public class OrcTester
                 try (TempFile tempFile = new TempFile()) {
                     writeOrcColumn(tempFile.getFile(), format, compression, type, readValues.iterator());
 
-                    assertFileContents(type, tempFile, readValues, false, false, metadataReader);
+                    assertFileContents(type, tempFile, readValues, false, false, metadataReader, format);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContents(type, tempFile, readValues, true, false, metadataReader);
+                        assertFileContents(type, tempFile, readValues, true, false, metadataReader, format);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContents(type, tempFile, readValues, false, true, metadataReader);
+                        assertFileContents(type, tempFile, readValues, false, true, metadataReader, format);
                     }
                 }
             }
@@ -431,10 +438,11 @@ public class OrcTester
             List<?> expectedValues,
             boolean skipFirstBatch,
             boolean skipStripe,
-            MetadataReader metadataReader)
+            MetadataReader metadataReader,
+            Format format)
             throws IOException
     {
-        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues), type)) {
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues, format == DWRF), type)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -551,7 +559,7 @@ public class OrcTester
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
-        OrcReader orcReader = new OrcReader(orcDataSource, metadataReader, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
+        OrcReader orcReader = new OrcReader(orcDataSource, metadataReader, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);

@@ -113,11 +113,11 @@ The following types are supported:
 ``TIMESTAMP WITH TIME ZONE``,
 ``DATE``
 
-.. function:: greatest(value1, value2) -> [same as input]
+.. function:: greatest(value1, value2, ..., valueN) -> [same as input]
 
     Returns the largest of the provided values.
 
-.. function:: least(value1, value2) -> [same as input]
+.. function:: least(value1, value2, ..., valueN) -> [same as input]
 
     Returns the smallest of the provided values.
 
@@ -153,9 +153,3 @@ Expression              Meaning
 ====================    ===========
 
 ``ANY`` and ``SOME`` have the same meaning and can be used interchangeably.
-
-.. note::
-
-    Currently, the expression ``A`` in ``A = ANY (...)`` or ``A <> ALL (...)``
-    must not be ``NULL`` for any of the queried rows. Otherwise, the query will fail.
-    This limitation is needed to ensure correct results and may be dropped in the future.

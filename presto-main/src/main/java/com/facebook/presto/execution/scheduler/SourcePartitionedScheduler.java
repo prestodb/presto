@@ -22,7 +22,6 @@ import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.FutureCallback;
@@ -36,11 +35,12 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SourcePartitionedScheduler
@@ -86,12 +86,10 @@ public class SourcePartitionedScheduler
         // try to get the next batch if necessary
         if (pendingSplits.isEmpty()) {
             if (batchFuture == null) {
-                if (!splitSource.isFinished()) {
-                    batchFuture = splitSource.getNextBatch(splitBatchSize);
-                }
-                else {
+                if (splitSource.isFinished()) {
                     return handleNoMoreSplits();
                 }
+                batchFuture = splitSource.getNextBatch(splitBatchSize);
 
                 long start = System.nanoTime();
                 Futures.addCallback(batchFuture, new FutureCallback<List<Split>>()
@@ -158,11 +156,8 @@ public class SourcePartitionedScheduler
                 state = State.FINISHED;
                 splitSource.close();
                 return new ScheduleResult(true, ImmutableSet.of(), 0);
-            default:
-                throw new IllegalStateException(
-                        format("SourcePartitionedScheduler expected to be in INITIALIZED or SPLITS_SCHEDULED state" +
-                                " but is in [%s]", state));
         }
+        throw new IllegalStateException("SourcePartitionedScheduler expected to be in INITIALIZED or SPLITS_SCHEDULED state but is in " + state);
     }
 
     @Override
@@ -175,11 +170,14 @@ public class SourcePartitionedScheduler
     {
         state = State.SPLITS_SCHEDULED;
 
+        List<Node> nodes = splitPlacementPolicy.allNodes();
+        checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
+        Node node = nodes.iterator().next();
+
         Split emptySplit = new Split(
                 splitSource.getConnectorId(),
                 splitSource.getTransactionHandle(),
                 new EmptySplit(splitSource.getConnectorId()));
-        Node node = Iterables.getLast(splitPlacementPolicy.allNodes());
         Set<RemoteTask> emptyTask = assignSplits(ImmutableMultimap.of(node, emptySplit));
         return new ScheduleResult(false, emptyTask, 1);
     }

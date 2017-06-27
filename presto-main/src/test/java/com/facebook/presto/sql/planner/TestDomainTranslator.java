@@ -1336,23 +1336,25 @@ public class TestDomainTranslator
     public void testVarcharComparedToCharExpression()
             throws Exception
     {
+        String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
+
         // greater than or equal
-        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
         testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Range.greaterThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
         testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // greater than
-        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
         testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
         testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // less than or equal
-        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
         testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
         testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // less than
-        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
         testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")));
         testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
 

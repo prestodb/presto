@@ -47,31 +47,31 @@ import static java.util.Objects.requireNonNull;
 public class BindExpression
         extends Expression
 {
-    private final Expression value;
+    private final List<Expression> values;
     // Function expression must be of function type.
     // It is not necessarily a lambda. For example, it can be another bind expression.
     private final Expression function;
 
-    public BindExpression(Expression value, Expression function)
+    public BindExpression(List<Expression> values, Expression function)
     {
-        this(Optional.empty(), value, function);
+        this(Optional.empty(), values, function);
     }
 
-    public BindExpression(NodeLocation location, Expression value, Expression function)
+    public BindExpression(NodeLocation location, List<Expression> values, Expression function)
     {
-        this(Optional.of(location), value, function);
+        this(Optional.of(location), values, function);
     }
 
-    private BindExpression(Optional<NodeLocation> location, Expression value, Expression function)
+    private BindExpression(Optional<NodeLocation> location, List<Expression> values, Expression function)
     {
         super(location);
-        this.value = requireNonNull(value, "value is null");
+        this.values = requireNonNull(values, "value is null");
         this.function = requireNonNull(function, "function is null");
     }
 
-    public Expression getValue()
+    public List<Expression> getValues()
     {
-        return value;
+        return values;
     }
 
     public Expression getFunction()
@@ -89,7 +89,7 @@ public class BindExpression
     public List<Node> getChildren()
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        return nodes.add(value)
+        return nodes.addAll(values)
                 .add(function)
                 .build();
     }
@@ -104,13 +104,13 @@ public class BindExpression
             return false;
         }
         BindExpression that = (BindExpression) o;
-        return Objects.equals(value, that.value) &&
+        return Objects.equals(values, that.values) &&
                 Objects.equals(function, that.function);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, function);
+        return Objects.hash(values, function);
     }
 }

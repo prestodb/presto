@@ -117,7 +117,7 @@ public class DistributedExecutionPlanner
     }
 
     private final class Visitor
-            extends PlanVisitor<Void, Map<PlanNodeId, SplitSource>>
+            extends PlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
         private final Session session;
         private final List<SplitSource> splitSources = new ArrayList<>();

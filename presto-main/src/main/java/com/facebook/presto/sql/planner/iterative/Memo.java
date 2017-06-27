@@ -18,11 +18,11 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -79,6 +79,11 @@ public class Memo
         return membership.get(group);
     }
 
+    public PlanNode resolve(GroupReference groupReference)
+    {
+        return getNode(groupReference.getGroupId());
+    }
+
     public PlanNode extract()
     {
         return extract(getNode(rootGroup));
@@ -86,15 +91,7 @@ public class Memo
 
     private PlanNode extract(PlanNode node)
     {
-        if (node instanceof GroupReference) {
-            return extract(membership.get(((GroupReference) node).getGroupId()));
-        }
-
-        List<PlanNode> children = node.getSources().stream()
-                .map(this::extract)
-                .collect(Collectors.toList());
-
-        return node.replaceChildren(children);
+        return resolveGroupReferences(node, Lookup.from(this::resolve));
     }
 
     public PlanNode replace(int group, PlanNode node, String reason)

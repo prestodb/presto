@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -30,13 +31,17 @@ import java.util.Optional;
 public class RemoveRedundantIdentityProjections
         implements Rule
 {
+    private static final Pattern PATTERN = Pattern.node(ProjectNode.class);
+
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
     {
-        if (!(node instanceof ProjectNode)) {
-            return Optional.empty();
-        }
-
         ProjectNode project = (ProjectNode) node;
 
         if (!project.isIdentity()) {

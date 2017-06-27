@@ -59,7 +59,7 @@ public class DecimalInputStream
         do {
             b = input.read();
             if (offset == 126 && ((b & 0x80) > 0 || (b & 0x7f) > 3)) {
-                throw new OrcCorruptionException("Decimal exceeds 128 bits");
+                throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decimal exceeds 128 bits");
             }
 
             if (offset < 63) {
@@ -135,11 +135,11 @@ public class DecimalInputStream
         do {
             b = input.read();
             if (b == -1) {
-                throw new OrcCorruptionException("Reading BigInteger past EOF from " + input);
+                throw new OrcCorruptionException(input.getOrcDataSourceId(), "Reading BigInteger past EOF");
             }
             long work = 0x7f & b;
             if (offset >= 63 && (offset != 63 || work > 1)) {
-                throw new OrcCorruptionException("Decimal does not fit long (invalid table schema?)");
+                throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decimal does not fit long (invalid table schema?)");
             }
             result |= work << offset;
             offset += 7;
@@ -192,7 +192,7 @@ public class DecimalInputStream
             do {
                 b = input.read();
                 if (b == -1) {
-                    throw new OrcCorruptionException("Reading BigInteger past EOF from " + input);
+                    throw new OrcCorruptionException(input.getOrcDataSourceId(), "Reading BigInteger past EOF");
                 }
             }
             while (b >= 0x80);

@@ -67,6 +67,9 @@ public class SimpleHttpResponseHandler<T>
                                 response.getResponseBody()));
                     }
                 }
+                else {
+                    cause = new PrestoException(REMOTE_TASK_ERROR, format("Unexpected response from %s", uri), cause);
+                }
                 callback.fatal(cause);
             }
         }

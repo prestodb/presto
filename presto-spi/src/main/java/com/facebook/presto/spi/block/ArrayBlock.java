@@ -15,7 +15,8 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
+import java.util.function.BiConsumer;
+
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -30,8 +31,8 @@ public class ArrayBlock
     private final Block values;
     private final int[] offsets;
 
-    private int sizeInBytes;
-    private final int retainedSizeInBytes;
+    private long sizeInBytes;
+    private final long retainedSizeInBytes;
 
     public ArrayBlock(int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
     {
@@ -65,7 +66,7 @@ public class ArrayBlock
         this.values = requireNonNull(values);
 
         sizeInBytes = -1;
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + values.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(valueIsNull));
+        retainedSizeInBytes = INSTANCE_SIZE + values.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(valueIsNull);
     }
 
     @Override
@@ -75,7 +76,7 @@ public class ArrayBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         // this is racy but is safe because sizeInBytes is an int and the calculation is stable
         if (sizeInBytes < 0) {
@@ -88,13 +89,22 @@ public class ArrayBlock
     {
         int valueStart = offsets[arrayOffset];
         int valueEnd = offsets[arrayOffset + positionCount];
-        sizeInBytes = intSaturatedCast(values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) this.positionCount));
+        sizeInBytes = values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) this.positionCount);
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(values, values.getRetainedSizeInBytes());
+        consumer.accept(offsets, sizeOf(offsets));
+        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

@@ -21,10 +21,12 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -39,7 +41,7 @@ public final class InvokeFunction
 {
     public static final InvokeFunction INVOKE_FUNCTION = new InvokeFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(InvokeFunction.class, "invoke", MethodHandle.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(InvokeFunction.class, "invoke", InvokeLambda.class);
 
     private InvokeFunction()
     {
@@ -78,19 +80,27 @@ public final class InvokeFunction
         return new ScalarFunctionImplementation(
                 true,
                 ImmutableList.of(false),
+                ImmutableList.of(false),
+                ImmutableList.of(Optional.of(InvokeLambda.class)),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(wrap(returnType.getJavaType()))),
                 isDeterministic());
     }
 
-    public static Object invoke(MethodHandle function)
+    public static Object invoke(InvokeLambda function)
     {
         try {
-            return function.invoke();
+            return function.apply();
         }
         catch (Throwable throwable) {
             throw Throwables.propagate(throwable);
         }
+    }
+
+    @FunctionalInterface
+    public interface InvokeLambda extends LambdaFunctionInterface
+    {
+        Object apply();
     }
 }

@@ -117,7 +117,7 @@ public class BenchmarkOrcDecimalReader
         {
             OrcDataSource dataSource = new FileOrcDataSource(dataPath, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
             MetadataReader metadataReader = new OrcMetadataReader();
-            OrcReader orcReader = new OrcReader(dataSource, metadataReader, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, metadataReader, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, DECIMAL_TYPE),
                     OrcPredicate.TRUE,
