@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -33,7 +34,14 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.metadata.Signature.internalScalarFunction;
+import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
+import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
@@ -49,6 +57,8 @@ import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
 import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
+import static com.facebook.presto.type.JsonType.JSON;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -89,85 +99,80 @@ public class ExpressionOptimizer
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
-            ScalarFunctionImplementation function;
+            if (call.getSignature().getName().equals(CAST)) {
+                call = rewriteCast(call);
+            }
             Signature signature = call.getSignature();
 
-            if (signature.getName().equals(CAST)) {
-                Signature functionSignature = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
-                function = registry.getScalarFunctionImplementation(functionSignature);
-            }
-            else {
-                switch (signature.getName()) {
-                    // TODO: optimize these special forms
-                    case IF: {
-                        checkState(call.getArguments().size() == 3, "IF function should have 3 arguments. Get " + call.getArguments().size());
-                        RowExpression optimizedOperand = call.getArguments().get(0).accept(this, context);
-                        if (optimizedOperand instanceof ConstantExpression) {
-                            ConstantExpression constantOperand = (ConstantExpression) optimizedOperand;
-                            checkState(constantOperand.getType().equals(BOOLEAN), "Operand of IF function should be BOOLEAN type. Get type " + constantOperand.getType().getDisplayName());
-                            if (Boolean.TRUE.equals(constantOperand.getValue())) {
-                                return call.getArguments().get(1).accept(this, context);
-                            }
-                            // FALSE and NULL
-                            else {
-                                return call.getArguments().get(2).accept(this, context);
-                            }
+            switch (signature.getName()) {
+                // TODO: optimize these special forms
+                case IF: {
+                    checkState(call.getArguments().size() == 3, "IF function should have 3 arguments. Get " + call.getArguments().size());
+                    RowExpression optimizedOperand = call.getArguments().get(0).accept(this, context);
+                    if (optimizedOperand instanceof ConstantExpression) {
+                        ConstantExpression constantOperand = (ConstantExpression) optimizedOperand;
+                        checkState(constantOperand.getType().equals(BOOLEAN), "Operand of IF function should be BOOLEAN type. Get type " + constantOperand.getType().getDisplayName());
+                        if (Boolean.TRUE.equals(constantOperand.getValue())) {
+                            return call.getArguments().get(1).accept(this, context);
                         }
-                        List<RowExpression> arguments = call.getArguments().stream()
-                                .map(argument -> argument.accept(this, null))
-                                .collect(toImmutableList());
-                        return call(signature, call.getType(), arguments);
-                    }
-                    case TRY: {
-                        checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
-                        if (!(Iterables.getOnlyElement(call.getArguments()) instanceof CallExpression)) {
-                            return Iterables.getOnlyElement(call.getArguments()).accept(this, null);
+                        // FALSE and NULL
+                        else {
+                            return call.getArguments().get(2).accept(this, context);
                         }
-                        List<RowExpression> arguments = call.getArguments().stream()
-                                .map(argument -> argument.accept(this, null))
-                                .collect(toImmutableList());
-                        return call(signature, call.getType(), arguments);
                     }
-                    case BIND: {
-                        checkState(call.getArguments().size() >= 1, BIND + " function should have at least 1 argument. Got " + call.getArguments().size());
+                    List<RowExpression> arguments = call.getArguments().stream()
+                            .map(argument -> argument.accept(this, null))
+                            .collect(toImmutableList());
+                    return call(signature, call.getType(), arguments);
+                }
+                case TRY: {
+                    checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
+                    if (!(Iterables.getOnlyElement(call.getArguments()) instanceof CallExpression)) {
+                        return Iterables.getOnlyElement(call.getArguments()).accept(this, null);
+                    }
+                    List<RowExpression> arguments = call.getArguments().stream()
+                            .map(argument -> argument.accept(this, null))
+                            .collect(toImmutableList());
+                    return call(signature, call.getType(), arguments);
+                }
+                case BIND: {
+                    checkState(call.getArguments().size() >= 1, BIND + " function should have at least 1 argument. Got " + call.getArguments().size());
 
-                        boolean allConstantExpression = true;
-                        ImmutableList.Builder<RowExpression> optimizedArgumentsBuilder = ImmutableList.builder();
-                        for (RowExpression argument : call.getArguments()) {
-                            RowExpression optimizedArgument = argument.accept(this, context);
-                            if (!(optimizedArgument instanceof ConstantExpression)) {
-                                allConstantExpression = false;
-                            }
-                            optimizedArgumentsBuilder.add(optimizedArgument);
+                    boolean allConstantExpression = true;
+                    ImmutableList.Builder<RowExpression> optimizedArgumentsBuilder = ImmutableList.builder();
+                    for (RowExpression argument : call.getArguments()) {
+                        RowExpression optimizedArgument = argument.accept(this, context);
+                        if (!(optimizedArgument instanceof ConstantExpression)) {
+                            allConstantExpression = false;
                         }
-                        if (allConstantExpression) {
-                            // Here, optimizedArguments should be merged together into a new ConstantExpression.
-                            // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
-                            throw new UnsupportedOperationException();
-                        }
-                        return call(signature, call.getType(), optimizedArgumentsBuilder.build());
+                        optimizedArgumentsBuilder.add(optimizedArgument);
                     }
-                    case NULL_IF:
-                    case SWITCH:
-                    case "WHEN":
-                    case TRY_CAST:
-                    case IS_NULL:
-                    case COALESCE:
-                    case "AND":
-                    case "OR":
-                    case IN:
-                    case DEREFERENCE:
-                    case ROW_CONSTRUCTOR: {
-                        List<RowExpression> arguments = call.getArguments().stream()
-                                .map(argument -> argument.accept(this, null))
-                                .collect(toImmutableList());
-                        return call(signature, call.getType(), arguments);
+                    if (allConstantExpression) {
+                        // Here, optimizedArguments should be merged together into a new ConstantExpression.
+                        // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
+                        throw new UnsupportedOperationException();
                     }
-                    default:
-                        function = registry.getScalarFunctionImplementation(signature);
+                    return call(signature, call.getType(), optimizedArgumentsBuilder.build());
+                }
+                case NULL_IF:
+                case SWITCH:
+                case "WHEN":
+                case TRY_CAST:
+                case IS_NULL:
+                case COALESCE:
+                case "AND":
+                case "OR":
+                case IN:
+                case DEREFERENCE:
+                case ROW_CONSTRUCTOR: {
+                    List<RowExpression> arguments = call.getArguments().stream()
+                            .map(argument -> argument.accept(this, null))
+                            .collect(toImmutableList());
+                    return call(signature, call.getType(), arguments);
                 }
             }
 
+            ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(signature);
             List<RowExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
                     .collect(toImmutableList());
@@ -216,6 +221,42 @@ public class ExpressionOptimizer
         public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             return reference;
+        }
+
+        private CallExpression rewriteCast(CallExpression call)
+        {
+            if (call.getArguments().get(0) instanceof CallExpression) {
+                // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP)
+                CallExpression innerCall = (CallExpression) call.getArguments().get(0);
+                if (innerCall.getSignature().getName().equals("json_parse")) {
+                    checkArgument(innerCall.getType().equals(JSON));
+                    checkArgument(innerCall.getArguments().size() == 1);
+                    TypeSignature returnType = call.getSignature().getReturnType();
+                    if (returnType.getBase().equals(ARRAY)) {
+                        return call(
+                                internalScalarFunction(
+                                        JSON_STRING_TO_ARRAY_NAME,
+                                        returnType,
+                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                call.getType(),
+                                innerCall.getArguments());
+                    }
+                    else if (returnType.getBase().equals(MAP)) {
+                        return call(
+                                internalScalarFunction(
+                                        JSON_STRING_TO_MAP_NAME,
+                                        returnType,
+                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                call.getType(),
+                                innerCall.getArguments());
+                    }
+                }
+            }
+
+            return call(
+                    registry.getCoercion(call.getArguments().get(0).getType(), call.getType()),
+                    call.getType(),
+                    call.getArguments());
         }
     }
 }

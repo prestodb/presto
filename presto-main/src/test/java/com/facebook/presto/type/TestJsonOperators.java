@@ -14,7 +14,17 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -29,13 +39,35 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestJsonOperators
         extends AbstractTestFunctions
 {
     // Some of the tests in this class are expected to fail when coercion between primitive presto types changes behavior
+
+    private LocalQueryRunner runner;
+
+    @BeforeClass
+    public void setUp()
+            throws Exception
+    {
+        runner = new LocalQueryRunner(TEST_SESSION);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+    {
+        if (runner != null) {
+            runner.close();
+            runner = null;
+        }
+    }
 
     @Test
     public void testCastToBigint()
@@ -326,8 +358,40 @@ public class TestJsonOperators
         assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
     }
 
+    @Test
+    public void testCastWithJsonParse()
+    {
+        // the test is to make sure ExpressionOptimizer works with cast + json_parse
+        assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY<ARRAY<INTEGER>>", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
+        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY<INTEGER>", INVALID_CAST_ARGUMENT, "Cannot cast to array(integer)");
+        assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP<VARCHAR,INTEGER>", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
+        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP<ARRAY<INTEGER>,ARRAY<INTEGER>>", INVALID_CAST_ARGUMENT, "Cannot cast JSON to map(array(integer),array(integer))");
+        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP<BOOLEAN,BOOLEAN>", INVALID_CAST_ARGUMENT, "Cannot cast to map(boolean,boolean)");
+    }
+
     private static SqlTimestamp sqlTimestamp(long millisUtc)
     {
         return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
+    }
+
+    private void assertCastWithJsonParse(String json, String castSqlType, Type expectedType, Object expected)
+    {
+        // building queries with VALUES to avoid constant folding
+        MaterializedResult result = runner.execute((new StringBuilder()).append("SELECT CAST(JSON_PARSE(col) AS ").append(castSqlType).append(") FROM (VALUES('").append(json).append("')) AS t(col)").toString());
+        assertEquals(result.getTypes().size(), 1);
+        assertEquals(result.getTypes().get(0), expectedType);
+        assertEquals(result.getOnlyValue(), expected);
+    }
+
+    private void assertInvalidCastWithJsonParse(String json, String castSqlType, StandardErrorCode errorCode, String errorMessage)
+    {
+        try {
+            MaterializedResult a = runner.execute((new StringBuilder()).append("SELECT CAST(JSON_PARSE(col) AS ").append(castSqlType).append(") FROM (VALUES('").append(json).append("')) AS t(col)").toString());
+            fail("expect to fail");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().startsWith(errorMessage));
+            assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+        }
     }
 }
