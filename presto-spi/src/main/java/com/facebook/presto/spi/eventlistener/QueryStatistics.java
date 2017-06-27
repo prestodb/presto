@@ -30,6 +30,10 @@ public class QueryStatistics
     private final long peakMemoryBytes;
     private final long totalBytes;
     private final long totalRows;
+    private final long outputBytes;
+    private final long outputRows;
+    private final long writtenBytes;
+    private final long writtenRows;
 
     private final double cumulativeMemory;
 
@@ -49,6 +53,10 @@ public class QueryStatistics
             long peakMemoryBytes,
             long totalBytes,
             long totalRows,
+            long outputBytes,
+            long outputRows,
+            long writtenBytes,
+            long writtenRows,
             double cumulativeMemory,
             int completedSplits,
             boolean complete,
@@ -63,6 +71,10 @@ public class QueryStatistics
         this.peakMemoryBytes = requireNonNull(peakMemoryBytes, "peakMemoryBytes is null");
         this.totalBytes = requireNonNull(totalBytes, "totalBytes is null");
         this.totalRows = requireNonNull(totalRows, "totalRows is null");
+        this.outputBytes = outputBytes;
+        this.outputRows = outputRows;
+        this.writtenBytes = writtenBytes;
+        this.writtenRows = writtenRows;
         this.cumulativeMemory = cumulativeMemory;
         this.completedSplits = requireNonNull(completedSplits, "completedSplits is null");
         this.complete = complete;
@@ -108,6 +120,26 @@ public class QueryStatistics
     public long getTotalRows()
     {
         return totalRows;
+    }
+
+    public long getOutputBytes()
+    {
+        return outputBytes;
+    }
+
+    public long getOutputRows()
+    {
+        return outputRows;
+    }
+
+    public long getWrittenBytes()
+    {
+        return writtenBytes;
+    }
+
+    public long getWrittenRows()
+    {
+        return writtenRows;
     }
 
     public double getCumulativeMemory()

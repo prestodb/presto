@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
@@ -163,6 +164,34 @@ public class TestEventListener
 
         assertEquals(actualCompletedPositions, expectedCompletedPositions);
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), expectedCompletedPositions);
+    }
+
+    @Test
+    public void testOutputStats()
+            throws Exception
+    {
+        // We expect the following events
+        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
+        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
+        MaterializedResult result = runQueryAndWaitForEvents("SELECT 1 FROM lineitem", expectedEvents);
+        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryStats queryStats = queryRunner.getQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
+
+        assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
+        assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
+        assertEquals(result.getRowCount(), queryStats.getOutputPositions());
+        assertEquals(result.getRowCount(), queryCompletedEvent.getStatistics().getOutputRows());
+
+        runQueryAndWaitForEvents("SELECT COUNT(1) FROM lineitem", expectedEvents);
+        queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        queryStats = queryRunner.getQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
+
+        assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
+        assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
+        assertEquals(1L, queryStats.getOutputPositions());
+        assertEquals(1L, queryCompletedEvent.getStatistics().getOutputRows());
     }
 
     static class EventsBuilder
