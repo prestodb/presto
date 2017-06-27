@@ -37,24 +37,24 @@ import static java.util.Objects.requireNonNull;
 public class TaskHandle
 {
     private final TaskId taskId;
-    private final DoubleSupplier utilizationSupplier;
+    protected final DoubleSupplier utilizationSupplier;
 
     @GuardedBy("this")
-    private final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
+    protected final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
     @GuardedBy("this")
-    private final List<PrioritizedSplitRunner> runningLeafSplits = new ArrayList<>(10);
+    protected final List<PrioritizedSplitRunner> runningLeafSplits = new ArrayList<>(10);
     @GuardedBy("this")
-    private final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
+    protected final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
     @GuardedBy("this")
-    private long scheduledNanos;
+    protected long scheduledNanos;
     @GuardedBy("this")
     private boolean destroyed;
     @GuardedBy("this")
-    private final SplitConcurrencyController concurrencyController;
+    protected final SplitConcurrencyController concurrencyController;
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
-    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
+    protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
     private final MultilevelSplitQueue splitQueue;
 
     public TaskHandle(TaskId taskId, MultilevelSplitQueue splitQueue, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)

@@ -68,6 +68,8 @@ public class TaskManagerConfig
     private boolean levelAbsolutePriority = true;
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
 
+    private boolean legacySchedulingBehavior = true;
+
     @MinDuration("1ms")
     @MaxDuration("10s")
     @NotNull
@@ -370,6 +372,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
     {
         this.taskNotificationThreads = taskNotificationThreads;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacySchedulingBehavior()
+    {
+        return legacySchedulingBehavior;
+    }
+
+    @Deprecated
+    @Config("task.legacy-scheduling-behavior")
+    public TaskManagerConfig setLegacySchedulingBehavior(boolean legacySchedulingBehavior)
+    {
+        this.legacySchedulingBehavior = legacySchedulingBehavior;
         return this;
     }
 }

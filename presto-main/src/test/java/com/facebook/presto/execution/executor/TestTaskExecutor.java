@@ -34,6 +34,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertLessThan;
+import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -210,11 +211,11 @@ public class TestTaskExecutor
     }
 
     @Test(invocationCount = 100)
-    public void testInstantaneousFairness()
+    public void testNoInstantaneousFairness()
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 2, true, true, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -248,8 +249,8 @@ public class TestTaskExecutor
                     globalPhaser.arriveAndAwaitAdvance();
                 }
 
-                assertGreaterThanOrEqual(longSplit1.getCompletedPhases() + longSplit2.getCompletedPhases(), 4);
-                assertGreaterThanOrEqual(shortSplit1.getCompletedPhases() + shortSplit2.getCompletedPhases(), 4);
+                assertLessThanOrEqual(longSplit1.getCompletedPhases() + longSplit2.getCompletedPhases(), 2);
+                assertGreaterThanOrEqual(shortSplit1.getCompletedPhases() + shortSplit2.getCompletedPhases(), 8);
 
                 globalPhaser.arriveAndDeregister();
                 longSplit1.getCompletedFuture().get();
@@ -270,7 +271,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 2, false, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 2, false, false, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 

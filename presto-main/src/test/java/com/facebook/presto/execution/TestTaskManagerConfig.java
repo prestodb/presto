@@ -54,7 +54,8 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5)
                 .setLevelAbsolutePriority(true)
-                .setLevelTimeMultiplier(new BigDecimal("2")));
+                .setLevelTimeMultiplier(new BigDecimal("2"))
+                .setLegacySchedulingBehavior(true));
     }
 
     @Test
@@ -83,6 +84,7 @@ public class TestTaskManagerConfig
                 .put("task.task-notification-threads", "13")
                 .put("task.level-absolute-priority", "false")
                 .put("task.level-time-multiplier", "2.1")
+                .put("task.legacy-scheduling-behavior", "false")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -107,7 +109,8 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(10)
                 .setTaskNotificationThreads(13)
                 .setLevelAbsolutePriority(false)
-                .setLevelTimeMultiplier(new BigDecimal("2.1"));
+                .setLevelTimeMultiplier(new BigDecimal("2.1"))
+                .setLegacySchedulingBehavior(false);
 
         assertFullMapping(properties, expected);
     }
