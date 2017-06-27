@@ -30,10 +30,12 @@ public class ComposableStatsCalculator
         implements StatsCalculator
 {
     private final List<Rule> rules;
+    private final List<Normalizer> normalizers;
 
-    public ComposableStatsCalculator(List<Rule> rules)
+    public ComposableStatsCalculator(List<Rule> rules, List<Normalizer> normalizers)
     {
         this.rules = ImmutableList.copyOf(rules);
+        this.normalizers = ImmutableList.copyOf(normalizers);
     }
 
     @Override
@@ -46,6 +48,11 @@ public class ComposableStatsCalculator
     public interface Rule
     {
         Optional<PlanNodeStatsEstimate> calculate(PlanNode node, Lookup lookup, Session session, Map<Symbol, Type> types);
+    }
+
+    public interface Normalizer
+    {
+        PlanNodeStatsEstimate normalize(PlanNode node, PlanNodeStatsEstimate estimate, Map<Symbol, Type> types);
     }
 
     private class Visitor
@@ -68,10 +75,18 @@ public class ComposableStatsCalculator
             for (Rule rule : rules) {
                 Optional<PlanNodeStatsEstimate> calculatedStats = rule.calculate(node, lookup, session, types);
                 if (calculatedStats.isPresent()) {
-                    return calculatedStats.get();
+                    return normalize(node, calculatedStats.get());
                 }
             }
             return PlanNodeStatsEstimate.UNKNOWN_STATS;
+        }
+
+        private PlanNodeStatsEstimate normalize(PlanNode node, PlanNodeStatsEstimate estimate)
+        {
+            for (Normalizer normalizer : normalizers) {
+                estimate = normalizer.normalize(node, estimate, types);
+            }
+            return estimate;
         }
     }
 }

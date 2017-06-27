@@ -494,7 +494,10 @@ public class ServerMainModule
         rules.add(new FilterStatsRule(filterStatsCalculator));
         rules.add(new JoinStatsRule(filterStatsCalculator));
         rules.add(new AggregationStatsRule());
-        return new ComposableStatsCalculator(rules.build());
+
+        ImmutableList.Builder<ComposableStatsCalculator.Normalizer> normalizers = ImmutableList.builder();
+
+        return new ComposableStatsCalculator(rules.build(), normalizers.build());
     }
 
     @Provides
