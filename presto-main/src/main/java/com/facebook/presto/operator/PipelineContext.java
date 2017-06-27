@@ -455,7 +455,7 @@ public class PipelineContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
+                fullyBlocked,
                 blockedReasons,
 
                 succinctBytes(rawInputDataSize),
