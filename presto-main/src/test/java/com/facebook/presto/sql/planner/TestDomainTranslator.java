@@ -816,6 +816,22 @@ public class TestDomainTranslator
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), originalExpression);
         assertEquals(result.getTupleDomain(), TupleDomain.all());
+
+        originalExpression = equal(
+                new Cast(C_BIGINT.toSymbolReference(), REAL.toString()),
+                LiteralInterpreter.toExpression(realValue(12345.56f), REAL));
+
+        result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+
+        originalExpression = equal(
+                new Cast(C_INTEGER.toSymbolReference(), REAL.toString()),
+                LiteralInterpreter.toExpression(realValue(12345.56f), REAL));
+
+        result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
     }
 
     @Test
@@ -1217,10 +1233,10 @@ public class TestDomainTranslator
     void testMultipleCoercionsOnSymbolSide()
             throws Exception
     {
-        ComparisonExpression originalExpression = comparison(GREATER_THAN, cast(cast(C_BIGINT, REAL), DOUBLE), doubleLiteral(3.7));
+        ComparisonExpression originalExpression = comparison(GREATER_THAN, cast(cast(C_SMALLINT, REAL), DOUBLE), doubleLiteral(3.7));
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 3L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_SMALLINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(SMALLINT, 3L)), false))));
     }
 
     @Test
