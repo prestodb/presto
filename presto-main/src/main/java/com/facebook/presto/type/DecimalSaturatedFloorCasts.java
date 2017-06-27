@@ -30,13 +30,10 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.math.BigInteger.ONE;
 import static java.math.RoundingMode.FLOOR;
@@ -106,64 +103,6 @@ public final class DecimalSaturatedFloorCasts
             return minUnscaledValue;
         }
         return unscaledValue;
-    }
-
-    public static final SqlScalarFunction DOUBLE_TO_DECIMAL_SATURATED_FLOOR_CAST = SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
-            .signature(Signature.builder()
-                    .kind(SCALAR)
-                    .operatorType(SATURATED_FLOOR_CAST)
-                    .argumentTypes(DOUBLE.getTypeSignature())
-                    .returnType(parseTypeSignature("decimal(result_precision,result_scale)", ImmutableSet.of("result_precision", "result_scale")))
-                    .build()
-            )
-            .implementation(b -> b
-                    .methods("doubleToShortDecimal", "doubleToLongDecimal")
-                    .withExtraParameters((context) -> {
-                        int resultPrecision = toIntExact(context.getLiteral("result_precision"));
-                        int resultScale = toIntExact(context.getLiteral("result_scale"));
-                        return ImmutableList.of(resultPrecision, resultScale);
-                    })
-            ).build();
-
-    @UsedByGeneratedCode
-    public static long doubleToShortDecimal(double value, int resultPrecision, int resultScale)
-    {
-        return bigDecimalToBigintFloorSaturatedCast(new BigDecimal(value), resultPrecision, resultScale).longValueExact();
-    }
-
-    @UsedByGeneratedCode
-    public static Slice doubleToLongDecimal(double value, int resultPrecision, int resultScale)
-    {
-        return encodeUnscaledValue(bigDecimalToBigintFloorSaturatedCast(new BigDecimal(value), resultPrecision, resultScale));
-    }
-
-    public static final SqlScalarFunction REAL_TO_DECIMAL_SATURATED_FLOOR_CAST = SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
-            .signature(Signature.builder()
-                    .kind(SCALAR)
-                    .operatorType(SATURATED_FLOOR_CAST)
-                    .argumentTypes(REAL.getTypeSignature())
-                    .returnType(parseTypeSignature("decimal(result_precision,result_scale)", ImmutableSet.of("result_precision", "result_scale")))
-                    .build()
-            )
-            .implementation(b -> b
-                    .methods("realToShortDecimal", "realToLongDecimal")
-                    .withExtraParameters((context) -> {
-                        int resultPrecision = toIntExact(context.getLiteral("result_precision"));
-                        int resultScale = toIntExact(context.getLiteral("result_scale"));
-                        return ImmutableList.of(resultPrecision, resultScale);
-                    })
-            ).build();
-
-    @UsedByGeneratedCode
-    public static long realToShortDecimal(long value, int resultPrecision, int resultScale)
-    {
-        return bigDecimalToBigintFloorSaturatedCast(new BigDecimal(intBitsToFloat((int) value)), resultPrecision, resultScale).longValueExact();
-    }
-
-    @UsedByGeneratedCode
-    public static Slice realToLongDecimal(long value, int resultPrecision, int resultScale)
-    {
-        return encodeUnscaledValue(bigDecimalToBigintFloorSaturatedCast(new BigDecimal(intBitsToFloat((int) value)), resultPrecision, resultScale));
     }
 
     public static final SqlScalarFunction DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST = decimalToGenericIntegerTypeSaturatedFloorCast(BIGINT, Long.MIN_VALUE, Long.MAX_VALUE);

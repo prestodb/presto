@@ -799,6 +799,18 @@ public class TestDomainTranslator
     }
 
     @Test
+    void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
+    {
+        Expression originalExpression = equal(
+                new Cast(C_DECIMAL_12_2.toSymbolReference(), DOUBLE.toString()),
+                LiteralInterpreter.toExpression(12345.56, DOUBLE));
+
+        ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+    }
+
+    @Test
     public void testFromComparisonsWithCoercions()
             throws Exception
     {
@@ -1207,9 +1219,7 @@ public class TestDomainTranslator
     public void testNumericTypeTranslation()
             throws Exception
     {
-        List<NumericValues> translationChain = ImmutableList.of(
-                new NumericValues<>(C_DOUBLE, -1.0 * Double.MAX_VALUE, -22.0, -44.5556836, 23.0, 44.5556789, Double.MAX_VALUE),
-                new NumericValues<>(C_REAL, realValue(-1.0f * Float.MAX_VALUE), realValue(-22.0f), realValue(-44.555687f), realValue(23.0f), realValue(44.555676f), realValue(Float.MAX_VALUE)),
+        testNumericTypeTranslationChain(
                 new NumericValues<>(C_DECIMAL_26_5, longDecimal("-999999999999999999999.99999"), longDecimal("-22.00000"), longDecimal("-44.55569"), longDecimal("23.00000"), longDecimal("44.55567"), longDecimal("999999999999999999999.99999")),
                 new NumericValues<>(C_DECIMAL_23_4, longDecimal("-9999999999999999999.9999"), longDecimal("-22.0000"), longDecimal("-44.5557"), longDecimal("23.0000"), longDecimal("44.5556"), longDecimal("9999999999999999999.9999")),
                 new NumericValues<>(C_BIGINT, Long.MIN_VALUE, -22L, -45L, 23L, 44L, Long.MAX_VALUE),
@@ -1220,13 +1230,20 @@ public class TestDomainTranslator
                 new NumericValues<>(C_SMALLINT, (long) Short.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Short.MAX_VALUE),
                 new NumericValues<>(C_DECIMAL_3_0, shortDecimal("-999"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("999")),
                 new NumericValues<>(C_TINYINT, (long) Byte.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Byte.MAX_VALUE),
-                new NumericValues<>(C_DECIMAL_2_0, shortDecimal("-99"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("99"))
-        );
+                new NumericValues<>(C_DECIMAL_2_0, shortDecimal("-99"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("99")));
 
-        for (int literalIndex = 0; literalIndex < translationChain.size(); literalIndex++) {
-            for (int columnIndex = literalIndex + 1; columnIndex < translationChain.size(); columnIndex++) {
-                NumericValues literal = translationChain.get(literalIndex);
-                NumericValues column = translationChain.get(columnIndex);
+        testNumericTypeTranslationChain(
+                new NumericValues<>(C_DOUBLE, -1.0 * Double.MAX_VALUE, -22.0, -44.5556836, 23.0, 44.5556789, Double.MAX_VALUE),
+                new NumericValues<>(C_REAL, realValue(-1.0f * Float.MAX_VALUE), realValue(-22.0f), realValue(-44.555687f), realValue(23.0f), realValue(44.555676f), realValue(Float.MAX_VALUE))
+        );
+    }
+
+    private void testNumericTypeTranslationChain(NumericValues... translationChain)
+    {
+        for (int literalIndex = 0; literalIndex < translationChain.length; literalIndex++) {
+            for (int columnIndex = literalIndex + 1; columnIndex < translationChain.length; columnIndex++) {
+                NumericValues literal = translationChain[literalIndex];
+                NumericValues column = translationChain[columnIndex];
                 testNumericTypeTranslation(column, literal);
             }
         }
