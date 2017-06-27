@@ -12,57 +12,55 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner.iterative;
-
-import com.facebook.presto.sql.planner.plan.PlanNode;
+package com.facebook.presto.matching;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public abstract class Pattern
 {
-    private static final Pattern ANY_NODE = new MatchNodeClass(PlanNode.class);
+    private static final Pattern ANY = new TypeOf(Object.class);
 
     private Pattern() {}
 
-    public abstract boolean matches(PlanNode node);
+    public abstract boolean matches(Object object);
 
     public static Pattern any()
     {
-        return ANY_NODE;
+        return ANY;
     }
 
-    public static <T extends PlanNode> Pattern node(Class<T> nodeClass)
+    public static <T> Pattern typeOf(Class<T> objectClass)
     {
-        return new MatchNodeClass(nodeClass);
+        return new TypeOf(objectClass);
     }
 
-    static class MatchNodeClass<T extends PlanNode>
+    static class TypeOf<T>
             extends Pattern
     {
-        private final Class<T> nodeClass;
+        private final Class<T> type;
 
-        MatchNodeClass(Class<T> nodeClass)
+        TypeOf(Class<T> type)
         {
-            this.nodeClass = requireNonNull(nodeClass, "nodeClass is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
-        Class<T> getNodeClass()
+        Class<T> getType()
         {
-            return nodeClass;
+            return type;
         }
 
         @Override
-        public boolean matches(PlanNode node)
+        public boolean matches(Object object)
         {
-            return nodeClass.isInstance(node);
+            return type.isInstance(object);
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("nodeClass", nodeClass)
+                    .add("type", type)
                     .toString();
         }
     }

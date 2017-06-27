@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -30,7 +30,7 @@ import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressi
 public class CanonicalizeFilterExpressions
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.node(FilterNode.class);
+    private static final Pattern PATTERN = Pattern.typeOf(FilterNode.class);
 
     @Override
     public Pattern getPattern()

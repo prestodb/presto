@@ -15,6 +15,8 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.MatchingEngine;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.DummyMetadata;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -34,19 +36,19 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
-public class TestRuleStore
+public class TestMatchingEngine
 {
     private final PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), new DummyMetadata());
 
     @Test
     public void test()
     {
-        Rule projectRule1 = new NoOpRule(Pattern.node(ProjectNode.class));
-        Rule projectRule2 = new NoOpRule(Pattern.node(ProjectNode.class));
-        Rule filterRule = new NoOpRule(Pattern.node(FilterNode.class));
+        Rule projectRule1 = new NoOpRule(Pattern.typeOf(ProjectNode.class));
+        Rule projectRule2 = new NoOpRule(Pattern.typeOf(ProjectNode.class));
+        Rule filterRule = new NoOpRule(Pattern.typeOf(FilterNode.class));
         Rule anyRule = new NoOpRule(Pattern.any());
 
-        RuleStore ruleStore = RuleStore.builder()
+        MatchingEngine matchingEngine = MatchingEngine.builder()
                 .register(projectRule1)
                 .register(projectRule2)
                 .register(filterRule)
@@ -58,13 +60,13 @@ public class TestRuleStore
         ValuesNode valuesNode = planBuilder.values();
 
         assertEquals(
-                ruleStore.getCandidates(projectNode).collect(toList()),
+                matchingEngine.getCandidates(projectNode).collect(toList()),
                 ImmutableList.of(projectRule1, projectRule2, anyRule));
         assertEquals(
-                ruleStore.getCandidates(filterNode).collect(toList()),
+                matchingEngine.getCandidates(filterNode).collect(toList()),
                 ImmutableList.of(filterRule, anyRule));
         assertEquals(
-                ruleStore.getCandidates(valuesNode).collect(toList()),
+                matchingEngine.getCandidates(valuesNode).collect(toList()),
                 ImmutableList.of(anyRule));
     }
 
