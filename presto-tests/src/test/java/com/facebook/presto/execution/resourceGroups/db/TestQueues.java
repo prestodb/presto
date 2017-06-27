@@ -14,14 +14,13 @@
 package com.facebook.presto.execution.resourceGroups.db;
 
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
+import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
@@ -147,17 +146,19 @@ public class TestQueues
             // Allow one more query to run and resubmit third query
             dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, null, null, null, null, null, null, null, 1L);
             dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, null, null, null, null, null, null, null, 3L);
+
+            InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+            DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+            // Trigger reload to make the test more deterministic
+            dbConfigurationManager.load();
             waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
             thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
 
-            // Lower running queries in dashboard resource groups and wait until groups are reconfigured
+            // Lower running queries in dashboard resource groups and reload the config
             dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, null, null, 3L);
-            ResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
-            while (manager.getResourceGroupInfo(
-                    new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("global"), "user-user"), "dashboard-user")).getMaxRunningQueries() != 1) {
-                MILLISECONDS.sleep(500);
-            }
+            dbConfigurationManager.load();
             // Cancel query and verify that third query is still queued
             cancelQuery(queryRunner, firstDashboardQuery);
             waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
