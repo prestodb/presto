@@ -14,13 +14,15 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Matchable;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
-public interface Rule
+public interface Rule extends Matchable
 {
     /**
      * Returns a pattern to which plan nodes this rule applies.

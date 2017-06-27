@@ -12,57 +12,55 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner.iterative;
-
-import com.facebook.presto.sql.planner.plan.PlanNode;
+package com.facebook.presto.matching;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public abstract class Pattern
 {
-    private static final Pattern ANY_NODE = new MatchNodeClass(PlanNode.class);
+    private static final Pattern ANY = new MatchByClass(Object.class);
 
     private Pattern() {}
 
-    public abstract boolean matches(PlanNode node);
+    public abstract boolean matches(Object object);
 
     public static Pattern any()
     {
-        return ANY_NODE;
+        return ANY;
     }
 
-    public static <T extends PlanNode> Pattern node(Class<T> nodeClass)
+    public static <T> Pattern matchByClass(Class<T> objectClass)
     {
-        return new MatchNodeClass(nodeClass);
+        return new MatchByClass(objectClass);
     }
 
-    static class MatchNodeClass<T extends PlanNode>
+    static class MatchByClass<T>
             extends Pattern
     {
-        private final Class<T> nodeClass;
+        private final Class<T> objectClass;
 
-        MatchNodeClass(Class<T> nodeClass)
+        MatchByClass(Class<T> objectClass)
         {
-            this.nodeClass = requireNonNull(nodeClass, "nodeClass is null");
+            this.objectClass = requireNonNull(objectClass, "objectClass is null");
         }
 
-        Class<T> getNodeClass()
+        Class<T> getObjectClass()
         {
-            return nodeClass;
+            return objectClass;
         }
 
         @Override
-        public boolean matches(PlanNode node)
+        public boolean matches(Object object)
         {
-            return nodeClass.isInstance(node);
+            return objectClass.isInstance(object);
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("nodeClass", nodeClass)
+                    .add("objectClass", objectClass)
                     .toString();
         }
     }

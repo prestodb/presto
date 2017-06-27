@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 public class TransformCorrelatedScalarAggregationToJoin
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.node(LateralJoinNode.class);
+    private static final Pattern PATTERN = Pattern.matchByClass(LateralJoinNode.class);
 
     @Override
     public Pattern getPattern()
