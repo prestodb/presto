@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -40,9 +41,9 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestTopNOperator
@@ -91,9 +92,7 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
-                ImmutableList.of(DESC_NULLS_LAST),
-                false,
-                new DataSize(16, MEGABYTE));
+                ImmutableList.of(DESC_NULLS_LAST));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(6L, 0.6)
@@ -125,9 +124,7 @@ public class TestTopNOperator
                 ImmutableList.of(VARCHAR, BIGINT),
                 3,
                 ImmutableList.of(0, 1),
-                ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST),
-                false,
-                new DataSize(16, MEGABYTE));
+                ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST));
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("f", 3L)
@@ -161,9 +158,7 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST),
-                false,
-                new DataSize(16, MEGABYTE));
+                ImmutableList.of(ASC_NULLS_LAST));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(-1L, -0.1)
@@ -185,9 +180,7 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT),
                 0,
                 ImmutableList.of(0),
-                ImmutableList.of(DESC_NULLS_LAST),
-                false,
-                new DataSize(16, MEGABYTE));
+                ImmutableList.of(DESC_NULLS_LAST));
 
         try (Operator operator = factory.createOperator(driverContext)) {
             assertEquals(operator.isFinished(), true);
@@ -197,13 +190,11 @@ public class TestTopNOperator
     }
 
     @Test
-    public void testPartialMemoryFull()
+    public void testExceedMemoryLimit()
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT)
                 .row(1L)
-                .pageBreak()
-                .row(2L)
                 .build();
 
         DriverContext smallDiverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(1, BYTE))
@@ -216,15 +207,12 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT),
                 100,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST),
-                true,
-                new DataSize(0, MEGABYTE));
-
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
-                .row(1L)
-                .row(2L)
-                .build();
-
-        assertOperatorEquals(operatorFactory, smallDiverContext, input, expected);
+                ImmutableList.of(ASC_NULLS_LAST));
+        try (Operator operator = operatorFactory.createOperator(smallDiverContext)) {
+            operator.addInput(input.get(0));
+            fail("must fail because of exceeding local memory limit");
+        }
+        catch (ExceededMemoryLimitException ignore) {
+        }
     }
 }
