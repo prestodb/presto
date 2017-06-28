@@ -215,7 +215,7 @@ public class TestHashJoinOperator
             for (int i = 0; i < buildOperatorCount; i++) {
                 if (whenSpill.get(i) == WhenSpill.DURING_USAGE) {
                     checkState(input.hasNext(), "spill requested DURING_USAGE, but input is kind of exhausted");
-                    revokeMemory(buildSideSetup.buildOperators.get(i));
+                    scheduleRevokeMemory(buildSideSetup.buildOperators.get(i));
                 }
             }
 
@@ -276,6 +276,11 @@ public class TestHashJoinOperator
     {
         getFutureValue(operator.startMemoryRevoke());
         operator.finishMemoryRevoke();
+    }
+
+    private static void scheduleRevokeMemory(Operator operator)
+    {
+        operator.getOperatorContext().requestMemoryRevoking();
     }
 
     private static <T> List<T> concat(List<T> initialElements, List<T> moreElements)
