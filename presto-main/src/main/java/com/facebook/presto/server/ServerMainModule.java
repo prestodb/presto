@@ -486,7 +486,7 @@ public class ServerMainModule
     @New
     public static StatsCalculator createNewStatsCalculator(Metadata metadata, FilterStatsCalculator filterStatsCalculator, ScalarStatsCalculator scalarStatsCalculator)
     {
-        ImmutableList.Builder<ComposableStatsCalculator.Rule> rules = ImmutableList.builder();
+        ImmutableSet.Builder<ComposableStatsCalculator.Rule> rules = ImmutableSet.builder();
         rules.add(new OutputStatsRule());
         rules.add(new TableScanStatsRule(metadata));
         rules.add(new ValuesStatsRule(metadata));

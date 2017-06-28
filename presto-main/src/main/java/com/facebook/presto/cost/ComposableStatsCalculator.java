@@ -21,20 +21,22 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class ComposableStatsCalculator
         implements StatsCalculator
 {
-    private final List<Rule> rules;
+    private final Set<Rule> rules;
     private final List<Normalizer> normalizers;
 
-    public ComposableStatsCalculator(List<Rule> rules, List<Normalizer> normalizers)
+    public ComposableStatsCalculator(Set<Rule> rules, List<Normalizer> normalizers)
     {
-        this.rules = ImmutableList.copyOf(rules);
+        this.rules = ImmutableSet.copyOf(rules);
         this.normalizers = ImmutableList.copyOf(normalizers);
     }
 
