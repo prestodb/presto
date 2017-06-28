@@ -32,7 +32,11 @@ public class TestKafkaConnectorConfig
                 .setDefaultSchema("default")
                 .setTableNames("")
                 .setTableDescriptionDir(new File("etc/kafka/"))
-                .setHideInternalColumns(true));
+                .setHideInternalColumns(true)
+                .setAutoCommit(true)
+                .setKeyDeserializer("org.apache.kafka.common.serialization.StringDeserializer")
+                .setValueDeserializer("org.apache.kafka.common.serialization.StringDeserializer")
+                .setSecurityProtocol("PLAINTEXT"));
     }
 
     @Test
@@ -46,6 +50,10 @@ public class TestKafkaConnectorConfig
                 .put("kafka.connect-timeout", "1h")
                 .put("kafka.buffer-size", "1MB")
                 .put("kafka.hide-internal-columns", "false")
+                .put("kafka.auto-commit", "false")
+                .put("kafka.value-deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer")
+                .put("kafka.key-deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer")
+                .put("kafka.security-protocol", "SASL_PLAINTEXT")
                 .build();
 
         KafkaConnectorConfig expected = new KafkaConnectorConfig()
@@ -55,7 +63,11 @@ public class TestKafkaConnectorConfig
                 .setNodes("localhost:12345, localhost:23456")
                 .setKafkaConnectTimeout("1h")
                 .setKafkaBufferSize("1MB")
-                .setHideInternalColumns(false);
+                .setHideInternalColumns(false)
+                .setAutoCommit(false)
+                .setKeyDeserializer("org.apache.kafka.common.serialization.ByteArrayDeserializer")
+                .setValueDeserializer("org.apache.kafka.common.serialization.ByteArrayDeserializer")
+                .setSecurityProtocol("SASL_PLAINTEXT");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

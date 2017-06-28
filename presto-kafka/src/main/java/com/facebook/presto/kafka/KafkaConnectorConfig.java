@@ -69,6 +69,17 @@ public class KafkaConnectorConfig
      */
     private boolean hideInternalColumns = true;
 
+    /**
+     * Security protocol to connect to the broker, default is plain text
+     */
+    private String securityProtocol = "PLAINTEXT";
+
+    private String keyDeserializer = "org.apache.kafka.common.serialization.StringDeserializer";
+
+    private String valueDeserializer = "org.apache.kafka.common.serialization.StringDeserializer";
+
+    private boolean autoCommit = true;
+
     @NotNull
     public File getTableDescriptionDir()
     {
@@ -167,5 +178,53 @@ public class KafkaConnectorConfig
     private static HostAddress toHostAddress(String value)
     {
         return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
+    }
+
+    @Config("kafka.security-protocol")
+    public KafkaConnectorConfig setSecurityProtocol(String securityProtocol)
+    {
+        this.securityProtocol = securityProtocol;
+        return this;
+    }
+
+    public String getSecurityProtocol()
+    {
+        return securityProtocol;
+    }
+
+    @Config("kafka.key-deserializer")
+    public KafkaConnectorConfig setKeyDeserializer(String keyDeserializer)
+    {
+        this.keyDeserializer = keyDeserializer;
+        return this;
+    }
+
+    public String getKeyDeserializer()
+    {
+        return keyDeserializer;
+    }
+
+    @Config("kafka.value-deserializer")
+    public KafkaConnectorConfig setValueDeserializer(String valueDeserializer)
+    {
+        this.valueDeserializer = valueDeserializer;
+        return this;
+    }
+
+    public String getValueDeserializer()
+    {
+        return valueDeserializer;
+    }
+
+    @Config("kafka.auto-commit")
+    public KafkaConnectorConfig setAutoCommit(boolean autoCommit)
+    {
+        this.autoCommit = autoCommit;
+        return this;
+    }
+
+    public boolean isAutoCommit()
+    {
+        return autoCommit;
     }
 }
