@@ -554,7 +554,9 @@ public class ScalarImplementation
                 }
                 constructorDependencies.add(parseDependency(annotation));
             }
-            return Optional.of(constructorMethodHandle(FUNCTION_IMPLEMENTATION_ERROR, constructor));
+            MethodHandle result = constructorMethodHandle(FUNCTION_IMPLEMENTATION_ERROR, constructor);
+            // Change type of return value to Object to make sure callers won't have classloader issues
+            return Optional.of(result.asType(result.type().changeReturnType(Object.class)));
         }
 
         private Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method)
@@ -578,6 +580,8 @@ public class ScalarImplementation
         {
             MethodHandle methodHandle = methodHandle(FUNCTION_IMPLEMENTATION_ERROR, method);
             if (!isStatic(method.getModifiers())) {
+                // Change type of "this" argument to Object to make sure callers won't have classloader issues
+                methodHandle = methodHandle.asType(methodHandle.type().changeParameterType(0, Object.class));
                 // Re-arrange the parameters, so that the "this" parameter is after the meta parameters
                 int[] permutedIndices = new int[methodHandle.type().parameterCount()];
                 permutedIndices[0] = dependencies.size();
