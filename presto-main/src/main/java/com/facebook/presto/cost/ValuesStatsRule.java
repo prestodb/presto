@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
@@ -38,6 +39,8 @@ import static java.util.stream.Collectors.toList;
 public class ValuesStatsRule
         implements ComposableStatsCalculator.Rule
 {
+    private static final Pattern PATTERN = Pattern.matchByClass(ValuesNode.class);
+
     private final Metadata metadata;
 
     public ValuesStatsRule(Metadata metadata)
@@ -46,11 +49,14 @@ public class ValuesStatsRule
     }
 
     @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
+    @Override
     public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        if (!(node instanceof ValuesNode)) {
-            return Optional.empty();
-        }
         ValuesNode valuesNode = (ValuesNode) node;
 
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();

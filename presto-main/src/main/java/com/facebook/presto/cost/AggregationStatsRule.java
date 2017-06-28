@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -32,12 +33,17 @@ import static java.util.Objects.requireNonNull;
 public class AggregationStatsRule
         implements ComposableStatsCalculator.Rule
 {
+    private static final Pattern PATTERN = Pattern.matchByClass(AggregationNode.class);
+
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
     @Override
     public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        if (!(node instanceof AggregationNode)) {
-            return Optional.empty();
-        }
         AggregationNode aggregationNode = (AggregationNode) node;
 
         if (aggregationNode.getGroupingSets().size() != 1) {
