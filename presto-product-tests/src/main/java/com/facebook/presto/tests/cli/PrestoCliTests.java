@@ -40,9 +40,17 @@ public class PrestoCliTests
         extends PrestoCliLauncher
         implements RequirementsProvider
 {
+    @Inject
+    @Named("databases.presto.jdbc_password")
+    private String jdbcPassword;
+
     @Inject(optional = true)
     @Named("databases.presto.cli_kerberos_authentication")
     private boolean kerberosAuthentication;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_ldap_authentication")
+    private boolean ldapAuthentication;
 
     @Inject(optional = true)
     @Named("databases.presto.cli_kerberos_principal")
@@ -171,6 +179,10 @@ public class PrestoCliTests
             if (!kerberosUseCanonicalHostname) {
                 prestoClientOptions.add("--krb5-disable-remote-service-hostname-canonicalization");
             }
+        }
+
+        if (ldapAuthentication) {
+            prestoClientOptions.add("-P", jdbcPassword);
         }
 
         prestoClientOptions.add(arguments);

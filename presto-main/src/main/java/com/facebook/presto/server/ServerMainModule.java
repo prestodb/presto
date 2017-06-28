@@ -136,6 +136,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.http.client.BasicAuthRequestFilter;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.PauseMeter;
@@ -154,6 +155,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.reflect.Reflection.newProxy;
@@ -209,6 +211,13 @@ public class ServerMainModule
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
         });
+
+        String ldapUser = internalCommunicationConfig.getLdapUser();
+        if (ldapUser != null) {
+            String ldapPassword = internalCommunicationConfig.getLdapPassword();
+            checkArgument(ldapPassword != null, "ldap password must be set");
+            httpClientBinder(binder).bindGlobalFilter(new BasicAuthRequestFilter(ldapUser, ldapPassword));
+        }
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
 
