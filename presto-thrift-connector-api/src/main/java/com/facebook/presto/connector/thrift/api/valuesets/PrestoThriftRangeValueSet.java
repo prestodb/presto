@@ -38,6 +38,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A set containing zero or more Ranges of the same type over a continuous space of possible values.
+ * Ranges are coalesced into the most compact representation of non-overlapping Ranges.
+ * This structure is used with comparable and orderable types like bigint, integer, double, varchar, etc.
+ */
 @ThriftStruct
 public final class PrestoThriftRangeValueSet
 {

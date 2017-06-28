@@ -30,6 +30,10 @@ struct PrestoThriftNullableColumnSet {
   1: optional set<string> columns;
 }
 
+
+/**
+ * Set that either includes all values, or excludes all values.
+ */
 struct PrestoThriftAllOrNoneValueSet {
   1:  bool all;
 }
@@ -219,6 +223,13 @@ struct PrestoThriftNullableTableMetadata {
   1: optional PrestoThriftTableMetadata tableMetadata;
 }
 
+
+/**
+ * A set containing values that are uniquely identifiable.
+ * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
+ * or collectively excluded (aka !whitelist).
+ * This structure is used with comparable, but not orderable types like "json", "map".
+ */
 struct PrestoThriftEquatableValueSet {
   1:  bool whiteList;
   2:  list<PrestoThriftBlock> values;
@@ -234,6 +245,12 @@ struct PrestoThriftSplitBatch {
   2: optional PrestoThriftId nextToken;
 }
 
+
+/**
+ * A set containing zero or more Ranges of the same type over a continuous space of possible values.
+ * Ranges are coalesced into the most compact representation of non-overlapping Ranges.
+ * This structure is used with comparable and orderable types like bigint, integer, double, varchar, etc.
+ */
 struct PrestoThriftRangeValueSet {
   1:  list<PrestoThriftRange> ranges;
 }

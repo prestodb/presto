@@ -31,6 +31,12 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A set containing values that are uniquely identifiable.
+ * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
+ * or collectively excluded (aka !whitelist).
+ * This structure is used with comparable, but not orderable types like "json", "map".
+ */
 @ThriftStruct
 public final class PrestoThriftEquatableValueSet
 {
