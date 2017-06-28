@@ -40,11 +40,11 @@ import static java.util.Objects.requireNonNull;
 public class KafkaRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final KafkaSimpleConsumerManager consumerManager;
+    private final KafkaConsumerManager consumerManager;
     private final DecoderRegistry registry;
 
     @Inject
-    public KafkaRecordSetProvider(DecoderRegistry registry, KafkaSimpleConsumerManager consumerManager)
+    public KafkaRecordSetProvider(DecoderRegistry registry, KafkaConsumerManager consumerManager)
     {
         this.registry = requireNonNull(registry, "registry is null");
         this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
