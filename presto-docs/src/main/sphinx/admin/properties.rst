@@ -10,6 +10,8 @@ may be used to tune Presto or alter its behavior when required.
     :backlinks: none
     :depth: 1
 
+.. _tuning-pref-general:
+
 General Properties
 ------------------
 
@@ -532,6 +534,8 @@ Task Properties
     to become overloaded due to excessive resource utilization. This can also be specified on
     a per-query basis using the ``task_writer_count`` session property.
 
+
+.. _tuning-pref-node:
 
 Node Scheduler Properties
 -------------------------

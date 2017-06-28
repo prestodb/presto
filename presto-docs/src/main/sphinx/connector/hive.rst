@@ -456,10 +456,6 @@ The following configuration properties may have an impact on connector performan
   where Presto is collocated with every DataNode and may decrease queries time significantly.
   The drawback may be that if some data are accessed more often, the utilization of some nodes
   may be low even if the whole system is heavy loaded.
-  See also :ref:`node-scheduler.network-topology<node-scheduler-network-topology>` if less
-  strict constrain is preferred - especially if some nodes are overloaded and other are not
-  fully utilized.
-
 
 ``hive.max-initial-split-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
