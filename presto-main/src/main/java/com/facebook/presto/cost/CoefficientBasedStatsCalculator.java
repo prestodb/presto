@@ -38,7 +38,6 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
@@ -117,17 +116,8 @@ public class CoefficientBasedStatsCalculator
         @Override
         public PlanNodeStatsEstimate visitFilter(FilterNode node, Void context)
         {
-            PlanNodeStatsEstimate sourceStats;
-            if (node.getSource() instanceof TableScanNode) {
-                sourceStats = visitTableScanWithPredicate((TableScanNode) node.getSource(), node.getPredicate());
-            }
-            else {
-                sourceStats = visitSource(node);
-            }
-
-            final double filterCoefficient = FILTER_COEFFICIENT;
-            PlanNodeStatsEstimate filterStats = sourceStats
-                    .mapOutputRowCount(value -> value * filterCoefficient);
+            PlanNodeStatsEstimate sourceStats = visitSource(node);
+            PlanNodeStatsEstimate filterStats = sourceStats.mapOutputRowCount(value -> value * (double) FILTER_COEFFICIENT);
             stats.put(node.getId(), filterStats);
             return filterStats;
         }
@@ -179,12 +169,7 @@ public class CoefficientBasedStatsCalculator
         @Override
         public PlanNodeStatsEstimate visitTableScan(TableScanNode node, Void context)
         {
-            return visitTableScanWithPredicate(node, BooleanLiteral.TRUE_LITERAL);
-        }
-
-        private PlanNodeStatsEstimate visitTableScanWithPredicate(TableScanNode node, Expression predicate)
-        {
-            Constraint<ColumnHandle> constraint = getConstraint(node, predicate);
+            Constraint<ColumnHandle> constraint = getConstraint(node);
 
             TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
             PlanNodeStatsEstimate tableScanStats = PlanNodeStatsEstimate.builder()
@@ -195,12 +180,12 @@ public class CoefficientBasedStatsCalculator
             return tableScanStats;
         }
 
-        private Constraint<ColumnHandle> getConstraint(TableScanNode node, Expression predicate)
+        private Constraint<ColumnHandle> getConstraint(TableScanNode node)
         {
             DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                     metadata,
                     session,
-                    predicate,
+                    BooleanLiteral.TRUE_LITERAL,
                     types);
 
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
