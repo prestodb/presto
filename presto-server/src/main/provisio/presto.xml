@@ -62,6 +62,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/turbonium">
+        <artifact id="${project.groupId}:presto-turbonium:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/blackhole">
         <artifact id="${project.groupId}:presto-blackhole:zip:${project.version}">
             <unpack />
