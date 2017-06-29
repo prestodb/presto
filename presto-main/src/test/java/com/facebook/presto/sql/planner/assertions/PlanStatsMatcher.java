@@ -39,7 +39,7 @@ public class PlanStatsMatcher
     @Override
     public MatchResult detailMatches(PlanNode node, PlanNodeStatsEstimate stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        return new MatchResult(expectedStats.equals(stats));
+        return new MatchResult(Double.compare(stats.getOutputRowCount(), expectedStats.getOutputRowCount()) == 0);
     }
 
     @Override
