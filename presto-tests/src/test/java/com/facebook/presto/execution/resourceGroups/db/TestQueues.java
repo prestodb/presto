@@ -127,7 +127,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 90_000)
     public void testTooManyQueries()
             throws Exception
     {
@@ -159,6 +159,7 @@ public class TestQueues
             // Lower running queries in dashboard resource groups and reload the config
             dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, null, null, 3L);
             dbConfigurationManager.load();
+
             // Cancel query and verify that third query is still queued
             cancelQuery(queryRunner, firstDashboardQuery);
             waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
