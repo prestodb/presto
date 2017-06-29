@@ -27,17 +27,17 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
-public class TestCoefficientBasedStatsCalculator
+public class TestStatsCalculator
 {
     private final LocalQueryRunner queryRunner;
 
-    public TestCoefficientBasedStatsCalculator()
+    public TestStatsCalculator()
     {
         this.queryRunner = new LocalQueryRunner(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
-                .setSystemProperty("use_new_stats_calculator", "false")
+                .setSystemProperty("use_new_stats_calculator", "true")
                 .build());
 
         queryRunner.createCatalog(
