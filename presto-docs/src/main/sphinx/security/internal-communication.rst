@@ -8,7 +8,7 @@ between Presto nodes can be secured with SSL/TLS.
 Internal SSL/TLS configuration
 ------------------------------
 
-SSL/TLS is configured in the `config.properties` file.  The SSL/TLS on the
+SSL/TLS is configured in the ``config.properties`` file.  The SSL/TLS on the
 worker and coordinator nodes are configured using the same set of properties.
 Every node in the cluster must be configured. Nodes that have not been
 configured, or are configured incorrectly, will not be able to communicate with
@@ -34,7 +34,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
 
    - If the DNS service is configured properly, we can just let the nodes to
      introduce themselves to the coordinator using the hostname taken from
-     the system configuration (`hostname --fqdn`)
+     the system configuration (``hostname --fqdn``)
 
      .. code-block:: none
 
@@ -43,7 +43,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
    - It is also possible to specify each node's fully-qualified hostname manually.
      This will be different for every host. Hosts should be in the same domain to
      make it easy to create the correct SSL/TLS certificates.
-     e.g.: `coordinator.example.com`, `worker1.example.com`, `worker2.example.com`.
+     e.g.: ``coordinator.example.com``, ``worker1.example.com``, ``worker2.example.com``.
 
      .. code-block:: none
 
@@ -54,7 +54,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
    any other node within the same cluster. It is possible to create unique
    certificates for every node using the fully-qualified hostname of each host,
    create a keystore that contains all the public keys for all of the hosts,
-   and specify it for the client (`http-client.https.keystore.path`). In most
+   and specify it for the client (``http-client.https.keystore.path``). In most
    cases it will be simpler to use a wildcard in the certificate as shown
    below.
 
@@ -121,7 +121,7 @@ Enabling encryption impacts performance. The performance degradation can vary
 based on the environment, queries, and concurrency.
 
 For queries that do not require transferring too much data between the Presto
-nodes (e.g. `SELECT count(*) FROM table`), the performance impact is negligible.
+nodes (e.g. ``SELECT count(*) FROM table``), the performance impact is negligible.
 
 However, for CPU intensive queries which require a considerable amount of data
 to be transferred between the nodes (for example, distributed joins, aggregations and
@@ -135,11 +135,11 @@ Advanced Performance Tuning
 In some cases, changing the source of random numbers will improve performance
 significantly.
 
-By default, TLS encryption uses the `/dev/urandom` system device as a source of entropy.
+By default, TLS encryption uses the ``/dev/urandom`` system device as a source of entropy.
 This device has limited throughput, so on environments with high network bandwidth
 (e.g. InfiniBand), it may become a bottleneck. In such situations, it is recommended to try
-to switch the random number generator algorithm to `SHA1PRNG`, by setting it via
-`http-server.https.secure-random-algorithm` property in `config.properties` on the coordinator
+to switch the random number generator algorithm to ``SHA1PRNG``, by setting it via
+``http-server.https.secure-random-algorithm`` property in ``config.properties`` on the coordinator
 and all of the workers:
 
     .. code-block:: none
@@ -147,9 +147,9 @@ and all of the workers:
         http-server.https.secure-random-algorithm=SHA1PRNG
 
 Be aware that this algorithm takes the initial seed from
-the blocking `/dev/random` device. For environments that do not have enough entropy to seed
-the `SHAPRNG` algorithm, the source can be changed to `/dev/urandom`
-by adding the `java.security.egd` property to `jvm.config`:
+the blocking ``/dev/random`` device. For environments that do not have enough entropy to seed
+the ``SHAPRNG`` algorithm, the source can be changed to ``/dev/urandom``
+by adding the ``java.security.egd`` property to ``jvm.config``:
 
     .. code-block:: none
 
