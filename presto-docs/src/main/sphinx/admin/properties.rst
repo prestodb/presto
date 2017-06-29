@@ -397,6 +397,22 @@ Optimizer Properties
     using the ``push_table_write_through_union`` session property.
 
 
+``optimizer.join-reordering-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Allowed values:** ``COST_BASED``, ``ELIMINATE_CROSS_JOINS``, ``NONE``
+    * **Default value:** ``ELIMINATE_CROSS_JOINS``
+
+    The join reordering strategy to use.  ``NONE`` maintains the order the tables are listed in the
+    query.  ``ELIMINATE_CROSS_JOINS`` reorders joins to eliminate cross joins where possible and
+    otherwise maintains the original query order. When reordering joins it also strives to maintain the
+    original table order as much as possible. ``COST_BASED`` enumerates possible orders and uses
+    statistics-based cost estimation to determine the least cost order. If stats are not available or if
+    for any reason a cost could not be computed, the ``ELIMINATE_CROSS_JOINS`` strategy is used. This can
+    also be specified on a per-query basis using the ``join_reordering_strategy`` session property.
+
+
 Regular Expression Function Properties
 --------------------------------------
 

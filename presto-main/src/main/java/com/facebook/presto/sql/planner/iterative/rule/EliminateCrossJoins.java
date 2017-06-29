@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -38,6 +38,9 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,16 +62,14 @@ public class EliminateCrossJoins
     @Override
     public boolean isEnabled(Session session)
     {
-        return SystemSessionProperties.isJoinReorderingEnabled(session);
+        // we run this for cost_based reordering also for cases when some of the tables do not have statistics
+        FeaturesConfig.JoinReorderingStrategy joinReorderingStrategy = getJoinReorderingStrategy(session);
+        return joinReorderingStrategy == ELIMINATE_CROSS_JOINS || joinReorderingStrategy == COST_BASED;
     }
 
     @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        if (!(node instanceof JoinNode)) {
-            return Optional.empty();
-        }
-
         JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, context.getLookup());
         if (joinGraph.size() < 3) {
             return Optional.empty();

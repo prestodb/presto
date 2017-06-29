@@ -59,7 +59,7 @@ public class TestReorderJoins
 
     public TestReorderJoins()
     {
-        super(ImmutableMap.of(SystemSessionProperties.REORDER_JOINS, "true"));
+        super(ImmutableMap.of(SystemSessionProperties.JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS"));
     }
 
     @Test

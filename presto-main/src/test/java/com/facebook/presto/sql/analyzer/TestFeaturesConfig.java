@@ -23,6 +23,8 @@ import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
@@ -45,7 +47,7 @@ public class TestFeaturesConfig
                 .setJoinDistributionType(REPARTITIONED)
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
-                .setJoinReorderingEnabled(true)
+                .setJoinReorderingStrategy(ELIMINATE_CROSS_JOINS)
                 .setRedistributeWrites(true)
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeHashGeneration(true)
@@ -91,7 +93,7 @@ public class TestFeaturesConfig
                 .put("join-distribution-type", "REPLICATED")
                 .put("fast-inequality-joins", "false")
                 .put("colocated-joins-enabled", "true")
-                .put("reorder-joins", "false")
+                .put("optimizer.join-reordering-strategy", "NONE")
                 .put("redistribute-writes", "false")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
@@ -127,7 +129,7 @@ public class TestFeaturesConfig
                 .put("join-distribution-type", "REPLICATED")
                 .put("fast-inequality-joins", "false")
                 .put("colocated-joins-enabled", "true")
-                .put("reorder-joins", "false")
+                .put("optimizer.join-reordering-strategy", "NONE")
                 .put("redistribute-writes", "false")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
@@ -160,7 +162,7 @@ public class TestFeaturesConfig
                 .setJoinDistributionType(REPLICATED)
                 .setFastInequalityJoins(false)
                 .setColocatedJoinsEnabled(true)
-                .setJoinReorderingEnabled(false)
+                .setJoinReorderingStrategy(NONE)
                 .setRedistributeWrites(false)
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(false)

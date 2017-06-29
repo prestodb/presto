@@ -28,6 +28,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -46,7 +47,7 @@ public class FeaturesConfig
     private boolean distributedIndexJoinsEnabled;
     private boolean colocatedJoinsEnabled;
     private boolean fastInequalityJoins = true;
-    private boolean reorderJoins = true;
+    private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
     private boolean redistributeWrites = true;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
@@ -77,6 +78,13 @@ public class FeaturesConfig
     private boolean useNewStatsCalculator = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
+
+    public enum JoinReorderingStrategy
+    {
+        ELIMINATE_CROSS_JOINS,
+        COST_BASED,
+        NONE
+    }
 
     public enum JoinDistributionType
     {
@@ -229,16 +237,16 @@ public class FeaturesConfig
         return fastInequalityJoins;
     }
 
-    public boolean isJoinReorderingEnabled()
+    public JoinReorderingStrategy getJoinReorderingStrategy()
     {
-        return reorderJoins;
+        return joinReorderingStrategy;
     }
 
-    @Config("reorder-joins")
-    @ConfigDescription("Experimental: Reorder joins to optimize plan")
-    public FeaturesConfig setJoinReorderingEnabled(boolean reorderJoins)
+    @Config("optimizer.join-reordering-strategy")
+    @ConfigDescription("The strategy to use for reordering joins")
+    public FeaturesConfig setJoinReorderingStrategy(JoinReorderingStrategy joinReorderingStrategy)
     {
-        this.reorderJoins = reorderJoins;
+        this.joinReorderingStrategy = joinReorderingStrategy;
         return this;
     }
 

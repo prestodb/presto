@@ -21,6 +21,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -61,7 +62,7 @@ public final class SystemSessionProperties
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
     public static final String COLOCATED_JOIN = "colocated_join";
-    public static final String REORDER_JOINS = "reorder_joins";
+    public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
@@ -250,11 +251,18 @@ public final class SystemSessionProperties
                         "Experimental: Adapt plan to pre-partitioned tables",
                         true,
                         false),
-                booleanSessionProperty(
-                        REORDER_JOINS,
-                        "Experimental: Reorder joins to optimize plan",
-                        featuresConfig.isJoinReorderingEnabled(),
-                        false),
+                new PropertyMetadata<>(
+                        JOIN_REORDERING_STRATEGY,
+                        format("The join reordering strategy to use. Options are %s",
+                                Stream.of(JoinReorderingStrategy.values())
+                                        .map(FeaturesConfig.JoinReorderingStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        JoinReorderingStrategy.class,
+                        featuresConfig.getJoinReorderingStrategy(),
+                        false,
+                        value -> JoinReorderingStrategy.valueOf(((String) value).toUpperCase()),
+                        JoinReorderingStrategy::name),
                 booleanSessionProperty(
                         FAST_INEQUALITY_JOINS,
                         "Use faster handling of inequality join if it is possible",
@@ -432,9 +440,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAST_INEQUALITY_JOINS, Boolean.class);
     }
 
-    public static boolean isJoinReorderingEnabled(Session session)
+    public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
     {
-        return session.getSystemProperty(REORDER_JOINS, Boolean.class);
+        return session.getSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.class);
     }
 
     public static boolean isColocatedJoinEnabled(Session session)

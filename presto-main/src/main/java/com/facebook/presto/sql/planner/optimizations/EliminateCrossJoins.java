@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -28,6 +27,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.buildJoinTree;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
@@ -47,7 +49,7 @@ public class EliminateCrossJoins
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator)
     {
-        if (!SystemSessionProperties.isJoinReorderingEnabled(session)) {
+        if (getJoinReorderingStrategy(session) != ELIMINATE_CROSS_JOINS && getJoinReorderingStrategy(session) != COST_BASED) {
             return plan;
         }
 
