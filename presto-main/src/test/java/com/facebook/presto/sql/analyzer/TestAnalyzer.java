@@ -1004,6 +1004,7 @@ public class TestAnalyzer
         analyze("SELECT a, sum(a) OVER (w ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) FROM (VALUES (1), (2), (3)) AS t (a) WINDOW w AS (ORDER BY a)");
 
         analyze("SELECT sum(b) OVER w1, avg(c) OVER (w2) FROM t1 WINDOW w1 AS (PARTITION BY a ORDER BY b ASC), w2 AS (PARTITION BY a ORDER BY b DESC)");
+        analyze("SELECT sum(s) OVER w FROM ( SELECT a, b, SUM(c) OVER w s FROM t1 WINDOW w AS (ORDER BY a) ) WINDOW w AS (PARTITION BY a) ");
 
         assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER w FROM t1 WINDOW w AS (ORDER BY a ASC), w AS (ORDER BY a ASC)");
         assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER w2 FROM t1 WINDOW w2 AS (w1 ORDER BY a ASC)");
@@ -1012,6 +1013,8 @@ public class TestAnalyzer
         assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER (w) FROM t1 WINDOW w AS (ORDER BY a ASC ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)");
         assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER w FROM t1 WINDOW w1 AS ()");
         assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER (w) FROM t1 WINDOW w1 AS ()");
+        assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER w, count() OVER w1 FROM t1 WINDOW w AS (w1 order by a), w1 AS (partition by b)");
+        assertFails(INVALID_WINDOW_SPECIFICATION, "SELECT row_number() OVER w, count() OVER w1 FROM t1 WINDOW w AS (w1 order by a), w1 AS (w partition by b)");
     }
 
     @Test

@@ -154,6 +154,33 @@ public class TestReorderWindows
     }
 
     @Test
+    public void testNonMergeableABAReordersToAABAllOptimizersWithWindowClause()
+    {
+        @Language("SQL") String sql = "select " +
+                "sum(quantity) over (w ORDER BY orderkey ASC NULLS LAST) sum_quantity_A, " +
+                "avg(discount) over (PARTITION BY partkey ORDER BY receiptdate ASC NULLS LAST) avg_discount_B, " +
+                "min(tax) over(w ORDER BY shipdate ASC NULLS LAST) min_tax_A " +
+                "from lineitem " +
+                "WINDOW w AS (PARTITION BY suppkey) ";
+
+        PlanMatchPattern pattern =
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowAp)
+                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowA)
+                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        anyTree(
+                                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                .specification(windowB)
+                                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        anyTree(LINEITEM_TABLESCAN_DOQPRSST))))));
+
+        assertPlan(sql, pattern);
+    }
+
+    @Test
     public void testNonMergeableABAReordersToAAB()
     {
         @Language("SQL") String sql = "select " +
@@ -161,6 +188,32 @@ public class TestReorderWindows
                 "avg(discount) over(PARTITION BY partkey ORDER BY receiptdate ASC NULLS LAST) avg_discount_B, " +
                 "min(tax) over(PARTITION BY suppkey ORDER BY shipdate ASC NULLS LAST) min_tax_A " +
                 "from lineitem";
+
+        assertUnitPlan(sql,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowAp)
+                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowA)
+                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(windowB)
+                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                LINEITEM_TABLESCAN_DOQPRSST))))); // should be anyTree(LINEITEM_TABLESCANE_DOQPRSST) but anyTree does not handle zero nodes case correctly
+    }
+
+    @Test
+    public void testNonMergeableABAReordersToAABWithWindowClause()
+    {
+        @Language("SQL") String sql = "select " +
+                "sum(quantity) over w1 sum_quantity_A, " +
+                "avg(discount) over(PARTITION BY partkey ORDER BY receiptdate ASC NULLS LAST) avg_discount_B, " +
+                "min(tax) over w2 min_tax_A " +
+                "from lineitem " +
+                "WINDOW w AS (PARTITION BY suppkey)," +
+                "w1 AS (w ORDER BY orderkey ASC NULLS LAST)," +
+                "w2 AS (w ORDER BY shipdate ASC NULLS LAST)";
 
         assertUnitPlan(sql,
                 anyTree(

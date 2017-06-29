@@ -4135,9 +4135,10 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
-                "sum(size) OVER(PARTITION BY type ORDER BY brand)," +
-                "lag(partkey, 1) OVER(PARTITION BY type ORDER BY name)" +
+                "sum(size) OVER(w ORDER BY brand)," +
+                "lag(partkey, 1) OVER(w ORDER BY name)" +
                 "FROM part " +
+                "WINDOW w AS (PARTITION BY type)" +
                 "ORDER BY 1, 2 " +
                 "LIMIT 10");
 
@@ -4285,9 +4286,11 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("" +
                 "SELECT orderkey, orderstatus\n" +
-                ", row_number() OVER (ORDER BY orderkey * 2) *\n" +
-                "  row_number() OVER (ORDER BY orderkey DESC) + 100\n" +
+                ", row_number() OVER w1 *\n" +
+                "  row_number() OVER (w2) + 100\n" +
                 "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "WINDOW w1 AS (ORDER BY orderkey * 2)\n" +
+                ", w2 AS (ORDER BY orderkey DESC)\n" +
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
@@ -4982,10 +4985,10 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT * FROM (\n" +
                 "  SELECT orderkey, orderstatus\n" +
-                "    , first_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) fvalue\n" +
-                "    , nth_value(orderkey + 1000, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey\n" +
-                "        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) nvalue\n" +
+                "    , first_value(orderkey + 1000) OVER w fvalue\n" +
+                "    , nth_value(orderkey + 1000, 2) OVER (w ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) nvalue\n" +
                 "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "    WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey) \n" +
                 "  ) x\n" +
                 "ORDER BY orderkey LIMIT 5");
 
@@ -5005,9 +5008,9 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT * FROM (\n" +
                 "  SELECT orderkey, orderstatus\n" +
-                "    , sum(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey\n" +
-                "        ROWS BETWEEN mod(custkey, 2) PRECEDING AND custkey / 500 FOLLOWING)\n" +
+                "    , sum(orderkey + 1000) OVER (w ROWS BETWEEN mod(custkey, 2) PRECEDING AND custkey / 500 FOLLOWING)\n" +
                 "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "    WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey) \n" +
                 "  ) x\n" +
                 "ORDER BY orderkey LIMIT 5");
 
@@ -5056,6 +5059,49 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testNamedWindowInsideWindowSpecification()
+    {
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, BIGINT)
+                .row(558294L, 558294L, 1L)
+                .row(430252L, 380107L, 2L)
+                .row(614315L, 455635L, 3L)
+                .row(765856L, 759290L, 4L)
+                .row(360672L, 44980L, 5L)
+                .build();
+
+        MaterializedResult actual = computeActual(
+                "SELECT sum(orderkey) OVER w, sum(orderkey) over w1, sum(orderkey) OVER w2\n" +
+                        "FROM orders \n" +
+                        "WINDOW w AS (partition by custkey), \n" +
+                        "w1 AS (w order by orderstatus), \n" +
+                        "w2 AS (w1 ROWS BETWEEN CURRENT ROW AND CURRENT ROW) \n" +
+                        "order by orderkey LIMIT 5");
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testSameWindowNameInTwoScopes()
+    {
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1L, 219887165L)
+                .build();
+
+        MaterializedResult actual = computeActual(
+                "SELECT orderkey, SUM(orderkey) OVER w FROM \n" +
+                        "(\n" +
+                        "   SELECT orderstatus, orderkey, SUM(orderkey) OVER w s FROM orders\n" +
+                        "   WINDOW w AS (ORDER BY orderstatus) \n" +
+                        "   ORDER BY orderkey\n" +
+                        ")\n" +
+                     "WINDOW w AS (PARTITION BY orderstatus) \n" +
+                     "ORDER BY orderkey \n" +
+                     "LIMIT 1");
+
+        assertEquals(expected, actual);
     }
 
     @Test
