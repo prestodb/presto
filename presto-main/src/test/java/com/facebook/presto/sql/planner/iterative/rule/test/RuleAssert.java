@@ -51,7 +51,7 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
-    private final StatsCalculator statsCalculator;
+    private StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private Session session;
     private final Rule rule;
@@ -93,6 +93,13 @@ public class RuleAssert
     public RuleAssert withSession(Session session)
     {
         this.session = session;
+        return this;
+    }
+
+    public RuleAssert withStatsCalculator(StatsCalculator statsCalculator)
+    {
+        checkState(lookup == null, "lookup has been set");
+        this.statsCalculator = statsCalculator;
         return this;
     }
 
