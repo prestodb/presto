@@ -14,12 +14,10 @@
 
 package com.facebook.presto.matching;
 
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Streams;
+import com.google.common.reflect.TypeToken;
 
-import java.util.Iterator;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -34,28 +32,14 @@ public class MatchingEngine<T extends Matchable>
 
     public Stream<T> getCandidates(Object object)
     {
-        return Streams.stream(ancestors(object.getClass()))
+        return supertypes(object.getClass())
                 .flatMap(clazz -> matchablesByClass.get(clazz).stream());
     }
 
-    private static Iterator<Class> ancestors(Class clazz)
+    private static Stream<Class<?>> supertypes(Class<?> type)
     {
-        return new AbstractIterator<Class>() {
-            private Class<?> current = clazz;
-
-            @Override
-            protected Class computeNext()
-            {
-                if (current == null) {
-                    return endOfData();
-                }
-
-                Class result = current;
-                current = current.getSuperclass();
-
-                return result;
-            }
-        };
+        return TypeToken.of(type).getTypes().stream()
+                .map(TypeToken::getRawType);
     }
 
     public static <T extends Matchable> Builder<T> builder()
