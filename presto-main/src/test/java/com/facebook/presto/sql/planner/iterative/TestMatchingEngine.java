@@ -70,6 +70,30 @@ public class TestMatchingEngine
                 ImmutableList.of(anyRule));
     }
 
+    @Test
+    public void testInterfacesHierarchy()
+    {
+        Rule a = new NoOpRule(Pattern.typeOf(A.class));
+        Rule b = new NoOpRule(Pattern.typeOf(B.class));
+        Rule ab = new NoOpRule(Pattern.typeOf(AB.class));
+
+        MatchingEngine matchingEngine = MatchingEngine.builder()
+                .register(a)
+                .register(b)
+                .register(ab)
+                .build();
+
+        assertEquals(
+                matchingEngine.getCandidates(new A() {}).collect(toList()),
+                ImmutableList.of(a));
+        assertEquals(
+                matchingEngine.getCandidates(new B() {}).collect(toList()),
+                ImmutableList.of(b));
+        assertEquals(
+                matchingEngine.getCandidates(new AB()).collect(toList()),
+                ImmutableList.of(ab, a, b));
+    }
+
     private static class NoOpRule
             implements Rule
     {
@@ -100,4 +124,8 @@ public class TestMatchingEngine
                     .toString();
         }
     }
+
+    private interface A {}
+    private interface B {}
+    private static class AB implements A, B {}
 }
