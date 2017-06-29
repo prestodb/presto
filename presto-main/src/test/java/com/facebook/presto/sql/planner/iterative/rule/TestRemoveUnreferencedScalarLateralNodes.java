@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -30,7 +30,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
                 .on(p -> p.lateral(
                         emptyList(),
-                        p.values(new Symbol("x")),
+                        p.values(p.symbol("x", BigintType.BIGINT)),
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
                 .matches(values("x"));
     }
@@ -42,7 +42,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
                 .on(p -> p.lateral(
                         emptyList(),
                         p.values(emptyList(), ImmutableList.of(emptyList())),
-                        p.values(new Symbol("x"))))
+                        p.values(p.symbol("x", BigintType.BIGINT))))
                 .matches(values("x"));
     }
 
