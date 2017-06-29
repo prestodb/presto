@@ -26,7 +26,6 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -103,7 +102,17 @@ public final class ExpressionUtils
     {
         requireNonNull(type, "type is null");
         requireNonNull(expressions, "expressions is null");
-        Preconditions.checkArgument(!expressions.isEmpty(), "expressions is empty");
+
+        if (expressions.isEmpty()) {
+            switch (type) {
+                case AND:
+                    return TRUE_LITERAL;
+                case OR:
+                    return FALSE_LITERAL;
+                default:
+                    throw new IllegalArgumentException("Unsupported LogicalBinaryExpression type");
+            }
+        }
 
         // Build balanced tree for efficient recursive processing that
         // preserves the evaluation order of the input expressions.
