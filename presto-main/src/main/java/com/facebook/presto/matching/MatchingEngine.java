@@ -14,6 +14,7 @@
 
 package com.facebook.presto.matching;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
@@ -25,6 +26,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.util.MoreLists.asList;
+import static java.util.Arrays.asList;
 
 public class MatchingEngine<T extends Matchable>
 {
@@ -43,7 +45,11 @@ public class MatchingEngine<T extends Matchable>
 
     private static Iterator<Class> ancestors(Class clazz)
     {
-        return TreeTraverser.using((Class n) -> asList(Optional.ofNullable(n.getSuperclass())))
+        return TreeTraverser.using(
+                (Class n) -> ImmutableList.<Class>builder()
+                        .addAll(asList(Optional.ofNullable(n.getSuperclass())))
+                        .addAll(asList(n.getInterfaces()))
+                        .build())
                 .preOrderTraversal(clazz)
                 .iterator();
     }
