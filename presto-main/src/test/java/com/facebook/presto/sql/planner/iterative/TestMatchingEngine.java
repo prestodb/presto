@@ -41,7 +41,7 @@ public class TestMatchingEngine
     private final PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), new DummyMetadata());
 
     @Test
-    public void test()
+    public void testWithPlanNodeHierarchy()
     {
         Rule projectRule1 = new NoOpRule(Pattern.typeOf(ProjectNode.class));
         Rule projectRule2 = new NoOpRule(Pattern.typeOf(ProjectNode.class));
