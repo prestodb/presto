@@ -111,6 +111,9 @@ public class DetermineJoinDistributionType
 
         private JoinNode.DistributionType getTargetJoinDistributionType(JoinNode node)
         {
+            if (node.getDistributionType().isPresent()) {
+                return node.getDistributionType().get();
+            }
             // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
             JoinNode.Type type = node.getType();
             if (type == RIGHT || type == FULL || (isRepartitionedJoinEnabled(session) && !mustBroadcastJoin(node))) {
