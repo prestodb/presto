@@ -14,14 +14,17 @@
 
 package com.facebook.presto.matching;
 
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
+import com.google.common.collect.TreeTraverser;
 
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import static com.facebook.presto.util.MoreLists.asList;
 
 public class MatchingEngine<T extends Matchable>
 {
@@ -40,22 +43,9 @@ public class MatchingEngine<T extends Matchable>
 
     private static Iterator<Class> ancestors(Class clazz)
     {
-        return new AbstractIterator<Class>() {
-            private Class<?> current = clazz;
-
-            @Override
-            protected Class computeNext()
-            {
-                if (current == null) {
-                    return endOfData();
-                }
-
-                Class result = current;
-                current = current.getSuperclass();
-
-                return result;
-            }
-        };
+        return TreeTraverser.using((Class n) -> asList(Optional.ofNullable(n.getSuperclass())))
+                .preOrderTraversal(clazz)
+                .iterator();
     }
 
     public static <T extends Matchable> Builder<T> builder()

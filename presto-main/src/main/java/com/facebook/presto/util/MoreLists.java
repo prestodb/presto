@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -27,6 +28,11 @@ public class MoreLists
         return requireNonNull(lists, "lists is null").stream()
                 .map(ImmutableList::copyOf)
                 .collect(toImmutableList());
+    }
+
+    public static <T> List<T> asList(Optional<T> optional)
+    {
+        return optional.map(ImmutableList::of).orElseGet(ImmutableList::of);
     }
 
     private MoreLists() {}
