@@ -94,6 +94,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
@@ -1481,6 +1482,9 @@ public class HiveMetadata
         builder.put(PATH_COLUMN_NAME, Optional.empty());
         if (table.getStorage().getBucketProperty().isPresent()) {
             builder.put(BUCKET_COLUMN_NAME, Optional.empty());
+        }
+        if (!table.getPartitionColumns().isEmpty()) {
+            builder.put(PARTITION_COLUMN_NAME, Optional.empty());
         }
 
         Map<String, Optional<String>> columnComment = builder.build();

@@ -48,6 +48,7 @@ import java.util.function.Function;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
@@ -1659,16 +1660,17 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testPathHiddenColumn()
+    public void testPathPartitionHiddenColumns()
+            throws Exception
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            doTestPathHiddenColumn(storageFormat.getSession(), storageFormat.getFormat());
+            doTestPathPartitionHiddenColumns(storageFormat.getSession(), storageFormat.getFormat());
         }
     }
 
-    private void doTestPathHiddenColumn(Session session, HiveStorageFormat storageFormat)
+    private void doTestPathPartitionHiddenColumns(Session session, HiveStorageFormat storageFormat)
     {
-        @Language("SQL") String createTable = "CREATE TABLE test_path " +
+        @Language("SQL") String createTable = "CREATE TABLE test_path_partition_hidden_columns " +
                 "WITH (" +
                 "format = '" + storageFormat + "'," +
                 "partitioned_by = ARRAY['col1']" +
@@ -1679,12 +1681,12 @@ public class TestHiveIntegrationSmokeTest
                 "(2, 2), (5, 2) " +
                 " ) t(col0, col1) ";
         assertUpdate(session, createTable, 8);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_path"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_path_partition_hidden_columns"));
 
-        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path");
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path_partition_hidden_columns");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -1694,19 +1696,26 @@ public class TestHiveIntegrationSmokeTest
                 // $path should be hidden column
                 assertTrue(columnMetadata.isHidden());
             }
+            if (columnMetadata.getName().equals(PARTITION_COLUMN_NAME)) {
+                // $partition should be hidden column
+                assertTrue(columnMetadata.isHidden());
+            }
         }
-        assertEquals(getPartitions("test_path").size(), 3);
+        assertEquals(getPartitions("test_path_partition_hidden_columns").size(), 3);
 
-        MaterializedResult results = computeActual(session, format("SELECT *, \"%s\" FROM test_path", PATH_COLUMN_NAME));
+        MaterializedResult results = computeActual(session, format("SELECT *, \"%s\", \"%s\" FROM test_path_partition_hidden_columns", PATH_COLUMN_NAME, PARTITION_COLUMN_NAME));
         Map<Integer, String> partitionPathMap = new HashMap<>();
         for (int i = 0; i < results.getRowCount(); i++) {
             MaterializedRow row = results.getMaterializedRows().get(i);
             int col0 = (int) row.getField(0);
             int col1 = (int) row.getField(1);
             String pathName = (String) row.getField(2);
+            String partition = (String) row.getField(3);
             String parentDirectory = new Path(pathName).getParent().toString();
 
             assertTrue(pathName.length() > 0);
+            assertTrue(partition.length() > 0);
+            assertTrue(partition.startsWith("col1"));
             assertEquals((int) (col0 % 3), col1);
             if (partitionPathMap.containsKey(col1)) {
                 // the rows in the same partition should be in the same partition directory
@@ -1718,8 +1727,8 @@ public class TestHiveIntegrationSmokeTest
         }
         assertEquals(partitionPathMap.size(), 3);
 
-        assertUpdate(session, "DROP TABLE test_path");
-        assertFalse(getQueryRunner().tableExists(session, "test_path"));
+        assertUpdate(session, "DROP TABLE test_path_partition_hidden_columns");
+        assertFalse(getQueryRunner().tableExists(session, "test_path_partition_hidden_columns"));
     }
 
     @Test

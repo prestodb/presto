@@ -270,7 +270,7 @@ public class HivePageSourceProvider
 
                     // prepare the prefilled value
                     HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
-                    prefilledValue = getPrefilledColumnValue(column, partitionKey, path, bucketNumber);
+                    prefilledValue = getPrefilledColumnValue(column, partitionKey, path, bucketNumber, partitionKeys);
                 }
 
                 Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));

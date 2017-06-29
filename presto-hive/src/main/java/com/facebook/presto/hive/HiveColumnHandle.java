@@ -46,6 +46,11 @@ public class HiveColumnHandle
     public static final HiveType BUCKET_HIVE_TYPE = HIVE_INT;
     public static final TypeSignature BUCKET_TYPE_SIGNATURE = BUCKET_HIVE_TYPE.getTypeSignature();
 
+    public static final int PARTITION_COLUMN_INDEX = -13;
+    public static final String PARTITION_COLUMN_NAME = "$partition";
+    public static final HiveType PARTITION_HIVE_TYPE = HIVE_STRING;
+    public static final TypeSignature PARTITION_TYPE_SIGNATURE = PARTITION_HIVE_TYPE.getTypeSignature();
+
     private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
     public enum ColumnType
@@ -188,6 +193,11 @@ public class HiveColumnHandle
         return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN, Optional.empty());
     }
 
+    public static HiveColumnHandle partitionColumnHandle(String connectorId)
+    {
+        return new HiveColumnHandle(connectorId, PARTITION_COLUMN_NAME, PARTITION_HIVE_TYPE, PARTITION_TYPE_SIGNATURE, PARTITION_COLUMN_INDEX, HIDDEN, Optional.empty());
+    }
+
     public static boolean isPathColumnHandle(HiveColumnHandle column)
     {
         return column.getHiveColumnIndex() == PATH_COLUMN_INDEX;
@@ -196,5 +206,10 @@ public class HiveColumnHandle
     public static boolean isBucketColumnHandle(HiveColumnHandle column)
     {
         return column.getHiveColumnIndex() == BUCKET_COLUMN_INDEX;
+    }
+
+    public static boolean isPartitionColumnHandle(HiveColumnHandle column)
+    {
+        return column.getHiveColumnIndex() == PARTITION_COLUMN_INDEX;
     }
 }

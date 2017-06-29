@@ -61,6 +61,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketNumbers;
+import static com.facebook.presto.hive.HiveColumnHandle.isPartitionColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
@@ -70,6 +71,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -289,8 +291,30 @@ public class HivePartitionManager
         }
 
         // fetch the partition names
-        return metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), filter)
+        List<String> partitionNames = metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), filter)
                 .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        // Do one more layer of filtering if the partition column is part of the predicate.
+        Optional<Domain> partitionDomain = getPartitionDomain(effectivePredicate);
+        if (partitionDomain.isPresent()) {
+            partitionNames = partitionNames.stream()
+                    .filter(name -> partitionDomain.get().includesNullableValue(utf8Slice(name)))
+                    .collect(toList());
+        }
+
+        return partitionNames;
+    }
+
+    private static Optional<Domain> getPartitionDomain(TupleDomain<ColumnHandle> effectivePredicate)
+    {
+        if (!effectivePredicate.getDomains().isPresent()) {
+            return Optional.empty();
+        }
+
+        return effectivePredicate.getDomains().get().entrySet().stream()
+                .filter(entry -> isPartitionColumnHandle((HiveColumnHandle) entry.getKey()))
+                .findFirst()
+                .map(Map.Entry::getValue);
     }
 
     public static List<String> extractPartitionKeyValues(String partitionName)

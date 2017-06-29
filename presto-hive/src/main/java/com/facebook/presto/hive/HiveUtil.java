@@ -82,7 +82,9 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.isPartitionColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.partitionColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -729,6 +731,9 @@ public final class HiveUtil
         if (table.getStorage().getBucketProperty().isPresent()) {
             columns.add(bucketColumnHandle());
         }
+        if (!table.getPartitionColumns().isEmpty()) {
+            columns.add(partitionColumnHandle(connectorId));
+        }
 
         return columns.build();
     }
@@ -802,7 +807,23 @@ public final class HiveUtil
         return resultBuilder.build();
     }
 
-    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber)
+    public static String toPartitionName(List<HivePartitionKey> partitionKeys)
+    {
+        if (partitionKeys == null || partitionKeys.isEmpty()) {
+            return "";
+        }
+
+        return partitionKeys.stream()
+                .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
+                .collect(joining("/"));
+    }
+
+    public static String getPrefilledColumnValue(
+            HiveColumnHandle columnHandle,
+            HivePartitionKey partitionKey,
+            Path path,
+            OptionalInt bucketNumber,
+            List<HivePartitionKey> partitionKeys)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
@@ -812,6 +833,9 @@ public final class HiveUtil
         }
         if (isBucketColumnHandle(columnHandle)) {
             return String.valueOf(bucketNumber.getAsInt());
+        }
+        if (isPartitionColumnHandle(columnHandle)) {
+            return toPartitionName(partitionKeys);
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }
