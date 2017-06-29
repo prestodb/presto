@@ -148,7 +148,7 @@ public class SqlStandardAccessControl
     @Override
     public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
     {
-        return tableNames;
+        return tableNames.stream().filter(tableName -> checkTablePermission(transactionHandle, identity, tableName, SELECT)).collect(Collectors.toSet());
     }
 
     @Override
