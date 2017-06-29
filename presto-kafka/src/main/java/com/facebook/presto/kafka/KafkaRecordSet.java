@@ -117,7 +117,7 @@ public class KafkaRecordSet
         private long totalMessages;
         private long cursorOffset = split.getStart();
         private final AtomicBoolean reported = new AtomicBoolean();
-        private Iterator<ConsumerRecord<?, ?>> consumerRecordIterator;
+        private Iterator<ConsumerRecord<byte[], byte[]>> consumerRecordIterator;
 
         private FieldValueProvider[] fieldValueProviders;
 
@@ -161,8 +161,7 @@ public class KafkaRecordSet
                 openFetchRequest();
 
                 while (consumerRecordIterator.hasNext()) {
-                    @SuppressWarnings("unchecked")
-                    ConsumerRecord<String, String> messageAndOffset = (ConsumerRecord<String, String>) consumerRecordIterator.next();
+                    ConsumerRecord<byte[], byte[]> messageAndOffset = consumerRecordIterator.next();
                     long messageOffset = messageAndOffset.offset();
                     if (messageOffset >= split.getEnd()) {
                         return endOfData(); // Past our split end. Bail.
@@ -186,7 +185,7 @@ public class KafkaRecordSet
             return false;
         }
 
-        private boolean nextRow(ConsumerRecord<String, String> consumerRecord)
+        private boolean nextRow(ConsumerRecord<byte[], byte[]> consumerRecord)
         {
             cursorOffset = consumerRecord.offset() + 1;
             totalBytes += consumerRecord.serializedValueSize();
@@ -194,14 +193,18 @@ public class KafkaRecordSet
 
             byte[] keyData = EMPTY_BYTE_ARRAY;
             byte[] messageData = EMPTY_BYTE_ARRAY;
-            ByteBuffer key = ByteBuffer.wrap(consumerRecord.key().getBytes());
 
-            keyData = new byte[key.remaining()];
-            key.get(keyData);
+            if (consumerRecord.key() != null) {
+                ByteBuffer key = ByteBuffer.wrap(consumerRecord.key());
+                keyData = new byte[key.remaining()];
+                key.get(keyData);
+            }
 
-            ByteBuffer message = ByteBuffer.wrap(consumerRecord.value().getBytes());
-            messageData = new byte[message.remaining()];
-            message.get(messageData);
+            if (consumerRecord.value() != null) {
+                ByteBuffer message = ByteBuffer.wrap(consumerRecord.value());
+                messageData = new byte[message.remaining()];
+                message.get(messageData);
+            }
 
             Set<FieldValueProvider> fieldValueProviders = new HashSet<>();
 
@@ -300,14 +303,14 @@ public class KafkaRecordSet
             if (consumerRecordIterator != null) {
                 return;
             }
-            ImmutableList.Builder<ConsumerRecord<?, ?>> consumerRecordsBuilder = ImmutableList.builder();
-            try (KafkaConsumer<?, ?> consumer = consumerManager.getConsumer()) {
+            ImmutableList.Builder<ConsumerRecord<byte[], byte[]>> consumerRecordsBuilder = ImmutableList.builder();
+            try (KafkaConsumer<byte[], byte[]> consumer = consumerManager.getConsumer(ImmutableSet.of(split.getLeader()))) {
                 TopicPartition topicPartition = new TopicPartition(split.getTopicName(), split.getPartitionId());
                 consumer.assign(ImmutableList.of(topicPartition));
                 long nextOffset = split.getStart();
                 consumer.seek(topicPartition, split.getStart());
                 while (nextOffset <= split.getEnd() - 1) {
-                    ConsumerRecords<?, ?> consumerRecords = consumer.poll(100);
+                    ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(100);
                     consumerRecordsBuilder.addAll(consumerRecords.records(topicPartition));
                     nextOffset = consumer.position(topicPartition);
                 }

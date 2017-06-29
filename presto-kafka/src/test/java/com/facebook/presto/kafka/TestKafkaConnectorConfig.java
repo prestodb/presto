@@ -34,8 +34,6 @@ public class TestKafkaConnectorConfig
                 .setTableDescriptionDir(new File("etc/kafka/"))
                 .setHideInternalColumns(true)
                 .setAutoCommit(true)
-                .setKeyDeserializer("org.apache.kafka.common.serialization.StringDeserializer")
-                .setValueDeserializer("org.apache.kafka.common.serialization.StringDeserializer")
                 .setSecurityProtocol("PLAINTEXT"));
     }
 
@@ -51,8 +49,6 @@ public class TestKafkaConnectorConfig
                 .put("kafka.buffer-size", "1MB")
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.auto-commit", "false")
-                .put("kafka.value-deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer")
-                .put("kafka.key-deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer")
                 .put("kafka.security-protocol", "SASL_PLAINTEXT")
                 .build();
 
@@ -65,8 +61,6 @@ public class TestKafkaConnectorConfig
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
                 .setAutoCommit(false)
-                .setKeyDeserializer("org.apache.kafka.common.serialization.ByteArrayDeserializer")
-                .setValueDeserializer("org.apache.kafka.common.serialization.ByteArrayDeserializer")
                 .setSecurityProtocol("SASL_PLAINTEXT");
 
         ConfigAssertions.assertFullMapping(properties, expected);

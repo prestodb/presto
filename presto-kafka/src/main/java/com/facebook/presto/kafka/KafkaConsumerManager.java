@@ -38,16 +38,16 @@ import static java.util.Objects.requireNonNull;
 public class KafkaConsumerManager
 {
     private static final Logger log = Logger.get(KafkaConsumerManager.class);
+    private static final String messageDeserializer = "org.apache.kafka.common.serialization.ByteArrayDeserializer";
 
     private final String connectorId;
     private final NodeManager nodeManager;
     private final int connectTimeoutMillis;
     private final int bufferSizeBytes;
     private final String securityProtocol;
-    private final String keyDeserializer;
-    private final String valueDeserializer;
     private final boolean autoCommit;
     private final String bootStrapServers;
+
 
     @Inject
     public KafkaConsumerManager(
@@ -61,18 +61,21 @@ public class KafkaConsumerManager
         this.connectTimeoutMillis = toIntExact(kafkaConnectorConfig.getKafkaConnectTimeout().toMillis());
         this.bufferSizeBytes = toIntExact(kafkaConnectorConfig.getKafkaBufferSize().toBytes());
         this.securityProtocol = kafkaConnectorConfig.getSecurityProtocol();
-        this.keyDeserializer = kafkaConnectorConfig.getKeyDeserializer();
-        this.valueDeserializer = kafkaConnectorConfig.getValueDeserializer();
         this.autoCommit = kafkaConnectorConfig.isAutoCommit();
         this.bootStrapServers = bootstrapServers(kafkaConnectorConfig.getNodes());
     }
 
-    public KafkaConsumer<?, ?> getConsumer()
+    public KafkaConsumer<byte[], byte[]> getConsumer()
     {
         return getConsumer(bootStrapServers);
     }
 
-    private KafkaConsumer<?, ?> getConsumer(String bootstrapServers)
+    public KafkaConsumer<byte[], byte[]> getConsumer(Set<HostAddress> nodes)
+    {
+        return getConsumer(bootstrapServers(nodes));
+    }
+
+    private KafkaConsumer<byte[], byte[]> getConsumer(String bootstrapServers)
     {
         try {
             Thread.currentThread().setContextClassLoader(null);
@@ -80,14 +83,13 @@ public class KafkaConsumerManager
             prop.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootStrapServers);
             prop.put(ConsumerConfig.GROUP_ID_CONFIG, connectorId + "-presto");
             prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, String.valueOf(autoCommit));
-            prop.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, this.keyDeserializer);
-            prop.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, this.valueDeserializer);
+            prop.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, messageDeserializer);
+            prop.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, messageDeserializer);
             prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
             prop.put(ConsumerConfig.CLIENT_ID_CONFIG, "consumer_" + connectorId + "_" + ThreadLocalRandom.current().nextInt() + "_" + System.currentTimeMillis());
             prop.put("security.protocol", securityProtocol);
-            return new KafkaConsumer<String, String>(prop);
-        }
-        catch (Exception e) {
+            return new KafkaConsumer<byte[], byte[]>(prop);
+        } catch (Exception e) {
             throw Throwables.propagate(e.getCause());
         }
     }

@@ -74,10 +74,6 @@ public class KafkaConnectorConfig
      */
     private String securityProtocol = "PLAINTEXT";
 
-    private String keyDeserializer = "org.apache.kafka.common.serialization.StringDeserializer";
-
-    private String valueDeserializer = "org.apache.kafka.common.serialization.StringDeserializer";
-
     private boolean autoCommit = true;
 
     @NotNull
@@ -190,30 +186,6 @@ public class KafkaConnectorConfig
     public String getSecurityProtocol()
     {
         return securityProtocol;
-    }
-
-    @Config("kafka.key-deserializer")
-    public KafkaConnectorConfig setKeyDeserializer(String keyDeserializer)
-    {
-        this.keyDeserializer = keyDeserializer;
-        return this;
-    }
-
-    public String getKeyDeserializer()
-    {
-        return keyDeserializer;
-    }
-
-    @Config("kafka.value-deserializer")
-    public KafkaConnectorConfig setValueDeserializer(String valueDeserializer)
-    {
-        this.valueDeserializer = valueDeserializer;
-        return this;
-    }
-
-    public String getValueDeserializer()
-    {
-        return valueDeserializer;
     }
 
     @Config("kafka.auto-commit")
