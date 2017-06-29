@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingSession;
@@ -922,7 +923,7 @@ public abstract class AbstractTestDistributedQueries
         // Stateful function is placed in LEFT JOIN's ON clause and involves left & right symbols to prevent any kind of push down/pull down.
         Session session = Session.builder(getSession())
                 // With broadcast join, lineitem would be source-distributed and not executed concurrently.
-                .setSystemProperty(SystemSessionProperties.DISTRIBUTED_JOIN, "true")
+                .setSystemProperty(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.REPARTITIONED.toString())
                 .build();
         long joinOutputRowCount = 60175;
         assertQuery(

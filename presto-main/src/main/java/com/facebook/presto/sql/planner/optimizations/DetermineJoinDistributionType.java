@@ -27,7 +27,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.isDistributedJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -113,7 +113,7 @@ public class DetermineJoinDistributionType
         {
             // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
             JoinNode.Type type = node.getType();
-            if (type == RIGHT || type == FULL || (isDistributedJoinEnabled(session) && !mustBroadcastJoin(node))) {
+            if (type == RIGHT || type == FULL || (isRepartitionedJoinEnabled(session) && !mustBroadcastJoin(node))) {
                 return JoinNode.DistributionType.PARTITIONED;
             }
 
@@ -132,11 +132,16 @@ public class DetermineJoinDistributionType
 
         private SemiJoinNode.DistributionType getTargetSemiJoinDistributionType(boolean isDeleteQuery)
         {
-            if (isDistributedJoinEnabled(session) && !isDeleteQuery) {
+            if (isRepartitionedJoinEnabled(session) && !isDeleteQuery) {
                 return SemiJoinNode.DistributionType.PARTITIONED;
             }
 
             return SemiJoinNode.DistributionType.REPLICATED;
+        }
+
+        private static boolean isRepartitionedJoinEnabled(Session session)
+        {
+            return getJoinDistributionType(session).canRepartition();
         }
     }
 }
