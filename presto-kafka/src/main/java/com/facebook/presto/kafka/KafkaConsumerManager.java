@@ -48,7 +48,6 @@ public class KafkaConsumerManager
     private final boolean autoCommit;
     private final String bootStrapServers;
 
-
     @Inject
     public KafkaConsumerManager(
             KafkaConnectorId connectorId,
@@ -89,7 +88,8 @@ public class KafkaConsumerManager
             prop.put(ConsumerConfig.CLIENT_ID_CONFIG, "consumer_" + connectorId + "_" + ThreadLocalRandom.current().nextInt() + "_" + System.currentTimeMillis());
             prop.put("security.protocol", securityProtocol);
             return new KafkaConsumer<byte[], byte[]>(prop);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw Throwables.propagate(e.getCause());
         }
     }
