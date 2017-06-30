@@ -87,6 +87,7 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
@@ -371,7 +372,7 @@ public class ParquetHiveRecordCursor
             });
         }
         catch (Exception e) {
-            Throwables.propagateIfInstanceOf(e, PrestoException.class);
+            throwIfInstanceOf(e, PrestoException.class);
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
                 throw Throwables.propagate(e);

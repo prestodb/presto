@@ -73,7 +73,6 @@ import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
@@ -99,6 +98,7 @@ import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
 import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.spi.resourceGroups.QueryType.SELECT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -288,7 +288,7 @@ public final class SqlQueryExecution
             }
             catch (Throwable e) {
                 fail(e);
-                Throwables.propagateIfInstanceOf(e, Error.class);
+                throwIfInstanceOf(e, Error.class);
             }
         }
     }

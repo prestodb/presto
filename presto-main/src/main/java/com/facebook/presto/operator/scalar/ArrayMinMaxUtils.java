@@ -14,15 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.facebook.presto.util.Failures.internalError;
 
 public final class ArrayMinMaxUtils
 {
@@ -50,9 +48,7 @@ public final class ArrayMinMaxUtils
             return selectedValue;
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -78,9 +74,7 @@ public final class ArrayMinMaxUtils
             return selectedValue;
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -106,9 +100,7 @@ public final class ArrayMinMaxUtils
             return selectedValue;
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
@@ -134,9 +126,7 @@ public final class ArrayMinMaxUtils
             return selectedValue;
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 }
