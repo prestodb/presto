@@ -65,6 +65,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -232,7 +233,9 @@ public class MongoSession
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             Throwable t = e.getCause();
-            Throwables.propagateIfInstanceOf(t, exceptionClass);
+            if (t != null) {
+                throwIfInstanceOf(t, exceptionClass);
+            }
             throw Throwables.propagate(t);
         }
     }

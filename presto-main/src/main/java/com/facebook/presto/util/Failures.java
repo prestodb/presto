@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
@@ -35,6 +36,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -131,5 +133,12 @@ public final class Failures
             return toErrorCode(throwable.getCause());
         }
         return GENERIC_INTERNAL_ERROR.toErrorCode();
+    }
+
+    public static PrestoException internalError(Throwable t)
+    {
+        throwIfInstanceOf(t, Error.class);
+        throwIfInstanceOf(t, PrestoException.class);
+        return new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
     }
 }

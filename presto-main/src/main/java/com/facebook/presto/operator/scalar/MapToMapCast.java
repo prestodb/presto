@@ -26,7 +26,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -35,6 +34,7 @@ import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarOperator(CAST)
 public final class MapToMapCast
@@ -87,9 +87,7 @@ public final class MapToMapCast
                 writeNativeValue(toKeyType, keyBlockBuilder, toKey);
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
         }
         Block keyBlock = keyBlockBuilder.build();
@@ -111,9 +109,7 @@ public final class MapToMapCast
                     writeNativeValue(toValueType, blockBuilder, toValue);
                 }
                 catch (Throwable t) {
-                    Throwables.propagateIfInstanceOf(t, Error.class);
-                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
+                    throw internalError(t);
                 }
             }
             else {

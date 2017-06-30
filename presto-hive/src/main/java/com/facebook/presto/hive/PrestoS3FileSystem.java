@@ -93,6 +93,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
@@ -579,7 +580,7 @@ public class PrestoS3FileSystem
             throw Throwables.propagate(e);
         }
         catch (Exception e) {
-            Throwables.propagateIfInstanceOf(e, IOException.class);
+            throwIfInstanceOf(e, IOException.class);
             throw Throwables.propagate(e);
         }
     }
@@ -830,7 +831,7 @@ public class PrestoS3FileSystem
                 throw Throwables.propagate(e);
             }
             catch (Exception e) {
-                Throwables.propagateIfInstanceOf(e, IOException.class);
+                throwIfInstanceOf(e, IOException.class);
                 throw Throwables.propagate(e);
             }
         }
@@ -918,7 +919,7 @@ public class PrestoS3FileSystem
                 throw Throwables.propagate(e);
             }
             catch (Exception e) {
-                Throwables.propagateIfInstanceOf(e, IOException.class);
+                throwIfInstanceOf(e, IOException.class);
                 throw Throwables.propagate(e);
             }
         }

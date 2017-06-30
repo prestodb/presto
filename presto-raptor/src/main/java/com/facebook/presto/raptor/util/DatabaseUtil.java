@@ -32,7 +32,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_METADATA_ERROR;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.reflect.Reflection.newProxy;
 import static com.mysql.jdbc.MysqlErrorNumbers.ER_TRANS_CACHE_FULL;
 import static java.sql.Types.INTEGER;
@@ -65,7 +65,9 @@ public final class DatabaseUtil
             return dbi.inTransaction(callback);
         }
         catch (DBIException e) {
-            propagateIfInstanceOf(e.getCause(), PrestoException.class);
+            if (e.getCause() != null) {
+                throwIfInstanceOf(e.getCause(), PrestoException.class);
+            }
             throw metadataError(e);
         }
     }
