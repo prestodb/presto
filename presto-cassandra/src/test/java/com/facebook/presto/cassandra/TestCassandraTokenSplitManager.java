@@ -14,13 +14,17 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.CassandraTokenSplitManager.TokenSplit;
+import io.airlift.units.Duration;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraTokenSplitManager
@@ -28,6 +32,7 @@ public class TestCassandraTokenSplitManager
     private static final int SPLIT_SIZE = 100;
     private static final String KEYSPACE = "test_cassandra_token_split_manager_keyspace";
     private static final int PARTITION_COUNT = 1000;
+    private static final Duration DEFAULT_MAX_RETRY_TIME = Duration.valueOf("1m");
 
     private CassandraSession session;
     private CassandraTokenSplitManager splitManager;
@@ -49,9 +54,8 @@ public class TestCassandraTokenSplitManager
         String tableName = "empty_table";
         session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
         EmbeddedCassandra.refreshSizeEstimates(KEYSPACE, tableName);
-        List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName);
         // even for the empty table at least one split must be produced, in case the statistics are inaccurate
-        assertEquals(splits.size(), 1);
+        checkSplits(tableName, 1);
         session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
     }
 
@@ -65,8 +69,25 @@ public class TestCassandraTokenSplitManager
             session.execute(format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, tableName, "value" + i));
         }
         EmbeddedCassandra.refreshSizeEstimates(KEYSPACE, tableName);
-        List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName);
-        assertEquals(splits.size(), PARTITION_COUNT / SPLIT_SIZE);
+        checkSplits(tableName, PARTITION_COUNT / SPLIT_SIZE);
         session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+    }
+
+    private void checkSplits(String tableName, int splitSize)
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName);
+                assertEquals(splits.size(), splitSize);
+                return;
+            }
+            catch (AssertionError e) {
+                if (nanosSince(start).compareTo(DEFAULT_MAX_RETRY_TIME) > 0) {
+                    throw e;
+                }
+            }
+            sleepUninterruptibly(50, MILLISECONDS);
+        }
     }
 }
